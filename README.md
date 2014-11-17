@@ -5,6 +5,16 @@ rust-rocksdb
 * development began 11/16/14
 * status: minimal functionality with poor style and an annoying interface
 
+```
+fn f() {
+    let db = Rocksdb::open("testdb", true).unwrap();
+    db.put(b"a key", b"a value");
+    ...
+    let r = db.get(b"k1").unwrap();
+    db.close();
+}
+```
+
 ### running
 - get rocksdb
 ```
