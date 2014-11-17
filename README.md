@@ -7,10 +7,11 @@ rust-rocksdb
 
 ```
 fn f() {
+    // arguments are path for rocksdb files, create if missing
     let db = Rocksdb::open("testdb", true).unwrap();
     db.put(b"a key", b"a value");
     ...
-    let r = db.get(b"k1").unwrap();
+    let r = db.get(b"this is key").unwrap();
     db.close();
 }
 ```
