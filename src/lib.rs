@@ -1,16 +1,16 @@
 extern crate libc;
-use libc::{c_int, size_t};
-use std::io::{IoResult, IoError};
+use libc::{c_int, c_void, size_t};
+use std::io::{IoResult, IoError, BufferedStream};
 use std::c_vec::CVec;
 
 #[repr(C)]
-struct RocksdbOptions(*const c_int);
+struct RocksdbOptions(*const c_void);
 #[repr(C)]
-struct RocksdbInstance(*const c_int);
+struct RocksdbInstance(*const c_void);
 #[repr(C)]
-struct RocksdbWriteOptions(*const c_int);
+struct RocksdbWriteOptions(*const c_void);
 #[repr(C)]
-struct RocksdbReadOptions(*const c_int);
+struct RocksdbReadOptions(*const c_void);
 
 #[link(name = "rocksdb")]
 extern {
@@ -62,8 +62,10 @@ impl Rocksdb {
             let db = rocksdb_open(opts, cpath_ptr, err); 
             let RocksdbInstance(db_ptr) = db;
             if err.is_not_null() {
+                libc::free(err as *mut c_void);
                 return Err(IoError::last_error());
             }
+            libc::free(err as *mut c_void);
             if db_ptr.is_null() {
                 return Err(IoError::last_error());
             }
@@ -79,8 +81,10 @@ impl Rocksdb {
                         key.len() as size_t, value.as_ptr(),
                         value.len() as size_t, err);
             if err.is_not_null() {
+                libc::free(err as *mut c_void);
                 return Err(IoError::last_error());
             }
+            libc::free(err as *mut c_void);
             return Ok(true)
         }
     }
@@ -93,17 +97,19 @@ impl Rocksdb {
                 return Err(IoError::last_error());
             }
 
-            let mut val_len: size_t = 0;
+            let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let err = 0 as *mut i8;
             let val = rocksdb_get(self.inner, readopts, key.as_ptr(),
                                   key.len() as size_t, val_len_ptr, err);
             if err.is_not_null() {
+                libc::free(err as *mut c_void);
                 return Err(IoError::last_error());
             }
+            libc::free(err as *mut c_void);
             return Ok(CVec::new_with_dtor(val, val_len as uint,
                         proc(){
-                            libc::free(val as *mut libc::c_void);
+                            libc::free(val as *mut c_void);
                         }))
         }
     }
@@ -119,9 +125,9 @@ fn external() {
     let db = Rocksdb::open("testdb", true).unwrap();
     db.put(b"k1", b"v1111");
     let r = db.get(b"k1").unwrap();
-    db.close();
-    let v = r.get(0).unwrap();
     assert!(r.len() == 5);
+    let v = r.get(0).unwrap();
+    db.close();
 }
 
 #[test]
@@ -143,6 +149,7 @@ fn internal() {
         let err = 0 as *mut i8;
         let db = rocksdb_open(opts, cpath_ptr, err); 
         assert!(err.is_null());
+        libc::free(err as *mut c_void);
 
         let writeopts = rocksdb_writeoptions_create();
         let RocksdbWriteOptions(write_opt_ptr) = writeopts;
@@ -153,15 +160,18 @@ fn internal() {
 
 	    rocksdb_put(db, writeopts, key.as_ptr(), 4, val.as_ptr(), 8, err);
         assert!(err.is_null());
+        libc::free(err as *mut c_void);
 
         let readopts = rocksdb_readoptions_create();
         let RocksdbReadOptions(read_opts_ptr) = readopts;
         assert!(read_opts_ptr.is_not_null());
+        libc::free(err as *mut c_void);
 
         let mut val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
         rocksdb_get(db, readopts, key.as_ptr(), 4, val_len_ptr, err);
         assert!(err.is_null());
+        libc::free(err as *mut c_void);
         rocksdb_close(db);
     }
 }
