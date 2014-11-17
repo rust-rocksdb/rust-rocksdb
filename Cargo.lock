@@ -1,0 +1,4 @@
+[root]
+name = "rust-rocksdb"
+version = "0.0.1"
+
