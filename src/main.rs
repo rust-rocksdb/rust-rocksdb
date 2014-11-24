@@ -4,7 +4,10 @@ use rocksdb::open;
 use test::Bencher;
 
 fn main() {
-    println!("test");
+    let db = open("testdb".to_string(), true).unwrap();
+    db.put(b"hey", b"v1111");
+    db.get(b"hey").map(|v| { println!("value: {}", v.as_slice()); });
+    db.close();
 }
 
 #[bench]
