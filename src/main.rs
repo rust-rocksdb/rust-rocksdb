@@ -21,12 +21,16 @@ fn writes(b: &mut Bencher) {
     db.close();
 }
 
-#[bench]
+#[bbench]
 fn reads(b: &mut Bencher) {
     let db = open("testdb".to_string(), true).unwrap();
     let mut i = 0 as u64;
     b.iter(|| {
-        db.get(i.to_string().as_bytes());
+        db.get(i.to_string().as_bytes()).on_error(
+            |e| {
+                println!("error: {}", e);
+                e
+            });
         i += 1;
     });
     db.close();

@@ -47,6 +47,27 @@ impl <T,E> RocksdbResult<T,E> {
         }
     }
 
+    #[unstable = "waiting for unboxed closures"]
+    pub fn on_error<U>(self, f: |E| -> U) -> RocksdbResult<T,U> {
+        match self {
+            RocksdbResult::Some(x) => RocksdbResult::Some(x),
+            RocksdbResult::None => RocksdbResult::None,
+            RocksdbResult::Error(e) => RocksdbResult::Error(f(e)),
+        }
+    }
+
+    #[unstable = "waiting for unboxed closures"]
+    pub fn on_absent<U>(self, f: || -> ()) -> RocksdbResult<T,E> {
+        match self {
+            RocksdbResult::Some(x) => RocksdbResult::Some(x),
+            RocksdbResult::None => {
+                f();
+                RocksdbResult::None
+            },
+            RocksdbResult::Error(e) => RocksdbResult::Error(e),
+        }
+    }
+
     pub fn is_some(self) -> bool {
         match self {
             RocksdbResult::Some(T) => true,
@@ -76,7 +97,7 @@ pub struct Rocksdb {
 }
 
 impl Rocksdb {
-    pub fn put(&self, key: &[u8], value: &[u8]) -> IoResult<bool> {
+    pub fn put(&self, key: &[u8], value: &[u8]) -> Result<bool, String> {
         unsafe {   
             let writeopts = ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
@@ -84,10 +105,20 @@ impl Rocksdb {
                         key.len() as size_t, value.as_ptr(),
                         value.len() as size_t, err);
             if err.is_not_null() {
-                libc::free(err as *mut c_void);
-                return Err(IoError::last_error());
+                let cs = CString::new(err as *const i8, true);
+                match cs.as_str() {
+                    Some(error_string) =>
+                        return Err(error_string.to_string()),
+                    None => {
+                        let ie = IoError::last_error();
+                        return Err(format!(
+                                "ERROR: desc:{}, details:{}", 
+                                ie.desc,
+                                ie.detail.unwrap_or_else(
+                                    || {"none provided by OS".to_string()})))
+                    }
+                }
             }
-            libc::free(err as *mut c_void);
             return Ok(true)
         }
     }
@@ -142,8 +173,8 @@ pub fn open(path: String, create_if_missing: bool) -> Result<Rocksdb, String> {
             return Err("Could not create options".to_string());
         }
         
-        ffi::rocksdb_options_increase_parallelism(opts, 0);
-        ffi::rocksdb_options_optimize_level_style_compaction(opts, 0);
+        ffi::rocksdb_options_increase_parallelism(opts, 2);
+        //ffi::rocksdb_options_optimize_level_style_compaction(opts, 0);
 
         match create_if_missing {
             true => ffi::rocksdb_options_set_create_if_missing(opts, 1),
@@ -157,10 +188,14 @@ pub fn open(path: String, create_if_missing: bool) -> Result<Rocksdb, String> {
         let db = ffi::rocksdb_open(opts, cpath_ptr, err); 
         let ffi::RocksdbInstance(db_ptr) = db;
         if err.is_not_null() {
-            libc::free(err as *mut c_void);
-            return Err("Could not initialize database.".to_string());
+            let cs = CString::new(err as *const i8, true);
+            match cs.as_str() {
+                Some(error_string) =>
+                    return Err(error_string.to_string()),
+                None =>
+                    return Err("Could not initialize database.".to_string()),
+            }
         }
-        libc::free(err as *mut c_void);
         if db_ptr.is_null() {
             return Err("Could not initialize database.".to_string());
         }
