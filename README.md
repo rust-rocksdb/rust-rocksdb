@@ -3,28 +3,46 @@ rust-rocksdb
 
 * rust wrapper for rocksdb
 * development began 11/16/14
-* status: minimal functionality with poor style and an annoying interface
+* status (uncompleted tasks are not ranked by priority):
+  - [x] basic open/put/get/close
+  - [x] linux support
+  - [x] rocksdb itself retrieved and compiled via cargo
+  - [ ] OSX support
+  - [ ] windows support
+  - [ ] batch
+  - [ ] iterator
+  - [ ] create/release snapshot
+  - [ ] range
+  - [ ] compaction filter, style
+  - [ ] rustic merge operator
+  - [ ] comparator
+  - [ ] slicetransform
+  - [ ] LRU cache
+  - [ ] windows support
+  - [ ] logger
+  - [ ] column family operations
+  - [ ] destroy/repair
 
+### running
+- Cargo.toml
 ```
-fn f() {
-    // arguments are path for rocksdb files, create if missing
-    let db = Rocksdb::open("testdb", true).unwrap();
-    db.put(b"a key", b"a value");
-    ...
-    let r = db.get(b"this is key").unwrap();
-    db.close();
+[dependencies.rocksdb]                                                                                                                                                                              
+git = "https://github.com/spacejam/rust-rocksdb"
+```
+- Code
+```
+extern crate rocksdb;                                                                                                                                                                               
+                                                                                                                                                                                                    
+fn main() {                                                                                                                                                                                         
+    let db = rocksdb::open("/path/to/db".to_string(), true).unwrap();                                                                                                                               
+    assert!(db.put(b"hey", b"v1111").is_ok());                                                                                                                                                      
+    db.get(b"hey").map( |raw| {                                                                                                                                                                     
+        std::str::from_utf8(raw.as_slice()).map( |v| {                                                                                                                                              
+            println!("value: {}", v);                                                                                                                                                               
+        })                                                                                                                                                                                          
+    });                                                                                                                                                                                             
+    db.close()                                                                                                                                                                                      
 }
 ```
 
-### running
-- get rocksdb
-```
-git clone https://github.com/facebook/rocksdb
-cd rocksdb
-make shared_lib
-```
-- run tests
-```
-LD_PRELOAD=/path/to/rocksdb/librocksdb.so cargo test
-```
-- enjoy (as much as you can with such a poor current library!  stay tuned!)
+- Feedback and pull requests welcome!
