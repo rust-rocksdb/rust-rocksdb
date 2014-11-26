@@ -6,22 +6,21 @@ rust-rocksdb
 * status (uncompleted tasks are not ranked by priority):
   - [x] basic open/put/get/close
   - [x] linux support
-  - [x] rocksdb itself retrieved and compiled via cargo
-  - [ ] OSX support
-  - [ ] windows support
+  - [x] rocksdb compiled via cargo
+  - [x] OSX support
+  - [ ] column family operations
+  - [ ] LRU cache
+  - [ ] destroy/repair
   - [ ] batch
   - [ ] iterator
   - [ ] create/release snapshot
   - [ ] range
-  - [ ] compaction filter, style
   - [ ] rustic merge operator
+  - [ ] compaction filter, style
   - [ ] comparator
   - [ ] slicetransform
-  - [ ] LRU cache
-  - [ ] windows support
   - [ ] logger
-  - [ ] column family operations
-  - [ ] destroy/repair
+  - [ ] windows support
 
 ### running
 - Cargo.toml
