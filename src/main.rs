@@ -3,13 +3,15 @@ extern crate test;
 use rocksdb::open;
 use test::Bencher;
 
+#[allow(dead_code)]
 fn main() {
     let db = open("testdb".to_string(), true).unwrap();
-    db.put(b"hey", b"v1111");
-    db.get(b"hey").map(|v| { println!("value: {}", v.as_slice()); });
+    assert!(db.put(b"hey", b"v1111").is_ok());
+    db.get(b"hey").map(|raw| { std::str::from_utf8(raw.as_slice()).map(|v| {println!("value: {}", v); })});
     db.close();
 }
 
+#[allow(dead_code)]
 #[bench]
 fn writes(b: &mut Bencher) {
     let db = open("testdb".to_string(), true).unwrap();
@@ -21,7 +23,8 @@ fn writes(b: &mut Bencher) {
     db.close();
 }
 
-#[bbench]
+#[allow(dead_code)]
+#[bench]
 fn reads(b: &mut Bencher) {
     let db = open("testdb".to_string(), true).unwrap();
     let mut i = 0 as u64;

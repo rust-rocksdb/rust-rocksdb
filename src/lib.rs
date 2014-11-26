@@ -1,6 +1,8 @@
 #![crate_id = "rocksdb"]
 #![crate_type = "lib"]
-#![feature(globs)]
+#![allow(dead_code)]
+
+extern crate "rocksdb-sys" as rocksdb_ffi;
 
 pub use rocksdb::{
     open,
@@ -8,4 +10,3 @@ pub use rocksdb::{
     RocksdbResult,
 };
 pub mod rocksdb;
-mod ffi;

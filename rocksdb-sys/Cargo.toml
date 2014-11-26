@@ -1,0 +1,13 @@
+[package]
+name = "rocksdb-sys"
+version = "0.0.1"
+authors = []
+links = "rocksdb"
+build = "build.rs"
+
+[build-dependencies.pkg-config]
+git = "https://github.com/alexcrichton/pkg-config-rs"
+
+[lib]
+name = "rocksdb-sys"
+path = "lib.rs"

@@ -1,8 +1,5 @@
 extern crate libc;
 use self::libc::{c_int, c_void, size_t};
-use std::io::{IoResult, IoError};
-use std::c_vec::CVec;
-use std::c_str::CString;
 
 #[repr(C)]
 pub struct RocksdbOptions(pub *const c_void);
@@ -19,9 +16,8 @@ pub struct RocksdbMergeOperator(pub *const c_void);
 #[repr(C)]
 pub struct RocksdbFilterPolicy(pub *const c_void);
 
-#[allow(dead_code)]
 #[repr(C)]
-enum RocksdbCompressionType {
+pub enum RocksdbCompressionType {
   RocksdbNoCompression     = 0,
   RocksdbSnappyCompression = 1,
   RocksdbZlibCompression   = 2,
@@ -30,22 +26,19 @@ enum RocksdbCompressionType {
   RocksdbLz4hcCompression  = 5
 }
 
-#[allow(dead_code)]
 #[repr(C)]
-enum RocksdbCompactionStyle {
+pub enum RocksdbCompactionStyle {
   RocksdbLevelCompaction     = 0,
   RocksdbUniversalCompaction = 1,
   RocksdbFifoCompaction      = 2
 }
 
-#[allow(dead_code)]
 #[repr(C)]
-enum RocksdbUniversalCompactionStyle {
+pub enum RocksdbUniversalCompactionStyle {
   rocksdb_similar_size_compaction_stop_style = 0,
   rocksdb_total_size_compaction_stop_style   = 1
 }
 
-#[allow(dead_code)]
 #[link(name = "rocksdb")]
 extern {
     pub fn rocksdb_options_create() -> RocksdbOptions;
@@ -114,8 +107,15 @@ extern {
         k: *const u8, kLen: size_t,
         valLen: *const size_t, err: *mut i8) -> *mut u8;
     pub fn rocksdb_close(db: RocksdbInstance);
+    pub fn rocksdb_destroy_db(
+        options: RocksdbOptions, path: *const i8, err: *mut i8);
+    pub fn rocksdb_repair_db(
+        options: RocksdbOptions, path: *const i8, err: *mut i8);
+
+
 }
 
+#[allow(dead_code)]
 #[test]
 fn internal() {
     unsafe {
@@ -127,11 +127,10 @@ fn internal() {
         rocksdb_options_optimize_level_style_compaction(opts, 0);
         rocksdb_options_set_create_if_missing(opts, 1);
 
-        let rustpath = "datadir";
+        let rustpath = "internaltest";
         let cpath = rustpath.to_c_str();
         let cpath_ptr = cpath.as_ptr();
         
-        //TODO this will SIGSEGV
         let err = 0 as *mut i8;
         let db = rocksdb_open(opts, cpath_ptr, err); 
         assert!(err.is_null());
@@ -153,7 +152,7 @@ fn internal() {
         assert!(read_opts_ptr.is_not_null());
         libc::free(err as *mut c_void);
 
-        let mut val_len: size_t = 0;
+        let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
         rocksdb_get(db, readopts, key.as_ptr(), 4, val_len_ptr, err);
         assert!(err.is_null());
