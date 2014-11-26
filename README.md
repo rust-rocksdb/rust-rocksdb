@@ -24,12 +24,12 @@ rust-rocksdb
 
 ### running
 - Cargo.toml
-```
+```rust
 [dependencies.rocksdb]                                                                                                                                                                              
 git = "https://github.com/spacejam/rust-rocksdb"
 ```
 - Code
-```
+```rust
 extern crate rocksdb;                                                                                                                                                                               
                                                                                                                                                                                                     
 fn main() {                                                                                                                                                                                         
