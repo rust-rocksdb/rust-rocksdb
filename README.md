@@ -1,27 +1,6 @@
 rust-rocksdb
 ============
 
-* rust wrapper for rocksdb
-* development began 11/16/14
-* status (uncompleted tasks are not ranked by priority):
-  - [x] basic open/put/get/close
-  - [x] linux support
-  - [x] rocksdb compiled via cargo
-  - [x] OSX support
-  - [ ] column family operations
-  - [ ] LRU cache
-  - [ ] destroy/repair
-  - [ ] batch
-  - [ ] iterator
-  - [ ] create/release snapshot
-  - [ ] range
-  - [ ] rustic merge operator
-  - [ ] compaction filter, style
-  - [ ] comparator
-  - [ ] slicetransform
-  - [ ] logger
-  - [ ] windows support
-
 ### running
 - Cargo.toml
 ```rust
@@ -43,5 +22,24 @@ fn main() {
     db.close()                                                                                                                                                                                      
 }
 ```
+
+### status
+  - [x] basic open/put/get/close
+  - [x] linux support
+  - [x] rocksdb compiled via cargo
+  - [x] OSX support
+  - [ ] column family operations
+  - [ ] LRU cache
+  - [ ] destroy/repair
+  - [ ] batch
+  - [ ] iterator
+  - [ ] create/release snapshot
+  - [ ] range
+  - [ ] rustic merge operator
+  - [ ] compaction filter, style
+  - [ ] comparator
+  - [ ] slicetransform
+  - [ ] logger
+  - [ ] windows support
 
 - Feedback and pull requests welcome!
