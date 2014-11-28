@@ -22,9 +22,10 @@ fn main() {
             println!("retrieved utf8 value {}", v),
           None =>
             println!("did not read valid utf-8 out of the db"),
-        }});
+        }
+      }).on_absent(|| { println!("value not found") });
 
-      db.get(b"NOT my key").on_absent( || { println!("value not found") });
+      db.delete(b"my key");
 
       db.close();
     },
