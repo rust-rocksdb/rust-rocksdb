@@ -105,7 +105,7 @@ extern {
     pub fn rocksdb_readoptions_create() -> RocksdbReadOptions;
     pub fn rocksdb_get(db: RocksdbInstance, readopts: RocksdbReadOptions,
         k: *const u8, kLen: size_t,
-        valLen: *const size_t, err: *mut i8) -> *mut u8;
+        valLen: *const size_t, err: *mut i8) -> *mut c_void;
     pub fn rocksdb_close(db: RocksdbInstance);
     pub fn rocksdb_destroy_db(
         options: RocksdbOptions, path: *const i8, err: *mut i8);
@@ -122,7 +122,7 @@ fn internal() {
         let opts = rocksdb_options_create();
         let RocksdbOptions(opt_ptr) = opts;
         assert!(opt_ptr.is_not_null());
-        
+
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
         rocksdb_options_set_create_if_missing(opts, 1);
@@ -130,9 +130,9 @@ fn internal() {
         let rustpath = "internaltest";
         let cpath = rustpath.to_c_str();
         let cpath_ptr = cpath.as_ptr();
-        
+
         let err = 0 as *mut i8;
-        let db = rocksdb_open(opts, cpath_ptr, err); 
+        let db = rocksdb_open(opts, cpath_ptr, err);
         assert!(err.is_null());
         libc::free(err as *mut c_void);
 

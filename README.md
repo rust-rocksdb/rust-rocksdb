@@ -4,22 +4,32 @@ rust-rocksdb
 ### running
 - Cargo.toml
 ```rust
-[dependencies.rocksdb]                                                                                                                                                                              
+[dependencies.rocksdb]
 git = "https://github.com/spacejam/rust-rocksdb"
 ```
 - Code
 ```rust
-extern crate rocksdb;                                                                                                                                                                               
-                                                                                                                                                                                                    
-fn main() {                                                                                                                                                                                         
-    let db = rocksdb::open("/path/to/db".to_string(), true).unwrap();                                                                                                                               
-    assert!(db.put(b"hey", b"v1111").is_ok());                                                                                                                                                      
-    db.get(b"hey").map( |raw| {                                                                                                                                                                     
-        std::str::from_utf8(raw.as_slice()).map( |v| {                                                                                                                                              
-            println!("value: {}", v);                                                                                                                                                               
-        })                                                                                                                                                                                          
-    });                                                                                                                                                                                             
-    db.close()                                                                                                                                                                                      
+extern crate rocksdb;
+
+fn main() {
+    match rocksdb::create_or_open("/path/for/rocksdb/storage".to_string()) {
+        Ok(db) => {
+            db.put(b"my key", b"my value");
+
+            db.get(b"my key").map( |value| {
+                match value.to_utf8() {
+                    Some(v) =>
+                        println!("retrieved utf8 value {}", v),
+                    None =>
+                        println!("did not read valid utf-8 out of the db"),
+                }});
+
+            db.get(b"NOT my key").on_absent(|| { println!("value not found") });
+
+            db.close();
+        },
+        Err(e) => panic!(e),
+    }
 }
 ```
 
