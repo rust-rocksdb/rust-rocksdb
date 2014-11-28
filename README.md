@@ -24,7 +24,7 @@ fn main() {
             println!("did not read valid utf-8 out of the db"),
         }});
 
-      db.get(b"NOT my key").on_absent(|| { println!("value not found") });
+      db.get(b"NOT my key").on_absent( || { println!("value not found") });
 
       db.close();
     },
