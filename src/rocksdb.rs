@@ -7,20 +7,20 @@ use std::str::from_utf8;
 
 use rocksdb_ffi;
 
-pub struct RocksdbOptions {
-  inner: rocksdb_ffi::RocksdbOptions,
+pub struct RocksDBOptions {
+  inner: rocksdb_ffi::RocksDBOptions,
 }
 
-impl RocksdbOptions {
-  pub fn new() -> RocksdbOptions {
+impl RocksDBOptions {
+  pub fn new() -> RocksDBOptions {
     unsafe {
       let opts = rocksdb_ffi::rocksdb_options_create();
-      let rocksdb_ffi::RocksdbOptions(opt_ptr) = opts;
+      let rocksdb_ffi::RocksDBOptions(opt_ptr) = opts;
       if opt_ptr.is_null() {
         panic!("Could not create rocksdb options".to_string());
       }
 
-      RocksdbOptions{inner: opts}
+      RocksDBOptions{inner: opts}
     }
   }
 
@@ -45,25 +45,25 @@ impl RocksdbOptions {
     }
   }
 
-  pub fn set_merge_operator(&self, mo: rocksdb_ffi::RocksdbMergeOperator) {
+  pub fn set_merge_operator(&self, mo: rocksdb_ffi::RocksDBMergeOperator) {
     unsafe {
       rocksdb_ffi::rocksdb_options_set_merge_operator(self.inner, mo);
     }
   }
 }
 
-pub struct Rocksdb {
-  inner: rocksdb_ffi::RocksdbInstance,
+pub struct RocksDB {
+  inner: rocksdb_ffi::RocksDBInstance,
 }
 
-impl Rocksdb {
-  pub fn open_default(path: &str) -> Result<Rocksdb, String> {
-    let opts = RocksdbOptions::new();
+impl RocksDB {
+  pub fn open_default(path: &str) -> Result<RocksDB, String> {
+    let opts = RocksDBOptions::new();
     opts.create_if_missing(true);
-    Rocksdb::open(opts, path)
+    RocksDB::open(opts, path)
   }
 
-  pub fn open(opts: RocksdbOptions, path: &str) -> Result<Rocksdb, String> {
+  pub fn open(opts: RocksDBOptions, path: &str) -> Result<RocksDB, String> {
     unsafe {
       let cpath = path.to_c_str();
       let cpath_ptr = cpath.as_ptr();
@@ -73,7 +73,7 @@ impl Rocksdb {
 
       let err = 0 as *mut i8;
       let db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err);
-      let rocksdb_ffi::RocksdbInstance(db_ptr) = db;
+      let rocksdb_ffi::RocksDBInstance(db_ptr) = db;
       if err.is_not_null() {
         let cs = CString::new(err as *const i8, true);
         match cs.as_str() {
@@ -86,7 +86,7 @@ impl Rocksdb {
       if db_ptr.is_null() {
         return Err("Could not initialize database.".to_string());
       }
-      Ok(Rocksdb{inner: db})
+      Ok(RocksDB{inner: db})
     }
   }
 
@@ -116,12 +116,12 @@ impl Rocksdb {
     }
   }
 
-  pub fn get<'a>(&self, key: &[u8]) -> RocksdbResult<'a, RocksdbVector, String> {
+  pub fn get<'a>(&self, key: &[u8]) -> RocksDBResult<'a, RocksDBVector, String> {
     unsafe {
       let readopts = rocksdb_ffi::rocksdb_readoptions_create();
-      let rocksdb_ffi::RocksdbReadOptions(read_opts_ptr) = readopts;
+      let rocksdb_ffi::RocksDBReadOptions(read_opts_ptr) = readopts;
       if read_opts_ptr.is_null() {
-        return RocksdbResult::Error("Unable to create rocksdb read \
+        return RocksDBResult::Error("Unable to create rocksdb read \
           options.  This is a fairly trivial call, and its failure \
           may be indicative of a mis-compiled or mis-loaded rocksdb \
           library.".to_string());
@@ -136,17 +136,17 @@ impl Rocksdb {
         let cs = CString::new(err as *const i8, true);
         match cs.as_str() {
           Some(error_string) =>
-            return RocksdbResult::Error(error_string.to_string()),
+            return RocksDBResult::Error(error_string.to_string()),
           None =>
-            return RocksdbResult::Error("Unable to get value from \
+            return RocksDBResult::Error("Unable to get value from \
               rocksdb. (non-utf8 error received from underlying \
               library)".to_string()),
         }
       }
       match val.is_null() {
-        true =>  RocksdbResult::None,
+        true =>  RocksDBResult::None,
         false => {
-          RocksdbResult::Some(RocksdbVector::from_c(val, val_len))
+          RocksDBResult::Some(RocksDBVector::from_c(val, val_len))
         }
       }
     }
@@ -182,14 +182,14 @@ impl Rocksdb {
   }
 }
 
-pub struct RocksdbVector {
+pub struct RocksDBVector {
   inner: CVec<u8>,
 }
 
-impl RocksdbVector {
-  pub fn from_c(val: *mut u8, val_len: size_t) -> RocksdbVector {
+impl RocksDBVector {
+  pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
     unsafe {
-      RocksdbVector {
+      RocksDBVector {
         inner:
           CVec::new_with_dtor(val, val_len as uint,
             proc(){ libc::free(val as *mut c_void); })
@@ -206,73 +206,73 @@ impl RocksdbVector {
   }
 }
 
-// RocksdbResult exists because of the inherent difference between
+// RocksDBResult exists because of the inherent difference between
 // an operational failure and the absence of a possible result.
 #[deriving(Clone, PartialEq, PartialOrd, Eq, Ord, Show)]
-pub enum RocksdbResult<'a,T,E> {
+pub enum RocksDBResult<'a,T,E> {
   Some(T),
   None,
   Error(E),
 }
 
-impl <'a,T,E> RocksdbResult<'a,T,E> {
+impl <'a,T,E> RocksDBResult<'a,T,E> {
   #[unstable = "waiting for unboxed closures"]
-  pub fn map<U>(self, f: |T| -> U) -> RocksdbResult<U,E> {
+  pub fn map<U>(self, f: |T| -> U) -> RocksDBResult<U,E> {
     match self {
-      RocksdbResult::Some(x) => RocksdbResult::Some(f(x)),
-      RocksdbResult::None => RocksdbResult::None,
-      RocksdbResult::Error(e) => RocksdbResult::Error(e),
+      RocksDBResult::Some(x) => RocksDBResult::Some(f(x)),
+      RocksDBResult::None => RocksDBResult::None,
+      RocksDBResult::Error(e) => RocksDBResult::Error(e),
     }
   }
 
   pub fn unwrap(self) -> T {
     match self {
-      RocksdbResult::Some(x) => x,
-      RocksdbResult::None => panic!("Attempted unwrap on RocksdbResult::None"),
-      RocksdbResult::Error(_) => panic!("Attempted unwrap on RocksdbResult::Error"),
+      RocksDBResult::Some(x) => x,
+      RocksDBResult::None => panic!("Attempted unwrap on RocksDBResult::None"),
+      RocksDBResult::Error(_) => panic!("Attempted unwrap on RocksDBResult::Error"),
     }
   }
 
   #[unstable = "waiting for unboxed closures"]
-  pub fn on_error<U>(self, f: |E| -> U) -> RocksdbResult<T,U> {
+  pub fn on_error<U>(self, f: |E| -> U) -> RocksDBResult<T,U> {
     match self {
-      RocksdbResult::Some(x) => RocksdbResult::Some(x),
-      RocksdbResult::None => RocksdbResult::None,
-      RocksdbResult::Error(e) => RocksdbResult::Error(f(e)),
+      RocksDBResult::Some(x) => RocksDBResult::Some(x),
+      RocksDBResult::None => RocksDBResult::None,
+      RocksDBResult::Error(e) => RocksDBResult::Error(f(e)),
     }
   }
 
   #[unstable = "waiting for unboxed closures"]
-  pub fn on_absent(self, f: || -> ()) -> RocksdbResult<T,E> {
+  pub fn on_absent(self, f: || -> ()) -> RocksDBResult<T,E> {
     match self {
-      RocksdbResult::Some(x) => RocksdbResult::Some(x),
-      RocksdbResult::None => {
+      RocksDBResult::Some(x) => RocksDBResult::Some(x),
+      RocksDBResult::None => {
         f();
-        RocksdbResult::None
+        RocksDBResult::None
       },
-      RocksdbResult::Error(e) => RocksdbResult::Error(e),
+      RocksDBResult::Error(e) => RocksDBResult::Error(e),
     }
   }
 
   pub fn is_some(self) -> bool {
     match self {
-      RocksdbResult::Some(_) => true,
-      RocksdbResult::None => false,
-      RocksdbResult::Error(_) => false,
+      RocksDBResult::Some(_) => true,
+      RocksDBResult::None => false,
+      RocksDBResult::Error(_) => false,
     }
   }
   pub fn is_none(self) -> bool {
     match self {
-      RocksdbResult::Some(_) => false,
-      RocksdbResult::None => true,
-      RocksdbResult::Error(_) => false,
+      RocksDBResult::Some(_) => false,
+      RocksDBResult::None => true,
+      RocksDBResult::Error(_) => false,
     }
   }
   pub fn is_error(self) -> bool {
     match self {
-      RocksdbResult::Some(_) => false,
-      RocksdbResult::None => false,
-      RocksdbResult::Error(_) => true,
+      RocksDBResult::Some(_) => false,
+      RocksDBResult::None => false,
+      RocksDBResult::Error(_) => true,
     }
   }
 }
@@ -280,10 +280,10 @@ impl <'a,T,E> RocksdbResult<'a,T,E> {
 #[allow(dead_code)]
 #[test]
 fn external() {
-  let db = Rocksdb::open_default("externaltest").unwrap();
+  let db = RocksDB::open_default("externaltest").unwrap();
   let p = db.put(b"k1", b"v1111");
   assert!(p.is_ok());
-  let r: RocksdbResult<RocksdbVector, String> = db.get(b"k1");
+  let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
   assert!(r.unwrap().to_utf8().unwrap() == "v1111");
   assert!(db.delete(b"k1").is_ok());
   assert!(db.get(b"k1").is_none());

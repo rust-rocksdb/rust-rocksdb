@@ -2,116 +2,116 @@ extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
 
 #[repr(C)]
-pub struct RocksdbOptions(pub *const c_void);
+pub struct RocksDBOptions(pub *const c_void);
 #[repr(C)]
-pub struct RocksdbInstance(pub *const c_void);
+pub struct RocksDBInstance(pub *const c_void);
 #[repr(C)]
-pub struct RocksdbWriteOptions(pub *const c_void);
+pub struct RocksDBWriteOptions(pub *const c_void);
 #[repr(C)]
-pub struct RocksdbReadOptions(pub *const c_void);
+pub struct RocksDBReadOptions(pub *const c_void);
 #[repr(C)]
-pub struct RocksdbCompactionFilter(pub *const c_void);
+pub struct RocksDBCompactionFilter(pub *const c_void);
 #[repr(C)]
-pub struct RocksdbMergeOperator(pub *const c_void);
+pub struct RocksDBMergeOperator(pub *const c_void);
 #[repr(C)]
-pub struct RocksdbFilterPolicy(pub *const c_void);
+pub struct RocksDBFilterPolicy(pub *const c_void);
 
 #[repr(C)]
-pub enum RocksdbCompressionType {
-  RocksdbNoCompression   = 0,
-  RocksdbSnappyCompression = 1,
-  RocksdbZlibCompression   = 2,
-  RocksdbBz2Compression  = 3,
-  RocksdbLz4Compression  = 4,
-  RocksdbLz4hcCompression  = 5
+pub enum RocksDBCompressionType {
+  RocksDBNoCompression   = 0,
+  RocksDBSnappyCompression = 1,
+  RocksDBZlibCompression   = 2,
+  RocksDBBz2Compression  = 3,
+  RocksDBLz4Compression  = 4,
+  RocksDBLz4hcCompression  = 5
 }
 
 #[repr(C)]
-pub enum RocksdbCompactionStyle {
-  RocksdbLevelCompaction   = 0,
-  RocksdbUniversalCompaction = 1,
-  RocksdbFifoCompaction    = 2
+pub enum RocksDBCompactionStyle {
+  RocksDBLevelCompaction   = 0,
+  RocksDBUniversalCompaction = 1,
+  RocksDBFifoCompaction    = 2
 }
 
 #[repr(C)]
-pub enum RocksdbUniversalCompactionStyle {
+pub enum RocksDBUniversalCompactionStyle {
   rocksdb_similar_size_compaction_stop_style = 0,
   rocksdb_total_size_compaction_stop_style   = 1
 }
 
 #[link(name = "rocksdb")]
 extern {
-  pub fn rocksdb_options_create() -> RocksdbOptions;
+  pub fn rocksdb_options_create() -> RocksDBOptions;
   pub fn rocksdb_options_increase_parallelism(
-    options: RocksdbOptions, threads: c_int);
+    options: RocksDBOptions, threads: c_int);
   pub fn rocksdb_options_optimize_level_style_compaction(
-    options: RocksdbOptions, memtable_memory_budget: c_int);
+    options: RocksDBOptions, memtable_memory_budget: c_int);
   pub fn rocksdb_options_set_create_if_missing(
-    options: RocksdbOptions, v: c_int);
+    options: RocksDBOptions, v: c_int);
   pub fn rocksdb_options_set_max_open_files(
-    options: RocksdbOptions, files: c_int);
+    options: RocksDBOptions, files: c_int);
   pub fn rocksdb_options_set_use_fsync(
-    options: RocksdbOptions, v: c_int);
+    options: RocksDBOptions, v: c_int);
   pub fn rocksdb_options_set_bytes_per_sync(
-    options: RocksdbOptions, bytes: u64);
+    options: RocksDBOptions, bytes: u64);
   pub fn rocksdb_options_set_disable_data_sync(
-    options: RocksdbOptions, v: c_int);
+    options: RocksDBOptions, v: c_int);
   pub fn rocksdb_options_optimize_for_point_lookup(
-    options: RocksdbOptions, block_cache_size_mb: u64);
+    options: RocksDBOptions, block_cache_size_mb: u64);
   pub fn rocksdb_options_set_table_cache_numshardbits(
-    options: RocksdbOptions, bits: u64);
+    options: RocksDBOptions, bits: u64);
   pub fn rocksdb_options_set_max_write_buffer_number(
-    options: RocksdbOptions, bufno: c_int);
+    options: RocksDBOptions, bufno: c_int);
   pub fn rocksdb_options_set_min_write_buffer_number_to_merge(
-    options: RocksdbOptions, bufno: c_int);
+    options: RocksDBOptions, bufno: c_int);
   pub fn rocksdb_options_set_level0_file_num_compaction_trigger(
-    options: RocksdbOptions, no: c_int);
+    options: RocksDBOptions, no: c_int);
   pub fn rocksdb_options_set_level0_slowdown_writes_trigger(
-    options: RocksdbOptions, no: c_int);
+    options: RocksDBOptions, no: c_int);
   pub fn rocksdb_options_set_level0_stop_writes_trigger(
-    options: RocksdbOptions, no: c_int);
+    options: RocksDBOptions, no: c_int);
   pub fn rocksdb_options_set_write_buffer_size(
-    options: RocksdbOptions, bytes: u64);
+    options: RocksDBOptions, bytes: u64);
   pub fn rocksdb_options_set_target_file_size_base(
-    options: RocksdbOptions, bytes: u64);
+    options: RocksDBOptions, bytes: u64);
   pub fn rocksdb_options_set_target_file_size_multiplier(
-    options: RocksdbOptions, mul: c_int);
+    options: RocksDBOptions, mul: c_int);
   pub fn rocksdb_options_set_max_log_file_size(
-    options: RocksdbOptions, bytes: u64);
+    options: RocksDBOptions, bytes: u64);
   pub fn rocksdb_options_set_max_manifest_file_size(
-    options: RocksdbOptions, bytes: u64);
+    options: RocksDBOptions, bytes: u64);
   pub fn rocksdb_options_set_hash_skip_list_rep(
-    options: RocksdbOptions, bytes: u64, a1: i32, a2: i32);
+    options: RocksDBOptions, bytes: u64, a1: i32, a2: i32);
   pub fn rocksdb_options_set_compaction_style(
-    options: RocksdbOptions, cs: RocksdbCompactionStyle);
+    options: RocksDBOptions, cs: RocksDBCompactionStyle);
   pub fn rocksdb_options_set_compression(
-    options: RocksdbOptions, compression_style_no: c_int);
+    options: RocksDBOptions, compression_style_no: c_int);
   pub fn rocksdb_options_set_max_background_compactions(
-    options: RocksdbOptions, max_bg_compactions: c_int);
+    options: RocksDBOptions, max_bg_compactions: c_int);
   pub fn rocksdb_options_set_max_background_flushes(
-    options: RocksdbOptions, max_bg_flushes: c_int);
+    options: RocksDBOptions, max_bg_flushes: c_int);
   pub fn rocksdb_options_set_filter_deletes(
-    options: RocksdbOptions, v: u8);
-  //pub fn rocksdb_compactionfilter_create() -> RocksdbCompactionFilter;
+    options: RocksDBOptions, v: u8);
+  //pub fn rocksdb_compactionfilter_create() -> RocksDBCompactionFilter;
   pub fn rocksdb_filterpolicy_create_bloom(
-    bits_per_key: c_int) -> RocksdbFilterPolicy;
-  pub fn rocksdb_open(options: RocksdbOptions,
-    path: *const i8, err: *mut i8) -> RocksdbInstance;
-  pub fn rocksdb_writeoptions_create() -> RocksdbWriteOptions;
-  pub fn rocksdb_put(db: RocksdbInstance, writeopts: RocksdbWriteOptions,
+    bits_per_key: c_int) -> RocksDBFilterPolicy;
+  pub fn rocksdb_open(options: RocksDBOptions,
+    path: *const i8, err: *mut i8) -> RocksDBInstance;
+  pub fn rocksdb_writeoptions_create() -> RocksDBWriteOptions;
+  pub fn rocksdb_put(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
     k: *const u8, kLen: size_t, v: *const u8,
     vLen: size_t, err: *mut i8);
-  pub fn rocksdb_readoptions_create() -> RocksdbReadOptions;
-  pub fn rocksdb_get(db: RocksdbInstance, readopts: RocksdbReadOptions,
+  pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
+  pub fn rocksdb_get(db: RocksDBInstance, readopts: RocksDBReadOptions,
     k: *const u8, kLen: size_t,
     valLen: *const size_t, err: *mut i8) -> *mut c_void;
-  pub fn rocksdb_delete(db: RocksdbInstance, writeopts: RocksdbWriteOptions,
+  pub fn rocksdb_delete(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
     k: *const u8, kLen: size_t, err: *mut i8) -> *mut c_void;
-  pub fn rocksdb_close(db: RocksdbInstance);
+  pub fn rocksdb_close(db: RocksDBInstance);
   pub fn rocksdb_destroy_db(
-    options: RocksdbOptions, path: *const i8, err: *mut i8);
+    options: RocksDBOptions, path: *const i8, err: *mut i8);
   pub fn rocksdb_repair_db(
-    options: RocksdbOptions, path: *const i8, err: *mut i8);
+    options: RocksDBOptions, path: *const i8, err: *mut i8);
 
   // Merge Operator
   pub fn rocksdb_mergeoperator_create(
@@ -132,11 +132,11 @@ extern {
     ) -> *const c_char,
     delete_value: extern fn(*mut c_void, value: *const c_char, value_len: *mut size_t) -> (),
     name_fn: extern fn(*mut c_void) -> *const c_char,
-  ) -> RocksdbMergeOperator;
-  pub fn rocksdb_mergeoperator_destroy(mo: RocksdbMergeOperator);
+  ) -> RocksDBMergeOperator;
+  pub fn rocksdb_mergeoperator_destroy(mo: RocksDBMergeOperator);
   pub fn rocksdb_options_set_merge_operator(
-    options: RocksdbOptions,
-    mo: RocksdbMergeOperator);
+    options: RocksDBOptions,
+    mo: RocksDBMergeOperator);
 }
 
 #[allow(dead_code)]
@@ -144,7 +144,7 @@ extern {
 fn internal() {
   unsafe {
     let opts = rocksdb_options_create();
-    let RocksdbOptions(opt_ptr) = opts;
+    let RocksDBOptions(opt_ptr) = opts;
     assert!(opt_ptr.is_not_null());
 
     rocksdb_options_increase_parallelism(opts, 0);
@@ -161,7 +161,7 @@ fn internal() {
     libc::free(err as *mut c_void);
 
     let writeopts = rocksdb_writeoptions_create();
-    let RocksdbWriteOptions(write_opt_ptr) = writeopts;
+    let RocksDBWriteOptions(write_opt_ptr) = writeopts;
     assert!(write_opt_ptr.is_not_null());
 
     let key = b"name\x00";
@@ -172,7 +172,7 @@ fn internal() {
     libc::free(err as *mut c_void);
 
     let readopts = rocksdb_readoptions_create();
-    let RocksdbReadOptions(read_opts_ptr) = readopts;
+    let RocksDBReadOptions(read_opts_ptr) = readopts;
     assert!(read_opts_ptr.is_not_null());
     libc::free(err as *mut c_void);
 

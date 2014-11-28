@@ -5,7 +5,7 @@
 extern crate "rocksdb-sys" as rocksdb_ffi;
 
 pub use rocksdb::{
-  Rocksdb,
-  RocksdbResult,
+  RocksDB,
+  RocksDBResult,
 };
 pub mod rocksdb;
