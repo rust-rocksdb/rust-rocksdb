@@ -41,18 +41,17 @@ fn main() {
   - [x] linux support
   - [x] rocksdb compiled via cargo
   - [x] OSX support
-  - [ ] column family operations
-  - [ ] LRU cache
-  - [ ] destroy/repair
+  - [ ] rustic merge operator
   - [ ] batch
   - [ ] iterator
-  - [ ] create/release snapshot
   - [ ] range
-  - [ ] rustic merge operator
+  - [ ] create/release snapshot
+  - [ ] column family operations
   - [ ] compaction filter, style
+  - [ ] LRU cache
+  - [ ] destroy/repair
   - [ ] comparator
   - [ ] slicetransform
-  - [ ] logger
   - [ ] windows support
 
 Feedback and pull requests welcome!

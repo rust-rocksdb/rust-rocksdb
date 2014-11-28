@@ -224,7 +224,7 @@ pub fn open(path: String, create_if_missing: bool) -> Result<Rocksdb, String> {
     let cpath_ptr = cpath.as_ptr();
 
     //TODO test path here, as if rocksdb fails it will just crash the
-    //   process currently
+    //     process currently
 
     let err = 0 as *mut i8;
     let db = rocksdb_ffi::rocksdb_open(opts, cpath_ptr, err);
