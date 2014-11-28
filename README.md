@@ -23,7 +23,9 @@ fn main() {
           None =>
             println!("did not read valid utf-8 out of the db"),
         }
-      }).on_absent(|| { println!("value not found") });
+      })
+        .on_absent( || { println!("value not found") })
+        .on_error( |e| { println!("error retrieving value: {}", e) });
 
       db.delete(b"my key");
 

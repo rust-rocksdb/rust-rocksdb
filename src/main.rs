@@ -7,18 +7,20 @@ use test::Bencher;
 fn main() {
   match rocksdb::create_or_open("/tmp/rust-rocksdb".to_string()) {
     Ok(db) => {
-      db.put(b"my key", b"my value");
+      assert!(db.put(b"my key", b"my value").is_ok());
 
       db.get(b"my key").map( |value| {
         match value.to_utf8() {
           Some(v) =>
-            println!("retrieved utf8 value {}", v),
+            println!("retrieved utf8 value: {}", v),
           None =>
             println!("did not read valid utf-8 out of the db"),
         }
-      }).on_absent(|| { println!("value not found") });
+      })
+        .on_absent( || { println!("value not found") })
+        .on_error( |e| { println!("error retrieving value: {}", e) });
 
-      db.delete(b"my key");
+      assert!(db.delete(b"my key").is_ok());
 
       db.close();
     },
