@@ -12,24 +12,24 @@ git = "https://github.com/spacejam/rust-rocksdb"
 extern crate rocksdb;
 
 fn main() {
-    match rocksdb::create_or_open("/path/for/rocksdb/storage".to_string()) {
-        Ok(db) => {
-            db.put(b"my key", b"my value");
+  match rocksdb::create_or_open("/path/for/rocksdb/storage".to_string()) {
+    Ok(db) => {
+      db.put(b"my key", b"my value");
 
-            db.get(b"my key").map( |value| {
-                match value.to_utf8() {
-                    Some(v) =>
-                        println!("retrieved utf8 value {}", v),
-                    None =>
-                        println!("did not read valid utf-8 out of the db"),
-                }});
+      db.get(b"my key").map( |value| {
+        match value.to_utf8() {
+          Some(v) =>
+            println!("retrieved utf8 value {}", v),
+          None =>
+            println!("did not read valid utf-8 out of the db"),
+        }});
 
-            db.get(b"NOT my key").on_absent(|| { println!("value not found") });
+      db.get(b"NOT my key").on_absent(|| { println!("value not found") });
 
-            db.close();
-        },
-        Err(e) => panic!(e),
-    }
+      db.close();
+    },
+    Err(e) => panic!(e),
+  }
 }
 ```
 
