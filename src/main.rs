@@ -1,11 +1,11 @@
 extern crate rocksdb;
 extern crate test;
-use rocksdb::open;
+use rocksdb::Rocksdb;
 use test::Bencher;
 
 #[allow(dead_code)]
 fn main() {
-  match rocksdb::create_or_open("/tmp/rust-rocksdb".to_string()) {
+  match Rocksdb::open_default("/tmp/rust-rocksdb".to_string()) {
     Ok(db) => {
       assert!(db.put(b"my key", b"my value").is_ok());
 

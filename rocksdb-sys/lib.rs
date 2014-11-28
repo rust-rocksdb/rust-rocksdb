@@ -1,5 +1,5 @@
 extern crate libc;
-use self::libc::{c_int, c_void, size_t};
+use self::libc::{c_char, c_int, c_void, size_t};
 
 #[repr(C)]
 pub struct RocksdbOptions(pub *const c_void);
@@ -93,7 +93,6 @@ extern {
   pub fn rocksdb_options_set_filter_deletes(
     options: RocksdbOptions, v: u8);
   //pub fn rocksdb_compactionfilter_create() -> RocksdbCompactionFilter;
-  //pub fn rocksdb_mergeoperator_create() -> RocksdbMergeOperator;
   pub fn rocksdb_filterpolicy_create_bloom(
     bits_per_key: c_int) -> RocksdbFilterPolicy;
   pub fn rocksdb_open(options: RocksdbOptions,
@@ -113,6 +112,31 @@ extern {
     options: RocksdbOptions, path: *const i8, err: *mut i8);
   pub fn rocksdb_repair_db(
     options: RocksdbOptions, path: *const i8, err: *mut i8);
+
+  // Merge Operator
+  pub fn rocksdb_mergeoperator_create(
+    state: *mut c_void,
+    destroy: extern fn(*mut c_void) -> (),
+    full_merge: extern fn (
+      arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
+      existing_value: *const c_char, existing_value_len: *mut size_t,
+      operands_list: &[*const c_char], operands_list_len: *const size_t,
+      num_operands: c_int,
+      success: *mut u8, new_value_length: *mut size_t
+    ) -> *const c_char,
+    partial_merge: extern fn(
+      *mut c_void, key: *const c_char, key_len: *mut size_t,
+      operands_list: &[*const c_char], operands_list_len: *const size_t,
+      num_operands: c_int,
+      success: *mut u8, new_value_length: *mut size_t
+    ) -> *const c_char,
+    delete_value: extern fn(*mut c_void, value: *const c_char, value_len: *mut size_t) -> (),
+    name_fn: extern fn(*mut c_void) -> *const c_char,
+  ) -> RocksdbMergeOperator;
+  pub fn rocksdb_mergeoperator_destroy(mo: RocksdbMergeOperator);
+  pub fn rocksdb_options_set_merge_operator(
+    options: RocksdbOptions,
+    mo: RocksdbMergeOperator);
 }
 
 #[allow(dead_code)]

@@ -7,11 +7,89 @@ use std::str::from_utf8;
 
 use rocksdb_ffi;
 
+pub struct RocksdbOptions {
+  inner: rocksdb_ffi::RocksdbOptions,
+}
+
+impl RocksdbOptions {
+  pub fn new() -> RocksdbOptions {
+    unsafe {
+      let opts = rocksdb_ffi::rocksdb_options_create();
+      let rocksdb_ffi::RocksdbOptions(opt_ptr) = opts;
+      if opt_ptr.is_null() {
+        panic!("Could not create rocksdb options".to_string());
+      }
+
+      RocksdbOptions{inner: opts}
+    }
+  }
+
+  pub fn increase_parallelism(&self, parallelism: i32) {
+    unsafe {
+      rocksdb_ffi::rocksdb_options_increase_parallelism(self.inner, parallelism);
+    }
+  }
+
+  pub fn optimize_level_style_compaction(&self, memtable_memory_budget: i32) {
+    unsafe {
+      rocksdb_ffi::rocksdb_options_optimize_level_style_compaction(self.inner, memtable_memory_budget);
+    }
+  }
+
+  pub fn create_if_missing(&self, create_if_missing: bool) {
+    unsafe {
+      match create_if_missing {
+        true => rocksdb_ffi::rocksdb_options_set_create_if_missing(self.inner, 1),
+        false => rocksdb_ffi::rocksdb_options_set_create_if_missing(self.inner, 0),
+      }
+    }
+  }
+
+  pub fn set_merge_operator(&self, mo: rocksdb_ffi::RocksdbMergeOperator) {
+    unsafe {
+      rocksdb_ffi::rocksdb_options_set_merge_operator(self.inner, mo);
+    }
+  }
+}
+
 pub struct Rocksdb {
   inner: rocksdb_ffi::RocksdbInstance,
 }
 
 impl Rocksdb {
+  pub fn open_default(path: String) -> Result<Rocksdb, String> {
+    let opts = RocksdbOptions::new();
+    opts.create_if_missing(true);
+    Rocksdb::open(opts, path)
+  }
+
+  pub fn open(opts: RocksdbOptions, path: String) -> Result<Rocksdb, String> {
+    unsafe {
+      let cpath = path.to_c_str();
+      let cpath_ptr = cpath.as_ptr();
+
+      //TODO test path here, as if rocksdb fails it will just crash the
+      //     process currently
+
+      let err = 0 as *mut i8;
+      let db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err);
+      let rocksdb_ffi::RocksdbInstance(db_ptr) = db;
+      if err.is_not_null() {
+        let cs = CString::new(err as *const i8, true);
+        match cs.as_str() {
+          Some(error_string) =>
+            return Err(error_string.to_string()),
+          None =>
+            return Err("Could not initialize database.".to_string()),
+        }
+      }
+      if db_ptr.is_null() {
+        return Err("Could not initialize database.".to_string());
+      }
+      Ok(Rocksdb{inner: db})
+    }
+  }
+
   pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
     unsafe {
       let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
@@ -102,7 +180,6 @@ impl Rocksdb {
   pub fn close(&self) {
     unsafe { rocksdb_ffi::rocksdb_close(self.inner); }
   }
-
 }
 
 pub struct RocksdbVector {
@@ -197,51 +274,6 @@ impl <'a,T,E> RocksdbResult<'a,T,E> {
       RocksdbResult::None => false,
       RocksdbResult::Error(_) => true,
     }
-  }
-}
-
-pub fn create_or_open(path: String) -> Result<Rocksdb, String> {
-  open(path, true)
-}
-
-pub fn open(path: String, create_if_missing: bool) -> Result<Rocksdb, String> {
-  unsafe {
-    let opts = rocksdb_ffi::rocksdb_options_create();
-    let rocksdb_ffi::RocksdbOptions(opt_ptr) = opts;
-    if opt_ptr.is_null() {
-      return Err("Could not create options".to_string());
-    }
-
-    //rocksdb_ffi::rocksdb_options_increase_parallelism(opts, 2);
-    //rocksdb_ffi::rocksdb_options_optimize_level_style_compaction(opts, 0);
-
-    match create_if_missing {
-      true => rocksdb_ffi::rocksdb_options_set_create_if_missing(opts, 1),
-      false => rocksdb_ffi::rocksdb_options_set_create_if_missing(opts, 0),
-    }
-
-    let cpath = path.to_c_str();
-    let cpath_ptr = cpath.as_ptr();
-
-    //TODO test path here, as if rocksdb fails it will just crash the
-    //     process currently
-
-    let err = 0 as *mut i8;
-    let db = rocksdb_ffi::rocksdb_open(opts, cpath_ptr, err);
-    let rocksdb_ffi::RocksdbInstance(db_ptr) = db;
-    if err.is_not_null() {
-      let cs = CString::new(err as *const i8, true);
-      match cs.as_str() {
-        Some(error_string) =>
-          return Err(error_string.to_string()),
-        None =>
-          return Err("Could not initialize database.".to_string()),
-      }
-    }
-    if db_ptr.is_null() {
-      return Err("Could not initialize database.".to_string());
-    }
-    Ok(Rocksdb{inner: db})
   }
 }
 

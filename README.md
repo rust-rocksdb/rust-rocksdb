@@ -11,9 +11,10 @@ RocksDB 3.8.1 will be pulled in and compiled automatically.
 ###### Code
 ```rust
 extern crate rocksdb;
+use rocksdb::Rocksdb;
 
 fn main() {
-  match rocksdb::create_or_open("/path/for/rocksdb/storage".to_string()) {
+  match Rocksdb::open_default("/path/for/rocksdb/storage".to_string()) {
     Ok(db) => {
       db.put(b"my key", b"my value");
 
