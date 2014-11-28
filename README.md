@@ -52,4 +52,4 @@ fn main() {
   - [ ] logger
   - [ ] windows support
 
-- Feedback and pull requests welcome!
+Feedback and pull requests welcome!
