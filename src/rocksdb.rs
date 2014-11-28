@@ -57,13 +57,13 @@ pub struct Rocksdb {
 }
 
 impl Rocksdb {
-  pub fn open_default(path: String) -> Result<Rocksdb, String> {
+  pub fn open_default(path: &str) -> Result<Rocksdb, String> {
     let opts = RocksdbOptions::new();
     opts.create_if_missing(true);
     Rocksdb::open(opts, path)
   }
 
-  pub fn open(opts: RocksdbOptions, path: String) -> Result<Rocksdb, String> {
+  pub fn open(opts: RocksdbOptions, path: &str) -> Result<Rocksdb, String> {
     unsafe {
       let cpath = path.to_c_str();
       let cpath_ptr = cpath.as_ptr();
@@ -280,7 +280,7 @@ impl <'a,T,E> RocksdbResult<'a,T,E> {
 #[allow(dead_code)]
 #[test]
 fn external() {
-  let db = open("externaltest".to_string(), true).unwrap();
+  let db = Rocksdb::open_default("externaltest").unwrap();
   let p = db.put(b"k1", b"v1111");
   assert!(p.is_ok());
   let r: RocksdbResult<RocksdbVector, String> = db.get(b"k1");

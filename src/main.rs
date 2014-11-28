@@ -5,7 +5,7 @@ use test::Bencher;
 
 #[allow(dead_code)]
 fn main() {
-  match Rocksdb::open_default("/tmp/rust-rocksdb".to_string()) {
+  match Rocksdb::open_default("/tmp/rust-rocksdb") {
     Ok(db) => {
       assert!(db.put(b"my key", b"my value").is_ok());
 
@@ -31,7 +31,7 @@ fn main() {
 #[allow(dead_code)]
 #[bench]
 fn writes(b: &mut Bencher) {
-  let db = open("testdb".to_string(), true).unwrap();
+  let db = Rocksdb::open_default("testdb").unwrap();
   let mut i = 0 as u64;
   b.iter(|| {
     db.put(i.to_string().as_bytes(), b"v1111");
@@ -43,7 +43,7 @@ fn writes(b: &mut Bencher) {
 #[allow(dead_code)]
 #[bench]
 fn reads(b: &mut Bencher) {
-  let db = open("testdb".to_string(), true).unwrap();
+  let db = Rocksdb::open_default("testdb").unwrap();
   let mut i = 0 as u64;
   b.iter(|| {
     db.get(i.to_string().as_bytes()).on_error(

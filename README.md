@@ -14,7 +14,7 @@ extern crate rocksdb;
 use rocksdb::Rocksdb;
 
 fn main() {
-  match Rocksdb::open_default("/path/for/rocksdb/storage".to_string()) {
+  match Rocksdb::open_default("/path/for/rocksdb/storage") {
     Ok(db) => {
       db.put(b"my key", b"my value");
 
