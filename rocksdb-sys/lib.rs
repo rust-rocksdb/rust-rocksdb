@@ -106,13 +106,13 @@ extern {
   pub fn rocksdb_get(db: RocksdbInstance, readopts: RocksdbReadOptions,
     k: *const u8, kLen: size_t,
     valLen: *const size_t, err: *mut i8) -> *mut c_void;
+  pub fn rocksdb_delete(db: RocksdbInstance, writeopts: RocksdbWriteOptions,
+    k: *const u8, kLen: size_t, err: *mut i8) -> *mut c_void;
   pub fn rocksdb_close(db: RocksdbInstance);
   pub fn rocksdb_destroy_db(
     options: RocksdbOptions, path: *const i8, err: *mut i8);
   pub fn rocksdb_repair_db(
     options: RocksdbOptions, path: *const i8, err: *mut i8);
-
-
 }
 
 #[allow(dead_code)]

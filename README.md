@@ -34,7 +34,7 @@ fn main() {
 ```
 
 ### status
-  - [x] basic open/put/get/close
+  - [x] basic open/put/get/delete/close
   - [x] linux support
   - [x] rocksdb compiled via cargo
   - [x] OSX support

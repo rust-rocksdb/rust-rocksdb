@@ -7,19 +7,23 @@ use test::Bencher;
 fn main() {
   match rocksdb::create_or_open("/tmp/rust-rocksdb".to_string()) {
     Ok(db) => {
-      db.put(b"my key", b"my value");
+      for i in range(0u, 20) {
+        spawn(proc() {
+          db.put(b"my key", b"my value");
 
-      db.get(b"my key").map( |value| {
-        match value.to_utf8() {
-          Some(v) =>
-            println!("retrieved utf8 value {}", v),
-          None =>
-            println!("did not read valid utf-8 out of the db"),
-        }});
+          db.get(b"my key").map( |value| {
+            match value.to_utf8() {
+              Some(v) =>
+                println!("retrieved utf8 value {}", v),
+              None =>
+                println!("did not read valid utf-8 out of the db"),
+            }});
 
-      db.get(b"NOT my key").on_absent(|| { println!("value not found") });
+          db.get(b"NOT my key").on_absent(|| { println!("value not found") });
 
-      db.close();
+          db.close();
+        });
+      }
     },
     Err(e) => panic!(e),
   }

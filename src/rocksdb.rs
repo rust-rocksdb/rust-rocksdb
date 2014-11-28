@@ -74,6 +74,31 @@ impl Rocksdb {
     }
   }
 
+  pub fn delete(&self, key: &[u8]) -> Result<(),String> {
+    unsafe {
+      let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
+      let err = 0 as *mut i8;
+      rocksdb_ffi::rocksdb_delete(self.inner, writeopts, key.as_ptr(),
+            key.len() as size_t, err);
+      if err.is_not_null() {
+        let cs = CString::new(err as *const i8, true);
+        match cs.as_str() {
+          Some(error_string) =>
+            return Err(error_string.to_string()),
+          None => {
+            let ie = IoError::last_error();
+            return Err(format!(
+                "ERROR: desc:{}, details:{}",
+                ie.desc,
+                ie.detail.unwrap_or_else(
+                  || {"none provided by OS".to_string()})))
+          }
+        }
+      }
+      return Ok(())
+    }
+  }
+
   pub fn close(&self) {
     unsafe { rocksdb_ffi::rocksdb_close(self.inner); }
   }
@@ -227,7 +252,8 @@ fn external() {
   let p = db.put(b"k1", b"v1111");
   assert!(p.is_ok());
   let r: RocksdbResult<RocksdbVector, String> = db.get(b"k1");
-  //assert!(r.is_some());
-  r.map(|v| { assert!(v.as_slice().len() == 5); } );
+  assert!(r.unwrap().to_utf8().unwrap() == "v1111");
+  assert!(db.delete(b"k1").is_ok());
+  assert!(db.get(b"k1").is_none());
   db.close();
 }
