@@ -7,6 +7,7 @@ rust-rocksdb
 [dependencies.rocksdb]
 git = "https://github.com/spacejam/rust-rocksdb"
 ```
+RocksDB 3.8.1 will be pulled in and compiled automatically.
 - Code
 ```rust
 extern crate rocksdb;
