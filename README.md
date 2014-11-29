@@ -5,8 +5,8 @@ rust-rocksdb
 Install RocksDB.  rust-rocksdb has been tested with version 3.8.1 on linux and windows.
 ###### Cargo.toml
 ```rust
-[dependencies.rocksdb]
-git = "https://github.com/spacejam/rust-rocksdb"
+[dependencies]
+rocksdb = "~0.0.1"
 ```
 ###### Code
 ```rust
