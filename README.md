@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 
 ### running
-Install RocksDB.  rust-rocksdb has been tested with version 3.8.1 on linux and windows.
+Install RocksDB.  rust-rocksdb has been tested with version 3.8.1 on linux and OSX.
 ###### Cargo.toml
 ```rust
 [dependencies]
