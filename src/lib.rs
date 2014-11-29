@@ -4,8 +4,8 @@
 
 pub use ffi as rocksdb_ffi;
 pub use rocksdb::{
-  RocksDB,
-  RocksDBResult,
+    RocksDB,
+    RocksDBResult,
 };
 pub mod rocksdb;
 pub mod ffi;
