@@ -3,7 +3,3 @@
 name = "rocksdb"
 version = "0.0.1"
 authors = ["Tyler Neely <t@jujit.su>"]
-
-[dependencies.rocksdb-sys]
-path = "rocksdb-sys"
-version = "*"

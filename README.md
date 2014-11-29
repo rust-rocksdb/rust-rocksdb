@@ -2,12 +2,12 @@ rust-rocksdb
 ============
 
 ### running
+Install RocksDB.  rust-rocksdb has been tested with version 3.8.1 on linux and windows.
 ###### Cargo.toml
 ```rust
 [dependencies.rocksdb]
 git = "https://github.com/spacejam/rust-rocksdb"
 ```
-RocksDB 3.8.1 will be pulled in and compiled automatically.
 ###### Code
 ```rust
 extern crate rocksdb;
