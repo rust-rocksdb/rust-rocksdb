@@ -144,7 +144,7 @@ extern {
 }
 
 #[allow(dead_code)]
-#[test]
+#[zest]
 fn internal() {
     unsafe {
         let opts = rocksdb_options_create();

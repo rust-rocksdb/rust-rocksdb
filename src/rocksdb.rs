@@ -5,6 +5,7 @@ use std::c_vec::CVec;
 use std::c_str::CString;
 use std::str::from_utf8;
 use std::string::raw::from_buf_len;
+use std::ptr;
 
 use rocksdb_ffi;
 
@@ -164,8 +165,10 @@ impl RocksDB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let err = 0 as *mut i8;
+            println!("above ffi get");
             let val = rocksdb_ffi::rocksdb_get(self.inner, readopts,
                 key.as_ptr(), key.len() as size_t, val_len_ptr, err) as *mut u8;
+            println!("below ffi get");
             if err.is_not_null() {
                 let cs = CString::new(err as *const i8, true);
                 match cs.as_str() {
@@ -314,7 +317,7 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
 }
 
 #[allow(dead_code)]
-#[test]
+#[zest]
 fn external() {
     let db = RocksDB::open_default("externaltest").unwrap();
     let p = db.put(b"k1", b"v1111");
@@ -327,10 +330,17 @@ fn external() {
 }
 
 extern "C" fn null_destructor(args: *mut c_void) {
-    println!("in null_destructor now");
+    println!("in null_destructor");
 }
 extern "C" fn mo_name(args: *mut c_void) -> *const c_char {
-    "test_mo".to_c_str().as_ptr()
+    println!("in mo_name");
+    let name = "test_mo".to_c_str();
+    unsafe {
+        let buf = libc::malloc(8 as size_t);
+        ptr::copy_memory(&mut *buf, name.as_ptr() as *const c_void, 8);
+        println!("returning from mo_name");
+        buf as *const c_char
+    }
 }
 extern "C" fn full_merge(
     arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
@@ -339,14 +349,25 @@ extern "C" fn full_merge(
     num_operands: c_int,
     success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
     unsafe {
-        println!("in the FULL merge operator right now!");
+        println!("in the FULL merge operator");
         //println!("first opt len: {}", operands_list_len[0]);
         let oldkey = from_buf_len(key as *const u8, key_len as uint);
         let oldval = from_buf_len(existing_value as *const u8, existing_value_len as uint);
-        *new_value_length = 1;
-        *success = 1 as u8;
+        let buf = libc::malloc(1 as size_t);
+        match buf.is_null() {
+            false => {
+                *new_value_length = 1;
+                *success = 1 as u8;
+                let newval = "2";
+                ptr::copy_memory(&mut *buf, newval.as_ptr() as *const c_void, 1);
+                println!("returning from full_merge");
+                buf as *const c_char
+            },
+            true => {
+                return 0 as *const c_char;
+            }
+        }
     }
-    "2".to_c_str().as_ptr()
 }
 extern "C" fn partial_merge(
     arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
@@ -354,7 +375,7 @@ extern "C" fn partial_merge(
     num_operands: c_int,
     success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
     unsafe {
-        println!("in the PARTIAL merge operator right now!");
+        println!("in the PARTIAL merge operator");
         *new_value_length = 2;
         *success = 1 as u8;
     }
@@ -363,7 +384,7 @@ extern "C" fn partial_merge(
 
 
 #[allow(dead_code)]
-#[zest]
+#[test]
 fn mergetest() {
     unsafe {
         let opts = RocksDBOptions::new();
@@ -377,11 +398,23 @@ fn mergetest() {
         opts.create_if_missing(true);
         opts.set_merge_operator(mo);
         let db = RocksDB::open(opts, "externaltest").unwrap();
+        println!("after open");
         let p = db.put(b"k1", b"1");
-        //assert!(p.is_ok());
+        assert!(p.is_ok());
+        println!("before merge");
         let m = db.merge(b"k1", b"1");
+        println!("m is {}", m);
         println!("after merge");
-        println!("k1's value is: {}", db.get(b"k1").unwrap().to_utf8().unwrap());
+        db.get(b"k1").map( |value| {
+            match value.to_utf8() {
+                Some(v) =>
+                    println!("retrieved utf8 value: {}", v),
+                None =>
+                    println!("did not read valid utf-8 out of the db"),
+            }
+        }).on_absent( || { println!("value not present!") })
+          .on_error( |e| { println!("error reading value: {}", e) });
+
         /*
         assert!(m.is_ok());
         let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
