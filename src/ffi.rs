@@ -113,25 +113,28 @@ extern {
     pub fn rocksdb_repair_db(
         options: RocksDBOptions, path: *const i8, err: *mut i8);
 
-    // Merge Operator
+    // Merge
+    pub fn rocksdb_merge(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
+        k: *const u8, kLen: size_t,
+        v: *const u8, vLen: size_t, err: *mut i8);
     pub fn rocksdb_mergeoperator_create(
         state: *mut c_void,
         destroy: extern fn(*mut c_void) -> (),
         full_merge: extern fn (
             arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
             existing_value: *const c_char, existing_value_len: *mut size_t,
-            operands_list: &[*const c_char], operands_list_len: *const size_t,
+            operands_list: &[*const c_char], operands_list_len: &[size_t],
             num_operands: c_int,
             success: *mut u8, new_value_length: *mut size_t
         ) -> *const c_char,
         partial_merge: extern fn(
-            *mut c_void, key: *const c_char, key_len: *mut size_t,
-            operands_list: &[*const c_char], operands_list_len: *const size_t,
+            arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
+            operands_list: &[*const c_char], operands_list_len: &[size_t],
             num_operands: c_int,
             success: *mut u8, new_value_length: *mut size_t
         ) -> *const c_char,
-        delete_value: extern fn(*mut c_void, value: *const c_char,
-            value_len: *mut size_t) -> (),
+        delete_value: Option<extern "C" fn(*mut c_void, value: *const c_char,
+            value_len: *mut size_t) -> ()>,
         name_fn: extern fn(*mut c_void) -> *const c_char,
     ) -> RocksDBMergeOperator;
     pub fn rocksdb_mergeoperator_destroy(mo: RocksDBMergeOperator);
@@ -159,7 +162,6 @@ fn internal() {
         let err = 0 as *mut i8;
         let db = rocksdb_open(opts, cpath_ptr, err);
         assert!(err.is_null());
-        libc::free(err as *mut c_void);
 
         let writeopts = rocksdb_writeoptions_create();
         let RocksDBWriteOptions(write_opt_ptr) = writeopts;
@@ -170,18 +172,15 @@ fn internal() {
 
         rocksdb_put(db, writeopts, key.as_ptr(), 4, val.as_ptr(), 8, err);
         assert!(err.is_null());
-        libc::free(err as *mut c_void);
 
         let readopts = rocksdb_readoptions_create();
         let RocksDBReadOptions(read_opts_ptr) = readopts;
         assert!(read_opts_ptr.is_not_null());
-        libc::free(err as *mut c_void);
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
         rocksdb_get(db, readopts, key.as_ptr(), 4, val_len_ptr, err);
         assert!(err.is_null());
-        libc::free(err as *mut c_void);
         rocksdb_close(db);
     }
 }

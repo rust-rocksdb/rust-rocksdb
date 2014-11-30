@@ -1,9 +1,10 @@
 extern crate libc;
-use self::libc::{c_void, size_t};
+use self::libc::{c_char, c_int, c_void, size_t};
 use std::io::{IoError};
 use std::c_vec::CVec;
 use std::c_str::CString;
 use std::str::from_utf8;
+use std::string::raw::from_buf_len;
 
 use rocksdb_ffi;
 
@@ -120,6 +121,33 @@ impl RocksDB {
             return Ok(())
         }
     }
+
+    pub fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        unsafe {
+            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
+            let err = 0 as *mut i8;
+            rocksdb_ffi::rocksdb_merge(self.inner, writeopts, key.as_ptr(),
+                        key.len() as size_t, value.as_ptr(),
+                        value.len() as size_t, err);
+            if err.is_not_null() {
+                let cs = CString::new(err as *const i8, true);
+                match cs.as_str() {
+                    Some(error_string) =>
+                        return Err(error_string.to_string()),
+                    None => {
+                        let ie = IoError::last_error();
+                        return Err(format!(
+                                "ERROR: desc:{}, details:{}",
+                                ie.desc,
+                                ie.detail.unwrap_or_else(
+                                    || {"none provided by OS".to_string()})))
+                    }
+                }
+            }
+            return Ok(())
+        }
+    }
+
 
     pub fn get<'a>(&self, key: &[u8]) ->
         RocksDBResult<'a, RocksDBVector, String> {
@@ -296,4 +324,71 @@ fn external() {
     assert!(db.delete(b"k1").is_ok());
     assert!(db.get(b"k1").is_none());
     db.close();
+}
+
+extern "C" fn null_destructor(args: *mut c_void) {
+    println!("in null_destructor now");
+}
+extern "C" fn mo_name(args: *mut c_void) -> *const c_char {
+    "test_mo".to_c_str().as_ptr()
+}
+extern "C" fn full_merge(
+    arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
+    existing_value: *const c_char, existing_value_len: *mut size_t,
+    operands_list: &[*const c_char], operands_list_len: &[size_t],
+    num_operands: c_int,
+    success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
+    unsafe {
+        println!("in the FULL merge operator right now!");
+        //println!("first opt len: {}", operands_list_len[0]);
+        let oldkey = from_buf_len(key as *const u8, key_len as uint);
+        let oldval = from_buf_len(existing_value as *const u8, existing_value_len as uint);
+        *new_value_length = 1;
+        *success = 1 as u8;
+    }
+    "2".to_c_str().as_ptr()
+}
+extern "C" fn partial_merge(
+    arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
+    operands_list: &[*const c_char], operands_list_len: &[size_t],
+    num_operands: c_int,
+    success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
+    unsafe {
+        println!("in the PARTIAL merge operator right now!");
+        *new_value_length = 2;
+        *success = 1 as u8;
+    }
+    "3".to_c_str().as_ptr()
+}
+
+
+#[allow(dead_code)]
+#[zest]
+fn mergetest() {
+    unsafe {
+        let opts = RocksDBOptions::new();
+        let mo = rocksdb_ffi::rocksdb_mergeoperator_create(
+            0 as *mut c_void,
+            null_destructor,
+            full_merge,
+            partial_merge,
+            None,
+            mo_name);
+        opts.create_if_missing(true);
+        opts.set_merge_operator(mo);
+        let db = RocksDB::open(opts, "externaltest").unwrap();
+        let p = db.put(b"k1", b"1");
+        //assert!(p.is_ok());
+        let m = db.merge(b"k1", b"1");
+        println!("after merge");
+        println!("k1's value is: {}", db.get(b"k1").unwrap().to_utf8().unwrap());
+        /*
+        assert!(m.is_ok());
+        let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
+        assert!(r.unwrap().to_utf8().unwrap() == "2");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").is_none());
+        */
+        db.close();
+    }
 }
