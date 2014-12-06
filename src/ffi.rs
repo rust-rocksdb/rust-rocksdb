@@ -112,7 +112,6 @@ extern {
         options: RocksDBOptions, path: *const i8, err: *mut i8);
     pub fn rocksdb_repair_db(
         options: RocksDBOptions, path: *const i8, err: *mut i8);
-
     // Merge
     pub fn rocksdb_merge(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
         k: *const u8, kLen: size_t,
@@ -155,7 +154,7 @@ fn internal() {
         rocksdb_options_optimize_level_style_compaction(opts, 0);
         rocksdb_options_set_create_if_missing(opts, 1);
 
-        let rustpath = "internaltest";
+        let rustpath = "_rust_rocksdb_internaltest";
         let cpath = rustpath.to_c_str();
         let cpath_ptr = cpath.as_ptr();
 
@@ -182,5 +181,7 @@ fn internal() {
         rocksdb_get(db, readopts, key.as_ptr(), 4, val_len_ptr, err);
         assert!(err.is_null());
         rocksdb_close(db);
+        rocksdb_destroy_db(opts, cpath_ptr, err);
+        assert!(err.is_null());
     }
 }

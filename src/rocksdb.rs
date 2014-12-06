@@ -99,6 +99,29 @@ impl RocksDB {
             Ok(RocksDB{inner: db})
         }
     }
+    
+    pub fn destroy(opts: RocksDBOptions, path: &str) -> Result<(), String> {
+        unsafe {
+            let cpath = path.to_c_str();
+            let cpath_ptr = cpath.as_ptr();
+
+            //TODO test path here, as if rocksdb fails it will just crash the
+            //     process currently
+
+            let err = 0 as *mut i8;
+            let result = rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath_ptr, err);
+            if err.is_not_null() {
+                let cs = CString::new(err as *const i8, true);
+                match cs.as_str() {
+                    Some(error_string) =>
+                        return Err(error_string.to_string()),
+                    None =>
+                        return Err("Could not initialize database.".to_string()),
+                }
+            }
+            Ok(())
+        }
+    }
 
     pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
@@ -320,7 +343,8 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
 #[allow(dead_code)]
 #[test]
 fn external() {
-    let db = RocksDB::open_default("externaltest").unwrap();
+    let path = "_rust_rocksdb_externaltest";
+    let db = RocksDB::open_default(path).unwrap();
     let p = db.put(b"k1", b"v1111");
     assert!(p.is_ok());
     let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
@@ -328,6 +352,8 @@ fn external() {
     assert!(db.delete(b"k1").is_ok());
     assert!(db.get(b"k1").is_none());
     db.close();
+    let opts = RocksDBOptions::new();
+    assert!(RocksDB::destroy(opts, path).is_ok());
 }
 
 extern "C" fn null_destructor(args: *mut c_void) {
@@ -452,8 +478,9 @@ extern "C" fn partial_merge(
 
 
 #[allow(dead_code)]
-#[zest]
+#[test]
 fn mergetest() {
+    let path = "_rust_rocksdb_mergetest";
     unsafe {
         let opts = RocksDBOptions::new();
         let mo = rocksdb_ffi::rocksdb_mergeoperator_create(
@@ -465,7 +492,8 @@ fn mergetest() {
             mo_name);
         opts.create_if_missing(true);
         opts.set_merge_operator(mo);
-        let db = RocksDB::open(opts, "externaltest").unwrap();
+        let db = RocksDB::open(opts, path).unwrap();
+        println!("here!");
         let p = db.put(b"k1", b"1");
         assert!(p.is_ok());
         db.merge(b"k1", b"10");
@@ -491,5 +519,6 @@ fn mergetest() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").is_none());
         db.close();
+        assert!(RocksDB::destroy(opts, path).is_ok());
     }
 }
