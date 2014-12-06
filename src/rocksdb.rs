@@ -6,6 +6,9 @@ use std::c_str::CString;
 use std::str::from_utf8;
 use std::string::raw::from_buf_len;
 use std::ptr;
+use std::mem;
+use std::num;
+use std::slice;
 
 use rocksdb_ffi;
 
@@ -165,10 +168,8 @@ impl RocksDB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let err = 0 as *mut i8;
-            println!("above ffi get");
             let val = rocksdb_ffi::rocksdb_get(self.inner, readopts,
                 key.as_ptr(), key.len() as size_t, val_len_ptr, err) as *mut u8;
-            println!("below ffi get");
             if err.is_not_null() {
                 let cs = CString::new(err as *const i8, true);
                 match cs.as_str() {
@@ -317,7 +318,7 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
 }
 
 #[allow(dead_code)]
-#[zest]
+#[test]
 fn external() {
     let db = RocksDB::open_default("externaltest").unwrap();
     let p = db.put(b"k1", b"v1111");
@@ -342,21 +343,71 @@ extern "C" fn mo_name(args: *mut c_void) -> *const c_char {
         buf as *const c_char
     }
 }
+
+struct MergeOperands {
+    operands_list: *const *const c_char,
+    operands_list_len: *const size_t,
+    num_operands: uint,
+    cursor: uint,
+}
+
+impl MergeOperands {
+    fn new(operands_list: *const *const c_char, operands_list_len: *const size_t,
+        num_operands: c_int) -> MergeOperands {
+        assert!(num_operands >= 0);
+        MergeOperands {
+            operands_list: operands_list,
+            operands_list_len: operands_list_len,
+            num_operands: num_operands as uint,
+            cursor: 0,
+        }
+    }
+}
+
+impl <'a> Iterator<&'a [u8]> for MergeOperands {
+    fn next(&mut self) -> Option<&'a [u8]> {
+        match self.cursor == self.num_operands {
+            true => None,
+            false => {
+                unsafe {
+                    let base = self.operands_list as uint;
+                    let base_len = self.operands_list_len as uint;
+                    let spacing = mem::size_of::<*const *const u8>();
+                    let spacing_len = mem::size_of::<*const size_t>();
+                    let len_ptr = (base_len + (spacing_len * self.cursor)) as *const size_t;
+                    let len = *len_ptr;
+                    println!("len: {}", len);
+                    let ptr = base + (spacing * self.cursor);
+                    let op = slice::from_raw_buf(*(ptr as *const &*const u8), len as uint);
+                    self.cursor += 1;
+                    println!("returning: {}", from_utf8(op));
+                    Some(op)
+                }
+            }
+        }
+    }
+}
+
 extern "C" fn full_merge(
-    arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
-    existing_value: *const c_char, existing_value_len: *mut size_t,
-    operands_list: &[*const c_char], operands_list_len: &[size_t],
+    arg: *mut c_void, key: *const c_char, key_len: size_t,
+    existing_value: *const c_char, existing_value_len: size_t,
+    operands_list: *const *const c_char, operands_list_len: *const size_t,
     num_operands: c_int,
     success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
     unsafe {
         println!("in the FULL merge operator");
-        //println!("first opt len: {}", operands_list_len[0]);
+        /*
+        for mo in MergeOperands::new(operands_list, operands_list_len, num_operands) {
+            println!("buf: {}", mo);
+        }
+        */
         let oldkey = from_buf_len(key as *const u8, key_len as uint);
         let oldval = from_buf_len(existing_value as *const u8, existing_value_len as uint);
+        println!("old key: {}", oldval);
         let buf = libc::malloc(1 as size_t);
         match buf.is_null() {
             false => {
-                *new_value_length = 1;
+                *new_value_length = 1 as size_t;
                 *success = 1 as u8;
                 let newval = "2";
                 ptr::copy_memory(&mut *buf, newval.as_ptr() as *const c_void, 1);
@@ -364,27 +415,44 @@ extern "C" fn full_merge(
                 buf as *const c_char
             },
             true => {
-                return 0 as *const c_char;
+                println!("returning from full_merge");
+                0 as *const c_char
             }
         }
     }
 }
 extern "C" fn partial_merge(
-    arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
-    operands_list: &[*const c_char], operands_list_len: &[size_t],
+    arg: *mut c_void, key: *const c_char, key_len: size_t,
+    operands_list: *const c_void, operands_list_len: *const c_void,
     num_operands: c_int,
     success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
     unsafe {
         println!("in the PARTIAL merge operator");
         *new_value_length = 2;
         *success = 1 as u8;
+        let buf = libc::malloc(1 as size_t);
+        match buf.is_null() {
+            false => {
+                println!("number of operands: {}", num_operands);
+                println!("first operand: {}", from_buf_len(operands_list as *const u8, 1));
+                *new_value_length = 1 as size_t;
+                *success = 1 as u8;
+                let newval = "2";
+                ptr::copy_memory(&mut *buf, newval.as_ptr() as *const c_void, 1);
+                println!("returning from partial_merge");
+                buf as *const c_char
+            },
+            true => {
+                println!("returning from partial_merge");
+                0 as *const c_char
+            }
+        }
     }
-    "3".to_c_str().as_ptr()
 }
 
 
 #[allow(dead_code)]
-#[test]
+#[zest]
 fn mergetest() {
     unsafe {
         let opts = RocksDBOptions::new();
@@ -398,12 +466,14 @@ fn mergetest() {
         opts.create_if_missing(true);
         opts.set_merge_operator(mo);
         let db = RocksDB::open(opts, "externaltest").unwrap();
-        println!("after open");
         let p = db.put(b"k1", b"1");
         assert!(p.is_ok());
-        println!("before merge");
-        let m = db.merge(b"k1", b"1");
-        println!("m is {}", m);
+        db.merge(b"k1", b"10");
+        db.merge(b"k1", b"2");
+        db.merge(b"k1", b"3");
+        db.merge(b"k1", b"4");
+        let m = db.merge(b"k1", b"5");
+        assert!(m.is_ok());
         println!("after merge");
         db.get(b"k1").map( |value| {
             match value.to_utf8() {
@@ -413,15 +483,13 @@ fn mergetest() {
                     println!("did not read valid utf-8 out of the db"),
             }
         }).on_absent( || { println!("value not present!") })
-          .on_error( |e| { println!("error reading value: {}", e) });
+          .on_error( |e| { println!("error reading value")}); //: {}", e) });
 
-        /*
         assert!(m.is_ok());
         let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
         assert!(r.unwrap().to_utf8().unwrap() == "2");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").is_none());
-        */
         db.close();
     }
 }

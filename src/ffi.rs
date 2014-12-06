@@ -121,15 +121,15 @@ extern {
         state: *mut c_void,
         destroy: extern fn(*mut c_void) -> (),
         full_merge: extern fn (
-            arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
-            existing_value: *const c_char, existing_value_len: *mut size_t,
-            operands_list: &[*const c_char], operands_list_len: &[size_t],
+            arg: *mut c_void, key: *const c_char, key_len: size_t,
+            existing_value: *const c_char, existing_value_len: size_t,
+            operands_list: *const *const c_char, operands_list_len: *const size_t,
             num_operands: c_int,
             success: *mut u8, new_value_length: *mut size_t
         ) -> *const c_char,
         partial_merge: extern fn(
-            arg: *mut c_void, key: *const c_char, key_len: *mut size_t,
-            operands_list: &[*const c_char], operands_list_len: &[size_t],
+            arg: *mut c_void, key: *const c_char, key_len: size_t,
+            operands_list: *const c_void, operands_list_len: *const c_void,
             num_operands: c_int,
             success: *mut u8, new_value_length: *mut size_t
         ) -> *const c_char,
@@ -144,7 +144,7 @@ extern {
 }
 
 #[allow(dead_code)]
-#[zest]
+#[test]
 fn internal() {
     unsafe {
         let opts = rocksdb_options_create();
