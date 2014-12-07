@@ -7,7 +7,6 @@ use std::str::from_utf8;
 use std::string::raw::from_buf_len;
 use std::ptr;
 use std::mem;
-use std::num;
 use std::slice;
 
 use rocksdb_ffi;
@@ -359,27 +358,27 @@ fn external() {
 extern "C" fn null_destructor(args: *mut c_void) {
     println!("in null_destructor");
 }
-extern "C" fn mo_name(args: *mut c_void) -> *const c_char {
-    println!("in mo_name");
+extern "C" fn mergeoperator_name(args: *mut c_void) -> *const c_char {
+    println!("in mergeoperator_name");
     let name = "test_mo".to_c_str();
     unsafe {
         let buf = libc::malloc(8 as size_t);
         ptr::copy_memory(&mut *buf, name.as_ptr() as *const c_void, 8);
-        println!("returning from mo_name");
+        println!("returning from mergeoperator_name");
         buf as *const c_char
     }
 }
 
-struct MergeOperands {
+struct MergeOperands<'a> {
     operands_list: *const *const c_char,
     operands_list_len: *const size_t,
     num_operands: uint,
     cursor: uint,
 }
 
-impl MergeOperands {
-    fn new(operands_list: *const *const c_char, operands_list_len: *const size_t,
-        num_operands: c_int) -> MergeOperands {
+impl <'a> MergeOperands<'a> {
+    fn new<'a>(operands_list: *const *const c_char, operands_list_len: *const size_t,
+        num_operands: c_int) -> MergeOperands<'a> {
         assert!(num_operands >= 0);
         MergeOperands {
             operands_list: operands_list,
@@ -390,8 +389,9 @@ impl MergeOperands {
     }
 }
 
-impl <'a> Iterator<&'a [u8]> for MergeOperands {
+impl <'a> Iterator<&'a [u8]> for MergeOperands<'a> {
     fn next(&mut self) -> Option<&'a [u8]> {
+        use std::raw::Slice;
         match self.cursor == self.num_operands {
             true => None,
             false => {
@@ -401,16 +401,20 @@ impl <'a> Iterator<&'a [u8]> for MergeOperands {
                     let spacing = mem::size_of::<*const *const u8>();
                     let spacing_len = mem::size_of::<*const size_t>();
                     let len_ptr = (base_len + (spacing_len * self.cursor)) as *const size_t;
-                    let len = *len_ptr;
-                    println!("len: {}", len);
+                    let len = *len_ptr as uint;
                     let ptr = base + (spacing * self.cursor);
-                    let op = slice::from_raw_buf(*(ptr as *const &*const u8), len as uint);
+                    let op = from_buf_len(*(ptr as *const *const u8), len);
+                    let des: Option<uint> = from_str(op.as_slice());
                     self.cursor += 1;
-                    println!("returning: {}", from_utf8(op));
-                    Some(op)
+                    Some(mem::transmute(Slice{data:*(ptr as *const *const u8) as *const u8, len: len}))
                 }
             }
         }
+    }
+
+    fn size_hint(&self) -> (uint, Option<uint>) {
+        let remaining = self.num_operands - self.cursor;
+        (remaining, Some(remaining))
     }
 }
 
@@ -422,14 +426,14 @@ extern "C" fn full_merge(
     success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
     unsafe {
         println!("in the FULL merge operator");
-        /*
-        for mo in MergeOperands::new(operands_list, operands_list_len, num_operands) {
-            println!("buf: {}", mo);
-        }
-        */
-        let oldkey = from_buf_len(key as *const u8, key_len as uint);
+        let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
+        let key = from_buf_len(key as *const u8, key_len as uint);
         let oldval = from_buf_len(existing_value as *const u8, existing_value_len as uint);
-        println!("old key: {}", oldval);
+
+        println!("returning from FULL merge");
+        //TODO rust will "free" this when it goes out of scope, copy this to a non-gc'd buffer to return
+        merge(key, Some(oldval), operands);
+
         let buf = libc::malloc(1 as size_t);
         match buf.is_null() {
             false => {
@@ -476,6 +480,13 @@ extern "C" fn partial_merge(
     }
 }
 
+fn merge<'a>(new_key: String, existing_val: Option<String>, operands: &mut MergeOperands) -> &'a [u8] {
+    for op in *operands {
+        println!("op: {}", from_utf8(op));
+    }
+
+    "yoyo".as_bytes()
+}
 
 #[allow(dead_code)]
 #[test]
@@ -489,11 +500,10 @@ fn mergetest() {
             full_merge,
             partial_merge,
             None,
-            mo_name);
+            mergeoperator_name);
         opts.create_if_missing(true);
         opts.set_merge_operator(mo);
         let db = RocksDB::open(opts, path).unwrap();
-        println!("here!");
         let p = db.put(b"k1", b"1");
         assert!(p.is_ok());
         db.merge(b"k1", b"10");
@@ -502,7 +512,6 @@ fn mergetest() {
         db.merge(b"k1", b"4");
         let m = db.merge(b"k1", b"5");
         assert!(m.is_ok());
-        println!("after merge");
         db.get(b"k1").map( |value| {
             match value.to_utf8() {
                 Some(v) =>
