@@ -128,7 +128,7 @@ extern {
         ) -> *const c_char,
         partial_merge: extern fn(
             arg: *mut c_void, key: *const c_char, key_len: size_t,
-            operands_list: *const c_void, operands_list_len: *const c_void,
+            operands_list: *const *const c_char, operands_list_len: *const size_t,
             num_operands: c_int,
             success: *mut u8, new_value_length: *mut size_t
         ) -> *const c_char,
