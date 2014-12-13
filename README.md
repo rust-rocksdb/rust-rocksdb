@@ -32,6 +32,42 @@ fn main() {
 }
 ```
 
+###### Rustic Merge Operator
+```rust
+extern crate rocksdb;
+use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
+
+fn concat_merge<'a>(new_key: &[u8], existing_val: Option<&[u8]>,
+    mut operands: &mut MergeOperands) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
+    match existing_val {
+        Some(v) => result.push_all(v),
+        None => (),
+    }
+    for op in operands {
+        result.push_all(op);
+    }
+    result
+}
+
+fn main() {
+    let path = "/path/to/rocksdb";
+    let opts = RocksDBOptions::new();
+    opts.create_if_missing(true);
+    opts.add_merge_operator("test operator", concat_merge);
+    let db = RocksDB::open(opts, path).unwrap();
+    let p = db.put(b"k1", b"a");
+    db.merge(b"k1", b"b");
+    db.merge(b"k1", b"c");
+    db.merge(b"k1", b"d");
+    db.merge(b"k1", b"efg");
+    let r = db.get(b"k1");
+    assert!(r.unwrap().to_utf8().unwrap() == "abcdefg");
+    db.close();
+}
+```
+
+
 ### status
   - [x] basic open/put/get/delete/close
   - [x] linux support

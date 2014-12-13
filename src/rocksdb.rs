@@ -54,7 +54,7 @@ impl RocksDBOptions {
         }
     }
 
-    pub fn add_merge_operator<'a>(&self, name: &str, merge_fn: for <'a> fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
+    pub fn add_merge_operator<'a>(&self, name: &str, merge_fn: fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
         let cb = box MergeOperatorCallback {
             name: name.to_c_str(),
             merge_fn: merge_fn,
@@ -418,7 +418,7 @@ impl <'a> Iterator<&'a [u8]> for &'a mut MergeOperands<'a> {
 
 struct MergeOperatorCallback {
     name: CString,
-    merge_fn: for <'b> fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
+    merge_fn: fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
 }
 
 extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -479,7 +479,7 @@ extern "C" fn partial_merge_callback(
     }
 }
 
-fn test_provided_merge<'a>(new_key: &[u8], existing_val: Option<&[u8]>,
+fn test_provided_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
     match existing_val {

@@ -1,31 +1,61 @@
 extern crate rocksdb;
 extern crate test;
-use rocksdb::RocksDB;
+use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
 use test::Bencher;
 
 #[allow(dead_code)]
 fn main() {
-    match RocksDB::open_default("/tmp/rust-rocksdb") {
-        Ok(db) => {
-            assert!(db.put(b"my key", b"my value").is_ok());
+    let path = "/tmp/rust-rocksdb";
+    let db = RocksDB::open_default(path).unwrap();
+    assert!(db.put(b"my key", b"my value").is_ok());
+    db.get(b"my key").map( |value| {
+        match value.to_utf8() {
+            Some(v) =>
+                println!("retrieved utf8 value: {}", v),
+            None =>
+                println!("did not read valid utf-8 out of the db"),
+        }
+    })
+        .on_absent( || { println!("value not found") })
+        .on_error( |e| { println!("error retrieving value: {}", e) });
 
-            db.get(b"my key").map( |value| {
-                match value.to_utf8() {
-                    Some(v) =>
-                        println!("retrieved utf8 value: {}", v),
-                    None =>
-                        println!("did not read valid utf-8 out of the db"),
-                }
-            })
-                .on_absent( || { println!("value not found") })
-                .on_error( |e| { println!("error retrieving value: {}", e) });
+    assert!(db.delete(b"my key").is_ok());
+    db.close();
 
-            assert!(db.delete(b"my key").is_ok());
+    custom_merge();
+}
 
-            db.close();
-        },
-        Err(e) => panic!(e),
+#[allow(dead_code)]
+fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
+    mut operands: &mut MergeOperands) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
+    match existing_val {
+        Some(v) => result.push_all(v),
+        None => (),
     }
+    for op in operands {
+        result.push_all(op);
+    }
+    result
+}
+
+#[allow(dead_code)]
+fn custom_merge() {
+    let path = "_rust_rocksdb_mergetest";
+    let opts = RocksDBOptions::new();
+    opts.create_if_missing(true);
+    opts.add_merge_operator("test operator", concat_merge);
+    let db = RocksDB::open(opts, path).unwrap();
+    let p = db.put(b"k1", b"a");
+    db.merge(b"k1", b"b");
+    db.merge(b"k1", b"c");
+    db.merge(b"k1", b"d");
+    db.merge(b"k1", b"efg");
+    let m = db.merge(b"k1", b"h");
+    let r = db.get(b"k1");
+    assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
+    db.close();
+    RocksDB::destroy(opts, path).is_ok();
 }
 
 #[allow(dead_code)]
