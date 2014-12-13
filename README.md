@@ -37,7 +37,7 @@ fn main() {
 extern crate rocksdb;
 use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
 
-fn concat_merge<'a>(new_key: &[u8], existing_val: Option<&[u8]>,
+fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
     match existing_val {
