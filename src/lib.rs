@@ -3,6 +3,11 @@
 #![allow(dead_code)]
 
 pub use ffi as rocksdb_ffi;
+pub use ffi::{
+    RocksDBUniversalCompactionStyle,
+    RocksDBCompactionStyle,
+    RocksDBCompressionType,
+};
 pub use rocksdb::{
     RocksDB,
     MergeOperands,

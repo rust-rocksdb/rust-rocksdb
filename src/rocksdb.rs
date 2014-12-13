@@ -71,6 +71,145 @@ impl RocksDBOptions {
             rocksdb_ffi::rocksdb_options_set_merge_operator(self.inner, mo);
         }
     }
+
+    /* block based table options
+    pub fn set_block_size(&self, size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_block_size(self.table_options, size);
+        }
+    }
+
+    pub fn set_cache_size(&self, cache_size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set(self.inner, );
+        }
+    }
+
+    pub fn set_memtable_config(&self,newSkipListMemTableConfig()) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set(self.inner, );
+        }
+    }
+
+    pub fn set_filter(&self, filter: RocksDBFilterPolicy) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner, filter);
+        }
+    }
+
+    */
+
+    pub fn set_max_open_files(&self, nfiles: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_open_files(self.inner, nfiles);
+        }
+    }
+
+    pub fn set_use_fsync(&self, useit: bool) {
+        unsafe {
+            match useit {
+                true => rocksdb_ffi::rocksdb_options_set_use_fsync(
+                    self.inner, 1),
+                false => rocksdb_ffi::rocksdb_options_set_use_fsync(
+                    self.inner, 0),
+            }
+        }
+    }
+
+    pub fn set_bytes_per_sync(&self, nbytes: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_bytes_per_sync(self.inner, nbytes);
+        }
+    }
+
+    pub fn set_disable_data_sync(&self, disable: bool) {
+        unsafe {
+            match disable {
+                true =>
+                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(self.inner, 1),
+                false =>
+                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(self.inner, 0),
+            }
+        }
+    }
+
+    pub fn set_table_cache_num_shard_bits(&self, nbits: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_table_cache_numshardbits(self.inner, nbits);
+        }
+    }
+
+    pub fn set_min_write_buffer_number(&self, nbuf: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_min_write_buffer_number_to_merge(self.inner, nbuf);
+        }
+    }
+
+    pub fn set_max_write_buffer_number(&self, nbuf: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_write_buffer_number_to_merge(self.inner, nbuf);
+        }
+    }
+
+    pub fn set_write_buffer_size(&self, size: size_t) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_write_buffer_size(self.inner, size);
+        }
+    }
+
+    pub fn set_target_file_size_base(&self, size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_target_file_size_base(self.inner, size);
+        }
+    }
+
+    pub fn set_min_write_buffer_number_to_merge(&self, to_merge: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_min_write_buffer_number_to_merge(self.inner, to_merge);
+        }
+    }
+
+    pub fn set_level_zero_slowdown_writes_trigger(&self, n: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_level0_slowdown_writes_trigger(self.inner, n);
+        }
+    }
+
+    pub fn set_level_zero_stop_writes_trigger(&self, n: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_level0_stop_writes_trigger(self.inner, n);
+        }
+    }
+
+    pub fn set_compaction_style(&self, style: rocksdb_ffi::RocksDBCompactionStyle) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_compaction_style(self.inner, style);
+        }
+    }
+
+    pub fn set_max_background_compactions(&self, n: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_background_compactions(self.inner, n);
+        }
+    }
+
+    pub fn set_max_background_flushes(&self, n: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_background_flushes(self.inner, n);
+        }
+    }
+
+    pub fn set_filter_deletes(&self, filter: bool) { // to u8
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_filter_deletes(self.inner, filter);
+        }
+    }
+
+    pub fn set_disable_auto_compactions(&self, disable: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable);
+        }
+    }
 }
 
 pub struct RocksDB {
@@ -110,7 +249,7 @@ impl RocksDB {
             Ok(RocksDB{inner: db})
         }
     }
-    
+
     pub fn destroy(opts: RocksDBOptions, path: &str) -> Result<(), String> {
         unsafe {
             let cpath = path.to_c_str();
@@ -424,7 +563,7 @@ struct MergeOperatorCallback {
 extern "C" fn destructor_callback(raw_cb: *mut c_void) {
     // turn this back into a local variable so rust will reclaim it
     let _: Box<MergeOperatorCallback> = unsafe {mem::transmute(raw_cb)};
-    
+
 }
 
 extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
@@ -448,6 +587,11 @@ extern "C" fn full_merge_callback(
         let oldval = from_buf_len(existing_value as *const u8, existing_value_len as uint);
         let mut result = (cb.merge_fn)(key.as_bytes(), Some(oldval.as_bytes()), operands);
         result.shrink_to_fit();
+        /*
+        let ptr = result.as_ptr();
+        mem::forget(result);
+        ptr as *const c_char
+        */
         //TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
         assert!(buf.is_not_null());
@@ -517,7 +661,7 @@ fn mergetest() {
                     println!("did not read valid utf-8 out of the db"),
             }
         }).on_absent( || { println!("value not present!") })
-          .on_error( |e| { println!("error reading value")}); //: {}", e) });
+          .on_error( |e| { println!("error reading value")}); //: {", e) });
 
         assert!(m.is_ok());
         let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");

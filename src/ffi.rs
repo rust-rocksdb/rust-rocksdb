@@ -62,6 +62,8 @@ extern {
         options: RocksDBOptions, bits: u64);
     pub fn rocksdb_options_set_max_write_buffer_number(
         options: RocksDBOptions, bufno: c_int);
+    pub fn rocksdb_options_set_max_write_buffer_number_to_merge(
+        options: RocksDBOptions, bufno: c_int);
     pub fn rocksdb_options_set_min_write_buffer_number_to_merge(
         options: RocksDBOptions, bufno: c_int);
     pub fn rocksdb_options_set_level0_file_num_compaction_trigger(
@@ -91,6 +93,8 @@ extern {
     pub fn rocksdb_options_set_max_background_flushes(
         options: RocksDBOptions, max_bg_flushes: c_int);
     pub fn rocksdb_options_set_filter_deletes(
+        options: RocksDBOptions, v: u8);
+    pub fn rocksdb_options_set_disable_auto_compactions(
         options: RocksDBOptions, v: u8);
     //pub fn rocksdb_compactionfilter_create() -> RocksDBCompactionFilter;
     pub fn rocksdb_filterpolicy_create_bloom(
