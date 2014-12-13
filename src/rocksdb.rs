@@ -54,7 +54,7 @@ impl RocksDBOptions {
         }
     }
 
-    pub fn add_merge_operator<'a>(&self, name: &str, merge_fn: for <'a> fn (String, Option<String>, &mut MergeOperands) -> Vec<u8>) {
+    pub fn add_merge_operator<'a>(&self, name: &str, merge_fn: for <'a> fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
         let cb = box MergeOperatorCallback {
             name: name.to_c_str(),
             merge_fn: merge_fn,
@@ -418,7 +418,7 @@ impl <'a> Iterator<&'a [u8]> for &'a mut MergeOperands<'a> {
 
 struct MergeOperatorCallback {
     name: CString,
-    merge_fn: for <'b> fn (String, Option<String>, &mut MergeOperands) -> Vec<u8>,
+    merge_fn: for <'b> fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
 }
 
 extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -446,7 +446,7 @@ extern "C" fn full_merge_callback(
         let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
         let key = from_buf_len(key as *const u8, key_len as uint);
         let oldval = from_buf_len(existing_value as *const u8, existing_value_len as uint);
-        let mut result = (cb.merge_fn)(key, Some(oldval), operands);
+        let mut result = (cb.merge_fn)(key.as_bytes(), Some(oldval.as_bytes()), operands);
         result.shrink_to_fit();
         //TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
@@ -467,7 +467,7 @@ extern "C" fn partial_merge_callback(
         let cb: &mut MergeOperatorCallback = &mut *(raw_cb as *mut MergeOperatorCallback);
         let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
         let key = from_buf_len(key as *const u8, key_len as uint);
-        let mut result = (cb.merge_fn)(key, None, operands);
+        let mut result = (cb.merge_fn)(key.as_bytes(), None, operands);
         result.shrink_to_fit();
         //TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
@@ -479,11 +479,11 @@ extern "C" fn partial_merge_callback(
     }
 }
 
-fn test_provided_merge<'a>(new_key: String, existing_val: Option<String>,
+fn test_provided_merge<'a>(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
     match existing_val {
-        Some(v) => result.push_all(v.as_bytes()),
+        Some(v) => result.push_all(v),
         None => (),
     }
     for op in operands {
