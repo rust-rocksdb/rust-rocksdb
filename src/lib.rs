@@ -4,6 +4,7 @@
 
 pub use ffi as rocksdb_ffi;
 pub use ffi::{
+    new_bloom_filter,
     RocksDBUniversalCompactionStyle,
     RocksDBCompactionStyle,
     RocksDBCompressionType,

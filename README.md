@@ -67,6 +67,41 @@ fn main() {
 }
 ```
 
+###### Apply Some Tunings
+Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
+```rust
+use rocksdb::{RocksDBOptions, RocksDB, new_bloom_filter};
+use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
+
+fn tuned_for_somebody_elses_disk() -> RocksDB {
+    let path = "_rust_rocksdb_optimizetest";
+    let opts = RocksDBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_block_size(524288);
+    opts.set_max_open_files(10000);
+    opts.set_use_fsync(false);
+    opts.set_bytes_per_sync(8388608);
+    opts.set_disable_data_sync(false);
+    opts.set_block_cache_size_mb(1024);
+    opts.set_table_cache_num_shard_bits(6);
+    opts.set_max_write_buffer_number(32);
+    opts.set_write_buffer_size(536870912);
+    opts.set_target_file_size_base(1073741824);
+    opts.set_min_write_buffer_number_to_merge(4);
+    opts.set_level_zero_stop_writes_trigger(2000);
+    opts.set_level_zero_slowdown_writes_trigger(0);
+    opts.set_compaction_style(RocksDBUniversalCompaction);
+    opts.set_max_background_compactions(4);
+    opts.set_max_background_flushes(4);
+    opts.set_filter_deletes(false);
+    opts.set_disable_auto_compactions(true);
+
+    let filter = new_bloom_filter(10);
+    opts.set_filter(filter);
+
+    RocksDB::open(opts, path).unwrap()
+}
+```
 
 ### status
   - [x] basic open/put/get/delete/close

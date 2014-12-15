@@ -1,6 +1,6 @@
 extern crate rocksdb;
 extern crate test;
-use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
+use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter};
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 use test::Bencher;
 
@@ -24,7 +24,6 @@ fn main() {
     db.close();
 
     custom_merge();
-    optimized();
 }
 
 #[allow(dead_code)]
@@ -61,7 +60,7 @@ fn custom_merge() {
 }
 
 #[allow(dead_code)]
-fn optimized() {
+fn tuned_for_somebody_elses_disk() -> RocksDB {
     let path = "_rust_rocksdb_optimizetest";
     let opts = RocksDBOptions::new();
     opts.create_if_missing(true);
@@ -70,7 +69,7 @@ fn optimized() {
     opts.set_use_fsync(false);
     opts.set_bytes_per_sync(8388608);
     opts.set_disable_data_sync(false);
-    opts.set_cache_size(8589934592);
+    opts.set_block_cache_size_mb(1024);
     opts.set_table_cache_num_shard_bits(6);
     opts.set_max_write_buffer_number(32);
     opts.set_write_buffer_size(536870912);
@@ -78,32 +77,22 @@ fn optimized() {
     opts.set_min_write_buffer_number_to_merge(4);
     opts.set_level_zero_stop_writes_trigger(2000);
     opts.set_level_zero_slowdown_writes_trigger(0);
-    //opts.set_memtable_config(newSkipListMemTableConfig());
     opts.set_compaction_style(RocksDBUniversalCompaction);
     opts.set_max_background_compactions(4);
     opts.set_max_background_flushes(4);
     opts.set_filter_deletes(false);
-    opts.set_disable_auto_compaction(true);
-    //opts.set_filter(filter);
+    opts.set_disable_auto_compactions(true);
 
-    opts.add_merge_operator("test operator", concat_merge);
-    let db = RocksDB::open(opts, path).unwrap();
-    let p = db.put(b"k1", b"a");
-    db.merge(b"k1", b"b");
-    db.merge(b"k1", b"c");
-    db.merge(b"k1", b"d");
-    db.merge(b"k1", b"efg");
-    let m = db.merge(b"k1", b"h");
-    let r = db.get(b"k1");
-    assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
-    db.close();
-    RocksDB::destroy(opts, path).is_ok();
+    let filter = new_bloom_filter(10);
+    opts.set_filter(filter);
+
+    RocksDB::open(opts, path).unwrap()
 }
 
 #[allow(dead_code)]
 #[bench]
 fn writes(b: &mut Bencher) {
-    let db = RocksDB::open_default("testdb").unwrap();
+    let db = tuned_for_somebody_elses_disk();
     let mut i = 0 as u64;
     b.iter(|| {
         db.put(i.to_string().as_bytes(), b"v1111");
@@ -115,7 +104,7 @@ fn writes(b: &mut Bencher) {
 #[allow(dead_code)]
 #[bench]
 fn reads(b: &mut Bencher) {
-    let db = RocksDB::open_default("testdb").unwrap();
+    let db = tuned_for_somebody_elses_disk();
     let mut i = 0 as u64;
     b.iter(|| {
         db.get(i.to_string().as_bytes()).on_error( |e| {

@@ -10,11 +10,19 @@ pub struct RocksDBWriteOptions(pub *const c_void);
 #[repr(C)]
 pub struct RocksDBReadOptions(pub *const c_void);
 #[repr(C)]
-pub struct RocksDBCompactionFilter(pub *const c_void);
-#[repr(C)]
 pub struct RocksDBMergeOperator(pub *const c_void);
 #[repr(C)]
+pub struct RocksDBBlockBasedTableOptions(pub *const c_void);
+#[repr(C)]
+pub struct RocksDBCache(pub *const c_void);
+#[repr(C)]
 pub struct RocksDBFilterPolicy(pub *const c_void);
+
+pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
+    unsafe {
+        rocksdb_filterpolicy_create_bloom(bits)
+    }
+}
 
 #[repr(C)]
 pub enum RocksDBCompressionType {
@@ -42,12 +50,41 @@ pub enum RocksDBUniversalCompactionStyle {
 #[link(name = "rocksdb")]
 extern {
     pub fn rocksdb_options_create() -> RocksDBOptions;
+    pub fn rocksdb_cache_create_lru(capacity: size_t) -> RocksDBCache;
+    pub fn rocksdb_cache_destroy(cache: RocksDBCache);
+    pub fn rocksdb_block_based_options_create() -> RocksDBBlockBasedTableOptions;
+    pub fn rocksdb_block_based_options_destroy(
+        block_options: RocksDBBlockBasedTableOptions);
+    pub fn rocksdb_block_based_options_set_block_size(
+        block_options: RocksDBBlockBasedTableOptions,
+        block_size: size_t);
+    pub fn rocksdb_block_based_options_set_block_size_deviation(
+        block_options: RocksDBBlockBasedTableOptions,
+        block_size_deviation: c_int);
+    pub fn rocksdb_block_based_options_set_block_restart_interval(
+        block_options: RocksDBBlockBasedTableOptions,
+        block_restart_interval: c_int);
+    pub fn rocksdb_block_based_options_set_filter_policy(
+        block_options: RocksDBBlockBasedTableOptions,
+        filter_policy: RocksDBFilterPolicy);
+    pub fn rocksdb_block_based_options_set_no_block_cache(
+        block_options: RocksDBBlockBasedTableOptions, no_block_cache: bool);
+    pub fn rocksdb_block_based_options_set_block_cache(
+        block_options: RocksDBBlockBasedTableOptions, block_cache: RocksDBCache);
+    pub fn rocksdb_block_based_options_set_block_cache_compressed(
+        block_options: RocksDBBlockBasedTableOptions,
+        block_cache_compressed: RocksDBCache);
+    pub fn rocksdb_block_based_options_set_whole_key_filtering(
+        ck_options: RocksDBBlockBasedTableOptions, doit: bool);
+    pub fn rocksdb_options_set_block_based_table_factory(
+        options: RocksDBOptions,
+        block_options: RocksDBBlockBasedTableOptions);
     pub fn rocksdb_options_increase_parallelism(
         options: RocksDBOptions, threads: c_int);
     pub fn rocksdb_options_optimize_level_style_compaction(
         options: RocksDBOptions, memtable_memory_budget: c_int);
     pub fn rocksdb_options_set_create_if_missing(
-        options: RocksDBOptions, v: c_int);
+        options: RocksDBOptions, v: bool);
     pub fn rocksdb_options_set_max_open_files(
         options: RocksDBOptions, files: c_int);
     pub fn rocksdb_options_set_use_fsync(
@@ -59,10 +96,8 @@ extern {
     pub fn rocksdb_options_optimize_for_point_lookup(
         options: RocksDBOptions, block_cache_size_mb: u64);
     pub fn rocksdb_options_set_table_cache_numshardbits(
-        options: RocksDBOptions, bits: u64);
+        options: RocksDBOptions, bits: c_int);
     pub fn rocksdb_options_set_max_write_buffer_number(
-        options: RocksDBOptions, bufno: c_int);
-    pub fn rocksdb_options_set_max_write_buffer_number_to_merge(
         options: RocksDBOptions, bufno: c_int);
     pub fn rocksdb_options_set_min_write_buffer_number_to_merge(
         options: RocksDBOptions, bufno: c_int);
@@ -93,10 +128,9 @@ extern {
     pub fn rocksdb_options_set_max_background_flushes(
         options: RocksDBOptions, max_bg_flushes: c_int);
     pub fn rocksdb_options_set_filter_deletes(
-        options: RocksDBOptions, v: u8);
+        options: RocksDBOptions, v: bool);
     pub fn rocksdb_options_set_disable_auto_compactions(
-        options: RocksDBOptions, v: u8);
-    //pub fn rocksdb_compactionfilter_create() -> RocksDBCompactionFilter;
+        options: RocksDBOptions, v: c_int);
     pub fn rocksdb_filterpolicy_create_bloom(
         bits_per_key: c_int) -> RocksDBFilterPolicy;
     pub fn rocksdb_open(options: RocksDBOptions,
@@ -156,7 +190,7 @@ fn internal() {
 
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
-        rocksdb_options_set_create_if_missing(opts, 1);
+        rocksdb_options_set_create_if_missing(opts, true);
 
         let rustpath = "_rust_rocksdb_internaltest";
         let cpath = rustpath.to_c_str();
