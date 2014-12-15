@@ -6,7 +6,7 @@ Install RocksDB.  rust-rocksdb has been tested with version 3.8.1 on linux and O
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.0.1"
+rocksdb = "~0.0.2"
 ```
 ###### Code
 ```rust
