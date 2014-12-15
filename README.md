@@ -109,14 +109,14 @@ fn tuned_for_somebody_elses_disk() -> RocksDB {
   - [x] rocksdb compiled via cargo
   - [x] OSX support
   - [x] rustic merge operator
+  - [x] compaction filter, style
+  - [x] LRU cache
+  - [x] destroy/repair
   - [ ] batch
   - [ ] iterator
   - [ ] range
   - [ ] create/release snapshot
   - [ ] column family operations
-  - [ ] compaction filter, style
-  - [ ] LRU cache
-  - [ ] destroy/repair
   - [ ] comparator
   - [ ] slicetransform
   - [ ] windows support

@@ -101,6 +101,26 @@ impl RocksDBOptions {
         }
     }
 
+    pub fn set_cache(&self, cache: rocksdb_ffi::RocksDBCache) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
+                self.block_options, cache);
+            rocksdb_ffi::rocksdb_options_set_block_based_table_factory(
+                self.inner,
+                self.block_options);
+        }
+    }
+
+    pub fn set_cache_compressed(&self, cache: rocksdb_ffi::RocksDBCache) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_block_cache_compressed(
+                self.block_options, cache);
+            rocksdb_ffi::rocksdb_options_set_block_based_table_factory(
+                self.inner,
+                self.block_options);
+        }
+    }
+
     pub fn set_max_open_files(&self, nfiles: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_open_files(self.inner, nfiles);

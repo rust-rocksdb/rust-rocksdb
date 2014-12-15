@@ -24,6 +24,12 @@ pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     }
 }
 
+pub fn new_cache(capacity: size_t) -> RocksDBCache {
+    unsafe {
+        rocksdb_cache_create_lru(capacity)
+    }
+}
+
 #[repr(C)]
 pub enum RocksDBCompressionType {
     RocksDBNoCompression     = 0,
