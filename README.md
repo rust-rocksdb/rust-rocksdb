@@ -16,16 +16,15 @@ use rocksdb::RocksDB;
 fn main() {
     let db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap;
     db.put(b"my key", b"my value");
-    db.get(b"my key").map( |value| {
-        match value.to_utf8() {
+    db.get(b"my key")
+        .map( |value| { match value.to_utf8() {
             Some(v) =>
                 println!("retrieved utf8 value {}", v),
             None =>
                 println!("did not read valid utf-8 out of the db"),
-        }
-    })
+        }})
         .on_absent( || { println!("value not found") })
-        .on_error( |e| { println!("error retrieving value: {}", e) });
+        .on_error( |e| { println!("operational problem encountered: {}", e) });
 
     db.delete(b"my key");
     db.close();
