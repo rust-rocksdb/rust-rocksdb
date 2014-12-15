@@ -14,7 +14,7 @@ extern crate rocksdb;
 use rocksdb::RocksDB;
 
 fn main() {
-    let db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap;
+    let db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
     db.put(b"my key", b"my value");
     db.get(b"my key")
         .map( |value| { 
