@@ -23,6 +23,7 @@ use std::string::raw::from_buf_len;
 use std::ptr;
 use std::mem;
 use std::slice;
+use std::ptr::Unique;
 
 use rocksdb_ffi;
 
@@ -463,10 +464,11 @@ pub struct RocksDBVector {
 impl RocksDBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
         unsafe {
+            let val = Unique(val);
             RocksDBVector {
                 inner:
-                    CVec::new_with_dtor(val, val_len as uint,
-                        proc(){ libc::free(val as *mut c_void); })
+                    CVec::new_with_dtor(val.0, val_len as uint,
+                        move |:| libc::free(val.0 as *mut libc::c_void))
             }
         }
     }
