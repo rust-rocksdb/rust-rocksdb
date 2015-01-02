@@ -577,9 +577,9 @@ pub struct MergeOperands<'a> {
 }
 
 impl <'a> MergeOperands<'a> {
-    fn new<'a>(operands_list: *const *const c_char,
-               operands_list_len: *const size_t,
-               num_operands: c_int) -> MergeOperands<'a> {
+    fn new(operands_list: *const *const c_char,
+           operands_list_len: *const size_t,
+           num_operands: c_int) -> MergeOperands<'a> {
         assert!(num_operands >= 0);
         MergeOperands {
             operands_list: operands_list,
