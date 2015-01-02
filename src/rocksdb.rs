@@ -22,7 +22,6 @@ use std::str::from_utf8;
 use std::string::raw::from_buf_len;
 use std::ptr;
 use std::mem;
-use std::slice;
 use std::ptr::Unique;
 
 use rocksdb_ffi;
