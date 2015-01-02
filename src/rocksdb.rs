@@ -478,8 +478,8 @@ impl RocksDBVector {
         self.inner.as_slice()
     }
 
-    pub fn to_utf8<'a>(&'a self) -> Option<&'a str> {
-        from_utf8(self.inner.as_slice())
+    pub fn to_utf8(&self) -> Option<&str> {
+        from_utf8(self.inner.as_slice()).ok()
     }
 }
 
