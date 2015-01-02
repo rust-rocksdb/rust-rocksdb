@@ -31,6 +31,8 @@ pub struct RocksDBOptions {
     block_options: rocksdb_ffi::RocksDBBlockBasedTableOptions,
 }
 
+impl Copy for RocksDBOptions {}
+
 impl RocksDBOptions {
     pub fn new() -> RocksDBOptions {
         unsafe {
