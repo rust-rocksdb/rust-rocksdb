@@ -33,6 +33,15 @@ pub struct RocksDBCache(pub *const c_void);
 #[repr(C)]
 pub struct RocksDBFilterPolicy(pub *const c_void);
 
+impl Copy for RocksDBOptions {}
+impl Copy for RocksDBInstance {}
+impl Copy for RocksDBWriteOptions {}
+impl Copy for RocksDBReadOptions {}
+impl Copy for RocksDBMergeOperator {}
+impl Copy for RocksDBBlockBasedTableOptions {}
+impl Copy for RocksDBCache {}
+impl Copy for RocksDBFilterPolicy {}
+
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
         rocksdb_filterpolicy_create_bloom(bits)

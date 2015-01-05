@@ -22,7 +22,7 @@ use std::str::from_utf8;
 use std::string::raw::from_buf_len;
 use std::ptr;
 use std::mem;
-use std::slice;
+use std::ptr::Unique;
 
 use rocksdb_ffi;
 
@@ -30,6 +30,8 @@ pub struct RocksDBOptions {
     inner: rocksdb_ffi::RocksDBOptions,
     block_options: rocksdb_ffi::RocksDBBlockBasedTableOptions,
 }
+
+impl Copy for RocksDBOptions {}
 
 impl RocksDBOptions {
     pub fn new() -> RocksDBOptions {
@@ -463,10 +465,11 @@ pub struct RocksDBVector {
 impl RocksDBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
         unsafe {
+            let val = Unique(val);
             RocksDBVector {
                 inner:
-                    CVec::new_with_dtor(val, val_len as uint,
-                        proc(){ libc::free(val as *mut c_void); })
+                    CVec::new_with_dtor(val.0, val_len as uint,
+                        move |:| libc::free(val.0 as *mut libc::c_void))
             }
         }
     }
@@ -475,8 +478,8 @@ impl RocksDBVector {
         self.inner.as_slice()
     }
 
-    pub fn to_utf8<'a>(&'a self) -> Option<&'a str> {
-        from_utf8(self.inner.as_slice())
+    pub fn to_utf8(&self) -> Option<&str> {
+        from_utf8(self.inner.as_slice()).ok()
     }
 }
 
@@ -577,9 +580,9 @@ pub struct MergeOperands<'a> {
 }
 
 impl <'a> MergeOperands<'a> {
-    fn new<'a>(operands_list: *const *const c_char,
-               operands_list_len: *const size_t,
-               num_operands: c_int) -> MergeOperands<'a> {
+    fn new(operands_list: *const *const c_char,
+           operands_list_len: *const size_t,
+           num_operands: c_int) -> MergeOperands<'a> {
         assert!(num_operands >= 0);
         MergeOperands {
             operands_list: operands_list,
