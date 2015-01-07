@@ -19,7 +19,6 @@ use std::io::{IoError};
 use std::c_vec::CVec;
 use std::c_str::CString;
 use std::str::from_utf8;
-use std::string::raw::from_buf_len;
 use std::ptr;
 use std::mem;
 use std::ptr::Unique;
@@ -485,7 +484,7 @@ impl RocksDBVector {
 
 // RocksDBResult exists because of the inherent difference between
 // an operational failure and the absence of a possible result.
-#[deriving(Clone, PartialEq, PartialOrd, Eq, Ord, Show)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Show)]
 pub enum RocksDBResult<'a,T,E> {
     Some(T),
     None,
@@ -493,8 +492,7 @@ pub enum RocksDBResult<'a,T,E> {
 }
 
 impl <'a,T,E> RocksDBResult<'a,T,E> {
-    #[unstable = "waiting for unboxed closures"]
-    pub fn map<U>(self, f: |T| -> U) -> RocksDBResult<U,E> {
+    pub fn map<U>(self, f: FnMut(T) -> U) -> RocksDBResult<'a,U,E> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(f(x)),
             RocksDBResult::None => RocksDBResult::None,
@@ -512,8 +510,7 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
         }
     }
 
-    #[unstable = "waiting for unboxed closures"]
-    pub fn on_error<U>(self, f: |E| -> U) -> RocksDBResult<T,U> {
+    pub fn on_error<U>(self, f: FnMut(E) -> U) -> RocksDBResult<'a,T,U> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(x),
             RocksDBResult::None => RocksDBResult::None,
@@ -521,8 +518,7 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
         }
     }
 
-    #[unstable = "waiting for unboxed closures"]
-    pub fn on_absent(self, f: || -> ()) -> RocksDBResult<T,E> {
+    pub fn on_absent(self, f: FnMut() -> ()) -> RocksDBResult<'a,T,E> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(x),
             RocksDBResult::None => {
@@ -593,7 +589,7 @@ impl <'a> MergeOperands<'a> {
     }
 }
 
-impl <'a> Iterator<&'a [u8]> for &'a mut MergeOperands<'a> {
+impl<'a> Iterator for &'a mut MergeOperands<'a> {
     fn next(&mut self) -> Option<&'a [u8]> {
         use std::raw::Slice;
         match self.cursor == self.num_operands {
@@ -608,8 +604,8 @@ impl <'a> Iterator<&'a [u8]> for &'a mut MergeOperands<'a> {
                         as *const size_t;
                     let len = *len_ptr as uint;
                     let ptr = base + (spacing * self.cursor);
-                    let op = from_buf_len(*(ptr as *const *const u8), len);
-                    let des: Option<uint> = from_str(op.as_slice());
+                    let op = String::from_raw_buf_len(*(ptr as *const *const u8), len);
+                    let des: Option<uint> = from_utf8(op.as_slice());
                     self.cursor += 1;
                     Some(mem::transmute(Slice{data:*(ptr as *const *const u8)
                         as *const u8, len: len}))
@@ -657,8 +653,8 @@ extern "C" fn full_merge_callback(
             &mut MergeOperands::new(operands_list,
                                     operands_list_len,
                                     num_operands);
-        let key = from_buf_len(key as *const u8, key_len as uint);
-        let oldval = from_buf_len(existing_value as *const u8,
+        let key = String::from_raw_buf_len(key as *const u8, key_len as uint);
+        let oldval = String::from_raw_buf_len(existing_value as *const u8,
                                   existing_value_len as uint);
         let mut result =
             (cb.merge_fn)(key.as_bytes(), Some(oldval.as_bytes()), operands);
@@ -690,7 +686,7 @@ extern "C" fn partial_merge_callback(
         let operands = &mut MergeOperands::new(operands_list,
                                                operands_list_len,
                                                num_operands);
-        let key = from_buf_len(key as *const u8, key_len as uint);
+        let key = String::from_raw_buf_len(key as *const u8, key_len as uint);
         let mut result = (cb.merge_fn)(key.as_bytes(), None, operands);
         result.shrink_to_fit();
         //TODO(tan) investigate zero-copy techniques to improve performance
