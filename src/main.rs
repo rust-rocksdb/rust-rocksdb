@@ -13,6 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+#![allow(unstable)]
+
 extern crate rocksdb;
 extern crate test;
 use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter};
@@ -44,7 +46,7 @@ fn main() {
 #[allow(dead_code)]
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
-    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
+    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
         Some(v) => result.push_all(v),
         None => (),

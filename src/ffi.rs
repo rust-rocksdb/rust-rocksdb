@@ -15,6 +15,7 @@
 */
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
+use std::ffi::CString;
 
 #[repr(C)]
 pub struct RocksDBOptions(pub *const c_void);
@@ -41,6 +42,9 @@ impl Copy for RocksDBMergeOperator {}
 impl Copy for RocksDBBlockBasedTableOptions {}
 impl Copy for RocksDBCache {}
 impl Copy for RocksDBFilterPolicy {}
+impl Copy for RocksDBCompactionStyle {}
+impl Copy for RocksDBCompressionType {}
+impl Copy for RocksDBUniversalCompactionStyle {}
 
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
@@ -216,14 +220,14 @@ fn internal() {
     unsafe {
         let opts = rocksdb_options_create();
         let RocksDBOptions(opt_ptr) = opts;
-        assert!(opt_ptr.is_not_null());
+        assert!(!opt_ptr.is_null());
 
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
         rocksdb_options_set_create_if_missing(opts, true);
 
         let rustpath = "_rust_rocksdb_internaltest";
-        let cpath = rustpath.to_c_str();
+        let cpath = CString::from_slice(rustpath.as_bytes());
         let cpath_ptr = cpath.as_ptr();
 
         let err = 0 as *mut i8;
@@ -232,7 +236,7 @@ fn internal() {
 
         let writeopts = rocksdb_writeoptions_create();
         let RocksDBWriteOptions(write_opt_ptr) = writeopts;
-        assert!(write_opt_ptr.is_not_null());
+        assert!(!write_opt_ptr.is_null());
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
@@ -242,7 +246,7 @@ fn internal() {
 
         let readopts = rocksdb_readoptions_create();
         let RocksDBReadOptions(read_opts_ptr) = readopts;
-        assert!(read_opts_ptr.is_not_null());
+        assert!(!read_opts_ptr.is_null());
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
