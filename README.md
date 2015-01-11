@@ -1,6 +1,8 @@
 rust-rocksdb
 ============
 
+note: broken due to updates, expect parity with the nightly by 0:00 1/12/15 EST.
+
 ### running
 Install RocksDB.  rust-rocksdb has been tested with version 3.8.1 on linux and OSX.
 ###### Cargo.toml
