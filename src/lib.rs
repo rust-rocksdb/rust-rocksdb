@@ -27,10 +27,16 @@ pub use ffi::{
 };
 pub use rocksdb::{
     RocksDB,
-    MergeOperands,
     RocksDBResult,
-    RocksDBOptions,
     RocksDBVector,
+};
+pub use rocksdb_options::{
+    RocksDBOptions,
+};
+pub use merge_operator::{
+    MergeOperands,
 };
 pub mod rocksdb;
 pub mod ffi;
+pub mod rocksdb_options;
+pub mod merge_operator;
