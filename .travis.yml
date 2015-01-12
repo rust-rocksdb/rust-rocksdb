@@ -1,5 +1,5 @@
 language: rust
-script:
-  - cargo clean
-  - cargo build --verbose
-  - cargo test --verbose
+
+rust:
+  - 1.0.0
+  - nightly
