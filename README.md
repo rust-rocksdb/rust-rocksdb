@@ -1,8 +1,8 @@
 rust-rocksdb
 ============
 
-rust-rocksdb has been tested with version 3.8.1 on linux and OSX.
-Crate version 0.0.3 should work on the 1/8/15 nightly and 1.0.0 alpha.
+[![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg)](https://travis-ci.org/spacejam/rust-rocksdb)
+rust-rocksdb has been tested with version 3.8.1 on linux and OSX.  Crate version 0.0.3 should work on the 1.0.0 alpha.
 ###### Prerequisites
 ```bash
 wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
