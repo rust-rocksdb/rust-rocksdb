@@ -2,3 +2,6 @@ language: rust
 
 rust:
   - nightly
+
+script:
+  - rustc src/lib.rs
