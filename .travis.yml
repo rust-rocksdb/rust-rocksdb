@@ -2,6 +2,7 @@ language: rust
 
 rust:
   - nightly
+  - 1.0.0-alpha
 
 script:
   - rustc src/lib.rs
