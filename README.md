@@ -2,13 +2,13 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-rust-rocksdb has been tested with version 3.8.1 on linux and OSX.  Crate version 0.0.3 should work on the 1.0.0 alpha.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.3 crate should work with the 1.0.0-alpha Rust release.
 ###### Prerequisite: RocksDB
 ```bash
 wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
 tar xvf rocksdb-3.8.tar.gz && cd rocksdb-rocksdb-3.8 && make static_lib
+sudo make install
 ```
-From here, you probably want to ```sudo make install``` to copy the library to the system library directory.  If you don't want to, or cannot due to your system's security policy, there are many other ways to load a library.  One quick and dirty method that may work on linux and OSX is to invoke your code from your project's root directory like so: ```LD_PRELOAD=/path/to/librocksdb.a cargo run```
 
 ### Running
 ###### Cargo.toml
