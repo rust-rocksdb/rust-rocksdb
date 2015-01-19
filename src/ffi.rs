@@ -39,6 +39,8 @@ pub struct RocksDBSnapshot(pub *const c_void);
 pub struct RocksDBIterator(pub *const c_void);
 #[repr(C)]
 pub struct RocksDBCFHandle(pub *const c_void);
+#[repr(C)]
+pub struct RocksDBWriteBatch(pub *const c_void);
 
 impl Copy for RocksDBOptions {}
 impl Copy for RocksDBInstance {}
@@ -54,6 +56,7 @@ impl Copy for RocksDBUniversalCompactionStyle {}
 impl Copy for RocksDBSnapshot {}
 impl Copy for RocksDBIterator {}
 impl Copy for RocksDBCFHandle {}
+impl Copy for RocksDBWriteBatch {}
 
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
@@ -257,7 +260,62 @@ extern {
     pub fn rocksdb_mergeoperator_destroy(mo: RocksDBMergeOperator);
     pub fn rocksdb_options_set_merge_operator(options: RocksDBOptions,
                                               mo: RocksDBMergeOperator);
-}
+    // Iterator
+    pub fn rocksdb_iter_destroy(iter: RocksDBIterator);
+    pub fn rocksdb_iter_valid(iter: RocksDBIterator) -> bool;
+    pub fn rocksdb_iter_seek_to_first(iter: RocksDBIterator);
+    pub fn rocksdb_iter_seek_to_last(iter: RocksDBIterator);
+    pub fn rocksdb_iter_seek(iter: RocksDBIterator,
+                             key: *mut u8, klen: size_t);
+    pub fn rocksdb_iter_next(iter: RocksDBIterator);
+    pub fn rocksdb_iter_prev(iter: RocksDBIterator);
+    pub fn rocksdb_iter_key(iter: RocksDBIterator,
+                            klen: *mut size_t) -> *mut u8;
+    pub fn rocksdb_iter_value(iter: RocksDBIterator,
+                              vlen: *mut size_t) -> *mut u8;
+    pub fn rocksdb_iter_get_error(iter: RocksDBIterator,
+                                  err: *const *const u8);
+    // Write batch
+    pub fn rocksdb_writebatch_create() -> RocksDBWriteBatch;
+    pub fn rocksdb_writebatch_create_from(rep: *const u8,
+                                          size: size_t) -> RocksDBWriteBatch;
+    pub fn rocksdb_writebatch_destroy(batch: RocksDBWriteBatch);
+    pub fn rocksdb_writebatch_clear(batch: RocksDBWriteBatch);
+    pub fn rocksdb_writebatch_count(batch: RocksDBWriteBatch) -> c_int;
+    pub fn rocksdb_writebatch_put(batch: RocksDBWriteBatch,
+                                  key: *const u8, klen: size_t,
+                                  val: *const u8, vlen: size_t);
+    pub fn rocksdb_writebatch_put_cf(batch: RocksDBWriteBatch,
+                                     cf: RocksDBCFHandle,
+                                     key: *const u8, klen: size_t,
+                                     val: *const u8, vlen: size_t);
+    pub fn rocksdb_writebatch_merge(
+        batch: RocksDBWriteBatch,
+        key: *const u8, klen: size_t,
+        val: *const u8, vlen: size_t);
+    pub fn rocksdb_writebatch_merge_cf(
+        batch: RocksDBWriteBatch,
+        cf: RocksDBCFHandle,
+        key: *const u8, klen: size_t,
+        val: *const u8, vlen: size_t);
+    pub fn rocksdb_writebatch_delete(
+        batch: RocksDBWriteBatch,
+        key: *const u8, klen: size_t);
+    pub fn rocksdb_writebatch_delete_cf(
+        batch: RocksDBWriteBatch,
+        cf: RocksDBCFHandle,
+        key: *const u8, klen: size_t);
+    pub fn rocksdb_writebatch_iterate(
+        batch: RocksDBWriteBatch,
+        state: *mut c_void,
+        put_fn: extern fn(state: *mut c_void,
+                          k: *const u8, klen: size_t,
+                          v: *const u8, vlen: size_t),
+        deleted_fn: extern fn(state: *mut c_void,
+                              k: *const u8, klen: size_t));
+    pub fn rocksdb_writebatch_data(batch: RocksDBWriteBatch,
+                                   size: *mut size_t) -> *const u8;
+    }
 
 #[allow(dead_code)]
 #[test]
