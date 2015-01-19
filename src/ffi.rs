@@ -35,6 +35,10 @@ pub struct RocksDBCache(pub *const c_void);
 pub struct RocksDBFilterPolicy(pub *const c_void);
 #[repr(C)]
 pub struct RocksDBSnapshot(pub *const c_void);
+#[repr(C)]
+pub struct RocksDBIterator(pub *const c_void);
+#[repr(C)]
+pub struct RocksDBCFHandle(pub *const c_void);
 
 impl Copy for RocksDBOptions {}
 impl Copy for RocksDBInstance {}
@@ -48,6 +52,8 @@ impl Copy for RocksDBCompactionStyle {}
 impl Copy for RocksDBCompressionType {}
 impl Copy for RocksDBUniversalCompactionStyle {}
 impl Copy for RocksDBSnapshot {}
+impl Copy for RocksDBIterator {}
+impl Copy for RocksDBCFHandle {}
 
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
@@ -181,12 +187,32 @@ extern {
                        v: *const u8, vLen: size_t,
                        err: *mut i8);
     pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
+    pub fn rocksdb_readoptions_set_snapshot(read_opts: RocksDBReadOptions,
+                                            snapshot: RocksDBSnapshot);
     pub fn rocksdb_get(db: RocksDBInstance,
                        readopts: RocksDBReadOptions,
                        k: *const u8, kLen: size_t,
                        valLen: *const size_t,
                        err: *mut i8
                        ) -> *mut c_void;
+    pub fn rocksdb_get_cf(db: RocksDBInstance,
+                       readopts: RocksDBReadOptions,
+                       cf_handle: RocksDBCFHandle,
+                       k: *const u8, kLen: size_t,
+                       valLen: *const size_t,
+                       err: *mut i8
+                       ) -> *mut c_void;
+    pub fn rocksdb_create_iterator(db: RocksDBInstance,
+                                   readopts: RocksDBReadOptions
+                                   ) -> RocksDBIterator;
+    pub fn rocksdb_create_iterator_cf(db: RocksDBInstance,
+                                      readopts: RocksDBReadOptions,
+                                      cf_handle: RocksDBCFHandle
+                                      ) -> RocksDBIterator;
+    pub fn rocksdb_create_snapshot(db: RocksDBInstance) -> RocksDBSnapshot;
+    pub fn rocksdb_release_snapshot(db: RocksDBInstance,
+                                    snapshot: RocksDBSnapshot);
+
     pub fn rocksdb_delete(db: RocksDBInstance,
                           writeopts: RocksDBWriteOptions,
                           k: *const u8, kLen: size_t,
@@ -231,13 +257,6 @@ extern {
     pub fn rocksdb_mergeoperator_destroy(mo: RocksDBMergeOperator);
     pub fn rocksdb_options_set_merge_operator(options: RocksDBOptions,
                                               mo: RocksDBMergeOperator);
-    // Snapshot
-    pub fn rocksdb_create_snapshot(db: RocksDBInstance) -> RocksDBSnapshot;
-    pub fn rocksdb_readoptions_set_snapshot(read_opts: RocksDBReadOptions,
-                                            snapshot: RocksDBSnapshot);
-    pub fn rocksdb_release_snapshot(db: RocksDBInstance,
-                                    snapshot: RocksDBSnapshot);
-
 }
 
 #[allow(dead_code)]
