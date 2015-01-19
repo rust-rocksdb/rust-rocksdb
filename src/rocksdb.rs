@@ -75,14 +75,32 @@ impl RocksDB {
 
             let ospath = Path::new(path);
             if !ospath.exists() {
-                match fs::mkdir_recursive(&ospath, io::USER_DIR) {
-                    Err(e) => return Err(e.desc),
-                    Ok(_) => (),
-                }
+                return Err("path does not exist");
             }
 
             let err = 0 as *mut i8;
             let result = rocksdb_ffi::rocksdb_destroy_db(
+                opts.inner, cpath_ptr, err);
+            if !err.is_null() {
+                let cs = from_c_str(err as *const i8);
+                return Err(cs);
+            }
+            Ok(())
+        }
+    }
+
+    pub fn repair(opts: RocksDBOptions, path: &str) -> Result<(), &str> {
+        unsafe {
+            let cpath = CString::from_slice(path.as_bytes());
+            let cpath_ptr = cpath.as_ptr();
+
+            let ospath = Path::new(path);
+            if !ospath.exists() {
+                return Err("path does not exist");
+            }
+
+            let err = 0 as *mut i8;
+            let result = rocksdb_ffi::rocksdb_repair_db(
                 opts.inner, cpath_ptr, err);
             if !err.is_null() {
                 let cs = from_c_str(err as *const i8);
@@ -127,7 +145,6 @@ impl RocksDB {
             return Ok(())
         }
     }
-
 
     pub fn get<'a>(&self, key: &[u8]) ->
         RocksDBResult<'a, RocksDBVector, &str> {
