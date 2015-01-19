@@ -24,6 +24,7 @@ pub use ffi::{
     RocksDBUniversalCompactionStyle,
     RocksDBCompactionStyle,
     RocksDBCompressionType,
+    RocksDBSnapshot,
 };
 pub use rocksdb::{
     RocksDB,

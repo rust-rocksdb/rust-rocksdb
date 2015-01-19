@@ -23,8 +23,12 @@ use std::ffi::CString;
 use std::str::from_utf8;
 use std::slice;
 use std::str::from_c_str;
+use std::io::fs::PathExtensions;
+use std::io;
+use std::io::fs;
 
 use rocksdb_ffi;
+use rocksdb_ffi::RocksDBSnapshot;
 use rocksdb_options::RocksDBOptions;
 
 pub struct RocksDB {
@@ -43,8 +47,13 @@ impl RocksDB {
             let cpath = CString::from_slice(path.as_bytes());
             let cpath_ptr = cpath.as_ptr();
 
-            //TODO test path here, as if rocksdb fails it will just crash the
-            //     process currently
+            let ospath = Path::new(path);
+            if !ospath.exists() {
+                match fs::mkdir_recursive(&ospath, io::USER_DIR) {
+                    Err(e) => return Err(e.desc),
+                    Ok(_) => (),
+                }
+            }
 
             let err = 0 as *mut i8;
             let db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err);
@@ -65,8 +74,13 @@ impl RocksDB {
             let cpath = CString::from_slice(path.as_bytes());
             let cpath_ptr = cpath.as_ptr();
 
-            //TODO test path here, as if rocksdb fails it will just crash the
-            //     process currently
+            let ospath = Path::new(path);
+            if !ospath.exists() {
+                match fs::mkdir_recursive(&ospath, io::USER_DIR) {
+                    Err(e) => return Err(e.desc),
+                    Ok(_) => (),
+                }
+            }
 
             let err = 0 as *mut i8;
             let result = rocksdb_ffi::rocksdb_destroy_db(
@@ -76,6 +90,12 @@ impl RocksDB {
                 return Err(cs);
             }
             Ok(())
+        }
+    }
+
+    pub fn create_snapshot(self) -> RocksDBSnapshot {
+        unsafe {
+            rocksdb_ffi::rocksdb_create_snapshot(self.inner)
         }
     }
 
@@ -132,7 +152,7 @@ impl RocksDB {
                 return RocksDBResult::Error(cs);
             }
             match val.is_null() {
-                true =>    RocksDBResult::None,
+                true => RocksDBResult::None,
                 false => {
                     RocksDBResult::Some(RocksDBVector::from_c(val, val_len))
                 }

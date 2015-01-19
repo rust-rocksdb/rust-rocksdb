@@ -33,6 +33,8 @@ pub struct RocksDBBlockBasedTableOptions(pub *const c_void);
 pub struct RocksDBCache(pub *const c_void);
 #[repr(C)]
 pub struct RocksDBFilterPolicy(pub *const c_void);
+#[repr(C)]
+pub struct RocksDBSnapshot(pub *const c_void);
 
 impl Copy for RocksDBOptions {}
 impl Copy for RocksDBInstance {}
@@ -45,6 +47,7 @@ impl Copy for RocksDBFilterPolicy {}
 impl Copy for RocksDBCompactionStyle {}
 impl Copy for RocksDBCompressionType {}
 impl Copy for RocksDBUniversalCompactionStyle {}
+impl Copy for RocksDBSnapshot {}
 
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
@@ -168,50 +171,73 @@ extern {
     pub fn rocksdb_filterpolicy_create_bloom(
         bits_per_key: c_int) -> RocksDBFilterPolicy;
     pub fn rocksdb_open(options: RocksDBOptions,
-        path: *const i8, err: *mut i8) -> RocksDBInstance;
+                        path: *const i8,
+                        err: *mut i8
+                        ) -> RocksDBInstance;
     pub fn rocksdb_writeoptions_create() -> RocksDBWriteOptions;
-    pub fn rocksdb_put(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
-        k: *const u8, kLen: size_t, v: *const u8,
-        vLen: size_t, err: *mut i8);
+    pub fn rocksdb_put(db: RocksDBInstance,
+                       writeopts: RocksDBWriteOptions,
+                       k: *const u8, kLen: size_t,
+                       v: *const u8, vLen: size_t,
+                       err: *mut i8);
     pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
-    pub fn rocksdb_get(db: RocksDBInstance, readopts: RocksDBReadOptions,
-        k: *const u8, kLen: size_t,
-        valLen: *const size_t, err: *mut i8) -> *mut c_void;
-    pub fn rocksdb_delete(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
-        k: *const u8, kLen: size_t, err: *mut i8) -> *mut c_void;
+    pub fn rocksdb_get(db: RocksDBInstance,
+                       readopts: RocksDBReadOptions,
+                       k: *const u8, kLen: size_t,
+                       valLen: *const size_t,
+                       err: *mut i8
+                       ) -> *mut c_void;
+    pub fn rocksdb_delete(db: RocksDBInstance,
+                          writeopts: RocksDBWriteOptions,
+                          k: *const u8, kLen: size_t,
+                          err: *mut i8
+                          ) -> *mut c_void;
     pub fn rocksdb_close(db: RocksDBInstance);
-    pub fn rocksdb_destroy_db(
-        options: RocksDBOptions, path: *const i8, err: *mut i8);
-    pub fn rocksdb_repair_db(
-        options: RocksDBOptions, path: *const i8, err: *mut i8);
+    pub fn rocksdb_destroy_db(options: RocksDBOptions,
+                              path: *const i8, err: *mut i8);
+    pub fn rocksdb_repair_db(options: RocksDBOptions,
+                             path: *const i8, err: *mut i8);
     // Merge
-    pub fn rocksdb_merge(db: RocksDBInstance, writeopts: RocksDBWriteOptions,
-        k: *const u8, kLen: size_t,
-        v: *const u8, vLen: size_t, err: *mut i8);
+    pub fn rocksdb_merge(db: RocksDBInstance,
+                         writeopts: RocksDBWriteOptions,
+                         k: *const u8, kLen: size_t,
+                         v: *const u8, vLen: size_t,
+                         err: *mut i8);
     pub fn rocksdb_mergeoperator_create(
         state: *mut c_void,
         destroy: extern fn(*mut c_void) -> (),
-        full_merge: extern fn (
-            arg: *mut c_void, key: *const c_char, key_len: size_t,
-            existing_value: *const c_char, existing_value_len: size_t,
-            operands_list: *const *const c_char, operands_list_len: *const size_t,
-            num_operands: c_int,
-            success: *mut u8, new_value_length: *mut size_t
-        ) -> *const c_char,
-        partial_merge: extern fn(
-            arg: *mut c_void, key: *const c_char, key_len: size_t,
-            operands_list: *const *const c_char, operands_list_len: *const size_t,
-            num_operands: c_int,
-            success: *mut u8, new_value_length: *mut size_t
-        ) -> *const c_char,
-        delete_value: Option<extern "C" fn(*mut c_void, value: *const c_char,
-            value_len: *mut size_t) -> ()>,
+        full_merge: extern fn (arg: *mut c_void,
+                               key: *const c_char, key_len: size_t,
+                               existing_value: *const c_char,
+                               existing_value_len: size_t,
+                               operands_list: *const *const c_char,
+                               operands_list_len: *const size_t,
+                               num_operands: c_int, success: *mut u8,
+                               new_value_length: *mut size_t
+                               ) -> *const c_char,
+        partial_merge: extern fn(arg: *mut c_void,
+                                 key: *const c_char, key_len: size_t,
+                                 operands_list: *const *const c_char,
+                                 operands_list_len: *const size_t,
+                                 num_operands: c_int, success: *mut u8,
+                                 new_value_length: *mut size_t
+                                 ) -> *const c_char,
+        delete_value: Option<extern "C" fn(*mut c_void,
+                                           value: *const c_char,
+                                           value_len: *mut size_t
+                                           ) -> ()>,
         name_fn: extern fn(*mut c_void) -> *const c_char,
     ) -> RocksDBMergeOperator;
     pub fn rocksdb_mergeoperator_destroy(mo: RocksDBMergeOperator);
-    pub fn rocksdb_options_set_merge_operator(
-        options: RocksDBOptions,
-        mo: RocksDBMergeOperator);
+    pub fn rocksdb_options_set_merge_operator(options: RocksDBOptions,
+                                              mo: RocksDBMergeOperator);
+    // Snapshot
+    pub fn rocksdb_create_snapshot(db: RocksDBInstance) -> RocksDBSnapshot;
+    pub fn rocksdb_readoptions_set_snapshot(read_opts: RocksDBReadOptions,
+                                            snapshot: RocksDBSnapshot);
+    pub fn rocksdb_release_snapshot(db: RocksDBInstance,
+                                    snapshot: RocksDBSnapshot);
+
 }
 
 #[allow(dead_code)]
