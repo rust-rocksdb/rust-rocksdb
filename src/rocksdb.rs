@@ -57,12 +57,11 @@ impl RocksDB {
 
             let err = 0 as *mut i8;
             let db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err);
-            let rocksdb_ffi::RocksDBInstance(db_ptr) = db;
             if !err.is_null() {
                 let cs = from_c_str(err as *const i8);
                 return Err(cs);
             }
-            if db_ptr.is_null() {
+            if db.0.is_null() {
                 return Err("Could not initialize database.");
             }
             Ok(RocksDB{inner: db})
@@ -134,8 +133,7 @@ impl RocksDB {
         RocksDBResult<'a, RocksDBVector, &str> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
-            let rocksdb_ffi::RocksDBReadOptions(read_opts_ptr) = readopts;
-            if read_opts_ptr.is_null() {
+            if readopts.0.is_null() {
                 return RocksDBResult::Error("Unable to create rocksdb read \
                     options.  This is a fairly trivial call, and its failure \
                     may be indicative of a mis-compiled or mis-loaded rocksdb \
