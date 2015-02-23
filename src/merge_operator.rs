@@ -101,17 +101,17 @@ pub extern "C" fn partial_merge_callback(
 }
 
 
-pub struct MergeOperands<'a> {
+pub struct MergeOperands {
     operands_list: *const *const c_char,
     operands_list_len: *const size_t,
     num_operands: usize,
     cursor: usize,
 }
 
-impl <'a> MergeOperands<'a> {
+impl MergeOperands {
     fn new(operands_list: *const *const c_char,
            operands_list_len: *const size_t,
-           num_operands: c_int) -> MergeOperands<'a> {
+           num_operands: c_int) -> MergeOperands {
         assert!(num_operands >= 0);
         MergeOperands {
             operands_list: operands_list,
@@ -122,7 +122,7 @@ impl <'a> MergeOperands<'a> {
     }
 }
 
-impl<'a> Iterator for &'a mut MergeOperands<'a> {
+impl<'a> Iterator for &'a mut MergeOperands {
     type Item = &'a [u8];
     fn next(&mut self) -> Option<&'a [u8]> {
         use std::raw::Slice;

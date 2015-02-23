@@ -13,19 +13,17 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#![allow(unstable)]
 
 extern crate libc;
 use self::libc::{c_void, size_t};
-use std::ops::Deref;
-use std::ptr::Unique;
 use std::ffi::CString;
-use std::str::from_utf8;
+use std::fs::{self, PathExt};
+use std::ops::Deref;
+use std::path::Path;
+use std::ptr::Unique;
 use std::slice;
 use std::str::from_c_str;
-use std::io::fs::PathExtensions;
-use std::io;
-use std::io::fs;
+use std::str::from_utf8;
 
 use rocksdb_ffi;
 use rocksdb_ffi::RocksDBSnapshot;
@@ -49,8 +47,8 @@ impl RocksDB {
 
             let ospath = Path::new(path);
             if !ospath.exists() {
-                match fs::mkdir_recursive(&ospath, io::USER_DIR) {
-                    Err(e) => return Err(e.desc),
+                match fs::create_dir_all(&ospath) {
+                    Err(e) => return Err(""),
                     Ok(_) => (),
                 }
             }
@@ -146,8 +144,7 @@ impl RocksDB {
         }
     }
 
-    pub fn get<'a>(&self, key: &[u8]) ->
-        RocksDBResult<'a, RocksDBVector, &str> {
+    pub fn get(&self, key: &[u8]) -> RocksDBResult<RocksDBVector, &str> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
             if readopts.0.is_null() {
@@ -202,14 +199,14 @@ pub struct RocksDBVector {
 impl Deref for RocksDBVector {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_mut_buf(&self.base.0, self.len) }
+        unsafe { slice::from_raw_mut_buf(self.base.deref(), self.len) }
     }
 }
 
 impl Drop for RocksDBVector {
     fn drop(&mut self) {
         unsafe {
-            libc::free(self.base.0 as *mut libc::c_void);
+            libc::free(*self.base.deref() as *mut libc::c_void);
         }
     }
 }
@@ -217,7 +214,7 @@ impl Drop for RocksDBVector {
 impl RocksDBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
         unsafe {
-            let base = Unique(val);
+            let base = Unique::new(val);
             RocksDBVector {
                 base: base,
                 len: val_len as usize,
@@ -232,15 +229,15 @@ impl RocksDBVector {
 
 // RocksDBResult exists because of the inherent difference between
 // an operational failure and the absence of a possible result.
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Show)]
-pub enum RocksDBResult<'a,T,E> {
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
+pub enum RocksDBResult<T, E> {
     Some(T),
     None,
     Error(E),
 }
 
-impl <'a,T,E> RocksDBResult<'a,T,E> {
-    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> RocksDBResult<'a,U,E> {
+impl <T, E> RocksDBResult<T, E> {
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> RocksDBResult<U, E> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(f(x)),
             RocksDBResult::None => RocksDBResult::None,
@@ -258,7 +255,7 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
         }
     }
 
-    pub fn on_error<U, F: FnOnce(E) -> U>(self, f: F) -> RocksDBResult<'a,T,U> {
+    pub fn on_error<U, F: FnOnce(E) -> U>(self, f: F) -> RocksDBResult<T, U> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(x),
             RocksDBResult::None => RocksDBResult::None,
@@ -266,7 +263,7 @@ impl <'a,T,E> RocksDBResult<'a,T,E> {
         }
     }
 
-    pub fn on_absent<F: FnOnce()->()>(self, f: F) -> RocksDBResult<'a,T,E> {
+    pub fn on_absent<F: FnOnce()->()>(self, f: F) -> RocksDBResult<T, E> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(x),
             RocksDBResult::None => {
