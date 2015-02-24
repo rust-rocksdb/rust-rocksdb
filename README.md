@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.3 crate should work with the 1.0.0-alpha Rust release.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.4 crate should work with the 1.0.0-alpha.2 Rust release.
 ###### Prerequisite: RocksDB
 ```bash
 wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
@@ -14,7 +14,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.0.3"
+rocksdb = "~0.0.4"
 ```
 ###### Code
 ```rust
@@ -43,7 +43,7 @@ use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
 
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
-    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().val0());
+    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
         Some(v) => result.push_all(v),
         None => (),
