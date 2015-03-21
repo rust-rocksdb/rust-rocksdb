@@ -15,7 +15,6 @@
 */
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
-use std::ffi::CString;
 
 #[repr(C)]
 pub struct RocksDBOptions(pub *const c_void);

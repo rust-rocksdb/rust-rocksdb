@@ -13,8 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#![allow(unstable)]
-
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CString;
@@ -69,8 +67,7 @@ pub extern "C" fn full_merge_callback(
         assert!(!buf.is_null());
         *new_value_length = result.len() as size_t;
         *success = 1 as u8;
-        ptr::copy_memory(&mut *buf, result.as_ptr()
-                         as *const c_void, result.len());
+        ptr::copy(&mut *buf, result.as_ptr() as *const c_void, result.len());
         buf as *const c_char
     }
 }
@@ -94,8 +91,7 @@ pub extern "C" fn partial_merge_callback(
         assert!(!buf.is_null());
         *new_value_length = 1 as size_t;
         *success = 1 as u8;
-        ptr::copy_memory(&mut *buf, result.as_ptr()
-                         as *const c_void, result.len());
+        ptr::copy(&mut *buf, result.as_ptr() as *const c_void, result.len());
         buf as *const c_char
     }
 }

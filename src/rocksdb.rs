@@ -16,13 +16,12 @@
 
 extern crate libc;
 use self::libc::{c_void, size_t};
-use std::ffi::CString;
+use std::ffi::{CString, CStr};
 use std::fs::{self, PathExt};
 use std::ops::Deref;
 use std::path::Path;
 use std::ptr::Unique;
 use std::slice;
-use std::str::from_c_str;
 use std::str::from_utf8;
 
 use rocksdb_ffi;
@@ -33,6 +32,12 @@ pub struct RocksDB {
     inner: rocksdb_ffi::RocksDBInstance,
 }
 
+fn error_message<'a>(ptr: *const i8) -> &'a str {
+    unsafe {
+        return from_utf8(CStr::from_ptr(ptr).to_bytes()).unwrap();
+    }
+}
+
 impl RocksDB {
     pub fn open_default(path: &str) -> Result<RocksDB, &str> {
         let opts = RocksDBOptions::new();
@@ -41,71 +46,69 @@ impl RocksDB {
     }
 
     pub fn open(opts: RocksDBOptions, path: &str) -> Result<RocksDB, &str> {
-        unsafe {
-            let cpath = CString::from_slice(path.as_bytes());
-            let cpath_ptr = cpath.as_ptr();
+        let cpath = CString::new(path.as_bytes()).unwrap();
+        let cpath_ptr = cpath.as_ptr();
 
-            let ospath = Path::new(path);
-            if !ospath.exists() {
-                match fs::create_dir_all(&ospath) {
-                    Err(e) => return Err(""),
-                    Ok(_) => (),
-                }
+        let ospath = Path::new(path);
+        if !ospath.exists() {
+            match fs::create_dir_all(&ospath) {
+                Err(_) => return Err(""),
+                Ok(_) => (),
             }
-
-            let err = 0 as *mut i8;
-            let db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err);
-            if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return Err(cs);
-            }
-            if db.0.is_null() {
-                return Err("Could not initialize database.");
-            }
-            Ok(RocksDB{inner: db})
         }
+
+        let err = 0 as *mut i8;
+        let db: rocksdb_ffi::RocksDBInstance;
+
+        unsafe {
+            db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err);
+        }
+
+        if !err.is_null() {
+            return Err(error_message(err));
+        }
+        if db.0.is_null() {
+            return Err("Could not initialize database.");
+        }
+        Ok(RocksDB{inner: db})
     }
 
     pub fn destroy(opts: RocksDBOptions, path: &str) -> Result<(), &str> {
-        unsafe {
-            let cpath = CString::from_slice(path.as_bytes());
-            let cpath_ptr = cpath.as_ptr();
+        let cpath = CString::new(path.as_bytes()).unwrap();
+        let cpath_ptr = cpath.as_ptr();
 
-            let ospath = Path::new(path);
-            if !ospath.exists() {
-                return Err("path does not exist");
-            }
-
-            let err = 0 as *mut i8;
-            let result = rocksdb_ffi::rocksdb_destroy_db(
-                opts.inner, cpath_ptr, err);
-            if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return Err(cs);
-            }
-            Ok(())
+        let ospath = Path::new(path);
+        if !ospath.exists() {
+            return Err("path does not exist");
         }
+
+        let err = 0 as *mut i8;
+        unsafe {
+            rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath_ptr, err);
+        }
+        if !err.is_null() {
+            return Err(error_message(err));
+        }
+        Ok(())
     }
 
     pub fn repair(opts: RocksDBOptions, path: &str) -> Result<(), &str> {
-        unsafe {
-            let cpath = CString::from_slice(path.as_bytes());
-            let cpath_ptr = cpath.as_ptr();
+        let cpath = CString::new(path.as_bytes()).unwrap();
+        let cpath_ptr = cpath.as_ptr();
 
-            let ospath = Path::new(path);
-            if !ospath.exists() {
-                return Err("path does not exist");
-            }
-
-            let err = 0 as *mut i8;
-            let result = rocksdb_ffi::rocksdb_repair_db(
-                opts.inner, cpath_ptr, err);
-            if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return Err(cs);
-            }
-            Ok(())
+        let ospath = Path::new(path);
+        if !ospath.exists() {
+            return Err("path does not exist");
         }
+
+        let err = 0 as *mut i8;
+        unsafe {
+            rocksdb_ffi::rocksdb_repair_db(opts.inner, cpath_ptr, err);
+        }
+        if !err.is_null() {
+            return Err(error_message(err));
+        }
+        Ok(())
     }
 
     pub fn create_snapshot(self) -> RocksDBSnapshot {
@@ -122,8 +125,7 @@ impl RocksDB {
                         key.len() as size_t, value.as_ptr(),
                         value.len() as size_t, err);
             if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return Err(cs);
+                return Err(error_message(err));
             }
             return Ok(())
         }
@@ -137,8 +139,7 @@ impl RocksDB {
                         key.len() as size_t, value.as_ptr(),
                         value.len() as size_t, err);
             if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return Err(cs);
+                return Err(error_message(err));
             }
             return Ok(())
         }
@@ -160,8 +161,7 @@ impl RocksDB {
             let val = rocksdb_ffi::rocksdb_get(self.inner, readopts,
                 key.as_ptr(), key.len() as size_t, val_len_ptr, err) as *mut u8;
             if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return RocksDBResult::Error(cs);
+                return RocksDBResult::Error(error_message(err));
             }
             match val.is_null() {
                 true => RocksDBResult::None,
@@ -179,8 +179,7 @@ impl RocksDB {
             rocksdb_ffi::rocksdb_delete(self.inner, writeopts, key.as_ptr(),
                         key.len() as size_t, err);
             if !err.is_null() {
-                let cs = from_c_str(err as *const i8);
-                return Err(cs);
+                return Err(error_message(err));
             }
             return Ok(())
         }
