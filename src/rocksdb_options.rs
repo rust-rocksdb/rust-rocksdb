@@ -13,8 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#![allow(unstable)]
-
 extern crate libc;
 use self::libc::{c_int, size_t};
 use std::ffi::CString;
@@ -73,7 +71,7 @@ impl RocksDBOptions {
     pub fn add_merge_operator<'a>( &self, name: &str,
         merge_fn: fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::from_slice(name.as_bytes()),
+            name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
         });
 
