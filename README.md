@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.4 crate should work with the 1.0.0-alpha.2 Rust release.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.4 crate should work with the 1.0.0-alpha.2 Rust release.  Currently, travis is only testing the nightly, but this may change when the beta drops.
 ###### Prerequisite: RocksDB
 ```bash
 wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
