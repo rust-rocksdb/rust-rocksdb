@@ -15,47 +15,44 @@
 */
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
+use std::ffi::CString;
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBOptions(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBInstance(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBWriteOptions(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBReadOptions(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBMergeOperator(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBBlockBasedTableOptions(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBCache(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBFilterPolicy(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBSnapshot(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBIterator(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBCFHandle(pub *const c_void);
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBWriteBatch(pub *const c_void);
-
-impl Copy for RocksDBOptions {}
-impl Copy for RocksDBInstance {}
-impl Copy for RocksDBWriteOptions {}
-impl Copy for RocksDBReadOptions {}
-impl Copy for RocksDBMergeOperator {}
-impl Copy for RocksDBBlockBasedTableOptions {}
-impl Copy for RocksDBCache {}
-impl Copy for RocksDBFilterPolicy {}
-impl Copy for RocksDBCompactionStyle {}
-impl Copy for RocksDBCompressionType {}
-impl Copy for RocksDBUniversalCompactionStyle {}
-impl Copy for RocksDBSnapshot {}
-impl Copy for RocksDBIterator {}
-impl Copy for RocksDBCFHandle {}
-impl Copy for RocksDBWriteBatch {}
 
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
@@ -329,7 +326,7 @@ fn internal() {
         rocksdb_options_set_create_if_missing(opts, true);
 
         let rustpath = "_rust_rocksdb_internaltest";
-        let cpath = CString::from_slice(rustpath.as_bytes());
+        let cpath = CString::new(rustpath).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
         let err = 0 as *mut i8;

@@ -198,7 +198,7 @@ pub struct RocksDBVector {
 impl Deref for RocksDBVector {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_mut_buf(self.base.deref(), self.len) }
+        unsafe { slice::from_raw_parts(self.base.get(), self.len) }
     }
 }
 

@@ -71,8 +71,17 @@ fn custom_merge() {
     db.merge(b"k1", b"d");
     db.merge(b"k1", b"efg");
     let m = db.merge(b"k1", b"h");
-    let r = db.get(b"k1");
-    assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
+    db.get(b"k1").map( |value| {
+        match value.to_utf8() {
+            Some(v) =>
+                println!("retrieved utf8 value: {}", v),
+            None =>
+                println!("did not read valid utf-8 out of the db"),
+        }
+    })
+        .on_absent( || { println!("value not found") })
+        .on_error( |e| { println!("error retrieving value: {}", e) });
+
     db.close();
     RocksDB::destroy(opts, path).is_ok();
 }

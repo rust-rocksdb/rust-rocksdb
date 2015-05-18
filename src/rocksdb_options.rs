@@ -22,12 +22,11 @@ use rocksdb_ffi;
 use merge_operator::{MergeOperatorCallback, MergeOperands, destructor_callback, full_merge_callback,
               partial_merge_callback, name_callback};
 
+#[derive(Copy, Clone)]
 pub struct RocksDBOptions {
     pub inner: rocksdb_ffi::RocksDBOptions,
     block_options: rocksdb_ffi::RocksDBBlockBasedTableOptions,
 }
-
-impl Copy for RocksDBOptions {}
 
 impl RocksDBOptions {
     pub fn new() -> RocksDBOptions {
