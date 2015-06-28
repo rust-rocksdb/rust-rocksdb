@@ -15,12 +15,11 @@
 */
 #![crate_id = "rocksdb"]
 #![crate_type = "lib"]
-#![feature(collections)]
-#![feature(core)]
 #![feature(libc)]
 #![feature(unique)]
 #![feature(path_ext)]
-
+#![feature(raw)]
+#![feature(vec_push_all)]
 
 pub use ffi as rocksdb_ffi;
 pub use ffi::{

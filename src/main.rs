@@ -15,6 +15,7 @@
 */
 #![feature(collections)]
 #![feature(test)]
+#![feature(vec_push_all)]
 
 extern crate rocksdb;
 extern crate test;
