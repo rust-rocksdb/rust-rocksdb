@@ -52,7 +52,7 @@ impl RocksDB {
         let ospath = Path::new(path);
         if !ospath.exists() {
             match fs::create_dir_all(&ospath) {
-                Err(_) => return Err(""),
+                Err(e) => return Err("Failed to create rocksdb directory."),
                 Ok(_) => (),
             }
         }
@@ -213,9 +213,8 @@ impl Drop for RocksDBVector {
 impl RocksDBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
         unsafe {
-            let base = Unique::new(val);
             RocksDBVector {
-                base: base,
+                base: Unique::new(val),
                 len: val_len as usize,
             }
         }
