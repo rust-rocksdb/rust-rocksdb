@@ -7,7 +7,7 @@ This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.5 
 ###### Prerequisite: RocksDB
 ```bash
 wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
-tar xvf rocksdb-3.8.tar.gz && cd rocksdb-rocksdb-3.8 && make static_lib
+tar xvf rocksdb-3.8.tar.gz && cd rocksdb-rocksdb-3.8 && make shared_lib
 sudo make install
 ```
 
