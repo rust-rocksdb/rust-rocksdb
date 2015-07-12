@@ -132,7 +132,8 @@ impl RocksDB {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
-            rocksdb_ffi::rocksdb_write(self.inner, writeopts, batch.inner, err);
+            rocksdb_ffi::rocksdb_write(self.inner, writeopts.clone(), batch.inner, err);
+            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -153,8 +154,9 @@ impl RocksDB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let err = 0 as *mut i8;
-            let val = rocksdb_ffi::rocksdb_get(self.inner, readopts,
+            let val = rocksdb_ffi::rocksdb_get(self.inner, readopts.clone(),
                 key.as_ptr(), key.len() as size_t, val_len_ptr, err) as *mut u8;
+            rocksdb_ffi::rocksdb_readoptions_destroy(readopts);
             if !err.is_null() {
                 return RocksDBResult::Error(error_message(err));
             }
@@ -177,9 +179,10 @@ impl Writable for RocksDB {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
-            rocksdb_ffi::rocksdb_put(self.inner, writeopts, key.as_ptr(),
+            rocksdb_ffi::rocksdb_put(self.inner, writeopts.clone(), key.as_ptr(),
                         key.len() as size_t, value.as_ptr(),
                         value.len() as size_t, err);
+            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -191,9 +194,10 @@ impl Writable for RocksDB {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
-            rocksdb_ffi::rocksdb_merge(self.inner, writeopts, key.as_ptr(),
+            rocksdb_ffi::rocksdb_merge(self.inner, writeopts.clone(), key.as_ptr(),
                         key.len() as size_t, value.as_ptr(),
                         value.len() as size_t, err);
+            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -205,8 +209,9 @@ impl Writable for RocksDB {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
-            rocksdb_ffi::rocksdb_delete(self.inner, writeopts, key.as_ptr(),
+            rocksdb_ffi::rocksdb_delete(self.inner, writeopts.clone(), key.as_ptr(),
                         key.len() as size_t, err);
+            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
             if !err.is_null() {
                 return Err(error_message(err));
             }

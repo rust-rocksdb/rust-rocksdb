@@ -14,13 +14,13 @@
    limitations under the License.
 */
 #![feature(test)]
-#![feature(vec_push_all)]
 
 extern crate rocksdb;
 extern crate test;
 use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter, Writable};
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
+#[cfg(not(feature = "valgrind"))]
 fn main() {
     let path = "/tmp/rust-rocksdb";
     let db = RocksDB::open_default(path).unwrap();
@@ -46,11 +46,11 @@ fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
-        Some(v) => result.push_all(v),
+        Some(v) => result.extend(v),
         None => (),
     }
     for op in operands {
-        result.push_all(op);
+        result.extend(op);
     }
     result
 }
@@ -80,6 +80,32 @@ fn custom_merge() {
 
     db.close();
     RocksDB::destroy(opts, path).is_ok();
+}
+
+#[cfg(feature = "valgrind")]
+fn main() {
+    let path = "_rust_rocksdb_valgrind";
+    let opts = RocksDBOptions::new();
+    opts.create_if_missing(true);
+    opts.add_merge_operator("test operator", concat_merge);
+    let db = RocksDB::open(opts, path).unwrap();
+    loop {
+        db.put(b"k1", b"a");
+        db.merge(b"k1", b"b");
+        db.merge(b"k1", b"c");
+        db.merge(b"k1", b"d");
+        db.merge(b"k1", b"efg");
+        db.merge(b"k1", b"h");
+        db.get(b"k1").map( |value| {
+            match value.to_utf8() {
+                Some(v) => (),
+                None => panic!("value corrupted"),
+            }
+        })
+            .on_absent( || { panic!("value not found") })
+            .on_error( |e| { panic!("error retrieving value: {}", e) });
+        db.delete(b"k1");
+    }
 }
 
 

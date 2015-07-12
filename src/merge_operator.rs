@@ -153,11 +153,11 @@ fn test_provided_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     match existing_val {
-        Some(v) => result.push_all(v),
+        Some(v) => result.extend(v),
         None => (),
     }
     for op in operands {
-        result.push_all(op);
+        result.extend(op);
     }
     result
 }
