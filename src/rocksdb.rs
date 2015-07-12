@@ -25,45 +25,50 @@ use std::slice;
 use std::str::from_utf8;
 
 use rocksdb_ffi;
-use rocksdb_ffi::RocksDBSnapshot;
-use rocksdb_options::RocksDBOptions;
+use rocksdb_options::Options;
 
 pub struct RocksDB {
     inner: rocksdb_ffi::RocksDBInstance,
 }
 
 pub struct WriteBatch {
-    inner: rocksdb_ffi::RocksDBWriteBatch
+    inner: rocksdb_ffi::RocksDBWriteBatch,
+}
+
+pub struct ReadOptions {
+    inner: rocksdb_ffi::RocksDBReadOptions,
 }
 
 // This is for the RocksDB and write batches to share the same API
 pub trait Writable {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str>;
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str>;
-    fn delete(&self, key: &[u8]) -> Result<(),&str>;
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
+    fn delete(&self, key: &[u8]) -> Result<(), String>;
 }
 
-fn error_message<'a>(ptr: *const i8) -> &'a str {
-    unsafe {
-        return from_utf8(CStr::from_ptr(ptr).to_bytes()).unwrap();
-    }
+fn error_message(ptr: *const i8) -> String {
+    let c_str = unsafe { CStr::from_ptr(ptr) };
+    from_utf8(c_str.to_bytes()).unwrap().to_owned()
 }
 
 impl RocksDB {
-    pub fn open_default(path: &str) -> Result<RocksDB, &str> {
-        let opts = RocksDBOptions::new();
+    pub fn open_default(path: &str) -> Result<RocksDB, String> {
+        let mut opts = Options::new();
         opts.create_if_missing(true);
-        RocksDB::open(opts, path)
+        RocksDB::open(&opts, path)
     }
 
-    pub fn open(opts: RocksDBOptions, path: &str) -> Result<RocksDB, &str> {
-        let cpath = CString::new(path.as_bytes()).unwrap();
+    pub fn open(opts: &Options, path: &str) -> Result<RocksDB, String> {
+        let cpath = match CString::new(path.as_bytes()) {
+                        Ok(c) => c,
+                        Err(_) => return Err("Failed to convert path to CString when opening rocksdb".to_string()),
+        };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         if !ospath.exists() {
             match fs::create_dir_all(&ospath) {
-                Err(e) => return Err("Failed to create rocksdb directory."),
+                Err(e) => return Err("Failed to create rocksdb directory.".to_string()),
                 Ok(_) => (),
             }
         }
@@ -78,19 +83,20 @@ impl RocksDB {
         if !err.is_null() {
             return Err(error_message(err));
         }
-        if db.0.is_null() {
-            return Err("Could not initialize database.");
+        let rocksdb_ffi::RocksDBInstance(db_ptr) = db;
+        if db_ptr.is_null() {
+            return Err("Could not initialize database.".to_string());
         }
         Ok(RocksDB{inner: db})
     }
 
-    pub fn destroy(opts: RocksDBOptions, path: &str) -> Result<(), &str> {
+    pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         if !ospath.exists() {
-            return Err("path does not exist");
+            return Err("path does not exist".to_string());
         }
 
         let err = 0 as *mut i8;
@@ -103,13 +109,13 @@ impl RocksDB {
         Ok(())
     }
 
-    pub fn repair(opts: RocksDBOptions, path: &str) -> Result<(), &str> {
+    pub fn repair(opts: Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         if !ospath.exists() {
-            return Err("path does not exist");
+            return Err("path does not exist".to_string());
         }
 
         let err = 0 as *mut i8;
@@ -122,33 +128,27 @@ impl RocksDB {
         Ok(())
     }
 
-    pub fn create_snapshot(self) -> RocksDBSnapshot {
+    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
+        let writeopts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+        let err = 0 as *mut i8;
         unsafe {
-            rocksdb_ffi::rocksdb_create_snapshot(self.inner)
-        }
-    }
-
-    pub fn write(&self, batch: WriteBatch) -> Result<(), &str> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let err = 0 as *mut i8;
             rocksdb_ffi::rocksdb_write(self.inner, writeopts.clone(), batch.inner, err);
             rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            return Ok(())
         }
+        if !err.is_null() {
+            return Err(error_message(err));
+        }
+        return Ok(())
     }
 
-    pub fn get(&self, key: &[u8]) -> RocksDBResult<RocksDBVector, &str> {
+    pub fn get(&self, key: &[u8]) -> RocksDBResult<RocksDBVector, String> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
             if readopts.0.is_null() {
                 return RocksDBResult::Error("Unable to create rocksdb read \
                     options.  This is a fairly trivial call, and its failure \
                     may be indicative of a mis-compiled or mis-loaded rocksdb \
-                    library.");
+                    library.".to_string());
             }
 
             let val_len: size_t = 0;
@@ -175,7 +175,7 @@ impl RocksDB {
 }
 
 impl Writable for RocksDB {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
@@ -190,7 +190,7 @@ impl Writable for RocksDB {
         }
     }
 
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
@@ -205,7 +205,7 @@ impl Writable for RocksDB {
         }
     }
 
-    fn delete(&self, key: &[u8]) -> Result<(),&str> {
+    fn delete(&self, key: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
@@ -239,7 +239,7 @@ impl Drop for WriteBatch {
 }
 
 impl Writable for WriteBatch {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put(self.inner, key.as_ptr(),
                         key.len() as size_t, value.as_ptr(),
@@ -248,7 +248,7 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_merge(self.inner, key.as_ptr(),
                         key.len() as size_t, value.as_ptr(),
@@ -257,13 +257,30 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn delete(&self, key: &[u8]) -> Result<(),&str> {
+    fn delete(&self, key: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete(self.inner, key.as_ptr(),
                         key.len() as size_t);
             return Ok(())
         }
     }
+}
+
+impl Drop for ReadOptions {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_destroy(self.inner)
+        }
+    }
+}
+
+impl ReadOptions {
+    fn fill_cache(&mut self, v: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
+        }
+    }
+
 }
 
 pub struct RocksDBVector {
@@ -378,13 +395,13 @@ fn external() {
     let db = RocksDB::open_default(path).unwrap();
     let p = db.put(b"k1", b"v1111");
     assert!(p.is_ok());
-    let r: RocksDBResult<RocksDBVector, &str> = db.get(b"k1");
+    let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
     assert!(r.unwrap().to_utf8().unwrap() == "v1111");
     assert!(db.delete(b"k1").is_ok());
     assert!(db.get(b"k1").is_none());
     db.close();
-    let opts = RocksDBOptions::new();
-    assert!(RocksDB::destroy(opts, path).is_ok());
+    let opts = Options::new();
+    assert!(RocksDB::destroy(&opts, path).is_ok());
 }
 
 #[test]
@@ -398,7 +415,7 @@ fn writebatch_works() {
         assert!(db.get(b"k1").is_none());
         let p = db.write(batch);
         assert!(p.is_ok());
-        let r: RocksDBResult<RocksDBVector, &str> = db.get(b"k1");
+        let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
         assert!(r.unwrap().to_utf8().unwrap() == "v1111");
     }
     { // test delete
@@ -409,6 +426,6 @@ fn writebatch_works() {
         assert!(db.get(b"k1").is_none());
     }
     db.close();
-    let opts = RocksDBOptions::new();
-    assert!(RocksDB::destroy(opts, path).is_ok());
+    let opts = Options::new();
+    assert!(RocksDB::destroy(&opts, path).is_ok());
 }
