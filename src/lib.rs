@@ -28,6 +28,7 @@ pub use ffi::{
     RocksDBCompactionStyle,
     RocksDBCompressionType,
     RocksDBSnapshot,
+    RocksDBComparator,
 };
 pub use rocksdb::{
     RocksDB,
@@ -46,3 +47,4 @@ pub mod rocksdb;
 pub mod ffi;
 pub mod rocksdb_options;
 pub mod merge_operator;
+pub mod comparator;

@@ -19,8 +19,9 @@ use std::ffi::CString;
 use std::mem;
 
 use rocksdb_ffi;
-use merge_operator::{MergeOperatorCallback, MergeOperands, destructor_callback, full_merge_callback,
-              partial_merge_callback, name_callback};
+use merge_operator::{self, MergeOperatorCallback, MergeOperands, full_merge_callback,
+              partial_merge_callback};
+use comparator::{self, ComparatorCallback, compare_callback};
 
 #[derive(Copy, Clone)]
 pub struct RocksDBOptions {
@@ -67,7 +68,7 @@ impl RocksDBOptions {
         }
     }
 
-    pub fn add_merge_operator<'a>( &self, name: &str,
+    pub fn add_merge_operator<'a>(&self, name: &str,
         merge_fn: fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
@@ -77,14 +78,31 @@ impl RocksDBOptions {
         unsafe {
             let mo = rocksdb_ffi::rocksdb_mergeoperator_create(
                 mem::transmute(cb),
-                destructor_callback,
+                merge_operator::destructor_callback,
                 full_merge_callback,
                 partial_merge_callback,
                 None,
-                name_callback);
+                merge_operator::name_callback);
             rocksdb_ffi::rocksdb_options_set_merge_operator(self.inner, mo);
         }
     }
+
+    pub fn add_comparator<'a>(&self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+        let cb = Box::new(ComparatorCallback {
+            name: CString::new(name.as_bytes()).unwrap(),
+            f: compare_fn,
+        });
+
+        unsafe {
+            let cmp = rocksdb_ffi::rocksdb_comparator_create(
+                mem::transmute(cb),
+                comparator::destructor_callback,
+                compare_callback,
+                comparator::name_callback);
+            rocksdb_ffi::rocksdb_options_set_comparator(self.inner, cmp);
+        }
+    }
+
 
     pub fn set_block_size(&self, size: u64) {
         unsafe {
