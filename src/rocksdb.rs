@@ -32,6 +32,17 @@ pub struct RocksDB {
     inner: rocksdb_ffi::RocksDBInstance,
 }
 
+pub struct WriteBatch {
+    inner: rocksdb_ffi::RocksDBWriteBatch
+}
+
+// This is for the RocksDB and write batches to share the same API
+pub trait Writable {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str>;
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str>;
+    fn delete(&self, key: &[u8]) -> Result<(),&str>;
+}
+
 fn error_message<'a>(ptr: *const i8) -> &'a str {
     unsafe {
         return from_utf8(CStr::from_ptr(ptr).to_bytes()).unwrap();
@@ -117,33 +128,11 @@ impl RocksDB {
         }
     }
 
-    pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let err = 0 as *mut i8;
-            rocksdb_ffi::rocksdb_put(self.inner, writeopts, key.as_ptr(),
-                        key.len() as size_t, value.as_ptr(),
-                        value.len() as size_t, err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            return Ok(())
-        }
-    }
-
-    pub fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let err = 0 as *mut i8;
-            rocksdb_ffi::rocksdb_merge(self.inner, writeopts, key.as_ptr(),
-                        key.len() as size_t, value.as_ptr(),
-                        value.len() as size_t, err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            return Ok(())
-        }
-    }
+    ////pub fn create_writebatch(self) -> WriteBatch {
+    ////    WriteBatch(unsafe {
+    ////        rocksdb_ffi::rocksdb_writebatch_create()
+    ////    })
+    ////}
 
     pub fn get(&self, key: &[u8]) -> RocksDBResult<RocksDBVector, &str> {
         unsafe {
@@ -172,7 +161,41 @@ impl RocksDB {
         }
     }
 
-    pub fn delete(&self, key: &[u8]) -> Result<(),&str> {
+    pub fn close(&self) {
+        unsafe { rocksdb_ffi::rocksdb_close(self.inner); }
+    }
+}
+
+impl Writable for RocksDB {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+        unsafe {
+            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
+            let err = 0 as *mut i8;
+            rocksdb_ffi::rocksdb_put(self.inner, writeopts, key.as_ptr(),
+                        key.len() as size_t, value.as_ptr(),
+                        value.len() as size_t, err);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            return Ok(())
+        }
+    }
+
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+        unsafe {
+            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
+            let err = 0 as *mut i8;
+            rocksdb_ffi::rocksdb_merge(self.inner, writeopts, key.as_ptr(),
+                        key.len() as size_t, value.as_ptr(),
+                        value.len() as size_t, err);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            return Ok(())
+        }
+    }
+
+    fn delete(&self, key: &[u8]) -> Result<(),&str> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let err = 0 as *mut i8;
@@ -183,10 +206,6 @@ impl RocksDB {
             }
             return Ok(())
         }
-    }
-
-    pub fn close(&self) {
-        unsafe { rocksdb_ffi::rocksdb_close(self.inner); }
     }
 }
 
