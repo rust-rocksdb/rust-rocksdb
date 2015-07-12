@@ -18,7 +18,7 @@
 
 extern crate rocksdb;
 extern crate test;
-use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter};
+use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter, Writable};
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
 fn main() {
@@ -88,7 +88,7 @@ mod tests  {
     use test::Bencher;
     use std::thread::sleep_ms;
 
-    use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter};
+    use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter, Writable};
     use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
     fn tuned_for_somebody_elses_disk() -> RocksDB {

@@ -34,6 +34,8 @@ pub use rocksdb::{
     RocksDB,
     RocksDBResult,
     RocksDBVector,
+    WriteBatch,
+    Writable,
 };
 pub use rocksdb_options::{
     RocksDBOptions,

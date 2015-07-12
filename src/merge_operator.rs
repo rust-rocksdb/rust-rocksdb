@@ -21,7 +21,7 @@ use std::ptr;
 use std::slice;
 
 use rocksdb_options::{RocksDBOptions};
-use rocksdb::{RocksDB, RocksDBResult, RocksDBVector};
+use rocksdb::{RocksDB, RocksDBResult, RocksDBVector, Writable};
 
 pub struct MergeOperatorCallback {
     pub name: CString,
