@@ -128,11 +128,17 @@ impl RocksDB {
         }
     }
 
-    ////pub fn create_writebatch(self) -> WriteBatch {
-    ////    WriteBatch(unsafe {
-    ////        rocksdb_ffi::rocksdb_writebatch_create()
-    ////    })
-    ////}
+    pub fn write(&self, batch: WriteBatch) -> Result<(), &str> {
+        unsafe {
+            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
+            let err = 0 as *mut i8;
+            rocksdb_ffi::rocksdb_write(self.inner, writeopts, batch.inner, err);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            return Ok(())
+        }
+    }
 
     pub fn get(&self, key: &[u8]) -> RocksDBResult<RocksDBVector, &str> {
         unsafe {
@@ -204,6 +210,52 @@ impl Writable for RocksDB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
+            return Ok(())
+        }
+    }
+}
+
+impl WriteBatch {
+    pub fn new() -> WriteBatch {
+        WriteBatch {
+            inner: unsafe {
+                       rocksdb_ffi::rocksdb_writebatch_create()
+                   }
+        }
+    }
+}
+
+impl Drop for WriteBatch {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writebatch_destroy(self.inner)
+        }
+    }
+}
+
+impl Writable for WriteBatch {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+        unsafe {
+            rocksdb_ffi::rocksdb_writebatch_put(self.inner, key.as_ptr(),
+                        key.len() as size_t, value.as_ptr(),
+                        value.len() as size_t);
+            return Ok(())
+        }
+    }
+
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), &str> {
+        unsafe {
+            rocksdb_ffi::rocksdb_writebatch_merge(self.inner, key.as_ptr(),
+                        key.len() as size_t, value.as_ptr(),
+                        value.len() as size_t);
+            return Ok(())
+        }
+    }
+
+    fn delete(&self, key: &[u8]) -> Result<(),&str> {
+        unsafe {
+            rocksdb_ffi::rocksdb_writebatch_delete(self.inner, key.as_ptr(),
+                        key.len() as size_t);
             return Ok(())
         }
     }
@@ -325,6 +377,32 @@ fn external() {
     assert!(r.unwrap().to_utf8().unwrap() == "v1111");
     assert!(db.delete(b"k1").is_ok());
     assert!(db.get(b"k1").is_none());
+    db.close();
+    let opts = RocksDBOptions::new();
+    assert!(RocksDB::destroy(opts, path).is_ok());
+}
+
+#[test]
+fn writebatch_works() {
+    let path = "_rust_rocksdb_writebacktest";
+    let db = RocksDB::open_default(path).unwrap();
+    { // test put
+        let batch = WriteBatch::new();
+        assert!(db.get(b"k1").is_none());
+        batch.put(b"k1", b"v1111");
+        assert!(db.get(b"k1").is_none());
+        let p = db.write(batch);
+        assert!(p.is_ok());
+        let r: RocksDBResult<RocksDBVector, &str> = db.get(b"k1");
+        assert!(r.unwrap().to_utf8().unwrap() == "v1111");
+    }
+    { // test delete
+        let batch = WriteBatch::new();
+        batch.delete(b"k1");
+        let p = db.write(batch);
+        assert!(p.is_ok());
+        assert!(db.get(b"k1").is_none());
+    }
     db.close();
     let opts = RocksDBOptions::new();
     assert!(RocksDB::destroy(opts, path).is_ok());

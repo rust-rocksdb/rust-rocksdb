@@ -272,6 +272,10 @@ extern {
     pub fn rocksdb_iter_get_error(iter: RocksDBIterator,
                                   err: *const *const u8);
     // Write batch
+    pub fn rocksdb_write(db: RocksDBInstance,
+                         writeopts: RocksDBWriteOptions,
+                         batch : RocksDBWriteBatch,
+                         err: *mut i8);
     pub fn rocksdb_writebatch_create() -> RocksDBWriteBatch;
     pub fn rocksdb_writebatch_create_from(rep: *const u8,
                                           size: size_t) -> RocksDBWriteBatch;
