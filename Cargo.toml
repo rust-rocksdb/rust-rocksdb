@@ -2,7 +2,7 @@
 
 name = "rocksdb"
 description = "A Rust wrapper for Facebook's RocksDB embeddable database."
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Tyler Neely <t@jujit.su>"]
 license = "Apache-2.0"
 
