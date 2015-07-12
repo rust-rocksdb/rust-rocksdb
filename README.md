@@ -4,6 +4,25 @@ rust-rocksdb
 
 This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 crate should work with the Rust nightly release as of 7/12/15.
 
+### status
+  - [x] basic open/put/get/delete/close
+  - [x] linux support
+  - [x] rocksdb compiled via cargo
+  - [x] OSX support
+  - [x] rustic merge operator
+  - [x] compaction filter, style
+  - [x] LRU cache
+  - [x] destroy/repair
+  - [x] write batch (thanks @dgrnbrg!)
+  - [ ] create/release snapshot
+  - [ ] iterator
+  - [ ] column family operations
+  - [ ] comparator
+  - [ ] slicetransform
+  - [ ] windows support
+
+Feedback and pull requests welcome!  If a particular feature of RocksDB is important to you, please let me know by opening an issue, and I'll prioritize it.
+
 ###### Prerequisite: RocksDB
 ```bash
 wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
@@ -105,21 +124,3 @@ fn tuned_for_somebody_elses_disk() -> RocksDB {
 }
 ```
 
-### status
-  - [x] basic open/put/get/delete/close
-  - [x] linux support
-  - [x] rocksdb compiled via cargo
-  - [x] OSX support
-  - [x] rustic merge operator
-  - [x] compaction filter, style
-  - [x] LRU cache
-  - [x] destroy/repair
-  - [ ] create/release snapshot
-  - [ ] iterator
-  - [ ] column family operations
-  - [ ] write batch
-  - [ ] comparator
-  - [ ] slicetransform
-  - [ ] windows support
-
-Feedback and pull requests welcome!  If a particular feature of RocksDB is important to you, please let me know by opening an issue, and I'll prioritize it.
