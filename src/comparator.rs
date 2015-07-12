@@ -20,7 +20,7 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-use rocksdb_options::{RocksDBOptions};
+use rocksdb_options::RocksDBOptions;
 use rocksdb::RocksDB;
 
 pub struct ComparatorCallback {
