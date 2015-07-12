@@ -6,18 +6,15 @@ This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 
 
 ### status
   - [x] basic open/put/get/delete/close
-  - [x] linux support
-  - [x] rocksdb compiled via cargo
-  - [x] OSX support
   - [x] rustic merge operator
+  - [x] write batch (thanks @dgrnbrg!)
   - [x] compaction filter, style
   - [x] LRU cache
   - [x] destroy/repair
-  - [x] write batch (thanks @dgrnbrg!)
-  - [ ] create/release snapshot
   - [ ] iterator
-  - [ ] column family operations
   - [ ] comparator
+  - [ ] snapshot
+  - [ ] column family operations
   - [ ] slicetransform
   - [ ] windows support
 
