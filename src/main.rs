@@ -91,9 +91,7 @@ mod tests  {
     use rocksdb::{RocksDBOptions, RocksDB, MergeOperands, new_bloom_filter, Writable};
     use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
-    fn tuned_for_somebody_elses_disk() -> RocksDB {
-        let path = "_rust_rocksdb_optimizetest";
-        let opts = RocksDBOptions::new();
+    fn tuned_for_somebody_elses_disk(path: &str, opts: RocksDBOptions) -> RocksDB {
         opts.create_if_missing(true);
         opts.set_block_size(524288);
         opts.set_max_open_files(10000);
@@ -121,10 +119,12 @@ mod tests  {
     }
 
     #[bench]
-    fn writes(b: &mut Bencher) {
+    fn a_writes(b: &mut Bencher) {
         // dirty hack due to parallel tests causing contention.
         sleep_ms(1000);
-        let db = tuned_for_somebody_elses_disk();
+        let path = "_rust_rocksdb_optimizetest";
+        let opts = RocksDBOptions::new();
+        let db = tuned_for_somebody_elses_disk(path, opts);
         let mut i = 0 as u64;
         b.iter(|| {
             db.put(i.to_string().as_bytes(), b"v1111");
@@ -134,8 +134,10 @@ mod tests  {
     }
 
     #[bench]
-    fn reads(b: &mut Bencher) {
-        let db = tuned_for_somebody_elses_disk();
+    fn b_reads(b: &mut Bencher) {
+        let path = "_rust_rocksdb_optimizetest";
+        let opts = RocksDBOptions::new();
+        let db = tuned_for_somebody_elses_disk(path, opts);
         let mut i = 0 as u64;
         b.iter(|| {
             db.get(i.to_string().as_bytes()).on_error( |e| {
@@ -145,5 +147,6 @@ mod tests  {
             i += 1;
         });
         db.close();
+        RocksDB::destroy(opts, path).is_ok();
     }
 }
