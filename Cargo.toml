@@ -5,3 +5,7 @@ description = "A Rust wrapper for Facebook's RocksDB embeddable database."
 version = "0.0.5"
 authors = ["Tyler Neely <t@jujit.su>"]
 license = "Apache-2.0"
+
+[features]
+default=[]
+valgrind=[]

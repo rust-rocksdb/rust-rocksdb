@@ -19,7 +19,6 @@
 #![feature(unique)]
 #![feature(path_ext)]
 #![feature(raw)]
-#![feature(vec_push_all)]
 
 pub use ffi as rocksdb_ffi;
 pub use ffi::{

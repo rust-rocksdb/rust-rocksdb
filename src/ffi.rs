@@ -180,12 +180,14 @@ extern {
                         err: *mut i8
                         ) -> RocksDBInstance;
     pub fn rocksdb_writeoptions_create() -> RocksDBWriteOptions;
+    pub fn rocksdb_writeoptions_destroy(writeopts: RocksDBWriteOptions);
     pub fn rocksdb_put(db: RocksDBInstance,
                        writeopts: RocksDBWriteOptions,
                        k: *const u8, kLen: size_t,
                        v: *const u8, vLen: size_t,
                        err: *mut i8);
     pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
+    pub fn rocksdb_readoptions_destroy(readopts: RocksDBReadOptions);
     pub fn rocksdb_readoptions_set_snapshot(read_opts: RocksDBReadOptions,
                                             snapshot: RocksDBSnapshot);
     pub fn rocksdb_get(db: RocksDBInstance,
@@ -338,22 +340,22 @@ fn internal() {
         assert!(err.is_null());
 
         let writeopts = rocksdb_writeoptions_create();
-        let RocksDBWriteOptions(write_opt_ptr) = writeopts;
-        assert!(!write_opt_ptr.is_null());
+        assert!(!writeopts.0.is_null());
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
 
-        rocksdb_put(db, writeopts, key.as_ptr(), 4, val.as_ptr(), 8, err);
+        rocksdb_put(db, writeopts.clone(), key.as_ptr(), 4, val.as_ptr(), 8, err);
+        rocksdb_writeoptions_destroy(writeopts);
         assert!(err.is_null());
 
         let readopts = rocksdb_readoptions_create();
-        let RocksDBReadOptions(read_opts_ptr) = readopts;
-        assert!(!read_opts_ptr.is_null());
+        assert!(!readopts.0.is_null());
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
-        rocksdb_get(db, readopts, key.as_ptr(), 4, val_len_ptr, err);
+        rocksdb_get(db, readopts.clone(), key.as_ptr(), 4, val_len_ptr, err);
+        rocksdb_readoptions_destroy(readopts);
         assert!(err.is_null());
         rocksdb_close(db);
         rocksdb_destroy_db(opts, cpath_ptr, err);

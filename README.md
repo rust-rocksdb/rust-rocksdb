@@ -45,9 +45,9 @@ use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
-    existing_val.map(|v| { result.push_all(v) });
+    existing_val.map(|v| { result.extend(v) });
     for op in operands {
-        result.push_all(op);
+        result.extend(op);
     }
     result
 }
