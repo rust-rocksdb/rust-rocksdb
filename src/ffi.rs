@@ -53,6 +53,9 @@ pub struct RocksDBCFHandle(pub *const c_void);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct RocksDBWriteBatch(pub *const c_void);
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct RocksDBComparator(pub *const c_void);
 
 pub fn new_bloom_filter(bits: c_int) -> RocksDBFilterPolicy {
     unsafe {
@@ -317,15 +320,28 @@ extern {
                               k: *const u8, klen: size_t));
     pub fn rocksdb_writebatch_data(batch: RocksDBWriteBatch,
                                    size: *mut size_t) -> *const u8;
-    }
+
+    // Comparator
+    pub fn rocksdb_options_set_comparator(options: RocksDBOptions,
+                                          cb: RocksDBComparator);
+    pub fn rocksdb_comparator_create(
+        state: *mut c_void,
+        destroy: extern fn(*mut c_void) -> (),
+        compare: extern fn (arg: *mut c_void,
+                            a: *const c_char, alen: size_t,
+                            b: *const c_char, blen: size_t
+                           ) -> c_int,
+        name_fn: extern fn(*mut c_void) -> *const c_char
+    ) -> RocksDBComparator;
+    pub fn rocksdb_comparator_destroy(cmp: RocksDBComparator);
+}
 
 #[allow(dead_code)]
 #[test]
 fn internal() {
     unsafe {
         let opts = rocksdb_options_create();
-        let RocksDBOptions(opt_ptr) = opts;
-        assert!(!opt_ptr.is_null());
+        assert!(!opts.0.is_null());
 
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
@@ -344,7 +360,6 @@ fn internal() {
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
-
         rocksdb_put(db, writeopts.clone(), key.as_ptr(), 4, val.as_ptr(), 8, err);
         rocksdb_writeoptions_destroy(writeopts);
         assert!(err.is_null());
