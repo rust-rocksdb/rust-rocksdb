@@ -20,7 +20,7 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-use rocksdb_options::RocksDBOptions;
+use rocksdb_options::Options;
 use rocksdb::RocksDB;
 
 pub struct ComparatorCallback {
@@ -69,11 +69,11 @@ fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
 #[test]
 fn compare_works() {
     let path = "_rust_rocksdb_comparetest";
-    let opts = RocksDBOptions::new();
+    let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_comparator("test comparator", test_reverse_compare);
-    let db = RocksDB::open(opts, path).unwrap();
+    let db = RocksDB::open(&opts, path).unwrap();
     // TODO add interesting test
     db.close();
-    assert!(RocksDB::destroy(opts, path).is_ok());
+    assert!(RocksDB::destroy(&opts, path).is_ok());
 }

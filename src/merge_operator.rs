@@ -20,7 +20,7 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-use rocksdb_options::{RocksDBOptions};
+use rocksdb_options::{Options};
 use rocksdb::{RocksDB, RocksDBResult, RocksDBVector, Writable};
 
 pub struct MergeOperatorCallback {
@@ -166,10 +166,10 @@ fn test_provided_merge(new_key: &[u8], existing_val: Option<&[u8]>,
 #[test]
 fn mergetest() {
     let path = "_rust_rocksdb_mergetest";
-    let opts = RocksDBOptions::new();
+    let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", test_provided_merge);
-    let db = RocksDB::open(opts, path).unwrap();
+    let db = RocksDB::open(&opts, path).unwrap();
     let p = db.put(b"k1", b"a");
     assert!(p.is_ok());
     db.merge(b"k1", b"b");
@@ -189,10 +189,10 @@ fn mergetest() {
       .on_error( |e| { println!("error reading value")}); //: {", e) });
 
     assert!(m.is_ok());
-    let r: RocksDBResult<RocksDBVector, &str> = db.get(b"k1");
+    let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
     assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
     assert!(db.delete(b"k1").is_ok());
     assert!(db.get(b"k1").is_none());
     db.close();
-    assert!(RocksDB::destroy(opts, path).is_ok());
+    assert!(RocksDB::destroy(&opts, path).is_ok());
 }

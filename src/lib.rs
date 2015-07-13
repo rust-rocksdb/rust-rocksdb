@@ -38,7 +38,8 @@ pub use rocksdb::{
     Writable,
 };
 pub use rocksdb_options::{
-    RocksDBOptions,
+    Options,
+    BlockBasedOptions,
 };
 pub use merge_operator::{
     MergeOperands,

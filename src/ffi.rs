@@ -92,14 +92,15 @@ pub enum RocksDBUniversalCompactionStyle {
     rocksdb_total_size_compaction_stop_style   = 1
 }
 
+//TODO audit the use of boolean arguments, b/c I think they need to be u8 instead...
 #[link(name = "rocksdb")]
 extern {
     pub fn rocksdb_options_create() -> RocksDBOptions;
+    pub fn rocksdb_options_destroy(opts: RocksDBOptions);
     pub fn rocksdb_cache_create_lru(capacity: size_t) -> RocksDBCache;
     pub fn rocksdb_cache_destroy(cache: RocksDBCache);
     pub fn rocksdb_block_based_options_create() -> RocksDBBlockBasedTableOptions;
-    pub fn rocksdb_block_based_options_destroy(
-        block_options: RocksDBBlockBasedTableOptions);
+    pub fn rocksdb_block_based_options_destroy(opts: RocksDBBlockBasedTableOptions);
     pub fn rocksdb_block_based_options_set_block_size(
         block_options: RocksDBBlockBasedTableOptions,
         block_size: size_t);
@@ -191,8 +192,26 @@ extern {
                        err: *mut i8);
     pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
     pub fn rocksdb_readoptions_destroy(readopts: RocksDBReadOptions);
-    pub fn rocksdb_readoptions_set_snapshot(read_opts: RocksDBReadOptions,
-                                            snapshot: RocksDBSnapshot);
+    pub fn rocksdb_readoptions_set_verify_checksums(
+            readopts: RocksDBReadOptions,
+            v: bool);
+    pub fn rocksdb_readoptions_set_fill_cache(
+            readopts: RocksDBReadOptions,
+            v: bool);
+    pub fn rocksdb_readoptions_set_snapshot(
+            readopts: RocksDBReadOptions,
+            snapshot: RocksDBSnapshot); //TODO how do I make this a const ref?
+    pub fn rocksdb_readoptions_set_iterate_upper_bound(
+            readopts: RocksDBReadOptions,
+            k: *const u8,
+            kLen: size_t);
+    pub fn rocksdb_readoptions_set_read_tier(
+            readopts: RocksDBReadOptions,
+            tier: c_int);
+    pub fn rocksdb_readoptions_set_tailing(
+            readopts: RocksDBReadOptions,
+            v: bool);
+
     pub fn rocksdb_get(db: RocksDBInstance,
                        readopts: RocksDBReadOptions,
                        k: *const u8, kLen: size_t,
