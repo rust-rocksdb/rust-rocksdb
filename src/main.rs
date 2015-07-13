@@ -17,27 +17,74 @@
 
 extern crate rocksdb;
 extern crate test;
-use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable};
+use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, DBIterator, SubDBIterator };
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
+fn iterator_test() {
+    let path = "_rust_rocksdb_iteratortest";
+    {
+        let mut db = RocksDB::open_default(path).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+        let p = db.put(b"k2", b"v2222");
+        assert!(p.is_ok());
+        let p = db.put(b"k3", b"v3333");
+        assert!(p.is_ok());
+        {
+            let mut view1 = db.iterator();
+            println!("See the output of the first iter");
+            for (k,v) in view1.from_start() {
+                println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+            };
+            for (k,v) in view1.from_start() {
+                println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+            };
+            for (k,v) in view1.from_end() {
+                println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+            };
+        }
+        let mut view2 = db.iterator();
+        let p = db.put(b"k4", b"v4444");
+        assert!(p.is_ok());
+        let mut view3 = db.iterator();
+        println!("See the output of the second iter");
+        for (k,v) in view2.from_start() {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        }
+        println!("See the output of the third iter");
+        for (k,v) in view3.from_start() {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        }
+        println!("now the 3rd iter from k2 fwd");
+        for (k,v) in view3.from(b"k2", rocksdb::Direction::forward) {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        }
+        println!("now the 3rd iter from k2 and back");
+        for (k,v) in view3.from(b"k2", rocksdb::Direction::reverse) {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        }
+    }
+    let opts = Options::new();
+    assert!(RocksDB::destroy(&opts, path).is_ok());
+}
 #[cfg(not(feature = "valgrind"))]
 fn main() {
+    iterator_test();
     let path = "/tmp/rust-rocksdb";
-    let db = RocksDB::open_default(path).unwrap();
+    let mut db = RocksDB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());
     db.get(b"my key").map( |value| {
-        match value.to_utf8() {
+            match value.to_utf8() {
             Some(v) =>
-                println!("retrieved utf8 value: {}", v),
+            println!("retrieved utf8 value: {}", v),
             None =>
-                println!("did not read valid utf-8 out of the db"),
-        }
-    })
-        .on_absent( || { println!("value not found") })
+            println!("did not read valid utf-8 out of the db"),
+            }
+            })
+    .on_absent( || { println!("value not found") })
         .on_error( |e| { println!("error retrieving value: {}", e) });
 
     assert!(db.delete(b"my key").is_ok());
-    db.close();
 
     custom_merge();
 }
@@ -60,25 +107,26 @@ fn custom_merge() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
-    let db = RocksDB::open(&opts, path).unwrap();
-    db.put(b"k1", b"a");
-    db.merge(b"k1", b"b");
-    db.merge(b"k1", b"c");
-    db.merge(b"k1", b"d");
-    db.merge(b"k1", b"efg");
-    db.merge(b"k1", b"h");
-    db.get(b"k1").map( |value| {
-        match value.to_utf8() {
-            Some(v) =>
+    {
+        let mut db = RocksDB::open(&opts, path).unwrap();
+        db.put(b"k1", b"a");
+        db.merge(b"k1", b"b");
+        db.merge(b"k1", b"c");
+        db.merge(b"k1", b"d");
+        db.merge(b"k1", b"efg");
+        db.merge(b"k1", b"h");
+        db.get(b"k1").map( |value| {
+                match value.to_utf8() {
+                Some(v) =>
                 println!("retrieved utf8 value: {}", v),
-            None =>
+                None =>
                 println!("did not read valid utf-8 out of the db"),
-        }
-    })
+                }
+                })
         .on_absent( || { println!("value not found") })
-        .on_error( |e| { println!("error retrieving value: {}", e) });
+            .on_error( |e| { println!("error retrieving value: {}", e) });
 
-    db.close();
+    }
     RocksDB::destroy(&opts, path).is_ok();
 }
 
@@ -114,10 +162,10 @@ mod tests  {
     use test::Bencher;
     use std::thread::sleep_ms;
 
-    use rocksdb::{BlockBasedOptions, Options, RocksDB, MergeOperands, new_bloom_filter, Writable};
+    use rocksdb::{BlockBasedOptions, Options, RocksDB, MergeOperands, new_bloom_filter, Writable };
     use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
-    fn tuned_for_somebody_elses_disk(path: &str, opts: &mut Options, blockopts: &mut BlockBasedOptions) -> RocksDB {
+    fn tuned_for_somebody_elses_disk(path: &str, opts: & mut Options, blockopts: &mut BlockBasedOptions) -> RocksDB {
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
         opts.set_use_fsync(false);
@@ -152,13 +200,12 @@ mod tests  {
         let path = "_rust_rocksdb_optimizetest";
         let mut opts = Options::new();
         let mut blockopts = BlockBasedOptions::new();
-        let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
+        let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
         let mut i = 0 as u64;
         b.iter(|| {
             db.put(i.to_string().as_bytes(), b"v1111");
             i += 1;
         });
-        db.close();
     }
 
     #[bench]
@@ -166,16 +213,17 @@ mod tests  {
         let path = "_rust_rocksdb_optimizetest";
         let mut opts = Options::new();
         let mut blockopts = BlockBasedOptions::new();
-        let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
-        let mut i = 0 as u64;
-        b.iter(|| {
-            db.get(i.to_string().as_bytes()).on_error( |e| {
-                println!("error: {}", e);
-                e
-            });
-            i += 1;
-        });
-        db.close();
+        {
+            let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
+            let mut i = 0 as u64;
+            b.iter(|| {
+                    db.get(i.to_string().as_bytes()).on_error( |e| {
+                        println!("error: {}", e);
+                        e
+                        });
+                    i += 1;
+                    });
+        }
         RocksDB::destroy(&opts, path).is_ok();
     }
 }

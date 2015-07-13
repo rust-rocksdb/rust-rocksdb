@@ -169,30 +169,31 @@ fn mergetest() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", test_provided_merge);
-    let db = RocksDB::open(&opts, path).unwrap();
-    let p = db.put(b"k1", b"a");
-    assert!(p.is_ok());
-    db.merge(b"k1", b"b");
-    db.merge(b"k1", b"c");
-    db.merge(b"k1", b"d");
-    db.merge(b"k1", b"efg");
-    let m = db.merge(b"k1", b"h");
-    assert!(m.is_ok());
-    db.get(b"k1").map( |value| {
-        match value.to_utf8() {
-            Some(v) =>
+    {
+        let mut db = RocksDB::open(&opts, path).unwrap();
+        let p = db.put(b"k1", b"a");
+        assert!(p.is_ok());
+        db.merge(b"k1", b"b");
+        db.merge(b"k1", b"c");
+        db.merge(b"k1", b"d");
+        db.merge(b"k1", b"efg");
+        let m = db.merge(b"k1", b"h");
+        assert!(m.is_ok());
+        db.get(b"k1").map( |value| {
+                match value.to_utf8() {
+                Some(v) =>
                 println!("retrieved utf8 value: {}", v),
-            None =>
+                None =>
                 println!("did not read valid utf-8 out of the db"),
-        }
-    }).on_absent( || { println!("value not present!") })
-      .on_error( |e| { println!("error reading value")}); //: {", e) });
+                }
+                }).on_absent( || { println!("value not present!") })
+        .on_error( |e| { println!("error reading value")}); //: {", e) });
 
-    assert!(m.is_ok());
-    let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
-    assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
-    assert!(db.delete(b"k1").is_ok());
-    assert!(db.get(b"k1").is_none());
-    db.close();
+        assert!(m.is_ok());
+        let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
+        assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").is_none());
+    }
     assert!(RocksDB::destroy(&opts, path).is_ok());
 }

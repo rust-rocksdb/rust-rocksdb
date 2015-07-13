@@ -36,6 +36,9 @@ pub use rocksdb::{
     RocksDBVector,
     WriteBatch,
     Writable,
+    DBIterator,
+    SubDBIterator,
+    Direction,
 };
 pub use rocksdb_options::{
     Options,
