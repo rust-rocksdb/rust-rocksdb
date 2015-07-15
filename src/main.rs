@@ -17,7 +17,7 @@
 
 extern crate rocksdb;
 extern crate test;
-use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, DBIterator, SubDBIterator };
+use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, };
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
 fn snapshot_test() {

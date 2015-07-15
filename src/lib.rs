@@ -23,11 +23,7 @@
 pub use ffi as rocksdb_ffi;
 pub use ffi::{
     new_bloom_filter,
-    new_cache,
-    RocksDBUniversalCompactionStyle,
     RocksDBCompactionStyle,
-    RocksDBCompressionType,
-    RocksDBSnapshot,
     RocksDBComparator,
 };
 pub use rocksdb::{
@@ -36,8 +32,6 @@ pub use rocksdb::{
     RocksDBVector,
     WriteBatch,
     Writable,
-    DBIterator,
-    SubDBIterator,
     Direction,
 };
 pub use rocksdb_options::{
