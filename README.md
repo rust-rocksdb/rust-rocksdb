@@ -11,9 +11,9 @@ This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 
   - [x] compaction filter, style
   - [x] LRU cache
   - [x] destroy/repair
-  - [ ] iterator
+  - [x] iterator
   - [ ] comparator
-  - [ ] snapshot
+  - [x] snapshot
   - [ ] column family operations
   - [ ] slicetransform
   - [ ] windows support
@@ -39,7 +39,7 @@ extern crate rocksdb;
 use rocksdb::RocksDB;
 
 fn main() {
-    let db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
     db.put(b"my key", b"my value");
     db.get(b"my key")
         .map( |value| { 
@@ -49,7 +49,58 @@ fn main() {
         .on_error( |e| { println!("operational problem encountered: {}", e) });
 
     db.delete(b"my key");
-    db.close();
+}
+```
+
+###### Doing an atomic commit of several writes
+```rust
+extern crate rocksdb;
+use rocksdb::{RocksDB, WriteBatch, Writable};
+
+fn main() {
+    // NB: db is automatically freed at end of lifetime
+    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    {
+        let mut batch = WriteBatch::new(); // WriteBatch and db both have trait Writable
+        batch.put(b"my key", b"my value");
+        batch.put(b"key2", b"value2");
+        batch.put(b"key3", b"value3");
+        db.write(batch); // Atomically commits the batch
+    }
+}
+```
+
+###### Getting an Iterator
+```rust
+extern crate rocksdb;
+use rocksdb::{RocksDB, Direction};
+
+fn main() {
+    // NB: db is automatically freed at end of lifetime
+    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let mut iter = db.iterator();
+    for (key, value) in iter.from_start() { // Always iterates forward
+        println!("Saw {} {}", key, value); //actually, need to convert [u8] keys into Strings
+    }
+    for (key, value) in iter.from_end() { //Always iterates backward
+        println!("Saw {} {}", key, value);
+    }
+    for (key, value) in iter.from(b"my key", Direction::forward) { // From a key in Direction::{forward,reverse}
+        println!("Saw {} {}", key, value);
+    }
+}
+```
+
+###### Getting an Iterator
+```rust
+extern crate rocksdb;
+use rocksdb::{RocksDB, Direction};
+
+fn main() {
+    // NB: db is automatically freed at end of lifetime
+    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but freed when goes out of scope
+    let mut iter = snapshot.iterator(); // Make as many iterators as you'd like from one snapshot
 }
 ```
 
@@ -73,7 +124,7 @@ fn main() {
     let opts = RocksDBOptions::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
-    let db = RocksDB::open(opts, path).unwrap();
+    let mut db = RocksDB::open(opts, path).unwrap();
     let p = db.put(b"k1", b"a");
     db.merge(b"k1", b"b");
     db.merge(b"k1", b"c");
@@ -81,7 +132,6 @@ fn main() {
     db.merge(b"k1", b"efg");
     let r = db.get(b"k1");
     assert!(r.unwrap().to_utf8().unwrap() == "abcdefg");
-    db.close();
 }
 ```
 
