@@ -20,6 +20,33 @@ extern crate test;
 use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, DBIterator, SubDBIterator };
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
+fn snapshot_test() {
+    let path = "_rust_rocksdb_iteratortest";
+    {
+        let mut db = RocksDB::open_default(path).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+        let p = db.put(b"k2", b"v2222");
+        assert!(p.is_ok());
+        let p = db.put(b"k3", b"v3333");
+        assert!(p.is_ok());
+        let mut snap = db.snapshot();
+        let mut view1 = snap.iterator();
+        println!("See the output of the first iter");
+        for (k,v) in view1.from_start() {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        };
+        for (k,v) in view1.from_start() {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        };
+        for (k,v) in view1.from_end() {
+            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        };
+    }
+    let opts = Options::new();
+    assert!(RocksDB::destroy(&opts, path).is_ok());
+}
+
 fn iterator_test() {
     let path = "_rust_rocksdb_iteratortest";
     {
@@ -67,8 +94,10 @@ fn iterator_test() {
     let opts = Options::new();
     assert!(RocksDB::destroy(&opts, path).is_ok());
 }
+
 #[cfg(not(feature = "valgrind"))]
 fn main() {
+    snapshot_test();
     iterator_test();
     let path = "/tmp/rust-rocksdb";
     let mut db = RocksDB::open_default(path).unwrap();

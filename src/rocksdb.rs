@@ -40,6 +40,11 @@ pub struct ReadOptions {
     inner: rocksdb_ffi::RocksDBReadOptions,
 }
 
+pub struct Snapshot<'a> {
+    db: &'a RocksDB,
+    inner: rocksdb_ffi::RocksDBSnapshot,
+}
+
 pub struct DBIterator {
 //TODO: should have a reference to DB to enforce scope, but it's trickier than I thought to add
     inner: rocksdb_ffi::RocksDBIterator,
@@ -87,7 +92,7 @@ impl <'a> Iterator for SubDBIterator<'a> {
 
 impl DBIterator {
 //TODO alias db & opts to different lifetimes, and DBIterator to the db's lifetime 
-    pub fn new(db: &RocksDB, readopts: &ReadOptions) -> DBIterator {
+    fn new(db: &RocksDB, readopts: &ReadOptions) -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner, readopts.inner);
             rocksdb_ffi::rocksdb_iter_seek_to_first(iterator);
@@ -122,9 +127,29 @@ impl DBIterator {
 
 impl Drop for DBIterator {
     fn drop(&mut self) {
-        println!("Dropped iter");
         unsafe {
             rocksdb_ffi::rocksdb_iter_destroy(self.inner);
+        }
+    }
+}
+
+impl <'a> Snapshot<'a> {
+    pub fn new(db: &RocksDB) -> Snapshot {
+        let snapshot = unsafe { rocksdb_ffi::rocksdb_create_snapshot(db.inner) };
+        Snapshot{db: db, inner: snapshot}
+    }
+
+    pub fn iterator(&self) -> DBIterator {
+        let mut readopts = ReadOptions::new();
+        readopts.set_snapshot(self);
+        DBIterator::new(self.db, &readopts)
+    }
+}
+
+impl <'a> Drop for Snapshot<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
         }
     }
 }
@@ -269,6 +294,10 @@ impl RocksDB {
         let opts = ReadOptions::new();
         DBIterator::new(&self, &opts)
     }
+
+    pub fn snapshot(&self) -> Snapshot {
+        Snapshot::new(self)
+    }
 }
 
 impl Writable for RocksDB {
@@ -394,6 +423,11 @@ impl ReadOptions {
         }
     }
 
+    fn set_snapshot(&mut self, snapshot: &Snapshot) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
+        }
+    }
 }
 
 pub struct RocksDBVector {
