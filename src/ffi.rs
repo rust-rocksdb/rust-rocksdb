@@ -181,7 +181,7 @@ extern {
         bits_per_key: c_int) -> RocksDBFilterPolicy;
     pub fn rocksdb_open(options: RocksDBOptions,
                         path: *const i8,
-                        err: *mut i8
+                        err: *mut *const i8
                         ) -> RocksDBInstance;
     pub fn rocksdb_writeoptions_create() -> RocksDBWriteOptions;
     pub fn rocksdb_writeoptions_destroy(writeopts: RocksDBWriteOptions);
@@ -189,7 +189,7 @@ extern {
                        writeopts: RocksDBWriteOptions,
                        k: *const u8, kLen: size_t,
                        v: *const u8, vLen: size_t,
-                       err: *mut i8);
+                       err: *mut *const i8);
     pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
     pub fn rocksdb_readoptions_destroy(readopts: RocksDBReadOptions);
     pub fn rocksdb_readoptions_set_verify_checksums(
@@ -216,14 +216,14 @@ extern {
                        readopts: RocksDBReadOptions,
                        k: *const u8, kLen: size_t,
                        valLen: *const size_t,
-                       err: *mut i8
+                       err: *mut *const i8
                        ) -> *mut c_void;
     pub fn rocksdb_get_cf(db: RocksDBInstance,
                        readopts: RocksDBReadOptions,
                        cf_handle: RocksDBCFHandle,
                        k: *const u8, kLen: size_t,
                        valLen: *const size_t,
-                       err: *mut i8
+                       err: *mut *const i8
                        ) -> *mut c_void;
     pub fn rocksdb_create_iterator(db: RocksDBInstance,
                                    readopts: RocksDBReadOptions
@@ -239,19 +239,19 @@ extern {
     pub fn rocksdb_delete(db: RocksDBInstance,
                           writeopts: RocksDBWriteOptions,
                           k: *const u8, kLen: size_t,
-                          err: *mut i8
+                          err: *mut *const i8
                           ) -> *mut c_void;
     pub fn rocksdb_close(db: RocksDBInstance);
     pub fn rocksdb_destroy_db(options: RocksDBOptions,
-                              path: *const i8, err: *mut i8);
+                              path: *const i8, err: *mut *const i8);
     pub fn rocksdb_repair_db(options: RocksDBOptions,
-                             path: *const i8, err: *mut i8);
+                             path: *const i8, err: *mut *const i8);
     // Merge
     pub fn rocksdb_merge(db: RocksDBInstance,
                          writeopts: RocksDBWriteOptions,
                          k: *const u8, kLen: size_t,
                          v: *const u8, vLen: size_t,
-                         err: *mut i8);
+                         err: *mut *const i8);
     pub fn rocksdb_mergeoperator_create(
         state: *mut c_void,
         destroy: extern fn(*mut c_void) -> (),
@@ -286,7 +286,7 @@ extern {
     pub fn rocksdb_iter_seek_to_first(iter: RocksDBIterator);
     pub fn rocksdb_iter_seek_to_last(iter: RocksDBIterator);
     pub fn rocksdb_iter_seek(iter: RocksDBIterator,
-                             key: *mut u8, klen: size_t);
+                             key: *const u8, klen: size_t);
     pub fn rocksdb_iter_next(iter: RocksDBIterator);
     pub fn rocksdb_iter_prev(iter: RocksDBIterator);
     pub fn rocksdb_iter_key(iter: RocksDBIterator,
@@ -294,12 +294,12 @@ extern {
     pub fn rocksdb_iter_value(iter: RocksDBIterator,
                               vlen: *mut size_t) -> *mut u8;
     pub fn rocksdb_iter_get_error(iter: RocksDBIterator,
-                                  err: *const *const u8);
+                                  err: *mut *const u8);
     // Write batch
     pub fn rocksdb_write(db: RocksDBInstance,
                          writeopts: RocksDBWriteOptions,
                          batch : RocksDBWriteBatch,
-                         err: *mut i8);
+                         err: *mut *const i8);
     pub fn rocksdb_writebatch_create() -> RocksDBWriteBatch;
     pub fn rocksdb_writebatch_create_from(rep: *const u8,
                                           size: size_t) -> RocksDBWriteBatch;
@@ -370,8 +370,9 @@ fn internal() {
         let cpath = CString::new(rustpath).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
-        let err = 0 as *mut i8;
-        let db = rocksdb_open(opts, cpath_ptr, err);
+        let mut err: *const i8 = 0 as *const i8;
+        let err_ptr: *mut *const i8 = &mut err;
+        let db = rocksdb_open(opts, cpath_ptr, err_ptr);
         assert!(err.is_null());
 
         let writeopts = rocksdb_writeoptions_create();
@@ -379,7 +380,7 @@ fn internal() {
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
-        rocksdb_put(db, writeopts.clone(), key.as_ptr(), 4, val.as_ptr(), 8, err);
+        rocksdb_put(db, writeopts.clone(), key.as_ptr(), 4, val.as_ptr(), 8, err_ptr);
         rocksdb_writeoptions_destroy(writeopts);
         assert!(err.is_null());
 
@@ -388,11 +389,11 @@ fn internal() {
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
-        rocksdb_get(db, readopts.clone(), key.as_ptr(), 4, val_len_ptr, err);
+        rocksdb_get(db, readopts.clone(), key.as_ptr(), 4, val_len_ptr, err_ptr);
         rocksdb_readoptions_destroy(readopts);
         assert!(err.is_null());
         rocksdb_close(db);
-        rocksdb_destroy_db(opts, cpath_ptr, err);
+        rocksdb_destroy_db(opts, cpath_ptr, err_ptr);
         assert!(err.is_null());
     }
 }
