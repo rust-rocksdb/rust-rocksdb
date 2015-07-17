@@ -138,14 +138,13 @@ fn main() {
 ###### Apply Some Tunings
 Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
 ```rust
-use rocksdb::{RocksDBOptions, RocksDB, new_bloom_filter};
+use rocksdb::{Options, RocksDB};
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
-fn tuned_for_somebody_elses_disk() -> RocksDB {
+fn badly_tuned_for_somebody_elses_disk() -> RocksDB {
     let path = "_rust_rocksdb_optimizetest";
-    let opts = RocksDBOptions::new();
+    let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.set_block_size(524288);
     opts.set_max_open_files(10000);
     opts.set_use_fsync(false);
     opts.set_bytes_per_sync(8388608);
@@ -164,10 +163,7 @@ fn tuned_for_somebody_elses_disk() -> RocksDB {
     opts.set_filter_deletes(false);
     opts.set_disable_auto_compactions(true);
 
-    let filter = new_bloom_filter(10);
-    opts.set_filter(filter);
-
-    RocksDB::open(opts, path).unwrap()
+    RocksDB::open(&opts, path).unwrap()
 }
 ```
 
