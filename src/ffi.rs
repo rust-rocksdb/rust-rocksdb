@@ -71,25 +71,25 @@ pub fn new_cache(capacity: size_t) -> RocksDBCache {
 
 #[repr(C)]
 pub enum RocksDBCompressionType {
-    RocksDBNoCompression     = 0,
+    RocksDBNoCompression = 0,
     RocksDBSnappyCompression = 1,
-    RocksDBZlibCompression   = 2,
-    RocksDBBz2Compression    = 3,
-    RocksDBLz4Compression    = 4,
-    RocksDBLz4hcCompression  = 5
+    RocksDBZlibCompression = 2,
+    RocksDBBz2Compression = 3,
+    RocksDBLz4Compression = 4,
+    RocksDBLz4hcCompression = 5,
 }
 
 #[repr(C)]
 pub enum RocksDBCompactionStyle {
-    RocksDBLevelCompaction     = 0,
+    RocksDBLevelCompaction = 0,
     RocksDBUniversalCompaction = 1,
-    RocksDBFifoCompaction      = 2
+    RocksDBFifoCompaction = 2,
 }
 
 #[repr(C)]
 pub enum RocksDBUniversalCompactionStyle {
     rocksdb_similar_size_compaction_stop_style = 0,
-    rocksdb_total_size_compaction_stop_style   = 1
+    rocksdb_total_size_compaction_stop_style = 1,
 }
 
 //TODO audit the use of boolean arguments, b/c I think they need to be u8 instead...

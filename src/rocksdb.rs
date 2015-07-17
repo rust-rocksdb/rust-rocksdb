@@ -46,14 +46,16 @@ pub struct Snapshot<'a> {
 }
 
 pub struct DBIterator {
-//TODO: should have a reference to DB to enforce scope, but it's trickier than I thought to add
+    // TODO: should have a reference to DB to enforce scope, but it's trickier than I
+    // thought to add
     inner: rocksdb_ffi::RocksDBIterator,
     direction: Direction,
-    just_seeked: bool
+    just_seeked: bool,
 }
 
 pub enum Direction {
-  forward, reverse
+    forward,
+    reverse,
 }
 
 pub struct SubDBIterator<'a> {
@@ -64,7 +66,7 @@ pub struct SubDBIterator<'a> {
 impl <'a> Iterator for SubDBIterator<'a> {
     type Item = (&'a [u8], &'a [u8]);
 
-    fn next(&mut self) -> Option<(&'a[u8], &'a[u8])> {
+    fn next(&mut self) -> Option<(&'a [u8], &'a [u8])> {
         let native_iter = self.iter.inner;
         if !self.iter.just_seeked {
             match self.direction {
@@ -91,7 +93,7 @@ impl <'a> Iterator for SubDBIterator<'a> {
 }
 
 impl DBIterator {
-//TODO alias db & opts to different lifetimes, and DBIterator to the db's lifetime 
+//TODO alias db & opts to different lifetimes, and DBIterator to the db's lifetime
     fn new(db: &RocksDB, readopts: &ReadOptions) -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner, readopts.inner);
@@ -105,7 +107,7 @@ impl DBIterator {
         unsafe {
             rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner);
         };
-        SubDBIterator{ iter: self, direction: Direction::forward, }
+        SubDBIterator { iter: self, direction: Direction::forward }
     }
 
     pub fn from_end(&mut self) -> SubDBIterator {
@@ -113,7 +115,7 @@ impl DBIterator {
         unsafe {
             rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner);
         };
-        SubDBIterator{ iter: self, direction: Direction::reverse, }
+        SubDBIterator { iter: self, direction: Direction::reverse }
     }
 
     pub fn from(&mut self, key: &[u8], dir: Direction) -> SubDBIterator {
@@ -121,7 +123,7 @@ impl DBIterator {
         unsafe {
             rocksdb_ffi::rocksdb_iter_seek(self.inner, key.as_ptr(), key.len() as size_t);
         }
-        SubDBIterator{ iter: self, direction: dir, }
+        SubDBIterator { iter: self, direction: dir }
     }
 }
 
@@ -136,7 +138,7 @@ impl Drop for DBIterator {
 impl <'a> Snapshot<'a> {
     pub fn new(db: &RocksDB) -> Snapshot {
         let snapshot = unsafe { rocksdb_ffi::rocksdb_create_snapshot(db.inner) };
-        Snapshot{db: db, inner: snapshot}
+        Snapshot { db: db, inner: snapshot }
     }
 
     pub fn iterator(&self) -> DBIterator {
@@ -179,8 +181,9 @@ impl RocksDB {
 
     pub fn open(opts: &Options, path: &str) -> Result<RocksDB, String> {
         let cpath = match CString::new(path.as_bytes()) {
-                        Ok(c) => c,
-                        Err(_) => return Err("Failed to convert path to CString when opening rocksdb".to_string()),
+            Ok(c) => c,
+            Err(_) =>
+                return Err("Failed to convert path to CString when opening rocksdb".to_string()),
         };
         let cpath_ptr = cpath.as_ptr();
 
@@ -207,7 +210,7 @@ impl RocksDB {
         if db_ptr.is_null() {
             return Err("Could not initialize database.".to_string());
         }
-        Ok(RocksDB{inner: db})
+        Ok(RocksDB { inner: db })
     }
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
@@ -357,7 +360,7 @@ impl WriteBatch {
         WriteBatch {
             inner: unsafe {
                        rocksdb_ffi::rocksdb_writebatch_create()
-                   }
+                   },
         }
     }
 }
@@ -418,8 +421,9 @@ impl ReadOptions {
             ReadOptions{inner: rocksdb_ffi::rocksdb_readoptions_create()}
         }
     }
-//TODO add snapshot setting here
-//TODO add snapshot wrapper structs with proper destructors; that struct needs an "iterator" impl too.
+// TODO add snapshot setting here
+// TODO add snapshot wrapper structs with proper destructors;
+// that struct needs an "iterator" impl too.
     fn fill_cache(&mut self, v: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
@@ -504,7 +508,7 @@ impl <T, E> RocksDBResult<T, E> {
         }
     }
 
-    pub fn on_absent<F: FnOnce()->()>(self, f: F) -> RocksDBResult<T, E> {
+    pub fn on_absent<F: FnOnce() -> ()>(self, f: F) -> RocksDBResult<T, E> {
         match self {
             RocksDBResult::Some(x) => RocksDBResult::Some(x),
             RocksDBResult::None => {

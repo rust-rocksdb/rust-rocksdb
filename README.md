@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 crate should work with the Rust nightly release as of 7/12/15.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.7 crate should work with the Rust nightly release as of 7/16/15.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -12,7 +12,7 @@ This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 
   - [x] LRU cache
   - [x] destroy/repair
   - [x] iterator
-  - [ ] comparator
+  - [x] comparator
   - [x] snapshot
   - [ ] column family operations
   - [ ] slicetransform
@@ -31,7 +31,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.0.6"
+rocksdb = "~0.0.7"
 ```
 ###### Code
 ```rust

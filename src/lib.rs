@@ -21,26 +21,10 @@
 #![feature(raw)]
 
 pub use ffi as rocksdb_ffi;
-pub use ffi::{
-    new_bloom_filter,
-    RocksDBCompactionStyle,
-    RocksDBComparator,
-};
-pub use rocksdb::{
-    RocksDB,
-    RocksDBResult,
-    RocksDBVector,
-    WriteBatch,
-    Writable,
-    Direction,
-};
-pub use rocksdb_options::{
-    Options,
-    BlockBasedOptions,
-};
-pub use merge_operator::{
-    MergeOperands,
-};
+pub use ffi::{new_bloom_filter, RocksDBCompactionStyle, RocksDBComparator};
+pub use rocksdb::{RocksDB, RocksDBResult, RocksDBVector, WriteBatch, Writable, Direction};
+pub use rocksdb_options::{Options, BlockBasedOptions};
+pub use merge_operator::MergeOperands;
 pub mod rocksdb;
 pub mod ffi;
 pub mod rocksdb_options;

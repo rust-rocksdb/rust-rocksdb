@@ -19,8 +19,8 @@ use std::ffi::CString;
 use std::mem;
 
 use rocksdb_ffi;
-use merge_operator::{self, MergeOperatorCallback, MergeOperands, full_merge_callback,
-              partial_merge_callback};
+use merge_operator::{self, MergeOperatorCallback, MergeOperands,
+                     full_merge_callback, partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
 
 pub struct BlockBasedOptions {
@@ -54,7 +54,7 @@ impl BlockBasedOptions {
         if opt_ptr.is_null() {
             panic!("Could not create rocksdb block based options".to_string());
         }
-        BlockBasedOptions{ inner: block_opts, }
+        BlockBasedOptions { inner: block_opts }
     }
 
     pub fn set_block_size(&mut self, size: u64) {
@@ -107,8 +107,7 @@ impl Options {
         }
     }
 
-    pub fn optimize_level_style_compaction(&mut self,
-        memtable_memory_budget: i32) {
+    pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: i32) {
         unsafe {
             rocksdb_ffi::rocksdb_options_optimize_level_style_compaction(
                 self.inner, memtable_memory_budget);
@@ -122,8 +121,9 @@ impl Options {
         }
     }
 
-    pub fn add_merge_operator<'a>(&mut self, name: &str,
-        merge_fn: fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
+    pub fn add_merge_operator<'a>(&mut self,
+                                  name: &str,
+                                  merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
@@ -258,8 +258,7 @@ impl Options {
         }
     }
 
-    pub fn set_compaction_style(&mut self, style:
-                                rocksdb_ffi::RocksDBCompactionStyle) {
+    pub fn set_compaction_style(&mut self, style: rocksdb_ffi::RocksDBCompactionStyle) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compaction_style(
                 self.inner, style);
@@ -306,5 +305,3 @@ impl Options {
         }
     }
 }
-
-
