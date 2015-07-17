@@ -36,7 +36,7 @@ rocksdb = "~0.0.7"
 ###### Code
 ```rust
 extern crate rocksdb;
-use rocksdb::RocksDB;
+use rocksdb::{RocksDB, Writable};
 
 fn main() {
     let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
@@ -107,7 +107,7 @@ fn main() {
 ###### Rustic Merge Operator
 ```rust
 extern crate rocksdb;
-use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
+use rocksdb::{Options, RocksDB, MergeOperands, Writable};
 
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     operands: &mut MergeOperands) -> Vec<u8> {
@@ -121,10 +121,10 @@ fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
 
 fn main() {
     let path = "/path/to/rocksdb";
-    let opts = RocksDBOptions::new();
+    let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
-    let mut db = RocksDB::open(opts, path).unwrap();
+    let mut db = RocksDB::open(&opts, path).unwrap();
     let p = db.put(b"k1", b"a");
     db.merge(b"k1", b"b");
     db.merge(b"k1", b"c");
