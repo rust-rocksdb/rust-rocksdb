@@ -3,9 +3,20 @@
 name = "rocksdb"
 description = "A Rust wrapper for Facebook's RocksDB embeddable database."
 version = "0.0.6"
-authors = ["Tyler Neely <t@jujit.su>"]
+authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
+exclude = [
+  ".gitignore",
+  ".travis.yml",
+  "deploy.sh",
+  "test/**/*",
+]
 
 [features]
 default=[]
 valgrind=[]
+
+[[test]]
+
+name = "test"
+path = "test/test.rs"
