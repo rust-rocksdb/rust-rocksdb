@@ -25,7 +25,7 @@ use rocksdb::RocksDB;
 
 pub struct ComparatorCallback {
     pub name: CString,
-    pub f: fn (&[u8], &[u8]) -> i32,
+    pub f: fn(&[u8], &[u8]) -> i32,
 }
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -42,10 +42,12 @@ pub extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
     }
 }
 
-pub extern "C" fn compare_callback(
-    raw_cb: *mut c_void,
-    a_raw: *const c_char, a_len: size_t,
-    b_raw: *const c_char, b_len: size_t) -> c_int {
+pub extern "C" fn compare_callback(raw_cb: *mut c_void,
+                                   a_raw: *const c_char,
+                                   a_len: size_t,
+                                   b_raw: *const c_char,
+                                   b_len: size_t)
+                                   -> c_int {
     unsafe {
         let cb: &mut ComparatorCallback =
             &mut *(raw_cb as *mut ComparatorCallback);

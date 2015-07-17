@@ -20,12 +20,12 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-use rocksdb_options::{Options};
+use rocksdb_options::Options;
 use rocksdb::{RocksDB, RocksDBResult, RocksDBVector, Writable};
 
 pub struct MergeOperatorCallback {
     pub name: CString,
-    pub merge_fn: fn (&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
+    pub merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
 }
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -43,12 +43,17 @@ pub extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
     }
 }
 
-pub extern "C" fn full_merge_callback(
-    raw_cb: *mut c_void, raw_key: *const c_char, key_len: size_t,
-    existing_value: *const c_char, existing_value_len: size_t,
-    operands_list: *const *const c_char, operands_list_len: *const size_t,
-    num_operands: c_int,
-    success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
+pub extern "C" fn full_merge_callback(raw_cb: *mut c_void,
+                                      raw_key: *const c_char,
+                                      key_len: size_t,
+                                      existing_value: *const c_char,
+                                      existing_value_len: size_t,
+                                      operands_list: *const *const c_char,
+                                      operands_list_len: *const size_t,
+                                      num_operands: c_int,
+                                      success: *mut u8,
+                                      new_value_length: *mut size_t)
+                                      -> *const c_char {
     unsafe {
         let cb: &mut MergeOperatorCallback =
             &mut *(raw_cb as *mut MergeOperatorCallback);
@@ -72,11 +77,15 @@ pub extern "C" fn full_merge_callback(
     }
 }
 
-pub extern "C" fn partial_merge_callback(
-    raw_cb: *mut c_void, raw_key: *const c_char, key_len: size_t,
-    operands_list: *const *const c_char, operands_list_len: *const size_t,
-    num_operands: c_int,
-    success: *mut u8, new_value_length: *mut size_t) -> *const c_char {
+pub extern "C" fn partial_merge_callback(raw_cb: *mut c_void,
+                                         raw_key: *const c_char,
+                                         key_len: size_t,
+                                         operands_list: *const *const c_char,
+                                         operands_list_len: *const size_t,
+                                         num_operands: c_int,
+                                         success: *mut u8,
+                                         new_value_length: *mut size_t)
+                                         -> *const c_char {
     unsafe {
         let cb: &mut MergeOperatorCallback =
             &mut *(raw_cb as *mut MergeOperatorCallback);
@@ -107,7 +116,8 @@ pub struct MergeOperands {
 impl MergeOperands {
     fn new(operands_list: *const *const c_char,
            operands_list_len: *const size_t,
-           num_operands: c_int) -> MergeOperands {
+           num_operands: c_int)
+           -> MergeOperands {
         assert!(num_operands >= 0);
         MergeOperands {
             operands_list: operands_list,
@@ -148,8 +158,10 @@ impl<'a> Iterator for &'a mut MergeOperands {
     }
 }
 
-fn test_provided_merge(new_key: &[u8], existing_val: Option<&[u8]>,
-    mut operands: &mut MergeOperands) -> Vec<u8> {
+fn test_provided_merge(new_key: &[u8],
+                       existing_val: Option<&[u8]>,
+                       mut operands: &mut MergeOperands)
+                       -> Vec<u8> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     match existing_val {

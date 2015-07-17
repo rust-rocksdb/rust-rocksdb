@@ -12,7 +12,7 @@ This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 
   - [x] LRU cache
   - [x] destroy/repair
   - [x] iterator
-  - [ ] comparator
+  - [x] comparator
   - [x] snapshot
   - [ ] column family operations
   - [ ] slicetransform
