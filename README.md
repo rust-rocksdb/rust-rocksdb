@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 crate should work with the Rust nightly release as of 7/12/15.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.7 crate should work with the Rust nightly release as of 7/16/15.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -12,7 +12,7 @@ This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.6 
   - [x] LRU cache
   - [x] destroy/repair
   - [x] iterator
-  - [ ] comparator
+  - [x] comparator
   - [x] snapshot
   - [ ] column family operations
   - [ ] slicetransform
@@ -31,12 +31,12 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.0.6"
+rocksdb = "~0.0.7"
 ```
 ###### Code
 ```rust
 extern crate rocksdb;
-use rocksdb::RocksDB;
+use rocksdb::{RocksDB, Writable};
 
 fn main() {
     let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
@@ -107,7 +107,7 @@ fn main() {
 ###### Rustic Merge Operator
 ```rust
 extern crate rocksdb;
-use rocksdb::{RocksDBOptions, RocksDB, MergeOperands};
+use rocksdb::{Options, RocksDB, MergeOperands, Writable};
 
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     operands: &mut MergeOperands) -> Vec<u8> {
@@ -121,10 +121,10 @@ fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
 
 fn main() {
     let path = "/path/to/rocksdb";
-    let opts = RocksDBOptions::new();
+    let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
-    let mut db = RocksDB::open(opts, path).unwrap();
+    let mut db = RocksDB::open(&opts, path).unwrap();
     let p = db.put(b"k1", b"a");
     db.merge(b"k1", b"b");
     db.merge(b"k1", b"c");
@@ -138,14 +138,13 @@ fn main() {
 ###### Apply Some Tunings
 Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
 ```rust
-use rocksdb::{RocksDBOptions, RocksDB, new_bloom_filter};
+use rocksdb::{Options, RocksDB};
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
-fn tuned_for_somebody_elses_disk() -> RocksDB {
+fn badly_tuned_for_somebody_elses_disk() -> RocksDB {
     let path = "_rust_rocksdb_optimizetest";
-    let opts = RocksDBOptions::new();
+    let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.set_block_size(524288);
     opts.set_max_open_files(10000);
     opts.set_use_fsync(false);
     opts.set_bytes_per_sync(8388608);
@@ -164,10 +163,7 @@ fn tuned_for_somebody_elses_disk() -> RocksDB {
     opts.set_filter_deletes(false);
     opts.set_disable_auto_compactions(true);
 
-    let filter = new_bloom_filter(10);
-    opts.set_filter(filter);
-
-    RocksDB::open(opts, path).unwrap()
+    RocksDB::open(&opts, path).unwrap()
 }
 ```
 

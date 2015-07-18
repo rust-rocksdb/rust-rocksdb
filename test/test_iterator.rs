@@ -1,6 +1,9 @@
 use rocksdb::{Options, RocksDB, Writable, Direction};
 use std;
 
+fn cba(input: &Box<[u8]>) -> Box<[u8]> {
+    input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
+}
 
 #[test]
 pub fn test_iterator() {
@@ -22,7 +25,7 @@ pub fn test_iterator() {
         let p = db.put(&*k3, &*v3);
         assert!(p.is_ok());
         let mut view1 = db.iterator();
-        let expected = vec![(k1, v1), (k2, v2), (k3, v3)];
+        let expected = vec![(cba(&k1), cba(&v1)), (cba(&k2), cba(&v2)), (cba(&k3), cba(&v3))];
         {
             let mut iterator1 = view1.from_start();
             assert_eq!(iterator1.collect::<Vec<_>>(), expected);
@@ -82,26 +85,27 @@ pub fn test_iterator() {
         }
 
         let mut view2 = db.iterator();
-        let p = db.put(k4, v4);
+        let p = db.put(&*k4, &*v4);
         assert!(p.is_ok());
         let mut view3 = db.iterator();
-        let expected2 = vec![(k1, v1), (k2, v2), (k3, v3), (k4, v4)];
+        let expected2 = vec![(cba(&k1), cba(&v1)), (cba(&k2), cba(&v2)), (cba(&k3), cba(&v3)), (cba(&k4), cba(&v4))];
         {
             let mut iterator1 = view1.from_start();
+            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
+        }
+        {
+            let mut iterator1 = view3.from_start();
             assert_eq!(iterator1.collect::<Vec<_>>(), expected2);
         }
-//TODO continue implementing tests!
-        println!("See the output of the third iter");
-        for (k,v) in view3.from_start() {
-            //println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        {
+            let mut iterator1 = view3.from(b"k2", Direction::forward);
+            let expected = vec![(cba(&k2), cba(&v2)), (cba(&k3), cba(&v3)), (cba(&k4), cba(&v4))];
+            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
         }
-        println!("now the 3rd iter from k2 fwd");
-        for (k,v) in view3.from(b"k2", Direction::forward) {
-            //println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        }
-        println!("now the 3rd iter from k2 and back");
-        for (k,v) in view3.from(b"k2", Direction::reverse) {
-            //println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+        {
+            let mut iterator1 = view3.from(b"k2", Direction::reverse);
+            let expected = vec![(cba(&k2), cba(&v2)), (cba(&k1), cba(&v1))];
+            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
         }
     }
     let opts = Options::new();
