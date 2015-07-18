@@ -20,85 +20,35 @@ extern crate test;
 use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, };
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
-fn snapshot_test() {
-    let path = "_rust_rocksdb_iteratortest";
-    {
-        let mut db = RocksDB::open_default(path).unwrap();
-        let p = db.put(b"k1", b"v1111");
-        assert!(p.is_ok());
-        let p = db.put(b"k2", b"v2222");
-        assert!(p.is_ok());
-        let p = db.put(b"k3", b"v3333");
-        assert!(p.is_ok());
-        let mut snap = db.snapshot();
-        let mut view1 = snap.iterator();
-        println!("See the output of the first iter");
-        for (k,v) in view1.from_start() {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        };
-        for (k,v) in view1.from_start() {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        };
-        for (k,v) in view1.from_end() {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        };
-    }
-    let opts = Options::new();
-    assert!(RocksDB::destroy(&opts, path).is_ok());
-}
-
-fn iterator_test() {
-    let path = "_rust_rocksdb_iteratortest";
-    {
-        let mut db = RocksDB::open_default(path).unwrap();
-        let p = db.put(b"k1", b"v1111");
-        assert!(p.is_ok());
-        let p = db.put(b"k2", b"v2222");
-        assert!(p.is_ok());
-        let p = db.put(b"k3", b"v3333");
-        assert!(p.is_ok());
-        {
-            let mut view1 = db.iterator();
-            println!("See the output of the first iter");
-            for (k,v) in view1.from_start() {
-                println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-            };
-            for (k,v) in view1.from_start() {
-                println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-            };
-            for (k,v) in view1.from_end() {
-                println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-            };
-        }
-        let mut view2 = db.iterator();
-        let p = db.put(b"k4", b"v4444");
-        assert!(p.is_ok());
-        let mut view3 = db.iterator();
-        println!("See the output of the second iter");
-        for (k,v) in view2.from_start() {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        }
-        println!("See the output of the third iter");
-        for (k,v) in view3.from_start() {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        }
-        println!("now the 3rd iter from k2 fwd");
-        for (k,v) in view3.from(b"k2", rocksdb::Direction::forward) {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        }
-        println!("now the 3rd iter from k2 and back");
-        for (k,v) in view3.from(b"k2", rocksdb::Direction::reverse) {
-            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
-        }
-    }
-    let opts = Options::new();
-    assert!(RocksDB::destroy(&opts, path).is_ok());
-}
+//fn snapshot_test() {
+//    let path = "_rust_rocksdb_iteratortest";
+//    {
+//        let mut db = RocksDB::open_default(path).unwrap();
+//        let p = db.put(b"k1", b"v1111");
+//        assert!(p.is_ok());
+//        let p = db.put(b"k2", b"v2222");
+//        assert!(p.is_ok());
+//        let p = db.put(b"k3", b"v3333");
+//        assert!(p.is_ok());
+//        let mut snap = db.snapshot();
+//        let mut view1 = snap.iterator();
+//        println!("See the output of the first iter");
+//        for (k,v) in view1.from_start() {
+//            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+//        };
+//        for (k,v) in view1.from_start() {
+//            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+//        };
+//        for (k,v) in view1.from_end() {
+//            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+//        };
+//    }
+//    let opts = Options::new();
+//    assert!(RocksDB::destroy(&opts, path).is_ok());
+//}
 
 #[cfg(not(feature = "valgrind"))]
 fn main() {
-    snapshot_test();
-    iterator_test();
     let path = "/tmp/rust-rocksdb";
     let mut db = RocksDB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());

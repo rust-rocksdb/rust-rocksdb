@@ -64,9 +64,9 @@ pub struct SubDBIterator<'a> {
 }
 
 impl <'a> Iterator for SubDBIterator<'a> {
-    type Item = (&'a [u8], &'a [u8]);
+    type Item = (Box<[u8]>, Box<[u8]>);
 
-    fn next(&mut self) -> Option<(&'a [u8], &'a [u8])> {
+    fn next(&mut self) -> Option<(Box<[u8]>, Box<[u8]>)> {
         let native_iter = self.iter.inner;
         if !self.iter.just_seeked {
             match self.direction {
@@ -85,7 +85,8 @@ impl <'a> Iterator for SubDBIterator<'a> {
             let key = unsafe { slice::from_raw_parts(key_ptr, key_len as usize) };
             let val_ptr = unsafe { rocksdb_ffi::rocksdb_iter_value(native_iter, val_len_ptr) };
             let val = unsafe { slice::from_raw_parts(val_ptr, val_len as usize) };
-            Some((key,val))
+
+            Some((key.to_vec().into_boxed_slice(),val.to_vec().into_boxed_slice()))
         } else {
             None
         }
@@ -612,7 +613,7 @@ fn iterator_test() {
         assert!(p.is_ok());
         let mut iter = db.iterator();
         for (k,v) in iter.from_start() {
-            println!("Hello {}: {}", from_utf8(k).unwrap(), from_utf8(v).unwrap());
+            println!("Hello {}: {}", from_utf8(&*k).unwrap(), from_utf8(&*v).unwrap());
         }
     }
     let opts = Options::new();
