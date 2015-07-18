@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.7 crate should work with the Rust nightly release as of 7/16/15.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.8 crate should work with the Rust nightly release as of 7/18/15.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -31,7 +31,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.0.7"
+rocksdb = "~0.0.8"
 ```
 ###### Code
 ```rust
