@@ -32,6 +32,9 @@ pub struct RocksDB {
     inner: rocksdb_ffi::RocksDBInstance,
 }
 
+unsafe impl Send for RocksDB {}
+unsafe impl Sync for RocksDB {}
+
 pub struct WriteBatch {
     inner: rocksdb_ffi::RocksDBWriteBatch,
 }
@@ -159,9 +162,9 @@ impl <'a> Drop for Snapshot<'a> {
 
 // This is for the RocksDB and write batches to share the same API
 pub trait Writable {
-    fn put(&mut self, key: &[u8], value: &[u8]) -> Result<(), String>;
-    fn merge(&mut self, key: &[u8], value: &[u8]) -> Result<(), String>;
-    fn delete(&mut self, key: &[u8]) -> Result<(), String>;
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
+    fn delete(&self, key: &[u8]) -> Result<(), String>;
 }
 
 fn error_message(ptr: *const i8) -> String {
@@ -308,7 +311,7 @@ impl RocksDB {
 }
 
 impl Writable for RocksDB {
-    fn put(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let mut err: *const i8 = 0 as *const i8;
@@ -324,7 +327,7 @@ impl Writable for RocksDB {
         }
     }
 
-    fn merge(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let mut err: *const i8 = 0 as *const i8;
@@ -340,7 +343,7 @@ impl Writable for RocksDB {
         }
     }
 
-    fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+    fn delete(&self, key: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let mut err: *const i8 = 0 as *const i8;
@@ -381,7 +384,7 @@ impl Drop for RocksDB {
 }
 
 impl Writable for WriteBatch {
-    fn put(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put(self.inner, key.as_ptr(),
                         key.len() as size_t, value.as_ptr(),
@@ -390,7 +393,7 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn merge(&mut self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_merge(self.inner, key.as_ptr(),
                         key.len() as size_t, value.as_ptr(),
@@ -399,7 +402,7 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+    fn delete(&self, key: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete(self.inner, key.as_ptr(),
                         key.len() as size_t);
