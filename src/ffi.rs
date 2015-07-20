@@ -353,9 +353,28 @@ extern {
         name_fn: extern fn(*mut c_void) -> *const c_char
     ) -> RocksDBComparator;
     pub fn rocksdb_comparator_destroy(cmp: RocksDBComparator);
+
+    // Column Family
+    pub fn rocksdb_open_column_families(options: RocksDBOptions,
+                                        path: *const i8,
+                                        num_column_families: c_int,
+                                        column_family_names: *const *const i8,
+                                        column_family_options: *const [RocksDBOptions],
+                                        column_family_handles: *mut *const RocksDBCFHandle,
+                                        err: *mut *const i8
+                                        ) -> RocksDBInstance;
+    pub fn rocksdb_create_column_family(db: RocksDBInstance,
+                                        column_family_options: RocksDBOptions,
+                                        column_family_name: *const i8,
+                                        err: *mut *const i8
+                                        ) -> RocksDBCFHandle;
+    pub fn rocksdb_drop_column_family(db: RocksDBInstance,
+                                      column_family_handle: *const RocksDBCFHandle,
+                                      err: *mut *const i8);
+    pub fn rocksdb_column_family_handle_destroy(column_family_handle: *mut *const RocksDBCFHandle);
+
 }
 
-#[allow(dead_code)]
 #[test]
 fn internal() {
     unsafe {

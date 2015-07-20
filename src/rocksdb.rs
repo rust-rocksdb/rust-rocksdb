@@ -23,13 +23,13 @@ use std::path::Path;
 use std::ptr::Unique;
 use std::slice;
 use std::str::from_utf8;
-use std::marker::PhantomData;
 
 use rocksdb_ffi;
 use rocksdb_options::Options;
 
 pub struct RocksDB {
     inner: rocksdb_ffi::RocksDBInstance,
+    cfs: Vec<rocksdb_ffi::RocksDBCFHandle>,
 }
 
 unsafe impl Send for RocksDB {}
@@ -184,6 +184,10 @@ impl RocksDB {
     }
 
     pub fn open(opts: &Options, path: &str) -> Result<RocksDB, String> {
+        RocksDB::open_cf(opts, path, vec![])
+    }
+
+    pub fn open_cf(opts: &Options, path: &str, mut cfs: Vec<&str>) -> Result<RocksDB, String> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) =>
@@ -203,18 +207,49 @@ impl RocksDB {
         let err_ptr: *mut *const i8 = &mut err;
         let db: rocksdb_ffi::RocksDBInstance;
 
-        unsafe {
-            db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err_ptr);
+        if cfs.len() == 0 {
+            unsafe {
+                db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err_ptr);
+            }
+        } else {
+            let nfam = cfs.len();
+            let mut cfnames: Vec<*const i8> = vec![];
+            let mut cfhandles: Vec<rocksdb_ffi::RocksDBCFHandle> = vec![];
+            let mut cfopts: Vec<rocksdb_ffi::RocksDBOptions> = vec![];
+
+            cfs.push("default");
+            for name in cfs {
+                match CString::new(name.as_bytes()) {
+                    Ok(c) => {
+                        cfnames.push(c.as_ptr());
+                        cfhandles.push(rocksdb_ffi::RocksDBCFHandle(0 as *mut c_void));
+                        cfopts.push(Options::new().inner);
+                    },
+                    Err(_) =>
+                        return Err("Failed to convert path to CString when opening rocksdb".to_string()),
+                }
+            };
+            unsafe {
+                println!("1!");
+                println!("nfam: {}", nfam);
+                db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr,
+                                                               nfam as libc::c_int,
+                                                               cfnames.as_slice().as_ptr(),
+                                                               cfopts.as_slice(),
+                                                               cfhandles.as_ptr() as *mut *const rocksdb_ffi::RocksDBCFHandle,
+                                                               err_ptr);
+                println!("2!");
+            }
         }
 
         if !err.is_null() {
             return Err(error_message(err));
         }
-        let rocksdb_ffi::RocksDBInstance(db_ptr) = db;
-        if db_ptr.is_null() {
+        if db.0.is_null() {
             return Err("Could not initialize database.".to_string());
         }
-        Ok(RocksDB { inner: db })
+
+        Ok(RocksDB { inner: db, cfs: vec![] })
     }
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
@@ -298,6 +333,24 @@ impl RocksDB {
                 }
             }
         }
+    }
+
+    pub fn create_cf(&mut self, name: &str, opts: &Options) -> Result<(), String> {
+        let cname = match CString::new(name.as_bytes()) {
+            Ok(c) => c,
+            Err(_) =>
+                return Err("Failed to convert path to CString when opening rocksdb".to_string()),
+        };
+        let cname_ptr = cname.as_ptr();
+        let mut err: *const i8 = 0 as *const i8;
+        let err_ptr: *mut *const i8 = &mut err;
+        unsafe {
+            rocksdb_ffi::rocksdb_create_column_family(self.inner, opts.inner, cname_ptr, err_ptr);
+        }
+        if !err.is_null() {
+            return Err(error_message(err));
+        }
+        Ok(())
     }
 
     pub fn iterator(&self) -> DBIterator {
@@ -546,7 +599,6 @@ impl <T, E> RocksDBResult<T, E> {
     }
 }
 
-#[allow(dead_code)]
 #[test]
 fn external() {
     let path = "_rust_rocksdb_externaltest";
