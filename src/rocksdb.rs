@@ -16,6 +16,7 @@
 
 extern crate libc;
 use self::libc::{c_void, size_t};
+use std::collections::BTreeMap;
 use std::ffi::{CString, CStr};
 use std::fs::{self, PathExt};
 use std::ops::Deref;
@@ -29,7 +30,7 @@ use rocksdb_options::Options;
 
 pub struct RocksDB {
     inner: rocksdb_ffi::RocksDBInstance,
-    cfs: Vec<rocksdb_ffi::RocksDBCFHandle>,
+    cfs: BTreeMap<String, rocksdb_ffi::RocksDBCFHandle>,
 }
 
 unsafe impl Send for RocksDB {}
@@ -184,10 +185,10 @@ impl RocksDB {
     }
 
     pub fn open(opts: &Options, path: &str) -> Result<RocksDB, String> {
-        RocksDB::open_cf(opts, path, vec![])
+        RocksDB::open_cf(opts, path, &[])
     }
 
-    pub fn open_cf(opts: &Options, path: &str, mut cfs: Vec<&str>) -> Result<RocksDB, String> {
+    pub fn open_cf(opts: &Options, path: &str, cfs: &[&str]) -> Result<RocksDB, String> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) =>
@@ -206,39 +207,62 @@ impl RocksDB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         let db: rocksdb_ffi::RocksDBInstance;
+        let mut cfMap = BTreeMap::new();
 
         if cfs.len() == 0 {
             unsafe {
                 db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err_ptr);
             }
         } else {
-            let nfam = cfs.len();
-            let mut cfnames: Vec<*const i8> = vec![];
-            let mut cfhandles: Vec<rocksdb_ffi::RocksDBCFHandle> = vec![];
-            let mut cfopts: Vec<rocksdb_ffi::RocksDBOptions> = vec![];
+            let mut cfs_v = cfs.to_vec();
+            // Always open the default column family
+            if !cfs_v.contains(&"default") {
+                cfs_v.push("default");
+            }
 
-            cfs.push("default");
-            for name in cfs {
-                match CString::new(name.as_bytes()) {
-                    Ok(c) => {
-                        cfnames.push(c.as_ptr());
-                        cfhandles.push(rocksdb_ffi::RocksDBCFHandle(0 as *mut c_void));
-                        cfopts.push(Options::new().inner);
-                    },
-                    Err(_) =>
-                        return Err("Failed to convert path to CString when opening rocksdb".to_string()),
-                }
-            };
+            // We need to store our CStrings in an intermediate vector
+            // so that their pointers remain valid.
+            let c_cfs: Vec<CString> = cfs_v.iter().map( |cf| {
+                CString::new(cf.as_bytes()).unwrap()
+            }).collect();
+
+            let cfnames: Vec<*const i8> = c_cfs.iter().map( |cf| {
+                cf.as_ptr()
+            }).collect();
+
+            // These handles will be populated by RocksDB.
+            let mut cfhandles: Vec<rocksdb_ffi::RocksDBCFHandle> =
+                cfs_v.iter().map( |_| {
+                    rocksdb_ffi::RocksDBCFHandle(0 as *mut c_void)
+                }).collect();
+
+            // TODO(tyler) allow options to be passed in.
+            let cfopts: Vec<rocksdb_ffi::RocksDBOptions> = cfs_v.iter().map( |_| {
+                unsafe { rocksdb_ffi::rocksdb_options_create() }
+            }).collect();
+
+            // Prepare to ship to C.
+            let names = cfnames.as_slice();
+            let copts: *const rocksdb_ffi::RocksDBOptions = cfopts.as_ptr();
+            let handles: *const rocksdb_ffi::RocksDBCFHandle = cfhandles.as_ptr();
+            let nfam = cfs_v.len();
             unsafe {
-                println!("1!");
-                println!("nfam: {}", nfam);
                 db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr,
                                                                nfam as libc::c_int,
-                                                               cfnames.as_slice().as_ptr(),
-                                                               cfopts.as_slice(),
-                                                               cfhandles.as_ptr() as *mut *const rocksdb_ffi::RocksDBCFHandle,
+                                                               names.as_ptr(),
+                                                               copts,
+                                                               handles,
                                                                err_ptr);
-                println!("2!");
+            }
+
+            for handle in cfhandles.iter() {
+                if handle.0.is_null() {
+                    return Err("Received null column family handle from RocksDB.".to_string());
+                }
+            }
+
+            for (n, h) in cfs_v.iter().zip(cfhandles) {
+                cfMap.insert(n.to_string(), h);
             }
         }
 
@@ -249,7 +273,7 @@ impl RocksDB {
             return Err("Could not initialize database.".to_string());
         }
 
-        Ok(RocksDB { inner: db, cfs: vec![] })
+        Ok(RocksDB { inner: db, cfs: cfMap })
     }
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {

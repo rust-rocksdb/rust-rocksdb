@@ -42,9 +42,9 @@ pub fn test_column_family() {
 
     // should properly open db when specyfing all column families
     {
-        match RocksDB::open_cf(&Options::new(), path, vec!["cf1"]) {
+        match RocksDB::open_cf(&Options::new(), path, &["cf1"]) {
             Ok(_) => println!("successfully opened db with column family"),
-            Err(e) => panic!("failed to open db with column family"),
+            Err(e) => panic!("failed to open db with column family: {}", e),
         }
 
     }

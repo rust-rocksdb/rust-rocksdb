@@ -359,8 +359,8 @@ extern {
                                         path: *const i8,
                                         num_column_families: c_int,
                                         column_family_names: *const *const i8,
-                                        column_family_options: *const [RocksDBOptions],
-                                        column_family_handles: *mut *const RocksDBCFHandle,
+                                        column_family_options: *const RocksDBOptions,
+                                        column_family_handles: *const RocksDBCFHandle,
                                         err: *mut *const i8
                                         ) -> RocksDBInstance;
     pub fn rocksdb_create_column_family(db: RocksDBInstance,
