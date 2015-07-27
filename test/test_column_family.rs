@@ -52,6 +52,14 @@ pub fn test_column_family() {
     {
 
     }
+    // should b able to drop a cf
+    {
+        let mut db = RocksDB::open_cf(&Options::new(), path, &["cf1"]).unwrap();
+        match db.drop_cf("cf1") {
+            Ok(_) => println!("cf1 successfully dropped."),
+            Err(e) => panic!("failed to drop column family: {}", e),
+        }
+    }
 
     assert!(RocksDB::destroy(&Options::new(), path).is_ok());
 }
