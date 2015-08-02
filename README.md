@@ -1,6 +1,7 @@
 rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
+[![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
 This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.1.0 crate should work with the Rust 1.1 stable and nightly releases as of 8/2/15.
 
