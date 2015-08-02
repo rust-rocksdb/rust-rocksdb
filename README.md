@@ -114,12 +114,12 @@ fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     existing_val.map(|v| {
         for e in v {
-            result.push(e)
+            result.push(*e)
         }
     });
     for op in operands {
         for e in op {
-            result.push(e)
+            result.push(*e)
         }
     }
     result
