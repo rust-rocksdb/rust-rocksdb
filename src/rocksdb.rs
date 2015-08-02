@@ -17,10 +17,9 @@
 extern crate libc;
 use self::libc::{c_void, size_t};
 use std::ffi::{CString, CStr};
-use std::fs::{self, PathExt};
+use std::fs;
 use std::ops::Deref;
 use std::path::Path;
-use std::ptr::Unique;
 use std::slice;
 use std::str::from_utf8;
 use std::marker::PhantomData;
@@ -192,11 +191,9 @@ impl RocksDB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        if !ospath.exists() {
-            match fs::create_dir_all(&ospath) {
-                Err(e) => return Err("Failed to create rocksdb directory.".to_string()),
-                Ok(_) => (),
-            }
+        match fs::create_dir_all(&ospath) {
+            Err(e) => return Err("Failed to create rocksdb directory.".to_string()),
+            Ok(_) => (),
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -222,10 +219,6 @@ impl RocksDB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        if !ospath.exists() {
-            return Err("path does not exist".to_string());
-        }
-
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -242,10 +235,6 @@ impl RocksDB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        if !ospath.exists() {
-            return Err("path does not exist".to_string());
-        }
-
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -442,21 +431,21 @@ impl ReadOptions {
 }
 
 pub struct RocksDBVector {
-    base: Unique<u8>,
+    base: *mut u8,
     len: usize,
 }
 
 impl Deref for RocksDBVector {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.base.get(), self.len) }
+        unsafe { slice::from_raw_parts(self.base, self.len) }
     }
 }
 
 impl Drop for RocksDBVector {
     fn drop(&mut self) {
         unsafe {
-            libc::free(*self.base.deref() as *mut libc::c_void);
+            libc::free(self.base as *mut libc::c_void);
         }
     }
 }
@@ -465,7 +454,7 @@ impl RocksDBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
         unsafe {
             RocksDBVector {
-                base: Unique::new(val),
+                base: val,
                 len: val_len as usize,
             }
         }

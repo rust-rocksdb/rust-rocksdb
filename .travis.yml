@@ -2,6 +2,11 @@ language: rust
 
 rust:
   - nightly
+  - 1.1.0
+
+os:
+  - linux
+  - osx
 
 script:
-  - rustc src/lib.rs
+  - rustc -Z parse-only src/lib.rs
