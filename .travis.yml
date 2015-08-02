@@ -2,9 +2,11 @@ language: rust
 sudo: true
 
 compiler:
-  - clang
+  - gcc
 
 before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y gcc libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev
   - wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz; tar xvf rocksdb-3.8.tar.gz && cd rocksdb-rocksdb-3.8 && make shared_lib; make install
 
 rust:
