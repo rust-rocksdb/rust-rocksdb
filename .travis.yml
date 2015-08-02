@@ -1,4 +1,8 @@
 language: rust
+sudo: true
+
+before_install:
+  - wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz; tar xvf rocksdb-3.8.tar.gz && cd rocksdb-rocksdb-3.8 && make shared_lib; make install
 
 rust:
   - nightly
