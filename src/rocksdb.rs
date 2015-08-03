@@ -106,6 +106,20 @@ impl DBIterator {
         }
     }
 
+    fn new_cf(db: &RocksDB, cf_name: &str, readopts: &ReadOptions) -> Result<DBIterator, String> {
+        let cf = db.cfs.get(cf_name);
+        if cf.is_none() {
+            return Err(format!("Invalid column family: {}", cf_name).to_string());
+        }
+        unsafe {
+            let iterator = rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
+                                                                   readopts.inner,
+                                                                   *cf.unwrap());
+            rocksdb_ffi::rocksdb_iter_seek_to_first(iterator);
+            Ok(DBIterator{ inner: iterator, direction: Direction::forward, just_seeked: true })
+        }
+    }
+
     pub fn from_start(&mut self) -> SubDBIterator {
         self.just_seeked = true;
         unsafe {
@@ -389,6 +403,11 @@ impl RocksDB {
         DBIterator::new(&self, &opts)
     }
 
+    pub fn iterator_cf(&self, cf: &str) -> Result<DBIterator, String> {
+        let opts = ReadOptions::new();
+        DBIterator::new_cf(&self, cf, &opts)
+    }
+
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
     }
@@ -430,7 +449,7 @@ impl Writable for RocksDB {
             Ok(())
         }
     }
- 
+
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
@@ -446,7 +465,7 @@ impl Writable for RocksDB {
             Ok(())
         }
     }
-    
+
     fn merge_cf(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<(), String> {
         let cf = self.cfs.get(cf_name);
         if cf.is_none() {
@@ -492,7 +511,7 @@ impl Writable for RocksDB {
             let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_delete_cf(self.inner, writeopts.clone(), 
+            rocksdb_ffi::rocksdb_delete_cf(self.inner, writeopts.clone(),
                                            *cf.unwrap(), key.as_ptr(),
                                            key.len() as size_t, err_ptr);
             rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
