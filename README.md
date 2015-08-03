@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 
-This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.0.8 crate should work with the Rust nightly release as of 7/18/15.
+This library has been tested against RocksDB 3.8.1 on linux and OSX.  The 0.1.0 crate should work with the Rust 1.1 stable and nightly releases as of 8/2/15.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -31,7 +31,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.0.8"
+rocksdb = "~0.1.0"
 ```
 ###### Code
 ```rust
@@ -42,7 +42,7 @@ fn main() {
     let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
     db.put(b"my key", b"my value");
     db.get(b"my key")
-        .map( |value| { 
+        .map( |value| {
             println!("retrieved value {}", value.to_utf8().unwrap())
         })
         .on_absent( || { println!("value not found") })
@@ -112,9 +112,15 @@ use rocksdb::{Options, RocksDB, MergeOperands, Writable};
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
-    existing_val.map(|v| { result.extend(v) });
+    existing_val.map(|v| {
+        for e in v {
+            result.push(*e)
+        }
+    });
     for op in operands {
-        result.extend(op);
+        for e in op {
+            result.push(*e)
+        }
     }
     result
 }

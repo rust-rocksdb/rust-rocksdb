@@ -15,12 +15,6 @@
 */
 #![crate_id = "rocksdb"]
 #![crate_type = "lib"]
-#![feature(libc)]
-#![feature(unique)]
-#![feature(path_ext)]
-#![feature(convert)]
-#![feature(raw)]
-#![allow(dead_code)]
 
 pub use ffi as rocksdb_ffi;
 pub use ffi::{new_bloom_filter, RocksDBCompactionStyle, RocksDBComparator};

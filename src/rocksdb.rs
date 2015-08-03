@@ -18,10 +18,9 @@ extern crate libc;
 use self::libc::{c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CString, CStr};
-use std::fs::{self, PathExt};
+use std::fs;
 use std::ops::Deref;
 use std::path::Path;
-use std::ptr::Unique;
 use std::slice;
 use std::str::from_utf8;
 
@@ -197,11 +196,9 @@ impl RocksDB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        if !ospath.exists() {
-            match fs::create_dir_all(&ospath) {
-                Err(e) => return Err("Failed to create rocksdb directory.".to_string()),
-                Ok(_) => (),
-            }
+        match fs::create_dir_all(&ospath) {
+            Err(e) => return Err("Failed to create rocksdb directory.".to_string()),
+            Ok(_) => (),
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -242,14 +239,13 @@ impl RocksDB {
             }).collect();
 
             // Prepare to ship to C.
-            let names = cfnames.as_slice();
             let copts: *const rocksdb_ffi::RocksDBOptions = cfopts.as_ptr();
             let handles: *const rocksdb_ffi::RocksDBCFHandle = cfhandles.as_ptr();
             let nfam = cfs_v.len();
             unsafe {
                 db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr,
                                                                nfam as libc::c_int,
-                                                               names.as_ptr(),
+                                                               cfnames.as_ptr(),
                                                                copts, handles, err_ptr);
             }
 
@@ -279,10 +275,6 @@ impl RocksDB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        if !ospath.exists() {
-            return Err("path does not exist".to_string());
-        }
-
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -299,10 +291,6 @@ impl RocksDB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        if !ospath.exists() {
-            return Err("path does not exist".to_string());
-        }
-
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -384,7 +372,7 @@ impl RocksDB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
-            rocksdb_ffi::rocksdb_drop_column_family(self.inner, cf.unwrap(), err_ptr);
+            rocksdb_ffi::rocksdb_drop_column_family(self.inner, *cf.unwrap(), err_ptr);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -472,7 +460,12 @@ impl Drop for WriteBatch {
 
 impl Drop for RocksDB {
     fn drop(&mut self) {
-        unsafe { rocksdb_ffi::rocksdb_close(self.inner); }
+        unsafe {
+            for (_, cf) in self.cfs.iter() {
+                rocksdb_ffi::rocksdb_column_family_handle_destroy(*cf);
+            }
+            rocksdb_ffi::rocksdb_close(self.inner);
+        }
     }
 }
 
@@ -535,21 +528,21 @@ impl ReadOptions {
 }
 
 pub struct RocksDBVector {
-    base: Unique<u8>,
+    base: *mut u8,
     len: usize,
 }
 
 impl Deref for RocksDBVector {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.base.get(), self.len) }
+        unsafe { slice::from_raw_parts(self.base, self.len) }
     }
 }
 
 impl Drop for RocksDBVector {
     fn drop(&mut self) {
         unsafe {
-            libc::free(*self.base.deref() as *mut libc::c_void);
+            libc::free(self.base as *mut libc::c_void);
         }
     }
 }
@@ -558,7 +551,7 @@ impl RocksDBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> RocksDBVector {
         unsafe {
             RocksDBVector {
-                base: Unique::new(val),
+                base: val,
                 len: val_len as usize,
             }
         }

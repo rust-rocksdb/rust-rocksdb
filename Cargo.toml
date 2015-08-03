@@ -2,7 +2,7 @@
 
 name = "rocksdb"
 description = "A Rust wrapper for Facebook's RocksDB embeddable database."
-version = "0.0.8"
+version = "0.1.0"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
 exclude = [
@@ -20,3 +20,6 @@ valgrind=[]
 
 name = "test"
 path = "test/test.rs"
+
+[dependencies]
+libc = "0.1.8"

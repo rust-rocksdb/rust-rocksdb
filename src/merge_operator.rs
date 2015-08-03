@@ -131,7 +131,6 @@ impl MergeOperands {
 impl<'a> Iterator for &'a mut MergeOperands {
     type Item = &'a [u8];
     fn next(&mut self) -> Option<&'a [u8]> {
-        use std::raw::Slice;
         match self.cursor == self.num_operands {
             true => None,
             false => {
@@ -145,8 +144,8 @@ impl<'a> Iterator for &'a mut MergeOperands {
                     let len = *len_ptr as usize;
                     let ptr = base + (spacing * self.cursor);
                     self.cursor += 1;
-                    Some(mem::transmute(Slice{data:*(ptr as *const *const u8)
-                        as *const u8, len: len}))
+                    Some(mem::transmute(slice::from_raw_parts(*(ptr as *const *const u8)
+                        as *const u8, len)))
                 }
             }
         }
@@ -165,11 +164,17 @@ fn test_provided_merge(new_key: &[u8],
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     match existing_val {
-        Some(v) => result.extend(v),
+        Some(v) => {
+            for e in v {
+                result.push(*e);
+            }
+        },
         None => (),
     }
     for op in operands {
-        result.extend(op);
+        for e in op {
+            result.push(*e);
+        }
     }
     result
 }

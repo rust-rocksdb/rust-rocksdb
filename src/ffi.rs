@@ -369,9 +369,9 @@ extern {
                                         err: *mut *const i8
                                         ) -> RocksDBCFHandle;
     pub fn rocksdb_drop_column_family(db: RocksDBInstance,
-                                      column_family_handle: *const RocksDBCFHandle,
+                                      column_family_handle: RocksDBCFHandle,
                                       err: *mut *const i8);
-    pub fn rocksdb_column_family_handle_destroy(column_family_handle: *mut *const RocksDBCFHandle);
+    pub fn rocksdb_column_family_handle_destroy(column_family_handle: RocksDBCFHandle);
 
 }
 

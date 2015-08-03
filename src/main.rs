@@ -13,10 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#![feature(test)]
-
 extern crate rocksdb;
-extern crate test;
 use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, };
 use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 
@@ -72,11 +69,15 @@ fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     mut operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
-        Some(v) => result.extend(v),
+        Some(v) => for e in v {
+            result.push(*e)
+        },
         None => (),
     }
     for op in operands {
-        result.extend(op);
+        for e in op {
+            result.push(*e);
+        }
     }
     result
 }
@@ -138,7 +139,6 @@ fn main() {
 
 #[cfg(test)]
 mod tests  {
-    use test::Bencher;
     use std::thread::sleep_ms;
 
     use rocksdb::{BlockBasedOptions, Options, RocksDB, MergeOperands, new_bloom_filter, Writable };
@@ -171,7 +171,8 @@ mod tests  {
 
         RocksDB::open(&opts, path).unwrap()
     }
-
+    
+    /* TODO(tyler) unstable
     #[bench]
     fn a_writes(b: &mut Bencher) {
         // dirty hack due to parallel tests causing contention.
@@ -205,4 +206,5 @@ mod tests  {
         }
         RocksDB::destroy(&opts, path).is_ok();
     }
+    */
 }
