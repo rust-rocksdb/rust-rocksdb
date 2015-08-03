@@ -190,6 +190,12 @@ extern {
                        k: *const u8, kLen: size_t,
                        v: *const u8, vLen: size_t,
                        err: *mut *const i8);
+    pub fn rocksdb_put_cf(db: RocksDBInstance,
+                       writeopts: RocksDBWriteOptions,
+                       cf: RocksDBCFHandle,
+                       k: *const u8, kLen: size_t,
+                       v: *const u8, vLen: size_t,
+                       err: *mut *const i8);
     pub fn rocksdb_readoptions_create() -> RocksDBReadOptions;
     pub fn rocksdb_readoptions_destroy(readopts: RocksDBReadOptions);
     pub fn rocksdb_readoptions_set_verify_checksums(
@@ -241,6 +247,12 @@ extern {
                           k: *const u8, kLen: size_t,
                           err: *mut *const i8
                           ) -> *mut c_void;
+    pub fn rocksdb_delete_cf(db: RocksDBInstance,
+                             writeopts: RocksDBWriteOptions,
+                             cf: RocksDBCFHandle,
+                             k: *const u8, kLen: size_t,
+                             err: *mut *const i8
+                             ) -> *mut c_void;
     pub fn rocksdb_close(db: RocksDBInstance);
     pub fn rocksdb_destroy_db(options: RocksDBOptions,
                               path: *const i8, err: *mut *const i8);
@@ -249,6 +261,12 @@ extern {
     // Merge
     pub fn rocksdb_merge(db: RocksDBInstance,
                          writeopts: RocksDBWriteOptions,
+                         k: *const u8, kLen: size_t,
+                         v: *const u8, vLen: size_t,
+                         err: *mut *const i8);
+    pub fn rocksdb_merge_cf(db: RocksDBInstance,
+                         writeopts: RocksDBWriteOptions,
+                         cf: RocksDBCFHandle,
                          k: *const u8, kLen: size_t,
                          v: *const u8, vLen: size_t,
                          err: *mut *const i8);
