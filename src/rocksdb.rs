@@ -362,6 +362,40 @@ impl RocksDB {
         }
     }
 
+    pub fn get_cf(&self, cf_name: &str, key: &[u8]) -> RocksDBResult<RocksDBVector, String> {
+        let cf = self.cfs.get(cf_name);
+        if cf.is_none() {
+            return RocksDBResult::Error(format!("Invalid column family: {}", cf_name).to_string());
+        }
+        unsafe {
+            let readopts = rocksdb_ffi::rocksdb_readoptions_create();
+            if readopts.0.is_null() {
+                return RocksDBResult::Error("Unable to create rocksdb read \
+                    options.  This is a fairly trivial call, and its failure \
+                    may be indicative of a mis-compiled or mis-loaded rocksdb \
+                    library.".to_string());
+            }
+
+            let val_len: size_t = 0;
+            let val_len_ptr = &val_len as *const size_t;
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            let val = rocksdb_ffi::rocksdb_get_cf(self.inner, readopts.clone(),
+                *cf.unwrap(), key.as_ptr(), key.len() as size_t, val_len_ptr,
+                err_ptr) as *mut u8;
+            rocksdb_ffi::rocksdb_readoptions_destroy(readopts);
+            if !err.is_null() {
+                return RocksDBResult::Error(error_message(err));
+            }
+            match val.is_null() {
+                true => RocksDBResult::None,
+                false => {
+                    RocksDBResult::Some(RocksDBVector::from_c(val, val_len))
+                }
+            }
+        }
+    }
+
     pub fn create_cf(&mut self, name: &str, opts: &Options) -> Result<(), String> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
@@ -801,53 +835,4 @@ fn iterator_test() {
     }
     let opts = Options::new();
     assert!(RocksDB::destroy(&opts, path).is_ok());
-}
-
-#[test]
-pub fn test_column_family() {
-    let path = "_rust_rocksdb_cftest";
-
-    // should be able to create column families
-    {
-        let mut db = RocksDB::open_default(path).unwrap();
-        let opts = Options::new();
-        match db.create_cf("cf1", &opts) {
-            Ok(_) => println!("cf1 created successfully"),
-            Err(e) => {
-                panic!("could not create column family: {}", e);
-            },
-        }
-    }
-
-    // should fail to open db without specifying same column families
-    {
-        match RocksDB::open_default(path) {
-            Ok(_) => panic!("should not have opened DB successfully without specifying column
-            families"),
-            Err(e) => assert!(e.starts_with("Invalid argument: You have to open all column families.")),
-        }
-    }
-
-    // should properly open db when specyfing all column families
-    {
-        match RocksDB::open_cf(&Options::new(), path, &["cf1"]) {
-            Ok(_) => println!("successfully opened db with column family"),
-            Err(e) => panic!("failed to open db with column family: {}", e),
-        }
-
-    }
-    // should be able to write, read, merge, batch, and iterate over a cf
-    {
-
-    }
-    // should b able to drop a cf
-    {
-        let mut db = RocksDB::open_cf(&Options::new(), path, &["cf1"]).unwrap();
-        match db.drop_cf("cf1") {
-            Ok(_) => println!("cf1 successfully dropped."),
-            Err(e) => panic!("failed to drop column family: {}", e),
-        }
-    }
-
-    assert!(RocksDB::destroy(&Options::new(), path).is_ok());
 }
