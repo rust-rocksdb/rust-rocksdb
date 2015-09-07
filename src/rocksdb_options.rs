@@ -24,11 +24,11 @@ use merge_operator::{self, MergeOperatorCallback, MergeOperands,
 use comparator::{self, ComparatorCallback, compare_callback};
 
 pub struct BlockBasedOptions {
-    inner: rocksdb_ffi::RocksDBBlockBasedTableOptions,
+    inner: rocksdb_ffi::DBBlockBasedTableOptions,
 }
 
 pub struct Options {
-    pub inner: rocksdb_ffi::RocksDBOptions,
+    pub inner: rocksdb_ffi::DBOptions,
 }
 
 impl Drop for Options {
@@ -50,7 +50,7 @@ impl Drop for BlockBasedOptions {
 impl BlockBasedOptions {
     pub fn new() -> BlockBasedOptions {
         let block_opts = unsafe {rocksdb_ffi::rocksdb_block_based_options_create() };
-        let rocksdb_ffi::RocksDBBlockBasedTableOptions(opt_ptr) = block_opts;
+        let rocksdb_ffi::DBBlockBasedTableOptions(opt_ptr) = block_opts;
         if opt_ptr.is_null() {
             panic!("Could not create rocksdb block based options".to_string());
         }
@@ -65,21 +65,21 @@ impl BlockBasedOptions {
     }
 
     //TODO figure out how to create these in a Rusty way
-    ////pub fn set_filter(&mut self, filter: rocksdb_ffi::RocksDBFilterPolicy) {
+    ////pub fn set_filter(&mut self, filter: rocksdb_ffi::DBFilterPolicy) {
     ////    unsafe {
     ////        rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(
     ////            self.inner, filter);
     ////    }
     ////}
 
-    ////pub fn set_cache(&mut self, cache: rocksdb_ffi::RocksDBCache) {
+    ////pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
     ////    unsafe {
     ////        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
     ////            self.inner, cache);
     ////    }
     ////}
 
-    ////pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::RocksDBCache) {
+    ////pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
     ////    unsafe {
     ////        rocksdb_ffi::rocksdb_block_based_options_set_block_cache_compressed(
     ////            self.inner, cache);
@@ -92,7 +92,7 @@ impl Options {
     pub fn new() -> Options {
         unsafe {
             let opts = rocksdb_ffi::rocksdb_options_create();
-            let rocksdb_ffi::RocksDBOptions(opt_ptr) = opts;
+            let rocksdb_ffi::DBOptions(opt_ptr) = opts;
             if opt_ptr.is_null() {
                 panic!("Could not create rocksdb options".to_string());
             }
@@ -258,7 +258,7 @@ impl Options {
         }
     }
 
-    pub fn set_compaction_style(&mut self, style: rocksdb_ffi::RocksDBCompactionStyle) {
+    pub fn set_compaction_style(&mut self, style: rocksdb_ffi::DBCompactionStyle) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compaction_style(
                 self.inner, style);

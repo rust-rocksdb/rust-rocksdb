@@ -1,3 +1,4 @@
+*.swo
 *.swp
 target
 Cargo.lock

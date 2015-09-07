@@ -21,7 +21,7 @@ use std::ptr;
 use std::slice;
 
 use rocksdb_options::Options;
-use rocksdb::RocksDB;
+use rocksdb::DB;
 
 pub struct ComparatorCallback {
     pub name: CString,
@@ -75,8 +75,8 @@ fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
 //    opts.create_if_missing(true);
 //    opts.add_comparator("test comparator", test_reverse_compare);
 //    {
-//        let db = RocksDB::open(&opts, path).unwrap();
+//        let db = DB::open(&opts, path).unwrap();
 //        // TODO add interesting test
 //    }
-//    assert!(RocksDB::destroy(&opts, path).is_ok());
+//    assert!(DB::destroy(&opts, path).is_ok());
 //}

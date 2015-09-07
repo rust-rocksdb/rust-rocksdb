@@ -21,7 +21,7 @@ use std::ptr;
 use std::slice;
 
 use rocksdb_options::Options;
-use rocksdb::{RocksDB, RocksDBResult, RocksDBVector, Writable};
+use rocksdb::{DB, DBResult, DBVector, Writable};
 
 pub struct MergeOperatorCallback {
     pub name: CString,
@@ -187,7 +187,7 @@ fn mergetest() {
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", test_provided_merge);
     {
-        let mut db = RocksDB::open(&opts, path).unwrap();
+        let mut db = DB::open(&opts, path).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
         db.merge(b"k1", b"b");
@@ -207,10 +207,10 @@ fn mergetest() {
         .on_error( |e| { println!("error reading value")}); //: {", e) });
 
         assert!(m.is_ok());
-        let r: RocksDBResult<RocksDBVector, String> = db.get(b"k1");
+        let r: DBResult<DBVector, String> = db.get(b"k1");
         assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").is_none());
     }
-    assert!(RocksDB::destroy(&opts, path).is_ok());
+    assert!(DB::destroy(&opts, path).is_ok());
 }
