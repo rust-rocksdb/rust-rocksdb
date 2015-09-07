@@ -37,10 +37,10 @@ rocksdb = "~0.1.1"
 ###### Code
 ```rust
 extern crate rocksdb;
-use rocksdb::{RocksDB, Writable};
+use rocksdb::{DB, Writable};
 
 fn main() {
-    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     db.put(b"my key", b"my value");
     db.get(b"my key")
         .map( |value| {
@@ -56,11 +56,11 @@ fn main() {
 ###### Doing an atomic commit of several writes
 ```rust
 extern crate rocksdb;
-use rocksdb::{RocksDB, WriteBatch, Writable};
+use rocksdb::{DB, WriteBatch, Writable};
 
 fn main() {
     // NB: db is automatically freed at end of lifetime
-    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     {
         let mut batch = WriteBatch::new(); // WriteBatch and db both have trait Writable
         batch.put(b"my key", b"my value");
@@ -74,11 +74,11 @@ fn main() {
 ###### Getting an Iterator
 ```rust
 extern crate rocksdb;
-use rocksdb::{RocksDB, Direction};
+use rocksdb::{DB, Direction};
 
 fn main() {
     // NB: db is automatically freed at end of lifetime
-    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     let mut iter = db.iterator();
     for (key, value) in iter.from_start() { // Always iterates forward
         println!("Saw {} {}", key, value); //actually, need to convert [u8] keys into Strings
@@ -95,11 +95,11 @@ fn main() {
 ###### Getting an Iterator
 ```rust
 extern crate rocksdb;
-use rocksdb::{RocksDB, Direction};
+use rocksdb::{DB, Direction};
 
 fn main() {
     // NB: db is automatically freed at end of lifetime
-    let mut db = RocksDB::open_default("/path/for/rocksdb/storage").unwrap();
+    let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but freed when goes out of scope
     let mut iter = snapshot.iterator(); // Make as many iterators as you'd like from one snapshot
 }
@@ -108,7 +108,7 @@ fn main() {
 ###### Rustic Merge Operator
 ```rust
 extern crate rocksdb;
-use rocksdb::{Options, RocksDB, MergeOperands, Writable};
+use rocksdb::{Options, DB, MergeOperands, Writable};
 
 fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
     operands: &mut MergeOperands) -> Vec<u8> {
@@ -131,7 +131,7 @@ fn main() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
-    let mut db = RocksDB::open(&opts, path).unwrap();
+    let mut db = DB::open(&opts, path).unwrap();
     let p = db.put(b"k1", b"a");
     db.merge(b"k1", b"b");
     db.merge(b"k1", b"c");
@@ -145,10 +145,10 @@ fn main() {
 ###### Apply Some Tunings
 Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
 ```rust
-use rocksdb::{Options, RocksDB};
-use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
+use rocksdb::{Options, DB};
+use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
-fn badly_tuned_for_somebody_elses_disk() -> RocksDB {
+fn badly_tuned_for_somebody_elses_disk() -> DB {
     let path = "_rust_rocksdb_optimizetest";
     let mut opts = Options::new();
     opts.create_if_missing(true);
@@ -164,13 +164,13 @@ fn badly_tuned_for_somebody_elses_disk() -> RocksDB {
     opts.set_min_write_buffer_number_to_merge(4);
     opts.set_level_zero_stop_writes_trigger(2000);
     opts.set_level_zero_slowdown_writes_trigger(0);
-    opts.set_compaction_style(RocksDBUniversalCompaction);
+    opts.set_compaction_style(DBUniversalCompaction);
     opts.set_max_background_compactions(4);
     opts.set_max_background_flushes(4);
     opts.set_filter_deletes(false);
     opts.set_disable_auto_compactions(true);
 
-    RocksDB::open(&opts, path).unwrap()
+    DB::open(&opts, path).unwrap()
 }
 ```
 
