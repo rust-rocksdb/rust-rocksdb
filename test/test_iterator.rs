@@ -1,4 +1,4 @@
-use rocksdb::{Options, RocksDB, Writable, Direction};
+use rocksdb::{Options, DB, Writable, Direction};
 use std;
 
 fn cba(input: &Box<[u8]>) -> Box<[u8]> {
@@ -17,7 +17,7 @@ pub fn test_iterator() {
         let v2:Box<[u8]> = b"v2222".to_vec().into_boxed_slice();
         let v3:Box<[u8]> = b"v3333".to_vec().into_boxed_slice();
         let v4:Box<[u8]> = b"v4444".to_vec().into_boxed_slice();
-        let mut db = RocksDB::open_default(path).unwrap();
+        let mut db = DB::open_default(path).unwrap();
         let p = db.put(&*k1, &*v1);
         assert!(p.is_ok());
         let p = db.put(&*k2, &*v2);
@@ -109,6 +109,6 @@ pub fn test_iterator() {
         }
     }
     let opts = Options::new();
-    assert!(RocksDB::destroy(&opts, path).is_ok());
+    assert!(DB::destroy(&opts, path).is_ok());
 }
 

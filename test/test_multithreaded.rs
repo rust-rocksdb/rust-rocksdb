@@ -1,4 +1,4 @@
-use rocksdb::{Options, RocksDB, Writable, Direction, RocksDBResult};
+use rocksdb::{Options, DB, Writable, Direction, DBResult};
 use std::thread::{self, Builder};
 use std::sync::Arc;
 
@@ -8,7 +8,7 @@ const N: usize = 100_000;
 pub fn test_multithreaded() {
     let path = "_rust_rocksdb_multithreadtest";
     {
-        let db = RocksDB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         let db = Arc::new(db);
 
         db.put(b"key", b"value1");
@@ -31,7 +31,7 @@ pub fn test_multithreaded() {
         let j3 = thread::spawn(move|| {
             for i in 1..N {
                 match db3.get(b"key") {
-                    RocksDBResult::Some(v) => {
+                    DBResult::Some(v) => {
                         if &v[..] != b"value1" && &v[..] != b"value2" {
                             assert!(false);
                         }
@@ -47,5 +47,5 @@ pub fn test_multithreaded() {
         j2.join();
         j3.join();
     }
-    assert!(RocksDB::destroy(&Options::new(), path).is_ok());
+    assert!(DB::destroy(&Options::new(), path).is_ok());
 }

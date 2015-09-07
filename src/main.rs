@@ -14,13 +14,13 @@
    limitations under the License.
 */
 extern crate rocksdb;
-use rocksdb::{Options, RocksDB, MergeOperands, new_bloom_filter, Writable, };
-use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
+use rocksdb::{Options, DB, MergeOperands, new_bloom_filter, Writable, };
+use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
 //fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
 //    {
-//        let mut db = RocksDB::open_default(path).unwrap();
+//        let mut db = DB::open_default(path).unwrap();
 //        let p = db.put(b"k1", b"v1111");
 //        assert!(p.is_ok());
 //        let p = db.put(b"k2", b"v2222");
@@ -41,13 +41,13 @@ use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
 //        };
 //    }
 //    let opts = Options::new();
-//    assert!(RocksDB::destroy(&opts, path).is_ok());
+//    assert!(DB::destroy(&opts, path).is_ok());
 //}
 
 #[cfg(not(feature = "valgrind"))]
 fn main() {
     let path = "/tmp/rust-rocksdb";
-    let mut db = RocksDB::open_default(path).unwrap();
+    let mut db = DB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());
     db.get(b"my key").map( |value| {
             match value.to_utf8() {
@@ -88,7 +88,7 @@ fn custom_merge() {
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     {
-        let mut db = RocksDB::open(&opts, path).unwrap();
+        let mut db = DB::open(&opts, path).unwrap();
         db.put(b"k1", b"a");
         db.merge(b"k1", b"b");
         db.merge(b"k1", b"c");
@@ -107,7 +107,7 @@ fn custom_merge() {
             .on_error( |e| { println!("error retrieving value: {}", e) });
 
     }
-    RocksDB::destroy(&opts, path).is_ok();
+    DB::destroy(&opts, path).is_ok();
 }
 
 #[cfg(feature = "valgrind")]
@@ -116,7 +116,7 @@ fn main() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
-    let db = RocksDB::open(&opts, path).unwrap();
+    let db = DB::open(&opts, path).unwrap();
     loop {
         db.put(b"k1", b"a");
         db.merge(b"k1", b"b");
@@ -141,10 +141,10 @@ fn main() {
 mod tests  {
     use std::thread::sleep_ms;
 
-    use rocksdb::{BlockBasedOptions, Options, RocksDB, MergeOperands, new_bloom_filter, Writable };
-    use rocksdb::RocksDBCompactionStyle::RocksDBUniversalCompaction;
+    use rocksdb::{BlockBasedOptions, Options, DB, MergeOperands, new_bloom_filter, Writable };
+    use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
-    fn tuned_for_somebody_elses_disk(path: &str, opts: & mut Options, blockopts: &mut BlockBasedOptions) -> RocksDB {
+    fn tuned_for_somebody_elses_disk(path: &str, opts: & mut Options, blockopts: &mut BlockBasedOptions) -> DB {
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
         opts.set_use_fsync(false);
@@ -158,7 +158,7 @@ mod tests  {
         opts.set_min_write_buffer_number_to_merge(4);
         opts.set_level_zero_stop_writes_trigger(2000);
         opts.set_level_zero_slowdown_writes_trigger(0);
-        opts.set_compaction_style(RocksDBUniversalCompaction);
+        opts.set_compaction_style(DBUniversalCompaction);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
@@ -169,7 +169,7 @@ mod tests  {
         let filter = new_bloom_filter(10);
         //opts.set_filter(filter);
 
-        RocksDB::open(&opts, path).unwrap()
+        DB::open(&opts, path).unwrap()
     }
     
     /* TODO(tyler) unstable
@@ -204,7 +204,7 @@ mod tests  {
                     i += 1;
                     });
         }
-        RocksDB::destroy(&opts, path).is_ok();
+        DB::destroy(&opts, path).is_ok();
     }
     */
 }
