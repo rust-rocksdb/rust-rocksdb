@@ -27,7 +27,7 @@ use std::str::from_utf8;
 
 use self::libc::{c_void, size_t};
 
-use rocksdb_ffi::{self, DBCFHandle};
+use rocksdb_ffi::{self, DBCFHandle, error_message};
 use rocksdb_options::Options;
 
 pub struct DB {
@@ -185,15 +185,6 @@ pub trait Writable {
     fn merge_cf(&self, cf: DBCFHandle, key: &[u8], value: &[u8]) -> Result<(), String>;
     fn delete(&self, key: &[u8]) -> Result<(), String>;
     fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String>;
-}
-
-fn error_message(ptr: *const i8) -> String {
-    let c_str = unsafe { CStr::from_ptr(ptr) };
-    let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
-    unsafe{
-        libc::free(ptr as *mut libc::c_void);
-    }
-    s
 }
 
 impl DB {

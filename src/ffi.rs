@@ -15,7 +15,8 @@
 */
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
-use std::ffi::CString;
+use std::ffi::{CString, CStr};
+use std::str::from_utf8;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -90,6 +91,15 @@ pub enum DBCompactionStyle {
 pub enum DBUniversalCompactionStyle {
     rocksdb_similar_size_compaction_stop_style = 0,
     rocksdb_total_size_compaction_stop_style = 1,
+}
+
+pub fn error_message(ptr: *const i8) -> String {
+    let c_str = unsafe { CStr::from_ptr(ptr) };
+    let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
+    unsafe{
+        libc::free(ptr as *mut libc::c_void);
+    }
+    s
 }
 
 //TODO audit the use of boolean arguments, b/c I think they need to be u8 instead...
@@ -410,6 +420,9 @@ fn internal() {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         let db = rocksdb_open(opts, cpath_ptr, err_ptr);
+        if !err.is_null() {
+            println!("failed to open rocksdb: {}", error_message(err));
+        }
         assert!(err.is_null());
 
         let writeopts = rocksdb_writeoptions_create();
