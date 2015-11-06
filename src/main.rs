@@ -14,8 +14,7 @@
    limitations under the License.
 */
 extern crate rocksdb;
-use rocksdb::{Options, DB, MergeOperands, new_bloom_filter, Writable, };
-use rocksdb::DBCompactionStyle::DBUniversalCompaction;
+use rocksdb::{Options, DB, MergeOperands, Writable, };
 
 //fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
@@ -47,7 +46,7 @@ use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 #[cfg(not(feature = "valgrind"))]
 fn main() {
     let path = "/tmp/rust-rocksdb";
-    let mut db = DB::open_default(path).unwrap();
+    let db = DB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());
     db.get(b"my key").map( |value| {
             match value.to_utf8() {
@@ -65,8 +64,8 @@ fn main() {
     custom_merge();
 }
 
-fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
-    mut operands: &mut MergeOperands) -> Vec<u8> {
+fn concat_merge(_: &[u8], existing_val: Option<&[u8]>,
+    operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
         Some(v) => for e in v {
@@ -88,13 +87,13 @@ fn custom_merge() {
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     {
-        let mut db = DB::open(&opts, path).unwrap();
-        db.put(b"k1", b"a");
-        db.merge(b"k1", b"b");
-        db.merge(b"k1", b"c");
-        db.merge(b"k1", b"d");
-        db.merge(b"k1", b"efg");
-        db.merge(b"k1", b"h");
+        let db = DB::open(&opts, path).unwrap();
+        db.put(b"k1", b"a").unwrap();
+        db.merge(b"k1", b"b").unwrap();
+        db.merge(b"k1", b"c").unwrap();
+        db.merge(b"k1", b"d").unwrap();
+        db.merge(b"k1", b"efg").unwrap();
+        db.merge(b"k1", b"h").unwrap();
         db.get(b"k1").map( |value| {
                 match value.to_utf8() {
                 Some(v) =>
