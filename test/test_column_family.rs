@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use rocksdb::{Options, DB, DBResult, Writable, Direction, MergeOperands};
+use rocksdb::{Options, DB, Writable, MergeOperands};
 
 #[test]
 pub fn test_column_family() {
@@ -58,7 +58,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
-        let mut db = match DB::open_cf(&opts, path, &["cf1"]) {
+        let db = match DB::open_cf(&opts, path, &["cf1"]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
@@ -70,10 +70,10 @@ pub fn test_column_family() {
         assert!(db.get_cf(cf1, b"k1").unwrap().to_utf8().unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
-        db.merge_cf(cf1, b"k1", b"b");
-        db.merge_cf(cf1, b"k1", b"c");
-        db.merge_cf(cf1, b"k1", b"d");
-        db.merge_cf(cf1, b"k1", b"efg");
+        db.merge_cf(cf1, b"k1", b"b").unwrap();
+        db.merge_cf(cf1, b"k1", b"c").unwrap();
+        db.merge_cf(cf1, b"k1", b"d").unwrap();
+        db.merge_cf(cf1, b"k1", b"efg").unwrap();
         let m = db.merge_cf(cf1, b"k1", b"h");
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
@@ -85,9 +85,9 @@ pub fn test_column_family() {
                 println!("did not read valid utf-8 out of the db"),
                 }
                 }).on_absent( || { println!("value not present!") })
-        .on_error( |e| { println!("error reading value")}); //: {", e) });
+        .on_error( |_| { println!("error reading value")}); //: {", e) });
 
-        let r = db.get_cf(cf1, b"k1");
+        let _ = db.get_cf(cf1, b"k1");
         // TODO assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").is_none());
@@ -110,9 +110,9 @@ pub fn test_column_family() {
     assert!(DB::destroy(&Options::new(), path).is_ok());
 }
 
-fn test_provided_merge(new_key: &[u8],
+fn test_provided_merge(_: &[u8],
                        existing_val: Option<&[u8]>,
-                       mut operands: &mut MergeOperands)
+                       operands: &mut MergeOperands)
                        -> Vec<u8> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
