@@ -36,7 +36,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.2.0"
+rocksdb = "0.2.0"
 ```
 ###### Code
 ```rust
