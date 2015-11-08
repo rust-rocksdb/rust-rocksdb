@@ -67,7 +67,7 @@ pub fn test_column_family() {
         };
         let cf1 = *db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().to_utf8().unwrap() == "v1");
+        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         db.merge_cf(cf1, b"k1", b"b").unwrap();
@@ -77,20 +77,23 @@ pub fn test_column_family() {
         let m = db.merge_cf(cf1, b"k1", b"h");
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
-        db.get(b"k1").map( |value| {
+        match db.get(b"k1") {
+            Ok(Some(value)) => {
                 match value.to_utf8() {
-                Some(v) =>
-                println!("retrieved utf8 value: {}", v),
-                None =>
-                println!("did not read valid utf-8 out of the db"),
+                    Some(v) =>
+                        println!("retrieved utf8 value: {}", v),
+                    None =>
+                        println!("did not read valid utf-8 out of the db"),
                 }
-                }).on_absent( || { println!("value not present!") })
-        .on_error( |_| { println!("error reading value")}); //: {", e) });
+            },
+            Err(e) => println!("error reading value"),
+            _ => panic!("value not present!"),
+        }
 
         let _ = db.get_cf(cf1, b"k1");
         // TODO assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
         assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").is_none());
+        assert!(db.get(b"k1").unwrap().is_none());
     }
     // TODO should be able to use writebatch ops with a cf
     {

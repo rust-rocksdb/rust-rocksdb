@@ -1,4 +1,4 @@
-use rocksdb::{Options, DB, Writable, DBResult};
+use rocksdb::{Options, DB, Writable};
 use std::thread;
 use std::sync::Arc;
 
@@ -31,7 +31,7 @@ pub fn test_multithreaded() {
         let j3 = thread::spawn(move|| {
             for _ in 1..N {
                 match db3.get(b"key") {
-                    DBResult::Some(v) => {
+                    Ok(Some(v)) => {
                         if &v[..] != b"value1" && &v[..] != b"value2" {
                             assert!(false);
                         }

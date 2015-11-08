@@ -3,7 +3,7 @@ rust-rocksdb
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 [![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
-This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.1.1 crate should work with the Rust 1.2 stable and nightly releases as of 9/7/15.
+This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.2.0 crate should work with the Rust 1.4 stable and nightly releases as of 11/7/15.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -16,6 +16,7 @@ This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.1.1
   - [x] comparator
   - [x] snapshot
   - [x] column family operations
+  - [ ] prefix seek
   - [ ] slicetransform
   - [ ] windows support
 
@@ -35,7 +36,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "~0.1.1"
+rocksdb = "~0.2.0"
 ```
 ###### Code
 ```rust
@@ -45,12 +46,11 @@ use rocksdb::{DB, Writable};
 fn main() {
     let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     db.put(b"my key", b"my value");
-    db.get(b"my key")
-        .map( |value| {
-            println!("retrieved value {}", value.to_utf8().unwrap())
-        })
-        .on_absent( || { println!("value not found") })
-        .on_error( |e| { println!("operational problem encountered: {}", e) });
+    match db.get(b"my key") {
+        Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
+        Ok(None) => println!("value not found"),
+        Err(e) => println!("operational problem encountered: {}", e), 
+    }
 
     db.delete(b"my key");
 }
@@ -141,7 +141,7 @@ fn main() {
     db.merge(b"k1", b"d");
     db.merge(b"k1", b"efg");
     let r = db.get(b"k1");
-    assert!(r.unwrap().to_utf8().unwrap() == "abcdefg");
+    assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
 }
 ```
 
