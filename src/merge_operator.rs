@@ -21,7 +21,7 @@ use std::ptr;
 use std::slice;
 
 use rocksdb_options::Options;
-use rocksdb::{DB, DBResult, DBVector, Writable};
+use rocksdb::{DB, DBVector, Writable};
 
 pub struct MergeOperatorCallback {
     pub name: CString,
@@ -196,21 +196,24 @@ fn mergetest() {
         db.merge(b"k1", b"efg");
         let m = db.merge(b"k1", b"h");
         assert!(m.is_ok());
-        db.get(b"k1").map( |value| {
+        match db.get(b"k1") {
+            Ok(Some(value)) => {
                 match value.to_utf8() {
-                Some(v) =>
-                println!("retrieved utf8 value: {}", v),
-                None =>
-                println!("did not read valid utf-8 out of the db"),
+                    Some(v) =>
+                        println!("retrieved utf8 value: {}", v),
+                    None =>
+                        println!("did not read valid utf-8 out of the db"),
                 }
-                }).on_absent( || { println!("value not present!") })
-        .on_error( |e| { println!("error reading value")}); //: {", e) });
+            },
+            Err(e) => { println!("error reading value")},
+            _ => panic!("value not present"),
+        }
 
         assert!(m.is_ok());
-        let r: DBResult<DBVector, String> = db.get(b"k1");
-        assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
+        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
         assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").is_none());
+        assert!(db.get(b"k1").unwrap().is_none());
     }
     assert!(DB::destroy(&opts, path).is_ok());
 }

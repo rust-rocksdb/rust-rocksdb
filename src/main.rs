@@ -49,16 +49,18 @@ fn main() {
     let path = "/tmp/rust-rocksdb";
     let mut db = DB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());
-    db.get(b"my key").map( |value| {
+    match db.get(b"my key") {
+        Ok(Some(value)) => {
             match value.to_utf8() {
-            Some(v) =>
-            println!("retrieved utf8 value: {}", v),
-            None =>
-            println!("did not read valid utf-8 out of the db"),
+                Some(v) =>
+                    println!("retrieved utf8 value: {}", v),
+                None =>
+                    println!("did not read valid utf-8 out of the db"),
             }
-            })
-    .on_absent( || { println!("value not found") })
-        .on_error( |e| { println!("error retrieving value: {}", e) });
+        },
+        Err(e) => println!("error retrieving value: {}", e),
+        _ => panic!("value not present!"),
+    }
 
     assert!(db.delete(b"my key").is_ok());
 
@@ -88,24 +90,25 @@ fn custom_merge() {
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     {
-        let mut db = DB::open(&opts, path).unwrap();
-        db.put(b"k1", b"a");
-        db.merge(b"k1", b"b");
-        db.merge(b"k1", b"c");
-        db.merge(b"k1", b"d");
-        db.merge(b"k1", b"efg");
-        db.merge(b"k1", b"h");
-        db.get(b"k1").map( |value| {
+        let db = DB::open(&opts, path).unwrap();
+        db.put(b"k1", b"a").unwrap();
+        db.merge(b"k1", b"b").unwrap();
+        db.merge(b"k1", b"c").unwrap();
+        db.merge(b"k1", b"d").unwrap();
+        db.merge(b"k1", b"efg").unwrap();
+        db.merge(b"k1", b"h").unwrap();
+        match db.get(b"k1") {
+            Ok(Some(value)) => {
                 match value.to_utf8() {
-                Some(v) =>
-                println!("retrieved utf8 value: {}", v),
-                None =>
-                println!("did not read valid utf-8 out of the db"),
+                    Some(v) =>
+                        println!("retrieved utf8 value: {}", v),
+                    None =>
+                        println!("did not read valid utf-8 out of the db"),
                 }
-                })
-        .on_absent( || { println!("value not found") })
-            .on_error( |e| { println!("error retrieving value: {}", e) });
-
+            }
+            Err(e) => println!("error retrieving value: {}", e),
+            _ => panic!("value not present!"),
+        }
     }
     DB::destroy(&opts, path).is_ok();
 }
@@ -130,8 +133,7 @@ fn main() {
                 None => panic!("value corrupted"),
             }
         })
-            .on_absent( || { panic!("value not found") })
-            .on_error( |e| { panic!("error retrieving value: {}", e) });
+            .or_else( |e| { panic!("error retrieving value: {}", e) });
         db.delete(b"k1");
     }
 }

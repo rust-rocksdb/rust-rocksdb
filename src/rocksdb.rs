@@ -327,11 +327,11 @@ impl DB {
         return Ok(())
     }
 
-    pub fn get(&self, key: &[u8]) -> DBResult<DBVector, String> {
+    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
             if readopts.0.is_null() {
-                return DBResult::Error("Unable to create rocksdb read \
+                return Err("Unable to create rocksdb read \
                     options.  This is a fairly trivial call, and its failure \
                     may be indicative of a mis-compiled or mis-loaded rocksdb \
                     library.".to_string());
@@ -345,22 +345,22 @@ impl DB {
                 key.as_ptr(), key.len() as size_t, val_len_ptr, err_ptr) as *mut u8;
             rocksdb_ffi::rocksdb_readoptions_destroy(readopts);
             if !err.is_null() {
-                return DBResult::Error(error_message(err));
+                return Err(error_message(err));
             }
             match val.is_null() {
-                true => DBResult::None,
+                true => Ok(None),
                 false => {
-                    DBResult::Some(DBVector::from_c(val, val_len))
+                    Ok(Some(DBVector::from_c(val, val_len)))
                 }
             }
         }
     }
 
-    pub fn get_cf(&self, cf: DBCFHandle, key: &[u8]) -> DBResult<DBVector, String> {
+    pub fn get_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<Option<DBVector>, String> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
             if readopts.0.is_null() {
-                return DBResult::Error("Unable to create rocksdb read \
+                return Err("Unable to create rocksdb read \
                     options.  This is a fairly trivial call, and its failure \
                     may be indicative of a mis-compiled or mis-loaded rocksdb \
                     library.".to_string());
@@ -375,12 +375,12 @@ impl DB {
                 err_ptr) as *mut u8;
             rocksdb_ffi::rocksdb_readoptions_destroy(readopts);
             if !err.is_null() {
-                return DBResult::Error(error_message(err));
+                return Err(error_message(err));
             }
             match val.is_null() {
-                true => DBResult::None,
+                true => Ok(None),
                 false => {
-                    DBResult::Some(DBVector::from_c(val, val_len))
+                    Ok(Some(DBVector::from_c(val, val_len)))
                 }
             }
         }
@@ -691,76 +691,6 @@ impl DBVector {
     }
 }
 
-// DBResult exists because of the inherent difference between
-// an operational failure and the absence of a possible result.
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
-pub enum DBResult<T, E> {
-    Some(T),
-    None,
-    Error(E),
-}
-
-impl <T, E> DBResult<T, E> {
-    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> DBResult<U, E> {
-        match self {
-            DBResult::Some(x) => DBResult::Some(f(x)),
-            DBResult::None => DBResult::None,
-            DBResult::Error(e) => DBResult::Error(e),
-        }
-    }
-
-    pub fn unwrap(self) -> T {
-        match self {
-            DBResult::Some(x) => x,
-            DBResult::None =>
-                panic!("Attempted unwrap on DBResult::None"),
-            DBResult::Error(_) =>
-                panic!("Attempted unwrap on DBResult::Error"),
-        }
-    }
-
-    pub fn on_error<U, F: FnOnce(E) -> U>(self, f: F) -> DBResult<T, U> {
-        match self {
-            DBResult::Some(x) => DBResult::Some(x),
-            DBResult::None => DBResult::None,
-            DBResult::Error(e) => DBResult::Error(f(e)),
-        }
-    }
-
-    pub fn on_absent<F: FnOnce() -> ()>(self, f: F) -> DBResult<T, E> {
-        match self {
-            DBResult::Some(x) => DBResult::Some(x),
-            DBResult::None => {
-                f();
-                DBResult::None
-            },
-            DBResult::Error(e) => DBResult::Error(e),
-        }
-    }
-
-    pub fn is_some(self) -> bool {
-        match self {
-            DBResult::Some(_) => true,
-            DBResult::None => false,
-            DBResult::Error(_) => false,
-        }
-    }
-    pub fn is_none(self) -> bool {
-        match self {
-            DBResult::Some(_) => false,
-            DBResult::None => true,
-            DBResult::Error(_) => false,
-        }
-    }
-    pub fn is_error(self) -> bool {
-        match self {
-            DBResult::Some(_) => false,
-            DBResult::None => false,
-            DBResult::Error(_) => true,
-        }
-    }
-}
-
 #[test]
 fn external() {
     let path = "_rust_rocksdb_externaltest";
@@ -768,10 +698,10 @@ fn external() {
         let mut db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
-        let r: DBResult<DBVector, String> = db.get(b"k1");
-        assert!(r.unwrap().to_utf8().unwrap() == "v1111");
+        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").is_none());
+        assert!(db.get(b"k1").unwrap().is_none());
     }
     let opts = Options::new();
     let result = DB::destroy(&opts, path);
@@ -797,20 +727,20 @@ fn writebatch_works() {
         let mut db = DB::open_default(path).unwrap();
         { // test put
             let mut batch = WriteBatch::new();
-            assert!(db.get(b"k1").is_none());
+            assert!(db.get(b"k1").unwrap().is_none());
             batch.put(b"k1", b"v1111");
-            assert!(db.get(b"k1").is_none());
+            assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
-            let r: DBResult<DBVector, String> = db.get(b"k1");
-            assert!(r.unwrap().to_utf8().unwrap() == "v1111");
+            let r: Result<Option<DBVector>, String> = db.get(b"k1");
+            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         }
         { // test delete
             let mut batch = WriteBatch::new();
             batch.delete(b"k1");
             let p = db.write(batch);
             assert!(p.is_ok());
-            assert!(db.get(b"k1").is_none());
+            assert!(db.get(b"k1").unwrap().is_none());
         }
     }
     let opts = Options::new();

@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use rocksdb::{Options, DB, Writable, Direction, MergeOperands};
+use rocksdb::{Options, DB, DBResult, Writable, Direction, MergeOperands};
 
 #[test]
 pub fn test_column_family() {
@@ -85,10 +85,15 @@ pub fn test_column_family() {
                     None =>
                         println!("did not read valid utf-8 out of the db"),
                 }
+<<<<<<< Updated upstream
+                }).on_absent( || { println!("value not present!") })
+        .on_error( |e| { println!("error reading value")}); //: {", e) });
+=======
             },
             Err(e) => println!("error reading value"),
             _ => panic!("value not present!"),
         }
+>>>>>>> Stashed changes
 
         let r = db.get_cf(cf1, b"k1");
         // TODO assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
