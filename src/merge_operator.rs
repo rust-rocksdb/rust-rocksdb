@@ -1,18 +1,18 @@
-/*
-   Copyright 2014 Tyler Neely
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-*/
+//
+// Copyright 2014 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CString;
@@ -30,7 +30,7 @@ pub struct MergeOperatorCallback {
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
     // turn this back into a local variable so rust will reclaim it
-    let _: Box<MergeOperatorCallback> = unsafe {mem::transmute(raw_cb)};
+    let _: Box<MergeOperatorCallback> = unsafe { mem::transmute(raw_cb) };
 
 }
 
@@ -57,17 +57,16 @@ pub extern "C" fn full_merge_callback(raw_cb: *mut c_void,
     unsafe {
         let cb: &mut MergeOperatorCallback =
             &mut *(raw_cb as *mut MergeOperatorCallback);
-        let operands =
-            &mut MergeOperands::new(operands_list,
-                                    operands_list_len,
-                                    num_operands);
-        let key: &[u8] = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+        let operands = &mut MergeOperands::new(operands_list,
+                                               operands_list_len,
+                                               num_operands);
+        let key: &[u8] = slice::from_raw_parts(raw_key as *const u8,
+                                               key_len as usize);
         let oldval: &[u8] = slice::from_raw_parts(existing_value as *const u8,
-                                  existing_value_len as usize);
-        let mut result =
-            (cb.merge_fn)(key, Some(oldval), operands);
+                                                  existing_value_len as usize);
+        let mut result = (cb.merge_fn)(key, Some(oldval), operands);
         result.shrink_to_fit();
-        //TODO(tan) investigate zero-copy techniques to improve performance
+        // TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
         assert!(!buf.is_null());
         *new_value_length = result.len() as size_t;
@@ -92,10 +91,11 @@ pub extern "C" fn partial_merge_callback(raw_cb: *mut c_void,
         let operands = &mut MergeOperands::new(operands_list,
                                                operands_list_len,
                                                num_operands);
-        let key: &[u8] = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+        let key: &[u8] = slice::from_raw_parts(raw_key as *const u8,
+                                               key_len as usize);
         let mut result = (cb.merge_fn)(key, None, operands);
         result.shrink_to_fit();
-        //TODO(tan) investigate zero-copy techniques to improve performance
+        // TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
         assert!(!buf.is_null());
         *new_value_length = 1 as size_t;
@@ -168,7 +168,7 @@ fn test_provided_merge(new_key: &[u8],
             for e in v {
                 result.push(*e);
             }
-        },
+        }
         None => (),
     }
     for op in operands {
@@ -199,13 +199,13 @@ fn mergetest() {
         match db.get(b"k1") {
             Ok(Some(value)) => {
                 match value.to_utf8() {
-                    Some(v) =>
-                        println!("retrieved utf8 value: {}", v),
-                    None =>
-                        println!("did not read valid utf-8 out of the db"),
+                    Some(v) => println!("retrieved utf8 value: {}", v),
+                    None => println!("did not read valid utf-8 out of the db"),
                 }
-            },
-            Err(e) => { println!("error reading value")},
+            }
+            Err(e) => {
+                println!("error reading value")
+            }
             _ => panic!("value not present"),
         }
 

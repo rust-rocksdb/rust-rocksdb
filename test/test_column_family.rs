@@ -1,19 +1,19 @@
-/*
-   Copyright 2014 Tyler Neely
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-*/
-use rocksdb::{Options, DB, Writable, MergeOperands};
+//
+// Copyright 2014 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+use rocksdb::{DB, MergeOperands, Options, Writable};
 
 #[test]
 pub fn test_column_family() {
@@ -30,7 +30,7 @@ pub fn test_column_family() {
             Ok(_) => println!("cf1 created successfully"),
             Err(e) => {
                 panic!("could not create column family: {}", e);
-            },
+            }
         }
     }
 
@@ -39,9 +39,11 @@ pub fn test_column_family() {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
         match DB::open(&opts, path) {
-            Ok(_) => panic!("should not have opened DB successfully without specifying column
+            Ok(_) => panic!("should not have opened DB successfully without \
+                             specifying column
             families"),
-            Err(e) => assert!(e.starts_with("Invalid argument: You have to open all column families.")),
+            Err(e) => assert!(e.starts_with("Invalid argument: You have to \
+                                             open all column families.")),
         }
     }
 
@@ -62,12 +64,13 @@ pub fn test_column_family() {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
-            },
+            }
             Err(e) => panic!("failed to open db with column family: {}", e),
         };
         let cf1 = *db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
+        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() ==
+                "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         db.merge_cf(cf1, b"k1", b"b").unwrap();
@@ -80,12 +83,10 @@ pub fn test_column_family() {
         match db.get(b"k1") {
             Ok(Some(value)) => {
                 match value.to_utf8() {
-                    Some(v) =>
-                        println!("retrieved utf8 value: {}", v),
-                    None =>
-                        println!("did not read valid utf-8 out of the db"),
+                    Some(v) => println!("retrieved utf8 value: {}", v),
+                    None => println!("did not read valid utf-8 out of the db"),
                 }
-            },
+            }
             Err(e) => println!("error reading value"),
             _ => panic!("value not present!"),
         }
@@ -124,7 +125,7 @@ fn test_provided_merge(_: &[u8],
             for e in v {
                 result.push(*e);
             }
-        },
+        }
         None => (),
     }
     for op in operands {

@@ -1,25 +1,25 @@
-/*
-   Copyright 2014 Tyler Neely
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-*/
+//
+// Copyright 2014 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 extern crate libc;
 use self::libc::{c_int, size_t};
 use std::ffi::CString;
 use std::mem;
 
 use rocksdb_ffi;
-use merge_operator::{self, MergeOperatorCallback, MergeOperands,
+use merge_operator::{self, MergeOperands, MergeOperatorCallback,
                      full_merge_callback, partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
 
@@ -49,7 +49,9 @@ impl Drop for BlockBasedOptions {
 
 impl BlockBasedOptions {
     pub fn new() -> BlockBasedOptions {
-        let block_opts = unsafe {rocksdb_ffi::rocksdb_block_based_options_create() };
+        let block_opts = unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_create()
+        };
         let rocksdb_ffi::DBBlockBasedTableOptions(opt_ptr) = block_opts;
         if opt_ptr.is_null() {
             panic!("Could not create rocksdb block based options".to_string());
@@ -59,34 +61,35 @@ impl BlockBasedOptions {
 
     pub fn set_block_size(&mut self, size: u64) {
         unsafe {
-            rocksdb_ffi::rocksdb_block_based_options_set_block_size(
-                self.inner, size);
+            rocksdb_ffi::rocksdb_block_based_options_set_block_size(self.inner,
+                                                                    size);
         }
     }
-
-    //TODO figure out how to create these in a Rusty way
-    ////pub fn set_filter(&mut self, filter: rocksdb_ffi::DBFilterPolicy) {
-    ////    unsafe {
-    ////        rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(
-    ////            self.inner, filter);
-    ////    }
-    ////}
-
-    ////pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
-    ////    unsafe {
-    ////        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
-    ////            self.inner, cache);
-    ////    }
-    ////}
-
-    ////pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
-    ////    unsafe {
-    ////        rocksdb_ffi::rocksdb_block_based_options_set_block_cache_compressed(
-    ////            self.inner, cache);
-    ////    }
-    ////}
-
 }
+
+// TODO figure out how to create these in a Rusty way
+// /pub fn set_filter(&mut self, filter: rocksdb_ffi::DBFilterPolicy) {
+// /    unsafe {
+// /        rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(
+// /            self.inner, filter);
+// /    }
+// /}
+
+/// /pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
+/// /    unsafe {
+/// /        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
+/// /            self.inner, cache);
+/// /    }
+/// /}
+
+/// /pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
+/// /    unsafe {
+/// /        rocksdb_ffi::
+/// rocksdb_block_based_options_set_block_cache_compressed(
+/// /            self.inner, cache);
+/// /    }
+/// /}
+
 
 impl Options {
     pub fn new() -> Options {
@@ -96,18 +99,19 @@ impl Options {
             if opt_ptr.is_null() {
                 panic!("Could not create rocksdb options".to_string());
             }
-            Options{ inner: opts, }
+            Options { inner: opts }
         }
     }
 
     pub fn increase_parallelism(&mut self, parallelism: i32) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_increase_parallelism(
-                self.inner, parallelism);
+            rocksdb_ffi::rocksdb_options_increase_parallelism(self.inner,
+                                                              parallelism);
         }
     }
 
-    pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: i32) {
+    pub fn optimize_level_style_compaction(&mut self,
+                                           memtable_memory_budget: i32) {
         unsafe {
             rocksdb_ffi::rocksdb_options_optimize_level_style_compaction(
                 self.inner, memtable_memory_budget);
@@ -141,7 +145,9 @@ impl Options {
         }
     }
 
-    pub fn add_comparator<'a>(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn add_comparator<'a>(&mut self,
+                              name: &str,
+                              compare_fn: fn(&[u8], &[u8]) -> i32) {
         let cb = Box::new(ComparatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             f: compare_fn,
@@ -160,8 +166,8 @@ impl Options {
 
     pub fn set_block_cache_size_mb(&mut self, cache_size: u64) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_optimize_for_point_lookup(
-                self.inner, cache_size);
+            rocksdb_ffi::rocksdb_options_optimize_for_point_lookup(self.inner,
+                                                                   cache_size);
         }
     }
 
@@ -184,8 +190,7 @@ impl Options {
 
     pub fn set_bytes_per_sync(&mut self, nbytes: u64) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_bytes_per_sync(
-                self.inner, nbytes);
+            rocksdb_ffi::rocksdb_options_set_bytes_per_sync(self.inner, nbytes);
         }
     }
 
@@ -204,8 +209,8 @@ impl Options {
 
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_table_cache_numshardbits(
-                self.inner, nbits);
+            rocksdb_ffi::rocksdb_options_set_table_cache_numshardbits(self.inner,
+                                                                      nbits);
         }
     }
 
@@ -218,22 +223,22 @@ impl Options {
 
     pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_max_write_buffer_number(
-                self.inner, nbuf);
+            rocksdb_ffi::rocksdb_options_set_max_write_buffer_number(self.inner,
+                                                                     nbuf);
         }
     }
 
     pub fn set_write_buffer_size(&mut self, size: size_t) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_write_buffer_size(
-                self.inner, size);
+            rocksdb_ffi::rocksdb_options_set_write_buffer_size(self.inner,
+                                                               size);
         }
     }
 
     pub fn set_target_file_size_base(&mut self, size: u64) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_target_file_size_base(
-                self.inner, size);
+            rocksdb_ffi::rocksdb_options_set_target_file_size_base(self.inner,
+                                                                   size);
         }
     }
 
@@ -258,10 +263,11 @@ impl Options {
         }
     }
 
-    pub fn set_compaction_style(&mut self, style: rocksdb_ffi::DBCompactionStyle) {
+    pub fn set_compaction_style(&mut self,
+                                style: rocksdb_ffi::DBCompactionStyle) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_compaction_style(
-                self.inner, style);
+            rocksdb_ffi::rocksdb_options_set_compaction_style(self.inner,
+                                                              style);
         }
     }
 
@@ -274,15 +280,14 @@ impl Options {
 
     pub fn set_max_background_flushes(&mut self, n: c_int) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_max_background_flushes(
-                self.inner, n);
+            rocksdb_ffi::rocksdb_options_set_max_background_flushes(self.inner,
+                                                                    n);
         }
     }
 
     pub fn set_filter_deletes(&mut self, filter: bool) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_filter_deletes(
-                self.inner, filter);
+            rocksdb_ffi::rocksdb_options_set_filter_deletes(self.inner, filter);
         }
     }
 
@@ -299,7 +304,8 @@ impl Options {
         }
     }
 
-    pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {
+    pub fn set_block_based_table_factory(&mut self,
+                                         factory: &BlockBasedOptions) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
         }

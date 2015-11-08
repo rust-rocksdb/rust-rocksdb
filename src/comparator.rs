@@ -1,18 +1,18 @@
-/*
-   Copyright 2014 Tyler Neely
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-*/
+//
+// Copyright 2014 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CString;
@@ -30,7 +30,7 @@ pub struct ComparatorCallback {
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
     // turn this back into a local variable so rust will reclaim it
-    let _: Box<ComparatorCallback> = unsafe {mem::transmute(raw_cb)};
+    let _: Box<ComparatorCallback> = unsafe { mem::transmute(raw_cb) };
 }
 
 pub extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
@@ -51,8 +51,10 @@ pub extern "C" fn compare_callback(raw_cb: *mut c_void,
     unsafe {
         let cb: &mut ComparatorCallback =
             &mut *(raw_cb as *mut ComparatorCallback);
-        let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len as usize);
-        let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len as usize);
+        let a: &[u8] = slice::from_raw_parts(a_raw as *const u8,
+                                             a_len as usize);
+        let b: &[u8] = slice::from_raw_parts(b_raw as *const u8,
+                                             b_len as usize);
         (cb.f)(a, b)
     }
 }
@@ -67,9 +69,9 @@ fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
     }
 }
 
-//#[allow(dead_code)]
-//#[test]
-//fn compare_works() {
+// #[allow(dead_code)]
+// #[test]
+// fn compare_works() {
 //    let path = "_rust_rocksdb_comparetest";
 //    let mut opts = Options::new();
 //    opts.create_if_missing(true);
@@ -79,4 +81,4 @@ fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
 //        // TODO add interesting test
 //    }
 //    assert!(DB::destroy(&opts, path).is_ok());
-//}
+// }

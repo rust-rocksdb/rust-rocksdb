@@ -1,4 +1,4 @@
-use rocksdb::{Options, DB, Writable};
+use rocksdb::{DB, Options, Writable};
 use std::thread;
 use std::sync::Arc;
 
@@ -14,21 +14,21 @@ pub fn test_multithreaded() {
         db.put(b"key", b"value1").unwrap();
 
         let db1 = db.clone();
-        let j1 = thread::spawn(move|| {
+        let j1 = thread::spawn(move || {
             for _ in 1..N {
                 db1.put(b"key", b"value1").unwrap();
             }
         });
 
         let db2 = db.clone();
-        let j2 = thread::spawn(move|| {
+        let j2 = thread::spawn(move || {
             for _ in 1..N {
                 db2.put(b"key", b"value2").unwrap();
             }
         });
 
         let db3 = db.clone();
-        let j3 = thread::spawn(move|| {
+        let j3 = thread::spawn(move || {
             for _ in 1..N {
                 match db3.get(b"key") {
                     Ok(Some(v)) => {

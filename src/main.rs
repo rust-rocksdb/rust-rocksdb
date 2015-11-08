@@ -1,22 +1,22 @@
-/*
-   Copyright 2014 Tyler Neely
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-*/
+//
+// Copyright 2014 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 extern crate rocksdb;
-use rocksdb::{Options, DB, MergeOperands, Writable, };
+use rocksdb::{DB, MergeOperands, Options, Writable};
 
-//fn snapshot_test() {
+// fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
 //    {
 //        let mut db = DB::open_default(path).unwrap();
@@ -30,18 +30,21 @@ use rocksdb::{Options, DB, MergeOperands, Writable, };
 //        let mut view1 = snap.iterator();
 //        println!("See the output of the first iter");
 //        for (k,v) in view1.from_start() {
-//            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+// println!("Hello {}: {}", std::str::from_utf8(k).unwrap(),
+// std::str::from_utf8(v).unwrap());
 //        };
 //        for (k,v) in view1.from_start() {
-//            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+// println!("Hello {}: {}", std::str::from_utf8(k).unwrap(),
+// std::str::from_utf8(v).unwrap());
 //        };
 //        for (k,v) in view1.from_end() {
-//            println!("Hello {}: {}", std::str::from_utf8(k).unwrap(), std::str::from_utf8(v).unwrap());
+// println!("Hello {}: {}", std::str::from_utf8(k).unwrap(),
+// std::str::from_utf8(v).unwrap());
 //        };
 //    }
 //    let opts = Options::new();
 //    assert!(DB::destroy(&opts, path).is_ok());
-//}
+// }
 
 #[cfg(not(feature = "valgrind"))]
 fn main() {
@@ -51,12 +54,10 @@ fn main() {
     match db.get(b"my key") {
         Ok(Some(value)) => {
             match value.to_utf8() {
-                Some(v) =>
-                    println!("retrieved utf8 value: {}", v),
-                None =>
-                    println!("did not read valid utf-8 out of the db"),
+                Some(v) => println!("retrieved utf8 value: {}", v),
+                None => println!("did not read valid utf-8 out of the db"),
             }
-        },
+        }
         Err(e) => println!("error retrieving value: {}", e),
         _ => panic!("value not present!"),
     }
@@ -66,8 +67,10 @@ fn main() {
     custom_merge();
 }
 
-fn concat_merge(_: &[u8], existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands) -> Vec<u8> {
+fn concat_merge(_: &[u8],
+                existing_val: Option<&[u8]>,
+                operands: &mut MergeOperands)
+                -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
         Some(v) => for e in v {
@@ -99,10 +102,8 @@ fn custom_merge() {
         match db.get(b"k1") {
             Ok(Some(value)) => {
                 match value.to_utf8() {
-                    Some(v) =>
-                        println!("retrieved utf8 value: {}", v),
-                    None =>
-                        println!("did not read valid utf-8 out of the db"),
+                    Some(v) => println!("retrieved utf8 value: {}", v),
+                    None => println!("did not read valid utf-8 out of the db"),
                 }
             }
             Err(e) => println!("error retrieving value: {}", e),
@@ -126,13 +127,14 @@ fn main() {
         db.merge(b"k1", b"d");
         db.merge(b"k1", b"efg");
         db.merge(b"k1", b"h");
-        db.get(b"k1").map( |value| {
-            match value.to_utf8() {
-                Some(v) => (),
-                None => panic!("value corrupted"),
-            }
-        })
-            .or_else( |e| { panic!("error retrieving value: {}", e) });
+        db.get(b"k1")
+          .map(|value| {
+              match value.to_utf8() {
+                  Some(v) => (),
+                  None => panic!("value corrupted"),
+              }
+          })
+          .or_else(|e| panic!("error retrieving value: {}", e));
         db.delete(b"k1");
     }
 }
@@ -142,10 +144,14 @@ fn main() {
 mod tests  {
     use std::thread::sleep_ms;
 
-    use rocksdb::{BlockBasedOptions, Options, DB, MergeOperands, new_bloom_filter, Writable };
+    use rocksdb::{BlockBasedOptions, DB, MergeOperands, Options, Writable,
+                  new_bloom_filter};
     use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
-    fn tuned_for_somebody_elses_disk(path: &str, opts: & mut Options, blockopts: &mut BlockBasedOptions) -> DB {
+    fn tuned_for_somebody_elses_disk(path: &str,
+                                     opts: &mut Options,
+                                     blockopts: &mut BlockBasedOptions)
+                                     -> DB {
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
         opts.set_use_fsync(false);
@@ -168,44 +174,44 @@ mod tests  {
         opts.set_disable_auto_compactions(true);
 
         let filter = new_bloom_filter(10);
-        //opts.set_filter(filter);
+        // opts.set_filter(filter);
 
         DB::open(&opts, path).unwrap()
     }
-    
-    /* TODO(tyler) unstable
-    #[bench]
-    fn a_writes(b: &mut Bencher) {
-        // dirty hack due to parallel tests causing contention.
-        sleep_ms(1000);
-        let path = "_rust_rocksdb_optimizetest";
-        let mut opts = Options::new();
-        let mut blockopts = BlockBasedOptions::new();
-        let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
-        let mut i = 0 as u64;
-        b.iter(|| {
-            db.put(i.to_string().as_bytes(), b"v1111");
-            i += 1;
-        });
-    }
 
-    #[bench]
-    fn b_reads(b: &mut Bencher) {
-        let path = "_rust_rocksdb_optimizetest";
-        let mut opts = Options::new();
-        let mut blockopts = BlockBasedOptions::new();
-        {
-            let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
-            let mut i = 0 as u64;
-            b.iter(|| {
-                    db.get(i.to_string().as_bytes()).on_error( |e| {
-                        println!("error: {}", e);
-                        e
-                        });
-                    i += 1;
-                    });
-        }
-        DB::destroy(&opts, path).is_ok();
-    }
-    */
+// TODO(tyler) unstable
+// #[bench]
+// fn a_writes(b: &mut Bencher) {
+// dirty hack due to parallel tests causing contention.
+// sleep_ms(1000);
+// let path = "_rust_rocksdb_optimizetest";
+// let mut opts = Options::new();
+// let mut blockopts = BlockBasedOptions::new();
+// let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
+// let mut i = 0 as u64;
+// b.iter(|| {
+// db.put(i.to_string().as_bytes(), b"v1111");
+// i += 1;
+// });
+// }
+//
+// #[bench]
+// fn b_reads(b: &mut Bencher) {
+// let path = "_rust_rocksdb_optimizetest";
+// let mut opts = Options::new();
+// let mut blockopts = BlockBasedOptions::new();
+// {
+// let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
+// let mut i = 0 as u64;
+// b.iter(|| {
+// db.get(i.to_string().as_bytes()).on_error( |e| {
+// println!("error: {}", e);
+// e
+// });
+// i += 1;
+// });
+// }
+// DB::destroy(&opts, path).is_ok();
+// }
+//
 }
