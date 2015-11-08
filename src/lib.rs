@@ -13,9 +13,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#![crate_id = "rocksdb"]
-#![crate_type = "lib"]
-
 pub use ffi as rocksdb_ffi;
 pub use ffi::{new_bloom_filter, DBCompactionStyle, DBComparator};
 pub use rocksdb::{DB, DBVector, WriteBatch, Writable, Direction};

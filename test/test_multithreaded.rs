@@ -11,25 +11,25 @@ pub fn test_multithreaded() {
         let db = DB::open_default(path).unwrap();
         let db = Arc::new(db);
 
-        db.put(b"key", b"value1");
+        db.put(b"key", b"value1").unwrap();
 
         let db1 = db.clone();
         let j1 = thread::spawn(move|| {
-            for i in 1..N {
-                db1.put(b"key", b"value1");
+            for _ in 1..N {
+                db1.put(b"key", b"value1").unwrap();
             }
         });
 
         let db2 = db.clone();
         let j2 = thread::spawn(move|| {
-            for i in 1..N {
-                db2.put(b"key", b"value2");
+            for _ in 1..N {
+                db2.put(b"key", b"value2").unwrap();
             }
         });
 
         let db3 = db.clone();
         let j3 = thread::spawn(move|| {
-            for i in 1..N {
+            for _ in 1..N {
                 match db3.get(b"key") {
                     Ok(Some(v)) => {
                         if &v[..] != b"value1" && &v[..] != b"value2" {
@@ -43,9 +43,9 @@ pub fn test_multithreaded() {
             }
         });
 
-        j1.join();
-        j2.join();
-        j3.join();
+        j1.join().unwrap();
+        j2.join().unwrap();
+        j3.join().unwrap();
     }
     assert!(DB::destroy(&Options::new(), path).is_ok());
 }

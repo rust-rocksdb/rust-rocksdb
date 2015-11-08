@@ -14,8 +14,7 @@
    limitations under the License.
 */
 extern crate rocksdb;
-use rocksdb::{Options, DB, MergeOperands, new_bloom_filter, Writable, };
-use rocksdb::DBCompactionStyle::DBUniversalCompaction;
+use rocksdb::{Options, DB, MergeOperands, Writable, };
 
 //fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
@@ -47,7 +46,7 @@ use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 #[cfg(not(feature = "valgrind"))]
 fn main() {
     let path = "/tmp/rust-rocksdb";
-    let mut db = DB::open_default(path).unwrap();
+    let db = DB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());
     match db.get(b"my key") {
         Ok(Some(value)) => {
@@ -67,8 +66,8 @@ fn main() {
     custom_merge();
 }
 
-fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
-    mut operands: &mut MergeOperands) -> Vec<u8> {
+fn concat_merge(_: &[u8], existing_val: Option<&[u8]>,
+    operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
         Some(v) => for e in v {
