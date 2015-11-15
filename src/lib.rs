@@ -15,7 +15,7 @@
 //
 pub use ffi as rocksdb_ffi;
 pub use ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
-pub use rocksdb::{DB, DBVector, Direction, Writable, WriteBatch};
+pub use rocksdb::{DB, DBIterator, DBVector, Direction, SubDBIterator, Writable, WriteBatch};
 pub use rocksdb_options::{BlockBasedOptions, Options};
 pub use merge_operator::MergeOperands;
 pub mod rocksdb;

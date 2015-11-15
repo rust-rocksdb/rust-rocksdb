@@ -57,9 +57,9 @@ fn main() {
                 Some(v) => println!("retrieved utf8 value: {}", v),
                 None => println!("did not read valid utf-8 out of the db"),
             }
-        }
+        },
+        Ok(None) => panic!("value not present!"),
         Err(e) => println!("error retrieving value: {}", e),
-        _ => panic!("value not present!"),
     }
 
     assert!(db.delete(b"my key").is_ok());
@@ -106,8 +106,8 @@ fn custom_merge() {
                     None => println!("did not read valid utf-8 out of the db"),
                 }
             }
+            Ok(None) => panic!("value not present!"),
             Err(e) => println!("error retrieving value: {}", e),
-            _ => panic!("value not present!"),
         }
     }
     DB::destroy(&opts, path).is_ok();
