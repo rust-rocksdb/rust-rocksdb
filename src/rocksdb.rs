@@ -125,19 +125,14 @@ impl DBIterator {
     }
 
     fn new_cf(db: &DB,
-              cf_name: &str,
+              cf_handle: DBCFHandle,
               readopts: &ReadOptions)
               -> Result<DBIterator, String> {
-        let cf = db.cfs.get(cf_name);
-        if cf.is_none() {
-            return Err(format!("Invalid column family: {}", cf_name)
-                           .to_string());
-        }
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.inner,
-                                                        *cf.unwrap());
+                                                        cf_handle);
             rocksdb_ffi::rocksdb_iter_seek_to_first(iterator);
             Ok(DBIterator {
                 inner: iterator,
@@ -522,9 +517,9 @@ impl DB {
         DBIterator::new(&self, &opts)
     }
 
-    pub fn iterator_cf(&self, cf: &str) -> Result<DBIterator, String> {
+    pub fn iterator_cf(&self, cf_handle: DBCFHandle) -> Result<DBIterator, String> {
         let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf, &opts)
+        DBIterator::new_cf(&self, cf_handle, &opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
