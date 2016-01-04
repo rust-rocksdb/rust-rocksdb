@@ -51,9 +51,8 @@ pub struct Snapshot<'a> {
     inner: rocksdb_ffi::DBSnapshot,
 }
 
-pub struct DBIterator {
-    // TODO: should have a reference to DB to enforce scope, but it's trickier than I
-    // thought to add
+pub struct DBIterator<'a> {
+    db: &'a DB,
     inner: rocksdb_ffi::DBIterator,
     direction: Direction,
     just_seeked: bool,
@@ -64,23 +63,18 @@ pub enum Direction {
     reverse,
 }
 
-pub struct SubDBIterator<'a> {
-    iter: &'a mut DBIterator,
-    direction: Direction,
-}
-
-impl <'a> Iterator for SubDBIterator<'a> {
+impl<'a> Iterator for DBIterator<'a> {
     type Item = (Box<[u8]>, Box<[u8]>);
 
     fn next(&mut self) -> Option<(Box<[u8]>, Box<[u8]>)> {
-        let native_iter = self.iter.inner;
-        if !self.iter.just_seeked {
+        let native_iter = self.inner;
+        if !self.just_seeked {
             match self.direction {
                 Direction::forward => unsafe { rocksdb_ffi::rocksdb_iter_next(native_iter) },
                 Direction::reverse => unsafe { rocksdb_ffi::rocksdb_iter_prev(native_iter) },
             }
         } else {
-            self.iter.just_seeked = false;
+            self.just_seeked = false;
         }
         if unsafe { rocksdb_ffi::rocksdb_iter_valid(native_iter) } {
             let mut key_len: size_t = 0;
@@ -108,77 +102,80 @@ impl <'a> Iterator for SubDBIterator<'a> {
     }
 }
 
-impl DBIterator {
-    // TODO alias db & opts to different lifetimes, and DBIterator to the db's
-    // lifetime
-    fn new(db: &DB, readopts: &ReadOptions) -> DBIterator {
+pub enum IteratorMode<'a> {
+    Start,
+    End,
+    From(&'a [u8], Direction),
+}
+
+
+impl<'a> DBIterator<'a> {
+    fn new<'b>(db: &'a DB, readopts: &'b ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
-            rocksdb_ffi::rocksdb_iter_seek_to_first(iterator);
-            DBIterator {
+
+            let mut rv = DBIterator {
+                db: db,
                 inner: iterator,
-                direction: Direction::forward,
-                just_seeked: true,
-            }
+                direction: Direction::forward, // blown away by set_mode()
+                just_seeked: false,
+            };
+
+            rv.set_mode(mode);
+
+            rv
         }
     }
 
-    fn new_cf(db: &DB,
+    pub fn set_mode(&mut self, mode: IteratorMode) {
+        unsafe {
+            match mode {
+                IteratorMode::Start => {
+                    rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner);
+                    self.direction = Direction::forward;
+                },
+                IteratorMode::End => {
+                    rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner);
+                    self.direction = Direction::reverse;
+                },
+                IteratorMode::From(key, dir) => {
+                    rocksdb_ffi::rocksdb_iter_seek(self.inner,
+                                                   key.as_ptr(),
+                                                   key.len() as size_t);
+                    self.direction = dir;
+                }
+            };
+            self.just_seeked = true;
+        }
+    }
+
+    fn new_cf(db: &'a DB,
               cf_handle: DBCFHandle,
-              readopts: &ReadOptions)
-              -> Result<DBIterator, String> {
+              readopts: &ReadOptions,
+              mode: IteratorMode)
+              -> Result<DBIterator<'a>, String> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.inner,
                                                         cf_handle);
-            rocksdb_ffi::rocksdb_iter_seek_to_first(iterator);
-            Ok(DBIterator {
+
+            let mut rv = DBIterator {
+                db: db,
                 inner: iterator,
-                direction: Direction::forward,
-                just_seeked: true,
-            })
-        }
-    }
+                direction: Direction::forward, // blown away by set_mode()
+                just_seeked: false,
+            };
 
-    pub fn from_start(&mut self) -> SubDBIterator {
-        self.just_seeked = true;
-        unsafe {
-            rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner);
-        }
-        SubDBIterator {
-            iter: self,
-            direction: Direction::forward,
-        }
-    }
+            rv.set_mode(mode);
 
-    pub fn from_end(&mut self) -> SubDBIterator {
-        self.just_seeked = true;
-        unsafe {
-            rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner);
-        }
-        SubDBIterator {
-            iter: self,
-            direction: Direction::reverse,
-        }
-    }
-
-    pub fn from(&mut self, key: &[u8], dir: Direction) -> SubDBIterator {
-        self.just_seeked = true;
-        unsafe {
-            rocksdb_ffi::rocksdb_iter_seek(self.inner,
-                                           key.as_ptr(),
-                                           key.len() as size_t);
-        }
-        SubDBIterator {
-            iter: self,
-            direction: dir,
+            Ok(rv)
         }
     }
 }
 
-impl Drop for DBIterator {
+impl<'a> Drop for DBIterator<'a> {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_iter_destroy(self.inner);
@@ -197,10 +194,10 @@ impl <'a> Snapshot<'a> {
         }
     }
 
-    pub fn iterator(&self) -> DBIterator {
+    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
         let mut readopts = ReadOptions::new();
         readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts)
+        DBIterator::new(self.db, &readopts, mode)
     }
 }
 
@@ -512,14 +509,14 @@ impl DB {
         self.cfs.get(name)
     }
 
-    pub fn iterator(&self) -> DBIterator {
+    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
         let opts = ReadOptions::new();
-        DBIterator::new(&self, &opts)
+        DBIterator::new(&self, &opts, mode)
     }
 
-    pub fn iterator_cf(&self, cf_handle: DBCFHandle) -> Result<DBIterator, String> {
+    pub fn iterator_cf(&self, cf_handle: DBCFHandle, mode: IteratorMode) -> Result<DBIterator, String> {
         let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf_handle, &opts)
+        DBIterator::new_cf(&self, cf_handle, &opts, mode)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -891,8 +888,8 @@ fn iterator_test() {
         assert!(p.is_ok());
         let p = db.put(b"k3", b"v3333");
         assert!(p.is_ok());
-        let mut iter = db.iterator();
-        for (k, v) in iter.from_start() {
+        let mut iter = db.iterator(IteratorMode::Start);
+        for (k, v) in iter {
             println!("Hello {}: {}",
                      from_utf8(&*k).unwrap(),
                      from_utf8(&*v).unwrap());

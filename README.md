@@ -49,7 +49,7 @@ fn main() {
     match db.get(b"my key") {
         Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
         Ok(None) => println!("value not found"),
-        Err(e) => println!("operational problem encountered: {}", e), 
+        Err(e) => println!("operational problem encountered: {}", e),
     }
 
     db.delete(b"my key");
@@ -77,25 +77,33 @@ fn main() {
 ###### Getting an Iterator
 ```rust
 extern crate rocksdb;
-use rocksdb::{DB, Direction};
+use rocksdb::{DB, Direction, IteratorMode};
 
 fn main() {
     // NB: db is automatically freed at end of lifetime
     let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
-    let mut iter = db.iterator();
-    for (key, value) in iter.from_start() { // Always iterates forward
+    let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
+    for (key, value) in iter {
         println!("Saw {} {}", key, value); //actually, need to convert [u8] keys into Strings
     }
-    for (key, value) in iter.from_end() { //Always iterates backward
+    iter = db.iterator(IteratorMode::End);  // Always iterates backward
+    for (key, value) in iter {
         println!("Saw {} {}", key, value);
     }
-    for (key, value) in iter.from(b"my key", Direction::forward) { // From a key in Direction::{forward,reverse}
+    iter = db.iterator(IteratorMode::From(b"my key", Direction::forward)); // From a key in Direction::{forward,reverse}
+    for (key, value) in iter {
+        println!("Saw {} {}", key, value);
+    }
+
+    // You can seek with an existing Iterator instance, too
+    iter.set_mode(IteratorMode::From(b"another key", Direction::reverse));
+    for (key, value) in iter {
         println!("Saw {} {}", key, value);
     }
 }
 ```
 
-###### Getting an Iterator
+###### Getting an Iterator from a Snapshot
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, Direction};
@@ -104,7 +112,7 @@ fn main() {
     // NB: db is automatically freed at end of lifetime
     let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but freed when goes out of scope
-    let mut iter = snapshot.iterator(); // Make as many iterators as you'd like from one snapshot
+    let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
 }
 ```
 
@@ -176,4 +184,3 @@ fn badly_tuned_for_somebody_elses_disk() -> DB {
     DB::open(&opts, path).unwrap()
 }
 ```
-
