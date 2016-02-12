@@ -264,7 +264,7 @@ impl DB {
 
         if cfs.len() == 0 {
             unsafe {
-                db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr, err_ptr);
+                db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr as *const _, err_ptr);
             }
         } else {
             let mut cfs_v = cfs.to_vec();
@@ -282,7 +282,7 @@ impl DB {
                                            })
                                            .collect();
 
-            let cfnames: Vec<*const i8> = c_cfs.iter()
+            let cfnames: Vec<*const _> = c_cfs.iter()
                                                .map(|cf| cf.as_ptr())
                                                .collect();
 
@@ -303,9 +303,9 @@ impl DB {
             let handles: *const rocksdb_ffi::DBCFHandle = cfhandles.as_ptr();
             let nfam = cfs_v.len();
             unsafe {
-                db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr,
+                db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _,
                                                                nfam as libc::c_int,
-                                                               cfnames.as_ptr(),
+                                                               cfnames.as_ptr() as *const _,
                                                                copts, handles, err_ptr);
             }
 
@@ -342,7 +342,7 @@ impl DB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
-            rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath_ptr, err_ptr);
+            rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath_ptr as *const _, err_ptr);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -358,7 +358,7 @@ impl DB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
-            rocksdb_ffi::rocksdb_repair_db(opts.inner, cpath_ptr, err_ptr);
+            rocksdb_ffi::rocksdb_repair_db(opts.inner, cpath_ptr as *const _, err_ptr);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -474,7 +474,7 @@ impl DB {
             let cf_handler =
                 rocksdb_ffi::rocksdb_create_column_family(self.inner,
                                                           opts.inner,
-                                                          cname_ptr,
+                                                          cname_ptr as *const _,
                                                           err_ptr);
             self.cfs.insert(name.to_string(), cf_handler);
             cf_handler
