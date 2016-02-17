@@ -87,7 +87,7 @@ pub fn test_column_family() {
                     None => println!("did not read valid utf-8 out of the db"),
                 }
             }
-            Err(e) => println!("error reading value"),
+            Err(_) => println!("error reading value"),
             _ => panic!("value not present!"),
         }
 

@@ -17,11 +17,7 @@ extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CString;
 use std::mem;
-use std::ptr;
 use std::slice;
-
-use rocksdb_options::Options;
-use rocksdb::DB;
 
 pub struct ComparatorCallback {
     pub name: CString,
@@ -59,6 +55,7 @@ pub extern "C" fn compare_callback(raw_cb: *mut c_void,
     }
 }
 
+#[cfg(test)]
 fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
     if a < b {
         1
@@ -69,16 +66,20 @@ fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
     }
 }
 
-// #[allow(dead_code)]
-// #[test]
-// fn compare_works() {
-//    let path = "_rust_rocksdb_comparetest";
-//    let mut opts = Options::new();
-//    opts.create_if_missing(true);
-//    opts.add_comparator("test comparator", test_reverse_compare);
-//    {
-//        let db = DB::open(&opts, path).unwrap();
-//        // TODO add interesting test
-//    }
-//    assert!(DB::destroy(&opts, path).is_ok());
-// }
+#[allow(dead_code)]
+#[test]
+#[ignore]
+fn compare_works() {
+   use rocksdb::DB;
+   use rocksdb_options::Options;
+
+   let path = "_rust_rocksdb_comparetest";
+   let mut opts = Options::new();
+   opts.create_if_missing(true);
+   opts.add_comparator("test comparator", test_reverse_compare);
+   {
+       let _db = DB::open(&opts, path).unwrap();
+       // TODO add interesting test
+   }
+   assert!(DB::destroy(&opts, path).is_ok());
+}

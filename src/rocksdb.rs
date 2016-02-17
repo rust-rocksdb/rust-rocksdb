@@ -17,13 +17,13 @@
 extern crate libc;
 
 use std::collections::BTreeMap;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::fs;
-use std::io;
 use std::ops::Deref;
 use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
+use std::marker::PhantomData;
 
 use self::libc::{c_void, size_t};
 
@@ -52,12 +52,13 @@ pub struct Snapshot<'a> {
 }
 
 pub struct DBIterator<'a> {
-    db: &'a DB,
+    db: PhantomData<&'a DB>,
     inner: rocksdb_ffi::DBIterator,
     direction: Direction,
     just_seeked: bool,
 }
 
+#[allow(non_camel_case_types)]
 pub enum Direction {
     forward,
     reverse,
@@ -116,7 +117,7 @@ impl<'a> DBIterator<'a> {
                                                                 readopts.inner);
 
             let mut rv = DBIterator {
-                db: db,
+                db: PhantomData,
                 inner: iterator,
                 direction: Direction::forward, // blown away by set_mode()
                 just_seeked: false,
@@ -162,7 +163,7 @@ impl<'a> DBIterator<'a> {
                                                         cf_handle);
 
             let mut rv = DBIterator {
-                db: db,
+                db: PhantomData,
                 inner: iterator,
                 direction: Direction::forward, // blown away by set_mode()
                 just_seeked: false,
@@ -252,7 +253,7 @@ impl DB {
 
         let ospath = Path::new(path);
         match fs::create_dir_all(&ospath) {
-            Err(e) =>
+            Err(_) =>
                 return Err("Failed to create rocksdb directory.".to_string()),
             Ok(_) => (),
         }
@@ -260,7 +261,7 @@ impl DB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         let db: rocksdb_ffi::DBInstance;
-        let mut cfMap = BTreeMap::new();
+        let mut cf_map = BTreeMap::new();
 
         if cfs.len() == 0 {
             unsafe {
@@ -287,7 +288,7 @@ impl DB {
                                                .collect();
 
             // These handles will be populated by DB.
-            let mut cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
+            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
                 cfs_v.iter()
                      .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
                      .collect();
@@ -317,7 +318,7 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cfMap.insert(n.to_string(), h);
+                cf_map.insert(n.to_string(), h);
             }
         }
 
@@ -330,7 +331,7 @@ impl DB {
 
         Ok(DB {
             inner: db,
-            cfs: cfMap,
+            cfs: cf_map,
         })
     }
 
@@ -338,7 +339,6 @@ impl DB {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
-        let ospath = Path::new(path);
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -354,7 +354,6 @@ impl DB {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
-        let ospath = Path::new(path);
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -760,7 +759,7 @@ impl Drop for ReadOptions {
 }
 
 impl ReadOptions {
-    fn new() -> ReadOptions {
+    pub fn new() -> ReadOptions {
         unsafe {
             ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create() }
         }
@@ -768,13 +767,13 @@ impl ReadOptions {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
-    fn fill_cache(&mut self, v: bool) {
+    pub fn fill_cache(&mut self, v: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
         }
     }
 
-    fn set_snapshot(&mut self, snapshot: &Snapshot) {
+    pub fn set_snapshot(&mut self, snapshot: &Snapshot) {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
                                                           snapshot.inner);
@@ -804,12 +803,10 @@ impl Drop for DBVector {
 
 impl DBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> DBVector {
-        unsafe {
-            DBVector {
-                base: val,
-                len: val_len as usize,
-            }
-        }
+		DBVector {
+			base: val,
+			len: val_len as usize,
+		}
     }
 
     pub fn to_utf8<'a>(&'a self) -> Option<&'a str> {
@@ -821,7 +818,7 @@ impl DBVector {
 fn external() {
     let path = "_rust_rocksdb_externaltest";
     {
-        let mut db = DB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let r: Result<Option<DBVector>, String> = db.get(b"k1");
@@ -837,7 +834,7 @@ fn external() {
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let mut db = DB::open_default(path).unwrap();
+    let _db = DB::open_default(path).unwrap();
     let opts = Options::new();
     // The DB will still be open when we try to destroy and the lock should fail
     match DB::destroy(&opts, path) {
@@ -852,12 +849,12 @@ fn errors_do_stuff() {
 fn writebatch_works() {
     let path = "_rust_rocksdb_writebacktest";
     {
-        let mut db = DB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         {
             // test put
-            let mut batch = WriteBatch::new();
+            let batch = WriteBatch::new();
             assert!(db.get(b"k1").unwrap().is_none());
-            batch.put(b"k1", b"v1111");
+            batch.put(b"k1", b"v1111").unwrap();
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
@@ -866,8 +863,8 @@ fn writebatch_works() {
         }
         {
             // test delete
-            let mut batch = WriteBatch::new();
-            batch.delete(b"k1");
+            let batch = WriteBatch::new();
+            batch.delete(b"k1").unwrap();
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
@@ -881,14 +878,14 @@ fn writebatch_works() {
 fn iterator_test() {
     let path = "_rust_rocksdb_iteratortest";
     {
-        let mut db = DB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());
         let p = db.put(b"k3", b"v3333");
         assert!(p.is_ok());
-        let mut iter = db.iterator(IteratorMode::Start);
+        let iter = db.iterator(IteratorMode::Start);
         for (k, v) in iter {
             println!("Hello {}: {}",
                      from_utf8(&*k).unwrap(),

@@ -141,10 +141,9 @@ fn main() {
 
 
 #[cfg(test)]
+#[allow(dead_code)]
 mod tests  {
-    use std::thread::sleep_ms;
-
-    use rocksdb::{BlockBasedOptions, DB, MergeOperands, Options, Writable,
+    use rocksdb::{BlockBasedOptions, DB, Options,
                   new_bloom_filter};
     use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
@@ -173,13 +172,14 @@ mod tests  {
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);
 
-        let filter = new_bloom_filter(10);
+        let _filter = new_bloom_filter(10);
         // opts.set_filter(filter);
 
         DB::open(&opts, path).unwrap()
     }
 
 // TODO(tyler) unstable
+// use std::thread::sleep_ms;
 // #[bench]
 // fn a_writes(b: &mut Bencher) {
 // dirty hack due to parallel tests causing contention.
