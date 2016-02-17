@@ -24,4 +24,5 @@ name = "test"
 path = "test/test.rs"
 
 [dependencies]
-libc = "0.1.8"
+libc = "0.2"
+librocksdb-sys = { path = "librocksdb-sys", version = "0.1.0" }

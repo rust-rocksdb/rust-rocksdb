@@ -59,7 +59,7 @@ impl BlockBasedOptions {
         BlockBasedOptions { inner: block_opts }
     }
 
-    pub fn set_block_size(&mut self, size: u64) {
+    pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_set_block_size(self.inner,
                                                                     size);
