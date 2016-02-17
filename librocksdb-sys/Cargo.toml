@@ -1,0 +1,22 @@
+[package]
+name = "rocksdb-sys"
+version = "0.1.0"
+authors = ["Arkadiy Paronyan arkadiy@ethcore.io>"]
+license = "MIT/Apache-2.0/BSD"
+description = "Native bindings to librocksdb"
+readme = "README.md"
+repository = "https://github.com/jsgf/rocksdb-sys.git"
+keywords = [ "ffi", "rocksdb" ]
+
+build = "build.rs"
+links = "rocksdb"
+
+[features]
+default = [ "static" ]
+static = []
+
+[dependencies]
+libc = "0.2"
+  
+[build-dependencies]
+pkg-config = "0.3"
