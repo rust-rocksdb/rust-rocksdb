@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::{c_char, c_int, c_void, size_t};
+use self::libc::{c_char, c_uchar, c_int, c_void, size_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 #[cfg(test)]
@@ -59,6 +59,12 @@ pub struct DBWriteBatch(pub *const c_void);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct DBComparator(pub *const c_void);
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct DBSliceTransform(pub *const c_void);
+
+pub const BLOCK_BASED_INDEX_TYPE_BINARY_SEARCH: c_int = 0;
+pub const BLOCK_BASED_INDEX_TYPE_HASH_SEARCH: c_int = 1;
 
 pub fn new_bloom_filter(bits: c_int) -> DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
@@ -134,6 +140,9 @@ extern {
     pub fn rocksdb_options_set_block_based_table_factory(
         options: DBOptions,
         block_options: DBBlockBasedTableOptions);
+    pub fn rocksdb_block_based_options_set_index_type(
+        block_options: DBBlockBasedTableOptions,
+		index_type: c_int);
     pub fn rocksdb_options_increase_parallelism(options: DBOptions,
                                                 threads: c_int);
     pub fn rocksdb_options_optimize_level_style_compaction(
@@ -184,6 +193,8 @@ extern {
     pub fn rocksdb_options_set_filter_deletes(options: DBOptions, v: bool);
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
+    pub fn rocksdb_options_set_prefix_extractor(options: DBOptions,
+                                                slice_transform: DBSliceTransform);
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
     pub fn rocksdb_open(options: DBOptions,
@@ -408,6 +419,27 @@ extern {
                                       err: *mut *const i8);
     pub fn rocksdb_column_family_handle_destroy(column_family_handle: DBCFHandle);
 
+	// Slice transformation
+    pub fn rocksdb_slicetransform_create(state: *mut c_void,
+                                         destructor: Option<extern "C" fn(arg1: *mut c_void) -> ()>,
+                                         transform: Option<extern "C" fn(arg1: *mut c_void,
+                                                                                 key: *const c_char,
+                                                                                 length: size_t,
+                                                                                 dst_length: *mut size_t)
+                                                                       -> *mut c_char>,
+                                         in_domain: Option<extern "C" fn(arg1: *mut c_void,
+                                                                                 key: *const c_char,
+                                                                                 length: size_t)
+                                                                       -> c_uchar>,
+                                         in_range: Option<extern "C" fn(arg1: *mut c_void,
+                                                                                 key: *const c_char,
+                                                                                 length: size_t)
+                                                                       -> c_uchar>,
+                                         name: Option<extern "C" fn(arg1: *mut c_void)
+                                                                       -> *const c_char>) -> DBSliceTransform;
+    pub fn rocksdb_slicetransform_create_fixed_prefix(size: size_t) -> DBSliceTransform;
+    pub fn rocksdb_slicetransform_create_noop() -> DBSliceTransform;
+    pub fn rocksdb_slicetransform_destroy(slice_transform: DBSliceTransform);
 }
 
 #[test]

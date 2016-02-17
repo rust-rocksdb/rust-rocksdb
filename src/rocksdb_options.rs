@@ -23,6 +23,11 @@ use merge_operator::{self, MergeOperands, MergeOperatorCallback,
                      full_merge_callback, partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
 
+pub enum IndexType {
+	BinarySearch,
+	HashSearch,
+}
+
 pub struct BlockBasedOptions {
     inner: rocksdb_ffi::DBBlockBasedTableOptions,
 }
@@ -63,6 +68,16 @@ impl BlockBasedOptions {
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_set_block_size(self.inner,
                                                                     size);
+        }
+    }
+
+    pub fn set_index_type(&mut self, index_type: IndexType) {
+		let it = match index_type {
+			IndexType::BinarySearch => rocksdb_ffi::BLOCK_BASED_INDEX_TYPE_BINARY_SEARCH,
+			IndexType::HashSearch => rocksdb_ffi::BLOCK_BASED_INDEX_TYPE_HASH_SEARCH,
+		};
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_index_type(self.inner, it);
         }
     }
 }
@@ -163,6 +178,12 @@ impl Options {
         }
     }
 
+    pub fn set_prefix_extractor_fixed_size<'a>(&mut self, size: usize) {
+        unsafe {
+            let st = rocksdb_ffi::rocksdb_slicetransform_create_fixed_prefix(size);
+            rocksdb_ffi::rocksdb_options_set_prefix_extractor(self.inner, st);
+        }
+    }
 
     pub fn set_block_cache_size_mb(&mut self, cache_size: u64) {
         unsafe {
