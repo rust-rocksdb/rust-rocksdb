@@ -57,10 +57,12 @@ fn configure_librocksdb() {
 	let mut cmd = Command::new("make");
 
 	cmd.current_dir(Path::new("rocksdb"))
-	//	.arg("EXTRA_CFLAGS=-fPIC")
-	//	.arg("EXTRA_CXXFLAGS=-fPIC") 
 		.arg(format!("INSTALL_PATH={}", out_dir));
 
+	if target.contains("linux") { 
+		cmd.arg("EXTRA_CFLAGS=-fPIC");
+		cmd.arg("EXTRA_CXXFLAGS=-fPIC");
+	}
 	if let Ok(jobs) = num_jobs {
 		cmd.arg(format!("-j{}", jobs));
 	}
