@@ -18,7 +18,7 @@ extern crate librocksdb_sys;
 pub use librocksdb_sys::rocksdb_ffi as rocksdb_ffi;
 pub use rocksdb_ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
 pub use rocksdb::{DB, DBIterator, DBVector, Direction, Writable, WriteBatch, IteratorMode};
-pub use rocksdb_options::{BlockBasedOptions, Options};
+pub use rocksdb_options::{BlockBasedOptions, Options, IndexType};
 pub use merge_operator::MergeOperands;
 pub mod rocksdb;
 pub mod rocksdb_options;
