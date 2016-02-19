@@ -33,13 +33,19 @@ fn configure_librocksdb() {
 
     if as_static() {
 		println!("cargo:rustc-link-lib=static=rocksdb");
-		if let Some(path) = first_path_with_file("librocksdb.a") {
-			println!("cargo:rustc-link-search=native={}", path);
-			find_and_link_dependency("snappy");
-			find_and_link_dependency("z");
-			find_and_link_dependency("bz2");
-			find_and_link_dependency("lz4");
-			return;
+		// Linux rustc requires static libs to build with -fPIC even when linking binaries
+		// unless -C relocation-model=dynamic-no-pic is specified
+		// Unfortunatelly static lib that comes with most rocksdb packages is non-PIC, 
+		// so we can't use that in linux
+		if !target.contains("linux") {
+			if let Some(path) = first_path_with_file("librocksdb.a") {
+				println!("cargo:rustc-link-search=native={}", path);
+				find_and_link_dependency("snappy");
+				find_and_link_dependency("z");
+				find_and_link_dependency("bz2");
+				find_and_link_dependency("lz4");
+				return;
+			}
 		}
     } else {
 		println!("cargo:rustc-link-lib=dylib=rocksdb");
@@ -60,8 +66,8 @@ fn configure_librocksdb() {
 		.arg(format!("INSTALL_PATH={}", out_dir));
 
 	if target.contains("linux") { 
-		cmd.arg("EXTRA_CFLAGS=-fPIC");
-		cmd.arg("EXTRA_CXXFLAGS=-fPIC");
+		cmd.arg("EXTRA_CFLAGS=-fPIE");
+		cmd.arg("EXTRA_CXXFLAGS=-fPIE");
 	}
 	if let Ok(jobs) = num_jobs {
 		cmd.arg(format!("-j{}", jobs));
