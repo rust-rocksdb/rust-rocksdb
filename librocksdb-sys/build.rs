@@ -59,6 +59,7 @@ fn configure_librocksdb() {
 	let mut stderr = stderr();
 	let out_dir = env::var("OUT_DIR").unwrap();
 	let num_jobs = env::var("NUM_JOBS");
+	let make_max_jobs = env::var("MAKE_MAX_JOBS");
 
 	let mut cmd = Command::new("make");
 
@@ -69,7 +70,10 @@ fn configure_librocksdb() {
 		cmd.arg("EXTRA_CFLAGS=-fPIE");
 		cmd.arg("EXTRA_CXXFLAGS=-fPIE");
 	}
-	if let Ok(jobs) = num_jobs {
+	if let Ok(jobs) = make_max_jobs {
+		cmd.arg(format!("-j{}", jobs));
+	}
+	else if let Ok(jobs) = num_jobs {
 		cmd.arg(format!("-j{}", jobs));
 	}
 
