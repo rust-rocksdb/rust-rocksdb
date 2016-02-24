@@ -523,7 +523,7 @@ impl DB {
         Snapshot::new(self)
     }
 
-    fn put_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), String> {
+    pub fn put_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), String> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -541,7 +541,7 @@ impl DB {
         }
     }
 
-    fn put_cf_opt(&self,
+    pub fn put_cf_opt(&self,
               cf: DBCFHandle,
               key: &[u8],
               value: &[u8],
