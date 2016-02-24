@@ -28,7 +28,7 @@ use std::str::from_utf8;
 use self::libc::{c_void, size_t};
 
 use rocksdb_ffi::{self, DBCFHandle, error_message};
-use rocksdb_options::Options;
+use rocksdb_options::{Options,WriteOptions};
 
 pub struct DB {
     inner: rocksdb_ffi::DBInstance,
@@ -522,27 +522,29 @@ impl DB {
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
     }
-}
 
-impl Writable for DB {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn put_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), String> {
         unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
             rocksdb_ffi::rocksdb_put(self.inner,
-                                     writeopts.clone(),
+                                     writeopts.inner,
                                      key.as_ptr(),
                                      key.len() as size_t,
                                      value.as_ptr(),
                                      value.len() as size_t,
                                      err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
             if !err.is_null() {
                 return Err(error_message(err));
             }
             Ok(())
         }
+    }
+}
+
+impl Writable for DB {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        self.put_opt(key, value, &WriteOptions::new())
     }
 
     fn put_cf(&self,
