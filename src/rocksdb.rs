@@ -540,6 +540,30 @@ impl DB {
             Ok(())
         }
     }
+
+    fn put_cf_opt(&self,
+              cf: DBCFHandle,
+              key: &[u8],
+              value: &[u8],
+              writeopts: &WriteOptions)
+              -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            rocksdb_ffi::rocksdb_put_cf(self.inner,
+                                        writeopts.inner,
+                                        cf,
+                                        key.as_ptr(),
+                                        key.len() as size_t,
+                                        value.as_ptr(),
+                                        value.len() as size_t,
+                                        err_ptr);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
 }
 
 impl Writable for DB {
@@ -552,24 +576,7 @@ impl Writable for DB {
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_put_cf(self.inner,
-                                        writeopts.clone(),
-                                        cf,
-                                        key.as_ptr(),
-                                        key.len() as size_t,
-                                        value.as_ptr(),
-                                        value.len() as size_t,
-                                        err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            Ok(())
-        }
+        self.put_cf_opt(cf, key, value, &WriteOptions::new())
     }
 
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
