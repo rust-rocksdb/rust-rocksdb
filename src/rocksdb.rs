@@ -366,21 +366,23 @@ impl DB {
         Ok(())
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
-        let writeopts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), String> {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
             rocksdb_ffi::rocksdb_write(self.inner,
-                                       writeopts.clone(),
+                                       writeopts.inner,
                                        batch.inner,
                                        err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
         }
         if !err.is_null() {
             return Err(error_message(err));
         }
         return Ok(());
+    }
+
+    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
+        self.write_opt(batch, &WriteOptions::new())
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
