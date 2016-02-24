@@ -190,6 +190,8 @@ extern {
                         -> DBInstance;
     pub fn rocksdb_writeoptions_create() -> DBWriteOptions;
     pub fn rocksdb_writeoptions_destroy(writeopts: DBWriteOptions);
+    pub fn rocksdb_writeoptions_set_sync(writeopts: DBWriteOptions, v: bool);
+    pub fn rocksdb_writeoptions_disable_WAL(writeopts: DBWriteOptions, v: c_int);
     pub fn rocksdb_put(db: DBInstance,
                        writeopts: DBWriteOptions,
                        k: *const u8,
