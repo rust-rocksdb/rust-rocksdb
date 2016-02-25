@@ -20,48 +20,47 @@ use std::str::from_utf8;
 #[cfg(test)]
 use std::ffi::CString;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBInstance(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBWriteOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBReadOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBMergeOperator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBBlockBasedTableOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBCache(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBFilterPolicy(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBSnapshot(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBIterator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBCFHandle(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBWriteBatch(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBComparator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBSliceTransform(pub *const c_void);
+pub enum DBOptionsOpaque {}
+pub type DBOptions = *const DBOptionsOpaque;
+
+pub enum DBInstanceOpaque {}
+pub type DBInstance = *const DBInstanceOpaque;
+
+pub enum DBWriteOptionsOpaque {}
+pub type DBWriteOptions = *const DBWriteOptionsOpaque;
+
+pub enum DBReadOptionsOpaque {}
+pub type DBReadOptions = *const DBReadOptionsOpaque;
+
+pub enum DBMergeOperatorOpaque {}
+pub type DBMergeOperator = *const DBMergeOperatorOpaque;
+
+pub enum DBBlockBasedTableOptionsOpaque {}
+pub type DBBlockBasedTableOptions = *const DBBlockBasedTableOptionsOpaque;
+
+pub enum DBCacheOpaque {}
+pub type DBCache = *const DBCacheOpaque;
+
+pub enum DBFilterPolicyOpaque {}
+pub type DBFilterPolicy = *const DBFilterPolicyOpaque;
+
+pub enum DBSnapshotOpaque {}
+pub type DBSnapshot = *const DBSnapshotOpaque;
+
+pub enum DBIteratorOpaque {}
+pub type DBIterator = *const DBIteratorOpaque;
+
+pub enum DBCFHandleOpaque {}
+pub type DBCFHandle = *const DBCFHandleOpaque;
+
+pub enum DBWriteBatchOpaque {}
+pub type DBWriteBatch = *const DBWriteBatchOpaque;
+
+pub enum DBComparatorOpaque {}
+pub type DBComparator = *const DBComparatorOpaque;
+
+pub enum DBSliceTransformOpaque {}
+pub type DBSliceTransform = *const DBSliceTransformOpaque;
 
 pub const BLOCK_BASED_INDEX_TYPE_BINARY_SEARCH: c_int = 0;
 pub const BLOCK_BASED_INDEX_TYPE_HASH_SEARCH: c_int = 1;

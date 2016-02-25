@@ -25,7 +25,7 @@ use std::slice;
 use std::str::from_utf8;
 use std::marker::PhantomData;
 
-use self::libc::{c_void, size_t};
+use self::libc::size_t;
 
 use rocksdb_ffi::{self, DBCFHandle, error_message};
 use rocksdb_options::Options;
@@ -290,7 +290,7 @@ impl DB {
             // These handles will be populated by DB.
             let cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
                 cfs_v.iter()
-                     .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
+                     .map(|_| 0 as rocksdb_ffi::DBCFHandle)
                      .collect();
 
             // TODO(tyler) allow options to be passed in.
@@ -311,7 +311,7 @@ impl DB {
             }
 
             for handle in cfhandles.iter() {
-                if handle.0.is_null() {
+                if handle.is_null() {
                     return Err("Received null column family handle from DB."
                                    .to_string());
                 }
@@ -325,7 +325,7 @@ impl DB {
         if !err.is_null() {
             return Err(error_message(err));
         }
-        if db.0.is_null() {
+        if db.is_null() {
             return Err("Could not initialize database.".to_string());
         }
 
@@ -385,7 +385,7 @@ impl DB {
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
-            if readopts.0.is_null() {
+            if readopts.is_null() {
                 return Err("Unable to create rocksdb read options.  This is \
                             a fairly trivial call, and its failure may be \
                             indicative of a mis-compiled or mis-loaded \
@@ -423,7 +423,7 @@ impl DB {
                   -> Result<Option<DBVector>, String> {
         unsafe {
             let readopts = rocksdb_ffi::rocksdb_readoptions_create();
-            if readopts.0.is_null() {
+            if readopts.is_null() {
                 return Err("Unable to create rocksdb read options.  This is \
                             a fairly trivial call, and its failure may be \
                             indicative of a mis-compiled or mis-loaded \
