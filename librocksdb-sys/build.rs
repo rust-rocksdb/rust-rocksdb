@@ -64,7 +64,8 @@ fn configure_librocksdb() {
 	let mut cmd = Command::new("make");
 
 	cmd.current_dir(Path::new("rocksdb"))
-		.arg(format!("INSTALL_PATH={}", out_dir));
+		.arg(format!("INSTALL_PATH={}", out_dir))
+		.env("PORTABLE", "1");
 
 	if target.contains("linux") { 
 		cmd.arg("EXTRA_CFLAGS=-fPIE");
