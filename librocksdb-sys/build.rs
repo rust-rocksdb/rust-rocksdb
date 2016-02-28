@@ -1,5 +1,3 @@
-extern crate pkg_config;
-
 use std::fs;
 use std::path::Path;
 use std::env;
@@ -22,11 +20,6 @@ fn as_static() -> bool {
 }
 
 fn configure_librocksdb() {
-    // try pkg_config first
-    if pkg_config::find_library("rocksdb").is_ok() {
-        return;
-    }
-
 	let target = env::var("TARGET").unwrap();
 	let cpp = if target.contains("darwin") { "c++" } else { "stdc++" };
 	println!("cargo:rustc-flags=-l {}", cpp);
