@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -101,7 +100,7 @@ pub fn error_message(ptr: *const i8) -> String {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 #[link(name = "rocksdb")]
-extern {
+extern "C" {
     pub fn rocksdb_options_create() -> DBOptions;
     pub fn rocksdb_options_destroy(opts: DBOptions);
     pub fn rocksdb_cache_create_lru(capacity: size_t) -> DBCache;
@@ -191,7 +190,8 @@ extern {
     pub fn rocksdb_writeoptions_create() -> DBWriteOptions;
     pub fn rocksdb_writeoptions_destroy(writeopts: DBWriteOptions);
     pub fn rocksdb_writeoptions_set_sync(writeopts: DBWriteOptions, v: bool);
-    pub fn rocksdb_writeoptions_disable_WAL(writeopts: DBWriteOptions, v: c_int);
+    pub fn rocksdb_writeoptions_disable_WAL(writeopts: DBWriteOptions,
+                                            v: c_int);
     pub fn rocksdb_put(db: DBInstance,
                        writeopts: DBWriteOptions,
                        k: *const u8,
@@ -378,15 +378,17 @@ extern {
     // Comparator
     pub fn rocksdb_options_set_comparator(options: DBOptions,
                                           cb: DBComparator);
-    pub fn rocksdb_comparator_create(
-        state: *mut c_void,
-        destroy: extern fn(*mut c_void) -> (),
-        compare: extern fn (arg: *mut c_void,
-                            a: *const c_char, alen: size_t,
-                            b: *const c_char, blen: size_t
-                           ) -> c_int,
-        name_fn: extern fn(*mut c_void) -> *const c_char
-    ) -> DBComparator;
+    pub fn rocksdb_comparator_create(state: *mut c_void,
+                                     destroy: extern "C" fn(*mut c_void) -> (),
+                                     compare: extern "C" fn(arg: *mut c_void,
+                                                            a: *const c_char,
+                                                            alen: size_t,
+                                                            b: *const c_char,
+                                                            blen: size_t)
+                                                            -> c_int,
+                                     name_fn: extern "C" fn(*mut c_void)
+                                                            -> *const c_char)
+                                     -> DBComparator;
     pub fn rocksdb_comparator_destroy(cmp: DBComparator);
 
     // Column Family
