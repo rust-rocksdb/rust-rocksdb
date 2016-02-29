@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -70,8 +69,12 @@ impl<'a> Iterator for DBIterator<'a> {
         let native_iter = self.inner;
         if !self.just_seeked {
             match self.direction {
-                Direction::forward => unsafe { rocksdb_ffi::rocksdb_iter_next(native_iter) },
-                Direction::reverse => unsafe { rocksdb_ffi::rocksdb_iter_prev(native_iter) },
+                Direction::forward => unsafe {
+                    rocksdb_ffi::rocksdb_iter_next(native_iter)
+                },
+                Direction::reverse => unsafe {
+                    rocksdb_ffi::rocksdb_iter_prev(native_iter)
+                },
             }
         } else {
             self.just_seeked = false;
@@ -110,7 +113,10 @@ pub enum IteratorMode<'a> {
 
 
 impl<'a> DBIterator<'a> {
-    fn new<'b>(db: &'a DB, readopts: &'b ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
+    fn new<'b>(db: &'a DB,
+               readopts: &'b ReadOptions,
+               mode: IteratorMode)
+               -> DBIterator<'a> {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -134,11 +140,11 @@ impl<'a> DBIterator<'a> {
                 IteratorMode::Start => {
                     rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner);
                     self.direction = Direction::forward;
-                },
+                }
                 IteratorMode::End => {
                     rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner);
                     self.direction = Direction::reverse;
-                },
+                }
                 IteratorMode::From(key, dir) => {
                     rocksdb_ffi::rocksdb_iter_seek(self.inner,
                                                    key.as_ptr(),
@@ -183,7 +189,7 @@ impl<'a> Drop for DBIterator<'a> {
     }
 }
 
-impl <'a> Snapshot<'a> {
+impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe {
             rocksdb_ffi::rocksdb_create_snapshot(db.inner)
@@ -201,7 +207,7 @@ impl <'a> Snapshot<'a> {
     }
 }
 
-impl <'a> Drop for Snapshot<'a> {
+impl<'a> Drop for Snapshot<'a> {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
@@ -244,16 +250,19 @@ impl DB {
                    -> Result<DB, String> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
-            Err(_) => return Err("Failed to convert path to CString when \
-                                  opening rocksdb"
-                                     .to_string()),
+            Err(_) => {
+                return Err("Failed to convert path to CString when opening \
+                            rocksdb"
+                               .to_string())
+            }
         };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         match fs::create_dir_all(&ospath) {
-            Err(e) =>
-                return Err("Failed to create rocksdb directory.".to_string()),
+            Err(e) => {
+                return Err("Failed to create rocksdb directory.".to_string())
+            }
             Ok(_) => (),
         }
 
@@ -264,7 +273,9 @@ impl DB {
 
         if cfs.len() == 0 {
             unsafe {
-                db = rocksdb_ffi::rocksdb_open(opts.inner, cpath_ptr as *const _, err_ptr);
+                db = rocksdb_ffi::rocksdb_open(opts.inner,
+                                               cpath_ptr as *const _,
+                                               err_ptr);
             }
         } else {
             let mut cfs_v = cfs.to_vec();
@@ -283,8 +294,8 @@ impl DB {
                                            .collect();
 
             let cfnames: Vec<*const _> = c_cfs.iter()
-                                               .map(|cf| cf.as_ptr())
-                                               .collect();
+                                              .map(|cf| cf.as_ptr())
+                                              .collect();
 
             // These handles will be populated by DB.
             let mut cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
@@ -342,7 +353,9 @@ impl DB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
-            rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath_ptr as *const _, err_ptr);
+            rocksdb_ffi::rocksdb_destroy_db(opts.inner,
+                                            cpath_ptr as *const _,
+                                            err_ptr);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -358,7 +371,9 @@ impl DB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
-            rocksdb_ffi::rocksdb_repair_db(opts.inner, cpath_ptr as *const _, err_ptr);
+            rocksdb_ffi::rocksdb_repair_db(opts.inner,
+                                           cpath_ptr as *const _,
+                                           err_ptr);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -411,9 +426,7 @@ impl DB {
             }
             match val.is_null() {
                 true => Ok(None),
-                false => {
-                    Ok(Some(DBVector::from_c(val, val_len)))
-                }
+                false => Ok(Some(DBVector::from_c(val, val_len))),
             }
         }
     }
@@ -450,9 +463,7 @@ impl DB {
             }
             match val.is_null() {
                 true => Ok(None),
-                false => {
-                    Ok(Some(DBVector::from_c(val, val_len)))
-                }
+                false => Ok(Some(DBVector::from_c(val, val_len))),
             }
         }
     }
@@ -463,9 +474,11 @@ impl DB {
                      -> Result<DBCFHandle, String> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
-            Err(_) => return Err("Failed to convert path to CString when \
-                                  opening rocksdb"
-                                     .to_string()),
+            Err(_) => {
+                return Err("Failed to convert path to CString when opening \
+                            rocksdb"
+                               .to_string())
+            }
         };
         let cname_ptr = cname.as_ptr();
         let mut err: *const i8 = 0 as *const i8;
@@ -514,7 +527,10 @@ impl DB {
         DBIterator::new(&self, &opts, mode)
     }
 
-    pub fn iterator_cf(&self, cf_handle: DBCFHandle, mode: IteratorMode) -> Result<DBIterator, String> {
+    pub fn iterator_cf(&self,
+                       cf_handle: DBCFHandle,
+                       mode: IteratorMode)
+                       -> Result<DBIterator, String> {
         let opts = ReadOptions::new();
         DBIterator::new_cf(&self, cf_handle, &opts, mode)
     }
@@ -841,9 +857,11 @@ fn errors_do_stuff() {
     let opts = Options::new();
     // The DB will still be open when we try to destroy and the lock should fail
     match DB::destroy(&opts, path) {
-        Err(ref s) => assert!(s ==
-                              "IO error: lock _rust_rocksdb_error/LOCK: No \
-                               locks available"),
+        Err(ref s) => {
+            assert!(s ==
+                    "IO error: lock _rust_rocksdb_error/LOCK: No locks \
+                     available")
+        }
         Ok(_) => panic!("should fail"),
     }
 }
