@@ -30,6 +30,10 @@ pub struct Options {
     pub inner: rocksdb_ffi::DBOptions,
 }
 
+pub struct WriteOptions {
+    pub inner: rocksdb_ffi::DBWriteOptions,
+}
+
 impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
@@ -42,6 +46,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for WriteOptions {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writeoptions_destroy(self.inner);
         }
     }
 }
@@ -312,6 +324,22 @@ impl Options {
                                          factory: &BlockBasedOptions) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
+        }
+    }
+}
+
+impl WriteOptions {
+    pub fn new() -> WriteOptions {
+        let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+        let rocksdb_ffi::DBWriteOptions(opt_ptr) = write_opts;
+        if opt_ptr.is_null() {
+            panic!("Could not create rocksdb write options".to_string());
+        }
+        WriteOptions { inner: write_opts }
+    }
+    pub fn set_sync(&mut self, sync: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writeoptions_set_sync(self.inner, sync);
         }
     }
 }

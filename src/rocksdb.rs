@@ -27,7 +27,7 @@ use std::str::from_utf8;
 use self::libc::{c_void, size_t};
 
 use rocksdb_ffi::{self, DBCFHandle, error_message};
-use rocksdb_options::Options;
+use rocksdb_options::{Options, WriteOptions};
 
 pub struct DB {
     inner: rocksdb_ffi::DBInstance,
@@ -381,21 +381,26 @@ impl DB {
         Ok(())
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
-        let writeopts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+    pub fn write_opt(&self,
+                     batch: WriteBatch,
+                     writeopts: &WriteOptions)
+                     -> Result<(), String> {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
             rocksdb_ffi::rocksdb_write(self.inner,
-                                       writeopts.clone(),
+                                       writeopts.inner,
                                        batch.inner,
                                        err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
         }
         if !err.is_null() {
             return Err(error_message(err));
         }
         return Ok(());
+    }
+
+    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
+        self.write_opt(batch, &WriteOptions::new())
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
@@ -538,27 +543,139 @@ impl DB {
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
     }
-}
 
-impl Writable for DB {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    pub fn put_opt(&self,
+                   key: &[u8],
+                   value: &[u8],
+                   writeopts: &WriteOptions)
+                   -> Result<(), String> {
         unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
             rocksdb_ffi::rocksdb_put(self.inner,
-                                     writeopts.clone(),
+                                     writeopts.inner,
                                      key.as_ptr(),
                                      key.len() as size_t,
                                      value.as_ptr(),
                                      value.len() as size_t,
                                      err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
             if !err.is_null() {
                 return Err(error_message(err));
             }
             Ok(())
         }
+    }
+
+    pub fn put_cf_opt(&self,
+                      cf: DBCFHandle,
+                      key: &[u8],
+                      value: &[u8],
+                      writeopts: &WriteOptions)
+                      -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            rocksdb_ffi::rocksdb_put_cf(self.inner,
+                                        writeopts.inner,
+                                        cf,
+                                        key.as_ptr(),
+                                        key.len() as size_t,
+                                        value.as_ptr(),
+                                        value.len() as size_t,
+                                        err_ptr);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+    pub fn merge_opt(&self,
+                     key: &[u8],
+                     value: &[u8],
+                     writeopts: &WriteOptions)
+                     -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            rocksdb_ffi::rocksdb_merge(self.inner,
+                                       writeopts.inner,
+                                       key.as_ptr(),
+                                       key.len() as size_t,
+                                       value.as_ptr(),
+                                       value.len() as size_t,
+                                       err_ptr);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+    fn merge_cf_opt(&self,
+                    cf: DBCFHandle,
+                    key: &[u8],
+                    value: &[u8],
+                    writeopts: &WriteOptions)
+                    -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            rocksdb_ffi::rocksdb_merge_cf(self.inner,
+                                          writeopts.inner,
+                                          cf,
+                                          key.as_ptr(),
+                                          key.len() as size_t,
+                                          value.as_ptr(),
+                                          value.len() as size_t,
+                                          err_ptr);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+    fn delete_opt(&self,
+                  key: &[u8],
+                  writeopts: &WriteOptions)
+                  -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            rocksdb_ffi::rocksdb_delete(self.inner,
+                                        writeopts.inner,
+                                        key.as_ptr(),
+                                        key.len() as size_t,
+                                        err_ptr);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+    fn delete_cf_opt(&self,
+                     cf: DBCFHandle,
+                     key: &[u8],
+                     writeopts: &WriteOptions)
+                     -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            rocksdb_ffi::rocksdb_delete_cf(self.inner,
+                                           writeopts.inner,
+                                           cf,
+                                           key.as_ptr(),
+                                           key.len() as size_t,
+                                           err_ptr);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+}
+
+impl Writable for DB {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        self.put_opt(key, value, &WriteOptions::new())
     }
 
     fn put_cf(&self,
@@ -566,44 +683,11 @@ impl Writable for DB {
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_put_cf(self.inner,
-                                        writeopts.clone(),
-                                        cf,
-                                        key.as_ptr(),
-                                        key.len() as size_t,
-                                        value.as_ptr(),
-                                        value.len() as size_t,
-                                        err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            Ok(())
-        }
+        self.put_cf_opt(cf, key, value, &WriteOptions::new())
     }
 
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_merge(self.inner,
-                                       writeopts.clone(),
-                                       key.as_ptr(),
-                                       key.len() as size_t,
-                                       value.as_ptr(),
-                                       value.len() as size_t,
-                                       err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            Ok(())
-        }
+        self.merge_opt(key, value, &WriteOptions::new())
     }
 
     fn merge_cf(&self,
@@ -611,61 +695,15 @@ impl Writable for DB {
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_merge_cf(self.inner,
-                                          writeopts.clone(),
-                                          cf,
-                                          key.as_ptr(),
-                                          key.len() as size_t,
-                                          value.as_ptr(),
-                                          value.len() as size_t,
-                                          err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            Ok(())
-        }
+        self.merge_cf_opt(cf, key, value, &WriteOptions::new())
     }
 
     fn delete(&self, key: &[u8]) -> Result<(), String> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_delete(self.inner,
-                                        writeopts.clone(),
-                                        key.as_ptr(),
-                                        key.len() as size_t,
-                                        err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            Ok(())
-        }
+        self.delete_opt(key, &WriteOptions::new())
     }
 
     fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
-        unsafe {
-            let writeopts = rocksdb_ffi::rocksdb_writeoptions_create();
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            rocksdb_ffi::rocksdb_delete_cf(self.inner,
-                                           writeopts.clone(),
-                                           cf,
-                                           key.as_ptr(),
-                                           key.len() as size_t,
-                                           err_ptr);
-            rocksdb_ffi::rocksdb_writeoptions_destroy(writeopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            Ok(())
-        }
+        self.delete_cf_opt(cf, key, &WriteOptions::new())
     }
 }
 
