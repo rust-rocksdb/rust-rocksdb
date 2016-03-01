@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,7 +56,7 @@ fn main() {
                 Some(v) => println!("retrieved utf8 value: {}", v),
                 None => println!("did not read valid utf-8 out of the db"),
             }
-        },
+        }
         Ok(None) => panic!("value not present!"),
         Err(e) => println!("error retrieving value: {}", e),
     }
@@ -73,9 +72,11 @@ fn concat_merge(_: &[u8],
                 -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
-        Some(v) => for e in v {
-            result.push(*e)
-        },
+        Some(v) => {
+            for e in v {
+                result.push(*e)
+            }
+        }
         None => (),
     }
     for op in operands {
@@ -141,11 +142,8 @@ fn main() {
 
 
 #[cfg(test)]
-mod tests  {
-    use std::thread::sleep_ms;
-
-    use rocksdb::{BlockBasedOptions, DB, MergeOperands, Options, Writable,
-                  new_bloom_filter};
+mod tests {
+    use rocksdb::{BlockBasedOptions, DB, Options};
     use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
     fn tuned_for_somebody_elses_disk(path: &str,
@@ -173,45 +171,45 @@ mod tests  {
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);
 
-        let filter = new_bloom_filter(10);
+        // let filter = new_bloom_filter(10);
         // opts.set_filter(filter);
 
         DB::open(&opts, path).unwrap()
     }
 
-// TODO(tyler) unstable
-// #[bench]
-// fn a_writes(b: &mut Bencher) {
-// dirty hack due to parallel tests causing contention.
-// sleep_ms(1000);
-// let path = "_rust_rocksdb_optimizetest";
-// let mut opts = Options::new();
-// let mut blockopts = BlockBasedOptions::new();
-// let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
-// let mut i = 0 as u64;
-// b.iter(|| {
-// db.put(i.to_string().as_bytes(), b"v1111");
-// i += 1;
-// });
-// }
-//
-// #[bench]
-// fn b_reads(b: &mut Bencher) {
-// let path = "_rust_rocksdb_optimizetest";
-// let mut opts = Options::new();
-// let mut blockopts = BlockBasedOptions::new();
-// {
-// let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
-// let mut i = 0 as u64;
-// b.iter(|| {
-// db.get(i.to_string().as_bytes()).on_error( |e| {
-// println!("error: {}", e);
-// e
-// });
-// i += 1;
-// });
-// }
-// DB::destroy(&opts, path).is_ok();
-// }
-//
+    // TODO(tyler) unstable
+    // #[bench]
+    // fn a_writes(b: &mut Bencher) {
+    // dirty hack due to parallel tests causing contention.
+    // sleep_ms(1000);
+    // let path = "_rust_rocksdb_optimizetest";
+    // let mut opts = Options::new();
+    // let mut blockopts = BlockBasedOptions::new();
+    // let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
+    // let mut i = 0 as u64;
+    // b.iter(|| {
+    // db.put(i.to_string().as_bytes(), b"v1111");
+    // i += 1;
+    // });
+    // }
+    //
+    // #[bench]
+    // fn b_reads(b: &mut Bencher) {
+    // let path = "_rust_rocksdb_optimizetest";
+    // let mut opts = Options::new();
+    // let mut blockopts = BlockBasedOptions::new();
+    // {
+    // let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
+    // let mut i = 0 as u64;
+    // b.iter(|| {
+    // db.get(i.to_string().as_bytes()).on_error( |e| {
+    // println!("error: {}", e);
+    // e
+    // });
+    // i += 1;
+    // });
+    // }
+    // DB::destroy(&opts, path).is_ok();
+    // }
+    //
 }

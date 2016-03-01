@@ -16,11 +16,7 @@ extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CString;
 use std::mem;
-use std::ptr;
 use std::slice;
-
-use rocksdb_options::Options;
-use rocksdb::DB;
 
 pub struct ComparatorCallback {
     pub name: CString,

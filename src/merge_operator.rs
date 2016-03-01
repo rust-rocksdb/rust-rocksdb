@@ -19,8 +19,6 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-use rocksdb_options::Options;
-use rocksdb::{DB, DBVector, Writable};
 
 pub struct MergeOperatorCallback {
     pub name: CString,
@@ -156,7 +154,7 @@ impl<'a> Iterator for &'a mut MergeOperands {
 
 fn test_provided_merge(new_key: &[u8],
                        existing_val: Option<&[u8]>,
-                       mut operands: &mut MergeOperands)
+                       operands: &mut MergeOperands)
                        -> Vec<u8> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
@@ -178,19 +176,23 @@ fn test_provided_merge(new_key: &[u8],
 
 #[allow(dead_code)]
 #[test]
+
 fn mergetest() {
+    use rocksdb_options::Options;
+    use rocksdb::{DB, DBVector, Writable};
+
     let path = "_rust_rocksdb_mergetest";
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", test_provided_merge);
     {
-        let mut db = DB::open(&opts, path).unwrap();
+        let db = DB::open(&opts, path).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
-        db.merge(b"k1", b"b");
-        db.merge(b"k1", b"c");
-        db.merge(b"k1", b"d");
-        db.merge(b"k1", b"efg");
+        let _ = db.merge(b"k1", b"b");
+        let _ = db.merge(b"k1", b"c");
+        let _ = db.merge(b"k1", b"d");
+        let _ = db.merge(b"k1", b"efg");
         let m = db.merge(b"k1", b"h");
         assert!(m.is_ok());
         match db.get(b"k1") {
