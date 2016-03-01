@@ -14,7 +14,7 @@
 //
 extern crate libc;
 use self::libc::{c_char, c_int, c_void, size_t};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::str::from_utf8;
 
 #[derive(Copy, Clone)]
@@ -415,6 +415,7 @@ extern "C" {
 #[test]
 fn internal() {
     unsafe {
+        use std::ffi::CString;
         let opts = rocksdb_options_create();
         assert!(!opts.0.is_null());
 

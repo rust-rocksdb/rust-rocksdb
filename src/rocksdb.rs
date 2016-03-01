@@ -16,9 +16,8 @@
 extern crate libc;
 
 use std::collections::BTreeMap;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::fs;
-use std::io;
 use std::ops::Deref;
 use std::path::Path;
 use std::slice;
@@ -50,29 +49,28 @@ pub struct Snapshot<'a> {
     inner: rocksdb_ffi::DBSnapshot,
 }
 
-pub struct DBIterator<'a> {
-    db: &'a DB,
+pub struct DBIterator {
     inner: rocksdb_ffi::DBIterator,
     direction: Direction,
     just_seeked: bool,
 }
 
 pub enum Direction {
-    forward,
-    reverse,
+    Forward,
+    Reverse,
 }
 
-impl<'a> Iterator for DBIterator<'a> {
+impl Iterator for DBIterator {
     type Item = (Box<[u8]>, Box<[u8]>);
 
     fn next(&mut self) -> Option<(Box<[u8]>, Box<[u8]>)> {
         let native_iter = self.inner;
         if !self.just_seeked {
             match self.direction {
-                Direction::forward => unsafe {
+                Direction::Forward => unsafe {
                     rocksdb_ffi::rocksdb_iter_next(native_iter)
                 },
-                Direction::reverse => unsafe {
+                Direction::Reverse => unsafe {
                     rocksdb_ffi::rocksdb_iter_prev(native_iter)
                 },
             }
@@ -112,19 +110,18 @@ pub enum IteratorMode<'a> {
 }
 
 
-impl<'a> DBIterator<'a> {
-    fn new<'b>(db: &'a DB,
+impl DBIterator {
+    fn new<'b>(db: &DB,
                readopts: &'b ReadOptions,
                mode: IteratorMode)
-               -> DBIterator<'a> {
+               -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
 
             let mut rv = DBIterator {
-                db: db,
                 inner: iterator,
-                direction: Direction::forward, // blown away by set_mode()
+                direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
             };
 
@@ -139,11 +136,11 @@ impl<'a> DBIterator<'a> {
             match mode {
                 IteratorMode::Start => {
                     rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner);
-                    self.direction = Direction::forward;
+                    self.direction = Direction::Forward;
                 }
                 IteratorMode::End => {
                     rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner);
-                    self.direction = Direction::reverse;
+                    self.direction = Direction::Reverse;
                 }
                 IteratorMode::From(key, dir) => {
                     rocksdb_ffi::rocksdb_iter_seek(self.inner,
@@ -156,11 +153,11 @@ impl<'a> DBIterator<'a> {
         }
     }
 
-    fn new_cf(db: &'a DB,
+    fn new_cf(db: &DB,
               cf_handle: DBCFHandle,
               readopts: &ReadOptions,
               mode: IteratorMode)
-              -> Result<DBIterator<'a>, String> {
+              -> Result<DBIterator, String> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
@@ -168,9 +165,8 @@ impl<'a> DBIterator<'a> {
                                                         cf_handle);
 
             let mut rv = DBIterator {
-                db: db,
                 inner: iterator,
-                direction: Direction::forward, // blown away by set_mode()
+                direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
             };
 
@@ -181,7 +177,7 @@ impl<'a> DBIterator<'a> {
     }
 }
 
-impl<'a> Drop for DBIterator<'a> {
+impl Drop for DBIterator {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_iter_destroy(self.inner);
@@ -261,7 +257,9 @@ impl DB {
         let ospath = Path::new(path);
         match fs::create_dir_all(&ospath) {
             Err(e) => {
-                return Err("Failed to create rocksdb directory.".to_string())
+                return Err(format!("Failed to create rocksdb directory: \
+                                      {:?}",
+                                   e))
             }
             Ok(_) => (),
         }
@@ -269,7 +267,7 @@ impl DB {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         let db: rocksdb_ffi::DBInstance;
-        let mut cfMap = BTreeMap::new();
+        let mut cf_map = BTreeMap::new();
 
         if cfs.len() == 0 {
             unsafe {
@@ -298,7 +296,7 @@ impl DB {
                                               .collect();
 
             // These handles will be populated by DB.
-            let mut cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
+            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
                 cfs_v.iter()
                      .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
                      .collect();
@@ -328,7 +326,7 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cfMap.insert(n.to_string(), h);
+                cf_map.insert(n.to_string(), h);
             }
         }
 
@@ -341,7 +339,7 @@ impl DB {
 
         Ok(DB {
             inner: db,
-            cfs: cfMap,
+            cfs: cf_map,
         })
     }
 
@@ -349,7 +347,6 @@ impl DB {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
-        let ospath = Path::new(path);
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -367,7 +364,6 @@ impl DB {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
-        let ospath = Path::new(path);
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -875,7 +871,7 @@ impl DBVector {
 fn external() {
     let path = "_rust_rocksdb_externaltest";
     {
-        let mut db = DB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let r: Result<Option<DBVector>, String> = db.get(b"k1");
@@ -891,7 +887,7 @@ fn external() {
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let mut db = DB::open_default(path).unwrap();
+    let db = DB::open_default(path).unwrap();
     let opts = Options::new();
     // The DB will still be open when we try to destroy and the lock should fail
     match DB::destroy(&opts, path) {
@@ -908,12 +904,12 @@ fn errors_do_stuff() {
 fn writebatch_works() {
     let path = "_rust_rocksdb_writebacktest";
     {
-        let mut db = DB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         {
             // test put
-            let mut batch = WriteBatch::new();
+            let batch = WriteBatch::new();
             assert!(db.get(b"k1").unwrap().is_none());
-            batch.put(b"k1", b"v1111");
+            let _ = batch.put(b"k1", b"v1111");
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
@@ -922,8 +918,8 @@ fn writebatch_works() {
         }
         {
             // test delete
-            let mut batch = WriteBatch::new();
-            batch.delete(b"k1");
+            let batch = WriteBatch::new();
+            let _ = batch.delete(b"k1");
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
@@ -937,14 +933,14 @@ fn writebatch_works() {
 fn iterator_test() {
     let path = "_rust_rocksdb_iteratortest";
     {
-        let mut db = DB::open_default(path).unwrap();
+        let db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());
         let p = db.put(b"k3", b"v3333");
         assert!(p.is_ok());
-        let mut iter = db.iterator(IteratorMode::Start);
+        let iter = db.iterator(IteratorMode::Start);
         for (k, v) in iter {
             println!("Hello {}: {}",
                      from_utf8(&*k).unwrap(),

@@ -1,4 +1,4 @@
-use rocksdb::{DB, Direction, Options, Writable, IteratorMode};
+use rocksdb::{DB, Direction, IteratorMode, Options, Writable};
 
 fn cba(input: &Box<[u8]>) -> Box<[u8]> {
     input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
@@ -99,14 +99,16 @@ pub fn test_iterator() {
             assert_eq!(iterator1.collect::<Vec<_>>(), expected2);
         }
         {
-            let iterator1 = db.iterator(IteratorMode::From(b"k2", Direction::forward));
+            let iterator1 = db.iterator(IteratorMode::From(b"k2",
+                                                           Direction::Forward));
             let expected = vec![(cba(&k2), cba(&v2)),
                                 (cba(&k3), cba(&v3)),
                                 (cba(&k4), cba(&v4))];
             assert_eq!(iterator1.collect::<Vec<_>>(), expected);
         }
         {
-            let iterator1 = db.iterator(IteratorMode::From(b"k2", Direction::reverse));
+            let iterator1 = db.iterator(IteratorMode::From(b"k2",
+                                                           Direction::Reverse));
             let expected = vec![(cba(&k2), cba(&v2)), (cba(&k1), cba(&v1))];
             assert_eq!(iterator1.collect::<Vec<_>>(), expected);
         }
