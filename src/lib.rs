@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+#![feature(plugin)]
+
+#![plugin(clippy)]
 pub use ffi as rocksdb_ffi;
 pub use ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
 pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,

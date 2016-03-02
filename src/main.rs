@@ -144,7 +144,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use rocksdb::{BlockBasedOptions, DB, Options};
-    use rocksdb::DBCompactionStyle::DBUniversalCompaction;
+    use rocksdb::DBCompactionStyle::DBUniversal;
 
     fn tuned_for_somebody_elses_disk(path: &str,
                                      opts: &mut Options,
@@ -163,7 +163,7 @@ mod tests {
         opts.set_min_write_buffer_number_to_merge(4);
         opts.set_level_zero_stop_writes_trigger(2000);
         opts.set_level_zero_slowdown_writes_trigger(0);
-        opts.set_compaction_style(DBUniversalCompaction);
+        opts.set_compaction_style(DBUniversal);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
