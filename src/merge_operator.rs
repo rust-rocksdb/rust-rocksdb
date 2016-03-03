@@ -152,6 +152,8 @@ impl<'a> Iterator for &'a mut MergeOperands {
     }
 }
 
+#[allow(unused_variables)]
+#[allow(dead_code)]
 fn test_provided_merge(new_key: &[u8],
                        existing_val: Option<&[u8]>,
                        operands: &mut MergeOperands)

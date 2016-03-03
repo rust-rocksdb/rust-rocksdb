@@ -818,6 +818,7 @@ impl ReadOptions {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
+    #[allow(dead_code)]
     fn fill_cache(&mut self, v: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
@@ -854,11 +855,9 @@ impl Drop for DBVector {
 
 impl DBVector {
     pub fn from_c(val: *mut u8, val_len: size_t) -> DBVector {
-        unsafe {
-            DBVector {
-                base: val,
-                len: val_len as usize,
-            }
+        DBVector {
+            base: val,
+            len: val_len as usize,
         }
     }
 

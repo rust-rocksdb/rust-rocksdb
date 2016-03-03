@@ -53,27 +53,3 @@ pub extern "C" fn compare_callback(raw_cb: *mut c_void,
         (cb.f)(a, b)
     }
 }
-
-fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
-    if a < b {
-        1
-    } else if a > b {
-        -1
-    } else {
-        0
-    }
-}
-
-// #[allow(dead_code)]
-// #[test]
-// fn compare_works() {
-//    let path = "_rust_rocksdb_comparetest";
-//    let mut opts = Options::new();
-//    opts.create_if_missing(true);
-//    opts.add_comparator("test comparator", test_reverse_compare);
-//    {
-//        let db = DB::open(&opts, path).unwrap();
-//        // TODO add interesting test
-//    }
-//    assert!(DB::destroy(&opts, path).is_ok());
-// }
