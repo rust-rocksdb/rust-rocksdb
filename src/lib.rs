@@ -14,6 +14,9 @@
 //
 extern crate libc;
 
+#[cfg(test)]
+extern crate tempdir;
+
 pub mod rocksdb;
 pub mod ffi;
 pub mod rocksdb_options;

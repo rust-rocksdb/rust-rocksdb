@@ -156,6 +156,7 @@ mod test {
     use super::*;
     use rocksdb_options::Options;
     use rocksdb::{DB, DBVector, Writable};
+    use tempdir::TempDir;
 
     #[allow(unused_variables)]
     #[allow(dead_code)]
@@ -184,39 +185,34 @@ mod test {
     #[allow(dead_code)]
     #[test]
     fn mergetest() {
-        let path = "_rust_rocksdb_mergetest";
+        let path = TempDir::new("_rust_rocksdb_mergetest").expect("");
         let mut opts = Options::new();
         opts.create_if_missing(true);
         opts.add_merge_operator("test operator", test_provided_merge);
-        {
-            let db = DB::open(&opts, path).unwrap();
-            let p = db.put(b"k1", b"a");
-            assert!(p.is_ok());
-            let _ = db.merge(b"k1", b"b");
-            let _ = db.merge(b"k1", b"c");
-            let _ = db.merge(b"k1", b"d");
-            let _ = db.merge(b"k1", b"efg");
-            let m = db.merge(b"k1", b"h");
-            assert!(m.is_ok());
-            match db.get(b"k1") {
-                Ok(Some(value)) => {
-                    match value.to_utf8() {
-                        Some(v) => println!("retrieved utf8 value: {}", v),
-                        None => {
-                            println!("did not read valid utf-8 out of the db")
-                        }
-                    }
+        let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+        let p = db.put(b"k1", b"a");
+        assert!(p.is_ok());
+        let _ = db.merge(b"k1", b"b");
+        let _ = db.merge(b"k1", b"c");
+        let _ = db.merge(b"k1", b"d");
+        let _ = db.merge(b"k1", b"efg");
+        let m = db.merge(b"k1", b"h");
+        assert!(m.is_ok());
+        match db.get(b"k1") {
+            Ok(Some(value)) => {
+                match value.to_utf8() {
+                    Some(v) => println!("retrieved utf8 value: {}", v),
+                    None => println!("did not read valid utf-8 out of the db"),
                 }
-                Err(e) => println!("error reading value {:?}", e),
-                _ => panic!("value not present"),
             }
-
-            assert!(m.is_ok());
-            let r: Result<Option<DBVector>, String> = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
-            assert!(db.delete(b"k1").is_ok());
-            assert!(db.get(b"k1").unwrap().is_none());
+            Err(e) => println!("error reading value {:?}", e),
+            _ => panic!("value not present"),
         }
-        assert!(DB::destroy(&opts, path).is_ok());
+
+        assert!(m.is_ok());
+        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
     }
 }

@@ -416,6 +416,7 @@ mod test {
     use super::*;
     use libc::*;
     use std::ffi::CString;
+    use tempdir::TempDir;
 
     #[test]
     fn internal() {
@@ -427,8 +428,10 @@ mod test {
             rocksdb_options_optimize_level_style_compaction(opts, 0);
             rocksdb_options_set_create_if_missing(opts, true);
 
-            let rustpath = "_rust_rocksdb_internaltest";
-            let cpath = CString::new(rustpath).unwrap();
+            let rustpath = TempDir::new("_rust_rocksdb_internaltest")
+                               .expect("");
+            let cpath = CString::new(rustpath.path().to_str().unwrap())
+                            .unwrap();
             let cpath_ptr = cpath.as_ptr();
 
             let mut err: *const i8 = 0 as *const i8;

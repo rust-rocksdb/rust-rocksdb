@@ -868,89 +868,73 @@ mod test {
     use super::*;
     use rocksdb_options::*;
     use std::str;
+    use tempdir::TempDir;
 
     #[test]
     fn external() {
-        let path = "_rust_rocksdb_externaltest";
-        {
-            let db = DB::open_default(path).unwrap();
-            let p = db.put(b"k1", b"v1111");
-            assert!(p.is_ok());
-            let r: Result<Option<DBVector>, String> = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
-            assert!(db.delete(b"k1").is_ok());
-            assert!(db.get(b"k1").unwrap().is_none());
-        }
-        let opts = Options::new();
-        let result = DB::destroy(&opts, path);
-        assert!(result.is_ok());
+        let path = TempDir::new("_rust_rocksdb_externaltest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
     }
 
     #[allow(unused_variables)]
     #[test]
     fn errors_do_stuff() {
-        let path = "_rust_rocksdb_error";
-        let db = DB::open_default(path).unwrap();
+        let path = TempDir::new("_rust_rocksdb_error").expect("");
+        let path_str = path.path().to_str().unwrap();
+        let db = DB::open_default(path_str).unwrap();
         let opts = Options::new();
         // The DB will still be open when we try to destroy and the lock should fail
-        match DB::destroy(&opts, path) {
-            Err(ref s) => {
-                assert!(s ==
-                        "IO error: lock _rust_rocksdb_error/LOCK: No locks \
-                         available")
-            }
+        match DB::destroy(&opts, path_str) {
+            Err(ref s) => assert!(s.contains("LOCK: No locks available")),
             Ok(_) => panic!("should fail"),
         }
     }
 
     #[test]
     fn writebatch_works() {
-        let path = "_rust_rocksdb_writebacktest";
-        {
-            let db = DB::open_default(path).unwrap();
-            {
-                // test put
-                let batch = WriteBatch::new();
-                assert!(db.get(b"k1").unwrap().is_none());
-                let _ = batch.put(b"k1", b"v1111");
-                assert!(db.get(b"k1").unwrap().is_none());
-                let p = db.write(batch);
-                assert!(p.is_ok());
-                let r: Result<Option<DBVector>, String> = db.get(b"k1");
-                assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
-            }
-            {
-                // test delete
-                let batch = WriteBatch::new();
-                let _ = batch.delete(b"k1");
-                let p = db.write(batch);
-                assert!(p.is_ok());
-                assert!(db.get(b"k1").unwrap().is_none());
-            }
-        }
-        let opts = Options::new();
-        assert!(DB::destroy(&opts, path).is_ok());
+        let path = TempDir::new("_rust_rocksdb_writebacktest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+        // test put
+        let batch = WriteBatch::new();
+        assert!(db.get(b"k1").unwrap().is_none());
+        let _ = batch.put(b"k1", b"v1111");
+        assert!(db.get(b"k1").unwrap().is_none());
+        let p = db.write(batch);
+        assert!(p.is_ok());
+        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        // test delete
+        let batch = WriteBatch::new();
+        let _ = batch.delete(b"k1");
+        let p = db.write(batch);
+        assert!(p.is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
     }
 
     #[test]
     fn iterator_test() {
-        let path = "_rust_rocksdb_iteratortest";
-        {
-            let db = DB::open_default(path).unwrap();
-            let p = db.put(b"k1", b"v1111");
-            assert!(p.is_ok());
-            let p = db.put(b"k2", b"v2222");
-            assert!(p.is_ok());
-            let p = db.put(b"k3", b"v3333");
-            assert!(p.is_ok());
-            let iter = db.iterator(IteratorMode::Start);
-            for (k, v) in iter {
-                println!("Hello {}: {}",
-                         str::from_utf8(&*k).unwrap(),
-                         str::from_utf8(&*v).unwrap());
-            }
+        let path = TempDir::new("_rust_rocksdb_iteratortest").expect("");
+
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+        let p = db.put(b"k2", b"v2222");
+        assert!(p.is_ok());
+        let p = db.put(b"k3", b"v3333");
+        assert!(p.is_ok());
+        let iter = db.iterator(IteratorMode::Start);
+        for (k, v) in iter {
+            println!("Hello {}: {}",
+                     str::from_utf8(&*k).unwrap(),
+                     str::from_utf8(&*v).unwrap());
         }
-        let opts = Options::new();
-        assert!(DB::destroy(&opts, path).is_ok());
     }
 }
