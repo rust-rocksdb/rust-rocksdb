@@ -146,6 +146,7 @@ mod tests {
     use rocksdb::{BlockBasedOptions, DB, Options};
     use rocksdb::DBCompactionStyle::DBUniversal;
 
+    #[allow(dead_code)]
     fn tuned_for_somebody_elses_disk(path: &str,
                                      opts: &mut Options,
                                      blockopts: &mut BlockBasedOptions)
