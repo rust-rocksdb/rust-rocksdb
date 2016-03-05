@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-pub use ffi as rocksdb_ffi;
-pub use ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
-pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
-                  WriteBatch};
-pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions};
-pub use merge_operator::MergeOperands;
+extern crate libc;
+
 pub mod rocksdb;
 pub mod ffi;
 pub mod rocksdb_options;
 pub mod merge_operator;
 pub mod comparator;
+
+pub use ffi::{DBCompactionStyle, DBComparator, new_bloom_filter,
+              self as rocksdb_ffi};
+pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
+                  WriteBatch};
+pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions};
+pub use merge_operator::MergeOperands;

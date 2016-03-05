@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate libc;
-use self::libc::{c_char, c_int, c_void, size_t};
+use libc::{self, c_char, c_int, c_void, size_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
@@ -92,7 +91,7 @@ pub fn error_message(ptr: *const i8) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
     let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
     unsafe {
-        libc::free(ptr as *mut libc::c_void);
+        libc::free(ptr as *mut c_void);
     }
     s
 }

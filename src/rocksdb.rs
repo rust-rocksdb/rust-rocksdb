@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-
-extern crate libc;
-
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fs;
@@ -23,7 +20,7 @@ use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
 
-use self::libc::{c_void, size_t};
+use libc::{self, c_int, c_void, size_t};
 
 use rocksdb_ffi::{self, DBCFHandle, error_message};
 use rocksdb_options::{Options, WriteOptions};
@@ -313,7 +310,7 @@ impl DB {
             let nfam = cfs_v.len();
             unsafe {
                 db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _,
-                                                               nfam as libc::c_int,
+                                                               nfam as c_int,
                                                                cfnames.as_ptr() as *const _,
                                                                copts, handles, err_ptr);
             }
@@ -848,7 +845,7 @@ impl Deref for DBVector {
 impl Drop for DBVector {
     fn drop(&mut self) {
         unsafe {
-            libc::free(self.base as *mut libc::c_void);
+            libc::free(self.base as *mut c_void);
         }
     }
 }
