@@ -411,59 +411,65 @@ extern "C" {
 
 }
 
-#[test]
-fn internal() {
-    unsafe {
-        use std::ffi::CString;
-        let opts = rocksdb_options_create();
-        assert!(!opts.0.is_null());
+#[cfg(test)]
+mod test {
+    use super::*;
+    use libc::*;
+    use std::ffi::CString;
 
-        rocksdb_options_increase_parallelism(opts, 0);
-        rocksdb_options_optimize_level_style_compaction(opts, 0);
-        rocksdb_options_set_create_if_missing(opts, true);
+    #[test]
+    fn internal() {
+        unsafe {
+            let opts = rocksdb_options_create();
+            assert!(!opts.0.is_null());
 
-        let rustpath = "_rust_rocksdb_internaltest";
-        let cpath = CString::new(rustpath).unwrap();
-        let cpath_ptr = cpath.as_ptr();
+            rocksdb_options_increase_parallelism(opts, 0);
+            rocksdb_options_optimize_level_style_compaction(opts, 0);
+            rocksdb_options_set_create_if_missing(opts, true);
 
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
-        let db = rocksdb_open(opts, cpath_ptr, err_ptr);
-        if !err.is_null() {
-            println!("failed to open rocksdb: {}", error_message(err));
+            let rustpath = "_rust_rocksdb_internaltest";
+            let cpath = CString::new(rustpath).unwrap();
+            let cpath_ptr = cpath.as_ptr();
+
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            let db = rocksdb_open(opts, cpath_ptr, err_ptr);
+            if !err.is_null() {
+                println!("failed to open rocksdb: {}", error_message(err));
+            }
+            assert!(err.is_null());
+
+            let writeopts = rocksdb_writeoptions_create();
+            assert!(!writeopts.0.is_null());
+
+            let key = b"name\x00";
+            let val = b"spacejam\x00";
+            rocksdb_put(db,
+                        writeopts.clone(),
+                        key.as_ptr(),
+                        4,
+                        val.as_ptr(),
+                        8,
+                        err_ptr);
+            rocksdb_writeoptions_destroy(writeopts);
+            assert!(err.is_null());
+
+            let readopts = rocksdb_readoptions_create();
+            assert!(!readopts.0.is_null());
+
+            let val_len: size_t = 0;
+            let val_len_ptr = &val_len as *const size_t;
+            rocksdb_get(db,
+                        readopts.clone(),
+                        key.as_ptr(),
+                        4,
+                        val_len_ptr,
+                        err_ptr);
+            rocksdb_readoptions_destroy(readopts);
+            assert!(err.is_null());
+            rocksdb_close(db);
+            rocksdb_destroy_db(opts, cpath_ptr, err_ptr);
+            assert!(err.is_null());
         }
-        assert!(err.is_null());
-
-        let writeopts = rocksdb_writeoptions_create();
-        assert!(!writeopts.0.is_null());
-
-        let key = b"name\x00";
-        let val = b"spacejam\x00";
-        rocksdb_put(db,
-                    writeopts.clone(),
-                    key.as_ptr(),
-                    4,
-                    val.as_ptr(),
-                    8,
-                    err_ptr);
-        rocksdb_writeoptions_destroy(writeopts);
-        assert!(err.is_null());
-
-        let readopts = rocksdb_readoptions_create();
-        assert!(!readopts.0.is_null());
-
-        let val_len: size_t = 0;
-        let val_len_ptr = &val_len as *const size_t;
-        rocksdb_get(db,
-                    readopts.clone(),
-                    key.as_ptr(),
-                    4,
-                    val_len_ptr,
-                    err_ptr);
-        rocksdb_readoptions_destroy(readopts);
-        assert!(err.is_null());
-        rocksdb_close(db);
-        rocksdb_destroy_db(opts, cpath_ptr, err_ptr);
-        assert!(err.is_null());
     }
 }
