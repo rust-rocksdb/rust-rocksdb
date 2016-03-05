@@ -108,10 +108,7 @@ pub enum IteratorMode<'a> {
 
 
 impl DBIterator {
-    fn new<'b>(db: &DB,
-               readopts: &'b ReadOptions,
-               mode: IteratorMode)
-               -> DBIterator {
+    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -246,19 +243,18 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                               .to_owned())
             }
         };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        match fs::create_dir_all(&ospath) {
-            Err(e) => {
-                return Err(format!("Failed to create rocksdb directory: \
-                                      {:?}",
-                                   e))
-            }
-            Ok(_) => (),
+
+        if let Err(e) = fs::create_dir_all(&ospath) {
+            return Err(format!("Failed to create rocksdb directory: \
+                                src/rocksdb.rs:                              \
+                                {:?}",
+                               e));
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -315,15 +311,15 @@ impl DB {
                                                                copts, handles, err_ptr);
             }
 
-            for handle in cfhandles.iter() {
+            for handle in &cfhandles {
                 if handle.0.is_null() {
                     return Err("Received null column family handle from DB."
-                                   .to_string());
+                                   .to_owned());
                 }
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert(n.to_string(), h);
+                cf_map.insert((*n).to_owned(), h);
             }
         }
 
@@ -331,7 +327,7 @@ impl DB {
             return Err(error_message(err));
         }
         if db.0.is_null() {
-            return Err("Could not initialize database.".to_string());
+            return Err("Could not initialize database.".to_owned());
         }
 
         Ok(DB {
@@ -389,7 +385,7 @@ impl DB {
         if !err.is_null() {
             return Err(error_message(err));
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
@@ -404,7 +400,7 @@ impl DB {
                             a fairly trivial call, and its failure may be \
                             indicative of a mis-compiled or mis-loaded \
                             rocksdb library."
-                               .to_string());
+                               .to_owned());
             }
 
             let val_len: size_t = 0;
@@ -413,7 +409,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             let val =
                 rocksdb_ffi::rocksdb_get(self.inner,
-                                         readopts.clone(),
+                                         readopts,
                                          key.as_ptr(),
                                          key.len() as size_t,
                                          val_len_ptr,
@@ -422,9 +418,10 @@ impl DB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
-            match val.is_null() {
-                true => Ok(None),
-                false => Ok(Some(DBVector::from_c(val, val_len))),
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
@@ -440,7 +437,7 @@ impl DB {
                             a fairly trivial call, and its failure may be \
                             indicative of a mis-compiled or mis-loaded \
                             rocksdb library."
-                               .to_string());
+                               .to_owned());
             }
 
             let val_len: size_t = 0;
@@ -449,7 +446,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             let val =
                 rocksdb_ffi::rocksdb_get_cf(self.inner,
-                                            readopts.clone(),
+                                            readopts,
                                             cf,
                                             key.as_ptr(),
                                             key.len() as size_t,
@@ -459,9 +456,10 @@ impl DB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
-            match val.is_null() {
-                true => Ok(None),
-                false => Ok(Some(DBVector::from_c(val, val_len))),
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
@@ -475,7 +473,7 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                               .to_owned())
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -487,7 +485,7 @@ impl DB {
                                                           opts.inner,
                                                           cname_ptr as *const _,
                                                           err_ptr);
-            self.cfs.insert(name.to_string(), cf_handler);
+            self.cfs.insert(name.to_owned(), cf_handler);
             cf_handler
         };
         if !err.is_null() {
@@ -499,7 +497,7 @@ impl DB {
     pub fn drop_cf(&mut self, name: &str) -> Result<(), String> {
         let cf = self.cfs.get(name);
         if cf.is_none() {
-            return Err(format!("Invalid column family: {}", name).to_string());
+            return Err(format!("Invalid column family: {}", name).clone());
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -717,7 +715,7 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for (_, cf) in self.cfs.iter() {
+            for cf in self.cfs.values() {
                 rocksdb_ffi::rocksdb_column_family_handle_destroy(*cf);
             }
             rocksdb_ffi::rocksdb_close(self.inner);
@@ -858,7 +856,7 @@ impl DBVector {
         }
     }
 
-    pub fn to_utf8<'a>(&'a self) -> Option<&'a str> {
+    pub fn to_utf8(&self) -> Option<&str> {
         from_utf8(self.deref()).ok()
     }
 }

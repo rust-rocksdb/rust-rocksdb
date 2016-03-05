@@ -135,12 +135,12 @@ impl Options {
         }
     }
 
-    pub fn add_merge_operator<'a>(&mut self,
-                                  name: &str,
-                                  merge_fn: fn(&[u8],
-                                               Option<&[u8]>,
-                                               &mut MergeOperands)
-                                               -> Vec<u8>) {
+    pub fn add_merge_operator(&mut self,
+                              name: &str,
+                              merge_fn: fn(&[u8],
+                                           Option<&[u8]>,
+                                           &mut MergeOperands)
+                                           -> Vec<u8>) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
@@ -158,9 +158,9 @@ impl Options {
         }
     }
 
-    pub fn add_comparator<'a>(&mut self,
-                              name: &str,
-                              compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn add_comparator(&mut self,
+                          name: &str,
+                          compare_fn: fn(&[u8], &[u8]) -> i32) {
         let cb = Box::new(ComparatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             f: compare_fn,
@@ -192,13 +192,10 @@ impl Options {
 
     pub fn set_use_fsync(&mut self, useit: bool) {
         unsafe {
-            match useit {
-                true => {
-                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 1)
-                }
-                false => {
-                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 0)
-                }
+            if useit {
+                rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 1)
+            } else {
+                rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 0)
             }
         }
     }
@@ -211,13 +208,12 @@ impl Options {
 
     pub fn set_disable_data_sync(&mut self, disable: bool) {
         unsafe {
-            match disable {
-                true =>
-                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(
-                        self.inner, 1),
-                false =>
-                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(
-                        self.inner, 0),
+            if disable {
+                rocksdb_ffi::rocksdb_options_set_disable_data_sync(self.inner,
+                                                                   1);
+            } else {
+                rocksdb_ffi::rocksdb_options_set_disable_data_sync(self.inner,
+                                                                   0);
             }
         }
     }
