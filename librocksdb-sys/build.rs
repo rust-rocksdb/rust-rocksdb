@@ -54,6 +54,16 @@ fn configure_librocksdb() {
 	let num_jobs = env::var("NUM_JOBS");
 	let make_max_jobs = env::var("MAKE_MAX_JOBS");
 
+	let mut clean_cmd = Command::new("make");
+	clean_cmd.current_dir(Path::new("rocksdb")).arg("clean");
+	match clean_cmd.output() {
+		Ok(out) => if !out.status.success() {
+			let _ = writeln!(&mut stderr, "clean failed:\n{}", String::from_utf8(out.stderr).unwrap());
+			exit(1);
+		},
+		Err(e) => { let _ = writeln!(&mut stderr, "command execution failed: {:?}", e); exit(1) }
+	}
+
 	let mut cmd = Command::new("make");
 
 	cmd.current_dir(Path::new("rocksdb"))
