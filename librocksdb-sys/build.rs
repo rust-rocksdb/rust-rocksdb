@@ -23,7 +23,7 @@ fn configure_librocksdb() {
 	let target = env::var("TARGET").unwrap();
 	let cpp = if target.contains("darwin") { "c++" } else {
     	let cc = env::var("CC");
-	    match cc { Ok(ref cc_some) if &cc_some[0..5] == "clang" => "c++", _ => "std++" }
+	    match cc { Ok(ref cc_some) if cc_some.len() >= 5 && &cc_some[0..5] == "clang" => "c++", _ => "std++" }
 	};
 	println!("cargo:rustc-flags=-l {}", cpp);
 
