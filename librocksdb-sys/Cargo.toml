@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "0.1.0"
+version = "0.2.3"
 authors = ["Arkadiy Paronyan arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD"
 description = "Native bindings to librocksdb"
@@ -17,6 +17,3 @@ static = []
 
 [dependencies]
 libc = "0.2"
-  
-[build-dependencies]
-pkg-config = "0.3"
