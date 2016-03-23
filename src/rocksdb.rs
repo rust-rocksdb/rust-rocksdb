@@ -197,6 +197,21 @@ impl<'a> Snapshot<'a> {
         readopts.set_snapshot(self);
         DBIterator::new(self.db, &readopts, mode)
     }
+
+    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
+        let mut readopts = ReadOptions::new();
+        readopts.set_snapshot(self);
+        self.db.get_opt(key, &readopts)
+    }
+
+    pub fn get_cf(&self,
+                  cf: DBCFHandle,
+                  key: &[u8])
+                  -> Result<Option<DBVector>, String> {
+        let mut readopts = ReadOptions::new();
+        readopts.set_snapshot(self);
+        self.db.get_cf_opt(cf, key, &readopts)
+    }
 }
 
 impl<'a> Drop for Snapshot<'a> {
@@ -412,29 +427,71 @@ impl DB {
         self.write_opt(batch, &WriteOptions::new())
     }
 
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
-        unsafe {
-            let readopts = rocksdb_ffi::rocksdb_readoptions_create();
-            if readopts.0.is_null() {
-                return Err("Unable to create rocksdb read options.  This is \
-                            a fairly trivial call, and its failure may be \
-                            indicative of a mis-compiled or mis-loaded \
-                            rocksdb library."
-                               .to_owned());
-            }
+    pub fn get_opt(&self,
+                   key: &[u8],
+                   readopts: &ReadOptions)
+                   -> Result<Option<DBVector>, String> {
+        if readopts.inner.0.is_null() {
+            return Err("Unable to create rocksdb read options.  This is a \
+                        fairly trivial call, and its failure may be \
+                        indicative of a mis-compiled or mis-loaded rocksdb \
+                        library."
+                           .to_owned());
+        }
 
+        unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
             let val =
                 rocksdb_ffi::rocksdb_get(self.inner,
-                                         readopts,
+                                         readopts.inner,
                                          key.as_ptr(),
                                          key.len() as size_t,
                                          val_len_ptr,
                                          err_ptr) as *mut u8;
-            rocksdb_ffi::rocksdb_readoptions_destroy(readopts);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
+            }
+        }
+    }
+
+    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
+        self.get_opt(key, &ReadOptions::new())
+    }
+
+    pub fn get_cf_opt(&self,
+                      cf: DBCFHandle,
+                      key: &[u8],
+                      readopts: &ReadOptions)
+                      -> Result<Option<DBVector>, String> {
+        if readopts.inner.0.is_null() {
+            return Err("Unable to create rocksdb read options.  This is a \
+                        fairly trivial call, and its failure may be \
+                        indicative of a mis-compiled or mis-loaded rocksdb \
+                        library."
+                           .to_owned());
+        }
+
+        unsafe {
+            let val_len: size_t = 0;
+            let val_len_ptr = &val_len as *const size_t;
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+            let val =
+                rocksdb_ffi::rocksdb_get_cf(self.inner,
+                                            readopts.inner,
+                                            cf,
+                                            key.as_ptr(),
+                                            key.len() as size_t,
+                                            val_len_ptr,
+                                            err_ptr) as *mut u8;
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -450,38 +507,7 @@ impl DB {
                   cf: DBCFHandle,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
-        unsafe {
-            let readopts = rocksdb_ffi::rocksdb_readoptions_create();
-            if readopts.0.is_null() {
-                return Err("Unable to create rocksdb read options.  This is \
-                            a fairly trivial call, and its failure may be \
-                            indicative of a mis-compiled or mis-loaded \
-                            rocksdb library."
-                               .to_owned());
-            }
-
-            let val_len: size_t = 0;
-            let val_len_ptr = &val_len as *const size_t;
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
-            let val =
-                rocksdb_ffi::rocksdb_get_cf(self.inner,
-                                            readopts,
-                                            cf,
-                                            key.as_ptr(),
-                                            key.len() as size_t,
-                                            val_len_ptr,
-                                            err_ptr) as *mut u8;
-            rocksdb_ffi::rocksdb_readoptions_destroy(readopts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
-            if val.is_null() {
-                Ok(None)
-            } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
-            }
-        }
+        self.get_cf_opt(cf, key, &ReadOptions::new())
     }
 
     pub fn create_cf(&mut self,
@@ -1061,4 +1087,29 @@ mod test {
         }
         assert_eq!(sizes[4], 0);
     }
+}
+
+#[test]
+fn snapshot_test() {
+    let path = "_rust_rocksdb_snapshottest";
+    {
+        let db = DB::open_default(path).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+
+        let snap = db.snapshot();
+        let mut r: Result<Option<DBVector>, String> = snap.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        r = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        let p = db.put(b"k2", b"v2222");
+        assert!(p.is_ok());
+
+        assert!(db.get(b"k2").unwrap().is_some());
+        assert!(snap.get(b"k2").unwrap().is_none());
+    }
+    let opts = Options::new();
+    assert!(DB::destroy(&opts, path).is_ok());
 }
