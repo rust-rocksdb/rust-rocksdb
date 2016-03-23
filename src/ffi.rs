@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate libc;
-use self::libc::{c_char, c_int, c_void, size_t};
+use libc::{self, c_char, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
@@ -56,6 +55,9 @@ pub struct DBWriteBatch(pub *const c_void);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct DBComparator(pub *const c_void);
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct DBFlushOptions(pub *const c_void);
 
 pub fn new_bloom_filter(bits: c_int) -> DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
@@ -67,19 +69,19 @@ pub fn new_cache(capacity: size_t) -> DBCache {
 
 #[repr(C)]
 pub enum DBCompressionType {
-    DBNoCompression = 0,
-    DBSnappyCompression = 1,
-    DBZlibCompression = 2,
-    DBBz2Compression = 3,
-    DBLz4Compression = 4,
-    DBLz4hcCompression = 5,
+    DBNo = 0,
+    DBSnappy = 1,
+    DBZlib = 2,
+    DBBz2 = 3,
+    DBLz4 = 4,
+    DBLz4hc = 5,
 }
 
 #[repr(C)]
 pub enum DBCompactionStyle {
-    DBLevelCompaction = 0,
-    DBUniversalCompaction = 1,
-    DBFifoCompaction = 2,
+    DBLevel = 0,
+    DBUniversal = 1,
+    DBFifo = 2,
 }
 
 #[repr(C)]
@@ -92,7 +94,7 @@ pub fn error_message(ptr: *const i8) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
     let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
     unsafe {
-        libc::free(ptr as *mut libc::c_void);
+        libc::free(ptr as *mut c_void);
     }
     s
 }
@@ -410,61 +412,108 @@ extern "C" {
                                       err: *mut *const i8);
     pub fn rocksdb_column_family_handle_destroy(column_family_handle: DBCFHandle);
 
+    // Flush options
+    pub fn rocksdb_flushoptions_create() -> DBFlushOptions;
+    pub fn rocksdb_flushoptions_destroy(opt: DBFlushOptions);
+    pub fn rocksdb_flushoptions_set_wait(opt: DBFlushOptions,
+                                         whether_wait: bool);
+
+    pub fn rocksdb_flush(db: DBInstance,
+                         options: DBFlushOptions,
+                         err: *mut *const i8);
+
+    pub fn rocksdb_approximate_sizes(db: DBInstance,
+                                     num_ranges: c_int,
+                                     range_start_key: *const *const u8,
+                                     range_start_key_len: *const size_t,
+                                     range_limit_key: *const *const u8,
+                                     range_limit_key_len: *const size_t,
+                                     sizes: *mut uint64_t);
+    pub fn rocksdb_approximate_sizes_cf(db: DBInstance,
+                                        cf: DBCFHandle,
+                                        num_ranges: c_int,
+                                        range_start_key: *const *const u8,
+                                        range_start_key_len: *const size_t,
+                                        range_limit_key: *const *const u8,
+                                        range_limit_key_len: *const size_t,
+                                        sizes: *mut uint64_t);
 }
 
-#[test]
-fn internal() {
-    unsafe {
-        use std::ffi::CString;
-        let opts = rocksdb_options_create();
-        assert!(!opts.0.is_null());
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::ffi::CString;
+    use tempdir::TempDir;
 
-        rocksdb_options_increase_parallelism(opts, 0);
-        rocksdb_options_optimize_level_style_compaction(opts, 0);
-        rocksdb_options_set_create_if_missing(opts, true);
+    #[test]
+    fn internal() {
+        unsafe {
+            let opts = rocksdb_options_create();
+            assert!(!opts.0.is_null());
 
-        let rustpath = "_rust_rocksdb_internaltest";
-        let cpath = CString::new(rustpath).unwrap();
-        let cpath_ptr = cpath.as_ptr();
+            rocksdb_options_increase_parallelism(opts, 0);
+            rocksdb_options_optimize_level_style_compaction(opts, 0);
+            rocksdb_options_set_create_if_missing(opts, true);
 
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
-        let db = rocksdb_open(opts, cpath_ptr, err_ptr);
-        if !err.is_null() {
-            println!("failed to open rocksdb: {}", error_message(err));
+            let rustpath = TempDir::new("_rust_rocksdb_internaltest")
+                               .expect("");
+            let cpath = CString::new(rustpath.path().to_str().unwrap())
+                            .unwrap();
+            let cpath_ptr = cpath.as_ptr();
+
+            let mut err = 0 as *const i8;
+            let db = rocksdb_open(opts, cpath_ptr, &mut err);
+            assert!(err.is_null(), error_message(err));
+
+            let writeopts = rocksdb_writeoptions_create();
+            assert!(!writeopts.0.is_null());
+
+            let key = b"name\x00";
+            let val = b"spacejam\x00";
+            rocksdb_put(db,
+                        writeopts.clone(),
+                        key.as_ptr(),
+                        4,
+                        val.as_ptr(),
+                        8,
+                        &mut err);
+            rocksdb_writeoptions_destroy(writeopts);
+            assert!(err.is_null(), error_message(err));
+
+            let readopts = rocksdb_readoptions_create();
+            assert!(!readopts.0.is_null());
+
+            let mut val_len = 0;
+            rocksdb_get(db,
+                        readopts.clone(),
+                        key.as_ptr(),
+                        4,
+                        &mut val_len,
+                        &mut err);
+            rocksdb_readoptions_destroy(readopts);
+            assert!(err.is_null(), error_message(err));
+
+            // flush first to get approximate size later.
+            let flush_opt = rocksdb_flushoptions_create();
+            rocksdb_flushoptions_set_wait(flush_opt, true);
+            rocksdb_flush(db, flush_opt, &mut err);
+            rocksdb_flushoptions_destroy(flush_opt);
+            assert!(err.is_null(), error_message(err));
+
+            let mut sizes = vec![0; 1];
+            rocksdb_approximate_sizes(db,
+                                      1,
+                                      vec![b"\x00\x00".as_ptr()].as_ptr(),
+                                      vec![1].as_ptr(),
+                                      vec![b"\xff\x00".as_ptr()].as_ptr(),
+                                      vec![1].as_ptr(),
+                                      sizes.as_mut_ptr());
+            assert_eq!(sizes.len(), 1);
+            assert!(sizes[0] > 0);
+
+            rocksdb_close(db);
+            rocksdb_destroy_db(opts, cpath_ptr, &mut err);
+            assert!(err.is_null());
         }
-        assert!(err.is_null());
-
-        let writeopts = rocksdb_writeoptions_create();
-        assert!(!writeopts.0.is_null());
-
-        let key = b"name\x00";
-        let val = b"spacejam\x00";
-        rocksdb_put(db,
-                    writeopts.clone(),
-                    key.as_ptr(),
-                    4,
-                    val.as_ptr(),
-                    8,
-                    err_ptr);
-        rocksdb_writeoptions_destroy(writeopts);
-        assert!(err.is_null());
-
-        let readopts = rocksdb_readoptions_create();
-        assert!(!readopts.0.is_null());
-
-        let val_len: size_t = 0;
-        let val_len_ptr = &val_len as *const size_t;
-        rocksdb_get(db,
-                    readopts.clone(),
-                    key.as_ptr(),
-                    4,
-                    val_len_ptr,
-                    err_ptr);
-        rocksdb_readoptions_destroy(readopts);
-        assert!(err.is_null());
-        rocksdb_close(db);
-        rocksdb_destroy_db(opts, cpath_ptr, err_ptr);
-        assert!(err.is_null());
     }
 }
