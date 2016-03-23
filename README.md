@@ -3,7 +3,7 @@ rust-rocksdb
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 [![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
-This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.0 crate should work with the Rust 1.5 stable and nightly releases as of 1/4/16.
+This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.1 crate should work with the Rust 1.5 stable and nightly releases as of 3/23/16.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -36,7 +36,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "0.3.0"
+rocksdb = "0.3.1"
 ```
 ###### Code
 ```rust
