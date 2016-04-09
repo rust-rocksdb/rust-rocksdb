@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-
-extern crate libc;
-
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fs;
@@ -23,10 +20,12 @@ use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
 
-use self::libc::{c_void, size_t};
+use libc::{self, c_int, c_void, size_t};
 
 use rocksdb_ffi::{self, DBCFHandle, error_message};
 use rocksdb_options::{Options, WriteOptions};
+
+const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
 pub struct DB {
     inner: rocksdb_ffi::DBInstance,
@@ -111,10 +110,7 @@ pub enum IteratorMode<'a> {
 
 
 impl DBIterator {
-    fn new<'b>(db: &DB,
-               readopts: &'b ReadOptions,
-               mode: IteratorMode)
-               -> DBIterator {
+    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -244,6 +240,24 @@ pub trait Writable {
     fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String>;
 }
 
+/// A range of keys, start_key is included, but not end_key.
+///
+/// You should make sure end_key is not less than start_key.
+pub struct Range<'a> {
+    start_key: &'a [u8],
+    end_key: &'a [u8],
+}
+
+impl<'a> Range<'a> {
+    pub fn new(start_key: &'a [u8], end_key: &'a [u8]) -> Range<'a> {
+        assert!(start_key <= end_key);
+        Range {
+            start_key: start_key,
+            end_key: end_key,
+        }
+    }
+}
+
 impl DB {
     pub fn open_default(path: &str) -> Result<DB, String> {
         let mut opts = Options::new();
@@ -264,19 +278,18 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                               .to_owned())
             }
         };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        match fs::create_dir_all(&ospath) {
-            Err(e) => {
-                return Err(format!("Failed to create rocksdb directory: \
-                                      {:?}",
-                                   e))
-            }
-            Ok(_) => (),
+
+        if let Err(e) = fs::create_dir_all(&ospath) {
+            return Err(format!("Failed to create rocksdb directory: \
+                                src/rocksdb.rs:                              \
+                                {:?}",
+                               e));
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -293,8 +306,8 @@ impl DB {
         } else {
             let mut cfs_v = cfs.to_vec();
             // Always open the default column family
-            if !cfs_v.contains(&"default") {
-                cfs_v.push("default");
+            if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
+                cfs_v.push(DEFAULT_COLUMN_FAMILY);
             }
 
             // We need to store our CStrings in an intermediate vector
@@ -328,20 +341,20 @@ impl DB {
             let nfam = cfs_v.len();
             unsafe {
                 db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _,
-                                                               nfam as libc::c_int,
+                                                               nfam as c_int,
                                                                cfnames.as_ptr() as *const _,
                                                                copts, handles, err_ptr);
             }
 
-            for handle in cfhandles.iter() {
+            for handle in &cfhandles {
                 if handle.0.is_null() {
                     return Err("Received null column family handle from DB."
-                                   .to_string());
+                                   .to_owned());
                 }
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert(n.to_string(), h);
+                cf_map.insert((*n).to_owned(), h);
             }
         }
 
@@ -349,7 +362,7 @@ impl DB {
             return Err(error_message(err));
         }
         if db.0.is_null() {
-            return Err("Could not initialize database.".to_string());
+            return Err("Could not initialize database.".to_owned());
         }
 
         Ok(DB {
@@ -407,7 +420,7 @@ impl DB {
         if !err.is_null() {
             return Err(error_message(err));
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
@@ -423,7 +436,7 @@ impl DB {
                         fairly trivial call, and its failure may be \
                         indicative of a mis-compiled or mis-loaded rocksdb \
                         library."
-                           .to_string());
+                           .to_owned());
         }
 
         unsafe {
@@ -441,9 +454,10 @@ impl DB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
-            match val.is_null() {
-                true => Ok(None),
-                false => Ok(Some(DBVector::from_c(val, val_len))),
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
@@ -462,7 +476,7 @@ impl DB {
                         fairly trivial call, and its failure may be \
                         indicative of a mis-compiled or mis-loaded rocksdb \
                         library."
-                           .to_string());
+                           .to_owned());
         }
 
         unsafe {
@@ -481,9 +495,10 @@ impl DB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
-            match val.is_null() {
-                true => Ok(None),
-                false => Ok(Some(DBVector::from_c(val, val_len))),
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
@@ -504,7 +519,7 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                               .to_owned())
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -516,7 +531,7 @@ impl DB {
                                                           opts.inner,
                                                           cname_ptr as *const _,
                                                           err_ptr);
-            self.cfs.insert(name.to_string(), cf_handler);
+            self.cfs.insert(name.to_owned(), cf_handler);
             cf_handler
         };
         if !err.is_null() {
@@ -528,7 +543,7 @@ impl DB {
     pub fn drop_cf(&mut self, name: &str) -> Result<(), String> {
         let cf = self.cfs.get(name);
         if cf.is_none() {
-            return Err(format!("Invalid column family: {}", name).to_string());
+            return Err(format!("Invalid column family: {}", name).clone());
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -693,6 +708,91 @@ impl DB {
             Ok(())
         }
     }
+
+    /// Flush all memtable data.
+    ///
+    /// Due to lack of abi, only default cf is supported.
+    ///
+    /// If sync, the flush will wait until the flush is done.
+    pub fn flush(&self, sync: bool) -> Result<(), String> {
+        unsafe {
+            let opts = rocksdb_ffi::rocksdb_flushoptions_create();
+            rocksdb_ffi::rocksdb_flushoptions_set_wait(opts, sync);
+            let mut err = 0 as *const i8;
+            rocksdb_ffi::rocksdb_flush(self.inner, opts, &mut err);
+            rocksdb_ffi::rocksdb_flushoptions_destroy(opts);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+
+    /// Return the approximate file system space used by keys in each ranges.
+    ///
+    /// Note that the returned sizes measure file system space usage, so
+    /// if the user data compresses by a factor of ten, the returned
+    /// sizes will be one-tenth the size of the corresponding user data size.
+    ///
+    /// Due to lack of abi, only data flushed to disk is taken into account.
+    pub fn get_approximate_sizes(&self, ranges: &[Range]) -> Vec<u64> {
+        self.get_approximate_sizes_cfopt(None, ranges)
+    }
+
+    pub fn get_approximate_sizes_cf(&self,
+                                    cf: DBCFHandle,
+                                    ranges: &[Range])
+                                    -> Vec<u64> {
+        self.get_approximate_sizes_cfopt(Some(cf), ranges)
+    }
+
+    fn get_approximate_sizes_cfopt(&self,
+                                   cf: Option<DBCFHandle>,
+                                   ranges: &[Range])
+                                   -> Vec<u64> {
+        let start_keys: Vec<*const u8> = ranges.iter()
+                                               .map(|x| x.start_key.as_ptr())
+                                               .collect();
+        let start_key_lens: Vec<u64> = ranges.iter()
+                                             .map(|x| x.start_key.len() as u64)
+                                             .collect();
+        let end_keys: Vec<*const u8> = ranges.iter()
+                                             .map(|x| x.end_key.as_ptr())
+                                             .collect();
+        let end_key_lens: Vec<u64> = ranges.iter()
+                                           .map(|x| x.end_key.len() as u64)
+                                           .collect();
+        let mut sizes: Vec<u64> = vec![0; ranges.len()];
+        let (n, sk_ptr, skl_ptr, ek_ptr, ekl_ptr, s_ptr) =
+            (ranges.len() as i32,
+             start_keys.as_ptr(),
+             start_key_lens.as_ptr(),
+             end_keys.as_ptr(),
+             end_key_lens.as_ptr(),
+             sizes.as_mut_ptr());
+        match cf {
+            None => unsafe {
+                rocksdb_ffi::rocksdb_approximate_sizes(self.inner,
+                                                       n,
+                                                       sk_ptr,
+                                                       skl_ptr,
+                                                       ek_ptr,
+                                                       ekl_ptr,
+                                                       s_ptr)
+            },
+            Some(cf) => unsafe {
+                rocksdb_ffi::rocksdb_approximate_sizes_cf(self.inner,
+                                                          cf,
+                                                          n,
+                                                          sk_ptr,
+                                                          skl_ptr,
+                                                          ek_ptr,
+                                                          ekl_ptr,
+                                                          s_ptr)
+            },
+        }
+        sizes
+    }
 }
 
 impl Writable for DB {
@@ -746,7 +846,7 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for (_, cf) in self.cfs.iter() {
+            for cf in self.cfs.values() {
                 rocksdb_ffi::rocksdb_column_family_handle_destroy(*cf);
             }
             rocksdb_ffi::rocksdb_close(self.inner);
@@ -874,7 +974,7 @@ impl Deref for DBVector {
 impl Drop for DBVector {
     fn drop(&mut self) {
         unsafe {
-            libc::free(self.base as *mut libc::c_void);
+            libc::free(self.base as *mut c_void);
         }
     }
 }
@@ -887,16 +987,22 @@ impl DBVector {
         }
     }
 
-    pub fn to_utf8<'a>(&'a self) -> Option<&'a str> {
+    pub fn to_utf8(&self) -> Option<&str> {
         from_utf8(self.deref()).ok()
     }
 }
 
-#[test]
-fn external() {
-    let path = "_rust_rocksdb_externaltest";
-    {
-        let db = DB::open_default(path).unwrap();
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rocksdb_options::*;
+    use std::str;
+    use tempdir::TempDir;
+
+    #[test]
+    fn external() {
+        let path = TempDir::new("_rust_rocksdb_externaltest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let r: Result<Option<DBVector>, String> = db.get(b"k1");
@@ -904,76 +1010,83 @@ fn external() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    let opts = Options::new();
-    let result = DB::destroy(&opts, path);
-    assert!(result.is_ok());
-}
 
-#[test]
-fn errors_do_stuff() {
-    let path = "_rust_rocksdb_error";
-    let db = DB::open_default(path).unwrap();
-    let opts = Options::new();
-    // The DB will still be open when we try to destroy and the lock should fail
-    match DB::destroy(&opts, path) {
-        Err(ref s) => {
-            assert!(s ==
-                    "IO error: lock _rust_rocksdb_error/LOCK: No locks \
-                     available")
-        }
-        Ok(_) => panic!("should fail"),
-    }
-}
-
-#[test]
-fn writebatch_works() {
-    let path = "_rust_rocksdb_writebacktest";
-    {
-        let db = DB::open_default(path).unwrap();
-        {
-            // test put
-            let batch = WriteBatch::new();
-            assert!(db.get(b"k1").unwrap().is_none());
-            let _ = batch.put(b"k1", b"v1111");
-            assert!(db.get(b"k1").unwrap().is_none());
-            let p = db.write(batch);
-            assert!(p.is_ok());
-            let r: Result<Option<DBVector>, String> = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
-        }
-        {
-            // test delete
-            let batch = WriteBatch::new();
-            let _ = batch.delete(b"k1");
-            let p = db.write(batch);
-            assert!(p.is_ok());
-            assert!(db.get(b"k1").unwrap().is_none());
+    #[allow(unused_variables)]
+    #[test]
+    fn errors_do_stuff() {
+        let path = TempDir::new("_rust_rocksdb_error").expect("");
+        let path_str = path.path().to_str().unwrap();
+        let db = DB::open_default(path_str).unwrap();
+        let opts = Options::new();
+        // The DB will still be open when we try to destroy and the lock should fail
+        match DB::destroy(&opts, path_str) {
+            Err(ref s) => assert!(s.contains("LOCK: No locks available")),
+            Ok(_) => panic!("should fail"),
         }
     }
-    let opts = Options::new();
-    assert!(DB::destroy(&opts, path).is_ok());
-}
 
-#[test]
-fn iterator_test() {
-    let path = "_rust_rocksdb_iteratortest";
-    {
-        let db = DB::open_default(path).unwrap();
-        let p = db.put(b"k1", b"v1111");
+    #[test]
+    fn writebatch_works() {
+        let path = TempDir::new("_rust_rocksdb_writebacktest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+        // test put
+        let batch = WriteBatch::new();
+        assert!(db.get(b"k1").unwrap().is_none());
+        let _ = batch.put(b"k1", b"v1111");
+        assert!(db.get(b"k1").unwrap().is_none());
+        let p = db.write(batch);
         assert!(p.is_ok());
-        let p = db.put(b"k2", b"v2222");
+        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        // test delete
+        let batch = WriteBatch::new();
+        let _ = batch.delete(b"k1");
+        let p = db.write(batch);
         assert!(p.is_ok());
-        let p = db.put(b"k3", b"v3333");
-        assert!(p.is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
+    }
+
+    #[test]
+    fn iterator_test() {
+        let path = TempDir::new("_rust_rocksdb_iteratortest").expect("");
+
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        db.put(b"k1", b"v1111").expect("");
+        db.put(b"k2", b"v2222").expect("");
+        db.put(b"k3", b"v3333").expect("");
         let iter = db.iterator(IteratorMode::Start);
         for (k, v) in iter {
             println!("Hello {}: {}",
-                     from_utf8(&*k).unwrap(),
-                     from_utf8(&*v).unwrap());
+                     str::from_utf8(&*k).unwrap(),
+                     str::from_utf8(&*v).unwrap());
         }
     }
-    let opts = Options::new();
-    assert!(DB::destroy(&opts, path).is_ok());
+
+    #[test]
+    fn approximate_size_test() {
+        let path = TempDir::new("_rust_rocksdb_iteratortest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        for i in 1..8000 {
+            db.put(format!("{:04}", i).as_bytes(),
+                   format!("{:04}", i).as_bytes())
+              .expect("");
+        }
+        db.flush(true).expect("");
+        assert!(db.get(b"0001").expect("").is_some());
+        db.flush(true).expect("");
+        let sizes = db.get_approximate_sizes(&[Range::new(b"0000", b"2000"),
+                                               Range::new(b"2000", b"4000"),
+                                               Range::new(b"4000", b"6000"),
+                                               Range::new(b"6000", b"8000"),
+                                               Range::new(b"8000", b"9999")]);
+        assert_eq!(sizes.len(), 5);
+        for s in &sizes[0..4] {
+            assert!(*s > 0);
+        }
+        assert_eq!(sizes[4], 0);
+    }
 }
 
 #[test]
@@ -985,7 +1098,10 @@ fn snapshot_test() {
         assert!(p.is_ok());
 
         let snap = db.snapshot();
-        let r: Result<Option<DBVector>, String> = snap.get(b"k1");
+        let mut r: Result<Option<DBVector>, String> = snap.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        r = db.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         let p = db.put(b"k2", b"v2222");
