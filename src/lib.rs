@@ -13,7 +13,6 @@
 // limitations under the License.
 //
 #![feature(plugin)]
-#![plugin(clippy)]
 
 extern crate libc;
 
