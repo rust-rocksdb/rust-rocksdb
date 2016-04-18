@@ -18,15 +18,15 @@ extern crate libc;
 
 #[cfg(test)]
 extern crate tempdir;
+pub extern crate librocksdb_sys;
 
 pub mod rocksdb;
-pub mod ffi;
 pub mod rocksdb_options;
 pub mod merge_operator;
 pub mod comparator;
 
-pub use ffi::{DBCompactionStyle, DBComparator, new_bloom_filter,
-              self as rocksdb_ffi};
+pub use librocksdb_sys::{DBCompactionStyle, DBComparator, new_bloom_filter,
+                         self as rocksdb_ffi};
 pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
                   WriteBatch};
 pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions};

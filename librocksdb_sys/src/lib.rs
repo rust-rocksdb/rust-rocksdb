@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-use libc::{self, c_char, c_int, c_void, size_t, uint64_t};
+
+extern crate libc;
+
+use libc::{c_char, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 

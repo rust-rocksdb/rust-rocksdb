@@ -59,12 +59,17 @@ pub enum Direction {
     Reverse,
 }
 
-impl Iterator for DBIterator {
-    type Item = (Box<[u8]>, Box<[u8]>);
+// TODO: should we use Vec<u8> instead?
+pub type Kv = (Box<[u8]>, Box<[u8]>);
 
-    fn next(&mut self) -> Option<(Box<[u8]>, Box<[u8]>)> {
+impl Iterator for DBIterator {
+    type Item = Kv;
+
+    fn next(&mut self) -> Option<Kv> {
         let native_iter = self.inner;
-        if !self.just_seeked {
+        if self.just_seeked {
+            self.just_seeked = false;
+        } else {
             match self.direction {
                 Direction::Forward => unsafe {
                     rocksdb_ffi::rocksdb_iter_next(native_iter)
@@ -73,8 +78,6 @@ impl Iterator for DBIterator {
                     rocksdb_ffi::rocksdb_iter_prev(native_iter)
                 },
             }
-        } else {
-            self.just_seeked = false;
         }
         if unsafe { rocksdb_ffi::rocksdb_iter_valid(native_iter) } {
             let mut key_len: size_t = 0;
@@ -240,9 +243,9 @@ pub trait Writable {
     fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String>;
 }
 
-/// A range of keys, start_key is included, but not end_key.
+/// A range of keys, `start_key` is included, but not `end_key`.
 ///
-/// You should make sure end_key is not less than start_key.
+/// You should make sure `end_key` is not less than `start_key`.
 pub struct Range<'a> {
     start_key: &'a [u8],
     end_key: &'a [u8],
@@ -336,14 +339,14 @@ impl DB {
                      .collect();
 
             // Prepare to ship to C.
-            let copts: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
+            let cfopts_ptr: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
             let handles: *const rocksdb_ffi::DBCFHandle = cfhandles.as_ptr();
             let nfam = cfs_v.len();
             unsafe {
                 db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _,
                                                                nfam as c_int,
                                                                cfnames.as_ptr() as *const _,
-                                                               copts, handles, err_ptr);
+                                                               cfopts_ptr, handles, err_ptr);
             }
 
             for handle in &cfhandles {
@@ -763,32 +766,36 @@ impl DB {
                                            .map(|x| x.end_key.len() as u64)
                                            .collect();
         let mut sizes: Vec<u64> = vec![0; ranges.len()];
-        let (n, sk_ptr, skl_ptr, ek_ptr, ekl_ptr, s_ptr) =
-            (ranges.len() as i32,
-             start_keys.as_ptr(),
-             start_key_lens.as_ptr(),
-             end_keys.as_ptr(),
-             end_key_lens.as_ptr(),
-             sizes.as_mut_ptr());
+        let (n,
+             start_key_ptr,
+             start_key_len_ptr,
+             end_key_ptr,
+             end_key_len_ptr,
+             size_ptr) = (ranges.len() as i32,
+                          start_keys.as_ptr(),
+                          start_key_lens.as_ptr(),
+                          end_keys.as_ptr(),
+                          end_key_lens.as_ptr(),
+                          sizes.as_mut_ptr());
         match cf {
             None => unsafe {
                 rocksdb_ffi::rocksdb_approximate_sizes(self.inner,
                                                        n,
-                                                       sk_ptr,
-                                                       skl_ptr,
-                                                       ek_ptr,
-                                                       ekl_ptr,
-                                                       s_ptr)
+                                                       start_key_ptr,
+                                                       start_key_len_ptr,
+                                                       end_key_ptr,
+                                                       end_key_len_ptr,
+                                                       size_ptr)
             },
             Some(cf) => unsafe {
                 rocksdb_ffi::rocksdb_approximate_sizes_cf(self.inner,
                                                           cf,
                                                           n,
-                                                          sk_ptr,
-                                                          skl_ptr,
-                                                          ek_ptr,
-                                                          ekl_ptr,
-                                                          s_ptr)
+                                                          start_key_ptr,
+                                                          start_key_len_ptr,
+                                                          end_key_ptr,
+                                                          end_key_len_ptr,
+                                                          size_ptr)
             },
         }
         sizes
@@ -829,11 +836,17 @@ impl Writable for DB {
     }
 }
 
-impl WriteBatch {
-    pub fn new() -> WriteBatch {
+impl Default for WriteBatch {
+    fn default() -> WriteBatch {
         WriteBatch {
             inner: unsafe { rocksdb_ffi::rocksdb_writebatch_create() },
         }
+    }
+}
+
+impl WriteBatch {
+    pub fn new() -> WriteBatch {
+        WriteBatch::default()
     }
 }
 
@@ -935,11 +948,17 @@ impl Drop for ReadOptions {
     }
 }
 
-impl ReadOptions {
-    fn new() -> ReadOptions {
+impl Default for ReadOptions {
+    fn default() -> ReadOptions {
         unsafe {
             ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create() }
         }
+    }
+}
+
+impl ReadOptions {
+    fn new() -> ReadOptions {
+        ReadOptions::default()
     }
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;

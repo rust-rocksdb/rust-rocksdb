@@ -19,9 +19,11 @@ use std::ptr;
 use std::slice;
 
 
+pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>;
+
 pub struct MergeOperatorCallback {
     pub name: CString,
-    pub merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
+    pub merge_fn: MergeFn,
 }
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -39,6 +41,7 @@ pub extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
     }
 }
 
+#[allow(too_many_arguments)]
 pub extern "C" fn full_merge_callback(raw_cb: *mut c_void,
                                       raw_key: *const c_char,
                                       key_len: size_t,
@@ -72,6 +75,7 @@ pub extern "C" fn full_merge_callback(raw_cb: *mut c_void,
     }
 }
 
+#[allow(too_many_arguments)]
 pub extern "C" fn partial_merge_callback(raw_cb: *mut c_void,
                                          raw_key: *const c_char,
                                          key_len: size_t,

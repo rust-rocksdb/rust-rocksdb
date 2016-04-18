@@ -17,9 +17,10 @@ use std::ffi::CString;
 use std::mem;
 
 use rocksdb_ffi;
-use merge_operator::{self, MergeOperands, MergeOperatorCallback,
-                     full_merge_callback, partial_merge_callback};
+use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
+                     partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
+use merge_operator::MergeFn;
 
 pub struct BlockBasedOptions {
     inner: rocksdb_ffi::DBBlockBasedTableOptions,
@@ -57,8 +58,8 @@ impl Drop for WriteOptions {
     }
 }
 
-impl BlockBasedOptions {
-    pub fn new() -> BlockBasedOptions {
+impl Default for BlockBasedOptions {
+    fn default() -> BlockBasedOptions {
         let block_opts = unsafe {
             rocksdb_ffi::rocksdb_block_based_options_create()
         };
@@ -67,6 +68,12 @@ impl BlockBasedOptions {
             panic!("Could not create rocksdb block based options".to_string());
         }
         BlockBasedOptions { inner: block_opts }
+    }
+}
+
+impl BlockBasedOptions {
+    pub fn new() -> BlockBasedOptions {
+        BlockBasedOptions::default()
     }
 
     pub fn set_block_size(&mut self, size: u64) {
@@ -85,24 +92,24 @@ impl BlockBasedOptions {
 // /    }
 // /}
 
-/// /pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
-/// /    unsafe {
-/// /        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
-/// /            self.inner, cache);
-/// /    }
-/// /}
+// /pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
+// /    unsafe {
+// /        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
+// /            self.inner, cache);
+// /    }
+// /}
 
-/// /pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
-/// /    unsafe {
-/// /        rocksdb_ffi::
-/// rocksdb_block_based_options_set_block_cache_compressed(
-/// /            self.inner, cache);
-/// /    }
-/// /}
+// /pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
+// /    unsafe {
+// /        rocksdb_ffi::
+// rocksdb_block_based_options_set_block_cache_compressed(
+// /            self.inner, cache);
+// /    }
+// /}
 
 
-impl Options {
-    pub fn new() -> Options {
+impl Default for Options {
+    fn default() -> Options {
         unsafe {
             let opts = rocksdb_ffi::rocksdb_options_create();
             let rocksdb_ffi::DBOptions(opt_ptr) = opts;
@@ -111,6 +118,12 @@ impl Options {
             }
             Options { inner: opts }
         }
+    }
+}
+
+impl Options {
+    pub fn new() -> Options {
+        Options::default()
     }
 
     pub fn increase_parallelism(&mut self, parallelism: i32) {
@@ -135,12 +148,7 @@ impl Options {
         }
     }
 
-    pub fn add_merge_operator(&mut self,
-                              name: &str,
-                              merge_fn: fn(&[u8],
-                                           Option<&[u8]>,
-                                           &mut MergeOperands)
-                                           -> Vec<u8>) {
+    pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
@@ -304,13 +312,10 @@ impl Options {
 
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe {
-            match disable {
-                true =>
-                    rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(
-                        self.inner, 1),
-                false =>
-                    rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(
-                        self.inner, 0),
+            if disable {
+                rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(self.inner, 1)
+            } else {
+                rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(self.inner, 0)
             }
         }
     }
@@ -323,14 +328,20 @@ impl Options {
     }
 }
 
-impl WriteOptions {
-    pub fn new() -> WriteOptions {
+impl Default for WriteOptions {
+    fn default() -> WriteOptions {
         let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
         let rocksdb_ffi::DBWriteOptions(opt_ptr) = write_opts;
         if opt_ptr.is_null() {
             panic!("Could not create rocksdb write options".to_string());
         }
         WriteOptions { inner: write_opts }
+    }
+}
+
+impl WriteOptions {
+    pub fn new() -> WriteOptions {
+        WriteOptions::default()
     }
     pub fn set_sync(&mut self, sync: bool) {
         unsafe {
