@@ -152,6 +152,10 @@ impl DBIterator {
         }
     }
 
+    pub fn valid(&self) -> bool {
+        unsafe { rocksdb_ffi::rocksdb_iter_valid(self.inner) }
+    }
+
     fn new_cf(db: &DB,
               cf_handle: DBCFHandle,
               readopts: &ReadOptions,
