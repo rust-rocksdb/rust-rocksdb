@@ -178,7 +178,7 @@ extern "C" {
     pub fn rocksdb_options_set_compaction_style(options: DBOptions,
                                                 cs: DBCompactionStyle);
     pub fn rocksdb_options_set_compression(options: DBOptions,
-                                           compression_style_no: c_int);
+                                           compression_style_no: DBCompressionType);
     pub fn rocksdb_options_set_max_background_compactions(
         options: DBOptions, max_bg_compactions: c_int);
     pub fn rocksdb_options_set_max_background_flushes(options: DBOptions,

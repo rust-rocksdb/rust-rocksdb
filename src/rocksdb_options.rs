@@ -16,7 +16,7 @@ use libc::{c_int, size_t};
 use std::ffi::CString;
 use std::mem;
 
-use rocksdb_ffi;
+use rocksdb_ffi::{self, DBCompressionType};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
@@ -145,6 +145,12 @@ impl Options {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_create_if_missing(
                 self.inner, create_if_missing);
+        }
+    }
+    
+    pub fn compression(&mut self, t: DBCompressionType) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_compression(self.inner, t);
         }
     }
 
