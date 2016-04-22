@@ -48,7 +48,10 @@ pub struct Snapshot<'a> {
     inner: rocksdb_ffi::DBSnapshot,
 }
 
-pub struct DBIterator {
+// We need to find a better way to add a lifetime in here.
+#[allow(dead_code)]
+pub struct DBIterator<'a> {
+    db: &'a DB,
     inner: rocksdb_ffi::DBIterator,
     direction: Direction,
     just_seeked: bool,
@@ -59,13 +62,12 @@ pub enum Direction {
     Reverse,
 }
 
-// TODO: should we use Vec<u8> instead?
-pub type Kv = (Box<[u8]>, Box<[u8]>);
+pub type Kv<'a> = (&'a [u8], &'a [u8]);
 
-impl Iterator for DBIterator {
-    type Item = Kv;
+impl<'a> Iterator for DBIterator<'a> {
+    type Item = Kv<'a>;
 
-    fn next(&mut self) -> Option<Kv> {
+    fn next(&mut self) -> Option<Kv<'a>> {
         let native_iter = self.inner;
         if self.just_seeked {
             self.just_seeked = false;
@@ -97,8 +99,7 @@ impl Iterator for DBIterator {
                 slice::from_raw_parts(val_ptr, val_len as usize)
             };
 
-            Some((key.to_vec().into_boxed_slice(),
-                  val.to_vec().into_boxed_slice()))
+            Some((key, val))
         } else {
             None
         }
@@ -112,13 +113,17 @@ pub enum IteratorMode<'a> {
 }
 
 
-impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+impl<'a> DBIterator<'a> {
+    fn new(db: &'a DB,
+           readopts: &ReadOptions,
+           mode: IteratorMode)
+           -> DBIterator<'a> {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
 
             let mut rv = DBIterator {
+                db: db,
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
@@ -156,11 +161,11 @@ impl DBIterator {
         unsafe { rocksdb_ffi::rocksdb_iter_valid(self.inner) }
     }
 
-    fn new_cf(db: &DB,
+    fn new_cf(db: &'a DB,
               cf_handle: DBCFHandle,
               readopts: &ReadOptions,
               mode: IteratorMode)
-              -> Result<DBIterator, String> {
+              -> Result<DBIterator<'a>, String> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
@@ -168,6 +173,7 @@ impl DBIterator {
                                                         cf_handle);
 
             let mut rv = DBIterator {
+                db: db,
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
@@ -180,7 +186,7 @@ impl DBIterator {
     }
 }
 
-impl Drop for DBIterator {
+impl<'a> Drop for DBIterator<'a> {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_iter_destroy(self.inner);

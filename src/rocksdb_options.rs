@@ -147,7 +147,7 @@ impl Options {
                 self.inner, create_if_missing);
         }
     }
-    
+
     pub fn compression(&mut self, t: DBCompressionType) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression(self.inner, t);
