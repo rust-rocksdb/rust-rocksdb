@@ -167,6 +167,8 @@ extern "C" {
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
+    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: DBOptions, mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
                                                  bytes: usize);
     pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
