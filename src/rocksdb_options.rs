@@ -82,6 +82,15 @@ impl BlockBasedOptions {
                                                                     size);
         }
     }
+
+    pub fn set_lru_cache(&mut self, size: size_t) {
+        let cache = rocksdb_ffi::new_cache(size);
+        unsafe {
+            // because cache is wrapped in shared_ptr, so we don't need to call
+            // rocksdb_cache_destroy explicitly.
+            rocksdb_ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
+        }
+    }
 }
 
 // TODO figure out how to create these in a Rusty way
