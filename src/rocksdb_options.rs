@@ -260,6 +260,18 @@ impl Options {
         }
     }
 
+    pub fn set_max_bytes_for_level_base(&mut self, size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_bytes_for_level_base(self.inner, size);
+        }
+    }
+
+    pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_bytes_for_level_multiplier(self.inner, mul);
+        }
+    }
+
     pub fn set_target_file_size_base(&mut self, size: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_target_file_size_base(self.inner,
