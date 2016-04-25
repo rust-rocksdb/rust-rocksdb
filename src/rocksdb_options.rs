@@ -82,6 +82,15 @@ impl BlockBasedOptions {
                                                                     size);
         }
     }
+
+    pub fn set_lru_cache(&mut self, size: size_t) {
+        let cache = rocksdb_ffi::new_cache(size);
+        unsafe {
+            // because cache is wrapped in shared_ptr, so we don't need to call
+            // rocksdb_cache_destroy explicitly.
+            rocksdb_ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
+        }
+    }
 }
 
 // TODO figure out how to create these in a Rusty way
@@ -232,6 +241,13 @@ impl Options {
         }
     }
 
+    pub fn allow_os_buffer(&mut self, is_allow: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_allow_os_buffer(self.inner,
+                                                             is_allow);
+        }
+    }
+
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_table_cache_numshardbits(self.inner,
@@ -257,6 +273,18 @@ impl Options {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_write_buffer_size(self.inner,
                                                                size);
+        }
+    }
+
+    pub fn set_max_bytes_for_level_base(&mut self, size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_bytes_for_level_base(self.inner, size);
+        }
+    }
+
+    pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_bytes_for_level_multiplier(self.inner, mul);
         }
     }
 

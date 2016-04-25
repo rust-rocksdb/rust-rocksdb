@@ -147,6 +147,7 @@ extern "C" {
     pub fn rocksdb_options_set_bytes_per_sync(options: DBOptions, bytes: u64);
     pub fn rocksdb_options_set_disable_data_sync(options: DBOptions,
                                                  v: c_int);
+    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions, is_allow: bool);
     pub fn rocksdb_options_optimize_for_point_lookup(options: DBOptions,
                                                      block_cache_size_mb: u64);
     pub fn rocksdb_options_set_table_cache_numshardbits(options: DBOptions,
@@ -167,6 +168,8 @@ extern "C" {
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
+    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: DBOptions, mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
                                                  bytes: u64);
     pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
