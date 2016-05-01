@@ -429,7 +429,7 @@ fn internal() {
 
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
-        let db = rocksdb_open(opts, cpath_ptr, err_ptr);
+        let db = rocksdb_open(opts, cpath_ptr as *const _, err_ptr);
         if !err.is_null() {
             println!("failed to open rocksdb: {}", error_message(err));
         }
@@ -464,7 +464,7 @@ fn internal() {
         rocksdb_readoptions_destroy(readopts);
         assert!(err.is_null());
         rocksdb_close(db);
-        rocksdb_destroy_db(opts, cpath_ptr, err_ptr);
+        rocksdb_destroy_db(opts, cpath_ptr as *const _, err_ptr);
         assert!(err.is_null());
     }
 }
