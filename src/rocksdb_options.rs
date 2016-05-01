@@ -329,8 +329,7 @@ impl Options {
 impl WriteOptions {
     pub fn new() -> WriteOptions {
         let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
-        let rocksdb_ffi::DBWriteOptions(opt_ptr) = write_opts;
-        if opt_ptr.is_null() {
+        if write_opts.is_null() {
             panic!("Could not create rocksdb write options".to_string());
         }
         WriteOptions { inner: write_opts }

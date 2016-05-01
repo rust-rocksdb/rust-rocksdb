@@ -422,7 +422,7 @@ fn internal() {
     unsafe {
         use std::ffi::CString;
         let opts = rocksdb_options_create();
-        assert!(!opts.0.is_null());
+        assert!(!opts.is_null());
 
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
@@ -441,7 +441,7 @@ fn internal() {
         assert!(err.is_null());
 
         let writeopts = rocksdb_writeoptions_create();
-        assert!(!writeopts.0.is_null());
+        assert!(!writeopts.is_null());
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
@@ -456,7 +456,7 @@ fn internal() {
         assert!(err.is_null());
 
         let readopts = rocksdb_readoptions_create();
-        assert!(!readopts.0.is_null());
+        assert!(!readopts.is_null());
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
