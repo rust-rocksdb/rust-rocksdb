@@ -162,17 +162,17 @@ extern "C" {
     pub fn rocksdb_options_set_level0_stop_writes_trigger(options: DBOptions,
                                                           no: c_int);
     pub fn rocksdb_options_set_write_buffer_size(options: DBOptions,
-                                                 bytes: u64);
+                                                 bytes: usize);
     pub fn rocksdb_options_set_target_file_size_base(options: DBOptions,
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
-                                                 bytes: u64);
+                                                 bytes: usize);
     pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
-                                                      bytes: u64);
+                                                      bytes: usize);
     pub fn rocksdb_options_set_hash_skip_list_rep(options: DBOptions,
-                                                  bytes: u64,
+                                                  bytes: usize,
                                                   a1: i32,
                                                   a2: i32);
     pub fn rocksdb_options_set_compaction_style(options: DBOptions,
