@@ -384,9 +384,13 @@ impl WriteOptions {
         }
     }
 
-    pub fn disable_wal(&mut self) {
+    pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
-            rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 1);
+            if disable {
+                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 1);
+            } else {
+                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 0);
+            }
         }
     }
 }

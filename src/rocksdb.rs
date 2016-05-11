@@ -442,7 +442,7 @@ impl DB {
 
     pub fn write_withou_wal(&self, batch: WriteBatch) -> Result<(), String> {
         let mut wo = WriteOptions::new();
-        wo.disable_wal();
+        wo.disable_wal(true);
         self.write_opt(batch, &wo)
     }
 
