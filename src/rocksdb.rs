@@ -434,6 +434,12 @@ impl DB {
         self.write_opt(batch, &WriteOptions::default())
     }
 
+    pub fn write_withou_wal(&self, batch: WriteBatch) -> Result<(), String> {
+        let mut wo = WriteOptions::new();
+        wo.disable_wal(true);
+        self.write_opt(batch, &wo)
+    }
+
     pub fn get_opt(&self,
                    key: &[u8],
                    readopts: &ReadOptions)
