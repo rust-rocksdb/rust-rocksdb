@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -108,7 +107,7 @@ pub fn error_message(ptr: *const i8) -> String {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 #[link(name = "rocksdb")]
-extern {
+extern "C" {
     pub fn rocksdb_options_create() -> DBOptions;
     pub fn rocksdb_options_destroy(opts: DBOptions);
     pub fn rocksdb_cache_create_lru(capacity: size_t) -> DBCache;
@@ -174,11 +173,11 @@ extern {
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
-                                                 bytes: u64);
+                                                 bytes: usize);
     pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
-                                                      bytes: u64);
+                                                      bytes: usize);
     pub fn rocksdb_options_set_hash_skip_list_rep(options: DBOptions,
-                                                  bytes: u64,
+                                                  bytes: usize,
                                                   a1: i32,
                                                   a2: i32);
     pub fn rocksdb_options_set_compaction_style(options: DBOptions,
@@ -202,6 +201,9 @@ extern {
                         -> DBInstance;
     pub fn rocksdb_writeoptions_create() -> DBWriteOptions;
     pub fn rocksdb_writeoptions_destroy(writeopts: DBWriteOptions);
+    pub fn rocksdb_writeoptions_set_sync(writeopts: DBWriteOptions, v: bool);
+    pub fn rocksdb_writeoptions_disable_WAL(writeopts: DBWriteOptions,
+                                            v: c_int);
     pub fn rocksdb_put(db: DBInstance,
                        writeopts: DBWriteOptions,
                        k: *const u8,
@@ -388,15 +390,17 @@ extern {
     // Comparator
     pub fn rocksdb_options_set_comparator(options: DBOptions,
                                           cb: DBComparator);
-    pub fn rocksdb_comparator_create(
-        state: *mut c_void,
-        destroy: extern fn(*mut c_void) -> (),
-        compare: extern fn (arg: *mut c_void,
-                            a: *const c_char, alen: size_t,
-                            b: *const c_char, blen: size_t
-                           ) -> c_int,
-        name_fn: extern fn(*mut c_void) -> *const c_char
-    ) -> DBComparator;
+    pub fn rocksdb_comparator_create(state: *mut c_void,
+                                     destroy: extern "C" fn(*mut c_void) -> (),
+                                     compare: extern "C" fn(arg: *mut c_void,
+                                                            a: *const c_char,
+                                                            alen: size_t,
+                                                            b: *const c_char,
+                                                            blen: size_t)
+                                                            -> c_int,
+                                     name_fn: extern "C" fn(*mut c_void)
+                                                            -> *const c_char)
+                                     -> DBComparator;
     pub fn rocksdb_comparator_destroy(cmp: DBComparator);
 
     // Column Family
@@ -444,8 +448,9 @@ extern {
 #[test]
 fn internal() {
     unsafe {
+        use std::ffi::CString;
         let opts = rocksdb_options_create();
-        assert!(!opts.0.is_null());
+        assert!(!opts.is_null());
 
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
@@ -457,14 +462,14 @@ fn internal() {
 
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
-        let db = rocksdb_open(opts, cpath_ptr, err_ptr);
+        let db = rocksdb_open(opts, cpath_ptr as *const _, err_ptr);
         if !err.is_null() {
             println!("failed to open rocksdb: {}", error_message(err));
         }
         assert!(err.is_null());
 
         let writeopts = rocksdb_writeoptions_create();
-        assert!(!writeopts.0.is_null());
+        assert!(!writeopts.is_null());
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
@@ -479,7 +484,7 @@ fn internal() {
         assert!(err.is_null());
 
         let readopts = rocksdb_readoptions_create();
-        assert!(!readopts.0.is_null());
+        assert!(!readopts.is_null());
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
@@ -492,7 +497,7 @@ fn internal() {
         rocksdb_readoptions_destroy(readopts);
         assert!(err.is_null());
         rocksdb_close(db);
-        rocksdb_destroy_db(opts, cpath_ptr, err_ptr);
+        rocksdb_destroy_db(opts, cpath_ptr as *const _, err_ptr);
         assert!(err.is_null());
     }
 }

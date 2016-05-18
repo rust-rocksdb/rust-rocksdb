@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,6 +35,10 @@ pub struct Options {
     pub inner: rocksdb_ffi::DBOptions,
 }
 
+pub struct WriteOptions {
+    pub inner: rocksdb_ffi::DBWriteOptions,
+}
+
 impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
@@ -48,6 +51,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for WriteOptions {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writeoptions_destroy(self.inner);
         }
     }
 }
@@ -140,7 +151,10 @@ impl Options {
 
     pub fn add_merge_operator<'a>(&mut self,
                                   name: &str,
-                                  merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>) {
+                                  merge_fn: fn(&[u8],
+                                               Option<&[u8]>,
+                                               &mut MergeOperands)
+                                               -> Vec<u8>) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
@@ -199,10 +213,12 @@ impl Options {
     pub fn set_use_fsync(&mut self, useit: bool) {
         unsafe {
             match useit {
-                true =>
-                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 1),
-                false =>
-                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 0),
+                true => {
+                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 1)
+                }
+                false => {
+                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 0)
+                }
             }
         }
     }
@@ -327,6 +343,21 @@ impl Options {
                                          factory: &BlockBasedOptions) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
+        }
+    }
+}
+
+impl WriteOptions {
+    pub fn new() -> WriteOptions {
+        let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+        if write_opts.is_null() {
+            panic!("Could not create rocksdb write options".to_string());
+        }
+        WriteOptions { inner: write_opts }
+    }
+    pub fn set_sync(&mut self, sync: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writeoptions_set_sync(self.inner, sync);
         }
     }
 }

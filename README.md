@@ -2,7 +2,7 @@ rust-rocksdb
 ============
 
 
-This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.0 crate should work with the Rust 1.5 stable and nightly releases as of 1/4/16.
+This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.5 crate should work with the Rust 1.5 stable and nightly releases as of 5/1/16.
 
 ###### Fork features
 

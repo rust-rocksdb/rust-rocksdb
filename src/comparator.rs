@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,33 +52,4 @@ pub extern "C" fn compare_callback(raw_cb: *mut c_void,
                                              b_len as usize);
         (cb.f)(a, b)
     }
-}
-
-#[cfg(test)]
-fn test_reverse_compare(a: &[u8], b: &[u8]) -> c_int {
-    if a < b {
-        1
-    } else if a > b {
-        -1
-    } else {
-        0
-    }
-}
-
-#[allow(dead_code)]
-#[test]
-#[ignore]
-fn compare_works() {
-   use rocksdb::DB;
-   use rocksdb_options::Options;
-
-   let path = "_rust_rocksdb_comparetest";
-   let mut opts = Options::new();
-   opts.create_if_missing(true);
-   opts.add_comparator("test comparator", test_reverse_compare);
-   {
-       let _db = DB::open(&opts, path).unwrap();
-       // TODO add interesting test
-   }
-   assert!(DB::destroy(&opts, path).is_ok());
 }

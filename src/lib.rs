@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-
 extern crate librocksdb_sys;
 pub use librocksdb_sys::rocksdb_ffi as rocksdb_ffi;
 pub use rocksdb_ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
-pub use rocksdb::{DB, DBIterator, DBVector, Direction, Writable, WriteBatch, IteratorMode};
-pub use rocksdb_options::{BlockBasedOptions, Options, IndexType};
+pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
+                  WriteBatch};
+pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions, IndexType};
 pub use merge_operator::MergeOperands;
 pub mod rocksdb;
 pub mod rocksdb_options;

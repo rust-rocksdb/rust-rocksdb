@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,11 +38,15 @@ pub fn test_column_family() {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
         match DB::open(&opts, path) {
-            Ok(_) => panic!("should not have opened DB successfully without \
-                             specifying column
-            families"),
-            Err(e) => assert!(e.starts_with("Invalid argument: You have to \
-                                             open all column families.")),
+            Ok(_) => {
+                panic!("should not have opened DB successfully without \
+                        specifying column
+            families")
+            }
+            Err(e) => {
+                assert!(e.starts_with("Invalid argument: You have to open \
+                                       all column families."))
+            }
         }
     }
 

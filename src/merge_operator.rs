@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -135,21 +134,19 @@ impl<'a> Iterator for &'a mut MergeOperands {
     fn next(&mut self) -> Option<&'a [u8]> {
         match self.cursor == self.num_operands {
             true => None,
-            false => {
-                unsafe {
-                    let base = self.operands_list as usize;
-                    let base_len = self.operands_list_len as usize;
-                    let spacing = mem::size_of::<*const *const u8>();
-                    let spacing_len = mem::size_of::<*const size_t>();
-                    let len_ptr = (base_len + (spacing_len * self.cursor))
-                        as *const size_t;
-                    let len = *len_ptr as usize;
-                    let ptr = base + (spacing * self.cursor);
-                    self.cursor += 1;
-                    Some(mem::transmute(slice::from_raw_parts(*(ptr as *const *const u8)
+            false => unsafe {
+                let base = self.operands_list as usize;
+                let base_len = self.operands_list_len as usize;
+                let spacing = mem::size_of::<*const *const u8>();
+                let spacing_len = mem::size_of::<*const size_t>();
+                let len_ptr =
+                    (base_len + (spacing_len * self.cursor)) as *const size_t;
+                let len = *len_ptr as usize;
+                let ptr = base + (spacing * self.cursor);
+                self.cursor += 1;
+                Some(mem::transmute(slice::from_raw_parts(*(ptr as *const *const u8)
                         as *const u8, len)))
-                }
-            }
+            },
         }
     }
 
@@ -159,8 +156,10 @@ impl<'a> Iterator for &'a mut MergeOperands {
     }
 }
 
+#[allow(unused_variables)]
+#[allow(dead_code)]
 #[cfg(test)]
-fn test_provided_merge(_new_key: &[u8],
+fn test_provided_merge(new_key: &[u8],
                        existing_val: Option<&[u8]>,
                        operands: &mut MergeOperands)
                        -> Vec<u8> {
@@ -184,7 +183,11 @@ fn test_provided_merge(_new_key: &[u8],
 
 #[allow(dead_code)]
 #[test]
+
 fn mergetest() {
+    use rocksdb_options::Options;
+    use rocksdb::{DB, DBVector, Writable};
+
     let path = "_rust_rocksdb_mergetest";
     let mut opts = Options::new();
     opts.create_if_missing(true);
@@ -193,10 +196,10 @@ fn mergetest() {
         let db = DB::open(&opts, path).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
-        db.merge(b"k1", b"b").unwrap();
-        db.merge(b"k1", b"c").unwrap();
-        db.merge(b"k1", b"d").unwrap();
-        db.merge(b"k1", b"efg").unwrap();
+        let _ = db.merge(b"k1", b"b");
+        let _ = db.merge(b"k1", b"c");
+        let _ = db.merge(b"k1", b"d");
+        let _ = db.merge(b"k1", b"efg");
         let m = db.merge(b"k1", b"h");
         assert!(m.is_ok());
         match db.get(b"k1") {
@@ -206,9 +209,7 @@ fn mergetest() {
                     None => println!("did not read valid utf-8 out of the db"),
                 }
             }
-            Err(_) => {
-                println!("error reading value")
-            }
+            Err(e) => println!("error reading value"),
             _ => panic!("value not present"),
         }
 
