@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate librocksdb_sys;
-pub use librocksdb_sys::rocksdb_ffi as rocksdb_ffi;
+extern crate rocksdb_sys;
+pub use rocksdb_sys::rocksdb_ffi as rocksdb_ffi;
 pub use rocksdb_ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
 pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
                   WriteBatch};

@@ -4,6 +4,7 @@ fn main() {
 	let mut config = gcc::Config::new();
 	config.include("rocksdb/include/");
 	config.include("rocksdb/");
+	config.include("snappy/");
 	config.include(".");
 
 	config.define("NDEBUG", Some("1"));
@@ -200,5 +201,33 @@ fn main() {
 
 	config.cpp(true);
 	config.compile("librocksdb.a");
+
+	let mut snappy_config = gcc::Config::new();
+	snappy_config.include("snappy/");
+
+	snappy_config.define("NDEBUG", Some("1"));
+
+	if cfg!(target_os = "macos") {
+		snappy_config.define("OS_MACOSX", Some("1"));
+
+	}
+	if cfg!(target_os = "linux") {
+		snappy_config.define("OS_LINUX", Some("1"));
+        //COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
+	}
+
+	if cfg!(windows) {
+		snappy_config.define("OS_WIN", Some("1"));
+	} else {
+		snappy_config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
+		snappy_config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+	}
+
+	snappy_config.flag("-std=c++11");
+
+	snappy_config.file("snappy/snappy.cc");
+	snappy_config.file("snappy/snappy-sinksource.cc");
+	snappy_config.cpp(true);
+	snappy_config.compile("libsnappy.a");
 }
 
