@@ -1,7 +1,7 @@
 use rocksdb::{DB, Writable, SeekKey, DBIterator, Kv};
 use tempdir::TempDir;
 
-fn prev_collect<'a>(mut iter: DBIterator<'a>) -> Vec<Kv> {
+fn prev_collect<'a>(iter: &mut DBIterator<'a>) -> Vec<Kv> {
     let mut buf = vec![];
     while iter.valid() {
         buf.push(iter.kv().unwrap());
@@ -33,32 +33,35 @@ pub fn test_iterator() {
                         (k2.to_vec(), v2.to_vec()),
                         (k3.to_vec(), v3.to_vec())];
 
-    let mut iter = db.iter(SeekKey::Start);
+    let mut iter = db.iter();
+    
+    iter.seek(SeekKey::Start);
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     // Test that it's idempotent
-    iter = db.iter(SeekKey::Start);
+    iter.seek(SeekKey::Start);
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     // Test it in reverse a few times
-    iter = db.iter(SeekKey::End);
-    let mut tmp_vec = prev_collect(iter);
+    iter.seek(SeekKey::End);
+    let mut tmp_vec = prev_collect(&mut iter);
     tmp_vec.reverse();
     assert_eq!(tmp_vec, expected);
 
-    iter = db.iter(SeekKey::End);
-    let mut tmp_vec = prev_collect(iter);
+    iter.seek(SeekKey::End);
+    let mut tmp_vec = prev_collect(&mut iter);
     tmp_vec.reverse();
     assert_eq!(tmp_vec, expected);
 
     // Try it forward again
-    iter = db.iter(SeekKey::Start);
+    iter.seek(SeekKey::Start);
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    iter = db.iter(SeekKey::Start);
+    iter.seek(SeekKey::Start);
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    let old_iterator = db.iter(SeekKey::Start);
+    let mut old_iterator = db.iter();
+    old_iterator.seek(SeekKey::Start);
     let p = db.put(&*k4, &*v4);
     assert!(p.is_ok());
     let expected2 = vec![(k1.to_vec(), v1.to_vec()),
@@ -67,20 +70,21 @@ pub fn test_iterator() {
                          (k4.to_vec(), v4.to_vec())];
     assert_eq!(old_iterator.collect::<Vec<_>>(), expected);
 
-    iter = db.iter(SeekKey::Start);
+    iter = db.iter();
+    iter.seek(SeekKey::Start);
     assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
-    iter = db.iter(SeekKey::Key(k2));
+    iter.seek(SeekKey::Key(k2));
     let expected = vec![(k2.to_vec(), v2.to_vec()),
                         (k3.to_vec(), v3.to_vec()),
                         (k4.to_vec(), v4.to_vec())];
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    iter = db.iter(SeekKey::Key(k2));
+    iter.seek(SeekKey::Key(k2));
     let expected = vec![(k2.to_vec(), v2.to_vec()), (k1.to_vec(), v1.to_vec())];
-    assert_eq!(prev_collect(iter), expected);
+    assert_eq!(prev_collect(&mut iter), expected);
 
-    iter = db.iter(SeekKey::Key(b"k0"));
+    iter.seek(SeekKey::Key(b"k0"));
     assert!(iter.valid());
     iter.seek(SeekKey::Key(b"k1"));
     assert!(iter.valid());
