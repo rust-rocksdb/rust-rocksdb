@@ -129,13 +129,13 @@ fn main() {
         db.merge(b"k1", b"efg");
         db.merge(b"k1", b"h");
         db.get(b"k1")
-          .map(|value| {
-              match value.to_utf8() {
-                  Some(v) => (),
-                  None => panic!("value corrupted"),
-              }
-          })
-          .or_else(|e| panic!("error retrieving value: {}", e));
+            .map(|value| {
+                match value.to_utf8() {
+                    Some(v) => (),
+                    None => panic!("value corrupted"),
+                }
+            })
+            .or_else(|e| panic!("error retrieving value: {}", e));
         db.delete(b"k1");
     }
 }

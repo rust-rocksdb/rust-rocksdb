@@ -60,9 +60,8 @@ impl Drop for WriteOptions {
 
 impl Default for BlockBasedOptions {
     fn default() -> BlockBasedOptions {
-        let block_opts = unsafe {
-            rocksdb_ffi::rocksdb_block_based_options_create()
-        };
+        let block_opts =
+            unsafe { rocksdb_ffi::rocksdb_block_based_options_create() };
         let rocksdb_ffi::DBBlockBasedTableOptions(opt_ptr) = block_opts;
         if opt_ptr.is_null() {
             panic!("Could not create rocksdb block based options".to_string());

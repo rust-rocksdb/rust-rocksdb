@@ -1,8 +1,13 @@
-use rocksdb::{DB, Direction, IteratorMode, Writable, Kv};
+use rocksdb::{DB, Writable, SeekKey, DBIterator, Kv};
 use tempdir::TempDir;
 
-fn collect<'a, T: Iterator<Item=Kv<'a>>>(iter: T) -> Vec<(Vec<u8>, Vec<u8>)> {
-    iter.map(|(k, v)| (k.to_vec(), v.to_vec())).collect()
+fn prev_collect<'a>(mut iter: DBIterator<'a>) -> Vec<Kv> {
+    let mut buf = vec![];
+    while iter.valid() {
+        buf.push(iter.kv().unwrap());
+        iter.prev();
+    }
+    buf
 }
 
 #[test]
@@ -28,96 +33,79 @@ pub fn test_iterator() {
                         (k2.to_vec(), v2.to_vec()),
                         (k3.to_vec(), v3.to_vec())];
 
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected);
+    let mut iter = db.iter(SeekKey::Start);
+    assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     // Test that it's idempotent
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected);
-
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected);
-
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected);
+    iter = db.iter(SeekKey::Start);
+    assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     // Test it in reverse a few times
-    let iterator1 = db.iterator(IteratorMode::End);
-    let mut tmp_vec = collect(iterator1);
+    iter = db.iter(SeekKey::End);
+    let mut tmp_vec = prev_collect(iter);
     tmp_vec.reverse();
     assert_eq!(tmp_vec, expected);
 
-    let iterator1 = db.iterator(IteratorMode::End);
-    let mut tmp_vec = collect(iterator1);
-    tmp_vec.reverse();
-    assert_eq!(tmp_vec, expected);
-
-    let iterator1 = db.iterator(IteratorMode::End);
-    let mut tmp_vec = collect(iterator1);
-    tmp_vec.reverse();
-    assert_eq!(tmp_vec, expected);
-
-    let iterator1 = db.iterator(IteratorMode::End);
-    let mut tmp_vec = collect(iterator1);
-    tmp_vec.reverse();
-    assert_eq!(tmp_vec, expected);
-
-    let iterator1 = db.iterator(IteratorMode::End);
-    let mut tmp_vec = collect(iterator1);
+    iter = db.iter(SeekKey::End);
+    let mut tmp_vec = prev_collect(iter);
     tmp_vec.reverse();
     assert_eq!(tmp_vec, expected);
 
     // Try it forward again
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected);
+    iter = db.iter(SeekKey::Start);
+    assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected);
+    iter = db.iter(SeekKey::Start);
+    assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    let old_iterator = db.iterator(IteratorMode::Start);
+    let old_iterator = db.iter(SeekKey::Start);
     let p = db.put(&*k4, &*v4);
     assert!(p.is_ok());
     let expected2 = vec![(k1.to_vec(), v1.to_vec()),
                          (k2.to_vec(), v2.to_vec()),
                          (k3.to_vec(), v3.to_vec()),
                          (k4.to_vec(), v4.to_vec())];
-    assert_eq!(collect(old_iterator), expected);
+    assert_eq!(old_iterator.collect::<Vec<_>>(), expected);
 
-    let iterator1 = db.iterator(IteratorMode::Start);
-    assert_eq!(collect(iterator1), expected2);
+    iter = db.iter(SeekKey::Start);
+    assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
-    let iterator1 = db.iterator(IteratorMode::From(b"k2",
-                                                   Direction::Forward));
+    iter = db.iter(SeekKey::Key(k2));
     let expected = vec![(k2.to_vec(), v2.to_vec()),
                         (k3.to_vec(), v3.to_vec()),
                         (k4.to_vec(), v4.to_vec())];
-    assert_eq!(collect(iterator1), expected);
+    assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    let iterator1 = db.iterator(IteratorMode::From(b"k2",
-                                                   Direction::Reverse));
+    iter = db.iter(SeekKey::Key(k2));
     let expected = vec![(k2.to_vec(), v2.to_vec()), (k1.to_vec(), v1.to_vec())];
-    assert_eq!(collect(iterator1), expected);
+    assert_eq!(prev_collect(iter), expected);
 
-    let iterator1 = db.iterator(IteratorMode::From(b"k0", Direction::Forward));
-    assert!(iterator1.valid());
-    let iterator2 = db.iterator(IteratorMode::From(b"k1", Direction::Forward));
-    assert!(iterator2.valid());
-    let iterator3 = db.iterator(IteratorMode::From(b"k11", Direction::Forward));
-    assert!(iterator3.valid());
-    let iterator4 = db.iterator(IteratorMode::From(b"k5", Direction::Forward));
-    assert!(!iterator4.valid());
-    let iterator5 = db.iterator(IteratorMode::From(b"k0", Direction::Reverse));
-    assert!(iterator5.valid());
-    let iterator6 = db.iterator(IteratorMode::From(b"k1", Direction::Reverse));
-    assert!(iterator6.valid());
-    let iterator7 = db.iterator(IteratorMode::From(b"k11", Direction::Reverse));
-    assert!(iterator7.valid());
-    let iterator8 = db.iterator(IteratorMode::From(b"k5", Direction::Reverse));
-    assert!(!iterator8.valid());
+    iter = db.iter(SeekKey::Key(b"k0"));
+    assert!(iter.valid());
+    iter.seek(SeekKey::Key(b"k1"));
+    assert!(iter.valid());
+    iter.seek(SeekKey::Key(b"k11"));
+    assert!(iter.valid());
+    iter.seek(SeekKey::Key(b"k5"));
+    assert!(!iter.valid());
+    iter.seek(SeekKey::Key(b"k0"));
+    assert!(iter.valid());
+    iter.seek(SeekKey::Key(b"k1"));
+    assert!(iter.valid());
+    iter.seek(SeekKey::Key(b"k11"));
+    assert!(iter.valid());
+    iter.seek(SeekKey::Key(b"k5"));
+    assert!(!iter.valid());
 
-    let mut iterator1 = db.iterator(IteratorMode::From(b"k4", Direction::Forward));
-    iterator1.next();
-    assert!(iterator1.valid());
-    iterator1.next();
-    assert!(!iterator1.valid());
+    iter.seek(SeekKey::Key(b"k4"));
+    assert!(iter.valid());
+    iter.prev();
+    assert!(iter.valid());
+    iter.next();
+    assert!(iter.valid());
+    iter.next();
+    assert!(!iter.valid());
+    // Once iterator is invalid, it can't be reverted.
+    iter.prev();
+    assert!(!iter.valid());
 }
