@@ -1,5 +1,18 @@
 extern crate gcc;
 
+pub fn link(name: &str, bundled: bool) {
+    use std::env::var;
+    let target = var("TARGET").unwrap();
+    let target: Vec<_> = target.split('-').collect();
+    if target.get(2) == Some(&"windows") {
+        println!("cargo:rustc-link-lib=dylib={}", name);
+        if bundled && target.get(3) == Some(&"gnu") {
+            let dir = var("CARGO_MANIFEST_DIR").unwrap();
+            println!("cargo:rustc-link-search=native={}/{}", dir, target[0]);
+        }
+    }
+}
+
 fn main() {
 	let mut config = gcc::Config::new();
 	config.include("rocksdb/include/");
@@ -20,13 +33,25 @@ fn main() {
 	}
 
 	if cfg!(windows) {
+		link("rpcrt4", false);
 		config.define("OS_WIN", Some("1"));
+		config.file("rocksdb/port/win/port_win.cc");
+		config.file("rocksdb/port/win/env_win.cc");
+		config.file("rocksdb/port/win/win_logger.cc");
 	} else {
 		config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
 		config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+		config.file("rocksdb/port/port_posix.cc");
+		config.file("rocksdb/util/env_posix.cc");
+		config.file("rocksdb/util/io_posix.cc");
+		config.file("rocksdb/util/thread_posix.cc");
 	}
 
-	config.flag("-std=c++11");
+	if !cfg!(target_env = "msvc") {
+		config.flag("-std=c++11");
+	} else {
+		config.flag("-EHsc");
+	}
 
 	config.file("rocksdb/db/auto_roll_logger.cc");
 	config.file("rocksdb/db/builder.cc");
@@ -83,7 +108,7 @@ fn main() {
 	config.file("rocksdb/memtable/skiplistrep.cc");
 	config.file("rocksdb/memtable/vectorrep.cc");
 	config.file("rocksdb/port/stack_trace.cc");
-	config.file("rocksdb/port/port_posix.cc");
+	
 	config.file("rocksdb/table/adaptive_table_factory.cc");
 	config.file("rocksdb/table/block_based_filter_block.cc");
 	config.file("rocksdb/table/block_based_table_builder.cc");
@@ -125,9 +150,6 @@ fn main() {
 	config.file("rocksdb/util/dynamic_bloom.cc");
 	config.file("rocksdb/util/env.cc");
 	config.file("rocksdb/util/env_hdfs.cc");
-	config.file("rocksdb/util/env_posix.cc");
-	config.file("rocksdb/util/io_posix.cc");
-	config.file("rocksdb/util/thread_posix.cc");
 	config.file("rocksdb/util/sst_file_manager_impl.cc");
 	config.file("rocksdb/util/file_util.cc");
 	config.file("rocksdb/util/file_reader_writer.cc");
@@ -204,26 +226,15 @@ fn main() {
 
 	let mut snappy_config = gcc::Config::new();
 	snappy_config.include("snappy/");
+	snappy_config.include(".");
 
 	snappy_config.define("NDEBUG", Some("1"));
 
-	if cfg!(target_os = "macos") {
-		snappy_config.define("OS_MACOSX", Some("1"));
-
-	}
-	if cfg!(target_os = "linux") {
-		snappy_config.define("OS_LINUX", Some("1"));
-        //COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
-	}
-
-	if cfg!(windows) {
-		snappy_config.define("OS_WIN", Some("1"));
+	if !cfg!(target_env = "msvc") {
+		snappy_config.flag("-std=c++11");
 	} else {
-		snappy_config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
-		snappy_config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+		snappy_config.flag("-EHsc");
 	}
-
-	snappy_config.flag("-std=c++11");
 
 	snappy_config.file("snappy/snappy.cc");
 	snappy_config.file("snappy/snappy-sinksource.cc");
