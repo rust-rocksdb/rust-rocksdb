@@ -147,7 +147,8 @@ extern "C" {
     pub fn rocksdb_options_set_bytes_per_sync(options: DBOptions, bytes: u64);
     pub fn rocksdb_options_set_disable_data_sync(options: DBOptions,
                                                  v: c_int);
-    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions, is_allow: bool);
+    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions,
+                                               is_allow: bool);
     pub fn rocksdb_options_optimize_for_point_lookup(options: DBOptions,
                                                      block_cache_size_mb: u64);
     pub fn rocksdb_options_set_table_cache_numshardbits(options: DBOptions,
@@ -168,7 +169,8 @@ extern "C" {
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
-    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions,
+                                                        bytes: u64);
     pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: DBOptions, mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
                                                  bytes: u64);
@@ -443,13 +445,27 @@ extern "C" {
                                         range_limit_key: *const *const u8,
                                         range_limit_key_len: *const size_t,
                                         sizes: *mut uint64_t);
+    pub fn rocksdb_delete_file_in_range(db: DBInstance,
+                                        range_start_key: *const u8,
+                                        range_start_key_len: size_t,
+                                        range_limit_key: *const u8,
+                                        range_limit_key_len: size_t,
+                                        err: *mut *const i8);
+    pub fn rocksdb_delete_file_in_range_cf(db: DBInstance,
+                                           cf: DBCFHandle,
+                                           range_start_key: *const u8,
+                                           range_start_key_len: size_t,
+                                           range_limit_key: *const u8,
+                                           range_limit_key_len: size_t,
+                                           err: *mut *const i8);
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use std::ffi::CString;
-    use tempdir::TempDir;
+    extern crate tempdir;
+    use self::tempdir::TempDir;
 
     #[test]
     fn internal() {
@@ -462,9 +478,9 @@ mod test {
             rocksdb_options_set_create_if_missing(opts, true);
 
             let rustpath = TempDir::new("_rust_rocksdb_internaltest")
-                               .expect("");
+                .expect("");
             let cpath = CString::new(rustpath.path().to_str().unwrap())
-                            .unwrap();
+                .unwrap();
             let cpath_ptr = cpath.as_ptr();
 
             let mut err = 0 as *const i8;
@@ -516,6 +532,14 @@ mod test {
                                       sizes.as_mut_ptr());
             assert_eq!(sizes.len(), 1);
             assert!(sizes[0] > 0);
+
+            rocksdb_delete_file_in_range(db,
+                                         b"\x00\x00".as_ptr(),
+                                         2,
+                                         b"\xff\x00".as_ptr(),
+                                         2,
+                                         &mut err);
+            assert!(err.is_null(), error_message(err));
 
             rocksdb_close(db);
             rocksdb_destroy_db(opts, cpath_ptr, &mut err);

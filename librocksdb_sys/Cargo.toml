@@ -5,3 +5,4 @@ authors = ["Jay Lee <busyjaylee@gmail.com>"]
 
 [dependencies]
 libc = "0.1.8"
+tempdir = "0.3"
