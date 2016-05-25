@@ -14,6 +14,7 @@
 //
 
 extern crate libc;
+extern crate tempdir;
 
 use libc::{c_char, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
@@ -464,8 +465,7 @@ extern "C" {
 mod test {
     use super::*;
     use std::ffi::CString;
-    extern crate tempdir;
-    use self::tempdir::TempDir;
+    use tempdir::TempDir;
 
     #[test]
     fn internal() {
