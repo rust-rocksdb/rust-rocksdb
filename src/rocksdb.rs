@@ -813,19 +813,16 @@ impl DB {
         sizes
     }
 
-    pub fn delete_file_in_range(&self,
-                                start_key: &[u8],
-                                limit_key: &[u8])
-                                -> Result<(), String> {
+    pub fn delete_file_in_range(&self, r: Range) -> Result<(), String> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
 
             rocksdb_ffi::rocksdb_delete_file_in_range(self.inner,
-                                        start_key.as_ptr(),
-                                        start_key.len() as size_t,
-                                        limit_key.as_ptr(),
-                                        limit_key.len() as size_t,
+                                        r.start_key.as_ptr(),
+                                        r.start_key.len() as size_t,
+                                        r.end_key.as_ptr(),
+                                        r.end_key.len() as size_t,
                                         err_ptr);
             if !err.is_null() {
                 return Err(error_message(err));
@@ -836,8 +833,7 @@ impl DB {
 
     pub fn delete_file_in_range_cf(&self,
                                    cf: DBCFHandle,
-                                   start_key: &[u8],
-                                   limit_key: &[u8])
+                                   r: Range)
                                    -> Result<(), String> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
@@ -845,10 +841,10 @@ impl DB {
 
             rocksdb_ffi::rocksdb_delete_file_in_range_cf(self.inner,
                                         cf,
-                                        start_key.as_ptr(),
-                                        start_key.len() as size_t,
-                                        limit_key.as_ptr(),
-                                        limit_key.len() as size_t,
+                                        r.start_key.as_ptr(),
+                                        r.start_key.len() as size_t,
+                                        r.end_key.as_ptr(),
+                                        r.end_key.len() as size_t,
                                         err_ptr);
             if !err.is_null() {
                 return Err(error_message(err));
