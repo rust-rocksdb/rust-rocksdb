@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 use std::collections::BTreeMap;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fs;
 use std::ops::Deref;
 use std::path::Path;
@@ -814,6 +814,65 @@ impl DB {
         }
         sizes
     }
+
+    fn get_property_value(&self, name: &str) -> Option<String> {
+        self.get_property_value_cf_opt(None, name)
+    }
+
+    fn get_property_value_cf(&self,
+                             cf: DBCFHandle,
+                             name: &str)
+                             -> Option<String> {
+        self.get_property_value_cf_opt(Some(cf), name)
+    }
+
+    fn get_property_int(&self, name: &str) -> Option<u64> {
+        self.get_property_int_cf_opt(None, name)
+    }
+
+    fn get_property_int_cf(&self, cf: DBCFHandle, name: &str) -> Option<u64> {
+        self.get_property_int_cf_opt(Some(cf), name)
+    }
+
+    fn get_property_value_cf_opt(&self,
+                                 cf: Option<DBCFHandle>,
+                                 name: &str)
+                                 -> Option<String> {
+        unsafe {
+            let prop_name = CString::new(name).unwrap();
+
+            let value = match cf {
+                None => {
+                    rocksdb_ffi::rocksdb_property_value(self.inner,
+                                                        prop_name.as_ptr())
+                }
+                Some(cf) => {
+                    rocksdb_ffi::rocksdb_property_value_cf(self.inner,
+                                                           cf,
+                                                           prop_name.as_ptr())
+                }
+            };
+
+            if value.is_null() {
+                return None;
+            }
+
+            // Must valid UTF-8 format.
+            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            libc::free(value as *mut c_void);
+            Some(s)
+        }
+    }
+
+    fn get_property_int_cf_opt(&self,
+                               cf: Option<DBCFHandle>,
+                               name: &str)
+                               -> Option<u64> {
+        // Rocksdb guarantee that the return property int
+        // value is u64 if exists.
+        self.get_property_value_cf_opt(cf, name)
+            .map(|value| value.as_str().parse::<u64>().unwrap())
+    }
 }
 
 impl Writable for DB {
@@ -1120,6 +1179,21 @@ mod test {
             assert!(*s > 0);
         }
         assert_eq!(sizes[4], 0);
+    }
+
+    #[test]
+    fn property_test() {
+        let path = TempDir::new("_rust_rocksdb_iteratortest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        db.put(b"a1", b"v1").unwrap();
+        db.flush(true).unwrap();
+        let prop_name = "rocksdb.total-sst-files-size";
+        let st1 = db.get_property_int(prop_name).unwrap();
+        assert!(st1 > 0);
+        db.put(b"a2", b"v2").unwrap();
+        db.flush(true).unwrap();
+        let st2 = db.get_property_int(prop_name).unwrap();
+        assert!(st2 > st1);
     }
 }
 
