@@ -204,9 +204,13 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn iter(&self) -> DBIterator {
-        let mut readopts = ReadOptions::new();
-        readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts)
+        let readopts = ReadOptions::new();
+        self.iter_opt(readopts)
+    }
+    
+    pub fn iter_opt(&self, mut opt: ReadOptions) -> DBIterator {
+        opt.set_snapshot(self);
+        DBIterator::new(self.db, &opt)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
@@ -583,7 +587,11 @@ impl DB {
 
     pub fn iter(&self) -> DBIterator {
         let opts = ReadOptions::new();
-        DBIterator::new(&self, &opts)
+        self.iter_opt(&opts)
+    }
+    
+    pub fn iter_opt(&self, opt: &ReadOptions) -> DBIterator {
+        DBIterator::new(&self, opt)
     }
 
     pub fn iter_cf(&self,
@@ -971,14 +979,14 @@ impl Default for ReadOptions {
 }
 
 impl ReadOptions {
-    fn new() -> ReadOptions {
+    pub fn new() -> ReadOptions {
         ReadOptions::default()
     }
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
     #[allow(dead_code)]
-    fn fill_cache(&mut self, v: bool) {
+    pub fn fill_cache(&mut self, v: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
         }
