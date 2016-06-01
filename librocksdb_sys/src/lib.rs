@@ -14,6 +14,8 @@
 //
 
 extern crate libc;
+#[cfg(test)]
+extern crate tempdir;
 
 use libc::{c_char, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
@@ -147,7 +149,8 @@ extern "C" {
     pub fn rocksdb_options_set_bytes_per_sync(options: DBOptions, bytes: u64);
     pub fn rocksdb_options_set_disable_data_sync(options: DBOptions,
                                                  v: c_int);
-    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions, is_allow: bool);
+    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions,
+                                               is_allow: bool);
     pub fn rocksdb_options_optimize_for_point_lookup(options: DBOptions,
                                                      block_cache_size_mb: u64);
     pub fn rocksdb_options_set_table_cache_numshardbits(options: DBOptions,
@@ -168,7 +171,8 @@ extern "C" {
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
-    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions,
+                                                        bytes: u64);
     pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: DBOptions, mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
                                                  bytes: u64);
@@ -443,12 +447,20 @@ extern "C" {
                                         range_limit_key: *const *const u8,
                                         range_limit_key_len: *const size_t,
                                         sizes: *mut uint64_t);
+    pub fn rocksdb_property_value(db: DBInstance,
+                                  propname: *const c_char)
+                                  -> *mut c_char;
+    pub fn rocksdb_property_value_cf(db: DBInstance,
+                                     cf: DBCFHandle,
+                                     propname: *const c_char)
+                                     -> *mut c_char;
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::ffi::CString;
+    use std::ffi::{CStr, CString};
+    use libc::{self, c_void};
     use tempdir::TempDir;
 
     #[test]
@@ -462,9 +474,9 @@ mod test {
             rocksdb_options_set_create_if_missing(opts, true);
 
             let rustpath = TempDir::new("_rust_rocksdb_internaltest")
-                               .expect("");
+                .expect("");
             let cpath = CString::new(rustpath.path().to_str().unwrap())
-                            .unwrap();
+                .unwrap();
             let cpath_ptr = cpath.as_ptr();
 
             let mut err = 0 as *const i8;
@@ -516,6 +528,21 @@ mod test {
                                       sizes.as_mut_ptr());
             assert_eq!(sizes.len(), 1);
             assert!(sizes[0] > 0);
+
+            let propname = CString::new("rocksdb.total-sst-files-size")
+                .unwrap();
+            let value = rocksdb_property_value(db, propname.as_ptr());
+            assert!(!value.is_null());
+
+            let sst_size =
+                CStr::from_ptr(value).to_str().unwrap().parse::<u64>().unwrap();
+            assert!(sst_size > 0);
+            libc::free(value as *mut c_void);
+
+            let propname = CString::new("fake_key").unwrap();
+            let value = rocksdb_property_value(db, propname.as_ptr());
+            assert!(value.is_null());
+            libc::free(value as *mut c_void);
 
             rocksdb_close(db);
             rocksdb_destroy_db(opts, cpath_ptr, &mut err);
