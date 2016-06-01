@@ -207,7 +207,7 @@ impl<'a> Snapshot<'a> {
         let readopts = ReadOptions::new();
         self.iter_opt(readopts)
     }
-    
+
     pub fn iter_opt(&self, mut opt: ReadOptions) -> DBIterator {
         opt.set_snapshot(self);
         DBIterator::new(self.db, &opt)
@@ -589,7 +589,7 @@ impl DB {
         let opts = ReadOptions::new();
         self.iter_opt(&opts)
     }
-    
+
     pub fn iter_opt(&self, opt: &ReadOptions) -> DBIterator {
         DBIterator::new(&self, opt)
     }
@@ -823,22 +823,27 @@ impl DB {
         sizes
     }
 
-    fn get_property_value(&self, name: &str) -> Option<String> {
+    pub fn get_property_value(&self, name: &str) -> Option<String> {
         self.get_property_value_cf_opt(None, name)
     }
 
-    fn get_property_value_cf(&self,
-                             cf: DBCFHandle,
-                             name: &str)
-                             -> Option<String> {
+    pub fn get_property_value_cf(&self,
+                                 cf: DBCFHandle,
+                                 name: &str)
+                                 -> Option<String> {
         self.get_property_value_cf_opt(Some(cf), name)
     }
 
-    fn get_property_int(&self, name: &str) -> Option<u64> {
+    /// Return the int property in rocksdb.
+    /// Return None if the property not exists or not int type.
+    pub fn get_property_int(&self, name: &str) -> Option<u64> {
         self.get_property_int_cf_opt(None, name)
     }
 
-    fn get_property_int_cf(&self, cf: DBCFHandle, name: &str) -> Option<u64> {
+    pub fn get_property_int_cf(&self,
+                               cf: DBCFHandle,
+                               name: &str)
+                               -> Option<u64> {
         self.get_property_int_cf_opt(Some(cf), name)
     }
 
@@ -876,10 +881,15 @@ impl DB {
                                cf: Option<DBCFHandle>,
                                name: &str)
                                -> Option<u64> {
-        // Rocksdb guarantee that the return property int
+        // Rocksdb guarantees that the return property int
         // value is u64 if exists.
-        self.get_property_value_cf_opt(cf, name)
-            .map(|value| value.as_str().parse::<u64>().unwrap())
+        if let Some(value) = self.get_property_value_cf_opt(cf, name) {
+            if let Ok(num) = value.as_str().parse::<u64>() {
+                return Some(num);
+            }
+        }
+
+        None
     }
 }
 
@@ -1191,7 +1201,7 @@ mod test {
 
     #[test]
     fn property_test() {
-        let path = TempDir::new("_rust_rocksdb_iteratortest").expect("");
+        let path = TempDir::new("_rust_rocksdb_propertytest").expect("");
         let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
         db.put(b"a1", b"v1").unwrap();
         db.flush(true).unwrap();
