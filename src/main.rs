@@ -168,6 +168,7 @@ mod tests {
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
+        opts.set_report_bg_io_stats(true);
         blockopts.set_block_size(524288);
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);

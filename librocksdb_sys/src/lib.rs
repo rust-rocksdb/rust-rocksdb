@@ -193,6 +193,7 @@ extern "C" {
     pub fn rocksdb_options_set_filter_deletes(options: DBOptions, v: bool);
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
+    pub fn rocksdb_options_set_report_bg_io_stats(options: DBOptions, v: c_int);
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
     pub fn rocksdb_open(options: DBOptions,
