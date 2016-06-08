@@ -315,6 +315,16 @@ impl Options {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
         }
     }
+
+    pub fn set_report_bg_io_stats(&mut self, enable: bool) {
+        unsafe {
+            if enable {
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner, 1);
+            } else {
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner, 0);
+            }
+        }
+    }
 }
 
 impl Default for Options {
