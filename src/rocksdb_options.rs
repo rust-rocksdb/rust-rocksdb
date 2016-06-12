@@ -162,6 +162,14 @@ impl Options {
         }
     }
 
+    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_compression_per_level(self.inner,
+                                                                level_types.as_ptr(),
+                                                                level_types.len() as size_t)
+        }
+    }
+
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
