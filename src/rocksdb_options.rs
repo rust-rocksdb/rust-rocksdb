@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::c_int;
+use self::libc::{c_int,size_t};
 use std::ffi::CString;
 use std::mem;
 
@@ -114,6 +114,14 @@ impl Options {
     pub fn compression(&mut self, t: DBCompressionType) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression(self.inner, t);
+        }
+    }
+
+    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_compression_per_level(self.inner,
+                                                                level_types.as_ptr(),
+                                                                level_types.len() as size_t)
         }
     }
 
