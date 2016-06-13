@@ -162,6 +162,14 @@ impl Options {
         }
     }
 
+    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_compression_per_level(self.inner,
+                                                                level_types.as_ptr(),
+                                                                level_types.len() as size_t)
+        }
+    }
+
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
@@ -357,6 +365,16 @@ impl Options {
                                          factory: &BlockBasedOptions) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
+        }
+    }
+
+    pub fn set_report_bg_io_stats(&mut self, enable: bool) {
+        unsafe {
+            if enable {
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner, 1);
+            } else {
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner, 0);
+            }
         }
     }
 }
