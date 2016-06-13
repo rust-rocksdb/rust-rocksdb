@@ -108,7 +108,7 @@ fn main() {
 	config.file("rocksdb/memtable/skiplistrep.cc");
 	config.file("rocksdb/memtable/vectorrep.cc");
 	config.file("rocksdb/port/stack_trace.cc");
-	
+
 	config.file("rocksdb/table/adaptive_table_factory.cc");
 	config.file("rocksdb/table/block_based_filter_block.cc");
 	config.file("rocksdb/table/block_based_table_builder.cc");
@@ -238,6 +238,7 @@ fn main() {
 
 	snappy_config.file("snappy/snappy.cc");
 	snappy_config.file("snappy/snappy-sinksource.cc");
+	snappy_config.file("snappy/snappy-c.cc");
 	snappy_config.cpp(true);
 	snappy_config.compile("libsnappy.a");
 }
