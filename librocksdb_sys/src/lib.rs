@@ -72,6 +72,7 @@ pub fn new_cache(capacity: size_t) -> DBCache {
     unsafe { rocksdb_cache_create_lru(capacity) }
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub enum DBCompressionType {
     DBNo = 0,
