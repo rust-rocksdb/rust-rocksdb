@@ -162,7 +162,8 @@ impl Options {
         }
     }
 
-    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+    pub fn compression_per_level(&mut self,
+                                 level_types: &[DBCompressionType]) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression_per_level(self.inner,
                                                                 level_types.as_ptr(),
@@ -371,9 +372,11 @@ impl Options {
     pub fn set_report_bg_io_stats(&mut self, enable: bool) {
         unsafe {
             if enable {
-                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner, 1);
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner,
+                                                                    1);
             } else {
-                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner, 0);
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner,
+                                                                    0);
             }
         }
     }
