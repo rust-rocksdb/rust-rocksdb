@@ -47,7 +47,7 @@ pub struct ReadOptions {
 /// The UnsafeSnap must be destroyed by db, it maybe be leaked
 /// if not using it properly, hence named as unsafe.
 ///
-/// This object is convinient for wrapping snapshot by yourself. In most
+/// This object is convenient for wrapping snapshot by yourself. In most
 /// cases, using `Snapshot` is enough.
 pub struct UnsafeSnap {
     inner: rocksdb_ffi::DBSnapshot,
