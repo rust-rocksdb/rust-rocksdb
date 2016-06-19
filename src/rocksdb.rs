@@ -44,9 +44,18 @@ pub struct ReadOptions {
     inner: rocksdb_ffi::DBReadOptions,
 }
 
+/// The UnsafeSnap must be destroyed by db, it maybe be leaked
+/// if not using it properly, hence named as unsafe.
+///
+/// This object is convenient for wrapping snapshot by yourself. In most
+/// cases, using `Snapshot` is enough.
+pub struct UnsafeSnap {
+    inner: rocksdb_ffi::DBSnapshot,
+}
+
 pub struct Snapshot<'a> {
     db: &'a DB,
-    inner: rocksdb_ffi::DBSnapshot,
+    snap: UnsafeSnap,
 }
 
 // We need to find a better way to add a lifetime in here.
@@ -69,7 +78,7 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 }
 
 impl<'a> DBIterator<'a> {
-    fn new(db: &'a DB, readopts: &ReadOptions) -> DBIterator<'a> {
+    pub fn new(db: &'a DB, readopts: &ReadOptions) -> DBIterator<'a> {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -195,11 +204,11 @@ impl<'a> Drop for DBIterator<'a> {
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
-        let snapshot =
-            unsafe { rocksdb_ffi::rocksdb_create_snapshot(db.inner) };
-        Snapshot {
-            db: db,
-            inner: snapshot,
+        unsafe {
+            Snapshot {
+                db: db,
+                snap: db.unsafe_snap(),
+            }
         }
     }
 
@@ -209,13 +218,17 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn iter_opt(&self, mut opt: ReadOptions) -> DBIterator {
-        opt.set_snapshot(self);
+        unsafe {
+            opt.set_snapshot(&self.snap);
+        }
         DBIterator::new(self.db, &opt)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
-        readopts.set_snapshot(self);
+        unsafe {
+            readopts.set_snapshot(&self.snap);
+        }
         self.db.get_opt(key, &readopts)
     }
 
@@ -224,16 +237,16 @@ impl<'a> Snapshot<'a> {
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
-        readopts.set_snapshot(self);
+        unsafe {
+            readopts.set_snapshot(&self.snap);
+        }
         self.db.get_cf_opt(cf, key, &readopts)
     }
 }
 
 impl<'a> Drop for Snapshot<'a> {
     fn drop(&mut self) {
-        unsafe {
-            rocksdb_ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
-        }
+        unsafe { self.db.release_snap(&self.snap) }
     }
 }
 
@@ -604,6 +617,14 @@ impl DB {
 
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
+    }
+
+    pub unsafe fn unsafe_snap(&self) -> UnsafeSnap {
+        UnsafeSnap { inner: rocksdb_ffi::rocksdb_create_snapshot(self.inner) }
+    }
+
+    pub unsafe fn release_snap(&self, snap: &UnsafeSnap) {
+        rocksdb_ffi::rocksdb_release_snapshot(self.inner, snap.inner)
     }
 
     pub fn put_opt(&self,
@@ -1061,11 +1082,9 @@ impl ReadOptions {
         }
     }
 
-    fn set_snapshot(&mut self, snapshot: &Snapshot) {
-        unsafe {
-            rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
-                                                          snapshot.inner);
-        }
+    pub unsafe fn set_snapshot(&mut self, snapshot: &UnsafeSnap) {
+        rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
+                                                      snapshot.inner);
     }
 }
 
