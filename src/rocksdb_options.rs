@@ -277,6 +277,12 @@ impl Options {
         }
     }
 
+    pub fn set_target_file_size_multiplier(&mut self, size: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_target_file_size_multiplier(self.inner, size);
+        }
+    }
+
     pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_min_write_buffer_number_to_merge(
