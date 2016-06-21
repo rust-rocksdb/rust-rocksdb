@@ -443,6 +443,8 @@ extern "C" {
     pub fn rocksdb_slicetransform_create_fixed_prefix(size: size_t) -> DBSliceTransform;
     pub fn rocksdb_slicetransform_create_noop() -> DBSliceTransform;
     pub fn rocksdb_slicetransform_destroy(slice_transform: DBSliceTransform);
+
+    pub fn rocksdb_get_options_from_string(base_options: DBOptions, opts: *const i8, new_options: DBOptions, err: *mut *const i8);
 }
 
 #[test]
@@ -499,5 +501,16 @@ fn internal() {
         rocksdb_close(db);
         rocksdb_destroy_db(opts, cpath_ptr as *const _, err_ptr);
         assert!(err.is_null());
+
+        let base_options = rocksdb_options_create();
+        let opts_string = CString::new("rate_limiter_bytes_per_sec=1024").unwrap();
+        let opts_string_ptr = opts_string.as_ptr();
+        let new_options = rocksdb_options_create();
+        let mut err: *const i8 = 0 as *const i8;
+        let err_ptr: *mut *const i8 = &mut err;
+        rocksdb_get_options_from_string(base_options, opts_string_ptr as *const _, new_options, err_ptr);
+        if !err.is_null() {
+            println!("failed to open rocksdb: {}", error_message(err));
+        }
     }
 }
