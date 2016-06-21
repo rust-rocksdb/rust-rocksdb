@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::{c_char, c_uchar, c_int, c_void, size_t, int64_t, int32_t};
+use self::libc::{c_char, c_uchar, c_int, c_void, size_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 #[cfg(test)]
