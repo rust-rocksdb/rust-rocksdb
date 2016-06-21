@@ -351,6 +351,28 @@ impl Options {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
         }
     }
+
+    pub fn set_parsed_options(&mut self, opts: &str) -> Result<(), String> {
+        unsafe {
+            let new_inner_options = rocksdb_ffi::rocksdb_options_create();
+            if new_inner_options.is_null() {
+                panic!("Could not create rocksdb options".to_string());
+            }
+
+            let mut err: *const i8 = 0 as *const i8;
+            let err_ptr: *mut *const i8 = &mut err;
+
+            let c_opts = CString::new(opts.as_bytes()).unwrap();
+            let c_opts_ptr = c_opts.as_ptr();
+
+            rocksdb_ffi::rocksdb_get_options_from_string(self.inner, c_opts_ptr as *const _, new_inner_options, err_ptr);
+            if !err.is_null() {
+                return Err(rocksdb_ffi::error_message(err))
+            }
+            rocksdb_ffi::rocksdb_options_destroy(mem::replace(&mut self.inner, new_inner_options));
+            Ok(())
+        }
+    }
 }
 
 impl WriteOptions {

@@ -1002,3 +1002,9 @@ fn snapshot_test() {
     let opts = Options::new();
     assert!(DB::destroy(&opts, path).is_ok());
 }
+
+#[test]
+fn options() {
+    let mut opts = Options::new();
+    assert!(opts.set_parsed_options("rate_limiter_bytes_per_sec=1024").is_ok());
+}
