@@ -759,6 +759,12 @@ impl Writable for DB {
     }
 }
 
+impl WriteBatch {
+    pub fn count(&self) -> usize {
+        unsafe { rocksdb_ffi::rocksdb_writebatch_count(self.inner) as usize }
+    }
+}
+
 impl Default for WriteBatch {
     fn default() -> WriteBatch {
         WriteBatch {
@@ -972,7 +978,9 @@ fn writebatch_works() {
             // test put
             let batch = WriteBatch::default();
             assert!(db.get(b"k1").unwrap().is_none());
+            assert_eq!(batch.count(), 0);
             let _ = batch.put(b"k1", b"v1111");
+            assert_eq!(batch.count(), 1);
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
@@ -983,6 +991,7 @@ fn writebatch_works() {
             // test delete
             let batch = WriteBatch::default();
             let _ = batch.delete(b"k1");
+            assert_eq!(batch.count(), 1);
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
