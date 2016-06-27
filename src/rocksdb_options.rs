@@ -388,4 +388,14 @@ impl WriteOptions {
             rocksdb_ffi::rocksdb_writeoptions_set_sync(self.inner, sync);
         }
     }
+
+    pub fn disable_wal(&mut self, disable: bool) {
+        unsafe {
+            if disable {
+                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 1);
+            } else {
+                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 0);
+            }
+        }
+    }
 }
