@@ -380,7 +380,7 @@ impl DB {
         Ok(())
     }
 
-    pub fn repair(opts: Options, path: &str) -> Result<(), String> {
+    pub fn repair(opts: &Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
