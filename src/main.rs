@@ -71,13 +71,10 @@ fn concat_merge(_: &[u8],
                 operands: &mut MergeOperands)
                 -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
-    match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e)
-            }
+    if let Some(v) = existing_val {
+        for e in v {
+            result.push(*e)
         }
-        None => (),
     }
     for op in operands {
         for e in op {
@@ -144,7 +141,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use rocksdb::{BlockBasedOptions, DB, Options};
-    use rocksdb::DBCompactionStyle::DBUniversalCompaction;
+    use rocksdb::DBCompactionStyle::Universal;
 
     fn tuned_for_somebody_elses_disk(path: &str,
                                      opts: &mut Options,
@@ -163,7 +160,7 @@ mod tests {
         opts.set_min_write_buffer_number_to_merge(4);
         opts.set_level_zero_stop_writes_trigger(2000);
         opts.set_level_zero_slowdown_writes_trigger(0);
-        opts.set_compaction_style(DBUniversalCompaction);
+        opts.set_compaction_style(Universal);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
