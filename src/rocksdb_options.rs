@@ -59,10 +59,6 @@ impl Drop for WriteOptions {
 }
 
 impl BlockBasedOptions {
-    pub fn new() -> BlockBasedOptions {
-        BlockBasedOptions::default()
-    }
-
     pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_set_block_size(self.inner,
@@ -76,8 +72,7 @@ impl Default for BlockBasedOptions {
         let block_opts = unsafe {
             rocksdb_ffi::rocksdb_block_based_options_create()
         };
-        let rocksdb_ffi::DBBlockBasedTableOptions(opt_ptr) = block_opts;
-        if opt_ptr.is_null() {
+        if block_opts.is_null() {
             panic!("Could not create rocksdb block based options".to_string());
         }
         BlockBasedOptions { inner: block_opts }
@@ -292,8 +287,7 @@ impl Default for Options {
     fn default() -> Options {
         unsafe {
             let opts = rocksdb_ffi::rocksdb_options_create();
-            let rocksdb_ffi::DBOptions(opt_ptr) = opts;
-            if opt_ptr.is_null() {
+            if opts.is_null() {
                 panic!("Could not create rocksdb options".to_string());
             }
             Options { inner: opts }
@@ -316,8 +310,7 @@ impl WriteOptions {
 impl Default for WriteOptions {
     fn default() -> WriteOptions {
         let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
-        let rocksdb_ffi::DBWriteOptions(opt_ptr) = write_opts;
-        if opt_ptr.is_null() {
+        if write_opts.is_null() {
             panic!("Could not create rocksdb write options".to_string());
         }
         WriteOptions { inner: write_opts }

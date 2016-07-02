@@ -17,45 +17,50 @@ use self::libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBInstance(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBWriteOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBReadOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBMergeOperator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBBlockBasedTableOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBCache(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBFilterPolicy(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBSnapshot(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBIterator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBCFHandle(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBWriteBatch(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBComparator(pub *const c_void);
+pub enum DBOptionsOpaque {}
+pub type DBOptions = *const DBOptionsOpaque;
+
+pub enum DBInstanceOpaque {}
+pub type DBInstance = *const DBInstanceOpaque;
+
+pub enum DBWriteOptionsOpaque {}
+pub type DBWriteOptions = *const DBWriteOptionsOpaque;
+
+pub enum DBReadOptionsOpaque {}
+pub type DBReadOptions = *const DBReadOptionsOpaque;
+
+pub enum DBMergeOperatorOpaque {}
+pub type DBMergeOperator = *const DBMergeOperatorOpaque;
+
+pub enum DBBlockBasedTableOptionsOpaque {}
+pub type DBBlockBasedTableOptions = *const DBBlockBasedTableOptionsOpaque;
+
+pub enum DBCacheOpaque {}
+pub type DBCache = *const DBCacheOpaque;
+
+pub enum DBFilterPolicyOpaque {}
+pub type DBFilterPolicy = *const DBFilterPolicyOpaque;
+
+pub enum DBSnapshotOpaque {}
+pub type DBSnapshot = *const DBSnapshotOpaque;
+
+pub enum DBIteratorOpaque {}
+pub type DBIterator = *const DBIteratorOpaque;
+
+pub enum DBCFHandleOpaque {}
+pub type DBCFHandle = *const DBCFHandleOpaque;
+
+pub enum DBWriteBatchOpaque {}
+pub type DBWriteBatch = *const DBWriteBatchOpaque;
+
+pub enum DBComparatorOpaque {}
+pub type DBComparator = *const DBComparatorOpaque;
+
+pub enum DBSliceTransformOpaque {}
+pub type DBSliceTransform = *const DBSliceTransformOpaque;
+
+pub const BLOCK_BASED_INDEX_TYPE_BINARY_SEARCH: c_int = 0;
+pub const BLOCK_BASED_INDEX_TYPE_HASH_SEARCH: c_int = 1;
 
 pub fn new_bloom_filter(bits: c_int) -> DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
@@ -157,17 +162,17 @@ extern "C" {
     pub fn rocksdb_options_set_level0_stop_writes_trigger(options: DBOptions,
                                                           no: c_int);
     pub fn rocksdb_options_set_write_buffer_size(options: DBOptions,
-                                                 bytes: size_t);
+                                                 bytes: usize);
     pub fn rocksdb_options_set_target_file_size_base(options: DBOptions,
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
-                                                 bytes: u64);
+                                                 bytes: usize);
     pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
-                                                      bytes: u64);
+                                                      bytes: usize);
     pub fn rocksdb_options_set_hash_skip_list_rep(options: DBOptions,
-                                                  bytes: u64,
+                                                  bytes: usize,
                                                   a1: i32,
                                                   a2: i32);
     pub fn rocksdb_options_set_compaction_style(options: DBOptions,
@@ -417,7 +422,7 @@ fn internal() {
     unsafe {
         use std::ffi::CString;
         let opts = rocksdb_options_create();
-        assert!(!opts.0.is_null());
+        assert!(!opts.is_null());
 
         rocksdb_options_increase_parallelism(opts, 0);
         rocksdb_options_optimize_level_style_compaction(opts, 0);
@@ -436,7 +441,7 @@ fn internal() {
         assert!(err.is_null());
 
         let writeopts = rocksdb_writeoptions_create();
-        assert!(!writeopts.0.is_null());
+        assert!(!writeopts.is_null());
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
@@ -451,7 +456,7 @@ fn internal() {
         assert!(err.is_null());
 
         let readopts = rocksdb_readoptions_create();
-        assert!(!readopts.0.is_null());
+        assert!(!readopts.is_null());
 
         let val_len: size_t = 0;
         let val_len_ptr = &val_len as *const size_t;
