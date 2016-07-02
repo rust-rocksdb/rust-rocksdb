@@ -138,6 +138,6 @@ pub fn test_iterator() {
             assert!(!iterator1.valid());
         }
     }
-    let opts = Options::new();
+    let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
 }

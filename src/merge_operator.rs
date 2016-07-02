@@ -19,10 +19,11 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
+pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>;
 
 pub struct MergeOperatorCallback {
     pub name: CString,
-    pub merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
+    pub merge_fn: MergeFn,
 }
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -182,7 +183,7 @@ fn mergetest() {
     use rocksdb::{DB, DBVector, Writable};
 
     let path = "_rust_rocksdb_mergetest";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", test_provided_merge);
     {

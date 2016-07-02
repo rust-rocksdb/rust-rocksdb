@@ -41,7 +41,7 @@ use rocksdb::{DB, MergeOperands, Options, Writable};
 // std::str::from_utf8(v).unwrap());
 //        };
 //    }
-//    let opts = Options::new();
+//    let opts = Options::default();
 //    assert!(DB::destroy(&opts, path).is_ok());
 // }
 
@@ -86,7 +86,7 @@ fn concat_merge(_: &[u8],
 
 fn custom_merge() {
     let path = "_rust_rocksdb_mergetest";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     {
@@ -114,7 +114,7 @@ fn custom_merge() {
 #[cfg(feature = "valgrind")]
 fn main() {
     let path = "_rust_rocksdb_valgrind";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     let db = DB::open(&opts, path).unwrap();
@@ -180,8 +180,8 @@ mod tests {
     // dirty hack due to parallel tests causing contention.
     // sleep_ms(1000);
     // let path = "_rust_rocksdb_optimizetest";
-    // let mut opts = Options::new();
-    // let mut blockopts = BlockBasedOptions::new();
+    // let mut opts = Options::default();
+    // let mut blockopts = BlockBasedOptions::default();
     // let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
     // let mut i = 0 as u64;
     // b.iter(|| {
@@ -193,8 +193,8 @@ mod tests {
     // #[bench]
     // fn b_reads(b: &mut Bencher) {
     // let path = "_rust_rocksdb_optimizetest";
-    // let mut opts = Options::new();
-    // let mut blockopts = BlockBasedOptions::new();
+    // let mut opts = Options::default();
+    // let mut blockopts = BlockBasedOptions::default();
     // {
     // let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
     // let mut i = 0 as u64;
