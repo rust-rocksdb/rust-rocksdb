@@ -3,7 +3,7 @@ rust-rocksdb
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 [![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
-This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.5 crate should work with the Rust 1.5 stable and nightly releases as of 5/1/16.
+This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.4.0 crate should work with the Rust 1.9 stable and nightly releases as of 7/1/16.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -36,7 +36,7 @@ sudo make install
 ###### Cargo.toml
 ```rust
 [dependencies]
-rocksdb = "0.3.5"
+rocksdb = "0.4.0"
 ```
 ###### Code
 ```rust
@@ -65,7 +65,7 @@ fn main() {
     // NB: db is automatically freed at end of lifetime
     let mut db = DB::open_default("/path/for/rocksdb/storage").unwrap();
     {
-        let mut batch = WriteBatch::new(); // WriteBatch and db both have trait Writable
+        let mut batch = WriteBatch::default(); // WriteBatch and db both have trait Writable
         batch.put(b"my key", b"my value");
         batch.put(b"key2", b"value2");
         batch.put(b"key3", b"value3");
@@ -139,7 +139,7 @@ fn concat_merge(new_key: &[u8], existing_val: Option<&[u8]>,
 
 fn main() {
     let path = "/path/to/rocksdb";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     let mut db = DB::open(&opts, path).unwrap();
@@ -161,7 +161,7 @@ use rocksdb::DBCompactionStyle::DBUniversalCompaction;
 
 fn badly_tuned_for_somebody_elses_disk() -> DB {
     let path = "_rust_rocksdb_optimizetest";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_max_open_files(10000);
     opts.set_use_fsync(false);

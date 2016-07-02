@@ -13,12 +13,12 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::{c_int, size_t};
+use self::libc::c_int;
 use std::ffi::CString;
 use std::mem;
 
 use rocksdb_ffi;
-use merge_operator::{self, MergeOperands, MergeOperatorCallback,
+use merge_operator::{self, MergeFn, MergeOperatorCallback,
                      full_merge_callback, partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
 
@@ -59,16 +59,6 @@ impl Drop for WriteOptions {
 }
 
 impl BlockBasedOptions {
-    pub fn new() -> BlockBasedOptions {
-        let block_opts = unsafe {
-            rocksdb_ffi::rocksdb_block_based_options_create()
-        };
-        if block_opts.is_null() {
-            panic!("Could not create rocksdb block based options".to_string());
-        }
-        BlockBasedOptions { inner: block_opts }
-    }
-
     pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_set_block_size(self.inner,
@@ -77,41 +67,19 @@ impl BlockBasedOptions {
     }
 }
 
-// TODO figure out how to create these in a Rusty way
-// /pub fn set_filter(&mut self, filter: rocksdb_ffi::DBFilterPolicy) {
-// /    unsafe {
-// /        rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(
-// /            self.inner, filter);
-// /    }
-// /}
-
-/// /pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
-/// /    unsafe {
-/// /        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
-/// /            self.inner, cache);
-/// /    }
-/// /}
-
-/// /pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
-/// /    unsafe {
-/// /        rocksdb_ffi::
-/// rocksdb_block_based_options_set_block_cache_compressed(
-/// /            self.inner, cache);
-/// /    }
-/// /}
-
+impl Default for BlockBasedOptions {
+    fn default() -> BlockBasedOptions {
+        let block_opts = unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_create()
+        };
+        if block_opts.is_null() {
+            panic!("Could not create rocksdb block based options".to_string());
+        }
+        BlockBasedOptions { inner: block_opts }
+    }
+}
 
 impl Options {
-    pub fn new() -> Options {
-        unsafe {
-            let opts = rocksdb_ffi::rocksdb_options_create();
-            if opts.is_null() {
-                panic!("Could not create rocksdb options".to_string());
-            }
-            Options { inner: opts }
-        }
-    }
-
     pub fn increase_parallelism(&mut self, parallelism: i32) {
         unsafe {
             rocksdb_ffi::rocksdb_options_increase_parallelism(self.inner,
@@ -134,12 +102,9 @@ impl Options {
         }
     }
 
-    pub fn add_merge_operator<'a>(&mut self,
-                                  name: &str,
-                                  merge_fn: fn(&[u8],
-                                               Option<&[u8]>,
-                                               &mut MergeOperands)
-                                               -> Vec<u8>) {
+    pub fn add_merge_operator(&mut self,
+                              name: &str,
+                              merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
@@ -157,9 +122,9 @@ impl Options {
         }
     }
 
-    pub fn add_comparator<'a>(&mut self,
-                              name: &str,
-                              compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn add_comparator(&mut self,
+                          name: &str,
+                          compare_fn: fn(&[u8], &[u8]) -> i32) {
         let cb = Box::new(ComparatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             f: compare_fn,
@@ -191,13 +156,10 @@ impl Options {
 
     pub fn set_use_fsync(&mut self, useit: bool) {
         unsafe {
-            match useit {
-                true => {
-                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 1)
-                }
-                false => {
-                    rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 0)
-                }
+            if useit {
+                rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 1)
+            } else {
+                rocksdb_ffi::rocksdb_options_set_use_fsync(self.inner, 0)
             }
         }
     }
@@ -210,13 +172,10 @@ impl Options {
 
     pub fn set_disable_data_sync(&mut self, disable: bool) {
         unsafe {
-            match disable {
-                true =>
-                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(
-                        self.inner, 1),
-                false =>
-                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(
-                        self.inner, 0),
+            if disable {
+                rocksdb_ffi::rocksdb_options_set_disable_data_sync(self.inner, 1)
+            } else {
+                rocksdb_ffi::rocksdb_options_set_disable_data_sync(self.inner, 0)
             }
         }
     }
@@ -242,7 +201,7 @@ impl Options {
         }
     }
 
-    pub fn set_write_buffer_size(&mut self, size: size_t) {
+    pub fn set_write_buffer_size(&mut self, size: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_write_buffer_size(self.inner,
                                                                size);
@@ -306,15 +265,13 @@ impl Options {
     }
 
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
+        let c_bool = if disable {
+            1
+        } else {
+            0
+        };
         unsafe {
-            match disable {
-                true =>
-                    rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(
-                        self.inner, 1),
-                false =>
-                    rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(
-                        self.inner, 0),
-            }
+            rocksdb_ffi::rocksdb_options_set_disable_auto_compactions(self.inner, c_bool)
         }
     }
 
@@ -326,17 +283,36 @@ impl Options {
     }
 }
 
+impl Default for Options {
+    fn default() -> Options {
+        unsafe {
+            let opts = rocksdb_ffi::rocksdb_options_create();
+            if opts.is_null() {
+                panic!("Could not create rocksdb options".to_string());
+            }
+            Options { inner: opts }
+        }
+    }
+}
+
+
 impl WriteOptions {
     pub fn new() -> WriteOptions {
-        let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
-        if write_opts.is_null() {
-            panic!("Could not create rocksdb write options".to_string());
-        }
-        WriteOptions { inner: write_opts }
+        WriteOptions::default()
     }
     pub fn set_sync(&mut self, sync: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_writeoptions_set_sync(self.inner, sync);
         }
+    }
+}
+
+impl Default for WriteOptions {
+    fn default() -> WriteOptions {
+        let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+        if write_opts.is_null() {
+            panic!("Could not create rocksdb write options".to_string());
+        }
+        WriteOptions { inner: write_opts }
     }
 }

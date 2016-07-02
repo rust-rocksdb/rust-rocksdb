@@ -60,10 +60,12 @@ pub enum Direction {
     Reverse,
 }
 
-impl Iterator for DBIterator {
-    type Item = (Box<[u8]>, Box<[u8]>);
+pub type KVBytes = (Box<[u8]>, Box<[u8]>);
 
-    fn next(&mut self) -> Option<(Box<[u8]>, Box<[u8]>)> {
+impl Iterator for DBIterator {
+    type Item = KVBytes;
+
+    fn next(&mut self) -> Option<KVBytes> {
         let native_iter = self.inner;
         if !self.just_seeked {
             match self.direction {
@@ -111,10 +113,10 @@ pub enum IteratorMode<'a> {
 
 
 impl DBIterator {
-    fn new<'b>(db: &DB,
-               readopts: &'b ReadOptions,
-               mode: IteratorMode)
-               -> DBIterator {
+    fn new(db: &DB,
+           readopts: &ReadOptions,
+           mode: IteratorMode)
+        -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -201,13 +203,13 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let mut readopts = ReadOptions::new();
+        let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         DBIterator::new(self.db, &readopts, mode)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
-        let mut readopts = ReadOptions::new();
+        let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         self.db.get_opt(key, &readopts)
     }
@@ -216,7 +218,7 @@ impl<'a> Snapshot<'a> {
                   cf: DBCFHandle,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
-        let mut readopts = ReadOptions::new();
+        let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key, &readopts)
     }
@@ -250,7 +252,7 @@ pub trait Writable {
 
 impl DB {
     pub fn open_default(path: &str) -> Result<DB, String> {
-        let mut opts = Options::new();
+        let mut opts = Options::default();
         opts.create_if_missing(true);
         DB::open(&opts, path)
     }
@@ -274,13 +276,8 @@ impl DB {
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
-        match fs::create_dir_all(&ospath) {
-            Err(e) => {
-                return Err(format!("Failed to create rocksdb directory: \
-                                      {:?}",
-                                   e))
-            }
-            Ok(_) => (),
+        if let Err(e) = fs::create_dir_all(&ospath) {
+            return Err(format!("Failed to create rocksdb directory: {:?}", e))
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -337,7 +334,7 @@ impl DB {
                                                                copts, handles, err_ptr);
             }
 
-            for handle in cfhandles.iter() {
+            for handle in &cfhandles {
                 if handle.is_null() {
                     return Err("Received null column family handle from DB."
                                    .to_string());
@@ -411,11 +408,11 @@ impl DB {
         if !err.is_null() {
             return Err(error_message(err));
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
-        self.write_opt(batch, &WriteOptions::new())
+        self.write_opt(batch, &WriteOptions::default())
     }
 
     pub fn get_opt(&self,
@@ -445,15 +442,16 @@ impl DB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
-            match val.is_null() {
-                true => Ok(None),
-                false => Ok(Some(DBVector::from_c(val, val_len))),
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
-        self.get_opt(key, &ReadOptions::new())
+        self.get_opt(key, &ReadOptions::default())
     }
 
     pub fn get_cf_opt(&self,
@@ -485,9 +483,10 @@ impl DB {
             if !err.is_null() {
                 return Err(error_message(err));
             }
-            match val.is_null() {
-                true => Ok(None),
-                false => Ok(Some(DBVector::from_c(val, val_len))),
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
@@ -496,7 +495,7 @@ impl DB {
                   cf: DBCFHandle,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
-        self.get_cf_opt(cf, key, &ReadOptions::new())
+        self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
     pub fn create_cf(&mut self,
@@ -554,16 +553,16 @@ impl DB {
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let opts = ReadOptions::new();
-        DBIterator::new(&self, &opts, mode)
+        let opts = ReadOptions::default();
+        DBIterator::new(self, &opts, mode)
     }
 
     pub fn iterator_cf(&self,
                        cf_handle: DBCFHandle,
                        mode: IteratorMode)
                        -> Result<DBIterator, String> {
-        let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf_handle, &opts, mode)
+        let opts = ReadOptions::default();
+        DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -701,7 +700,7 @@ impl DB {
 
 impl Writable for DB {
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        self.put_opt(key, value, &WriteOptions::new())
+        self.put_opt(key, value, &WriteOptions::default())
     }
 
     fn put_cf(&self,
@@ -709,11 +708,11 @@ impl Writable for DB {
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
-        self.put_cf_opt(cf, key, value, &WriteOptions::new())
+        self.put_cf_opt(cf, key, value, &WriteOptions::default())
     }
 
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        self.merge_opt(key, value, &WriteOptions::new())
+        self.merge_opt(key, value, &WriteOptions::default())
     }
 
     fn merge_cf(&self,
@@ -721,20 +720,20 @@ impl Writable for DB {
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
-        self.merge_cf_opt(cf, key, value, &WriteOptions::new())
+        self.merge_cf_opt(cf, key, value, &WriteOptions::default())
     }
 
     fn delete(&self, key: &[u8]) -> Result<(), String> {
-        self.delete_opt(key, &WriteOptions::new())
+        self.delete_opt(key, &WriteOptions::default())
     }
 
     fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
-        self.delete_cf_opt(cf, key, &WriteOptions::new())
+        self.delete_cf_opt(cf, key, &WriteOptions::default())
     }
 }
 
-impl WriteBatch {
-    pub fn new() -> WriteBatch {
+impl Default for WriteBatch {
+    fn default() -> WriteBatch {
         WriteBatch {
             inner: unsafe { rocksdb_ffi::rocksdb_writebatch_create() },
         }
@@ -750,7 +749,7 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for (_, cf) in self.cfs.iter() {
+            for cf in self.cfs.values() {
                 rocksdb_ffi::rocksdb_column_family_handle_destroy(*cf);
             }
             rocksdb_ffi::rocksdb_close(self.inner);
@@ -840,11 +839,6 @@ impl Drop for ReadOptions {
 }
 
 impl ReadOptions {
-    fn new() -> ReadOptions {
-        unsafe {
-            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create() }
-        }
-    }
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
@@ -859,6 +853,14 @@ impl ReadOptions {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
                                                           snapshot.inner);
+        }
+    }
+}
+
+impl Default for ReadOptions {
+    fn default() -> ReadOptions {
+        unsafe {
+            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create() }
         }
     }
 }
@@ -891,7 +893,7 @@ impl DBVector {
         }
     }
 
-    pub fn to_utf8<'a>(&'a self) -> Option<&'a str> {
+    pub fn to_utf8(&self) -> Option<&str> {
         from_utf8(self.deref()).ok()
     }
 }
@@ -908,7 +910,7 @@ fn external() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    let opts = Options::new();
+    let opts = Options::default();
     let result = DB::destroy(&opts, path);
     assert!(result.is_ok());
 }
@@ -917,7 +919,7 @@ fn external() {
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
     let db = DB::open_default(path).unwrap();
-    let opts = Options::new();
+    let opts = Options::default();
     // The DB will still be open when we try to destroy and the lock should fail
     match DB::destroy(&opts, path) {
         Err(ref s) => {
@@ -936,7 +938,7 @@ fn writebatch_works() {
         let db = DB::open_default(path).unwrap();
         {
             // test put
-            let batch = WriteBatch::new();
+            let batch = WriteBatch::default();
             assert!(db.get(b"k1").unwrap().is_none());
             let _ = batch.put(b"k1", b"v1111");
             assert!(db.get(b"k1").unwrap().is_none());
@@ -947,14 +949,14 @@ fn writebatch_works() {
         }
         {
             // test delete
-            let batch = WriteBatch::new();
+            let batch = WriteBatch::default();
             let _ = batch.delete(b"k1");
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
         }
     }
-    let opts = Options::new();
+    let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
 }
 
@@ -976,7 +978,7 @@ fn iterator_test() {
                      from_utf8(&*v).unwrap());
         }
     }
-    let opts = Options::new();
+    let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
 }
 
@@ -998,6 +1000,6 @@ fn snapshot_test() {
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
     }
-    let opts = Options::new();
+    let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
 }

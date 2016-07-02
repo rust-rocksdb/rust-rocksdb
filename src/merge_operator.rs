@@ -19,10 +19,11 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
+pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>;
 
 pub struct MergeOperatorCallback {
     pub name: CString,
-    pub merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
+    pub merge_fn: MergeFn,
 }
 
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -128,9 +129,10 @@ impl MergeOperands {
 impl<'a> Iterator for &'a mut MergeOperands {
     type Item = &'a [u8];
     fn next(&mut self) -> Option<&'a [u8]> {
-        match self.cursor == self.num_operands {
-            true => None,
-            false => unsafe {
+        if self.cursor == self.num_operands {
+            None
+        } else {
+            unsafe {
                 let base = self.operands_list as usize;
                 let base_len = self.operands_list_len as usize;
                 let spacing = mem::size_of::<*const *const u8>();
@@ -142,7 +144,7 @@ impl<'a> Iterator for &'a mut MergeOperands {
                 self.cursor += 1;
                 Some(mem::transmute(slice::from_raw_parts(*(ptr as *const *const u8)
                         as *const u8, len)))
-            },
+            }
         }
     }
 
@@ -160,13 +162,10 @@ fn test_provided_merge(new_key: &[u8],
                        -> Vec<u8> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
-    match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e);
-            }
+    if let Some(v) = existing_val {
+        for e in v {
+            result.push(*e);
         }
-        None => (),
     }
     for op in operands {
         for e in op {
@@ -184,7 +183,7 @@ fn mergetest() {
     use rocksdb::{DB, DBVector, Writable};
 
     let path = "_rust_rocksdb_mergetest";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", test_provided_merge);
     {

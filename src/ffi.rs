@@ -72,19 +72,19 @@ pub fn new_cache(capacity: size_t) -> DBCache {
 
 #[repr(C)]
 pub enum DBCompressionType {
-    DBNoCompression = 0,
-    DBSnappyCompression = 1,
-    DBZlibCompression = 2,
-    DBBz2Compression = 3,
-    DBLz4Compression = 4,
-    DBLz4hcCompression = 5,
+    None = 0,
+    Snappy = 1,
+    Zlib = 2,
+    Bz2 = 3,
+    Lz4 = 4,
+    Lz4hc = 5,
 }
 
 #[repr(C)]
 pub enum DBCompactionStyle {
-    DBLevelCompaction = 0,
-    DBUniversalCompaction = 1,
-    DBFifoCompaction = 2,
+    Level = 0,
+    Universal = 1,
+    Fifo = 2,
 }
 
 #[repr(C)]

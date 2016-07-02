@@ -20,11 +20,11 @@ pub fn test_column_family() {
 
     // should be able to create column families
     {
-        let mut opts = Options::new();
+        let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.add_merge_operator("test operator", test_provided_merge);
         let mut db = DB::open(&opts, path).unwrap();
-        let opts = Options::new();
+        let opts = Options::default();
         match db.create_cf("cf1", &opts) {
             Ok(_) => println!("cf1 created successfully"),
             Err(e) => {
@@ -35,7 +35,7 @@ pub fn test_column_family() {
 
     // should fail to open db without specifying same column families
     {
-        let mut opts = Options::new();
+        let mut opts = Options::default();
         opts.add_merge_operator("test operator", test_provided_merge);
         match DB::open(&opts, path) {
             Ok(_) => {
@@ -52,7 +52,7 @@ pub fn test_column_family() {
 
     // should properly open db when specyfing all column families
     {
-        let mut opts = Options::new();
+        let mut opts = Options::default();
         opts.add_merge_operator("test operator", test_provided_merge);
         match DB::open_cf(&opts, path, &["cf1"]) {
             Ok(_) => println!("successfully opened db with column family"),
@@ -61,7 +61,7 @@ pub fn test_column_family() {
     }
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
-        let mut opts = Options::new();
+        let mut opts = Options::default();
         opts.add_merge_operator("test operator", test_provided_merge);
         let db = match DB::open_cf(&opts, path, &["cf1"]) {
             Ok(db) => {
@@ -107,14 +107,14 @@ pub fn test_column_family() {
     }
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::new(), path, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::default(), path, &["cf1"]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
     }
 
-    assert!(DB::destroy(&Options::new(), path).is_ok());
+    assert!(DB::destroy(&Options::default(), path).is_ok());
 }
 
 fn test_provided_merge(_: &[u8],

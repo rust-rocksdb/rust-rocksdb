@@ -41,7 +41,7 @@ use rocksdb::{DB, MergeOperands, Options, Writable};
 // std::str::from_utf8(v).unwrap());
 //        };
 //    }
-//    let opts = Options::new();
+//    let opts = Options::default();
 //    assert!(DB::destroy(&opts, path).is_ok());
 // }
 
@@ -71,13 +71,10 @@ fn concat_merge(_: &[u8],
                 operands: &mut MergeOperands)
                 -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
-    match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e)
-            }
+    if let Some(v) = existing_val {
+        for e in v {
+            result.push(*e)
         }
-        None => (),
     }
     for op in operands {
         for e in op {
@@ -89,7 +86,7 @@ fn concat_merge(_: &[u8],
 
 fn custom_merge() {
     let path = "_rust_rocksdb_mergetest";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     {
@@ -117,7 +114,7 @@ fn custom_merge() {
 #[cfg(feature = "valgrind")]
 fn main() {
     let path = "_rust_rocksdb_valgrind";
-    let mut opts = Options::new();
+    let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     let db = DB::open(&opts, path).unwrap();
@@ -144,7 +141,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use rocksdb::{BlockBasedOptions, DB, Options};
-    use rocksdb::DBCompactionStyle::DBUniversalCompaction;
+    use rocksdb::DBCompactionStyle::Universal;
 
     fn tuned_for_somebody_elses_disk(path: &str,
                                      opts: &mut Options,
@@ -163,7 +160,7 @@ mod tests {
         opts.set_min_write_buffer_number_to_merge(4);
         opts.set_level_zero_stop_writes_trigger(2000);
         opts.set_level_zero_slowdown_writes_trigger(0);
-        opts.set_compaction_style(DBUniversalCompaction);
+        opts.set_compaction_style(Universal);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
@@ -183,8 +180,8 @@ mod tests {
     // dirty hack due to parallel tests causing contention.
     // sleep_ms(1000);
     // let path = "_rust_rocksdb_optimizetest";
-    // let mut opts = Options::new();
-    // let mut blockopts = BlockBasedOptions::new();
+    // let mut opts = Options::default();
+    // let mut blockopts = BlockBasedOptions::default();
     // let mut db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
     // let mut i = 0 as u64;
     // b.iter(|| {
@@ -196,8 +193,8 @@ mod tests {
     // #[bench]
     // fn b_reads(b: &mut Bencher) {
     // let path = "_rust_rocksdb_optimizetest";
-    // let mut opts = Options::new();
-    // let mut blockopts = BlockBasedOptions::new();
+    // let mut opts = Options::default();
+    // let mut blockopts = BlockBasedOptions::default();
     // {
     // let db = tuned_for_somebody_elses_disk(path, &mut opts, &mut blockopts);
     // let mut i = 0 as u64;

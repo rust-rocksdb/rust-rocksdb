@@ -47,5 +47,5 @@ pub fn test_multithreaded() {
         j2.join().unwrap();
         j3.join().unwrap();
     }
-    assert!(DB::destroy(&Options::new(), path).is_ok());
+    assert!(DB::destroy(&Options::default(), path).is_ok());
 }
