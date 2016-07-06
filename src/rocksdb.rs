@@ -159,23 +159,18 @@ impl<'a> DBIterator<'a> {
 
     fn new_cf(db: &'a DB,
               cf_handle: DBCFHandle,
-              readopts: &ReadOptions,
-              key: SeekKey)
-              -> Result<DBIterator<'a>, String> {
+              readopts: &ReadOptions)
+              -> DBIterator<'a> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.inner,
                                                         cf_handle);
 
-            let mut rv = DBIterator {
+            DBIterator {
                 db: db,
                 inner: iterator,
-            };
-
-            rv.seek(key);
-
-            Ok(rv)
+            }
         }
     }
 }
@@ -607,12 +602,9 @@ impl DB {
         DBIterator::new(&self, opt)
     }
 
-    pub fn iter_cf(&self,
-                   cf_handle: DBCFHandle,
-                   key: SeekKey)
-                   -> Result<DBIterator, String> {
+    pub fn iter_cf(&self, cf_handle: DBCFHandle) -> DBIterator {
         let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf_handle, &opts, key)
+        DBIterator::new_cf(&self, cf_handle, &opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
