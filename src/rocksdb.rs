@@ -157,16 +157,15 @@ impl<'a> DBIterator<'a> {
         unsafe { rocksdb_ffi::rocksdb_iter_valid(self.inner) }
     }
 
-    fn new_cf(db: &'a DB,
-              cf_handle: DBCFHandle,
-              readopts: &ReadOptions)
-              -> DBIterator<'a> {
+    pub fn new_cf(db: &'a DB,
+                  cf_handle: DBCFHandle,
+                  readopts: &ReadOptions)
+                  -> DBIterator<'a> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.inner,
                                                         cf_handle);
-
             DBIterator {
                 db: db,
                 inner: iterator,
@@ -289,12 +288,13 @@ impl DB {
     }
 
     pub fn open(opts: &Options, path: &str) -> Result<DB, String> {
-        DB::open_cf(opts, path, &[])
+        DB::open_cf(opts, path, &[], &[])
     }
 
     pub fn open_cf(opts: &Options,
                    path: &str,
-                   cfs: &[&str])
+                   cfs: &[&str],
+                   cf_opts: &[&Options])
                    -> Result<DB, String> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
@@ -304,81 +304,71 @@ impl DB {
                     .to_owned())
             }
         };
-        let cpath_ptr = cpath.as_ptr();
-
-        let ospath = Path::new(path);
-
-        if let Err(e) = fs::create_dir_all(&ospath) {
+        if let Err(e) = fs::create_dir_all(&Path::new(path)) {
             return Err(format!("Failed to create rocksdb directory: \
                                 src/rocksdb.rs:                              \
                                 {:?}",
                                e));
         }
 
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
-        let db: rocksdb_ffi::DBInstance;
-        let mut cf_map = BTreeMap::new();
-
-        if cfs.len() == 0 {
-            unsafe {
-                db = rocksdb_ffi::rocksdb_open(opts.inner,
-                                               cpath_ptr as *const _,
-                                               err_ptr);
-            }
-        } else {
-            let mut cfs_v = cfs.to_vec();
-            // Always open the default column family
-            if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
-                cfs_v.push(DEFAULT_COLUMN_FAMILY);
-            }
-
-            // We need to store our CStrings in an intermediate vector
-            // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v.iter()
-                .map(|cf| CString::new(cf.as_bytes()).unwrap())
-                .collect();
-
-            let cfnames: Vec<*const _> = c_cfs.iter()
-                .map(|cf| cf.as_ptr())
-                .collect();
-
-            // These handles will be populated by DB.
-            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
-                .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
-                .collect();
-
-            // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<rocksdb_ffi::DBOptions> = cfs_v.iter()
-                .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
-                .collect();
-
-            // Prepare to ship to C.
-            let cfopts_ptr: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
-            let handles: *const rocksdb_ffi::DBCFHandle = cfhandles.as_ptr();
-            let nfam = cfs_v.len();
-            unsafe {
-                db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _,
-                                                               nfam as c_int,
-                                                               cfnames.as_ptr() as *const _,
-                                                               cfopts_ptr, handles, err_ptr);
-            }
-
-            for handle in &cfhandles {
-                if handle.0.is_null() {
-                    return Err("Received null column family handle from DB."
-                        .to_owned());
-                }
-            }
-
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert((*n).to_owned(), h);
-            }
+        if cfs.len() != cf_opts.len() {
+            return Err(format!("cfs.len() and cf_opts.len() not match."));
         }
 
+        let mut cfs_v = cfs.to_vec();
+        let mut cf_opts_v = cf_opts.to_vec();
+        // Always open the default column family
+        if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
+            cfs_v.push(DEFAULT_COLUMN_FAMILY);
+            cf_opts_v.push(opts);
+        }
+
+        // We need to store our CStrings in an intermediate vector
+        // so that their pointers remain valid.
+        let c_cfs: Vec<CString> = cfs_v.iter()
+            .map(|cf| CString::new(cf.as_bytes()).unwrap())
+            .collect();
+
+        let cfnames: Vec<*const _> = c_cfs.iter()
+            .map(|cf| cf.as_ptr())
+            .collect();
+
+        // These handles will be populated by DB.
+        let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
+            .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
+            .collect();
+
+        let cfopts: Vec<rocksdb_ffi::DBOptions> =
+            cf_opts_v.iter().map(|x| x.inner).collect();
+
+        let db: rocksdb_ffi::DBInstance;
+        let mut err: *const i8 = 0 as *const i8;
+        let err_ptr: *mut *const i8 = &mut err;
+        unsafe {
+            db = rocksdb_ffi::rocksdb_open_column_families(opts.inner,
+                    cpath.as_ptr() as *const _,
+                    cfs_v.len() as c_int,
+                    cfnames.as_ptr() as *const _,
+                    cfopts.as_ptr(),
+                    cfhandles.as_ptr(),
+                    err_ptr);
+        }
         if !err.is_null() {
             return Err(error_message(err));
         }
+
+        for handle in &cfhandles {
+            if handle.0.is_null() {
+                return Err("Received null column family handle from DB."
+                    .to_owned());
+            }
+        }
+
+        let mut cf_map = BTreeMap::new();
+        for (n, h) in cfs_v.iter().zip(cfhandles) {
+            cf_map.insert((*n).to_owned(), h);
+        }
+
         if db.0.is_null() {
             return Err("Could not initialize database.".to_owned());
         }
@@ -591,6 +581,11 @@ impl DB {
 
     pub fn cf_handle(&self, name: &str) -> Option<&DBCFHandle> {
         self.cfs.get(name)
+    }
+
+    /// get all column family names, without 'default'.
+    pub fn cf_names(&self) -> Vec<&str> {
+        self.cfs.iter().map(|(k, _)| k.as_str()).collect()
     }
 
     pub fn iter(&self) -> DBIterator {
