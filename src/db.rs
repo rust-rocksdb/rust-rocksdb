@@ -29,6 +29,8 @@ use std::ptr;
 use std::slice;
 use std::str;
 
+const DEFAULT_COLUMN_FAMILY: &'static str = "default";
+
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
 }
@@ -569,17 +571,21 @@ impl DB {
 
     /// Open the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, &[])
+        DB::open_cf(opts, path, &[], &[])
     }
 
-    /// Open a database with specified options and column family.
+    /// Open a database with specified database options and column family options.
     ///
     /// A column family must be created first by calling `DB::create_cf`.
     ///
     /// # Panics
     ///
     /// * Panics if the column family doesn't exist.
-    pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
+    pub fn open_cf<P: AsRef<Path>>(opts: &Options,
+                                   path: P,
+                                   cfs: &[&str],
+                                   cf_opts: &[&Options])
+                                   -> Result<DB, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
@@ -596,56 +602,56 @@ impl DB {
                                           e)));
         }
 
+        if cfs.len() != cf_opts.len() {
+            return Err(Error::new(format!("cfs.len() and cf_opts.len() do not match.")));
+        }
+
+        let mut cfs_v = cfs.to_vec();
+        let mut cf_opts_v = cf_opts.to_vec();
+        // Always open the default column family
+        if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
+            cfs_v.push(DEFAULT_COLUMN_FAMILY);
+            cf_opts_v.push(opts);
+        }
+
+        // We need to store our CStrings in an intermediate vector
+        // so that their pointers remain valid.
+        let c_cfs: Vec<CString> = cfs_v.iter()
+            .map(|cf| CString::new(cf.as_bytes()).unwrap())
+            .collect();
+
+        let cfnames: Vec<*const _> = c_cfs.iter()
+            .map(|cf| cf.as_ptr())
+            .collect();
+
+        // These handles will be populated by DB.
+        let mut cfhandles: Vec<_> = cfs_v.iter()
+            .map(|_| ptr::null_mut())
+            .collect();
+
+        let cfopts: Vec<_> =
+            cf_opts_v.iter().map(|x| x.inner as *const _).collect();
+
         let db: *mut ffi::rocksdb_t;
+        unsafe {
+            db = ffi_try!(ffi::rocksdb_open_column_families(opts.inner,
+                                                            cpath.as_ptr() as *const _,
+                                                            cfs_v.len() as c_int,
+                                                            cfnames.as_ptr() as *const _,
+                                                            cfopts.as_ptr(),
+                                                            cfhandles.as_mut_ptr()));
+        }
+
+        for handle in &cfhandles {
+            if handle.is_null() {
+                return Err(Error::new("Received null column family handle from DB."
+                                      .to_owned()));
+            }
+        }
+
         let mut cf_map = BTreeMap::new();
-
-        if cfs.len() == 0 {
-            unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
-            }
-        } else {
-            let mut cfs_v = cfs.to_vec();
-            // Always open the default column family.
-            if !cfs_v.contains(&"default") {
-                cfs_v.push("default");
-            }
-
-            // We need to store our CStrings in an intermediate vector
-            // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v.iter()
-                .map(|cf| CString::new(cf.as_bytes()).unwrap())
-                .collect();
-
-            let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
-
-            // These handles will be populated by DB.
-            let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
-
-            // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<_> = cfs_v.iter()
-                .map(|_| unsafe { ffi::rocksdb_options_create() as *const _ })
-                .collect();
-
-            unsafe {
-                db = ffi_try!(ffi::rocksdb_open_column_families(opts.inner,
-                                                                cpath.as_ptr() as *const _,
-                                                                cfs_v.len() as c_int,
-                                                                cfnames.as_ptr() as *const _,
-                                                                cfopts.as_ptr(),
-                                                                cfhandles.as_mut_ptr()));
-            }
-
-            for handle in &cfhandles {
-                if handle.is_null() {
-                    return Err(Error::new("Received null column family \
-                                           handle from DB."
-                        .to_owned()));
-                }
-            }
-
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert(n.to_string(), ColumnFamily { inner: h });
-            }
+        for (n, h) in cfs_v.iter().zip(cfhandles) {
+            cf_map.insert(n.to_string(), ColumnFamily { inner: h });
         }
 
         if db.is_null() {
