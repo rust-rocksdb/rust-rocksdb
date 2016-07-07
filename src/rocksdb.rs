@@ -583,7 +583,7 @@ impl DB {
         self.cfs.get(name)
     }
 
-    /// get all column family names, without 'default'.
+    /// get all column family names, including 'default'.
     pub fn cf_names(&self) -> Vec<&str> {
         self.cfs.iter().map(|(k, _)| k.as_str()).collect()
     }
