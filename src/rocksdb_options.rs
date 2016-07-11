@@ -22,6 +22,10 @@ use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
 use comparator::{self, ComparatorCallback, compare_callback};
 use merge_operator::MergeFn;
 
+pub struct FilterPolicy {
+    inner: rocksdb_ffi::DBFilterPolicy,
+}
+
 pub struct BlockBasedOptions {
     inner: rocksdb_ffi::DBBlockBasedTableOptions,
 }
@@ -38,6 +42,14 @@ impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for FilterPolicy {
+    fn drop(& mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_filterpolicy_destroy(self.inner);
         }
     }
 }
@@ -70,6 +82,18 @@ impl Default for BlockBasedOptions {
     }
 }
 
+impl FilterPolicy {
+    pub fn new_bloom_filter(bits_per_key: c_int, block_based: bool) -> FilterPolicy {
+        let filter = if block_based {
+            unsafe { rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits_per_key) }
+        } else {
+            unsafe { rocksdb_ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key) }
+        };
+
+        FilterPolicy { inner: filter }
+    }
+}
+
 impl BlockBasedOptions {
     pub fn new() -> BlockBasedOptions {
         BlockBasedOptions::default()
@@ -88,6 +112,13 @@ impl BlockBasedOptions {
             // because cache is wrapped in shared_ptr, so we don't need to call
             // rocksdb_cache_destroy explicitly.
             rocksdb_ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
+        }
+    }
+
+    pub fn set_filter_policy(&mut self, filter: &FilterPolicy) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner,
+                                                                       filter.inner);
         }
     }
 }
