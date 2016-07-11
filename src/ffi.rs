@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::{c_char, c_int, c_void, size_t};
+use self::libc::{c_char, c_uchar, c_int, c_void, size_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
@@ -122,6 +122,8 @@ extern "C" {
     pub fn rocksdb_block_based_options_set_block_restart_interval(
         block_options: DBBlockBasedTableOptions,
         block_restart_interval: c_int);
+    pub fn rocksdb_block_based_options_set_cache_index_and_filter_blocks(
+        block_options: DBBlockBasedTableOptions, v: c_uchar);
     pub fn rocksdb_block_based_options_set_filter_policy(
         block_options: DBBlockBasedTableOptions,
         filter_policy: DBFilterPolicy);
@@ -194,6 +196,8 @@ extern "C" {
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
     pub fn rocksdb_options_set_report_bg_io_stats(options: DBOptions, v: c_int);
+    pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
+                                                -> DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
     pub fn rocksdb_open(options: DBOptions,
