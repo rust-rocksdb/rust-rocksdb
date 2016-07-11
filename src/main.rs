@@ -143,7 +143,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, DB, Options, DBCompressionType};
+    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
     use rocksdb::DBCompactionStyle::DBUniversal;
 
     #[allow(dead_code)]
@@ -151,13 +151,14 @@ mod tests {
                                      opts: &mut Options,
                                      blockopts: &mut BlockBasedOptions)
                                      -> DB {
-        let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::DBNo,
-                                                DBCompressionType::DBNo,
-                                                DBCompressionType::DBNo,
-                                                DBCompressionType::DBLz4,
-                                                DBCompressionType::DBLz4,
-                                                DBCompressionType::DBLz4,
-                                                DBCompressionType::DBLz4];
+        let per_level_compression: [DBCompressionType; 7] =
+            [DBCompressionType::DBNo,
+             DBCompressionType::DBNo,
+             DBCompressionType::DBNo,
+             DBCompressionType::DBLz4,
+             DBCompressionType::DBLz4,
+             DBCompressionType::DBLz4,
+             DBCompressionType::DBLz4];
 
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);

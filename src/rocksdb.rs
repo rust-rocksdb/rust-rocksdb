@@ -44,9 +44,18 @@ pub struct ReadOptions {
     inner: rocksdb_ffi::DBReadOptions,
 }
 
+/// The UnsafeSnap must be destroyed by db, it maybe be leaked
+/// if not using it properly, hence named as unsafe.
+///
+/// This object is convenient for wrapping snapshot by yourself. In most
+/// cases, using `Snapshot` is enough.
+pub struct UnsafeSnap {
+    inner: rocksdb_ffi::DBSnapshot,
+}
+
 pub struct Snapshot<'a> {
     db: &'a DB,
-    inner: rocksdb_ffi::DBSnapshot,
+    snap: UnsafeSnap,
 }
 
 // We need to find a better way to add a lifetime in here.
@@ -69,7 +78,7 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 }
 
 impl<'a> DBIterator<'a> {
-    fn new(db: &'a DB, readopts: &ReadOptions) -> DBIterator<'a> {
+    pub fn new(db: &'a DB, readopts: &ReadOptions) -> DBIterator<'a> {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -148,25 +157,19 @@ impl<'a> DBIterator<'a> {
         unsafe { rocksdb_ffi::rocksdb_iter_valid(self.inner) }
     }
 
-    fn new_cf(db: &'a DB,
-              cf_handle: DBCFHandle,
-              readopts: &ReadOptions,
-              key: SeekKey)
-              -> Result<DBIterator<'a>, String> {
+    pub fn new_cf(db: &'a DB,
+                  cf_handle: DBCFHandle,
+                  readopts: &ReadOptions)
+                  -> DBIterator<'a> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.inner,
                                                         cf_handle);
-
-            let mut rv = DBIterator {
+            DBIterator {
                 db: db,
                 inner: iterator,
-            };
-
-            rv.seek(key);
-
-            Ok(rv)
+            }
         }
     }
 }
@@ -195,11 +198,11 @@ impl<'a> Drop for DBIterator<'a> {
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
-        let snapshot =
-            unsafe { rocksdb_ffi::rocksdb_create_snapshot(db.inner) };
-        Snapshot {
-            db: db,
-            inner: snapshot,
+        unsafe {
+            Snapshot {
+                db: db,
+                snap: db.unsafe_snap(),
+            }
         }
     }
 
@@ -209,13 +212,17 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn iter_opt(&self, mut opt: ReadOptions) -> DBIterator {
-        opt.set_snapshot(self);
+        unsafe {
+            opt.set_snapshot(&self.snap);
+        }
         DBIterator::new(self.db, &opt)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
-        readopts.set_snapshot(self);
+        unsafe {
+            readopts.set_snapshot(&self.snap);
+        }
         self.db.get_opt(key, &readopts)
     }
 
@@ -224,16 +231,16 @@ impl<'a> Snapshot<'a> {
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
-        readopts.set_snapshot(self);
+        unsafe {
+            readopts.set_snapshot(&self.snap);
+        }
         self.db.get_cf_opt(cf, key, &readopts)
     }
 }
 
 impl<'a> Drop for Snapshot<'a> {
     fn drop(&mut self) {
-        unsafe {
-            rocksdb_ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
-        }
+        unsafe { self.db.release_snap(&self.snap) }
     }
 }
 
@@ -281,12 +288,13 @@ impl DB {
     }
 
     pub fn open(opts: &Options, path: &str) -> Result<DB, String> {
-        DB::open_cf(opts, path, &[])
+        DB::open_cf(opts, path, &[], &[])
     }
 
     pub fn open_cf(opts: &Options,
                    path: &str,
-                   cfs: &[&str])
+                   cfs: &[&str],
+                   cf_opts: &[&Options])
                    -> Result<DB, String> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
@@ -296,81 +304,71 @@ impl DB {
                     .to_owned())
             }
         };
-        let cpath_ptr = cpath.as_ptr();
-
-        let ospath = Path::new(path);
-
-        if let Err(e) = fs::create_dir_all(&ospath) {
+        if let Err(e) = fs::create_dir_all(&Path::new(path)) {
             return Err(format!("Failed to create rocksdb directory: \
                                 src/rocksdb.rs:                              \
                                 {:?}",
                                e));
         }
 
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
-        let db: rocksdb_ffi::DBInstance;
-        let mut cf_map = BTreeMap::new();
-
-        if cfs.len() == 0 {
-            unsafe {
-                db = rocksdb_ffi::rocksdb_open(opts.inner,
-                                               cpath_ptr as *const _,
-                                               err_ptr);
-            }
-        } else {
-            let mut cfs_v = cfs.to_vec();
-            // Always open the default column family
-            if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
-                cfs_v.push(DEFAULT_COLUMN_FAMILY);
-            }
-
-            // We need to store our CStrings in an intermediate vector
-            // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v.iter()
-                .map(|cf| CString::new(cf.as_bytes()).unwrap())
-                .collect();
-
-            let cfnames: Vec<*const _> = c_cfs.iter()
-                .map(|cf| cf.as_ptr())
-                .collect();
-
-            // These handles will be populated by DB.
-            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
-                .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
-                .collect();
-
-            // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<rocksdb_ffi::DBOptions> = cfs_v.iter()
-                .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
-                .collect();
-
-            // Prepare to ship to C.
-            let cfopts_ptr: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
-            let handles: *const rocksdb_ffi::DBCFHandle = cfhandles.as_ptr();
-            let nfam = cfs_v.len();
-            unsafe {
-                db = rocksdb_ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _,
-                                                               nfam as c_int,
-                                                               cfnames.as_ptr() as *const _,
-                                                               cfopts_ptr, handles, err_ptr);
-            }
-
-            for handle in &cfhandles {
-                if handle.0.is_null() {
-                    return Err("Received null column family handle from DB."
-                        .to_owned());
-                }
-            }
-
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert((*n).to_owned(), h);
-            }
+        if cfs.len() != cf_opts.len() {
+            return Err(format!("cfs.len() and cf_opts.len() not match."));
         }
 
+        let mut cfs_v = cfs.to_vec();
+        let mut cf_opts_v = cf_opts.to_vec();
+        // Always open the default column family
+        if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
+            cfs_v.push(DEFAULT_COLUMN_FAMILY);
+            cf_opts_v.push(opts);
+        }
+
+        // We need to store our CStrings in an intermediate vector
+        // so that their pointers remain valid.
+        let c_cfs: Vec<CString> = cfs_v.iter()
+            .map(|cf| CString::new(cf.as_bytes()).unwrap())
+            .collect();
+
+        let cfnames: Vec<*const _> = c_cfs.iter()
+            .map(|cf| cf.as_ptr())
+            .collect();
+
+        // These handles will be populated by DB.
+        let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
+            .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
+            .collect();
+
+        let cfopts: Vec<rocksdb_ffi::DBOptions> =
+            cf_opts_v.iter().map(|x| x.inner).collect();
+
+        let db: rocksdb_ffi::DBInstance;
+        let mut err: *const i8 = 0 as *const i8;
+        let err_ptr: *mut *const i8 = &mut err;
+        unsafe {
+            db = rocksdb_ffi::rocksdb_open_column_families(opts.inner,
+                    cpath.as_ptr() as *const _,
+                    cfs_v.len() as c_int,
+                    cfnames.as_ptr() as *const _,
+                    cfopts.as_ptr(),
+                    cfhandles.as_ptr(),
+                    err_ptr);
+        }
         if !err.is_null() {
             return Err(error_message(err));
         }
+
+        for handle in &cfhandles {
+            if handle.0.is_null() {
+                return Err("Received null column family handle from DB."
+                    .to_owned());
+            }
+        }
+
+        let mut cf_map = BTreeMap::new();
+        for (n, h) in cfs_v.iter().zip(cfhandles) {
+            cf_map.insert((*n).to_owned(), h);
+        }
+
         if db.0.is_null() {
             return Err("Could not initialize database.".to_owned());
         }
@@ -585,6 +583,11 @@ impl DB {
         self.cfs.get(name)
     }
 
+    /// get all column family names, including 'default'.
+    pub fn cf_names(&self) -> Vec<&str> {
+        self.cfs.iter().map(|(k, _)| k.as_str()).collect()
+    }
+
     pub fn iter(&self) -> DBIterator {
         let opts = ReadOptions::new();
         self.iter_opt(&opts)
@@ -594,16 +597,21 @@ impl DB {
         DBIterator::new(&self, opt)
     }
 
-    pub fn iter_cf(&self,
-                   cf_handle: DBCFHandle,
-                   key: SeekKey)
-                   -> Result<DBIterator, String> {
+    pub fn iter_cf(&self, cf_handle: DBCFHandle) -> DBIterator {
         let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf_handle, &opts, key)
+        DBIterator::new_cf(&self, cf_handle, &opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
+    }
+
+    pub unsafe fn unsafe_snap(&self) -> UnsafeSnap {
+        UnsafeSnap { inner: rocksdb_ffi::rocksdb_create_snapshot(self.inner) }
+    }
+
+    pub unsafe fn release_snap(&self, snap: &UnsafeSnap) {
+        rocksdb_ffi::rocksdb_release_snapshot(self.inner, snap.inner)
     }
 
     pub fn put_opt(&self,
@@ -939,6 +947,14 @@ impl WriteBatch {
     pub fn new() -> WriteBatch {
         WriteBatch::default()
     }
+
+    pub fn count(&self) -> usize {
+        unsafe { rocksdb_ffi::rocksdb_writebatch_count(self.inner) as usize }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.count() == 0
+    }
 }
 
 impl Drop for WriteBatch {
@@ -1061,11 +1077,9 @@ impl ReadOptions {
         }
     }
 
-    fn set_snapshot(&mut self, snapshot: &Snapshot) {
-        unsafe {
-            rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
-                                                          snapshot.inner);
-        }
+    pub unsafe fn set_snapshot(&mut self, snapshot: &UnsafeSnap) {
+        rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
+                                                      snapshot.inner);
     }
 }
 
@@ -1143,7 +1157,11 @@ mod test {
         // test put
         let batch = WriteBatch::new();
         assert!(db.get(b"k1").unwrap().is_none());
+        assert_eq!(batch.count(), 0);
+        assert!(batch.is_empty());
         let _ = batch.put(b"k1", b"v1111");
+        assert_eq!(batch.count(), 1);
+        assert!(!batch.is_empty());
         assert!(db.get(b"k1").unwrap().is_none());
         let p = db.write(batch);
         assert!(p.is_ok());
@@ -1153,6 +1171,8 @@ mod test {
         // test delete
         let batch = WriteBatch::new();
         let _ = batch.delete(b"k1");
+        assert_eq!(batch.count(), 1);
+        assert!(!batch.is_empty());
         let p = db.write(batch);
         assert!(p.is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
