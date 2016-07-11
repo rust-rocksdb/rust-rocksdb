@@ -121,6 +121,13 @@ impl BlockBasedOptions {
                                                                        filter.inner);
         }
     }
+
+    pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner,
+                                                                                       v as u8);
+        }
+    }
 }
 
 // TODO figure out how to create these in a Rusty way
