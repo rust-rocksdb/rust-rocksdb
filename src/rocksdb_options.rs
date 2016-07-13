@@ -94,6 +94,10 @@ impl BlockBasedOptions {
             rocksdb_ffi::rocksdb_block_based_options_set_index_type(self.inner, it);
         }
     }
+
+    pub fn set_cache(&mut self, cache: Cache) {
+        unsafe { rocksdb_ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache.inner); }
+    }
 }
 
 // rocksdb guarantees synchronization
