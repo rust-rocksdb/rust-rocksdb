@@ -39,6 +39,10 @@ pub struct WriteOptions {
     pub inner: rocksdb_ffi::DBWriteOptions,
 }
 
+pub struct Cache {
+    pub inner: rocksdb_ffi::DBCache,
+}
+
 impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
@@ -91,6 +95,11 @@ impl BlockBasedOptions {
         }
     }
 }
+
+// rocksdb guarantees synchronization
+unsafe impl Sync for BlockBasedOptions {}
+// rocksdb guarantees synchronization
+unsafe impl Send for BlockBasedOptions {}
 
 // TODO figure out how to create these in a Rusty way
 // /pub fn set_filter(&mut self, filter: rocksdb_ffi::DBFilterPolicy) {
@@ -399,3 +408,25 @@ impl WriteOptions {
         }
     }
 }
+
+// rocksdb guarantees synchronization
+unsafe impl Sync for WriteOptions {}
+// rocksdb guarantees synchronization
+unsafe impl Send for WriteOptions {}
+
+impl Cache {
+    pub fn new(bytes: usize) -> Cache {
+        Cache { inner: unsafe { rocksdb_ffi::rocksdb_cache_create_lru(bytes) } }
+    }
+}
+
+impl Drop for Cache {
+    fn drop(&mut self) {
+        unsafe { rocksdb_ffi::rocksdb_cache_destroy(self.inner); }
+    }
+}
+
+// rocksdb guarantees synchronization
+unsafe impl Sync for Cache {}
+// rocksdb guarantees synchronization
+unsafe impl Send for Cache {}
