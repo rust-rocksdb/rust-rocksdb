@@ -637,7 +637,7 @@ impl DB {
             Ok(())
         }
     }
-    fn merge_cf_opt(&self,
+    pub fn merge_cf_opt(&self,
                     cf: DBCFHandle,
                     key: &[u8],
                     value: &[u8],
@@ -660,7 +660,7 @@ impl DB {
             Ok(())
         }
     }
-    fn delete_opt(&self,
+    pub fn delete_opt(&self,
                   key: &[u8],
                   writeopts: &WriteOptions)
                   -> Result<(), String> {
@@ -678,7 +678,7 @@ impl DB {
             Ok(())
         }
     }
-    fn delete_cf_opt(&self,
+    pub fn delete_cf_opt(&self,
                      cf: DBCFHandle,
                      key: &[u8],
                      writeopts: &WriteOptions)
