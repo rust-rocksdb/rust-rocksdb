@@ -1,5 +1,4 @@
-use std::env;
-use std::fs;
+use std::{env, fs, str};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -74,8 +73,19 @@ fn main() {
             }
         }
     }
-    // TODO: find a reliable way to link stdc++ statically.
     if !cpp_linked {
+        let output = Command::new(p.as_path()).arg("find_stdcxx").output().unwrap();
+        if output.status.success() && !output.stdout.is_empty() {
+            if let Ok(path_str) = str::from_utf8(&output.stdout) {
+                let path = PathBuf::from(path_str);
+                if path.is_absolute() {
+                    println!("cargo:rustc-link-lib=static=stdc++");
+                    println!("cargo:rustc-link-search=native={}", path.parent().unwrap().display());
+                    return;
+                }
+            }
+        }
+        println!("failed to detect libstdc++.a: {:?}, fallback to dynamic", output);
         println!("cargo:rustc-link-lib=stdc++");
     }
 }

@@ -2,29 +2,44 @@
 
 set -e
 
-function panic() {
+con=1
+if [[ -f /proc/cpuinfo ]]; then
+    con=`grep -c processor /proc/cpuinfo`
+else
+    con=`sysctl -n hw.ncpu 2>/dev/null || echo 1`
+fi
+
+function error() {
     echo $@ >&2
-    exit 1
+    return 1
+}
+
+function md5_check() {
+    if which md5sum &>/dev/null; then
+        hash=`md5sum $1 | cut -d ' ' -f 1`
+    elif which openssl &>/dev/null; then
+        hash=`openssl md5 -hex $1 | cut -d ' ' -f 2`
+    else
+        error can\'t find hash tool.
+    fi
+
+    [[ "$hash" == "$2" ]] || error $1: hash not correct, expect $2, got $hash
 }
 
 function download() {
+    if [[ -f $2 ]] && md5_check $2 $3; then
+        return
+    fi
+
     if which wget &>/dev/null; then
         wget $1 -O $2
     elif which curl &>/dev/null; then
         curl -L $1 -o $2
     else
-        panic can\'t find wget and curl.
+        error can\'t find wget and curl.
     fi
 
-    if which md5sum &>/dev/null; then
-        hash=`md5sum $2 | cut -d ' ' -f 1`
-    elif which openssl &>/dev/null; then
-        hash=`openssl md5 -hex $2 | cut -d ' ' -f 2`
-    else
-        panic can\'t find hash tool.
-    fi
-
-    [[ "$hash" == "$3" ]] || panic $2: hash not correct, expect $3, got $hash
+    md5_check $2 $3
 }
 
 function compile_z() {
@@ -37,7 +52,7 @@ function compile_z() {
     tar xf zlib-1.2.8.tar.gz
     cd zlib-1.2.8
     CFLAGS='-fPIC' ./configure --static
-    make
+    make -j $con
     cp libz.a ../
     cd ..
 }
@@ -51,7 +66,7 @@ function compile_bz2() {
     download http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz bzip2-1.0.6.tar.gz 00b516f4704d4a7cb50a1d97e6e8e15b
     tar xvzf bzip2-1.0.6.tar.gz
     cd bzip2-1.0.6
-    make CFLAGS='-fPIC -O2 -g -D_FILE_OFFSET_BITS=64'
+    make CFLAGS='-fPIC -O2 -g -D_FILE_OFFSET_BITS=64' -j $con
     cp libbz2.a ../
     cd ..
 }
@@ -66,7 +81,7 @@ function compile_snappy() {
     tar xvzf snappy-1.1.1.tar.gz
     cd snappy-1.1.1
     ./configure --with-pic --enable-static
-    make
+    make -j $con
     mv .libs/libsnappy.a ../
     cd ..
 }
@@ -80,7 +95,7 @@ function compile_lz4() {
     download https://github.com/Cyan4973/lz4/archive/r131.tar.gz lz4-r131.tar.gz 42b09fab42331da9d3fb33bd5c560de9
     tar xvzf lz4-r131.tar.gz
     cd lz4-r131/lib
-    make CFLAGS='-fPIC' all
+    make CFLAGS='-fPIC' all -j $con
     mv liblz4.a ../../
     cd ../..
 }
@@ -96,12 +111,26 @@ function compile_rocksdb() {
     download https://github.com/facebook/rocksdb/archive/$version.tar.gz rocksdb-$version.tar.gz 75f00635d4dcf0200db54a9244ac5f1d
     tar xf rocksdb-$version.tar.gz
     cd rocksdb-$version
-    EXTRA_CFLAGS="-fPIC -I./zlib-1.2.8 -I./bzip2-1.0.6 -I./snappy-1.1.1 -I./lz4-r127/lib" EXTRA_CXXFLAGS="$EXTRA_CFLAGS" make static_lib
+    export EXTRA_CFLAGS="-fPIC -I./zlib-1.2.8 -I./bzip2-1.0.6 -I./snappy-1.1.1 -I./lz4-r127/lib"
+    export EXTRA_CXXFLAGS="-DZLIB -DBZIP2 -DSNAPPY -DLZ4 $EXTRA_CFLAGS"
+    make static_lib -j $con
     mv librocksdb.a ../
 }
 
+function find_stdcxx() {
+    if g++ --version &>/dev/null; then
+        CXX=g++
+    elif clang++ --version &>/dev/null; then
+        CXX=clang++
+    else
+        error failed to find valid cxx compiler.
+    fi
+
+    $CXX --print-file-name libstdc++.a
+}
+
 if [[ $# -ne 1 ]]; then
-    panic $0 [compile_bz2|compile_z|compile_lz4|compile_rocksdb|compile_snappy]
+    error $0 [compile_bz2\|compile_z\|compile_lz4\|compile_rocksdb\|compile_snappy\|find_stdcxx]
 fi
 
 $1
