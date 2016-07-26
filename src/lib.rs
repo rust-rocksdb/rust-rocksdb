@@ -14,9 +14,9 @@
 //
 extern crate rocksdb_sys;
 pub use rocksdb_sys::rocksdb_ffi as rocksdb_ffi;
-pub use rocksdb_ffi::{DBCompactionStyle, DBComparator, new_bloom_filter, DBCFHandle};
+pub use rocksdb_ffi::{DBCompactionStyle, DBComparator, new_bloom_filter};
 pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
-                  WriteBatch};
+                  WriteBatch, Column};
 pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions, IndexType, Cache};
 pub use merge_operator::MergeOperands;
 pub mod rocksdb;

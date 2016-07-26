@@ -51,8 +51,6 @@ pub type DBIterator = *const DBIteratorOpaque;
 
 pub enum DBCFHandleOpaque {}
 pub type DBCFHandle = *const DBCFHandleOpaque;
-unsafe impl Send for DBCFHandleOpaque {}
-unsafe impl Sync for DBCFHandleOpaque {}
 
 pub enum DBWriteBatchOpaque {}
 pub type DBWriteBatch = *const DBWriteBatchOpaque;

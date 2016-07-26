@@ -36,6 +36,14 @@ pub struct DB {
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
+#[derive(Clone, Copy)]
+pub struct Column {
+    inner: rocksdb_ffi::DBCFHandle,
+}
+
+unsafe impl Send for Column {}
+unsafe impl Sync for Column {}
+
 pub struct WriteBatch {
     inner: rocksdb_ffi::DBWriteBatch,
 }
@@ -159,7 +167,7 @@ impl DBIterator {
     }
 
     fn new_cf(db: &DB,
-              cf_handle: DBCFHandle,
+              cf_handle: Column,
               readopts: &ReadOptions,
               mode: IteratorMode)
               -> Result<DBIterator, String> {
@@ -167,7 +175,7 @@ impl DBIterator {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.inner,
-                                                        cf_handle);
+                                                        cf_handle.inner);
 
             let mut rv = DBIterator {
                 inner: iterator,
@@ -214,7 +222,7 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn get_cf(&self,
-                  cf: DBCFHandle,
+                  cf: Column,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
@@ -235,18 +243,18 @@ impl<'a> Drop for Snapshot<'a> {
 pub trait Writable {
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
     fn put_cf(&self,
-              cf: DBCFHandle,
+              cf: Column,
               key: &[u8],
               value: &[u8])
               -> Result<(), String>;
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
     fn merge_cf(&self,
-                cf: DBCFHandle,
+                cf: Column,
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String>;
     fn delete(&self, key: &[u8]) -> Result<(), String>;
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String>;
+    fn delete_cf(&self, cf: Column, key: &[u8]) -> Result<(), String>;
 }
 
 impl DB {
@@ -458,7 +466,7 @@ impl DB {
     }
 
     pub fn get_cf_opt(&self,
-                      cf: DBCFHandle,
+                      cf: Column,
                       key: &[u8],
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, String> {
@@ -478,7 +486,7 @@ impl DB {
             let val =
                 rocksdb_ffi::rocksdb_get_cf(self.inner,
                                             readopts.inner,
-                                            cf,
+                                            cf.inner,
                                             key.as_ptr(),
                                             key.len() as size_t,
                                             val_len_ptr,
@@ -494,7 +502,7 @@ impl DB {
     }
 
     pub fn get_cf(&self,
-                  cf: DBCFHandle,
+                  cf: Column,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
         self.get_cf_opt(cf, key, &ReadOptions::new())
@@ -503,7 +511,7 @@ impl DB {
     pub fn create_cf(&mut self,
                      name: &str,
                      opts: &Options)
-                     -> Result<DBCFHandle, String> {
+                     -> Result<Column, String> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -522,7 +530,7 @@ impl DB {
                                                           cname_ptr as *const _,
                                                           err_ptr);
             self.cfs.insert(name.to_string(), cf_handler);
-            cf_handler
+            Column { inner: cf_handler }
         };
         if !err.is_null() {
             return Err(error_message(err));
@@ -550,8 +558,8 @@ impl DB {
         Ok(())
     }
 
-    pub fn cf_handle(&self, name: &str) -> Option<&DBCFHandle> {
-        self.cfs.get(name)
+    pub fn cf_handle(&self, name: &str) -> Option<Column> {
+        self.cfs.get(name).map(|c| Column { inner: c.clone() })
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -560,7 +568,7 @@ impl DB {
     }
 
     pub fn iterator_cf(&self,
-                       cf_handle: DBCFHandle,
+                       cf_handle: Column,
                        mode: IteratorMode)
                        -> Result<DBIterator, String> {
         let opts = ReadOptions::new();
@@ -594,7 +602,7 @@ impl DB {
     }
 
     pub fn put_cf_opt(&self,
-                      cf: DBCFHandle,
+                      cf: Column,
                       key: &[u8],
                       value: &[u8],
                       writeopts: &WriteOptions)
@@ -604,7 +612,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             rocksdb_ffi::rocksdb_put_cf(self.inner,
                                         writeopts.inner,
-                                        cf,
+                                        cf.inner,
                                         key.as_ptr(),
                                         key.len() as size_t,
                                         value.as_ptr(),
@@ -638,7 +646,7 @@ impl DB {
         }
     }
     pub fn merge_cf_opt(&self,
-                    cf: DBCFHandle,
+                    cf: Column,
                     key: &[u8],
                     value: &[u8],
                     writeopts: &WriteOptions)
@@ -648,7 +656,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             rocksdb_ffi::rocksdb_merge_cf(self.inner,
                                           writeopts.inner,
-                                          cf,
+                                          cf.inner,
                                           key.as_ptr(),
                                           key.len() as size_t,
                                           value.as_ptr(),
@@ -679,7 +687,7 @@ impl DB {
         }
     }
     pub fn delete_cf_opt(&self,
-                     cf: DBCFHandle,
+                     cf: Column,
                      key: &[u8],
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
@@ -688,7 +696,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             rocksdb_ffi::rocksdb_delete_cf(self.inner,
                                            writeopts.inner,
-                                           cf,
+                                           cf.inner,
                                            key.as_ptr(),
                                            key.len() as size_t,
                                            err_ptr);
@@ -706,7 +714,7 @@ impl Writable for DB {
     }
 
     fn put_cf(&self,
-              cf: DBCFHandle,
+              cf: Column,
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
@@ -718,7 +726,7 @@ impl Writable for DB {
     }
 
     fn merge_cf(&self,
-                cf: DBCFHandle,
+                cf: Column,
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
@@ -729,7 +737,7 @@ impl Writable for DB {
         self.delete_opt(key, &WriteOptions::new())
     }
 
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+    fn delete_cf(&self, cf: Column, key: &[u8]) -> Result<(), String> {
         self.delete_cf_opt(cf, key, &WriteOptions::new())
     }
 }
@@ -772,13 +780,13 @@ impl Writable for WriteBatch {
     }
 
     fn put_cf(&self,
-              cf: DBCFHandle,
+              cf: Column,
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put_cf(self.inner,
-                                                   cf,
+                                                   cf.inner,
                                                    key.as_ptr(),
                                                    key.len() as size_t,
                                                    value.as_ptr(),
@@ -799,13 +807,13 @@ impl Writable for WriteBatch {
     }
 
     fn merge_cf(&self,
-                cf: DBCFHandle,
+                cf: Column,
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_merge_cf(self.inner,
-                                                     cf,
+                                                     cf.inner,
                                                      key.as_ptr(),
                                                      key.len() as size_t,
                                                      value.as_ptr(),
@@ -823,10 +831,10 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+    fn delete_cf(&self, cf: Column, key: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete_cf(self.inner,
-                                                      cf,
+                                                      cf.inner,
                                                       key.as_ptr(),
                                                       key.len() as size_t);
             Ok(())
