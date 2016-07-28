@@ -28,10 +28,6 @@ pub struct FilterPolicy {
 
 pub struct BlockBasedOptions {
     inner: rocksdb_ffi::DBBlockBasedTableOptions,
-
-    // FilterPolicy must live as long as BlockBasedTableOptions,
-    // so we introduce this field
-    filter_policy: Option<FilterPolicy>,
 }
 
 pub struct Options {
@@ -46,14 +42,6 @@ impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_options_destroy(self.inner);
-        }
-    }
-}
-
-impl Drop for FilterPolicy {
-    fn drop(& mut self) {
-        unsafe {
-            rocksdb_ffi::rocksdb_filterpolicy_destroy(self.inner);
         }
     }
 }
@@ -82,7 +70,7 @@ impl Default for BlockBasedOptions {
         if opt_ptr.is_null() {
             panic!("Could not create rocksdb block based options".to_string());
         }
-        BlockBasedOptions { inner: block_opts, filter_policy: None }
+        BlockBasedOptions { inner: block_opts }
     }
 }
 
@@ -120,10 +108,9 @@ impl BlockBasedOptions {
     }
 
     pub fn set_filter_policy(&mut self, filter: FilterPolicy) {
-        self.filter_policy = Some(filter);
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner,
-                                                                       self.filter_policy.as_ref().unwrap().inner);
+                                                                       filter.inner);
         }
     }
 
