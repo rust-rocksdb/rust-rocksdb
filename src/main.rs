@@ -143,7 +143,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options, FilterPolicy};
+    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
     use rocksdb::DBCompactionStyle::DBUniversal;
 
     #[allow(dead_code)]
@@ -181,8 +181,7 @@ mod tests {
         opts.compression_per_level(&per_level_compression);
         blockopts.set_block_size(524288);
         blockopts.set_cache_index_and_filter_blocks(true);
-        let bloom_filter = FilterPolicy::new_bloom_filter(10, false);
-        blockopts.set_filter_policy(bloom_filter);
+        blockopts.set_bloom_filter(10, false);
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);
 

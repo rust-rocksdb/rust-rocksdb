@@ -22,10 +22,6 @@ use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
 use comparator::{self, ComparatorCallback, compare_callback};
 use merge_operator::MergeFn;
 
-pub struct FilterPolicy {
-    inner: rocksdb_ffi::DBFilterPolicy,
-}
-
 pub struct BlockBasedOptions {
     inner: rocksdb_ffi::DBBlockBasedTableOptions,
 }
@@ -74,18 +70,6 @@ impl Default for BlockBasedOptions {
     }
 }
 
-impl FilterPolicy {
-    pub fn new_bloom_filter(bits_per_key: c_int, block_based: bool) -> FilterPolicy {
-        let filter = if block_based {
-            unsafe { rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits_per_key) }
-        } else {
-            unsafe { rocksdb_ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key) }
-        };
-
-        FilterPolicy { inner: filter }
-    }
-}
-
 impl BlockBasedOptions {
     pub fn new() -> BlockBasedOptions {
         BlockBasedOptions::default()
@@ -107,10 +91,16 @@ impl BlockBasedOptions {
         }
     }
 
-    pub fn set_filter_policy(&mut self, filter: FilterPolicy) {
+    pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
         unsafe {
+            let bloom = if block_based {
+                rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)
+            } else {
+                rocksdb_ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key)
+            };
+
             rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner,
-                                                                       filter.inner);
+                                                                       bloom);
         }
     }
 

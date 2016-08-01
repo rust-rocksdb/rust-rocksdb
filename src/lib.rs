@@ -28,5 +28,5 @@ pub use librocksdb_sys::{DBCompactionStyle, DBComparator, DBCompressionType,
                          new_bloom_filter, self as rocksdb_ffi};
 pub use rocksdb::{DB, DBIterator, DBVector, Kv, ReadOptions, SeekKey,
                   Writable, WriteBatch};
-pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions, FilterPolicy};
+pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions};
 pub use merge_operator::MergeOperands;
