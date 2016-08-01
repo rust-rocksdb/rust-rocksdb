@@ -180,6 +180,8 @@ mod tests {
         opts.set_report_bg_io_stats(true);
         opts.compression_per_level(&per_level_compression);
         blockopts.set_block_size(524288);
+        blockopts.set_cache_index_and_filter_blocks(true);
+        blockopts.set_bloom_filter(10, false);
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);
 
