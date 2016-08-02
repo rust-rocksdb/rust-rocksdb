@@ -171,6 +171,7 @@ mod tests {
         opts.set_write_buffer_size(536870912);
         opts.set_target_file_size_base(1073741824);
         opts.set_min_write_buffer_number_to_merge(4);
+        opts.set_level_zero_compaction_trigger(4);
         opts.set_level_zero_stop_writes_trigger(2000);
         opts.set_level_zero_slowdown_writes_trigger(0);
         opts.set_compaction_style(DBUniversal);
