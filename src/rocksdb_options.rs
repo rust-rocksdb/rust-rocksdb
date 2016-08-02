@@ -284,7 +284,7 @@ impl Options {
         }
     }
 
-    pub fn set_level_zero_compaction_trigger(&mut self, n: c_int) {
+    pub fn set_level_zero_file_num_compaction_trigger(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_level0_file_num_compaction_trigger(
                 self.inner, n);
