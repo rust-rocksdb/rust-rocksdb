@@ -143,7 +143,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, DB, Options};
+    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
     use rocksdb::DBCompactionStyle::DBUniversal;
 
     #[allow(dead_code)]
@@ -151,6 +151,15 @@ mod tests {
                                      opts: &mut Options,
                                      blockopts: &mut BlockBasedOptions)
                                      -> DB {
+        let per_level_compression: [DBCompressionType; 7] =
+            [DBCompressionType::DBNo,
+             DBCompressionType::DBNo,
+             DBCompressionType::DBNo,
+             DBCompressionType::DBLz4,
+             DBCompressionType::DBLz4,
+             DBCompressionType::DBLz4,
+             DBCompressionType::DBLz4];
+
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
         opts.set_use_fsync(false);
@@ -168,7 +177,11 @@ mod tests {
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
+        opts.set_report_bg_io_stats(true);
+        opts.compression_per_level(&per_level_compression);
         blockopts.set_block_size(524288);
+        blockopts.set_cache_index_and_filter_blocks(true);
+        blockopts.set_bloom_filter(10, false);
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);
 

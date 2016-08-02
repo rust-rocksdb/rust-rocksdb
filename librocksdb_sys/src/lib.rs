@@ -17,7 +17,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate tempdir;
 
-use libc::{c_char, c_int, c_void, size_t, uint64_t};
+use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
@@ -72,6 +72,7 @@ pub fn new_cache(capacity: size_t) -> DBCache {
     unsafe { rocksdb_cache_create_lru(capacity) }
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub enum DBCompressionType {
     DBNo = 0,
@@ -123,6 +124,8 @@ extern "C" {
     pub fn rocksdb_block_based_options_set_block_restart_interval(
         block_options: DBBlockBasedTableOptions,
         block_restart_interval: c_int);
+    pub fn rocksdb_block_based_options_set_cache_index_and_filter_blocks(
+        block_options: DBBlockBasedTableOptions, v: c_uchar);
     pub fn rocksdb_block_based_options_set_filter_policy(
         block_options: DBBlockBasedTableOptions,
         filter_policy: DBFilterPolicy);
@@ -186,6 +189,9 @@ extern "C" {
                                                 cs: DBCompactionStyle);
     pub fn rocksdb_options_set_compression(options: DBOptions,
                                            compression_style_no: DBCompressionType);
+    pub fn rocksdb_options_set_compression_per_level(options: DBOptions,
+                                            level_values: *const DBCompressionType,
+                                            num_levels: size_t);
     pub fn rocksdb_options_set_max_background_compactions(
         options: DBOptions, max_bg_compactions: c_int);
     pub fn rocksdb_options_set_max_background_flushes(options: DBOptions,
@@ -193,6 +199,9 @@ extern "C" {
     pub fn rocksdb_options_set_filter_deletes(options: DBOptions, v: bool);
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
+    pub fn rocksdb_options_set_report_bg_io_stats(options: DBOptions, v: c_int);
+    pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
+                                                -> DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
     pub fn rocksdb_open(options: DBOptions,
@@ -460,12 +469,20 @@ extern "C" {
                                            range_limit_key: *const u8,
                                            range_limit_key_len: size_t,
                                            err: *mut *const i8);
+    pub fn rocksdb_property_value(db: DBInstance,
+                                  propname: *const c_char)
+                                  -> *mut c_char;
+    pub fn rocksdb_property_value_cf(db: DBInstance,
+                                     cf: DBCFHandle,
+                                     propname: *const c_char)
+                                     -> *mut c_char;
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::ffi::CString;
+    use std::ffi::{CStr, CString};
+    use libc::{self, c_void};
     use tempdir::TempDir;
 
     #[test]
@@ -541,6 +558,21 @@ mod test {
                                          2,
                                          &mut err);
             assert!(err.is_null(), error_message(err));
+
+            let propname = CString::new("rocksdb.total-sst-files-size")
+                .unwrap();
+            let value = rocksdb_property_value(db, propname.as_ptr());
+            assert!(!value.is_null());
+
+            let sst_size =
+                CStr::from_ptr(value).to_str().unwrap().parse::<u64>().unwrap();
+            assert!(sst_size > 0);
+            libc::free(value as *mut c_void);
+
+            let propname = CString::new("fake_key").unwrap();
+            let value = rocksdb_property_value(db, propname.as_ptr());
+            assert!(value.is_null());
+            libc::free(value as *mut c_void);
 
             rocksdb_close(db);
             rocksdb_destroy_db(opts, cpath_ptr, &mut err);

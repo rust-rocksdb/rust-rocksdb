@@ -90,6 +90,28 @@ impl BlockBasedOptions {
             rocksdb_ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
         }
     }
+
+    pub fn set_bloom_filter(&mut self,
+                            bits_per_key: c_int,
+                            block_based: bool) {
+        unsafe {
+            let bloom = if block_based {
+                rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)
+            } else {
+                rocksdb_ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key)
+            };
+
+            rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner,
+                                                                       bloom);
+        }
+    }
+
+    pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner,
+                                                                                       v as u8);
+        }
+    }
 }
 
 // TODO figure out how to create these in a Rusty way
@@ -159,6 +181,15 @@ impl Options {
     pub fn compression(&mut self, t: DBCompressionType) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression(self.inner, t);
+        }
+    }
+
+    pub fn compression_per_level(&mut self,
+                                 level_types: &[DBCompressionType]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_compression_per_level(self.inner,
+                                                                level_types.as_ptr(),
+                                                                level_types.len() as size_t)
         }
     }
 
@@ -357,6 +388,18 @@ impl Options {
                                          factory: &BlockBasedOptions) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
+        }
+    }
+
+    pub fn set_report_bg_io_stats(&mut self, enable: bool) {
+        unsafe {
+            if enable {
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner,
+                                                                    1);
+            } else {
+                rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner,
+                                                                    0);
+            }
         }
     }
 }

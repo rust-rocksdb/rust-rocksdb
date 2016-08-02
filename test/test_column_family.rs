@@ -33,6 +33,7 @@ pub fn test_column_family() {
                 panic!("could not create column family: {}", e);
             }
         }
+        assert_eq!(db.cf_names(), vec!["cf1", "default"]);
     }
 
     // should fail to open db without specifying same column families
@@ -56,7 +57,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open_cf(&opts, path_str, &["cf1"]) {
+        match DB::open_cf(&opts, path_str, &["cf1"], &[&opts]) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
@@ -65,7 +66,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
-        let db = match DB::open_cf(&opts, path_str, &["cf1"]) {
+        let db = match DB::open_cf(&opts, path_str, &["cf1"], &[&opts]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
@@ -113,7 +114,11 @@ pub fn test_column_family() {
     }
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::new(), path_str, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::new(),
+                                 path_str,
+                                 &["cf1"],
+                                 &[&Options::new()])
+            .unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
