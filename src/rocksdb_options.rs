@@ -91,7 +91,9 @@ impl BlockBasedOptions {
         }
     }
 
-    pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
+    pub fn set_bloom_filter(&mut self,
+                            bits_per_key: c_int,
+                            block_based: bool) {
         unsafe {
             let bloom = if block_based {
                 rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)

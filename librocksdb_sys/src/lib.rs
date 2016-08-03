@@ -456,6 +456,19 @@ extern "C" {
                                         range_limit_key: *const *const u8,
                                         range_limit_key_len: *const size_t,
                                         sizes: *mut uint64_t);
+    pub fn rocksdb_delete_file_in_range(db: DBInstance,
+                                        range_start_key: *const u8,
+                                        range_start_key_len: size_t,
+                                        range_limit_key: *const u8,
+                                        range_limit_key_len: size_t,
+                                        err: *mut *const i8);
+    pub fn rocksdb_delete_file_in_range_cf(db: DBInstance,
+                                           cf: DBCFHandle,
+                                           range_start_key: *const u8,
+                                           range_start_key_len: size_t,
+                                           range_limit_key: *const u8,
+                                           range_limit_key_len: size_t,
+                                           err: *mut *const i8);
     pub fn rocksdb_property_value(db: DBInstance,
                                   propname: *const c_char)
                                   -> *mut c_char;
@@ -537,6 +550,14 @@ mod test {
                                       sizes.as_mut_ptr());
             assert_eq!(sizes.len(), 1);
             assert!(sizes[0] > 0);
+
+            rocksdb_delete_file_in_range(db,
+                                         b"\x00\x00".as_ptr(),
+                                         2,
+                                         b"\xff\x00".as_ptr(),
+                                         2,
+                                         &mut err);
+            assert!(err.is_null(), error_message(err));
 
             let propname = CString::new("rocksdb.total-sst-files-size")
                 .unwrap();

@@ -831,6 +831,48 @@ impl DB {
         sizes
     }
 
+    pub fn delete_file_in_range(&self,
+                                start_key: &[u8],
+                                end_key: &[u8])
+                                -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+
+            rocksdb_ffi::rocksdb_delete_file_in_range(self.inner,
+                                        start_key.as_ptr(),
+                                        start_key.len() as size_t,
+                                        end_key.as_ptr(),
+                                        end_key.len() as size_t,
+                                        &mut err);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+
+    pub fn delete_file_in_range_cf(&self,
+                                   cf: DBCFHandle,
+                                   start_key: &[u8],
+                                   end_key: &[u8])
+                                   -> Result<(), String> {
+        unsafe {
+            let mut err: *const i8 = 0 as *const i8;
+
+            rocksdb_ffi::rocksdb_delete_file_in_range_cf(self.inner,
+                                        cf,
+                                        start_key.as_ptr(),
+                                        start_key.len() as size_t,
+                                        end_key.as_ptr(),
+                                        end_key.len() as size_t,
+                                        &mut err);
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            Ok(())
+        }
+    }
+
     pub fn get_property_value(&self, name: &str) -> Option<String> {
         self.get_property_value_cf_opt(None, name)
     }
