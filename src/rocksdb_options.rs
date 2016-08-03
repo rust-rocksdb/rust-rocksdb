@@ -330,6 +330,13 @@ impl Options {
         }
     }
 
+    pub fn set_level_zero_file_num_compaction_trigger(&mut self, n: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_level0_file_num_compaction_trigger(
+                self.inner, n);
+        }
+    }
+
     pub fn set_level_zero_slowdown_writes_trigger(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_level0_slowdown_writes_trigger(
