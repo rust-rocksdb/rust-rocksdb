@@ -105,13 +105,14 @@ function compile_rocksdb() {
         return
     fi
 
-    version=4.9.fb
+    version=v4.9
+	vernum=4.9
     echo building rocksdb-$version
-    rm -rf rocksdb-$version
-    download https://github.com/facebook/rocksdb/archive/$version.tar.gz rocksdb-$version.tar.gz 75f00635d4dcf0200db54a9244ac5f1d
+    rm -rf rocksdb-$vernum
+    download https://github.com/facebook/rocksdb/archive/$version.tar.gz rocksdb-$version.tar.gz ba59206bd041a1d37157b9423d53572e
     tar xf rocksdb-$version.tar.gz
     wd=`pwd`
-    cd rocksdb-$version
+    cd rocksdb-$vernum
     export EXTRA_CFLAGS="-fPIC -I${wd}/zlib-1.2.8 -I${wd}/bzip2-1.0.6 -I${wd}/snappy-1.1.1 -I${wd}/lz4-r131/lib"
     export EXTRA_CXXFLAGS="-DZLIB -DBZIP2 -DSNAPPY -DLZ4 $EXTRA_CFLAGS"
     make static_lib -j $con
