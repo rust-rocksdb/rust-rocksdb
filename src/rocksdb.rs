@@ -251,16 +251,25 @@ pub trait Writable {
 }
 
 impl DB {
+    /// Open a database with default options
     pub fn open_default(path: &str) -> Result<DB, String> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         DB::open(&opts, path)
     }
 
+    /// Open the database with specified options
     pub fn open(opts: &Options, path: &str) -> Result<DB, String> {
         DB::open_cf(opts, path, &[])
     }
 
+    /// Open a database with specified options and column family
+    ///
+    /// A column family must be created first by calling `DB::create_cf`
+    ///
+    /// # Panics
+    ///
+    /// * Panics if the column family doesn't exist
     pub fn open_cf(opts: &Options,
                    path: &str,
                    cfs: &[&str])
@@ -450,6 +459,7 @@ impl DB {
         }
     }
 
+    /// Return the bytes associated with a key value
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         self.get_opt(key, &ReadOptions::default())
     }
@@ -548,6 +558,7 @@ impl DB {
         Ok(())
     }
 
+    /// Return the underlying column family handle
     pub fn cf_handle(&self, name: &str) -> Option<&DBCFHandle> {
         self.cfs.get(name)
     }
@@ -758,6 +769,7 @@ impl Drop for DB {
 }
 
 impl Writable for WriteBatch {
+    /// Insert a value into the database under the given key
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put(self.inner,
@@ -812,6 +824,9 @@ impl Writable for WriteBatch {
         }
     }
 
+    /// Remove the database entry for key
+    ///
+    /// Returns Err if the key was not found
     fn delete(&self, key: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete(self.inner,
@@ -865,6 +880,7 @@ impl Default for ReadOptions {
     }
 }
 
+/// Wrapper around bytes stored in the database
 pub struct DBVector {
     base: *mut u8,
     len: usize,
