@@ -44,7 +44,6 @@ fn main() {
 		config.file("rocksdb/port/port_posix.cc");
 		config.file("rocksdb/util/env_posix.cc");
 		config.file("rocksdb/util/io_posix.cc");
-		config.file("rocksdb/util/thread_posix.cc");
 	}
 
 	if !cfg!(target_env = "msvc") {
@@ -69,6 +68,7 @@ fn main() {
 	config.file("rocksdb/db/db_impl_debug.cc");
 	config.file("rocksdb/db/db_impl_readonly.cc");
 	config.file("rocksdb/db/db_impl_experimental.cc");
+	config.file("rocksdb/db/db_impl_add_file.cc");
 	config.file("rocksdb/db/db_info_dumper.cc");
 	config.file("rocksdb/db/db_iter.cc");
 	config.file("rocksdb/db/experimental.cc");
@@ -88,7 +88,6 @@ fn main() {
 	config.file("rocksdb/db/merge_helper.cc");
 	config.file("rocksdb/db/merge_operator.cc");
 	config.file("rocksdb/db/repair.cc");
-	config.file("rocksdb/db/slice.cc");
 	config.file("rocksdb/db/snapshot_impl.cc");
 	config.file("rocksdb/db/table_cache.cc");
 	config.file("rocksdb/db/table_properties_collector.cc");
@@ -116,7 +115,6 @@ fn main() {
 	config.file("rocksdb/table/block_based_table_reader.cc");
 	config.file("rocksdb/table/block_builder.cc");
 	config.file("rocksdb/table/block.cc");
-	config.file("rocksdb/table/block_hash_index.cc");
 	config.file("rocksdb/table/block_prefix_index.cc");
 	config.file("rocksdb/table/bloom_block.cc");
 	config.file("rocksdb/table/cuckoo_table_builder.cc");
@@ -130,6 +128,7 @@ fn main() {
 	config.file("rocksdb/table/merger.cc");
 	config.file("rocksdb/table/meta_blocks.cc");
 	config.file("rocksdb/table/sst_file_writer.cc");
+	config.file("rocksdb/table/persistent_cache_helper.cc");
 	config.file("rocksdb/table/plain_table_builder.cc");
 	config.file("rocksdb/table/plain_table_factory.cc");
 	config.file("rocksdb/table/plain_table_index.cc");
@@ -140,7 +139,6 @@ fn main() {
 	//config.file("rocksdb/tools/dump/db_dump_tool");
 	config.file("rocksdb/util/arena.cc");
 	config.file("rocksdb/util/bloom.cc");
-	config.file("rocksdb/util/cache.cc");
 	config.file("rocksdb/util/coding.cc");
 	config.file("rocksdb/util/comparator.cc");
 	config.file("rocksdb/util/compaction_job_stats_impl.cc");
@@ -158,6 +156,8 @@ fn main() {
 	config.file("rocksdb/util/histogram.cc");
 	config.file("rocksdb/util/instrumented_mutex.cc");
 	config.file("rocksdb/util/iostats_context.cc");
+	config.file("rocksdb/util/lru_cache.cc");
+	config.file("rocksdb/util/sharded_cache.cc");
 	config.file("rocksdb/utilities/backupable/backupable_db.cc");
 	config.file("rocksdb/utilities/convenience/info_log_finder.cc");
 	config.file("rocksdb/utilities/checkpoint/checkpoint.cc");
@@ -196,7 +196,6 @@ fn main() {
 	config.file("rocksdb/util/murmurhash.cc");
 	config.file("rocksdb/util/mutable_cf_options.cc");
 	config.file("rocksdb/util/options.cc");
-	config.file("rocksdb/util/options_builder.cc");
 	config.file("rocksdb/util/options_helper.cc");
 	config.file("rocksdb/util/options_parser.cc");
 	config.file("rocksdb/util/options_sanity_check.cc");
