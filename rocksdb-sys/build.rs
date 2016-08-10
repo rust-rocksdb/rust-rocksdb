@@ -158,6 +158,7 @@ fn main() {
 	config.file("rocksdb/util/iostats_context.cc");
 	config.file("rocksdb/util/lru_cache.cc");
 	config.file("rocksdb/util/sharded_cache.cc");
+	config.file("rocksdb/util/threadpool.cc");
 	config.file("rocksdb/utilities/backupable/backupable_db.cc");
 	config.file("rocksdb/utilities/convenience/info_log_finder.cc");
 	config.file("rocksdb/utilities/checkpoint/checkpoint.cc");
