@@ -339,12 +339,6 @@ impl Options {
         }
     }
 
-    pub fn set_filter_deletes(&mut self, filter: bool) {
-        unsafe {
-            rocksdb_ffi::rocksdb_options_set_filter_deletes(self.inner, filter);
-        }
-    }
-
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe {
             match disable {

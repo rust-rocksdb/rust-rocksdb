@@ -189,7 +189,6 @@ extern "C" {
         options: DBOptions, max_bg_compactions: c_int);
     pub fn rocksdb_options_set_max_background_flushes(options: DBOptions,
                                                       max_bg_flushes: c_int);
-    pub fn rocksdb_options_set_filter_deletes(options: DBOptions, v: bool);
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
     pub fn rocksdb_options_set_prefix_extractor(options: DBOptions,

@@ -37,7 +37,9 @@ fn main() {
 		config.define("OS_WIN", Some("1"));
 		config.file("rocksdb/port/win/port_win.cc");
 		config.file("rocksdb/port/win/env_win.cc");
+		config.file("rocksdb/port/win/env_default.cc");
 		config.file("rocksdb/port/win/win_logger.cc");
+		config.file("rocksdb/port/win/io_win.cc");
 	} else {
 		config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
 		config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
