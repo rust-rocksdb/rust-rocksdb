@@ -265,13 +265,17 @@ impl DB {
     }
 
     pub fn open(opts: &Options, path: &str) -> Result<DB, String> {
-        DB::open_cf(opts, path, &[])
+        DB::open_cf(opts, path, &[], &[])
     }
 
     pub fn open_cf(opts: &Options,
                    path: &str,
-                   cfs: &[&str])
+                   cfs: &[&str],
+				   cf_opts: &[Options])
                    -> Result<DB, String> {
+    	if cfs.len() != cf_opts.len() {
+			return Err(format!("Mismatching number of CF options"));
+		}
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -329,11 +333,13 @@ impl DB {
                      .map(|_| 0 as rocksdb_ffi::DBCFHandle)
                      .collect();
 
-            // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<rocksdb_ffi::DBOptions> =
-                cfs_v.iter()
-                     .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
+            let mut cfopts: Vec<rocksdb_ffi::DBOptions> =
+                cf_opts.iter()
+                     .map(|o| o.inner)
                      .collect();
+			if cfopts.len() != c_cfs.len() {
+				cfopts.push(opts.inner);
+			}
 
             // Prepare to ship to C.
             let copts: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
