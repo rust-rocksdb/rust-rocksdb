@@ -31,6 +31,9 @@ fn main() {
 		config.define("OS_LINUX", Some("1"));
         //COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
 	}
+	if cfg!(target_os = "freebsd") {
+		config.define("OS_FREEBSD", Some("1"));
+	}
 
 	if cfg!(windows) {
 		link("rpcrt4", false);
