@@ -1081,6 +1081,14 @@ impl ReadOptions {
         rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
                                                       snapshot.inner);
     }
+
+    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
+                                                                     key.as_ptr(),
+                                                                     key.len() as size_t);
+        }
+    }
 }
 
 pub struct DBVector {
