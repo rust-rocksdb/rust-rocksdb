@@ -786,14 +786,14 @@ impl DB {
         let start_keys: Vec<*const u8> = ranges.iter()
             .map(|x| x.start_key.as_ptr())
             .collect();
-        let start_key_lens: Vec<u64> = ranges.iter()
-            .map(|x| x.start_key.len() as u64)
+        let start_key_lens: Vec<usize> = ranges.iter()
+            .map(|x| x.start_key.len() as usize)
             .collect();
         let end_keys: Vec<*const u8> = ranges.iter()
             .map(|x| x.end_key.as_ptr())
             .collect();
-        let end_key_lens: Vec<u64> = ranges.iter()
-            .map(|x| x.end_key.len() as u64)
+        let end_key_lens: Vec<usize> = ranges.iter()
+            .map(|x| x.end_key.len() as usize)
             .collect();
         let mut sizes: Vec<u64> = vec![0; ranges.len()];
         let (n,
