@@ -42,7 +42,7 @@ pub struct WriteBatch {
 
 pub struct ReadOptions {
     inner: rocksdb_ffi::DBReadOptions,
-    upper_bound: String,
+    upper_bound: Vec<u8>,
 }
 
 /// The UnsafeSnap must be destroyed by db, it maybe be leaked
@@ -1062,7 +1062,7 @@ impl Drop for ReadOptions {
 impl Default for ReadOptions {
     fn default() -> ReadOptions {
         unsafe {
-            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create(), upper_bound: String::new() }
+            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create(), upper_bound: vec![] }
         }
     }
 }
@@ -1086,8 +1086,8 @@ impl ReadOptions {
                                                       snapshot.inner);
     }
 
-    pub fn set_iterate_upper_bound(&mut self, key: &str) {
-        self.upper_bound = String::from(key);
+    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
+        self.upper_bound = Vec::from(key);
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
                                                                      self.upper_bound.as_ptr(),

@@ -205,7 +205,7 @@ mod tests {
             db.put_opt(b"k2-0", b"c", &writeopts).unwrap();
 
             let mut readopts = ReadOptions::new();
-            readopts.set_iterate_upper_bound("k2");
+            readopts.set_iterate_upper_bound(b"k2");
             let mut iter = db.iter_opt(readopts);
             iter.seek(SeekKey::Start);
             let mut count = 0;
