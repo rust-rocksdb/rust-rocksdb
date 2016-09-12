@@ -42,6 +42,7 @@ pub struct WriteBatch {
 
 pub struct ReadOptions {
     inner: rocksdb_ffi::DBReadOptions,
+    upper_bound: Vec<u8>,
 }
 
 /// The UnsafeSnap must be destroyed by db, it maybe be leaked
@@ -62,6 +63,7 @@ pub struct Snapshot<'a> {
 #[allow(dead_code)]
 pub struct DBIterator<'a> {
     db: &'a DB,
+    readopts: ReadOptions,
     inner: rocksdb_ffi::DBIterator,
 }
 
@@ -78,13 +80,14 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 }
 
 impl<'a> DBIterator<'a> {
-    pub fn new(db: &'a DB, readopts: &ReadOptions) -> DBIterator<'a> {
+    pub fn new(db: &'a DB, readopts: ReadOptions) -> DBIterator<'a> {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
 
             DBIterator {
                 db: db,
+                readopts: readopts,
                 inner: iterator,
             }
         }
@@ -159,7 +162,7 @@ impl<'a> DBIterator<'a> {
 
     pub fn new_cf(db: &'a DB,
                   cf_handle: DBCFHandle,
-                  readopts: &ReadOptions)
+                  readopts: ReadOptions)
                   -> DBIterator<'a> {
         unsafe {
             let iterator =
@@ -168,6 +171,7 @@ impl<'a> DBIterator<'a> {
                                                         cf_handle);
             DBIterator {
                 db: db,
+                readopts: readopts,
                 inner: iterator,
             }
         }
@@ -215,7 +219,7 @@ impl<'a> Snapshot<'a> {
         unsafe {
             opt.set_snapshot(&self.snap);
         }
-        DBIterator::new(self.db, &opt)
+        DBIterator::new(self.db, opt)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
@@ -590,16 +594,16 @@ impl DB {
 
     pub fn iter(&self) -> DBIterator {
         let opts = ReadOptions::new();
-        self.iter_opt(&opts)
+        self.iter_opt(opts)
     }
 
-    pub fn iter_opt(&self, opt: &ReadOptions) -> DBIterator {
+    pub fn iter_opt(&self, opt: ReadOptions) -> DBIterator {
         DBIterator::new(&self, opt)
     }
 
     pub fn iter_cf(&self, cf_handle: DBCFHandle) -> DBIterator {
         let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf_handle, &opts)
+        DBIterator::new_cf(&self, cf_handle, opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -1100,7 +1104,7 @@ impl Drop for ReadOptions {
 impl Default for ReadOptions {
     fn default() -> ReadOptions {
         unsafe {
-            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create() }
+            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create(), upper_bound: vec![] }
         }
     }
 }
@@ -1122,6 +1126,15 @@ impl ReadOptions {
     pub unsafe fn set_snapshot(&mut self, snapshot: &UnsafeSnap) {
         rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
                                                       snapshot.inner);
+    }
+
+    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
+        self.upper_bound = Vec::from(key);
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
+                                                                     self.upper_bound.as_ptr(),
+                                                                     self.upper_bound.len() as size_t);
+        }
     }
 }
 
