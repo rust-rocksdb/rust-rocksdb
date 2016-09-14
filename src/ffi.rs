@@ -94,6 +94,15 @@ pub enum DBUniversalCompactionStyle {
     rocksdb_total_size_compaction_stop_style = 1,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum DBRecoveryMode {
+    TolerateCorruptedTailRecords = 0,
+    AbsoluteConsistency = 1,
+    PointInTime = 2,
+    SkipAnyCorruptedRecords = 3,
+}
+
 pub fn error_message(ptr: *const i8) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
     let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
@@ -196,6 +205,7 @@ extern "C" {
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
     pub fn rocksdb_options_set_report_bg_io_stats(options: DBOptions, v: c_int);
+    pub fn rocksdb_options_set_wal_recovery_mode(options: DBOptions, mode: DBRecoveryMode);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
                                                 -> DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)

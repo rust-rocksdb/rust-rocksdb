@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 pub use ffi as rocksdb_ffi;
-pub use ffi::{DBCompactionStyle, DBComparator, DBCompressionType, new_bloom_filter};
+pub use ffi::{DBCompactionStyle, DBComparator, DBCompressionType, DBRecoveryMode, new_bloom_filter};
 pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
                   WriteBatch};
 pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions};
