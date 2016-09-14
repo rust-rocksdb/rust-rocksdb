@@ -16,7 +16,7 @@ use libc::{c_int, size_t};
 use std::ffi::CString;
 use std::mem;
 
-use rocksdb_ffi::{self, DBCompressionType};
+use rocksdb_ffi::{self, DBCompressionType, DBRecoveryMode};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
 use comparator::{self, ComparatorCallback, compare_callback};
@@ -407,6 +407,12 @@ impl Options {
                 rocksdb_ffi::rocksdb_options_set_report_bg_io_stats(self.inner,
                                                                     0);
             }
+        }
+    }
+
+    pub fn set_wal_recovery_mode(&mut self, mode: DBRecoveryMode) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_wal_recovery_mode(self.inner, mode);
         }
     }
 }

@@ -24,7 +24,7 @@ pub mod rocksdb_options;
 pub mod merge_operator;
 pub mod comparator;
 
-pub use librocksdb_sys::{DBCompactionStyle, DBComparator, DBCompressionType,
+pub use librocksdb_sys::{DBCompactionStyle, DBComparator, DBCompressionType, DBRecoveryMode,
                          new_bloom_filter, self as rocksdb_ffi};
 pub use rocksdb::{DB, DBIterator, DBVector, Kv, ReadOptions, SeekKey,
                   Writable, WriteBatch};

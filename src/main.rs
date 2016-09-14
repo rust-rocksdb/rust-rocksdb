@@ -145,6 +145,7 @@ fn main() {
 mod tests {
     use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options, ReadOptions, WriteOptions, SeekKey};
     use rocksdb::DBCompactionStyle::DBUniversal;
+    use rocksdb::DBRecoveryMode;
 
     #[allow(dead_code)]
     fn tuned_for_somebody_elses_disk(path: &str,
@@ -179,6 +180,7 @@ mod tests {
         opts.set_max_background_flushes(4);
         opts.set_filter_deletes(false);
         opts.set_report_bg_io_stats(true);
+        opts.set_wal_recovery_mode(DBRecoveryMode::PointInTime);
         opts.compression_per_level(&per_level_compression);
         blockopts.set_block_size(524288);
         blockopts.set_cache_index_and_filter_blocks(true);
