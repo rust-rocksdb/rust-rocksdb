@@ -270,6 +270,12 @@ impl Options {
         }
     }
 
+    pub fn set_max_manifest_file_size(&mut self, size: usize) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_manifest_file_size(self.inner, size);
+        }
+    }
+
     pub fn set_target_file_size_base(&mut self, size: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_target_file_size_base(self.inner,
@@ -404,5 +410,17 @@ impl Default for WriteOptions {
             panic!("Could not create rocksdb write options".to_string());
         }
         WriteOptions { inner: write_opts }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Options;
+
+    #[test]
+    fn test_set_max_manifest_file_size() {
+        let mut opts = Options::default();
+        let size = 20 * 1024 * 1024;
+        opts.set_max_manifest_file_size(size)
     }
 }
