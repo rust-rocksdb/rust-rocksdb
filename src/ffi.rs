@@ -234,6 +234,17 @@ extern "C" {
                        valLen: *const size_t,
                        err: *mut *const i8)
                        -> *mut c_void;
+
+
+    pub fn rocksdb_multi_get(db: DBInstance,
+                        readopts: DBReadOptions,
+                        numKeys: size_t,
+                        keys: *const *const u8,
+                        key_lengths: *const size_t,
+                        values: *mut *mut u8,
+                        value_lengths: *mut size_t,
+                        err: *mut *mut i8);
+
     pub fn rocksdb_get_cf(db: DBInstance,
                           readopts: DBReadOptions,
                           cf_handle: DBCFHandle,
@@ -242,6 +253,18 @@ extern "C" {
                           valLen: *const size_t,
                           err: *mut *const i8)
                           -> *mut c_void;
+
+
+    pub fn rocksdb_multi_get_cf(db: DBInstance,
+                     readopts: DBReadOptions,
+                     cf_handles: *const DBCFHandle,
+                     numKeys: size_t,
+                     keys: *const *const u8,
+                     key_lengths: *const size_t,
+                     values: *mut *mut u8,
+                     value_lengths: *mut size_t,
+                     err: *mut *mut i8);
+
     pub fn rocksdb_create_iterator(db: DBInstance,
                                    readopts: DBReadOptions)
                                    -> DBIterator;
