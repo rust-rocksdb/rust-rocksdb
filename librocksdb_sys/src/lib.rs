@@ -96,7 +96,7 @@ pub enum DBUniversalCompactionStyle {
     rocksdb_total_size_compaction_stop_style = 1,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum DBRecoveryMode {
     TolerateCorruptedTailRecords = 0,
