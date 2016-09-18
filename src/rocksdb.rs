@@ -208,6 +208,16 @@ impl<'a> Snapshot<'a> {
         DBIterator::new(self.db, &readopts, mode)
     }
 
+    pub fn iterator_cf(&self,
+                       cf_handle: DBCFHandle,
+                       mode: IteratorMode)
+                       -> Result<DBIterator, String> {
+        let mut readopts = ReadOptions::default();
+        readopts.set_snapshot(self);
+        DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+    }
+
+
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
