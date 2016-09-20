@@ -21,24 +21,16 @@ use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBOptions(pub *const c_void);
+pub enum DBOptions {}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct DBInstance(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBWriteOptions(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBReadOptions(pub *const c_void);
+pub enum DBWriteOptions {}
+pub enum DBReadOptions {}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct DBMergeOperator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBBlockBasedTableOptions(pub *const c_void);
+pub enum DBBlockBasedTableOptions {}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct DBCache(pub *const c_void);
@@ -118,150 +110,150 @@ pub fn error_message(ptr: *const i8) -> String {
 // instead...
 #[link(name = "rocksdb")]
 extern "C" {
-    pub fn rocksdb_options_create() -> DBOptions;
-    pub fn rocksdb_options_destroy(opts: DBOptions);
+    pub fn rocksdb_options_create() -> *mut DBOptions;
+    pub fn rocksdb_options_destroy(opts: *mut DBOptions);
     pub fn rocksdb_cache_create_lru(capacity: size_t) -> DBCache;
     pub fn rocksdb_cache_destroy(cache: DBCache);
-    pub fn rocksdb_block_based_options_create() -> DBBlockBasedTableOptions;
-    pub fn rocksdb_block_based_options_destroy(opts: DBBlockBasedTableOptions);
+    pub fn rocksdb_block_based_options_create() -> *mut DBBlockBasedTableOptions;
+    pub fn rocksdb_block_based_options_destroy(opts: *mut DBBlockBasedTableOptions);
     pub fn rocksdb_block_based_options_set_block_size(
-        block_options: DBBlockBasedTableOptions,
+        block_options: *mut DBBlockBasedTableOptions,
         block_size: size_t);
     pub fn rocksdb_block_based_options_set_block_size_deviation(
-        block_options: DBBlockBasedTableOptions,
+        block_options: *mut DBBlockBasedTableOptions,
         block_size_deviation: c_int);
     pub fn rocksdb_block_based_options_set_block_restart_interval(
-        block_options: DBBlockBasedTableOptions,
+        block_options: *mut DBBlockBasedTableOptions,
         block_restart_interval: c_int);
     pub fn rocksdb_block_based_options_set_cache_index_and_filter_blocks(
-        block_options: DBBlockBasedTableOptions, v: c_uchar);
+        block_options: *mut DBBlockBasedTableOptions, v: c_uchar);
     pub fn rocksdb_block_based_options_set_filter_policy(
-        block_options: DBBlockBasedTableOptions,
+        block_options: *mut DBBlockBasedTableOptions,
         filter_policy: DBFilterPolicy);
     pub fn rocksdb_block_based_options_set_no_block_cache(
-        block_options: DBBlockBasedTableOptions, no_block_cache: bool);
+        block_options: *mut DBBlockBasedTableOptions, no_block_cache: bool);
     pub fn rocksdb_block_based_options_set_block_cache(
-        block_options: DBBlockBasedTableOptions, block_cache: DBCache);
+        block_options: *mut DBBlockBasedTableOptions, block_cache: DBCache);
     pub fn rocksdb_block_based_options_set_block_cache_compressed(
-        block_options: DBBlockBasedTableOptions,
+        block_options: *mut DBBlockBasedTableOptions,
         block_cache_compressed: DBCache);
     pub fn rocksdb_block_based_options_set_whole_key_filtering(
-        ck_options: DBBlockBasedTableOptions, doit: bool);
+        ck_options: *mut DBBlockBasedTableOptions, doit: bool);
     pub fn rocksdb_options_set_block_based_table_factory(
-        options: DBOptions,
-        block_options: DBBlockBasedTableOptions);
-    pub fn rocksdb_options_increase_parallelism(options: DBOptions,
+        options: *mut DBOptions,
+        block_options: *mut DBBlockBasedTableOptions);
+    pub fn rocksdb_options_increase_parallelism(options: *mut DBOptions,
                                                 threads: c_int);
     pub fn rocksdb_options_optimize_level_style_compaction(
-        options: DBOptions, memtable_memory_budget: c_int);
-    pub fn rocksdb_options_set_create_if_missing(options: DBOptions, v: bool);
-    pub fn rocksdb_options_set_max_open_files(options: DBOptions,
+        options: *mut DBOptions, memtable_memory_budget: c_int);
+    pub fn rocksdb_options_set_create_if_missing(options: *mut DBOptions, v: bool);
+    pub fn rocksdb_options_set_max_open_files(options: *mut DBOptions,
                                               files: c_int);
-    pub fn rocksdb_options_set_use_fsync(options: DBOptions, v: c_int);
-    pub fn rocksdb_options_set_bytes_per_sync(options: DBOptions, bytes: u64);
-    pub fn rocksdb_options_set_disable_data_sync(options: DBOptions,
+    pub fn rocksdb_options_set_use_fsync(options: *mut DBOptions, v: c_int);
+    pub fn rocksdb_options_set_bytes_per_sync(options: *mut DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_disable_data_sync(options: *mut DBOptions,
                                                  v: c_int);
-    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions,
+    pub fn rocksdb_options_set_allow_os_buffer(options: *mut DBOptions,
                                                is_allow: bool);
-    pub fn rocksdb_options_optimize_for_point_lookup(options: DBOptions,
+    pub fn rocksdb_options_optimize_for_point_lookup(options: *mut DBOptions,
                                                      block_cache_size_mb: u64);
-    pub fn rocksdb_options_set_table_cache_numshardbits(options: DBOptions,
+    pub fn rocksdb_options_set_table_cache_numshardbits(options: *mut DBOptions,
                                                         bits: c_int);
-    pub fn rocksdb_options_set_max_write_buffer_number(options: DBOptions,
+    pub fn rocksdb_options_set_max_write_buffer_number(options: *mut DBOptions,
                                                        bufno: c_int);
     pub fn rocksdb_options_set_min_write_buffer_number_to_merge(
-        options: DBOptions, bufno: c_int);
+        options: *mut DBOptions, bufno: c_int);
     pub fn rocksdb_options_set_level0_file_num_compaction_trigger(
-        options: DBOptions, no: c_int);
+        options: *mut DBOptions, no: c_int);
     pub fn rocksdb_options_set_level0_slowdown_writes_trigger(
-        options: DBOptions, no: c_int);
-    pub fn rocksdb_options_set_level0_stop_writes_trigger(options: DBOptions,
+        options: *mut DBOptions, no: c_int);
+    pub fn rocksdb_options_set_level0_stop_writes_trigger(options: *mut DBOptions,
                                                           no: c_int);
-    pub fn rocksdb_options_set_write_buffer_size(options: DBOptions,
+    pub fn rocksdb_options_set_write_buffer_size(options: *mut DBOptions,
                                                  bytes: u64);
-    pub fn rocksdb_options_set_target_file_size_base(options: DBOptions,
+    pub fn rocksdb_options_set_target_file_size_base(options: *mut DBOptions,
                                                      bytes: u64);
-    pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
+    pub fn rocksdb_options_set_target_file_size_multiplier(options: *mut DBOptions,
                                                            mul: c_int);
-    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions,
+    pub fn rocksdb_options_set_max_bytes_for_level_base(options: *mut DBOptions,
                                                         bytes: u64);
-    pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: DBOptions, mul: c_int);
-    pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
+    pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: *mut DBOptions, mul: c_int);
+    pub fn rocksdb_options_set_max_log_file_size(options: *mut DBOptions,
                                                  bytes: u64);
-    pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
+    pub fn rocksdb_options_set_max_manifest_file_size(options: *mut DBOptions,
                                                       bytes: u64);
-    pub fn rocksdb_options_set_hash_skip_list_rep(options: DBOptions,
+    pub fn rocksdb_options_set_hash_skip_list_rep(options: *mut DBOptions,
                                                   bytes: u64,
                                                   a1: i32,
                                                   a2: i32);
-    pub fn rocksdb_options_set_compaction_style(options: DBOptions,
+    pub fn rocksdb_options_set_compaction_style(options: *mut DBOptions,
                                                 cs: DBCompactionStyle);
-    pub fn rocksdb_options_set_compression(options: DBOptions,
+    pub fn rocksdb_options_set_compression(options: *mut DBOptions,
                                            compression_style_no: DBCompressionType);
-    pub fn rocksdb_options_set_compression_per_level(options: DBOptions,
+    pub fn rocksdb_options_set_compression_per_level(options: *mut DBOptions,
                                             level_values: *const DBCompressionType,
                                             num_levels: size_t);
     pub fn rocksdb_options_set_max_background_compactions(
-        options: DBOptions, max_bg_compactions: c_int);
-    pub fn rocksdb_options_set_max_background_flushes(options: DBOptions,
+        options: *mut DBOptions, max_bg_compactions: c_int);
+    pub fn rocksdb_options_set_max_background_flushes(options: *mut DBOptions,
                                                       max_bg_flushes: c_int);
-    pub fn rocksdb_options_set_filter_deletes(options: DBOptions, v: bool);
-    pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
+    pub fn rocksdb_options_set_filter_deletes(options: *mut DBOptions, v: bool);
+    pub fn rocksdb_options_set_disable_auto_compactions(options: *mut DBOptions,
                                                         v: c_int);
-    pub fn rocksdb_options_set_report_bg_io_stats(options: DBOptions, v: c_int);
-    pub fn rocksdb_options_set_wal_recovery_mode(options: DBOptions, mode: DBRecoveryMode);
+    pub fn rocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
+    pub fn rocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
                                                 -> DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
-    pub fn rocksdb_open(options: DBOptions,
+    pub fn rocksdb_open(options: *mut DBOptions,
                         path: *const i8,
                         err: *mut *const i8)
                         -> DBInstance;
-    pub fn rocksdb_writeoptions_create() -> DBWriteOptions;
-    pub fn rocksdb_writeoptions_destroy(writeopts: DBWriteOptions);
-    pub fn rocksdb_writeoptions_set_sync(writeopts: DBWriteOptions, v: bool);
-    pub fn rocksdb_writeoptions_disable_WAL(writeopts: DBWriteOptions,
+    pub fn rocksdb_writeoptions_create() -> *mut DBWriteOptions;
+    pub fn rocksdb_writeoptions_destroy(writeopts: *mut DBWriteOptions);
+    pub fn rocksdb_writeoptions_set_sync(writeopts: *mut DBWriteOptions, v: bool);
+    pub fn rocksdb_writeoptions_disable_WAL(writeopts: *mut DBWriteOptions,
                                             v: c_int);
     pub fn rocksdb_put(db: DBInstance,
-                       writeopts: DBWriteOptions,
+                       writeopts: *mut DBWriteOptions,
                        k: *const u8,
                        kLen: size_t,
                        v: *const u8,
                        vLen: size_t,
                        err: *mut *const i8);
     pub fn rocksdb_put_cf(db: DBInstance,
-                          writeopts: DBWriteOptions,
+                          writeopts: *mut DBWriteOptions,
                           cf: DBCFHandle,
                           k: *const u8,
                           kLen: size_t,
                           v: *const u8,
                           vLen: size_t,
                           err: *mut *const i8);
-    pub fn rocksdb_readoptions_create() -> DBReadOptions;
-    pub fn rocksdb_readoptions_destroy(readopts: DBReadOptions);
-    pub fn rocksdb_readoptions_set_verify_checksums(readopts: DBReadOptions,
+    pub fn rocksdb_readoptions_create() -> *mut DBReadOptions;
+    pub fn rocksdb_readoptions_destroy(readopts: *mut DBReadOptions);
+    pub fn rocksdb_readoptions_set_verify_checksums(readopts: *mut DBReadOptions,
                                                     v: bool);
-    pub fn rocksdb_readoptions_set_fill_cache(readopts: DBReadOptions,
+    pub fn rocksdb_readoptions_set_fill_cache(readopts: *mut DBReadOptions,
                                               v: bool);
-    pub fn rocksdb_readoptions_set_snapshot(readopts: DBReadOptions,
+    pub fn rocksdb_readoptions_set_snapshot(readopts: *mut DBReadOptions,
                                             snapshot: DBSnapshot); //TODO how do I make this a const ref?
-    pub fn rocksdb_readoptions_set_iterate_upper_bound(readopts: DBReadOptions,
+    pub fn rocksdb_readoptions_set_iterate_upper_bound(readopts: *mut DBReadOptions,
                                                        k: *const u8,
                                                        kLen: size_t);
-    pub fn rocksdb_readoptions_set_read_tier(readopts: DBReadOptions,
+    pub fn rocksdb_readoptions_set_read_tier(readopts: *mut DBReadOptions,
                                              tier: c_int);
-    pub fn rocksdb_readoptions_set_tailing(readopts: DBReadOptions, v: bool);
+    pub fn rocksdb_readoptions_set_tailing(readopts: *mut DBReadOptions, v: bool);
 
     pub fn rocksdb_get(db: DBInstance,
-                       readopts: DBReadOptions,
+                       readopts: *const DBReadOptions,
                        k: *const u8,
                        kLen: size_t,
                        valLen: *const size_t,
                        err: *mut *const i8)
                        -> *mut c_void;
     pub fn rocksdb_get_cf(db: DBInstance,
-                          readopts: DBReadOptions,
+                          readopts: *const DBReadOptions,
                           cf_handle: DBCFHandle,
                           k: *const u8,
                           kLen: size_t,
@@ -269,45 +261,45 @@ extern "C" {
                           err: *mut *const i8)
                           -> *mut c_void;
     pub fn rocksdb_create_iterator(db: DBInstance,
-                                   readopts: DBReadOptions)
+                                   readopts: *const DBReadOptions)
                                    -> DBIterator;
     pub fn rocksdb_create_iterator_cf(db: DBInstance,
-                                      readopts: DBReadOptions,
+                                      readopts: *const DBReadOptions,
                                       cf_handle: DBCFHandle)
                                       -> DBIterator;
     pub fn rocksdb_create_snapshot(db: DBInstance) -> DBSnapshot;
     pub fn rocksdb_release_snapshot(db: DBInstance, snapshot: DBSnapshot);
 
     pub fn rocksdb_delete(db: DBInstance,
-                          writeopts: DBWriteOptions,
+                          writeopts: *const DBWriteOptions,
                           k: *const u8,
                           kLen: size_t,
                           err: *mut *const i8)
                           -> *mut c_void;
     pub fn rocksdb_delete_cf(db: DBInstance,
-                             writeopts: DBWriteOptions,
+                             writeopts: *const DBWriteOptions,
                              cf: DBCFHandle,
                              k: *const u8,
                              kLen: size_t,
                              err: *mut *const i8)
                              -> *mut c_void;
     pub fn rocksdb_close(db: DBInstance);
-    pub fn rocksdb_destroy_db(options: DBOptions,
+    pub fn rocksdb_destroy_db(options: *const DBOptions,
                               path: *const i8,
                               err: *mut *const i8);
-    pub fn rocksdb_repair_db(options: DBOptions,
+    pub fn rocksdb_repair_db(options: *const DBOptions,
                              path: *const i8,
                              err: *mut *const i8);
     // Merge
     pub fn rocksdb_merge(db: DBInstance,
-                         writeopts: DBWriteOptions,
+                         writeopts: *const DBWriteOptions,
                          k: *const u8,
                          kLen: size_t,
                          v: *const u8,
                          vLen: size_t,
                          err: *mut *const i8);
     pub fn rocksdb_merge_cf(db: DBInstance,
-                            writeopts: DBWriteOptions,
+                            writeopts: *const DBWriteOptions,
                             cf: DBCFHandle,
                             k: *const u8,
                             kLen: size_t,
@@ -340,7 +332,7 @@ extern "C" {
         name_fn: extern fn(*mut c_void) -> *const c_char,
     ) -> DBMergeOperator;
     pub fn rocksdb_mergeoperator_destroy(mo: DBMergeOperator);
-    pub fn rocksdb_options_set_merge_operator(options: DBOptions,
+    pub fn rocksdb_options_set_merge_operator(options: *mut DBOptions,
                                               mo: DBMergeOperator);
     // Iterator
     pub fn rocksdb_iter_destroy(iter: DBIterator);
@@ -355,7 +347,7 @@ extern "C" {
     pub fn rocksdb_iter_get_error(iter: DBIterator, err: *mut *const u8);
     // Write batch
     pub fn rocksdb_write(db: DBInstance,
-                         writeopts: DBWriteOptions,
+                         writeopts: *const DBWriteOptions,
                          batch: DBWriteBatch,
                          err: *mut *const i8);
     pub fn rocksdb_writebatch_create() -> DBWriteBatch;
@@ -407,7 +399,7 @@ extern "C" {
                                    -> *const u8;
 
     // Comparator
-    pub fn rocksdb_options_set_comparator(options: DBOptions,
+    pub fn rocksdb_options_set_comparator(options: *mut DBOptions,
                                           cb: DBComparator);
     pub fn rocksdb_comparator_create(state: *mut c_void,
                                      destroy: extern "C" fn(*mut c_void) -> (),
@@ -423,16 +415,16 @@ extern "C" {
     pub fn rocksdb_comparator_destroy(cmp: DBComparator);
 
     // Column Family
-    pub fn rocksdb_open_column_families(options: DBOptions,
+    pub fn rocksdb_open_column_families(options: *const DBOptions,
                                         path: *const i8,
                                         num_column_families: c_int,
                                         column_family_names: *const *const i8,
-                                        column_family_options: *const DBOptions,
+                                        column_family_options: *const *const DBOptions,
                                         column_family_handles: *const DBCFHandle,
                                         err: *mut *const i8
                                         ) -> DBInstance;
     pub fn rocksdb_create_column_family(db: DBInstance,
-                                        column_family_options: DBOptions,
+                                        column_family_options: *const DBOptions,
                                         column_family_name: *const i8,
                                         err: *mut *const i8)
                                         -> DBCFHandle;
@@ -499,7 +491,7 @@ mod test {
     fn internal() {
         unsafe {
             let opts = rocksdb_options_create();
-            assert!(!opts.0.is_null());
+            assert!(!opts.is_null());
 
             rocksdb_options_increase_parallelism(opts, 0);
             rocksdb_options_optimize_level_style_compaction(opts, 0);
@@ -516,12 +508,12 @@ mod test {
             assert!(err.is_null(), error_message(err));
 
             let writeopts = rocksdb_writeoptions_create();
-            assert!(!writeopts.0.is_null());
+            assert!(!writeopts.is_null());
 
             let key = b"name\x00";
             let val = b"spacejam\x00";
             rocksdb_put(db,
-                        writeopts.clone(),
+                        writeopts,
                         key.as_ptr(),
                         4,
                         val.as_ptr(),
@@ -531,11 +523,11 @@ mod test {
             assert!(err.is_null(), error_message(err));
 
             let readopts = rocksdb_readoptions_create();
-            assert!(!readopts.0.is_null());
+            assert!(!readopts.is_null());
 
             let mut val_len = 0;
             rocksdb_get(db,
-                        readopts.clone(),
+                        readopts,
                         key.as_ptr(),
                         4,
                         &mut val_len,

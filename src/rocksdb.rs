@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+
+
+use libc::{self, c_int, c_void, size_t};
+
+use rocksdb_ffi::{self, DBCFHandle, error_message};
+use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fs;
@@ -19,11 +25,6 @@ use std::ops::Deref;
 use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
-
-use libc::{self, c_int, c_void, size_t};
-
-use rocksdb_ffi::{self, DBCFHandle, error_message};
-use rocksdb_options::{Options, WriteOptions};
 
 const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
@@ -38,20 +39,6 @@ unsafe impl Sync for DB {}
 
 pub struct WriteBatch {
     inner: rocksdb_ffi::DBWriteBatch,
-}
-
-pub struct ReadOptions {
-    inner: rocksdb_ffi::DBReadOptions,
-    upper_bound: Vec<u8>,
-}
-
-/// The UnsafeSnap must be destroyed by db, it maybe be leaked
-/// if not using it properly, hence named as unsafe.
-///
-/// This object is convenient for wrapping snapshot by yourself. In most
-/// cases, using `Snapshot` is enough.
-pub struct UnsafeSnap {
-    inner: rocksdb_ffi::DBSnapshot,
 }
 
 pub struct Snapshot<'a> {
@@ -82,8 +69,9 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 impl<'a> DBIterator<'a> {
     pub fn new(db: &'a DB, readopts: ReadOptions) -> DBIterator<'a> {
         unsafe {
-            let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
-                                                                readopts.inner);
+            let iterator =
+                rocksdb_ffi::rocksdb_create_iterator(db.inner,
+                                                     readopts.get_inner());
 
             DBIterator {
                 db: db,
@@ -167,7 +155,7 @@ impl<'a> DBIterator<'a> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
-                                                        readopts.inner,
+                                                        readopts.get_inner(),
                                                         cf_handle);
             DBIterator {
                 db: db,
@@ -342,8 +330,9 @@ impl DB {
             .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
             .collect();
 
-        let cfopts: Vec<rocksdb_ffi::DBOptions> =
-            cf_opts_v.iter().map(|x| x.inner).collect();
+        let cfopts: Vec<_> = cf_opts_v.iter()
+            .map(|x| x.inner as *const rocksdb_ffi::DBOptions)
+            .collect();
 
         let db: rocksdb_ffi::DBInstance;
         let mut err: *const i8 = 0 as *const i8;
@@ -454,14 +443,6 @@ impl DB {
                    key: &[u8],
                    readopts: &ReadOptions)
                    -> Result<Option<DBVector>, String> {
-        if readopts.inner.0.is_null() {
-            return Err("Unable to create rocksdb read options.  This is a \
-                        fairly trivial call, and its failure may be \
-                        indicative of a mis-compiled or mis-loaded rocksdb \
-                        library."
-                .to_owned());
-        }
-
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
@@ -469,7 +450,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             let val =
                 rocksdb_ffi::rocksdb_get(self.inner,
-                                         readopts.inner,
+                                         readopts.get_inner(),
                                          key.as_ptr(),
                                          key.len() as size_t,
                                          val_len_ptr,
@@ -494,14 +475,6 @@ impl DB {
                       key: &[u8],
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, String> {
-        if readopts.inner.0.is_null() {
-            return Err("Unable to create rocksdb read options.  This is a \
-                        fairly trivial call, and its failure may be \
-                        indicative of a mis-compiled or mis-loaded rocksdb \
-                        library."
-                .to_owned());
-        }
-
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
@@ -509,7 +482,7 @@ impl DB {
             let err_ptr: *mut *const i8 = &mut err;
             let val =
                 rocksdb_ffi::rocksdb_get_cf(self.inner,
-                                            readopts.inner,
+                                            readopts.get_inner(),
                                             cf,
                                             key.as_ptr(),
                                             key.len() as size_t,
@@ -611,11 +584,11 @@ impl DB {
     }
 
     pub unsafe fn unsafe_snap(&self) -> UnsafeSnap {
-        UnsafeSnap { inner: rocksdb_ffi::rocksdb_create_snapshot(self.inner) }
+        UnsafeSnap::new(self.inner)
     }
 
     pub unsafe fn release_snap(&self, snap: &UnsafeSnap) {
-        rocksdb_ffi::rocksdb_release_snapshot(self.inner, snap.inner)
+        rocksdb_ffi::rocksdb_release_snapshot(self.inner, snap.get_inner())
     }
 
     pub fn put_opt(&self,
@@ -1095,49 +1068,6 @@ impl Writable for WriteBatch {
     }
 }
 
-impl Drop for ReadOptions {
-    fn drop(&mut self) {
-        unsafe { rocksdb_ffi::rocksdb_readoptions_destroy(self.inner) }
-    }
-}
-
-impl Default for ReadOptions {
-    fn default() -> ReadOptions {
-        unsafe {
-            ReadOptions { inner: rocksdb_ffi::rocksdb_readoptions_create(), upper_bound: vec![] }
-        }
-    }
-}
-
-impl ReadOptions {
-    pub fn new() -> ReadOptions {
-        ReadOptions::default()
-    }
-    // TODO add snapshot setting here
-    // TODO add snapshot wrapper structs with proper destructors;
-    // that struct needs an "iterator" impl too.
-    #[allow(dead_code)]
-    pub fn fill_cache(&mut self, v: bool) {
-        unsafe {
-            rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
-        }
-    }
-
-    pub unsafe fn set_snapshot(&mut self, snapshot: &UnsafeSnap) {
-        rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
-                                                      snapshot.inner);
-    }
-
-    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
-        self.upper_bound = Vec::from(key);
-        unsafe {
-            rocksdb_ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
-                                                                     self.upper_bound.as_ptr(),
-                                                                     self.upper_bound.len() as size_t);
-        }
-    }
-}
-
 pub struct DBVector {
     base: *mut u8,
     len: usize,
@@ -1173,9 +1103,9 @@ impl DBVector {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use rocksdb_options::*;
     use std::str;
+    use super::*;
     use tempdir::TempDir;
 
     #[test]

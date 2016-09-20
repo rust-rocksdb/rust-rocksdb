@@ -12,34 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+
+use comparator::{self, ComparatorCallback, compare_callback};
 use libc::{c_int, size_t};
+use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
+                     partial_merge_callback};
+use merge_operator::MergeFn;
+
+use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions,
+                  DBReadOptions, DBCompressionType, DBRecoveryMode};
 use std::ffi::CString;
 use std::mem;
 
-use rocksdb_ffi::{self, DBCompressionType, DBRecoveryMode};
-use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
-                     partial_merge_callback};
-use comparator::{self, ComparatorCallback, compare_callback};
-use merge_operator::MergeFn;
-
 pub struct BlockBasedOptions {
-    inner: rocksdb_ffi::DBBlockBasedTableOptions,
-}
-
-pub struct Options {
-    pub inner: rocksdb_ffi::DBOptions,
-}
-
-pub struct WriteOptions {
-    pub inner: rocksdb_ffi::DBWriteOptions,
-}
-
-impl Drop for Options {
-    fn drop(&mut self) {
-        unsafe {
-            rocksdb_ffi::rocksdb_options_destroy(self.inner);
-        }
-    }
+    inner: *mut DBBlockBasedTableOptions,
 }
 
 impl Drop for BlockBasedOptions {
@@ -50,23 +36,14 @@ impl Drop for BlockBasedOptions {
     }
 }
 
-impl Drop for WriteOptions {
-    fn drop(&mut self) {
-        unsafe {
-            rocksdb_ffi::rocksdb_writeoptions_destroy(self.inner);
-        }
-    }
-}
-
 impl Default for BlockBasedOptions {
     fn default() -> BlockBasedOptions {
-        let block_opts =
-            unsafe { rocksdb_ffi::rocksdb_block_based_options_create() };
-        let rocksdb_ffi::DBBlockBasedTableOptions(opt_ptr) = block_opts;
-        if opt_ptr.is_null() {
-            panic!("Could not create rocksdb block based options".to_string());
+        unsafe {
+            let block_opts = rocksdb_ffi::rocksdb_block_based_options_create();
+            assert!(!block_opts.is_null(),
+                    "Could not create rocksdb block based options");
+            BlockBasedOptions { inner: block_opts }
         }
-        BlockBasedOptions { inner: block_opts }
     }
 }
 
@@ -114,38 +91,143 @@ impl BlockBasedOptions {
     }
 }
 
-// TODO figure out how to create these in a Rusty way
-// /pub fn set_filter(&mut self, filter: rocksdb_ffi::DBFilterPolicy) {
-// /    unsafe {
-// /        rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(
-// /            self.inner, filter);
-// /    }
-// /}
+/// The UnsafeSnap must be destroyed by db, it maybe be leaked
+/// if not using it properly, hence named as unsafe.
+///
+/// This object is convenient for wrapping snapshot by yourself. In most
+/// cases, using `Snapshot` is enough.
+pub struct UnsafeSnap {
+    inner: rocksdb_ffi::DBSnapshot,
+}
 
-// /pub fn set_cache(&mut self, cache: rocksdb_ffi::DBCache) {
-// /    unsafe {
-// /        rocksdb_ffi::rocksdb_block_based_options_set_block_cache(
-// /            self.inner, cache);
-// /    }
-// /}
+impl UnsafeSnap {
+    pub unsafe fn new(db: rocksdb_ffi::DBInstance) -> UnsafeSnap {
+        UnsafeSnap { inner: rocksdb_ffi::rocksdb_create_snapshot(db) }
+    }
 
-// /pub fn set_cache_compressed(&mut self, cache: rocksdb_ffi::DBCache) {
-// /    unsafe {
-// /        rocksdb_ffi::
-// rocksdb_block_based_options_set_block_cache_compressed(
-// /            self.inner, cache);
-// /    }
-// /}
+    pub unsafe fn get_inner(&self) -> rocksdb_ffi::DBSnapshot {
+        self.inner
+    }
+}
 
+pub struct ReadOptions {
+    inner: *mut DBReadOptions,
+    upper_bound: Vec<u8>,
+}
+
+impl Drop for ReadOptions {
+    fn drop(&mut self) {
+        unsafe { rocksdb_ffi::rocksdb_readoptions_destroy(self.inner) }
+    }
+}
+
+impl Default for ReadOptions {
+    fn default() -> ReadOptions {
+        unsafe {
+            let opts = rocksdb_ffi::rocksdb_readoptions_create();
+            assert!(!opts.is_null(), "Unable to create rocksdb read options");
+            ReadOptions {
+                inner: opts,
+                upper_bound: vec![],
+            }
+        }
+    }
+}
+
+impl ReadOptions {
+    pub fn new() -> ReadOptions {
+        ReadOptions::default()
+    }
+
+    // TODO add snapshot setting here
+    // TODO add snapshot wrapper structs with proper destructors;
+    // that struct needs an "iterator" impl too.
+    #[allow(dead_code)]
+    pub fn fill_cache(&mut self, v: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_fill_cache(self.inner, v);
+        }
+    }
+
+    pub unsafe fn set_snapshot(&mut self, snapshot: &UnsafeSnap) {
+        rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
+                                                      snapshot.inner);
+    }
+
+    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
+        self.upper_bound = Vec::from(key);
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
+                                                                     self.upper_bound.as_ptr(),
+                                                                     self.upper_bound.len() as size_t);
+        }
+    }
+
+    pub unsafe fn get_inner(&self) -> *const DBReadOptions {
+        self.inner
+    }
+}
+
+pub struct WriteOptions {
+    pub inner: *mut DBWriteOptions,
+}
+
+impl Drop for WriteOptions {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Default for WriteOptions {
+    fn default() -> WriteOptions {
+        let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
+        assert!(!write_opts.is_null(),
+                "Could not create rocksdb write options");
+        WriteOptions { inner: write_opts }
+    }
+}
+
+impl WriteOptions {
+    pub fn new() -> WriteOptions {
+        WriteOptions::default()
+    }
+
+    pub fn set_sync(&mut self, sync: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_writeoptions_set_sync(self.inner, sync);
+        }
+    }
+
+    pub fn disable_wal(&mut self, disable: bool) {
+        unsafe {
+            if disable {
+                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 1);
+            } else {
+                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 0);
+            }
+        }
+    }
+}
+
+pub struct Options {
+    pub inner: *mut DBOptions,
+}
+
+impl Drop for Options {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_destroy(self.inner);
+        }
+    }
+}
 
 impl Default for Options {
     fn default() -> Options {
         unsafe {
             let opts = rocksdb_ffi::rocksdb_options_create();
-            let rocksdb_ffi::DBOptions(opt_ptr) = opts;
-            if opt_ptr.is_null() {
-                panic!("Could not create rocksdb options".to_string());
-            }
+            assert!(!opts.is_null(), "Could not create rocksdb options");
             Options { inner: opts }
         }
     }
@@ -320,7 +402,8 @@ impl Options {
 
     pub fn set_max_manifest_file_size(&mut self, size: u64) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_max_manifest_file_size(self.inner, size);
+            rocksdb_ffi::rocksdb_options_set_max_manifest_file_size(self.inner,
+                                                                    size);
         }
     }
 
@@ -418,40 +501,8 @@ impl Options {
 
     pub fn set_wal_recovery_mode(&mut self, mode: DBRecoveryMode) {
         unsafe {
-            rocksdb_ffi::rocksdb_options_set_wal_recovery_mode(self.inner, mode);
-        }
-    }
-}
-
-impl Default for WriteOptions {
-    fn default() -> WriteOptions {
-        let write_opts = unsafe { rocksdb_ffi::rocksdb_writeoptions_create() };
-        let rocksdb_ffi::DBWriteOptions(opt_ptr) = write_opts;
-        if opt_ptr.is_null() {
-            panic!("Could not create rocksdb write options".to_string());
-        }
-        WriteOptions { inner: write_opts }
-    }
-}
-
-impl WriteOptions {
-    pub fn new() -> WriteOptions {
-        WriteOptions::default()
-    }
-
-    pub fn set_sync(&mut self, sync: bool) {
-        unsafe {
-            rocksdb_ffi::rocksdb_writeoptions_set_sync(self.inner, sync);
-        }
-    }
-
-    pub fn disable_wal(&mut self, disable: bool) {
-        unsafe {
-            if disable {
-                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 1);
-            } else {
-                rocksdb_ffi::rocksdb_writeoptions_disable_WAL(self.inner, 0);
-            }
+            rocksdb_ffi::rocksdb_options_set_wal_recovery_mode(self.inner,
+                                                               mode);
         }
     }
 }
