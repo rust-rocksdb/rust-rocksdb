@@ -1,4 +1,4 @@
-use rocksdb::{DB, Writable, SeekKey, DBIterator, Kv};
+use rocksdb::*;
 use tempdir::TempDir;
 
 fn prev_collect<'a>(iter: &mut DBIterator<'a>) -> Vec<Kv> {
@@ -112,4 +112,31 @@ pub fn test_iterator() {
     // Once iterator is invalid, it can't be reverted.
     iter.prev();
     assert!(!iter.valid());
+}
+
+#[test]
+fn read_with_upper_bound() {
+    let path = TempDir::new("_rust_rocksdb_read_with_upper_bound_test").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    {
+        let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+        let writeopts = WriteOptions::new();
+        db.put_opt(b"k1-0", b"a", &writeopts).unwrap();
+        db.put_opt(b"k1-1", b"b", &writeopts).unwrap();
+        db.put_opt(b"k2-0", b"c", &writeopts).unwrap();
+
+        let mut readopts = ReadOptions::new();
+        readopts.set_iterate_upper_bound(b"k2");
+        let mut iter = db.iter_opt(readopts);
+        iter.seek(SeekKey::Start);
+        let mut count = 0;
+        while iter.valid() {
+            count += 1;
+            if !iter.next() {
+                break;
+            }
+        }
+        assert_eq!(count, 2);
+    }
 }

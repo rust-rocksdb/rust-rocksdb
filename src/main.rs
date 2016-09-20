@@ -194,33 +194,6 @@ mod tests {
         DB::open(&opts, path).unwrap()
     }
 
-    #[test]
-    fn read_with_upper_bound() {
-        let path = "_rust_rocksdb_read_with_upper_bound_test";
-        let mut opts = Options::new();
-        opts.create_if_missing(true);
-        {
-            let db = DB::open(&opts, path).unwrap();
-            let writeopts = WriteOptions::new();
-            db.put_opt(b"k1-0", b"a", &writeopts).unwrap();
-            db.put_opt(b"k1-1", b"b", &writeopts).unwrap();
-            db.put_opt(b"k2-0", b"c", &writeopts).unwrap();
-
-            let mut readopts = ReadOptions::new();
-            readopts.set_iterate_upper_bound(b"k2");
-            let mut iter = db.iter_opt(readopts);
-            iter.seek(SeekKey::Start);
-            let mut count = 0;
-            while iter.valid() {
-                count += 1;
-                if !iter.next() {
-                    break;
-                }
-            }
-            assert_eq!(count, 2);
-        }
-    }
-
     // TODO(tyler) unstable
     // #[bench]
     // fn a_writes(b: &mut Bencher) {
