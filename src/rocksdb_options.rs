@@ -14,7 +14,7 @@
 //
 
 use comparator::{self, ComparatorCallback, compare_callback};
-use libc::{c_int, size_t};
+use libc::{c_int, c_uint, size_t};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
 use merge_operator::MergeFn;
@@ -503,6 +503,19 @@ impl Options {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_wal_recovery_mode(self.inner,
                                                                mode);
+        }
+    }
+
+    pub fn enable_statistics(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_enable_statistics(self.inner);
+        }
+    }
+
+    pub fn set_stats_dump_period_sec(&mut self, period: c_uint) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner,
+                                                      period);
         }
     }
 }
