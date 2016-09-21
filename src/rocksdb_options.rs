@@ -20,7 +20,7 @@ use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
 use merge_operator::MergeFn;
 
 use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions,
-                  DBReadOptions, DBCompressionType, DBRecoveryMode};
+                  DBReadOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance};
 use std::ffi::CString;
 use std::mem;
 
@@ -97,15 +97,15 @@ impl BlockBasedOptions {
 /// This object is convenient for wrapping snapshot by yourself. In most
 /// cases, using `Snapshot` is enough.
 pub struct UnsafeSnap {
-    inner: rocksdb_ffi::DBSnapshot,
+    inner: *const DBSnapshot,
 }
 
 impl UnsafeSnap {
-    pub unsafe fn new(db: rocksdb_ffi::DBInstance) -> UnsafeSnap {
+    pub unsafe fn new(db: *mut DBInstance) -> UnsafeSnap {
         UnsafeSnap { inner: rocksdb_ffi::rocksdb_create_snapshot(db) }
     }
 
-    pub unsafe fn get_inner(&self) -> rocksdb_ffi::DBSnapshot {
+    pub unsafe fn get_inner(&self) -> *const DBSnapshot {
         self.inner
     }
 }

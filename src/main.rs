@@ -143,7 +143,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options, ReadOptions, WriteOptions, SeekKey};
+    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
     use rocksdb::DBCompactionStyle::DBUniversal;
     use rocksdb::DBRecoveryMode;
 

@@ -19,48 +19,27 @@ extern crate tempdir;
 
 use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
-use std::str::from_utf8;
 
 pub enum DBOptions {}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBInstance(pub *const c_void);
+pub enum DBInstance {}
 pub enum DBWriteOptions {}
 pub enum DBReadOptions {}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBMergeOperator(pub *const c_void);
+pub enum DBMergeOperator {}
 pub enum DBBlockBasedTableOptions {}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBCache(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBFilterPolicy(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBSnapshot(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBIterator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBCFHandle(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBWriteBatch(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBComparator(pub *const c_void);
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct DBFlushOptions(pub *const c_void);
+pub enum DBCache {}
+pub enum DBFilterPolicy {}
+pub enum DBSnapshot {}
+pub enum DBIterator {}
+pub enum DBCFHandle {}
+pub enum DBWriteBatch {}
+pub enum DBComparator {}
+pub enum DBFlushOptions {}
 
-pub fn new_bloom_filter(bits: c_int) -> DBFilterPolicy {
+pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
 }
 
-pub fn new_cache(capacity: size_t) -> DBCache {
+pub fn new_cache(capacity: size_t) -> *mut DBCache {
     unsafe { rocksdb_cache_create_lru(capacity) }
 }
 
@@ -97,9 +76,9 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecords = 3,
 }
 
-pub fn error_message(ptr: *const i8) -> String {
-    let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
-    let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
+pub fn error_message(ptr: *mut c_char) -> String {
+    let c_str = unsafe { CStr::from_ptr(ptr) };
+    let s = format!("{}", c_str.to_string_lossy());
     unsafe {
         libc::free(ptr as *mut c_void);
     }
@@ -112,8 +91,8 @@ pub fn error_message(ptr: *const i8) -> String {
 extern "C" {
     pub fn rocksdb_options_create() -> *mut DBOptions;
     pub fn rocksdb_options_destroy(opts: *mut DBOptions);
-    pub fn rocksdb_cache_create_lru(capacity: size_t) -> DBCache;
-    pub fn rocksdb_cache_destroy(cache: DBCache);
+    pub fn rocksdb_cache_create_lru(capacity: size_t) -> *mut DBCache;
+    pub fn rocksdb_cache_destroy(cache: *mut DBCache);
     pub fn rocksdb_block_based_options_create() -> *mut DBBlockBasedTableOptions;
     pub fn rocksdb_block_based_options_destroy(opts: *mut DBBlockBasedTableOptions);
     pub fn rocksdb_block_based_options_set_block_size(
@@ -129,14 +108,14 @@ extern "C" {
         block_options: *mut DBBlockBasedTableOptions, v: c_uchar);
     pub fn rocksdb_block_based_options_set_filter_policy(
         block_options: *mut DBBlockBasedTableOptions,
-        filter_policy: DBFilterPolicy);
+        filter_policy: *mut DBFilterPolicy);
     pub fn rocksdb_block_based_options_set_no_block_cache(
         block_options: *mut DBBlockBasedTableOptions, no_block_cache: bool);
     pub fn rocksdb_block_based_options_set_block_cache(
-        block_options: *mut DBBlockBasedTableOptions, block_cache: DBCache);
+        block_options: *mut DBBlockBasedTableOptions, block_cache: *mut DBCache);
     pub fn rocksdb_block_based_options_set_block_cache_compressed(
         block_options: *mut DBBlockBasedTableOptions,
-        block_cache_compressed: DBCache);
+        block_cache_compressed: *mut DBCache);
     pub fn rocksdb_block_based_options_set_whole_key_filtering(
         ck_options: *mut DBBlockBasedTableOptions, doit: bool);
     pub fn rocksdb_options_set_block_based_table_factory(
@@ -203,33 +182,33 @@ extern "C" {
     pub fn rocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
     pub fn rocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
-                                                -> DBFilterPolicy;
+                                                -> *mut DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
-                                             -> DBFilterPolicy;
+                                             -> *mut DBFilterPolicy;
     pub fn rocksdb_open(options: *mut DBOptions,
-                        path: *const i8,
-                        err: *mut *const i8)
-                        -> DBInstance;
+                        path: *const c_char,
+                        err: *mut *mut c_char)
+                        -> *mut DBInstance;
     pub fn rocksdb_writeoptions_create() -> *mut DBWriteOptions;
     pub fn rocksdb_writeoptions_destroy(writeopts: *mut DBWriteOptions);
     pub fn rocksdb_writeoptions_set_sync(writeopts: *mut DBWriteOptions, v: bool);
     pub fn rocksdb_writeoptions_disable_WAL(writeopts: *mut DBWriteOptions,
                                             v: c_int);
-    pub fn rocksdb_put(db: DBInstance,
+    pub fn rocksdb_put(db: *mut DBInstance,
                        writeopts: *mut DBWriteOptions,
                        k: *const u8,
                        kLen: size_t,
                        v: *const u8,
                        vLen: size_t,
-                       err: *mut *const i8);
-    pub fn rocksdb_put_cf(db: DBInstance,
+                       err: *mut *mut c_char);
+    pub fn rocksdb_put_cf(db: *mut DBInstance,
                           writeopts: *mut DBWriteOptions,
-                          cf: DBCFHandle,
+                          cf: *mut DBCFHandle,
                           k: *const u8,
                           kLen: size_t,
                           v: *const u8,
                           vLen: size_t,
-                          err: *mut *const i8);
+                          err: *mut *mut c_char);
     pub fn rocksdb_readoptions_create() -> *mut DBReadOptions;
     pub fn rocksdb_readoptions_destroy(readopts: *mut DBReadOptions);
     pub fn rocksdb_readoptions_set_verify_checksums(readopts: *mut DBReadOptions,
@@ -237,7 +216,7 @@ extern "C" {
     pub fn rocksdb_readoptions_set_fill_cache(readopts: *mut DBReadOptions,
                                               v: bool);
     pub fn rocksdb_readoptions_set_snapshot(readopts: *mut DBReadOptions,
-                                            snapshot: DBSnapshot); //TODO how do I make this a const ref?
+                                            snapshot: *const DBSnapshot); //TODO how do I make this a const ref?
     pub fn rocksdb_readoptions_set_iterate_upper_bound(readopts: *mut DBReadOptions,
                                                        k: *const u8,
                                                        kLen: size_t);
@@ -245,67 +224,65 @@ extern "C" {
                                              tier: c_int);
     pub fn rocksdb_readoptions_set_tailing(readopts: *mut DBReadOptions, v: bool);
 
-    pub fn rocksdb_get(db: DBInstance,
+    pub fn rocksdb_get(db: *const DBInstance,
                        readopts: *const DBReadOptions,
                        k: *const u8,
                        kLen: size_t,
                        valLen: *const size_t,
-                       err: *mut *const i8)
-                       -> *mut c_void;
-    pub fn rocksdb_get_cf(db: DBInstance,
+                       err: *mut *mut c_char)
+                       -> *mut u8;
+    pub fn rocksdb_get_cf(db: *const DBInstance,
                           readopts: *const DBReadOptions,
-                          cf_handle: DBCFHandle,
+                          cf_handle: *mut DBCFHandle,
                           k: *const u8,
                           kLen: size_t,
                           valLen: *const size_t,
-                          err: *mut *const i8)
-                          -> *mut c_void;
-    pub fn rocksdb_create_iterator(db: DBInstance,
+                          err: *mut *mut c_char)
+                          -> *mut u8;
+    pub fn rocksdb_create_iterator(db: *mut DBInstance,
                                    readopts: *const DBReadOptions)
-                                   -> DBIterator;
-    pub fn rocksdb_create_iterator_cf(db: DBInstance,
+                                   -> *mut DBIterator;
+    pub fn rocksdb_create_iterator_cf(db: *mut DBInstance,
                                       readopts: *const DBReadOptions,
-                                      cf_handle: DBCFHandle)
-                                      -> DBIterator;
-    pub fn rocksdb_create_snapshot(db: DBInstance) -> DBSnapshot;
-    pub fn rocksdb_release_snapshot(db: DBInstance, snapshot: DBSnapshot);
+                                      cf_handle: *mut DBCFHandle)
+                                      -> *mut DBIterator;
+    pub fn rocksdb_create_snapshot(db: *mut DBInstance) -> *const DBSnapshot;
+    pub fn rocksdb_release_snapshot(db: *mut DBInstance, snapshot: *const DBSnapshot);
 
-    pub fn rocksdb_delete(db: DBInstance,
+    pub fn rocksdb_delete(db: *mut DBInstance,
                           writeopts: *const DBWriteOptions,
                           k: *const u8,
                           kLen: size_t,
-                          err: *mut *const i8)
-                          -> *mut c_void;
-    pub fn rocksdb_delete_cf(db: DBInstance,
+                          err: *mut *mut c_char);
+    pub fn rocksdb_delete_cf(db: *mut DBInstance,
                              writeopts: *const DBWriteOptions,
-                             cf: DBCFHandle,
+                             cf: *mut DBCFHandle,
                              k: *const u8,
                              kLen: size_t,
-                             err: *mut *const i8)
-                             -> *mut c_void;
-    pub fn rocksdb_close(db: DBInstance);
+                             err: *mut *mut c_char);
+    pub fn rocksdb_close(db: *mut DBInstance);
     pub fn rocksdb_destroy_db(options: *const DBOptions,
-                              path: *const i8,
-                              err: *mut *const i8);
+                              path: *const c_char,
+                              err: *mut *mut c_char);
     pub fn rocksdb_repair_db(options: *const DBOptions,
-                             path: *const i8,
-                             err: *mut *const i8);
+                             path: *const c_char,
+                             err: *mut *mut c_char);
     // Merge
-    pub fn rocksdb_merge(db: DBInstance,
+    pub fn rocksdb_merge(db: *mut DBInstance,
                          writeopts: *const DBWriteOptions,
                          k: *const u8,
                          kLen: size_t,
                          v: *const u8,
                          vLen: size_t,
-                         err: *mut *const i8);
-    pub fn rocksdb_merge_cf(db: DBInstance,
+                         err: *mut *mut c_char);
+    pub fn rocksdb_merge_cf(db: *mut DBInstance,
                             writeopts: *const DBWriteOptions,
-                            cf: DBCFHandle,
+                            cf: *mut DBCFHandle,
                             k: *const u8,
                             kLen: size_t,
                             v: *const u8,
                             vLen: size_t,
-                            err: *mut *const i8);
+                            err: *mut *mut c_char);
     pub fn rocksdb_mergeoperator_create(
         state: *mut c_void,
         destroy: extern fn(*mut c_void) -> (),
@@ -330,77 +307,77 @@ extern "C" {
                                            value_len: *mut size_t
                                            ) -> ()>,
         name_fn: extern fn(*mut c_void) -> *const c_char,
-    ) -> DBMergeOperator;
-    pub fn rocksdb_mergeoperator_destroy(mo: DBMergeOperator);
+    ) -> *mut DBMergeOperator;
+    pub fn rocksdb_mergeoperator_destroy(mo: *mut DBMergeOperator);
     pub fn rocksdb_options_set_merge_operator(options: *mut DBOptions,
-                                              mo: DBMergeOperator);
+                                              mo: *mut DBMergeOperator);
     // Iterator
-    pub fn rocksdb_iter_destroy(iter: DBIterator);
-    pub fn rocksdb_iter_valid(iter: DBIterator) -> bool;
-    pub fn rocksdb_iter_seek_to_first(iter: DBIterator);
-    pub fn rocksdb_iter_seek_to_last(iter: DBIterator);
-    pub fn rocksdb_iter_seek(iter: DBIterator, key: *const u8, klen: size_t);
-    pub fn rocksdb_iter_next(iter: DBIterator);
-    pub fn rocksdb_iter_prev(iter: DBIterator);
-    pub fn rocksdb_iter_key(iter: DBIterator, klen: *mut size_t) -> *mut u8;
-    pub fn rocksdb_iter_value(iter: DBIterator, vlen: *mut size_t) -> *mut u8;
-    pub fn rocksdb_iter_get_error(iter: DBIterator, err: *mut *const u8);
+    pub fn rocksdb_iter_destroy(iter: *mut DBIterator);
+    pub fn rocksdb_iter_valid(iter: *const DBIterator) -> bool;
+    pub fn rocksdb_iter_seek_to_first(iter: *mut DBIterator);
+    pub fn rocksdb_iter_seek_to_last(iter: *mut DBIterator);
+    pub fn rocksdb_iter_seek(iter: *mut DBIterator, key: *const u8, klen: size_t);
+    pub fn rocksdb_iter_next(iter: *mut DBIterator);
+    pub fn rocksdb_iter_prev(iter: *mut DBIterator);
+    pub fn rocksdb_iter_key(iter: *const DBIterator, klen: *mut size_t) -> *mut u8;
+    pub fn rocksdb_iter_value(iter: *const DBIterator, vlen: *mut size_t) -> *mut u8;
+    pub fn rocksdb_iter_get_error(iter: *const DBIterator, err: *mut *mut c_char);
     // Write batch
-    pub fn rocksdb_write(db: DBInstance,
+    pub fn rocksdb_write(db: *mut DBInstance,
                          writeopts: *const DBWriteOptions,
-                         batch: DBWriteBatch,
-                         err: *mut *const i8);
-    pub fn rocksdb_writebatch_create() -> DBWriteBatch;
+                         batch: *mut DBWriteBatch,
+                         err: *mut *mut c_char);
+    pub fn rocksdb_writebatch_create() -> *mut DBWriteBatch;
     pub fn rocksdb_writebatch_create_from(rep: *const u8,
                                           size: size_t)
-                                          -> DBWriteBatch;
-    pub fn rocksdb_writebatch_destroy(batch: DBWriteBatch);
-    pub fn rocksdb_writebatch_clear(batch: DBWriteBatch);
-    pub fn rocksdb_writebatch_count(batch: DBWriteBatch) -> c_int;
-    pub fn rocksdb_writebatch_put(batch: DBWriteBatch,
+                                          -> *mut DBWriteBatch;
+    pub fn rocksdb_writebatch_destroy(batch: *mut DBWriteBatch);
+    pub fn rocksdb_writebatch_clear(batch: *mut DBWriteBatch);
+    pub fn rocksdb_writebatch_count(batch: *mut DBWriteBatch) -> c_int;
+    pub fn rocksdb_writebatch_put(batch: *mut DBWriteBatch,
                                   key: *const u8,
                                   klen: size_t,
                                   val: *const u8,
                                   vlen: size_t);
-    pub fn rocksdb_writebatch_put_cf(batch: DBWriteBatch,
-                                     cf: DBCFHandle,
+    pub fn rocksdb_writebatch_put_cf(batch: *mut DBWriteBatch,
+                                     cf: *mut DBCFHandle,
                                      key: *const u8,
                                      klen: size_t,
                                      val: *const u8,
                                      vlen: size_t);
-    pub fn rocksdb_writebatch_merge(batch: DBWriteBatch,
+    pub fn rocksdb_writebatch_merge(batch: *mut DBWriteBatch,
                                     key: *const u8,
                                     klen: size_t,
                                     val: *const u8,
                                     vlen: size_t);
-    pub fn rocksdb_writebatch_merge_cf(batch: DBWriteBatch,
-                                       cf: DBCFHandle,
+    pub fn rocksdb_writebatch_merge_cf(batch: *mut DBWriteBatch,
+                                       cf: *mut DBCFHandle,
                                        key: *const u8,
                                        klen: size_t,
                                        val: *const u8,
                                        vlen: size_t);
-    pub fn rocksdb_writebatch_delete(batch: DBWriteBatch,
+    pub fn rocksdb_writebatch_delete(batch: *mut DBWriteBatch,
                                      key: *const u8,
                                      klen: size_t);
-    pub fn rocksdb_writebatch_delete_cf(batch: DBWriteBatch,
-                                        cf: DBCFHandle,
+    pub fn rocksdb_writebatch_delete_cf(batch: *mut DBWriteBatch,
+                                        cf: *mut DBCFHandle,
                                         key: *const u8,
                                         klen: size_t);
     pub fn rocksdb_writebatch_iterate(
-        batch: DBWriteBatch,
+        batch: *mut DBWriteBatch,
         state: *mut c_void,
         put_fn: extern fn(state: *mut c_void,
                           k: *const u8, klen: size_t,
                           v: *const u8, vlen: size_t),
         deleted_fn: extern fn(state: *mut c_void,
                               k: *const u8, klen: size_t));
-    pub fn rocksdb_writebatch_data(batch: DBWriteBatch,
+    pub fn rocksdb_writebatch_data(batch: *mut DBWriteBatch,
                                    size: *mut size_t)
                                    -> *const u8;
 
     // Comparator
     pub fn rocksdb_options_set_comparator(options: *mut DBOptions,
-                                          cb: DBComparator);
+                                          cb: *mut DBComparator);
     pub fn rocksdb_comparator_create(state: *mut c_void,
                                      destroy: extern "C" fn(*mut c_void) -> (),
                                      compare: extern "C" fn(arg: *mut c_void,
@@ -411,78 +388,78 @@ extern "C" {
                                                             -> c_int,
                                      name_fn: extern "C" fn(*mut c_void)
                                                             -> *const c_char)
-                                     -> DBComparator;
-    pub fn rocksdb_comparator_destroy(cmp: DBComparator);
+                                     -> *mut DBComparator;
+    pub fn rocksdb_comparator_destroy(cmp: *mut DBComparator);
 
     // Column Family
     pub fn rocksdb_open_column_families(options: *const DBOptions,
-                                        path: *const i8,
+                                        path: *const c_char,
                                         num_column_families: c_int,
-                                        column_family_names: *const *const i8,
+                                        column_family_names: *const *const c_char,
                                         column_family_options: *const *const DBOptions,
-                                        column_family_handles: *const DBCFHandle,
-                                        err: *mut *const i8
-                                        ) -> DBInstance;
-    pub fn rocksdb_create_column_family(db: DBInstance,
+                                        column_family_handles: *const *mut DBCFHandle,
+                                        err: *mut *mut c_char
+                                        ) -> *mut DBInstance;
+    pub fn rocksdb_create_column_family(db: *mut DBInstance,
                                         column_family_options: *const DBOptions,
-                                        column_family_name: *const i8,
-                                        err: *mut *const i8)
-                                        -> DBCFHandle;
-    pub fn rocksdb_drop_column_family(db: DBInstance,
-                                      column_family_handle: DBCFHandle,
-                                      err: *mut *const i8);
-    pub fn rocksdb_column_family_handle_destroy(column_family_handle: DBCFHandle);
+                                        column_family_name: *const c_char,
+                                        err: *mut *mut c_char)
+                                        -> *mut DBCFHandle;
+    pub fn rocksdb_drop_column_family(db: *mut DBInstance,
+                                      column_family_handle: *mut DBCFHandle,
+                                      err: *mut *mut c_char);
+    pub fn rocksdb_column_family_handle_destroy(column_family_handle: *mut DBCFHandle);
     pub fn rocksdb_list_column_families(db: *const DBOptions,
-                                        path: *const i8,
+                                        path: *const c_char,
                                         lencf: *mut size_t,
-                                        err: *mut  *const i8
-                                        ) -> *const *const i8;
-    pub fn rocksdb_list_column_families_destroy(list: *mut *mut i8,
+                                        err: *mut *mut c_char
+                                        ) -> *mut *mut c_char;
+    pub fn rocksdb_list_column_families_destroy(list: *mut *mut c_char,
                                                 len: size_t);
 
     // Flush options
-    pub fn rocksdb_flushoptions_create() -> DBFlushOptions;
-    pub fn rocksdb_flushoptions_destroy(opt: DBFlushOptions);
-    pub fn rocksdb_flushoptions_set_wait(opt: DBFlushOptions,
+    pub fn rocksdb_flushoptions_create() -> *mut DBFlushOptions;
+    pub fn rocksdb_flushoptions_destroy(opt: *mut DBFlushOptions);
+    pub fn rocksdb_flushoptions_set_wait(opt: *mut DBFlushOptions,
                                          whether_wait: bool);
 
-    pub fn rocksdb_flush(db: DBInstance,
-                         options: DBFlushOptions,
-                         err: *mut *const i8);
+    pub fn rocksdb_flush(db: *mut DBInstance,
+                         options: *const DBFlushOptions,
+                         err: *mut *mut c_char);
 
-    pub fn rocksdb_approximate_sizes(db: DBInstance,
+    pub fn rocksdb_approximate_sizes(db: *mut DBInstance,
                                      num_ranges: c_int,
                                      range_start_key: *const *const u8,
                                      range_start_key_len: *const size_t,
                                      range_limit_key: *const *const u8,
                                      range_limit_key_len: *const size_t,
                                      sizes: *mut uint64_t);
-    pub fn rocksdb_approximate_sizes_cf(db: DBInstance,
-                                        cf: DBCFHandle,
+    pub fn rocksdb_approximate_sizes_cf(db: *mut DBInstance,
+                                        cf: *mut DBCFHandle,
                                         num_ranges: c_int,
                                         range_start_key: *const *const u8,
                                         range_start_key_len: *const size_t,
                                         range_limit_key: *const *const u8,
                                         range_limit_key_len: *const size_t,
                                         sizes: *mut uint64_t);
-    pub fn rocksdb_delete_file_in_range(db: DBInstance,
+    pub fn rocksdb_delete_file_in_range(db: *mut DBInstance,
                                         range_start_key: *const u8,
                                         range_start_key_len: size_t,
                                         range_limit_key: *const u8,
                                         range_limit_key_len: size_t,
-                                        err: *mut *const i8);
-    pub fn rocksdb_delete_file_in_range_cf(db: DBInstance,
-                                           cf: DBCFHandle,
+                                        err: *mut *mut c_char);
+    pub fn rocksdb_delete_file_in_range_cf(db: *mut DBInstance,
+                                           cf: *mut DBCFHandle,
                                            range_start_key: *const u8,
                                            range_start_key_len: size_t,
                                            range_limit_key: *const u8,
                                            range_limit_key_len: size_t,
-                                           err: *mut *const i8);
-    pub fn rocksdb_property_value(db: DBInstance,
+                                           err: *mut *mut c_char);
+    pub fn rocksdb_property_value(db: *mut DBInstance,
                                   propname: *const c_char)
                                   -> *mut c_char;
-    pub fn rocksdb_property_value_cf(db: DBInstance,
-                                     cf: DBCFHandle,
+    pub fn rocksdb_property_value_cf(db: *mut DBInstance,
+                                     cf: *mut DBCFHandle,
                                      propname: *const c_char)
                                      -> *mut c_char;
 }
@@ -491,7 +468,7 @@ extern "C" {
 mod test {
     use super::*;
     use std::ffi::{CStr, CString};
-    use libc::{self, c_void};
+    use libc::{self, c_void, c_char};
     use tempdir::TempDir;
 
     #[test]
@@ -510,7 +487,7 @@ mod test {
                 .unwrap();
             let cpath_ptr = cpath.as_ptr();
 
-            let mut err = 0 as *const i8;
+            let mut err = 0 as *mut c_char;
             let db = rocksdb_open(opts, cpath_ptr, &mut err);
             assert!(err.is_null(), error_message(err));
 

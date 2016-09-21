@@ -14,11 +14,12 @@
 //
 
 
-use libc::{self, c_int, c_void, size_t};
+use libc::{self, c_int, c_void, size_t, c_char};
 
-use rocksdb_ffi::{self, DBCFHandle, error_message};
+use rocksdb_ffi::{self, DBWriteBatch, DBCFHandle, error_message, DBInstance};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions};
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::ffi::{CStr, CString};
 use std::fs;
 use std::ops::Deref;
@@ -28,9 +29,19 @@ use std::str::from_utf8;
 
 const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
+pub struct CFHandle {
+    inner: *mut DBCFHandle,
+}
+
+impl Drop for CFHandle {
+    fn drop(&mut self) {
+        unsafe { rocksdb_ffi::rocksdb_column_family_handle_destroy(self.inner); }
+    }
+}
+
 pub struct DB {
-    inner: rocksdb_ffi::DBInstance,
-    cfs: BTreeMap<String, DBCFHandle>,
+    inner: *mut DBInstance,
+    cfs: BTreeMap<String, CFHandle>,
     path: String,
 }
 
@@ -38,7 +49,7 @@ unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
 pub struct WriteBatch {
-    inner: rocksdb_ffi::DBWriteBatch,
+    inner: *mut DBWriteBatch,
 }
 
 pub struct Snapshot<'a> {
@@ -51,7 +62,7 @@ pub struct Snapshot<'a> {
 pub struct DBIterator<'a> {
     db: &'a DB,
     readopts: ReadOptions,
-    inner: rocksdb_ffi::DBIterator,
+    inner: *mut rocksdb_ffi::DBIterator,
 }
 
 pub enum SeekKey<'a> {
@@ -149,14 +160,14 @@ impl<'a> DBIterator<'a> {
     }
 
     pub fn new_cf(db: &'a DB,
-                  cf_handle: DBCFHandle,
+                  cf_handle: &CFHandle,
                   readopts: ReadOptions)
                   -> DBIterator<'a> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
                                                         readopts.get_inner(),
-                                                        cf_handle);
+                                                        cf_handle.inner);
             DBIterator {
                 db: db,
                 readopts: readopts,
@@ -219,7 +230,7 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn get_cf(&self,
-                  cf: DBCFHandle,
+                  cf: &CFHandle,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
@@ -240,18 +251,18 @@ impl<'a> Drop for Snapshot<'a> {
 pub trait Writable {
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
     fn put_cf(&self,
-              cf: DBCFHandle,
+              cf: &CFHandle,
               key: &[u8],
               value: &[u8])
               -> Result<(), String>;
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
     fn merge_cf(&self,
-                cf: DBCFHandle,
+                cf: &CFHandle,
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String>;
     fn delete(&self, key: &[u8]) -> Result<(), String>;
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String>;
+    fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String>;
 }
 
 /// A range of keys, `start_key` is included, but not `end_key`.
@@ -326,32 +337,30 @@ impl DB {
             .collect();
 
         // These handles will be populated by DB.
-        let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
-            .map(|_| rocksdb_ffi::DBCFHandle(0 as *mut c_void))
+        let cfhandles: Vec<_> = cfs_v.iter()
+            .map(|_| 0 as *mut DBCFHandle)
             .collect();
 
         let cfopts: Vec<_> = cf_opts_v.iter()
             .map(|x| x.inner as *const rocksdb_ffi::DBOptions)
             .collect();
 
-        let db: rocksdb_ffi::DBInstance;
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
-        unsafe {
-            db = rocksdb_ffi::rocksdb_open_column_families(opts.inner,
-                    cpath.as_ptr() as *const _,
+        let mut err = 0 as *mut c_char;
+        let db = unsafe {
+            rocksdb_ffi::rocksdb_open_column_families(opts.inner,
+                    cpath.as_ptr(),
                     cfs_v.len() as c_int,
-                    cfnames.as_ptr() as *const _,
+                    cfnames.as_ptr(),
                     cfopts.as_ptr(),
                     cfhandles.as_ptr(),
-                    err_ptr);
-        }
+                    &mut err)
+        };
         if !err.is_null() {
             return Err(error_message(err));
         }
 
         for handle in &cfhandles {
-            if handle.0.is_null() {
+            if handle.is_null() {
                 return Err("Received null column family handle from DB."
                     .to_owned());
             }
@@ -359,10 +368,10 @@ impl DB {
 
         let mut cf_map = BTreeMap::new();
         for (n, h) in cfs_v.iter().zip(cfhandles) {
-            cf_map.insert((*n).to_owned(), h);
+            cf_map.insert((*n).to_owned(), CFHandle { inner: h });
         }
 
-        if db.0.is_null() {
+        if db.is_null() {
             return Err("Could not initialize database.".to_owned());
         }
 
@@ -375,14 +384,9 @@ impl DB {
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
-        let cpath_ptr = cpath.as_ptr();
-
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
+        let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_destroy_db(opts.inner,
-                                            cpath_ptr as *const _,
-                                            err_ptr);
+            rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(), &mut err);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -392,14 +396,9 @@ impl DB {
 
     pub fn repair(opts: Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
-        let cpath_ptr = cpath.as_ptr();
-
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
+        let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_repair_db(opts.inner,
-                                           cpath_ptr as *const _,
-                                           err_ptr);
+            rocksdb_ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(), &mut err);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -418,24 +417,23 @@ impl DB {
         let mut cfs: Vec<String> = vec![];
         unsafe {
             let mut lencf: size_t = 0;
-            let mut err: *const i8 = 0 as *const i8;
+            let mut err = 0 as *mut c_char;
             let list = rocksdb_ffi::rocksdb_list_column_families(opts.inner,
-                                                      cpath.as_ptr() as *const _,
+                                                      cpath.as_ptr(),
                                                       &mut lencf,
                                                       &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
             let list_cfs = slice::from_raw_parts(list, lencf);
-            for cf_name in list_cfs {
-                let len = libc::strlen(*cf_name);
-                let cf = match String::from_utf8(slice::from_raw_parts(*cf_name as *const u8, len).to_vec()) {
+            for &cf_name in list_cfs {
+                let cf = match CStr::from_ptr(cf_name).to_owned().into_string() {
                     Ok(s) => s,
-                    Err(_) => return Err("Invalid utf8 bytes".to_owned()),
+                    Err(e) => return Err(format!("invalid utf8 bytes: {:?}", e)),
                 };
                 cfs.push(cf);
             }
-            rocksdb_ffi::rocksdb_list_column_families_destroy(list as *mut *mut _, lencf);
+            rocksdb_ffi::rocksdb_list_column_families_destroy(list, lencf);
         }
 
         Ok(cfs)
@@ -449,13 +447,12 @@ impl DB {
                      batch: WriteBatch,
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
+        let mut err = 0 as *mut c_char;
         unsafe {
             rocksdb_ffi::rocksdb_write(self.inner,
                                        writeopts.inner,
                                        batch.inner,
-                                       err_ptr);
+                                       &mut err);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -480,15 +477,14 @@ impl DB {
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             let val =
                 rocksdb_ffi::rocksdb_get(self.inner,
                                          readopts.get_inner(),
                                          key.as_ptr(),
                                          key.len() as size_t,
                                          val_len_ptr,
-                                         err_ptr) as *mut u8;
+                                         &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -505,23 +501,22 @@ impl DB {
     }
 
     pub fn get_cf_opt(&self,
-                      cf: DBCFHandle,
+                      cf: &CFHandle,
                       key: &[u8],
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, String> {
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             let val =
                 rocksdb_ffi::rocksdb_get_cf(self.inner,
                                             readopts.get_inner(),
-                                            cf,
+                                            cf.inner,
                                             key.as_ptr(),
                                             key.len() as size_t,
                                             val_len_ptr,
-                                            err_ptr) as *mut u8;
+                                            &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -534,7 +529,7 @@ impl DB {
     }
 
     pub fn get_cf(&self,
-                  cf: DBCFHandle,
+                  cf: &CFHandle,
                   key: &[u8])
                   -> Result<Option<DBVector>, String> {
         self.get_cf_opt(cf, key, &ReadOptions::new())
@@ -543,7 +538,7 @@ impl DB {
     pub fn create_cf(&mut self,
                      name: &str,
                      opts: &Options)
-                     -> Result<DBCFHandle, String> {
+                     -> Result<&CFHandle, String> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -553,35 +548,41 @@ impl DB {
             }
         };
         let cname_ptr = cname.as_ptr();
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
-        let cf_handler = unsafe {
+        let mut err = 0 as *mut c_char;
+        unsafe {
             let cf_handler =
                 rocksdb_ffi::rocksdb_create_column_family(self.inner,
                                                           opts.inner,
-                                                          cname_ptr as *const _,
-                                                          err_ptr);
-            self.cfs.insert(name.to_owned(), cf_handler);
-            cf_handler
-        };
-        if !err.is_null() {
-            return Err(error_message(err));
+                                                          cname_ptr,
+                                                          &mut err);
+            
+            if !err.is_null() {
+                return Err(error_message(err));
+            }
+            let handle = CFHandle { inner: cf_handler };
+            Ok(match self.cfs.entry(name.to_owned()) {
+                Entry::Occupied(mut e) => {
+                    e.insert(handle);
+                    e.into_mut()
+                },
+                Entry::Vacant(e) => {
+                    e.insert(handle)
+                }
+            })
         }
-        Ok(cf_handler)
     }
 
     pub fn drop_cf(&mut self, name: &str) -> Result<(), String> {
-        let cf = self.cfs.get(name);
+        let cf = self.cfs.remove(name);
         if cf.is_none() {
             return Err(format!("Invalid column family: {}", name).clone());
         }
 
-        let mut err: *const i8 = 0 as *const i8;
-        let err_ptr: *mut *const i8 = &mut err;
+        let mut err = 0 as *mut c_char;
         unsafe {
             rocksdb_ffi::rocksdb_drop_column_family(self.inner,
-                                                    *cf.unwrap(),
-                                                    err_ptr);
+                                                    cf.unwrap().inner,
+                                                    &mut err);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -590,7 +591,7 @@ impl DB {
         Ok(())
     }
 
-    pub fn cf_handle(&self, name: &str) -> Option<&DBCFHandle> {
+    pub fn cf_handle(&self, name: &str) -> Option<&CFHandle> {
         self.cfs.get(name)
     }
 
@@ -608,9 +609,9 @@ impl DB {
         DBIterator::new(&self, opt)
     }
 
-    pub fn iter_cf(&self, cf_handle: DBCFHandle) -> DBIterator {
+    pub fn iter_cf(&self, cf_handle: &CFHandle) -> DBIterator {
         let opts = ReadOptions::new();
-        DBIterator::new_cf(&self, cf_handle, opts)
+        DBIterator::new_cf(self, cf_handle, opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -631,15 +632,14 @@ impl DB {
                    writeopts: &WriteOptions)
                    -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_put(self.inner,
                                      writeopts.inner,
                                      key.as_ptr(),
                                      key.len() as size_t,
                                      value.as_ptr(),
                                      value.len() as size_t,
-                                     err_ptr);
+                                     &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -648,22 +648,21 @@ impl DB {
     }
 
     pub fn put_cf_opt(&self,
-                      cf: DBCFHandle,
+                      cf: &CFHandle,
                       key: &[u8],
                       value: &[u8],
                       writeopts: &WriteOptions)
                       -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_put_cf(self.inner,
                                         writeopts.inner,
-                                        cf,
+                                        cf.inner,
                                         key.as_ptr(),
                                         key.len() as size_t,
                                         value.as_ptr(),
                                         value.len() as size_t,
-                                        err_ptr);
+                                        &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -676,15 +675,14 @@ impl DB {
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_merge(self.inner,
                                        writeopts.inner,
                                        key.as_ptr(),
                                        key.len() as size_t,
                                        value.as_ptr(),
                                        value.len() as size_t,
-                                       err_ptr);
+                                       &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -692,22 +690,21 @@ impl DB {
         }
     }
     fn merge_cf_opt(&self,
-                    cf: DBCFHandle,
+                    cf: &CFHandle,
                     key: &[u8],
                     value: &[u8],
                     writeopts: &WriteOptions)
                     -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_merge_cf(self.inner,
                                           writeopts.inner,
-                                          cf,
+                                          cf.inner,
                                           key.as_ptr(),
                                           key.len() as size_t,
                                           value.as_ptr(),
                                           value.len() as size_t,
-                                          err_ptr);
+                                          &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -719,33 +716,32 @@ impl DB {
                   writeopts: &WriteOptions)
                   -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_delete(self.inner,
                                         writeopts.inner,
                                         key.as_ptr(),
                                         key.len() as size_t,
-                                        err_ptr);
+                                        &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
             Ok(())
         }
     }
+
     fn delete_cf_opt(&self,
-                     cf: DBCFHandle,
+                     cf: &CFHandle,
                      key: &[u8],
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-            let err_ptr: *mut *const i8 = &mut err;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_delete_cf(self.inner,
                                            writeopts.inner,
-                                           cf,
+                                           cf.inner,
                                            key.as_ptr(),
                                            key.len() as size_t,
-                                           err_ptr);
+                                           &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -762,7 +758,7 @@ impl DB {
         unsafe {
             let opts = rocksdb_ffi::rocksdb_flushoptions_create();
             rocksdb_ffi::rocksdb_flushoptions_set_wait(opts, sync);
-            let mut err = 0 as *const i8;
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_flush(self.inner, opts, &mut err);
             rocksdb_ffi::rocksdb_flushoptions_destroy(opts);
             if !err.is_null() {
@@ -784,27 +780,27 @@ impl DB {
     }
 
     pub fn get_approximate_sizes_cf(&self,
-                                    cf: DBCFHandle,
+                                    cf: &CFHandle,
                                     ranges: &[Range])
                                     -> Vec<u64> {
         self.get_approximate_sizes_cfopt(Some(cf), ranges)
     }
 
     fn get_approximate_sizes_cfopt(&self,
-                                   cf: Option<DBCFHandle>,
+                                   cf: Option<&CFHandle>,
                                    ranges: &[Range])
                                    -> Vec<u64> {
         let start_keys: Vec<*const u8> = ranges.iter()
             .map(|x| x.start_key.as_ptr())
             .collect();
-        let start_key_lens: Vec<usize> = ranges.iter()
-            .map(|x| x.start_key.len() as usize)
+        let start_key_lens: Vec<_> = ranges.iter()
+            .map(|x| x.start_key.len())
             .collect();
         let end_keys: Vec<*const u8> = ranges.iter()
             .map(|x| x.end_key.as_ptr())
             .collect();
-        let end_key_lens: Vec<usize> = ranges.iter()
-            .map(|x| x.end_key.len() as usize)
+        let end_key_lens: Vec<_> = ranges.iter()
+            .map(|x| x.end_key.len())
             .collect();
         let mut sizes: Vec<u64> = vec![0; ranges.len()];
         let (n,
@@ -830,7 +826,7 @@ impl DB {
             },
             Some(cf) => unsafe {
                 rocksdb_ffi::rocksdb_approximate_sizes_cf(self.inner,
-                                                          cf,
+                                                          cf.inner,
                                                           n,
                                                           start_key_ptr,
                                                           start_key_len_ptr,
@@ -847,7 +843,7 @@ impl DB {
                                 end_key: &[u8])
                                 -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
+            let mut err = 0 as *mut c_char;
 
             rocksdb_ffi::rocksdb_delete_file_in_range(self.inner,
                                         start_key.as_ptr(),
@@ -863,15 +859,14 @@ impl DB {
     }
 
     pub fn delete_file_in_range_cf(&self,
-                                   cf: DBCFHandle,
+                                   cf: &CFHandle,
                                    start_key: &[u8],
                                    end_key: &[u8])
                                    -> Result<(), String> {
         unsafe {
-            let mut err: *const i8 = 0 as *const i8;
-
+            let mut err = 0 as *mut c_char;
             rocksdb_ffi::rocksdb_delete_file_in_range_cf(self.inner,
-                                        cf,
+                                        cf.inner,
                                         start_key.as_ptr(),
                                         start_key.len() as size_t,
                                         end_key.as_ptr(),
@@ -889,7 +884,7 @@ impl DB {
     }
 
     pub fn get_property_value_cf(&self,
-                                 cf: DBCFHandle,
+                                 cf: &CFHandle,
                                  name: &str)
                                  -> Option<String> {
         self.get_property_value_cf_opt(Some(cf), name)
@@ -902,14 +897,14 @@ impl DB {
     }
 
     pub fn get_property_int_cf(&self,
-                               cf: DBCFHandle,
+                               cf: &CFHandle,
                                name: &str)
                                -> Option<u64> {
         self.get_property_int_cf_opt(Some(cf), name)
     }
 
     fn get_property_value_cf_opt(&self,
-                                 cf: Option<DBCFHandle>,
+                                 cf: Option<&CFHandle>,
                                  name: &str)
                                  -> Option<String> {
         unsafe {
@@ -922,7 +917,7 @@ impl DB {
                 }
                 Some(cf) => {
                     rocksdb_ffi::rocksdb_property_value_cf(self.inner,
-                                                           cf,
+                                                           cf.inner,
                                                            prop_name.as_ptr())
                 }
             };
@@ -939,7 +934,7 @@ impl DB {
     }
 
     fn get_property_int_cf_opt(&self,
-                               cf: Option<DBCFHandle>,
+                               cf: Option<&CFHandle>,
                                name: &str)
                                -> Option<u64> {
         // Rocksdb guarantees that the return property int
@@ -960,7 +955,7 @@ impl Writable for DB {
     }
 
     fn put_cf(&self,
-              cf: DBCFHandle,
+              cf: &CFHandle,
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
@@ -972,7 +967,7 @@ impl Writable for DB {
     }
 
     fn merge_cf(&self,
-                cf: DBCFHandle,
+                cf: &CFHandle,
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
@@ -983,7 +978,7 @@ impl Writable for DB {
         self.delete_opt(key, &WriteOptions::new())
     }
 
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+    fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
         self.delete_cf_opt(cf, key, &WriteOptions::new())
     }
 }
@@ -1019,9 +1014,7 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for cf in self.cfs.values() {
-                rocksdb_ffi::rocksdb_column_family_handle_destroy(*cf);
-            }
+            self.cfs.clear();
             rocksdb_ffi::rocksdb_close(self.inner);
         }
     }
@@ -1040,13 +1033,13 @@ impl Writable for WriteBatch {
     }
 
     fn put_cf(&self,
-              cf: DBCFHandle,
+              cf: &CFHandle,
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put_cf(self.inner,
-                                                   cf,
+                                                   cf.inner,
                                                    key.as_ptr(),
                                                    key.len() as size_t,
                                                    value.as_ptr(),
@@ -1067,13 +1060,13 @@ impl Writable for WriteBatch {
     }
 
     fn merge_cf(&self,
-                cf: DBCFHandle,
+                cf: &CFHandle,
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_merge_cf(self.inner,
-                                                     cf,
+                                                     cf.inner,
                                                      key.as_ptr(),
                                                      key.len() as size_t,
                                                      value.as_ptr(),
@@ -1091,10 +1084,10 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+    fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete_cf(self.inner,
-                                                      cf,
+                                                      cf.inner,
                                                       key.as_ptr(),
                                                       key.len() as size_t);
             Ok(())
