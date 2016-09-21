@@ -432,6 +432,13 @@ extern "C" {
                                       column_family_handle: DBCFHandle,
                                       err: *mut *const i8);
     pub fn rocksdb_column_family_handle_destroy(column_family_handle: DBCFHandle);
+    pub fn rocksdb_list_column_families(db: *const DBOptions,
+                                        path: *const i8,
+                                        lencf: *mut size_t,
+                                        err: *mut  *const i8
+                                        ) -> *const *const i8;
+    pub fn rocksdb_list_column_families_destroy(list: *mut *mut i8,
+                                                len: size_t);
 
     // Flush options
     pub fn rocksdb_flushoptions_create() -> DBFlushOptions;
