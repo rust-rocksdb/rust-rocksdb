@@ -555,7 +555,7 @@ impl DB {
                                                           opts.inner,
                                                           cname_ptr,
                                                           &mut err);
-            
+
             if !err.is_null() {
                 return Err(error_message(err));
             }

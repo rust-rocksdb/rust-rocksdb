@@ -505,6 +505,19 @@ impl Options {
                                                                mode);
         }
     }
+
+    pub fn enable_statistics(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_enable_statistics(self.inner);
+        }
+    }
+
+    pub fn set_stats_dump_period_sec(&mut self, period: usize) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner,
+                                                      period);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -516,5 +529,12 @@ mod tests {
         let mut opts = Options::new();
         let size = 20 * 1024 * 1024;
         opts.set_max_manifest_file_size(size)
+    }
+
+    #[test]
+    fn test_enable_statistics() {
+        let mut opts = Options::new();
+        opts.enable_statistics();
+        opts.set_stats_dump_period_sec(60);
     }
 }
