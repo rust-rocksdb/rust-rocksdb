@@ -14,7 +14,7 @@
 //
 
 use comparator::{self, ComparatorCallback, compare_callback};
-use libc::{c_int, c_uint, size_t};
+use libc::{c_int, size_t};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
 use merge_operator::MergeFn;
@@ -512,7 +512,7 @@ impl Options {
         }
     }
 
-    pub fn set_stats_dump_period_sec(&mut self, period: c_uint) {
+    pub fn set_stats_dump_period_sec(&mut self, period: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner,
                                                       period);
@@ -529,5 +529,12 @@ mod tests {
         let mut opts = Options::new();
         let size = 20 * 1024 * 1024;
         opts.set_max_manifest_file_size(size)
+    }
+
+    #[test]
+    fn test_enable_statistics() {
+        let mut opts = Options::new();
+        opts.enable_statistics();
+        opts.set_stats_dump_period_sec(60);
     }
 }

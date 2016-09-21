@@ -17,7 +17,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate tempdir;
 
-use libc::{c_char, c_uchar, c_int, c_uint, c_void, size_t, uint64_t};
+use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t};
 use std::ffi::CStr;
 
 pub enum DBOptions {}
@@ -182,7 +182,7 @@ extern "C" {
     pub fn rocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
     pub fn rocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
     pub fn rocksdb_options_enable_statistics(options: *mut DBOptions);
-    pub fn rocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: c_uint);
+    pub fn rocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
                                                 -> *mut DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
