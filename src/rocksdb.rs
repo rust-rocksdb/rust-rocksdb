@@ -35,7 +35,9 @@ pub struct CFHandle {
 
 impl Drop for CFHandle {
     fn drop(&mut self) {
-        unsafe { rocksdb_ffi::rocksdb_column_family_handle_destroy(self.inner); }
+        unsafe {
+            rocksdb_ffi::rocksdb_column_family_handle_destroy(self.inner);
+        }
     }
 }
 
@@ -348,12 +350,12 @@ impl DB {
         let mut err = 0 as *mut c_char;
         let db = unsafe {
             rocksdb_ffi::rocksdb_open_column_families(opts.inner,
-                    cpath.as_ptr(),
-                    cfs_v.len() as c_int,
-                    cfnames.as_ptr(),
-                    cfopts.as_ptr(),
-                    cfhandles.as_ptr(),
-                    &mut err)
+                                                      cpath.as_ptr(),
+                                                      cfs_v.len() as c_int,
+                                                      cfnames.as_ptr(),
+                                                      cfopts.as_ptr(),
+                                                      cfhandles.as_ptr(),
+                                                      &mut err)
         };
         if !err.is_null() {
             return Err(error_message(err));
@@ -386,7 +388,9 @@ impl DB {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(), &mut err);
+            rocksdb_ffi::rocksdb_destroy_db(opts.inner,
+                                            cpath.as_ptr(),
+                                            &mut err);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -398,7 +402,9 @@ impl DB {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(), &mut err);
+            rocksdb_ffi::rocksdb_repair_db(opts.inner,
+                                           cpath.as_ptr(),
+                                           &mut err);
         }
         if !err.is_null() {
             return Err(error_message(err));
@@ -406,11 +412,15 @@ impl DB {
         Ok(())
     }
 
-    pub fn list_column_families(opts: &Options, path: &str) -> Result<Vec<String>, String> {
+    pub fn list_column_families(opts: &Options,
+                                path: &str)
+                                -> Result<Vec<String>, String> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err("Failed to convert path to CString when list column families".to_owned())
+                return Err("Failed to convert path to CString when list \
+                            column families"
+                    .to_owned())
             }
         };
 
@@ -418,19 +428,23 @@ impl DB {
         unsafe {
             let mut lencf: size_t = 0;
             let mut err = 0 as *mut c_char;
-            let list = rocksdb_ffi::rocksdb_list_column_families(opts.inner,
-                                                      cpath.as_ptr(),
-                                                      &mut lencf,
-                                                      &mut err);
+            let list =
+                rocksdb_ffi::rocksdb_list_column_families(opts.inner,
+                                                          cpath.as_ptr(),
+                                                          &mut lencf,
+                                                          &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
             let list_cfs = slice::from_raw_parts(list, lencf);
             for &cf_name in list_cfs {
-                let cf = match CStr::from_ptr(cf_name).to_owned().into_string() {
-                    Ok(s) => s,
-                    Err(e) => return Err(format!("invalid utf8 bytes: {:?}", e)),
-                };
+                let cf =
+                    match CStr::from_ptr(cf_name).to_owned().into_string() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            return Err(format!("invalid utf8 bytes: {:?}", e))
+                        }
+                    };
                 cfs.push(cf);
             }
             rocksdb_ffi::rocksdb_list_column_families_destroy(list, lencf);
@@ -478,13 +492,12 @@ impl DB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let mut err = 0 as *mut c_char;
-            let val =
-                rocksdb_ffi::rocksdb_get(self.inner,
-                                         readopts.get_inner(),
-                                         key.as_ptr(),
-                                         key.len() as size_t,
-                                         val_len_ptr,
-                                         &mut err);
+            let val = rocksdb_ffi::rocksdb_get(self.inner,
+                                               readopts.get_inner(),
+                                               key.as_ptr(),
+                                               key.len() as size_t,
+                                               val_len_ptr,
+                                               &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -509,14 +522,13 @@ impl DB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let mut err = 0 as *mut c_char;
-            let val =
-                rocksdb_ffi::rocksdb_get_cf(self.inner,
-                                            readopts.get_inner(),
-                                            cf.inner,
-                                            key.as_ptr(),
-                                            key.len() as size_t,
-                                            val_len_ptr,
-                                            &mut err);
+            let val = rocksdb_ffi::rocksdb_get_cf(self.inner,
+                                                  readopts.get_inner(),
+                                                  cf.inner,
+                                                  key.as_ptr(),
+                                                  key.len() as size_t,
+                                                  val_len_ptr,
+                                                  &mut err);
             if !err.is_null() {
                 return Err(error_message(err));
             }
@@ -564,10 +576,8 @@ impl DB {
                 Entry::Occupied(mut e) => {
                     e.insert(handle);
                     e.into_mut()
-                },
-                Entry::Vacant(e) => {
-                    e.insert(handle)
                 }
+                Entry::Vacant(e) => e.insert(handle),
             })
         }
     }
@@ -836,6 +846,30 @@ impl DB {
             },
         }
         sizes
+    }
+
+    pub fn compact_range(&self, start_key: &[u8], end_key: &[u8]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_compact_range(self.inner,
+                                               start_key.as_ptr(),
+                                               start_key.len() as size_t,
+                                               end_key.as_ptr(),
+                                               end_key.len());
+        }
+    }
+
+    pub fn compact_range_cf(&self,
+                            cf: &CFHandle,
+                            start_key: &[u8],
+                            end_key: &[u8]) {
+        unsafe {
+            rocksdb_ffi::rocksdb_compact_range_cf(self.inner,
+                                                  cf.inner,
+                                                  start_key.as_ptr(),
+                                                  start_key.len() as size_t,
+                                                  end_key.as_ptr(),
+                                                  end_key.len());
+        }
     }
 
     pub fn delete_file_in_range(&self,
@@ -1248,7 +1282,8 @@ mod test {
 
     #[test]
     fn list_column_families_test() {
-        let path = TempDir::new("_rust_rocksdb_list_column_families_test").expect("");
+        let path = TempDir::new("_rust_rocksdb_list_column_families_test")
+            .expect("");
         let mut cfs = ["default", "cf1", "cf2", "cf3"];
         {
             let mut cfs_opts = vec![];
@@ -1259,7 +1294,8 @@ mod test {
 
             let mut opts = Options::new();
             opts.create_if_missing(true);
-            let mut db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+            let mut db = DB::open(&opts, path.path().to_str().unwrap())
+                .unwrap();
             for (&cf, &cf_opts) in cfs.iter().zip(&cfs_ref_opts) {
                 if cf == "default" {
                     continue;
@@ -1268,7 +1304,10 @@ mod test {
             }
         }
         let opts_list_cfs = Options::new();
-        let mut cfs_vec = DB::list_column_families(&opts_list_cfs, path.path().to_str().unwrap()).unwrap();
+        let mut cfs_vec =
+            DB::list_column_families(&opts_list_cfs,
+                                     path.path().to_str().unwrap())
+                .unwrap();
         cfs_vec.sort();
         cfs.sort();
         assert_eq!(cfs_vec, cfs);

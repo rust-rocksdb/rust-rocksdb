@@ -13,6 +13,8 @@
 // limitations under the License.
 //
 
+use compaction_filter::{CompactionFilter, new_compaction_filter,
+                        CompactionFilterHandle};
 use comparator::{self, ComparatorCallback, compare_callback};
 use libc::{c_int, size_t};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
@@ -20,7 +22,8 @@ use merge_operator::{self, MergeOperatorCallback, full_merge_callback,
 use merge_operator::MergeFn;
 
 use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions,
-                  DBReadOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance};
+                  DBReadOptions, DBCompressionType, DBRecoveryMode,
+                  DBSnapshot, DBInstance};
 use std::ffi::CString;
 use std::mem;
 
@@ -213,6 +216,7 @@ impl WriteOptions {
 
 pub struct Options {
     pub inner: *mut DBOptions,
+    filter: Option<CompactionFilterHandle>,
 }
 
 impl Drop for Options {
@@ -228,7 +232,10 @@ impl Default for Options {
         unsafe {
             let opts = rocksdb_ffi::rocksdb_options_create();
             assert!(!opts.is_null(), "Could not create rocksdb options");
-            Options { inner: opts }
+            Options {
+                inner: opts,
+                filter: None,
+            }
         }
     }
 }
@@ -250,6 +257,44 @@ impl Options {
         unsafe {
             rocksdb_ffi::rocksdb_options_optimize_level_style_compaction(
                 self.inner, memtable_memory_budget);
+        }
+    }
+
+    /// Set compaction filter.
+    ///
+    /// filter will be dropped when this option is dropped or a new filter is
+    /// set.
+    ///
+    /// By default, compaction will only pass keys written after the most
+    /// recent call to GetSnapshot() to filter. However, if `ignore_snapshots`
+    /// is set to true, even if the keys were written before the last snapshot
+    /// will be passed to filter too. For more details please checkout
+    /// rocksdb's documentation.
+    ///
+    /// See also `CompactionFilter`.
+    pub fn set_compaction_filter<S>(&mut self,
+                                    name: S,
+                                    ignore_snapshots: bool,
+                                    filter: Box<CompactionFilter>)
+                                    -> Result<(), String>
+        where S: Into<Vec<u8>>
+    {
+        unsafe {
+            let c_name = match CString::new(name) {
+                Ok(s) => s,
+                Err(e) => {
+                    return Err(format!("failed to convert to cstring: {:?}", e))
+                }
+            };
+            self.filter = Some(try!(new_compaction_filter(c_name,
+                                                          ignore_snapshots,
+                                                          filter)));
+            rocksdb_ffi::rocksdb_options_set_compaction_filter(self.inner,
+                                                               self.filter
+                                                                   .as_ref()
+                                                                   .unwrap()
+                                                                   .inner);
+            Ok(())
         }
     }
 

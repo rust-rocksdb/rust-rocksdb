@@ -34,6 +34,7 @@ pub enum DBCFHandle {}
 pub enum DBWriteBatch {}
 pub enum DBComparator {}
 pub enum DBFlushOptions {}
+pub enum DBCompactionFilter {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
@@ -125,6 +126,8 @@ extern "C" {
                                                 threads: c_int);
     pub fn rocksdb_options_optimize_level_style_compaction(
         options: *mut DBOptions, memtable_memory_budget: c_int);
+    pub fn rocksdb_options_set_compaction_filter(options: *mut DBOptions,
+                                                 filter: *mut DBCompactionFilter);
     pub fn rocksdb_options_set_create_if_missing(options: *mut DBOptions, v: bool);
     pub fn rocksdb_options_set_max_open_files(options: *mut DBOptions,
                                               files: c_int);
@@ -444,6 +447,8 @@ extern "C" {
                                         range_limit_key: *const *const u8,
                                         range_limit_key_len: *const size_t,
                                         sizes: *mut uint64_t);
+    pub fn rocksdb_compact_range(db: *mut DBInstance, start_key: *const u8, start_key_len: size_t, limit_key: *const u8, limit_key_len: size_t);
+    pub fn rocksdb_compact_range_cf(db: *mut DBInstance, cf: *mut DBCFHandle, start_key: *const u8, start_key_len: size_t, limit_key: *const u8, limit_key_len: size_t);
     pub fn rocksdb_delete_file_in_range(db: *mut DBInstance,
                                         range_start_key: *const u8,
                                         range_start_key_len: size_t,
@@ -464,6 +469,13 @@ extern "C" {
                                      cf: *mut DBCFHandle,
                                      propname: *const c_char)
                                      -> *mut c_char;
+    // Compaction filter
+    pub fn rocksdb_compactionfilter_create(state: *mut c_void,
+                                           destructor: extern fn(*mut c_void),
+                                           filter: extern fn(*mut c_void, c_int, *const u8, size_t, *const u8, size_t, *mut *mut u8, *mut size_t, *mut bool) -> bool,
+                                           name: extern fn(*mut c_void) -> *const c_char) -> *mut DBCompactionFilter;
+    pub fn rocksdb_compactionfilter_set_ignore_snapshots(filter: *mut DBCompactionFilter, ignore_snapshot: bool);
+    pub fn rocksdb_compactionfilter_destroy(filter: *mut DBCompactionFilter);
 }
 
 #[cfg(test)]

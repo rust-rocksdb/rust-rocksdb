@@ -23,10 +23,13 @@ pub mod rocksdb;
 pub mod rocksdb_options;
 pub mod merge_operator;
 pub mod comparator;
+mod compaction_filter;
 
-pub use librocksdb_sys::{DBCompactionStyle, DBCompressionType,
-                         DBRecoveryMode, new_bloom_filter, self as rocksdb_ffi};
+pub use compaction_filter::CompactionFilter;
+pub use librocksdb_sys::{DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+                         new_bloom_filter, self as rocksdb_ffi};
 pub use merge_operator::MergeOperands;
-pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, CFHandle};
+pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch,
+                  CFHandle};
 pub use rocksdb_options::{BlockBasedOptions, Options, ReadOptions,
                           WriteOptions};
