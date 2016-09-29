@@ -28,7 +28,7 @@ fn test_compact_range() {
 	for &(ref k, _) in &samples {
 		db.delete(k).unwrap()
 	}
-	db.compact_range(b"", b"");
+	db.compact_range(None, None);
 	let new_size = db.get_approximate_sizes(&[Range::new(b"k0", b"k6")])[0];
 	assert!(old_size > new_size);
 }

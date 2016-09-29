@@ -47,7 +47,7 @@ fn test_compaction_filter() {
         let _snap = db.snapshot();
         // Because ignore_snapshots is false, so force compact will not effect
         // the keys written before.
-        db.compact_range(b"key1", b"key3");
+        db.compact_range(Some(b"key1"), Some(b"key3"));
         for &(ref k, ref v) in &samples {
             assert_eq!(v.as_slice(), &*db.get(k).unwrap().unwrap());
         }
@@ -66,7 +66,7 @@ fn test_compaction_filter() {
         let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
         let _snap = db.snapshot();
         // Because ignore_snapshots is true, so all the keys will be compacted.
-        db.compact_range(b"key1", b"key3");
+        db.compact_range(Some(b"key1"), Some(b"key3"));
         for &(ref k, _) in &samples {
             assert!(db.get(k).unwrap().is_none());
         }
