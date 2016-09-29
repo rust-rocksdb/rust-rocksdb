@@ -850,10 +850,20 @@ impl DB {
 
     pub fn compact_range(&self, start_key: &[u8], end_key: &[u8]) {
         unsafe {
+            let start = if start_key.is_empty() {
+                0 as *const u8
+            } else {
+                start_key.as_ptr()
+            };
+            let end = if end_key.is_empty() {
+                0 as *const u8
+            } else {
+                end_key.as_ptr()
+            };
             rocksdb_ffi::rocksdb_compact_range(self.inner,
-                                               start_key.as_ptr(),
+                                               start,
                                                start_key.len() as size_t,
-                                               end_key.as_ptr(),
+                                               end,
                                                end_key.len());
         }
     }
@@ -863,11 +873,21 @@ impl DB {
                             start_key: &[u8],
                             end_key: &[u8]) {
         unsafe {
+            let start = if start_key.is_empty() {
+                0 as *const u8
+            } else {
+                start_key.as_ptr()
+            };
+            let end = if end_key.is_empty() {
+                0 as *const u8
+            } else {
+                end_key.as_ptr()
+            };
             rocksdb_ffi::rocksdb_compact_range_cf(self.inner,
                                                   cf.inner,
-                                                  start_key.as_ptr(),
+                                                  start,
                                                   start_key.len() as size_t,
-                                                  end_key.as_ptr(),
+                                                  end,
                                                   end_key.len());
         }
     }
