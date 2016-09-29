@@ -26,6 +26,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
+use std::ptr;
 
 const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
@@ -848,27 +849,31 @@ impl DB {
         sizes
     }
 
-    pub fn compact_range(&self, start_key: &[u8], end_key: &[u8]) {
+    pub fn compact_range(&self, start_key: Option<&[u8]>, end_key: Option<&[u8]>) {
         unsafe {
+            let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             rocksdb_ffi::rocksdb_compact_range(self.inner,
-                                               start_key.as_ptr(),
-                                               start_key.len() as size_t,
-                                               end_key.as_ptr(),
-                                               end_key.len());
+                                               start,
+                                               s_len,
+                                               end,
+                                               e_len);
         }
     }
 
     pub fn compact_range_cf(&self,
                             cf: &CFHandle,
-                            start_key: &[u8],
-                            end_key: &[u8]) {
+                            start_key: Option<&[u8]>,
+                            end_key: Option<&[u8]>) {
         unsafe {
+            let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             rocksdb_ffi::rocksdb_compact_range_cf(self.inner,
                                                   cf.inner,
-                                                  start_key.as_ptr(),
-                                                  start_key.len() as size_t,
-                                                  end_key.as_ptr(),
-                                                  end_key.len());
+                                                  start,
+                                                  s_len,
+                                                  end,
+                                                  e_len);
         }
     }
 
