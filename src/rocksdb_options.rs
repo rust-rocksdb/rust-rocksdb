@@ -563,6 +563,12 @@ impl Options {
                                                       period);
         }
     }
+
+    pub fn set_num_levels(&mut self, n: c_int) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_num_levels(self.inner, n);
+        }
+    }
 }
 
 pub struct FlushOptions {
