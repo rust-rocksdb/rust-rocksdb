@@ -208,6 +208,7 @@ extern "C" {
     pub fn rocksdb_options_set_wal_recovery_mode(options: DBOptions, mode: DBRecoveryMode);
     pub fn rocksdb_options_enable_statistics(options: DBOptions);
     pub fn rocksdb_options_set_stats_dump_period_sec(options: DBOptions, v: usize);
+    pub fn rocksdb_options_set_num_levels(options: DBOptions, v: c_int);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
                                                 -> DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
