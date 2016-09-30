@@ -86,6 +86,19 @@ pub fn error_message(ptr: *mut c_char) -> String {
     s
 }
 
+#[macro_export]
+macro_rules! ffi_try {
+    ($func:ident($($arg:expr),*)) => ({
+        use std::ptr;
+        let mut err = ptr::null_mut();
+        let res = $crate::$func($($arg),*, &mut err);
+        if !err.is_null() {
+            return Err($crate::error_message(err));
+        }
+        res
+    })
+}
+
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 #[link(name = "rocksdb")]
@@ -482,7 +495,8 @@ extern "C" {
 mod test {
     use super::*;
     use std::ffi::{CStr, CString};
-    use libc::{self, c_void, c_char};
+    use std::ptr;
+    use libc::{self, c_void};
     use tempdir::TempDir;
 
     #[test]
@@ -501,7 +515,7 @@ mod test {
                 .unwrap();
             let cpath_ptr = cpath.as_ptr();
 
-            let mut err = 0 as *mut c_char;
+            let mut err = ptr::null_mut();
             let db = rocksdb_open(opts, cpath_ptr, &mut err);
             assert!(err.is_null(), error_message(err));
 

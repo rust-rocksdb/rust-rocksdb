@@ -17,6 +17,7 @@ extern crate libc;
 
 #[cfg(test)]
 extern crate tempdir;
+#[macro_use]
 pub extern crate librocksdb_sys;
 
 pub mod rocksdb;

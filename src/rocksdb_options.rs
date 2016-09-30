@@ -23,7 +23,7 @@ use merge_operator::MergeFn;
 
 use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions,
                   DBReadOptions, DBCompressionType, DBRecoveryMode,
-                  DBSnapshot, DBInstance};
+                  DBSnapshot, DBInstance, DBFlushOptions};
 use std::ffi::CString;
 use std::mem;
 
@@ -562,6 +562,30 @@ impl Options {
             rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner,
                                                       period);
         }
+    }
+}
+
+pub struct FlushOptions {
+    pub inner: *mut DBFlushOptions,
+}
+
+impl FlushOptions {
+    pub fn new() -> FlushOptions {
+        unsafe {
+        FlushOptions {
+            inner: rocksdb_ffi::rocksdb_flushoptions_create(),
+        }
+        }
+    }
+
+    pub fn set_wait(&mut self, wait: bool) {
+        unsafe {rocksdb_ffi::rocksdb_flushoptions_set_wait(self.inner, wait);}
+    }
+}
+
+impl Drop for FlushOptions {
+    fn drop(&mut self) {
+        unsafe {rocksdb_ffi::rocksdb_flushoptions_destroy(self.inner);}
     }
 }
 

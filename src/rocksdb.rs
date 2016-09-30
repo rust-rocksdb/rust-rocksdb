@@ -14,19 +14,20 @@
 //
 
 
-use libc::{self, c_int, c_void, size_t, c_char};
+use libc::{self, c_int, c_void, size_t};
 
-use rocksdb_ffi::{self, DBWriteBatch, DBCFHandle, error_message, DBInstance};
-use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions};
+use rocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance};
+use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions,
+                      FlushOptions};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::ffi::{CStr, CString};
 use std::fs;
 use std::ops::Deref;
 use std::path::Path;
+use std::ptr;
 use std::slice;
 use std::str::from_utf8;
-use std::ptr;
 
 const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
@@ -348,19 +349,14 @@ impl DB {
             .map(|x| x.inner as *const rocksdb_ffi::DBOptions)
             .collect();
 
-        let mut err = 0 as *mut c_char;
         let db = unsafe {
-            rocksdb_ffi::rocksdb_open_column_families(opts.inner,
-                                                      cpath.as_ptr(),
-                                                      cfs_v.len() as c_int,
-                                                      cfnames.as_ptr(),
-                                                      cfopts.as_ptr(),
-                                                      cfhandles.as_ptr(),
-                                                      &mut err)
+            ffi_try!(rocksdb_open_column_families(opts.inner,
+                                                  cpath.as_ptr(),
+                                                  cfs_v.len() as c_int,
+                                                  cfnames.as_ptr(),
+                                                  cfopts.as_ptr(),
+                                                  cfhandles.as_ptr()))
         };
-        if !err.is_null() {
-            return Err(error_message(err));
-        }
 
         for handle in &cfhandles {
             if handle.is_null() {
@@ -387,28 +383,16 @@ impl DB {
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
-        let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_destroy_db(opts.inner,
-                                            cpath.as_ptr(),
-                                            &mut err);
-        }
-        if !err.is_null() {
-            return Err(error_message(err));
+            ffi_try!(rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
 
     pub fn repair(opts: Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
-        let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_repair_db(opts.inner,
-                                           cpath.as_ptr(),
-                                           &mut err);
-        }
-        if !err.is_null() {
-            return Err(error_message(err));
+            ffi_try!(rocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -428,15 +412,9 @@ impl DB {
         let mut cfs: Vec<String> = vec![];
         unsafe {
             let mut lencf: size_t = 0;
-            let mut err = 0 as *mut c_char;
-            let list =
-                rocksdb_ffi::rocksdb_list_column_families(opts.inner,
-                                                          cpath.as_ptr(),
-                                                          &mut lencf,
-                                                          &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            let list = ffi_try!(rocksdb_list_column_families(opts.inner,
+                                                             cpath.as_ptr(),
+                                                             &mut lencf));
             let list_cfs = slice::from_raw_parts(list, lencf);
             for &cf_name in list_cfs {
                 let cf =
@@ -462,15 +440,8 @@ impl DB {
                      batch: WriteBatch,
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
-        let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_write(self.inner,
-                                       writeopts.inner,
-                                       batch.inner,
-                                       &mut err);
-        }
-        if !err.is_null() {
-            return Err(error_message(err));
+            ffi_try!(rocksdb_write(self.inner, writeopts.inner, batch.inner));
         }
         Ok(())
     }
@@ -492,16 +463,11 @@ impl DB {
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
-            let mut err = 0 as *mut c_char;
-            let val = rocksdb_ffi::rocksdb_get(self.inner,
-                                               readopts.get_inner(),
-                                               key.as_ptr(),
-                                               key.len() as size_t,
-                                               val_len_ptr,
-                                               &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            let val = ffi_try!(rocksdb_get(self.inner,
+                                           readopts.get_inner(),
+                                           key.as_ptr(),
+                                           key.len() as size_t,
+                                           val_len_ptr));
             if val.is_null() {
                 Ok(None)
             } else {
@@ -522,17 +488,12 @@ impl DB {
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
-            let mut err = 0 as *mut c_char;
-            let val = rocksdb_ffi::rocksdb_get_cf(self.inner,
-                                                  readopts.get_inner(),
-                                                  cf.inner,
-                                                  key.as_ptr(),
-                                                  key.len() as size_t,
-                                                  val_len_ptr,
-                                                  &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            let val = ffi_try!(rocksdb_get_cf(self.inner,
+                                              readopts.get_inner(),
+                                              cf.inner,
+                                              key.as_ptr(),
+                                              key.len() as size_t,
+                                              val_len_ptr));
             if val.is_null() {
                 Ok(None)
             } else {
@@ -561,17 +522,10 @@ impl DB {
             }
         };
         let cname_ptr = cname.as_ptr();
-        let mut err = 0 as *mut c_char;
         unsafe {
-            let cf_handler =
-                rocksdb_ffi::rocksdb_create_column_family(self.inner,
-                                                          opts.inner,
-                                                          cname_ptr,
-                                                          &mut err);
-
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            let cf_handler = ffi_try!(rocksdb_create_column_family(self.inner,
+                                                                   opts.inner,
+                                                                   cname_ptr));
             let handle = CFHandle { inner: cf_handler };
             Ok(match self.cfs.entry(name.to_owned()) {
                 Entry::Occupied(mut e) => {
@@ -589,14 +543,8 @@ impl DB {
             return Err(format!("Invalid column family: {}", name).clone());
         }
 
-        let mut err = 0 as *mut c_char;
         unsafe {
-            rocksdb_ffi::rocksdb_drop_column_family(self.inner,
-                                                    cf.unwrap().inner,
-                                                    &mut err);
-        }
-        if !err.is_null() {
-            return Err(error_message(err));
+            ffi_try!(rocksdb_drop_column_family(self.inner, cf.unwrap().inner));
         }
 
         Ok(())
@@ -643,17 +591,12 @@ impl DB {
                    writeopts: &WriteOptions)
                    -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_put(self.inner,
-                                     writeopts.inner,
-                                     key.as_ptr(),
-                                     key.len() as size_t,
-                                     value.as_ptr(),
-                                     value.len() as size_t,
-                                     &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_put(self.inner,
+                                 writeopts.inner,
+                                 key.as_ptr(),
+                                 key.len() as size_t,
+                                 value.as_ptr(),
+                                 value.len() as size_t));
             Ok(())
         }
     }
@@ -665,18 +608,13 @@ impl DB {
                       writeopts: &WriteOptions)
                       -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_put_cf(self.inner,
-                                        writeopts.inner,
-                                        cf.inner,
-                                        key.as_ptr(),
-                                        key.len() as size_t,
-                                        value.as_ptr(),
-                                        value.len() as size_t,
-                                        &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_put_cf(self.inner,
+                                    writeopts.inner,
+                                    cf.inner,
+                                    key.as_ptr(),
+                                    key.len() as size_t,
+                                    value.as_ptr(),
+                                    value.len() as size_t));
             Ok(())
         }
     }
@@ -686,17 +624,12 @@ impl DB {
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_merge(self.inner,
-                                       writeopts.inner,
-                                       key.as_ptr(),
-                                       key.len() as size_t,
-                                       value.as_ptr(),
-                                       value.len() as size_t,
-                                       &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_merge(self.inner,
+                                   writeopts.inner,
+                                   key.as_ptr(),
+                                   key.len() as size_t,
+                                   value.as_ptr(),
+                                   value.len() as size_t));
             Ok(())
         }
     }
@@ -707,18 +640,13 @@ impl DB {
                     writeopts: &WriteOptions)
                     -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_merge_cf(self.inner,
-                                          writeopts.inner,
-                                          cf.inner,
-                                          key.as_ptr(),
-                                          key.len() as size_t,
-                                          value.as_ptr(),
-                                          value.len() as size_t,
-                                          &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_merge_cf(self.inner,
+                                      writeopts.inner,
+                                      cf.inner,
+                                      key.as_ptr(),
+                                      key.len() as size_t,
+                                      value.as_ptr(),
+                                      value.len() as size_t));
             Ok(())
         }
     }
@@ -727,15 +655,10 @@ impl DB {
                   writeopts: &WriteOptions)
                   -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_delete(self.inner,
-                                        writeopts.inner,
-                                        key.as_ptr(),
-                                        key.len() as size_t,
-                                        &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_delete(self.inner,
+                                    writeopts.inner,
+                                    key.as_ptr(),
+                                    key.len() as size_t));
             Ok(())
         }
     }
@@ -746,16 +669,11 @@ impl DB {
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_delete_cf(self.inner,
-                                           writeopts.inner,
-                                           cf.inner,
-                                           key.as_ptr(),
-                                           key.len() as size_t,
-                                           &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_delete_cf(self.inner,
+                                       writeopts.inner,
+                                       cf.inner,
+                                       key.as_ptr(),
+                                       key.len() as size_t));
             Ok(())
         }
     }
@@ -767,14 +685,9 @@ impl DB {
     /// If sync, the flush will wait until the flush is done.
     pub fn flush(&self, sync: bool) -> Result<(), String> {
         unsafe {
-            let opts = rocksdb_ffi::rocksdb_flushoptions_create();
-            rocksdb_ffi::rocksdb_flushoptions_set_wait(opts, sync);
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_flush(self.inner, opts, &mut err);
-            rocksdb_ffi::rocksdb_flushoptions_destroy(opts);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            let mut opts = FlushOptions::new();
+            opts.set_wait(sync);
+            ffi_try!(rocksdb_flush(self.inner, opts.inner));
             Ok(())
         }
     }
@@ -849,10 +762,14 @@ impl DB {
         sizes
     }
 
-    pub fn compact_range(&self, start_key: Option<&[u8]>, end_key: Option<&[u8]>) {
+    pub fn compact_range(&self,
+                         start_key: Option<&[u8]>,
+                         end_key: Option<&[u8]>) {
         unsafe {
-            let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
-            let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (start, s_len) =
+                start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (end, e_len) =
+                end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             rocksdb_ffi::rocksdb_compact_range(self.inner,
                                                start,
                                                s_len,
@@ -866,8 +783,10 @@ impl DB {
                             start_key: Option<&[u8]>,
                             end_key: Option<&[u8]>) {
         unsafe {
-            let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
-            let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (start, s_len) =
+                start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (end, e_len) =
+                end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             rocksdb_ffi::rocksdb_compact_range_cf(self.inner,
                                                   cf.inner,
                                                   start,
@@ -882,17 +801,11 @@ impl DB {
                                 end_key: &[u8])
                                 -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-
-            rocksdb_ffi::rocksdb_delete_file_in_range(self.inner,
-                                        start_key.as_ptr(),
-                                        start_key.len() as size_t,
-                                        end_key.as_ptr(),
-                                        end_key.len() as size_t,
-                                        &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+            ffi_try!(rocksdb_delete_file_in_range(self.inner,
+                                                  start_key.as_ptr(),
+                                                  start_key.len() as size_t,
+                                                  end_key.as_ptr(),
+                                                  end_key.len() as size_t));
             Ok(())
         }
     }
@@ -903,17 +816,12 @@ impl DB {
                                    end_key: &[u8])
                                    -> Result<(), String> {
         unsafe {
-            let mut err = 0 as *mut c_char;
-            rocksdb_ffi::rocksdb_delete_file_in_range_cf(self.inner,
+            ffi_try!(rocksdb_delete_file_in_range_cf(self.inner,
                                         cf.inner,
                                         start_key.as_ptr(),
                                         start_key.len() as size_t,
                                         end_key.as_ptr(),
-                                        end_key.len() as size_t,
-                                        &mut err);
-            if !err.is_null() {
-                return Err(error_message(err));
-            }
+                                        end_key.len() as size_t));
             Ok(())
         }
     }
