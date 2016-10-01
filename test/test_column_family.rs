@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+
 use rocksdb::{DB, MergeOperands, Options, Writable};
 use tempdir::TempDir;
 
@@ -114,11 +115,7 @@ pub fn test_column_family() {
     }
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::new(),
-                                 path_str,
-                                 &["cf1"],
-                                 &[&Options::new()])
-            .unwrap();
+        let mut db = DB::open_cf(&Options::new(), path_str, &["cf1"], &[&Options::new()]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),

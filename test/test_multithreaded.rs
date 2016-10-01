@@ -1,6 +1,6 @@
 use rocksdb::{DB, Writable};
-use std::thread;
 use std::sync::Arc;
+use std::thread;
 use tempdir::TempDir;
 
 const N: usize = 100_000;

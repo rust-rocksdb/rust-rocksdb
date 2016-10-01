@@ -66,20 +66,18 @@ impl Drop for CompactionFilterHandle {
     }
 }
 
-pub unsafe fn new_compaction_filter
-    (c_name: CString,
-     ignore_snapshots: bool,
-     f: Box<CompactionFilter>)
-     -> Result<CompactionFilterHandle, String> {
+pub unsafe fn new_compaction_filter(c_name: CString,
+                                    ignore_snapshots: bool,
+                                    f: Box<CompactionFilter>)
+                                    -> Result<CompactionFilterHandle, String> {
     let proxy = Box::into_raw(Box::new(CompactionFilterProxy {
         name: c_name,
         filter: f,
     }));
-    let filter =
-        rocksdb_ffi::rocksdb_compactionfilter_create(proxy as *mut c_void,
-                                                     destructor,
-                                                     filter,
-                                                     name);
+    let filter = rocksdb_ffi::rocksdb_compactionfilter_create(proxy as *mut c_void,
+                                                              destructor,
+                                                              filter,
+                                                              name);
     rocksdb_ffi::rocksdb_compactionfilter_set_ignore_snapshots(filter, ignore_snapshots);
     Ok(CompactionFilterHandle { inner: filter })
 }

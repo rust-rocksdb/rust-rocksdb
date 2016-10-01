@@ -1,8 +1,8 @@
-use tempdir::TempDir;
-use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicBool, Ordering};
+
 
 use rocksdb::{Writable, DB, CompactionFilter, Options};
+use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, Ordering};use tempdir::TempDir;
 
 struct Filter {
     drop_called: Arc<AtomicBool>,
@@ -29,10 +29,13 @@ fn test_compaction_filter() {
     let drop_called = Arc::new(AtomicBool::new(false));
     let filtered_kvs = Arc::new(RwLock::new(vec![]));
     // set ignore_snapshots to false
-    opts.set_compaction_filter("test", false, Box::new(Filter {
-        drop_called: drop_called.clone(),
-        filtered_kvs: filtered_kvs.clone(),
-    })).unwrap();
+    opts.set_compaction_filter("test",
+                               false,
+                               Box::new(Filter {
+                                   drop_called: drop_called.clone(),
+                                   filtered_kvs: filtered_kvs.clone(),
+                               }))
+        .unwrap();
     opts.create_if_missing(true);
     let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
     let samples = vec![
@@ -56,10 +59,13 @@ fn test_compaction_filter() {
     drop(db);
 
     // reregister with ignore_snapshots set to true
-    opts.set_compaction_filter("test", true, Box::new(Filter {
-        drop_called: drop_called.clone(),
-        filtered_kvs: filtered_kvs.clone(),
-    })).unwrap();
+    opts.set_compaction_filter("test",
+                               true,
+                               Box::new(Filter {
+                                   drop_called: drop_called.clone(),
+                                   filtered_kvs: filtered_kvs.clone(),
+                               }))
+        .unwrap();
     assert!(drop_called.load(Ordering::Relaxed));
     drop_called.store(false, Ordering::Relaxed);
     {

@@ -66,10 +66,7 @@ fn main() {
     custom_merge();
 }
 
-fn concat_merge(_: &[u8],
-                existing_val: Option<&[u8]>,
-                operands: &mut MergeOperands)
-                -> Vec<u8> {
+fn concat_merge(_: &[u8], existing_val: Option<&[u8]>, operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
         Some(v) => {
@@ -152,14 +149,13 @@ mod tests {
                                      opts: &mut Options,
                                      blockopts: &mut BlockBasedOptions)
                                      -> DB {
-        let per_level_compression: [DBCompressionType; 7] =
-            [DBCompressionType::DBNo,
-             DBCompressionType::DBNo,
-             DBCompressionType::DBNo,
-             DBCompressionType::DBLz4,
-             DBCompressionType::DBLz4,
-             DBCompressionType::DBLz4,
-             DBCompressionType::DBLz4];
+        let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::DBNo,
+                                                             DBCompressionType::DBNo,
+                                                             DBCompressionType::DBNo,
+                                                             DBCompressionType::DBLz4,
+                                                             DBCompressionType::DBLz4,
+                                                             DBCompressionType::DBLz4,
+                                                             DBCompressionType::DBLz4];
 
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
