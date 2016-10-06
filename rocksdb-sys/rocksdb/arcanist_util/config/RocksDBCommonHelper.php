@@ -127,8 +127,8 @@ function getSteps($applyDiff, $diffID, $username, $test) {
   }
 
   $cmd = $cmd . " cat /tmp/precommit-check.log"
-           . "; shopt -s extglob; for f in `ls t/!(run-*)`; do echo \$f"
-           . "; cat \$f; done; shopt -u extglob; [[ \$exit_code -eq 0 ]]";
+           . "; for f in `ls t/log-*`; do echo \$f; cat \$f; done;"
+           . "[[ \$exit_code -eq 0 ]]";
   assert(strlen($cmd) > 0);
 
   $run_test = array(

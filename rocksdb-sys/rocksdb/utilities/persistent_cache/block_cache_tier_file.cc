@@ -6,9 +6,7 @@
 
 #include "utilities/persistent_cache/block_cache_tier_file.h"
 
-#ifndef OS_WIN
 #include <unistd.h>
-#endif
 #include <memory>
 #include <vector>
 
@@ -191,12 +189,12 @@ bool CacheRecord::Deserialize(const Slice& data) {
 // RandomAccessFile
 //
 
-bool RandomAccessCacheFile::Open(const bool enable_direct_reads) {
+bool RandomAccessCacheFile::Open() {
   WriteLock _(&rwlock_);
-  return OpenImpl(enable_direct_reads);
+  return OpenImpl();
 }
 
-bool RandomAccessCacheFile::OpenImpl(const bool enable_direct_reads) {
+bool RandomAccessCacheFile::OpenImpl() {
   rwlock_.AssertHeld();
 
   Debug(log_, "Opening cache file %s", Path().c_str());
@@ -267,11 +265,8 @@ WriteableCacheFile::~WriteableCacheFile() {
   ClearBuffers();
 }
 
-bool WriteableCacheFile::Create(const bool enable_direct_writes,
-                                const bool enable_direct_reads) {
+bool WriteableCacheFile::Create() {
   WriteLock _(&rwlock_);
-
-  enable_direct_reads_ = enable_direct_reads;
 
   Debug(log_, "Creating new cache %s (max size is %d B)", Path().c_str(),
         max_size_);
@@ -355,7 +350,7 @@ bool WriteableCacheFile::ExpandBuffer(const size_t size) {
       return false;
     }
 
-    size_ += static_cast<uint32_t>(buf->Free());
+    size_ += buf->Free();
     free += buf->Free();
     bufs_.push_back(buf);
   }
@@ -393,7 +388,7 @@ void WriteableCacheFile::DispatchBuffer() {
   // pad it with zero for direct IO
   buf->FillTrailingZeros();
 
-  assert(buf->Used() % kFileAlignmentSize == 0);
+  assert(buf->Used() % FILE_ALIGNMENT_SIZE == 0);
 
   writer_->Write(file_.get(), buf, file_off,
                  std::bind(&WriteableCacheFile::BufferWriteDone, this));
@@ -422,7 +417,7 @@ void WriteableCacheFile::CloseAndOpenForReading() {
   // Our env abstraction do not allow reading from a file opened for appending
   // We need close the file and re-open it for reading
   Close();
-  RandomAccessCacheFile::OpenImpl(enable_direct_reads_);
+  RandomAccessCacheFile::OpenImpl();
 }
 
 bool WriteableCacheFile::ReadBuffer(const LBA& lba, Slice* key, Slice* block,
@@ -528,9 +523,7 @@ void ThreadedWriter::Stop() {
   // wait for all threads to exit
   for (auto& th : threads_) {
     th.join();
-    assert(!th.joinable());
   }
-  threads_.clear();
 }
 
 void ThreadedWriter::Write(WritableFile* const file, CacheWriteBuffer* buf,
@@ -552,8 +545,7 @@ void ThreadedWriter::ThreadMain() {
     while (!cache_->Reserve(io.buf_->Used())) {
       // We can fail to reserve space if every file in the system
       // is being currently accessed
-      /* sleep override */
-      Env::Default()->SleepForMicroseconds(1000000);
+      /* sleep override */ sleep(1);
     }
 
     DispatchIO(io);

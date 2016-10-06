@@ -81,7 +81,7 @@ Status ColumnFamilyHandleImpl::GetDescriptor(ColumnFamilyDescriptor* desc) {
 #endif  // !ROCKSDB_LITE
 }
 
-const Comparator* ColumnFamilyHandleImpl::GetComparator() const {
+const Comparator* ColumnFamilyHandleImpl::user_comparator() const {
   return cfd()->user_comparator();
 }
 
@@ -1011,7 +1011,8 @@ uint32_t GetColumnFamilyID(ColumnFamilyHandle* column_family) {
 const Comparator* GetColumnFamilyUserComparator(
     ColumnFamilyHandle* column_family) {
   if (column_family != nullptr) {
-    return column_family->GetComparator();
+    auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
+    return cfh->user_comparator();
   }
   return nullptr;
 }

@@ -268,8 +268,6 @@ VALGRIND_OPTS = --error-exitcode=$(VALGRIND_ERROR) --leak-check=full
 
 BENCHTOOLOBJECTS = $(BENCH_LIB_SOURCES:.cc=.o) $(LIBOBJECTS) $(TESTUTIL)
 
-EXPOBJECTS = $(EXP_LIB_SOURCES:.cc=.o) $(LIBOBJECTS) $(TESTUTIL)
-
 TESTS = \
 	db_test \
 	db_test2 \
@@ -336,7 +334,6 @@ TESTS = \
 	skiplist_test \
 	stringappend_test \
 	ttl_test \
-	date_tiered_test \
 	backupable_db_test \
 	document_db_test \
 	json_document_test \
@@ -370,7 +367,6 @@ TESTS = \
 	compaction_job_test \
 	thread_list_test \
 	sst_dump_test \
-	column_aware_encoding_test \
 	compact_files_test \
 	perf_context_test \
 	optimistic_transaction_test \
@@ -421,7 +417,7 @@ TEST_LIBS = \
 	librocksdb_env_basic_test.a
 
 # TODO: add back forward_iterator_bench, after making it build in all environemnts.
-BENCHMARKS = db_bench table_reader_bench cache_bench memtablerep_bench column_aware_encoding_exp
+BENCHMARKS = db_bench table_reader_bench cache_bench memtablerep_bench
 
 # if user didn't config LIBNAME, set the default
 ifeq ($(LIBNAME),)
@@ -626,7 +622,7 @@ check_0:
 	} \
 	  | $(prioritize_long_running_tests)				\
 	  | grep -E '$(tests-regexp)'					\
-	  | build_tools/gnu_parallel -j$(J) --plain --joblog=LOG $$eta --gnu '{} >& t/log-{/}'
+	  | build_tools/gnu_parallel -j$(J) --joblog=LOG $$eta --gnu '{} >& t/log-{/}'
 
 .PHONY: valgrind_check_0
 valgrind_check_0:
@@ -641,7 +637,7 @@ valgrind_check_0:
 	}								\
 	  | $(prioritize_long_running_tests)				\
 	  | grep -E '$(tests-regexp)'					\
-	  | build_tools/gnu_parallel -j$(J) --plain --joblog=LOG $$eta --gnu \
+	  | build_tools/gnu_parallel -j$(J) --joblog=LOG $$eta --gnu \
       'if [[ "{}" == "./"* ]] ; then $(DRIVER) {} >& t/valgrind_log-{/}; ' \
       'else {} >& t/valgrind_log-{/}; fi'
 
@@ -744,10 +740,10 @@ parloop:
 	for t in $(PAR_TEST); do		\
 		echo "===== Running $$t in parallel $(NUM_PAR)";\
 		if [ $(db_test) -eq 1 ]; then \
-			seq $(J) | v="$$t" build_tools/gnu_parallel --gnu --plain 's=$(TMPD)/rdb-{};  export TEST_TMPDIR=$$s;' \
+			seq $(J) | v="$$t" build_tools/gnu_parallel --gnu 's=$(TMPD)/rdb-{};  export TEST_TMPDIR=$$s;' \
 				'timeout 2m ./db_test --gtest_filter=$$v >> $$s/log-{} 2>1'; \
 		else\
-			seq $(J) | v="./$$t" build_tools/gnu_parallel --gnu --plain 's=$(TMPD)/rdb-{};' \
+			seq $(J) | v="./$$t" build_tools/gnu_parallel --gnu 's=$(TMPD)/rdb-{};' \
 			     'export TEST_TMPDIR=$$s; timeout 10m $$v >> $$s/log-{} 2>1'; \
 		fi; \
 		ret_code=$$?; \
@@ -778,7 +774,7 @@ parallel_check: $(TESTS)
 	ret_bad=0;							\
 	echo $(J);\
 	echo Test Dir: $(TMPD); \
-        seq $(J) | build_tools/gnu_parallel --gnu --plain 's=$(TMPD)/rdb-{}; rm -rf $$s; mkdir $$s'; \
+        seq $(J) | build_tools/gnu_parallel --gnu 's=$(TMPD)/rdb-{}; rm -rf $$s; mkdir $$s'; \
 	$(MAKE)  PAR_TEST="$(shell $(test_names))" TMPD=$(TMPD) \
 		J=$(J) db_test=1 parloop; \
 	$(MAKE) PAR_TEST="$(filter-out db_test, $(TESTS))" \
@@ -870,7 +866,7 @@ arena_test: util/arena_test.o $(LIBOBJECTS) $(TESTHARNESS)
 autovector_test: util/autovector_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
-column_family_test: db/column_family_test.o $(LIBOBJECTS) $(TESTHARNESS)
+column_family_test: db/column_family_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 table_properties_collector_test: db/table_properties_collector_test.o $(LIBOBJECTS) $(TESTHARNESS)
@@ -1026,9 +1022,6 @@ env_registry_test: utilities/env_registry_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 ttl_test: utilities/ttl/ttl_test.o $(LIBOBJECTS) $(TESTHARNESS)
-	$(AM_LINK)
-
-date_tiered_test: utilities/date_tiered/date_tiered_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 write_batch_with_index_test: utilities/write_batch_with_index/write_batch_with_index_test.o $(LIBOBJECTS) $(TESTHARNESS)
@@ -1187,9 +1180,6 @@ event_logger_test: util/event_logger_test.o $(LIBOBJECTS) $(TESTHARNESS)
 sst_dump_test: tools/sst_dump_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
-column_aware_encoding_test: utilities/column_aware_encoding_test.o $(TESTHARNESS) $(EXPOBJECTS)
-	$(AM_LINK)
-
 optimistic_transaction_test: utilities/transactions/optimistic_transaction_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
@@ -1218,9 +1208,6 @@ transaction_test: utilities/transactions/transaction_test.o $(LIBOBJECTS) $(TEST
 	$(AM_LINK)
 
 sst_dump: tools/sst_dump.o $(LIBOBJECTS)
-	$(AM_LINK)
-
-column_aware_encoding_exp: utilities/column_aware_encoding_exp.o $(EXPOBJECTS)
 	$(AM_LINK)
 
 repair_test: db/repair_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
@@ -1457,7 +1444,7 @@ endif
 #  	Source files dependencies detection
 # ---------------------------------------------------------------------------
 
-all_sources = $(LIB_SOURCES) $(MAIN_SOURCES) $(MOCK_LIB_SOURCES) $(TOOL_LIB_SOURCES) $(BENCH_LIB_SOURCES) $(TEST_LIB_SOURCES) $(EXP_LIB_SOURCES)
+all_sources = $(LIB_SOURCES) $(MAIN_SOURCES) $(MOCK_LIB_SOURCES) $(TOOL_LIB_SOURCES) $(BENCH_LIB_SOURCES) $(TEST_LIB_SOURCES)
 DEPFILES = $(all_sources:.cc=.d)
 
 # Add proper dependency support so changing a .h file forces a .cc file to

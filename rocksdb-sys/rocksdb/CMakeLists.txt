@@ -250,7 +250,6 @@ set(SOURCES
         utilities/backupable/backupable_db.cc
         utilities/checkpoint/checkpoint.cc
         utilities/compaction_filters/remove_emptyvalue_compactionfilter.cc
-        utilities/date_tiered/date_tiered_db_impl.cc
         utilities/document/document_db.cc
         utilities/document/json_document.cc
         utilities/document/json_document_builder.cc
@@ -267,9 +266,6 @@ set(SOURCES
         utilities/merge_operators/uint64add.cc
         utilities/option_change_migration/option_change_migration.cc
         utilities/options/options_util.cc
-        utilities/persistent_cache/block_cache_tier.cc
-        utilities/persistent_cache/block_cache_tier_file.cc
-        utilities/persistent_cache/block_cache_tier_metadata.cc
         utilities/persistent_cache/persistent_cache_tier.cc
         utilities/persistent_cache/volatile_tier_impl.cc
         utilities/redis/redis_lists.cc
@@ -287,9 +283,6 @@ set(SOURCES
         utilities/ttl/db_ttl_impl.cc
         utilities/write_batch_with_index/write_batch_with_index.cc
         utilities/write_batch_with_index/write_batch_with_index_internal.cc
-        utilities/col_buf_encoder.cc
-        utilities/col_buf_decoder.cc
-        utilities/column_aware_encoding_util.cc
 )
 
 # For test util library that is build only in DEBUG mode
@@ -335,7 +328,6 @@ set(APPS
         tools/dump/rocksdb_undump.cc
         util/cache_bench.cc
         utilities/persistent_cache/hash_table_bench.cc
-        utilities/column_aware_encoding_exp.cc
 )
 
 set(C_TESTS db/c_test.c)
@@ -435,7 +427,6 @@ set(TESTS
         util/thread_local_test.cc
         utilities/backupable/backupable_db_test.cc
         utilities/checkpoint/checkpoint_test.cc
-        utilities/date_tiered/date_tiered_test.cc
         utilities/document/document_db_test.cc
         utilities/document/json_document_test.cc
         utilities/env_registry_test.cc
@@ -453,7 +444,6 @@ set(TESTS
         utilities/transactions/transaction_test.cc
         utilities/ttl/ttl_test.cc
         utilities/write_batch_with_index/write_batch_with_index_test.cc
-        utilities/column_aware_encoding_test.cc
 )
 
 set(EXES ${APPS})

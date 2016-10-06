@@ -231,11 +231,11 @@ public class RocksDBSample {
 
         try {
           for (HistogramType histogramType : HistogramType.values()) {
-            HistogramData data = stats.getHistogramData(histogramType);
+            HistogramData data = stats.geHistogramData(histogramType);
           }
-          System.out.println("getHistogramData() passed.");
+          System.out.println("geHistogramData() passed.");
         } catch (Exception e) {
-          System.out.println("Failed in call to getHistogramData()");
+          System.out.println("Failed in call to geHistogramData()");
           assert (false); //Should never reach here.
         }
 
