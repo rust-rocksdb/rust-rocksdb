@@ -546,7 +546,7 @@ class ColumnFamilyHandleImplDummy : public ColumnFamilyHandleImpl {
   explicit ColumnFamilyHandleImplDummy(int id)
       : ColumnFamilyHandleImpl(nullptr, nullptr, nullptr), id_(id) {}
   uint32_t GetID() const override { return id_; }
-  const Comparator* GetComparator() const override {
+  const Comparator* user_comparator() const override {
     return BytewiseComparator();
   }
 

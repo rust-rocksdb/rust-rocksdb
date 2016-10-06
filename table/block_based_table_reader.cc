@@ -10,7 +10,6 @@
 
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "db/dbformat.h"
 #include "db/pinned_iterators_manager.h"
@@ -43,6 +42,7 @@
 #include "util/perf_context_imp.h"
 #include "util/stop_watch.h"
 #include "util/string_util.h"
+#include "util/sync_point.h"
 
 namespace rocksdb {
 
@@ -534,12 +534,19 @@ Status BlockBasedTable::Open(const ImmutableCFOptions& ioptions,
 
   // We've successfully read the footer and the index block: we're
   // ready to serve requests.
+  // Better not mutate rep_ after the creation. eg. internal_prefix_transform
+  // raw pointer will be used to create HashIndexReader, whose reset may
+  // access a dangling pointer.
   Rep* rep = new BlockBasedTable::Rep(ioptions, env_options, table_options,
                                       internal_comparator, skip_filters);
   rep->file = std::move(file);
   rep->footer = footer;
   rep->index_type = table_options.index_type;
   rep->hash_index_allow_collision = table_options.hash_index_allow_collision;
+  // We need to wrap data with internal_prefix_transform to make sure it can
+  // handle prefix correctly.
+  rep->internal_prefix_transform.reset(
+      new InternalKeySliceTransform(rep->ioptions.prefix_extractor));
   SetupCacheKeyPrefix(rep, file_size);
   unique_ptr<BlockBasedTable> new_table(new BlockBasedTable(rep));
 
@@ -1054,7 +1061,11 @@ InternalIterator* BlockBasedTable::NewIndexIterator(
   } else {
     // Create index reader and put it in the cache.
     Status s;
+    TEST_SYNC_POINT("BlockBasedTable::NewIndexIterator::thread2:2");
     s = CreateIndexReader(&index_reader);
+    TEST_SYNC_POINT("BlockBasedTable::NewIndexIterator::thread1:1");
+    TEST_SYNC_POINT("BlockBasedTable::NewIndexIterator::thread2:3");
+    TEST_SYNC_POINT("BlockBasedTable::NewIndexIterator::thread1:4");
     if (s.ok()) {
       assert(index_reader != nullptr);
       s = block_cache->Insert(key, index_reader, index_reader->usable_size(),
@@ -1610,10 +1621,6 @@ Status BlockBasedTable::CreateIndexReader(
         meta_index_iter = meta_iter_guard.get();
       }
 
-      // We need to wrap data with internal_prefix_transform to make sure it can
-      // handle prefix correctly.
-      rep_->internal_prefix_transform.reset(
-          new InternalKeySliceTransform(rep_->ioptions.prefix_extractor));
       return HashIndexReader::Create(
           rep_->internal_prefix_transform.get(), footer, file, rep_->ioptions,
           comparator, footer.index_handle(), meta_index_iter, index_reader,
@@ -1666,56 +1673,6 @@ bool BlockBasedTable::TEST_filter_block_preloaded() const {
 
 bool BlockBasedTable::TEST_index_reader_preloaded() const {
   return rep_->index_reader != nullptr;
-}
-
-Status BlockBasedTable::GetKVPairsFromDataBlocks(
-    std::vector<KVPairBlock>* kv_pair_blocks) {
-  std::unique_ptr<InternalIterator> blockhandles_iter(
-      NewIndexIterator(ReadOptions()));
-
-  Status s = blockhandles_iter->status();
-  if (!s.ok()) {
-    // Cannot read Index Block
-    return s;
-  }
-
-  for (blockhandles_iter->SeekToFirst(); blockhandles_iter->Valid();
-       blockhandles_iter->Next()) {
-    s = blockhandles_iter->status();
-
-    if (!s.ok()) {
-      break;
-    }
-
-    std::unique_ptr<InternalIterator> datablock_iter;
-    datablock_iter.reset(
-        NewDataBlockIterator(rep_, ReadOptions(), blockhandles_iter->value()));
-    s = datablock_iter->status();
-
-    if (!s.ok()) {
-      // Error reading the block - Skipped
-      continue;
-    }
-
-    KVPairBlock kv_pair_block;
-    for (datablock_iter->SeekToFirst(); datablock_iter->Valid();
-         datablock_iter->Next()) {
-      s = datablock_iter->status();
-      if (!s.ok()) {
-        // Error reading the block - Skipped
-        break;
-      }
-      const Slice& key = datablock_iter->key();
-      const Slice& value = datablock_iter->value();
-      std::string key_copy = std::string(key.data(), key.size());
-      std::string value_copy = std::string(value.data(), value.size());
-
-      kv_pair_block.push_back(
-          std::make_pair(std::move(key_copy), std::move(value_copy)));
-    }
-    kv_pair_blocks->push_back(std::move(kv_pair_block));
-  }
-  return Status::OK();
 }
 
 Status BlockBasedTable::DumpTable(WritableFile* out_file) {

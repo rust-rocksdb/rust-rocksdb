@@ -11,9 +11,8 @@
 
 #include <stdint.h>
 #include <memory>
-#include <string>
 #include <utility>
-#include <vector>
+#include <string>
 
 #include "rocksdb/options.h"
 #include "rocksdb/persistent_cache.h"
@@ -48,8 +47,6 @@ class GetContext;
 class InternalIterator;
 
 using std::unique_ptr;
-
-typedef std::vector<std::pair<std::string, std::string>> KVPairBlock;
 
 // A Table is a sorted map from strings to strings.  Tables are
 // immutable and persistent.  A Table may be safely accessed from
@@ -140,10 +137,6 @@ class BlockBasedTable : public TableReader {
   static Slice GetCacheKey(const char* cache_key_prefix,
                            size_t cache_key_prefix_size,
                            const BlockHandle& handle, char* cache_key);
-
-  // Retrieve all key value pairs from data blocks in the table.
-  // The key retrieved are internal keys.
-  Status GetKVPairsFromDataBlocks(std::vector<KVPairBlock>* kv_pair_blocks);
 
  private:
   template <class TValue>

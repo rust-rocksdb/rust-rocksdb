@@ -259,10 +259,10 @@ class DBImpl : public DB {
   using DB::AddFile;
   virtual Status AddFile(ColumnFamilyHandle* column_family,
                          const std::vector<ExternalSstFileInfo>& file_info_list,
-                         bool move_file, bool skip_snapshot_check) override;
+                         bool move_file) override;
   virtual Status AddFile(ColumnFamilyHandle* column_family,
                          const std::vector<std::string>& file_path_list,
-                         bool move_file, bool skip_snapshot_check) override;
+                         bool move_file) override;
 
 #endif  // ROCKSDB_LITE
 
@@ -364,6 +364,10 @@ class DBImpl : public DB {
   // Return maximum background compaction allowed to be scheduled based on
   // compaction status.
   int BGCompactionsAllowed() const;
+
+  // move logs pending closing from job_context to the DB queue and
+  // schedule a purge
+  void ScheduleBgLogWriterClose(JobContext* job_context);
 
   // Returns the list of live files in 'live' and the list
   // of all files in the filesystem in 'candidate_files'.
@@ -493,6 +497,9 @@ class DBImpl : public DB {
 
   void MarkLogAsHavingPrepSectionFlushed(uint64_t log);
   void MarkLogAsContainingPrepSection(uint64_t log);
+  void AddToLogsToFreeQueue(log::Writer* log_writer) {
+    logs_to_free_queue_.push_back(log_writer);
+  }
 
   Status NewDB();
 
@@ -879,6 +886,9 @@ class DBImpl : public DB {
 
   // A queue to store filenames of the files to be purged
   std::deque<PurgeFileInfo> purge_queue_;
+
+  // A queue to store log writers to close
+  std::deque<log::Writer*> logs_to_free_queue_;
   int unscheduled_flushes_;
   int unscheduled_compactions_;
 

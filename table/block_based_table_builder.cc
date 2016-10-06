@@ -312,8 +312,6 @@ bool GoodCompressionRatio(size_t compressed_size, size_t raw_size) {
   return compressed_size < raw_size - (raw_size / 8u);
 }
 
-}  // namespace
-
 // format_version is the block format as defined in include/rocksdb/table.h
 Slice CompressBlock(const Slice& raw,
                     const CompressionOptions& compression_options,
@@ -392,6 +390,8 @@ Slice CompressBlock(const Slice& raw,
   *type = kNoCompression;
   return raw;
 }
+
+}  // namespace
 
 // kBlockBasedTableMagicNumber was picked by running
 //    echo rocksdb.table.block_based | sha1sum

@@ -716,6 +716,16 @@ uint64_t DBImpl::FindMinLogContainingOutstandingPrep() {
   return min_log;
 }
 
+void DBImpl::ScheduleBgLogWriterClose(JobContext* job_context) {
+  if (!job_context->logs_to_free.empty()) {
+    for (auto l : job_context->logs_to_free) {
+      AddToLogsToFreeQueue(l);
+    }
+    job_context->logs_to_free.clear();
+    SchedulePurge();
+  }
+}
+
 // * Returns the list of live files in 'sst_live'
 // If it's doing full scan:
 // * Returns the list of all files in the filesystem in
@@ -1566,10 +1576,16 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
       // we just ignore the update.
       // That's why we set ignore missing column families to true
       bool has_valid_writes = false;
+      // If we pass DB through and options.max_successive_merges is hit
+      // during recovery, Get() will be issued which will try to acquire
+      // DB mutex and cause deadlock, as DB mutex is already held.
+      // The DB pointer is not needed unless 2PC is used.
+      // TODO(sdong) fix the allow_2pc case too.
       status = WriteBatchInternal::InsertInto(
           &batch, column_family_memtables_.get(), &flush_scheduler_, true,
-          log_number, this, false /* concurrent_memtable_writes */,
-          next_sequence, &has_valid_writes);
+          log_number, db_options_.allow_2pc ? this : nullptr,
+          false /* concurrent_memtable_writes */, next_sequence,
+          &has_valid_writes);
       // If it is the first log file and there is no column family updated
       // after replaying the file, this file may be a stale file. We ignore
       // sequence IDs from the file. Otherwise, if a newer stale log file that
@@ -1685,7 +1701,7 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
       // recovered and should be ignored on next reincarnation.
       // Since we already recovered max_log_number, we want all logs
       // with numbers `<= max_log_number` (includes this one) to be ignored
-      if (flushed) {
+      if (flushed || cfd->mem()->GetFirstSequenceNumber() == 0) {
         edit->SetLogNumber(max_log_number + 1);
       }
       // we must mark the next log number as used, even though it's
@@ -2988,8 +3004,9 @@ void DBImpl::BGWorkCompaction(void* arg) {
 
 void DBImpl::BGWorkPurge(void* db) {
   IOSTATS_SET_THREAD_POOL_ID(Env::Priority::HIGH);
-  TEST_SYNC_POINT("DBImpl::BGWorkPurge");
+  TEST_SYNC_POINT("DBImpl::BGWorkPurge:start");
   reinterpret_cast<DBImpl*>(db)->BackgroundCallPurge();
+  TEST_SYNC_POINT("DBImpl::BGWorkPurge:end");
 }
 
 void DBImpl::UnscheduleCallback(void* arg) {
@@ -3004,20 +3021,32 @@ void DBImpl::UnscheduleCallback(void* arg) {
 void DBImpl::BackgroundCallPurge() {
   mutex_.Lock();
 
-  while (!purge_queue_.empty()) {
-    auto purge_file = purge_queue_.begin();
-    auto fname = purge_file->fname;
-    auto type = purge_file->type;
-    auto number = purge_file->number;
-    auto path_id = purge_file->path_id;
-    auto job_id = purge_file->job_id;
-    purge_queue_.pop_front();
+  // We use one single loop to clear both queues so that after existing the loop
+  // both queues are empty. This is stricter than what is needed, but can make
+  // it easier for us to reason the correctness.
+  while (!purge_queue_.empty() || !logs_to_free_queue_.empty()) {
+    if (!purge_queue_.empty()) {
+      auto purge_file = purge_queue_.begin();
+      auto fname = purge_file->fname;
+      auto type = purge_file->type;
+      auto number = purge_file->number;
+      auto path_id = purge_file->path_id;
+      auto job_id = purge_file->job_id;
+      purge_queue_.pop_front();
 
-    mutex_.Unlock();
-    Status file_deletion_status;
-    DeleteObsoleteFileImpl(file_deletion_status, job_id, fname, type, number,
-                           path_id);
-    mutex_.Lock();
+      mutex_.Unlock();
+      Status file_deletion_status;
+      DeleteObsoleteFileImpl(file_deletion_status, job_id, fname, type, number,
+                             path_id);
+      mutex_.Lock();
+    } else {
+      assert(!logs_to_free_queue_.empty());
+      log::Writer* log_writer = *(logs_to_free_queue_.begin());
+      logs_to_free_queue_.pop_front();
+      mutex_.Unlock();
+      delete log_writer;
+      mutex_.Lock();
+    }
   }
   bg_purge_scheduled_--;
 
@@ -3083,6 +3112,8 @@ void DBImpl::BackgroundCallFlush() {
   bool made_progress = false;
   JobContext job_context(next_job_id_.fetch_add(1), true);
   assert(bg_flush_scheduled_);
+
+  TEST_SYNC_POINT("DBImpl::BackgroundCallFlush:start");
 
   LogBuffer log_buffer(InfoLogLevel::INFO_LEVEL, db_options_.info_log.get());
   {
@@ -3655,6 +3686,9 @@ static void CleanupIteratorState(void* arg1, void* arg2) {
     state->mu->Lock();
     state->super_version->Cleanup();
     state->db->FindObsoleteFiles(&job_context, false, true);
+    if (state->background_purge) {
+      state->db->ScheduleBgLogWriterClose(&job_context);
+    }
     state->mu->Unlock();
 
     delete state->super_version;

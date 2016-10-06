@@ -60,8 +60,7 @@ class BlockCacheTierMetadata {
   BlockCacheFile* Lookup(const uint32_t cache_id);
 
   // Insert block information to block index
-  BlockInfo* Insert(const Slice& key, const LBA& lba);
-  // bool Insert(BlockInfo* binfo);
+  bool Insert(BlockInfo* binfo);
 
   // Lookup block information from block index
   bool Lookup(const Slice& key, LBA* lba);

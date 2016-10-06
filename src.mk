@@ -137,7 +137,6 @@ LIB_SOURCES =                                                   \
   utilities/persistent_cache/volatile_tier_impl.cc              \
   utilities/persistent_cache/block_cache_tier_file.cc           \
   utilities/persistent_cache/block_cache_tier_metadata.cc       \
-  utilities/persistent_cache/block_cache_tier.cc                \
   utilities/redis/redis_lists.cc                                \
   utilities/simulator_cache/sim_cache.cc                        \
   utilities/spatialdb/spatial_db.cc                             \
@@ -151,7 +150,6 @@ LIB_SOURCES =                                                   \
   utilities/transactions/transaction_impl.cc                    \
   utilities/transactions/transaction_util.cc                    \
   utilities/ttl/db_ttl_impl.cc                                  \
-  utilities/date_tiered/date_tiered_db_impl.cc                  \
   utilities/write_batch_with_index/write_batch_with_index.cc    \
   utilities/write_batch_with_index/write_batch_with_index_internal.cc    \
   util/event_logger.cc                                          \
@@ -194,12 +192,7 @@ MOCK_LIB_SOURCES = \
   util/fault_injection_test_env.cc
 
 BENCH_LIB_SOURCES = \
-  tools/db_bench_tool.cc                                        \
-
-EXP_LIB_SOURCES = \
-  utilities/col_buf_encoder.cc                                          \
-  utilities/col_buf_decoder.cc                                          \
-  utilities/column_aware_encoding_util.cc
+  tools/db_bench_tool.cc
 
 TEST_LIB_SOURCES = \
   util/testharness.cc                                                   \
@@ -303,9 +296,7 @@ MAIN_SOURCES =                                                    \
   utilities/transactions/optimistic_transaction_test.cc                 \
   utilities/transactions/transaction_test.cc                            \
   utilities/ttl/ttl_test.cc                                             \
-  utilities/date_tiered/date_tiered_test.cc                             \
   utilities/write_batch_with_index/write_batch_with_index_test.cc       \
-  utilities/column_aware_encoding_test.cc                               \
 	util/iostats_context_test.cc																					\
   util/log_write_bench.cc                                               \
   util/mock_env_test.cc                                                 \
@@ -314,8 +305,7 @@ MAIN_SOURCES =                                                    \
   util/rate_limiter_test.cc                                             \
   util/slice_transform_test.cc                                          \
   util/thread_list_test.cc                                              \
-  util/thread_local_test.cc                                             \
-  utilities/column_aware_encoding_exp.cc
+  util/thread_local_test.cc
 
 JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/backupenginejni.cc                            \
