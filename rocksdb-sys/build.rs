@@ -70,7 +70,7 @@ fn main() {
 	config.file("rocksdb/db/db_filesnapshot.cc");
 	config.file("rocksdb/db/dbformat.cc");
 	config.file("rocksdb/db/db_impl.cc");
-	config.file("rocksdb/db/db_impl_debug.cc");
+	//config.file("rocksdb/db/db_impl_debug.cc");
 	config.file("rocksdb/db/db_impl_readonly.cc");
 	config.file("rocksdb/db/db_impl_experimental.cc");
 	config.file("rocksdb/db/db_impl_add_file.cc");
@@ -220,8 +220,8 @@ fn main() {
 	config.file("rocksdb/util/thread_status_updater.cc");
 	config.file("rocksdb/util/thread_status_updater_debug.cc");
 	config.file("rocksdb/util/thread_status_util.cc");
-	config.file("rocksdb/util/thread_status_util_debug.cc");
-	config.file("rocksdb/util/xfunc.cc");
+	//config.file("rocksdb/util/thread_status_util_debug.cc");
+	//config.file("rocksdb/util/xfunc.cc");
 	config.file("rocksdb/util/xxhash.cc");
 
 	config.file("build_version.cc");
