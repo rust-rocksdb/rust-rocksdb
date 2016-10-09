@@ -120,12 +120,14 @@ function compile_rocksdb() {
 }
 
 function find_stdcxx() {
-    if g++ --version &>/dev/null; then
-        CXX=g++
-    elif clang++ --version &>/dev/null; then
-        CXX=clang++
-    else
-        error failed to find valid cxx compiler.
+    if [[ "$CXX" = "" ]]; then
+        if g++ --version &>/dev/null; then
+            CXX=g++
+        elif clang++ --version &>/dev/null; then
+            CXX=clang++
+        else
+            error failed to find valid cxx compiler.
+        fi
     fi
 
     $CXX --print-file-name libstdc++.a
