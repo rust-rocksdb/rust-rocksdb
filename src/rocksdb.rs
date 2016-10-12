@@ -55,6 +55,12 @@ pub struct DBIterator {
     just_seeked: bool,
 }
 
+pub struct DBKeysIterator {
+    inner: rocksdb_ffi::DBIterator,
+    direction: Direction,
+    just_seeked: bool,
+}
+
 pub enum Direction {
     Forward,
     Reverse,
@@ -99,6 +105,41 @@ impl Iterator for DBIterator {
 
             Some((key.to_vec().into_boxed_slice(),
                   val.to_vec().into_boxed_slice()))
+        } else {
+            None
+        }
+    }
+}
+
+
+impl Iterator for DBKeysIterator {
+    type Item = Box<[u8]>;
+
+    fn next(&mut self) -> Option<Box<[u8]>> {
+        let native_iter = self.inner;
+        if !self.just_seeked {
+            match self.direction {
+                Direction::Forward => unsafe {
+                    rocksdb_ffi::rocksdb_iter_next(native_iter)
+                },
+                Direction::Reverse => unsafe {
+                    rocksdb_ffi::rocksdb_iter_prev(native_iter)
+                },
+            }
+        } else {
+            self.just_seeked = false;
+        }
+        if unsafe { rocksdb_ffi::rocksdb_iter_valid(native_iter) } {
+            let mut key_len: size_t = 0;
+            let key_len_ptr: *mut size_t = &mut key_len;
+            let key_ptr = unsafe {
+                rocksdb_ffi::rocksdb_iter_key(native_iter, key_len_ptr)
+            };
+            let key = unsafe {
+                slice::from_raw_parts(key_ptr, key_len as usize)
+            };
+
+            Some(key.to_vec().into_boxed_slice())
         } else {
             None
         }
@@ -191,6 +232,85 @@ impl Drop for DBIterator {
     }
 }
 
+impl DBKeysIterator {
+    fn new(db: &DB,
+           readopts: &ReadOptions,
+           mode: IteratorMode)
+        -> DBKeysIterator {
+        unsafe {
+            let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
+                                                                readopts.inner);
+
+            let mut rv = DBKeysIterator {
+                inner: iterator,
+                direction: Direction::Forward, // blown away by set_mode()
+                just_seeked: false,
+            };
+
+            rv.set_mode(mode);
+
+            rv
+        }
+    }
+
+    pub fn set_mode(&mut self, mode: IteratorMode) {
+        unsafe {
+            match mode {
+                IteratorMode::Start => {
+                    rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner);
+                    self.direction = Direction::Forward;
+                }
+                IteratorMode::End => {
+                    rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner);
+                    self.direction = Direction::Reverse;
+                }
+                IteratorMode::From(key, dir) => {
+                    rocksdb_ffi::rocksdb_iter_seek(self.inner,
+                                                   key.as_ptr(),
+                                                   key.len() as size_t);
+                    self.direction = dir;
+                }
+            };
+            self.just_seeked = true;
+        }
+    }
+
+    pub fn valid(&self) -> bool {
+        unsafe { rocksdb_ffi::rocksdb_iter_valid(self.inner) }
+    }
+
+    fn new_cf(db: &DB,
+              cf_handle: DBCFHandle,
+              readopts: &ReadOptions,
+              mode: IteratorMode)
+              -> Result<DBKeysIterator, String> {
+        unsafe {
+            let iterator =
+                rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
+                                                        readopts.inner,
+                                                        cf_handle);
+
+            let mut rv = DBKeysIterator {
+                inner: iterator,
+                direction: Direction::Forward, // blown away by set_mode()
+                just_seeked: false,
+            };
+
+            rv.set_mode(mode);
+
+            Ok(rv)
+        }
+    }
+}
+
+impl Drop for DBKeysIterator {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_iter_destroy(self.inner);
+        }
+    }
+}
+
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe {
@@ -217,6 +337,20 @@ impl<'a> Snapshot<'a> {
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
 
+    pub fn keys_iterator(&self, mode: IteratorMode) -> DBKeysIterator {
+        let mut readopts = ReadOptions::default();
+        readopts.set_snapshot(self);
+        DBKeysIterator::new(self.db, &readopts, mode)
+    }
+
+    pub fn keys_iterator_cf(&self,
+                       cf_handle: DBCFHandle,
+                       mode: IteratorMode)
+                       -> Result<DBKeysIterator, String> {
+        let mut readopts = ReadOptions::default();
+        readopts.set_snapshot(self);
+        DBKeysIterator::new_cf(self.db, cf_handle, &readopts, mode)
+    }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::default();
@@ -584,6 +718,19 @@ impl DB {
                        -> Result<DBIterator, String> {
         let opts = ReadOptions::default();
         DBIterator::new_cf(self, cf_handle, &opts, mode)
+    }
+
+    pub fn keys_iterator(&self, mode: IteratorMode) -> DBKeysIterator {
+        let opts = ReadOptions::default();
+        DBKeysIterator::new(self, &opts, mode)
+    }
+
+    pub fn keys_iterator_cf(&self,
+                       cf_handle: DBCFHandle,
+                       mode: IteratorMode)
+                       -> Result<DBKeysIterator, String> {
+        let opts = ReadOptions::default();
+        DBKeysIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
     pub fn snapshot(&self) -> Snapshot {
