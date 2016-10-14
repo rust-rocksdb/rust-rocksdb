@@ -573,11 +573,23 @@ impl DB {
         DBIterator::new(&self, &opts, mode)
     }
 
+    pub fn iterator_opt(&self, mode: IteratorMode, opts: &ReadOptions) -> DBIterator {
+        DBIterator::new(&self, &opts, mode)
+    }
+
     pub fn iterator_cf(&self,
                        cf_handle: Column,
                        mode: IteratorMode)
                        -> Result<DBIterator, String> {
         let opts = ReadOptions::new();
+        DBIterator::new_cf(&self, cf_handle, &opts, mode)
+    }
+
+    pub fn iterator_cf_opt(&self,
+                       cf_handle: Column,
+                       mode: IteratorMode,
+					   opts: &ReadOptions)
+                       -> Result<DBIterator, String> {
         DBIterator::new_cf(&self, cf_handle, &opts, mode)
     }
 
@@ -848,6 +860,11 @@ impl Writable for WriteBatch {
     }
 }
 
+// rocksdb guarantees synchronization
+unsafe impl Sync for ReadOptions {}
+// rocksdb guarantees synchronization
+unsafe impl Send for ReadOptions {}
+
 impl Drop for ReadOptions {
     fn drop(&mut self) {
         unsafe { rocksdb_ffi::rocksdb_readoptions_destroy(self.inner) }
@@ -874,6 +891,18 @@ impl ReadOptions {
         unsafe {
             rocksdb_ffi::rocksdb_readoptions_set_snapshot(self.inner,
                                                           snapshot.inner);
+        }
+    }
+
+    pub fn set_verify_checksums(&mut self, verify: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_verify_checksums(self.inner, verify);
+        }
+    }
+
+    pub fn set_tailing(&mut self, verify: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_readoptions_set_tailing(self.inner, verify);
         }
     }
 }
