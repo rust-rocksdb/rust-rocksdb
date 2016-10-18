@@ -10,4 +10,4 @@ os:
   - osx
 
 script:
-  - rustc -Z parse-only src/lib.rs
+  - cargo test
