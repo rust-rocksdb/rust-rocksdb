@@ -2,12 +2,12 @@ language: rust
 
 rust:
   - nightly
-  - 1.1.0
-  - 1.2.0
+  # - 1.1.0
+  # - 1.2.0
 
 os:
   - linux
   - osx
 
 script:
-  - cargo test
+  - rustc -Z parse-only src/lib.rs
