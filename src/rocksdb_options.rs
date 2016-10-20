@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::{c_int,size_t};
-use std::ffi::CString;
+use self::libc::{c_int, size_t, c_void};
+use std::ffi::{CStr, CString};
 use std::mem;
 
 use rocksdb_ffi::{self, DBCompressionType, DBRecoveryMode};
@@ -379,6 +379,22 @@ impl Options {
         }
     }
 
+    pub fn get_statistics(&self) -> Option<String> {
+        unsafe {
+            let value = rocksdb_ffi::rocksdb_options_statistics_get_string(self.inner);
+
+
+            if value.is_null() {
+                return None;
+            }
+
+            // Must valid UTF-8 format.
+            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            libc::free(value as *mut c_void);
+            Some(s)
+        }
+    }
+
     pub fn set_stats_dump_period_sec(&mut self, period: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner,
@@ -454,5 +470,9 @@ mod tests {
         let mut opts = Options::default();
         opts.enable_statistics();
         opts.set_stats_dump_period_sec(60);
+        assert!(opts.get_statistics().is_some());
+
+        let opts = Options::default();
+        assert!(opts.get_statistics().is_none());
     }
 }
