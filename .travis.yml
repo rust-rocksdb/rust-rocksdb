@@ -1,12 +1,19 @@
 language: rust
-
-rust:
-  - nightly
-  - 1.1.0
-  - 1.2.0
-
 dist: trusty
 sudo: true
+
+matrix:
+  include:
+    - rust: stable
+      env: ROCKSDB_VERSION=4.13
+    - rust: 1.2.0
+      env: ROCKSDB_VERSION=4.13
+    - rust: beta
+      env: ROCKSDB_VERSION=4.13
+    - rust: stable
+      env: ROCKSDB_VERSION=4.5
+    - rust: stable
+      env: ROCKSDB_VERSION=4.1
 
 addons:
   apt:
@@ -21,8 +28,8 @@ addons:
     - libbz2-dev
 
 install:
-  - curl -L https://github.com/facebook/rocksdb/archive/4.13.fb.tar.gz | tar xvz -C $HOME/rocksdb
-  - sudo INSTALL_PATH=/usr make -C $HOME/rocksdb/rocksdb-4.13.fb install-shared
+  - curl -L https://github.com/facebook/rocksdb/archive/$ROCKSDB_VERSION.fb.tar.gz | tar xvz -C $HOME/rocksdb
+  - sudo INSTALL_PATH=/usr make -C $HOME/rocksdb/rocksdb-$ROCKSDB_VERSION.fb install-shared
 
 script:
   - cargo test
