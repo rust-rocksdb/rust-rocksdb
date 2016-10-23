@@ -5,9 +5,29 @@ rust:
   - 1.1.0
   - 1.2.0
 
-os:
-  - linux
-  - osx
+dist: trusty
+sudo: true
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-5
+    - g++-5
+    - libgflags-dev
+    - libsnappy-dev
+    - zlib1g-dev
+    - libbz2-dev
+
+install:
+  - curl -L https://github.com/facebook/rocksdb/archive/4.13.fb.tar.gz | tar xvz -C $HOME/rocksdb
+  - sudo INSTALL_PATH=/usr make -C $HOME/rocksdb/rocksdb-4.13.fb install-shared
 
 script:
-  - rustc -Z parse-only src/lib.rs
+  - cargo test
+
+cache:
+  directories:
+    - $HOME/.cache/
+    - $HOME/rocksdb/
