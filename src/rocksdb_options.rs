@@ -15,13 +15,13 @@
 
 use compaction_filter::{CompactionFilter, new_compaction_filter, CompactionFilterHandle};
 use comparator::{self, ComparatorCallback, compare_callback};
-use libc::{c_int, size_t};
+use libc::{self, c_int, size_t, c_void};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
 use merge_operator::MergeFn;
 
 use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
                   DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance, DBFlushOptions};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::mem;
 
 pub struct BlockBasedOptions {
@@ -515,6 +515,22 @@ impl Options {
         }
     }
 
+    pub fn get_statistics(&self) -> Option<String> {
+        unsafe {
+            let value = rocksdb_ffi::rocksdb_options_statistics_get_string(self.inner);
+
+
+            if value.is_null() {
+                return None;
+            }
+
+            // Must valid UTF-8 format.
+            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            libc::free(value as *mut c_void);
+            Some(s)
+        }
+    }
+
     pub fn set_stats_dump_period_sec(&mut self, period: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner, period);
@@ -574,5 +590,9 @@ mod tests {
         let mut opts = Options::new();
         opts.enable_statistics();
         opts.set_stats_dump_period_sec(60);
+        assert!(opts.get_statistics().is_some());
+
+        let opts = Options::new();
+        assert!(opts.get_statistics().is_none());
     }
 }
