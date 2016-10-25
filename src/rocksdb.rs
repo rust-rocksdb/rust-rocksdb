@@ -46,6 +46,7 @@ pub struct DB {
     inner: *mut DBInstance,
     cfs: BTreeMap<String, CFHandle>,
     path: String,
+    opts: Options,
 }
 
 unsafe impl Send for DB {}
@@ -265,14 +266,14 @@ impl DB {
     pub fn open_default(path: &str) -> Result<DB, String> {
         let mut opts = Options::new();
         opts.create_if_missing(true);
-        DB::open(&opts, path)
+        DB::open(opts, path)
     }
 
-    pub fn open(opts: &Options, path: &str) -> Result<DB, String> {
+    pub fn open(opts: Options, path: &str) -> Result<DB, String> {
         DB::open_cf(opts, path, &[], &[])
     }
 
-    pub fn open_cf(opts: &Options,
+    pub fn open_cf(opts: Options,
                    path: &str,
                    cfs: &[&str],
                    cf_opts: &[&Options])
@@ -294,61 +295,66 @@ impl DB {
             return Err(format!("cfs.len() and cf_opts.len() not match."));
         }
 
-        let mut cfs_v = cfs.to_vec();
-        let mut cf_opts_v = cf_opts.to_vec();
-        // Always open the default column family
-        if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
-            cfs_v.push(DEFAULT_COLUMN_FAMILY);
-            cf_opts_v.push(opts);
-        }
-
-        // We need to store our CStrings in an intermediate vector
-        // so that their pointers remain valid.
-        let c_cfs: Vec<CString> = cfs_v.iter()
-            .map(|cf| CString::new(cf.as_bytes()).unwrap())
-            .collect();
-
-        let cfnames: Vec<*const _> = c_cfs.iter()
-            .map(|cf| cf.as_ptr())
-            .collect();
-
-        // These handles will be populated by DB.
-        let cfhandles: Vec<_> = cfs_v.iter()
-            .map(|_| 0 as *mut DBCFHandle)
-            .collect();
-
-        let cfopts: Vec<_> = cf_opts_v.iter()
-            .map(|x| x.inner as *const rocksdb_ffi::DBOptions)
-            .collect();
-
-        let db = unsafe {
-            ffi_try!(rocksdb_open_column_families(opts.inner,
-                                                  cpath.as_ptr(),
-                                                  cfs_v.len() as c_int,
-                                                  cfnames.as_ptr(),
-                                                  cfopts.as_ptr(),
-                                                  cfhandles.as_ptr()))
-        };
-
-        for handle in &cfhandles {
-            if handle.is_null() {
-                return Err("Received null column family handle from DB.".to_owned());
+        let (db, cf_map) = {
+            let mut cfs_v = cfs.to_vec();
+            let mut cf_opts_v = cf_opts.to_vec();
+            // Always open the default column family
+            if !cfs_v.contains(&DEFAULT_COLUMN_FAMILY) {
+                cfs_v.push(DEFAULT_COLUMN_FAMILY);
+                cf_opts_v.push(&opts);
             }
-        }
 
-        let mut cf_map = BTreeMap::new();
-        for (n, h) in cfs_v.iter().zip(cfhandles) {
-            cf_map.insert((*n).to_owned(), CFHandle { inner: h });
-        }
+            // We need to store our CStrings in an intermediate vector
+            // so that their pointers remain valid.
+            let c_cfs: Vec<CString> = cfs_v.iter()
+                .map(|cf| CString::new(cf.as_bytes()).unwrap())
+                .collect();
 
-        if db.is_null() {
-            return Err("Could not initialize database.".to_owned());
-        }
+            let cfnames: Vec<*const _> = c_cfs.iter()
+                .map(|cf| cf.as_ptr())
+                .collect();
+
+            // These handles will be populated by DB.
+            let cfhandles: Vec<_> = cfs_v.iter()
+                .map(|_| 0 as *mut DBCFHandle)
+                .collect();
+
+            let cfopts: Vec<_> = cf_opts_v.iter()
+                .map(|x| x.inner as *const rocksdb_ffi::DBOptions)
+                .collect();
+
+            let db = unsafe {
+                ffi_try!(rocksdb_open_column_families(opts.inner,
+                                                      cpath.as_ptr(),
+                                                      cfs_v.len() as c_int,
+                                                      cfnames.as_ptr(),
+                                                      cfopts.as_ptr(),
+                                                      cfhandles.as_ptr()))
+            };
+
+            for handle in &cfhandles {
+                if handle.is_null() {
+                    return Err("Received null column family handle from DB.".to_owned());
+                }
+            }
+
+            let mut cf_map = BTreeMap::new();
+            for (n, h) in cfs_v.iter().zip(cfhandles) {
+                cf_map.insert((*n).to_owned(), CFHandle { inner: h });
+            }
+
+            if db.is_null() {
+                return Err("Could not initialize database.".to_owned());
+            }
+
+            (db, cf_map)
+        };
 
         Ok(DB {
             inner: db,
             cfs: cf_map,
             path: path.to_owned(),
+            opts: opts,
         })
     }
 
@@ -796,6 +802,10 @@ impl DB {
 
         None
     }
+
+    pub fn get_statistics(&self) -> Option<String> {
+        self.opts.get_statistics()
+    }
 }
 
 impl Writable for DB {
@@ -1088,7 +1098,7 @@ mod test {
 
             let mut opts = Options::new();
             opts.create_if_missing(true);
-            let mut db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+            let mut db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
             for (&cf, &cf_opts) in cfs.iter().zip(&cfs_ref_opts) {
                 if cf == "default" {
                     continue;

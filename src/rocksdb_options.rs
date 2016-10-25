@@ -566,12 +566,6 @@ impl Drop for FlushOptions {
             rocksdb_ffi::rocksdb_flushoptions_destroy(self.inner);
         }
     }
-
-    pub fn set_num_levels(&mut self, n: c_int) {
-        unsafe {
-            rocksdb_ffi::rocksdb_options_set_num_levels(self.inner, n);
-        }
-    }
 }
 
 #[cfg(test)]

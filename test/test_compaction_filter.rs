@@ -37,7 +37,7 @@ fn test_compaction_filter() {
                                }))
         .unwrap();
     opts.create_if_missing(true);
-    let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     let samples = vec![
         (b"key1".to_vec(), b"value1".to_vec()),
         (b"key2".to_vec(), b"value2".to_vec()),
@@ -58,7 +58,9 @@ fn test_compaction_filter() {
     }
     drop(db);
 
+
     // reregister with ignore_snapshots set to true
+    let mut opts = Options::new();
     opts.set_compaction_filter("test",
                                true,
                                Box::new(Filter {
@@ -69,7 +71,7 @@ fn test_compaction_filter() {
     assert!(drop_called.load(Ordering::Relaxed));
     drop_called.store(false, Ordering::Relaxed);
     {
-        let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
         let _snap = db.snapshot();
         // Because ignore_snapshots is true, so all the keys will be compacted.
         db.compact_range(Some(b"key1"), Some(b"key3"));
@@ -79,6 +81,5 @@ fn test_compaction_filter() {
         assert_eq!(*filtered_kvs.read().unwrap(), samples);
     }
 
-    drop(opts);
     assert!(drop_called.load(Ordering::Relaxed));
 }

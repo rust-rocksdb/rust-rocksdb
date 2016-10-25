@@ -7,7 +7,7 @@ fn test_compact_range() {
     let path = TempDir::new("_rust_rocksdb_test_compact_range").expect("");
     let mut opts = Options::new();
     opts.create_if_missing(true);
-    let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     let samples = vec![
         (b"k1".to_vec(), b"value--------1".to_vec()),
         (b"k2".to_vec(), b"value--------2".to_vec()),

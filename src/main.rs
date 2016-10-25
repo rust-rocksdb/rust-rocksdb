@@ -90,7 +90,7 @@ fn custom_merge() {
     opts.create_if_missing(true);
     opts.add_merge_operator("test operator", concat_merge);
     {
-        let db = DB::open(&opts, path).unwrap();
+        let db = DB::open(opts, path).unwrap();
         db.put(b"k1", b"a").unwrap();
         db.merge(b"k1", b"b").unwrap();
         db.merge(b"k1", b"c").unwrap();
@@ -108,6 +108,7 @@ fn custom_merge() {
             Err(e) => println!("error retrieving value: {}", e),
         }
     }
+    let opts = Options::new();
     DB::destroy(&opts, path).is_ok();
 }
 
@@ -146,7 +147,7 @@ mod tests {
 
     #[allow(dead_code)]
     fn tuned_for_somebody_elses_disk(path: &str,
-                                     opts: &mut Options,
+                                     mut opts: Options,
                                      blockopts: &mut BlockBasedOptions)
                                      -> DB {
         let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::DBNo,
@@ -189,7 +190,7 @@ mod tests {
         // let filter = new_bloom_filter(10);
         // opts.set_filter(filter);
 
-        DB::open(&opts, path).unwrap()
+        DB::open(opts, path).unwrap()
     }
 
     // TODO(tyler) unstable

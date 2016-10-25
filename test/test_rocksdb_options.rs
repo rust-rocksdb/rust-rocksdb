@@ -8,6 +8,6 @@ fn test_set_num_levels() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.set_num_levels(2);
-    let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }
