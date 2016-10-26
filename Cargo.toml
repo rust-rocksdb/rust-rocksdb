@@ -15,8 +15,10 @@ exclude = [
 ]
 
 [features]
-default=[]
-valgrind=[]
+default = []
+valgrind = []
+static-link = ["librocksdb_sys/static-link"]
+portable = ["librocksdb_sys/portable"]
 
 [[test]]
 

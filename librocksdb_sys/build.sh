@@ -119,7 +119,7 @@ function compile_rocksdb() {
     mv librocksdb.a ../
 }
 
-function find_stdcxx() {
+function find_library() {
     if [[ "$CXX" = "" ]]; then
         if g++ --version &>/dev/null; then
             CXX=g++
@@ -130,11 +130,11 @@ function find_stdcxx() {
         fi
     fi
 
-    $CXX --print-file-name libstdc++.a
+    $CXX --print-file-name $1
 }
 
-if [[ $# -ne 1 ]]; then
-    error $0 [compile_bz2\|compile_z\|compile_lz4\|compile_rocksdb\|compile_snappy\|find_stdcxx]
+if [[ $# -eq 0 ]]; then
+    error $0 [compile_bz2\|compile_z\|compile_lz4\|compile_rocksdb\|compile_snappy\|find_library]
 fi
 
-$1
+$@

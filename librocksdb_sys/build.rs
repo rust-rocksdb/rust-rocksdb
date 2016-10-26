@@ -10,13 +10,10 @@ macro_rules! t {
 }
 
 fn main() {
-    let want_static = env::var("ROCKSDB_SYS_STATIC").map(|s| s == "1").unwrap_or(false);
-    if !want_static {
+    if !cfg!(feature = "static-link") {
         return;
     }
-
-    let target = env::var("TARGET").unwrap();
-    if !target.contains("linux") && !target.contains("darwin") {
+    if !cfg!(target_os = "linux") && !cfg!(target_os = "macos") {
         // only linux and apple support static link right now
         return;
     }
@@ -31,24 +28,31 @@ fn main() {
         let lib_name = format!("lib{}.a", lib);
         let src = build.join(&lib_name);
         let dst = dst.join(&lib_name);
-        
-        if dst.exists() {
+
+        if dst.exists() && *lib != "rocksdb" {
             continue;
+        }
+
+        if *lib == "rocksdb" && src.exists() {
+            fs::remove_dir_all(&src).unwrap();
         }
 
         if !src.exists() {
             let mut cmd = Command::new(p.as_path());
             cmd.current_dir(&build).args(&[format!("compile_{}", lib)]);
             if *lib == "rocksdb" {
-                if let Some(s) = env::var("ROCKSDB_SYS_PORTABLE").ok() {
-                    cmd.env("PORTABLE", s);
+                if cfg!(feature = "portable") {
+                    cmd.env("PORTABLE", "1");
                 }
             }
             run(&mut cmd);
         }
 
         if let Err(e) = fs::rename(src.as_path(), dst.as_path()) {
-            panic!("failed to move {} to {}: {:?}", src.display(), dst.display(), e);
+            panic!("failed to move {} to {}: {:?}",
+                   src.display(),
+                   dst.display(),
+                   e);
         }
     }
 
@@ -60,9 +64,15 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", dst.display());
 
     let mut cpp_linked = false;
+    let std_lib_name = if cfg!(target_os = "linux") {
+        "libstdc++.a"
+    } else {
+        "libc++.a"
+    };
+    let short_std_lib_name = &std_lib_name[3..std_lib_name.len() - 2];
     if let Ok(libs) = env::var("ROCKSDB_OTHER_STATIC") {
         for lib in libs.split(":") {
-            if lib == "stdc++" {
+            if lib == short_std_lib_name {
                 cpp_linked = true;
             }
             println!("cargo:rustc-link-lib=static={}", lib);
@@ -74,19 +84,23 @@ fn main() {
         }
     }
     if !cpp_linked {
-        let output = Command::new(p.as_path()).arg("find_stdcxx").output().unwrap();
+        let output =
+            Command::new(p.as_path()).args(&["find_library", std_lib_name]).output().unwrap();
         if output.status.success() && !output.stdout.is_empty() {
             if let Ok(path_str) = str::from_utf8(&output.stdout) {
                 let path = PathBuf::from(path_str);
                 if path.is_absolute() {
                     println!("cargo:rustc-link-lib=static=stdc++");
-                    println!("cargo:rustc-link-search=native={}", path.parent().unwrap().display());
+                    println!("cargo:rustc-link-search=native={}",
+                             path.parent().unwrap().display());
                     return;
                 }
             }
         }
-        println!("failed to detect libstdc++.a: {:?}, fallback to dynamic", output);
-        println!("cargo:rustc-link-lib=stdc++");
+        println!("failed to detect {}: {:?}, fallback to dynamic",
+                 std_lib_name,
+                 output);
+        println!("cargo:rustc-link-lib={}", &short_std_lib_name);
     }
 }
 

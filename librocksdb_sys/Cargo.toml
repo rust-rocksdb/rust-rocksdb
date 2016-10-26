@@ -7,3 +7,10 @@ build = "build.rs"
 [dependencies]
 libc = "0.2.11"
 tempdir = "0.3"
+
+[features]
+default = []
+static-link = []
+# portable doesn't require static link, though it's meaningless
+# when not using with static-link right now in this crate.
+portable = []
