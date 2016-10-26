@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 extern crate libc;
-use self::libc::{c_char, c_int, c_void, size_t};
+use self::libc::{c_char, c_uchar, c_int, c_void, size_t};
 use std::ffi::CStr;
 use std::str::from_utf8;
 
@@ -70,6 +70,7 @@ pub fn new_cache(capacity: size_t) -> DBCache {
     unsafe { rocksdb_cache_create_lru(capacity) }
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub enum DBCompressionType {
     None = 0,
@@ -91,6 +92,15 @@ pub enum DBCompactionStyle {
 pub enum DBUniversalCompactionStyle {
     rocksdb_similar_size_compaction_stop_style = 0,
     rocksdb_total_size_compaction_stop_style = 1,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum DBRecoveryMode {
+    TolerateCorruptedTailRecords = 0,
+    AbsoluteConsistency = 1,
+    PointInTime = 2,
+    SkipAnyCorruptedRecords = 3,
 }
 
 pub fn error_message(ptr: *const i8) -> String {
@@ -121,6 +131,8 @@ extern "C" {
     pub fn rocksdb_block_based_options_set_block_restart_interval(
         block_options: DBBlockBasedTableOptions,
         block_restart_interval: c_int);
+    pub fn rocksdb_block_based_options_set_cache_index_and_filter_blocks(
+        block_options: DBBlockBasedTableOptions, v: c_uchar);
     pub fn rocksdb_block_based_options_set_filter_policy(
         block_options: DBBlockBasedTableOptions,
         filter_policy: DBFilterPolicy);
@@ -147,6 +159,7 @@ extern "C" {
     pub fn rocksdb_options_set_bytes_per_sync(options: DBOptions, bytes: u64);
     pub fn rocksdb_options_set_disable_data_sync(options: DBOptions,
                                                  v: c_int);
+    pub fn rocksdb_options_set_allow_os_buffer(options: DBOptions, is_allow: bool);
     pub fn rocksdb_options_optimize_for_point_lookup(options: DBOptions,
                                                      block_cache_size_mb: u64);
     pub fn rocksdb_options_set_table_cache_numshardbits(options: DBOptions,
@@ -167,6 +180,8 @@ extern "C" {
                                                      bytes: u64);
     pub fn rocksdb_options_set_target_file_size_multiplier(options: DBOptions,
                                                            mul: c_int);
+    pub fn rocksdb_options_set_max_bytes_for_level_base(options: DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: DBOptions, mul: c_int);
     pub fn rocksdb_options_set_max_log_file_size(options: DBOptions,
                                                  bytes: usize);
     pub fn rocksdb_options_set_max_manifest_file_size(options: DBOptions,
@@ -178,7 +193,10 @@ extern "C" {
     pub fn rocksdb_options_set_compaction_style(options: DBOptions,
                                                 cs: DBCompactionStyle);
     pub fn rocksdb_options_set_compression(options: DBOptions,
-                                           compression_style_no: c_int);
+                                           compression_style_no: DBCompressionType);
+    pub fn rocksdb_options_set_compression_per_level(options: DBOptions,
+                                            level_values: *const DBCompressionType,
+                                            num_levels: size_t);
     pub fn rocksdb_options_set_max_background_compactions(
         options: DBOptions, max_bg_compactions: c_int);
     pub fn rocksdb_options_set_max_background_flushes(options: DBOptions,
@@ -186,6 +204,14 @@ extern "C" {
     pub fn rocksdb_options_set_filter_deletes(options: DBOptions, v: bool);
     pub fn rocksdb_options_set_disable_auto_compactions(options: DBOptions,
                                                         v: c_int);
+    pub fn rocksdb_options_set_report_bg_io_stats(options: DBOptions, v: c_int);
+    pub fn rocksdb_options_set_wal_recovery_mode(options: DBOptions, mode: DBRecoveryMode);
+    pub fn rocksdb_options_enable_statistics(options: DBOptions);
+    pub fn rocksdb_options_statistics_get_string(options: DBOptions) -> *const c_char;
+    pub fn rocksdb_options_set_stats_dump_period_sec(options: DBOptions, v: usize);
+    pub fn rocksdb_options_set_num_levels(options: DBOptions, v: c_int);
+    pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
+                                                -> DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
     pub fn rocksdb_open(options: DBOptions,
