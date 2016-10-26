@@ -118,7 +118,7 @@ fn read_with_upper_bound() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     {
-        let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
         let writeopts = WriteOptions::new();
         db.put_opt(b"k1-0", b"a", &writeopts).unwrap();
         db.put_opt(b"k1-1", b"b", &writeopts).unwrap();

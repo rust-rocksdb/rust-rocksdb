@@ -180,7 +180,7 @@ mod test {
         let mut opts = Options::new();
         opts.create_if_missing(true);
         opts.add_merge_operator("test operator", test_provided_merge);
-        let db = DB::open(&opts, path.path().to_str().unwrap()).unwrap();
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
         let _ = db.merge(b"k1", b"b");

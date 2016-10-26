@@ -26,7 +26,7 @@ pub fn test_column_family() {
         let mut opts = Options::new();
         opts.create_if_missing(true);
         opts.add_merge_operator("test operator", test_provided_merge);
-        let mut db = DB::open(&opts, path_str).unwrap();
+        let mut db = DB::open(opts, path_str).unwrap();
         let opts = Options::new();
         match db.create_cf("cf1", &opts) {
             Ok(_) => println!("cf1 created successfully"),
@@ -41,7 +41,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open(&opts, path_str) {
+        match DB::open(opts, path_str) {
             Ok(_) => {
                 panic!("should not have opened DB successfully without \
                         specifying column
@@ -58,7 +58,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open_cf(&opts, path_str, &["cf1"], &[&opts]) {
+        match DB::open_cf(Options::new(), path_str, &["cf1"], &[&opts]) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
@@ -67,7 +67,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
-        let db = match DB::open_cf(&opts, path_str, &["cf1"], &[&opts]) {
+        let db = match DB::open_cf(Options::new(), path_str, &["cf1"], &[&opts]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
@@ -115,7 +115,7 @@ pub fn test_column_family() {
     }
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::new(), path_str, &["cf1"], &[&Options::new()]).unwrap();
+        let mut db = DB::open_cf(Options::new(), path_str, &["cf1"], &[&Options::new()]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
