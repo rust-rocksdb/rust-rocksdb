@@ -6,8 +6,6 @@ matrix:
   include:
     - rust: stable
       env: ROCKSDB_VERSION=4.13
-    - rust: 1.2.0
-      env: ROCKSDB_VERSION=4.13
     - rust: beta
       env: ROCKSDB_VERSION=4.13
     - rust: stable
