@@ -316,7 +316,7 @@ impl DB {
 
             // These handles will be populated by DB.
             let cfhandles: Vec<_> = cfs_v.iter()
-                .map(|_| ptr::null_mut() as *mut DBCFHandle)
+                .map(|_| ptr::null_mut())
                 .collect();
 
             let cfopts: Vec<_> = cf_opts_v.iter()
