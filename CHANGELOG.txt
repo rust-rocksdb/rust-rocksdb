@@ -1,0 +1,8 @@
+Changelog
+=========
+
+0.5 (in development)
+~~~~~~~~~~~~~~~~~~~~
+
+ * Add iterator_cf to snapshot (jezell)
+ * Changelog started
