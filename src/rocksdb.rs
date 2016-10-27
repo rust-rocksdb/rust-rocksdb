@@ -22,6 +22,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
+use std::fmt;
 
 use self::libc::size_t;
 
@@ -61,6 +62,35 @@ pub enum Direction {
 }
 
 pub type KVBytes = (Box<[u8]>, Box<[u8]>);
+
+#[derive(Debug, PartialEq)]
+pub struct Error {
+    message: String,
+}
+
+impl Error {
+    fn new(message: String) -> Error {
+        Error {
+            message: message,
+        }
+    }
+
+    pub fn to_string(self) -> String {
+        self.into()
+    }
+}
+
+impl From<Error> for String {
+    fn from(e: Error) -> String {
+        e.message
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.message.fmt(formatter)
+    }
+}
 
 impl Iterator for DBIterator {
     type Item = KVBytes;
@@ -163,7 +193,7 @@ impl DBIterator {
               cf_handle: DBCFHandle,
               readopts: &ReadOptions,
               mode: IteratorMode)
-              -> Result<DBIterator, String> {
+              -> Result<DBIterator, Error> {
         unsafe {
             let iterator =
                 rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
@@ -211,14 +241,14 @@ impl<'a> Snapshot<'a> {
     pub fn iterator_cf(&self,
                        cf_handle: DBCFHandle,
                        mode: IteratorMode)
-                       -> Result<DBIterator, String> {
+                       -> Result<DBIterator, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
 
 
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
+    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         self.db.get_opt(key, &readopts)
@@ -227,7 +257,7 @@ impl<'a> Snapshot<'a> {
     pub fn get_cf(&self,
                   cf: DBCFHandle,
                   key: &[u8])
-                  -> Result<Option<DBVector>, String> {
+                  -> Result<Option<DBVector>, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key, &readopts)
@@ -244,32 +274,32 @@ impl<'a> Drop for Snapshot<'a> {
 
 // This is for the DB and write batches to share the same API
 pub trait Writable {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error>;
     fn put_cf(&self,
               cf: DBCFHandle,
               key: &[u8],
               value: &[u8])
-              -> Result<(), String>;
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String>;
+              -> Result<(), Error>;
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), Error>;
     fn merge_cf(&self,
                 cf: DBCFHandle,
                 key: &[u8],
                 value: &[u8])
-                -> Result<(), String>;
-    fn delete(&self, key: &[u8]) -> Result<(), String>;
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String>;
+                -> Result<(), Error>;
+    fn delete(&self, key: &[u8]) -> Result<(), Error>;
+    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), Error>;
 }
 
 impl DB {
     /// Open a database with default options
-    pub fn open_default(path: &str) -> Result<DB, String> {
+    pub fn open_default(path: &str) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         DB::open(&opts, path)
     }
 
     /// Open the database with specified options
-    pub fn open(opts: &Options, path: &str) -> Result<DB, String> {
+    pub fn open(opts: &Options, path: &str) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
     }
 
@@ -283,20 +313,20 @@ impl DB {
     pub fn open_cf(opts: &Options,
                    path: &str,
                    cfs: &[&str])
-                   -> Result<DB, String> {
+                   -> Result<DB, Error> {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err("Failed to convert path to CString when opening \
+                return Err(Error::new("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                               .to_string()))
             }
         };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         if let Err(e) = fs::create_dir_all(&ospath) {
-            return Err(format!("Failed to create rocksdb directory: {:?}", e))
+            return Err(Error::new(format!("Failed to create rocksdb directory: {:?}", e)))
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -355,8 +385,8 @@ impl DB {
 
             for handle in &cfhandles {
                 if handle.is_null() {
-                    return Err("Received null column family handle from DB."
-                                   .to_string());
+                    return Err(Error::new("Received null column family handle from DB."
+                                   .to_string()));
                 }
             }
 
@@ -366,10 +396,10 @@ impl DB {
         }
 
         if !err.is_null() {
-            return Err(error_message(err));
+            return Err(Error::new(error_message(err)));
         }
         if db.is_null() {
-            return Err("Could not initialize database.".to_string());
+            return Err(Error::new("Could not initialize database.".to_string()));
         }
 
         Ok(DB {
@@ -378,7 +408,7 @@ impl DB {
         })
     }
 
-    pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
+    pub fn destroy(opts: &Options, path: &str) -> Result<(), Error> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
@@ -390,12 +420,12 @@ impl DB {
                                             err_ptr);
         }
         if !err.is_null() {
-            return Err(error_message(err));
+            return Err(Error::new(error_message(err)));
         }
         Ok(())
     }
 
-    pub fn repair(opts: Options, path: &str) -> Result<(), String> {
+    pub fn repair(opts: Options, path: &str) -> Result<(), Error> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
@@ -407,7 +437,7 @@ impl DB {
                                            err_ptr);
         }
         if !err.is_null() {
-            return Err(error_message(err));
+            return Err(Error::new(error_message(err)));
         }
         Ok(())
     }
@@ -415,7 +445,7 @@ impl DB {
     pub fn write_opt(&self,
                      batch: WriteBatch,
                      writeopts: &WriteOptions)
-                     -> Result<(), String> {
+                     -> Result<(), Error> {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
         unsafe {
@@ -425,16 +455,16 @@ impl DB {
                                        err_ptr);
         }
         if !err.is_null() {
-            return Err(error_message(err));
+            return Err(Error::new(error_message(err)));
         }
         Ok(())
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
+    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
         self.write_opt(batch, &WriteOptions::default())
     }
 
-    pub fn write_withou_wal(&self, batch: WriteBatch) -> Result<(), String> {
+    pub fn write_withou_wal(&self, batch: WriteBatch) -> Result<(), Error> {
         let mut wo = WriteOptions::new();
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
@@ -443,13 +473,13 @@ impl DB {
     pub fn get_opt(&self,
                    key: &[u8],
                    readopts: &ReadOptions)
-                   -> Result<Option<DBVector>, String> {
+                   -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err("Unable to create rocksdb read options.  This is a \
+            return Err(Error::new("Unable to create rocksdb read options.  This is a \
                         fairly trivial call, and its failure may be \
                         indicative of a mis-compiled or mis-loaded rocksdb \
                         library."
-                           .to_string());
+                           .to_string()));
         }
 
         unsafe {
@@ -465,7 +495,7 @@ impl DB {
                                          val_len_ptr,
                                          err_ptr) as *mut u8;
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             if val.is_null() {
                 Ok(None)
@@ -476,7 +506,7 @@ impl DB {
     }
 
     /// Return the bytes associated with a key value
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
+    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
         self.get_opt(key, &ReadOptions::default())
     }
 
@@ -484,13 +514,13 @@ impl DB {
                       cf: DBCFHandle,
                       key: &[u8],
                       readopts: &ReadOptions)
-                      -> Result<Option<DBVector>, String> {
+                      -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err("Unable to create rocksdb read options.  This is a \
+            return Err(Error::new("Unable to create rocksdb read options.  This is a \
                         fairly trivial call, and its failure may be \
                         indicative of a mis-compiled or mis-loaded rocksdb \
                         library."
-                           .to_string());
+                           .to_string()));
         }
 
         unsafe {
@@ -507,7 +537,7 @@ impl DB {
                                             val_len_ptr,
                                             err_ptr) as *mut u8;
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             if val.is_null() {
                 Ok(None)
@@ -520,20 +550,20 @@ impl DB {
     pub fn get_cf(&self,
                   cf: DBCFHandle,
                   key: &[u8])
-                  -> Result<Option<DBVector>, String> {
+                  -> Result<Option<DBVector>, Error> {
         self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
     pub fn create_cf(&mut self,
                      name: &str,
                      opts: &Options)
-                     -> Result<DBCFHandle, String> {
+                     -> Result<DBCFHandle, Error> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err("Failed to convert path to CString when opening \
+                return Err(Error::new("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                               .to_string()))
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -549,15 +579,15 @@ impl DB {
             cf_handler
         };
         if !err.is_null() {
-            return Err(error_message(err));
+            return Err(Error::new(error_message(err)));
         }
         Ok(cf_handler)
     }
 
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), String> {
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         let cf = self.cfs.get(name);
         if cf.is_none() {
-            return Err(format!("Invalid column family: {}", name).to_string());
+            return Err(Error::new(format!("Invalid column family: {}", name).to_string()));
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -568,7 +598,7 @@ impl DB {
                                                     err_ptr);
         }
         if !err.is_null() {
-            return Err(error_message(err));
+            return Err(Error::new(error_message(err)));
         }
 
         Ok(())
@@ -587,7 +617,7 @@ impl DB {
     pub fn iterator_cf(&self,
                        cf_handle: DBCFHandle,
                        mode: IteratorMode)
-                       -> Result<DBIterator, String> {
+                       -> Result<DBIterator, Error> {
         let opts = ReadOptions::default();
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
@@ -600,7 +630,7 @@ impl DB {
                    key: &[u8],
                    value: &[u8],
                    writeopts: &WriteOptions)
-                   -> Result<(), String> {
+                   -> Result<(), Error> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -612,7 +642,7 @@ impl DB {
                                      value.len() as size_t,
                                      err_ptr);
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             Ok(())
         }
@@ -623,7 +653,7 @@ impl DB {
                       key: &[u8],
                       value: &[u8],
                       writeopts: &WriteOptions)
-                      -> Result<(), String> {
+                      -> Result<(), Error> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -636,7 +666,7 @@ impl DB {
                                         value.len() as size_t,
                                         err_ptr);
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             Ok(())
         }
@@ -645,7 +675,7 @@ impl DB {
                      key: &[u8],
                      value: &[u8],
                      writeopts: &WriteOptions)
-                     -> Result<(), String> {
+                     -> Result<(), Error> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -657,7 +687,7 @@ impl DB {
                                        value.len() as size_t,
                                        err_ptr);
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             Ok(())
         }
@@ -667,7 +697,7 @@ impl DB {
                     key: &[u8],
                     value: &[u8],
                     writeopts: &WriteOptions)
-                    -> Result<(), String> {
+                    -> Result<(), Error> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -680,7 +710,7 @@ impl DB {
                                           value.len() as size_t,
                                           err_ptr);
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             Ok(())
         }
@@ -688,7 +718,7 @@ impl DB {
     fn delete_opt(&self,
                   key: &[u8],
                   writeopts: &WriteOptions)
-                  -> Result<(), String> {
+                  -> Result<(), Error> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -698,7 +728,7 @@ impl DB {
                                         key.len() as size_t,
                                         err_ptr);
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             Ok(())
         }
@@ -707,7 +737,7 @@ impl DB {
                      cf: DBCFHandle,
                      key: &[u8],
                      writeopts: &WriteOptions)
-                     -> Result<(), String> {
+                     -> Result<(), Error> {
         unsafe {
             let mut err: *const i8 = 0 as *const i8;
             let err_ptr: *mut *const i8 = &mut err;
@@ -718,7 +748,7 @@ impl DB {
                                            key.len() as size_t,
                                            err_ptr);
             if !err.is_null() {
-                return Err(error_message(err));
+                return Err(Error::new(error_message(err)));
             }
             Ok(())
         }
@@ -726,7 +756,7 @@ impl DB {
 }
 
 impl Writable for DB {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         self.put_opt(key, value, &WriteOptions::default())
     }
 
@@ -734,11 +764,11 @@ impl Writable for DB {
               cf: DBCFHandle,
               key: &[u8],
               value: &[u8])
-              -> Result<(), String> {
+              -> Result<(), Error> {
         self.put_cf_opt(cf, key, value, &WriteOptions::default())
     }
 
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         self.merge_opt(key, value, &WriteOptions::default())
     }
 
@@ -746,15 +776,15 @@ impl Writable for DB {
                 cf: DBCFHandle,
                 key: &[u8],
                 value: &[u8])
-                -> Result<(), String> {
+                -> Result<(), Error> {
         self.merge_cf_opt(cf, key, value, &WriteOptions::default())
     }
 
-    fn delete(&self, key: &[u8]) -> Result<(), String> {
+    fn delete(&self, key: &[u8]) -> Result<(), Error> {
         self.delete_opt(key, &WriteOptions::default())
     }
 
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), Error> {
         self.delete_cf_opt(cf, key, &WriteOptions::default())
     }
 }
@@ -786,7 +816,7 @@ impl Drop for DB {
 
 impl Writable for WriteBatch {
     /// Insert a value into the database under the given key
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put(self.inner,
                                                 key.as_ptr(),
@@ -801,7 +831,7 @@ impl Writable for WriteBatch {
               cf: DBCFHandle,
               key: &[u8],
               value: &[u8])
-              -> Result<(), String> {
+              -> Result<(), Error> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_put_cf(self.inner,
                                                    cf,
@@ -813,7 +843,7 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_merge(self.inner,
                                                   key.as_ptr(),
@@ -828,7 +858,7 @@ impl Writable for WriteBatch {
                 cf: DBCFHandle,
                 key: &[u8],
                 value: &[u8])
-                -> Result<(), String> {
+                -> Result<(), Error> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_merge_cf(self.inner,
                                                      cf,
@@ -843,7 +873,7 @@ impl Writable for WriteBatch {
     /// Remove the database entry for key
     ///
     /// Returns Err if the key was not found
-    fn delete(&self, key: &[u8]) -> Result<(), String> {
+    fn delete(&self, key: &[u8]) -> Result<(), Error> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete(self.inner,
                                                    key.as_ptr(),
@@ -852,7 +882,7 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+    fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), Error> {
         unsafe {
             rocksdb_ffi::rocksdb_writebatch_delete_cf(self.inner,
                                                       cf,
@@ -937,7 +967,7 @@ fn external() {
         let db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
-        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
@@ -954,10 +984,10 @@ fn errors_do_stuff() {
     let opts = Options::default();
     // The DB will still be open when we try to destroy and the lock should fail
     match DB::destroy(&opts, path) {
-        Err(ref s) => {
+        Err(s) => {
             assert!(s ==
-                    "IO error: lock _rust_rocksdb_error/LOCK: No locks \
-                     available")
+                    Error::new("IO error: lock _rust_rocksdb_error/LOCK: No locks \
+                     available".to_string()))
         }
         Ok(_) => panic!("should fail"),
     }
@@ -976,7 +1006,7 @@ fn writebatch_works() {
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
-            let r: Result<Option<DBVector>, String> = db.get(b"k1");
+            let r: Result<Option<DBVector>, Error> = db.get(b"k1");
             assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         }
         {
@@ -1023,7 +1053,7 @@ fn snapshot_test() {
         assert!(p.is_ok());
 
         let snap = db.snapshot();
-        let r: Result<Option<DBVector>, String> = snap.get(b"k1");
+        let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         let p = db.put(b"k2", b"v2222");
