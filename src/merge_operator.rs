@@ -208,7 +208,7 @@ fn mergetest() {
         }
 
         assert!(m.is_ok());
-        let r: Result<Option<DBVector>, String> = db.get(b"k1");
+        let r = db.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
