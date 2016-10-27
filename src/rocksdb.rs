@@ -32,6 +32,7 @@ use rocksdb_options::{Options, WriteOptions};
 pub struct DB {
     inner: rocksdb_ffi::DBInstance,
     cfs: BTreeMap<String, DBCFHandle>,
+    path: String,
 }
 
 unsafe impl Send for DB {}
@@ -405,6 +406,7 @@ impl DB {
         Ok(DB {
             inner: db,
             cfs: cf_map,
+            path: path.to_owned(),
         })
     }
 
@@ -440,6 +442,10 @@ impl DB {
             return Err(Error::new(error_message(err)));
         }
         Ok(())
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
     }
 
     pub fn write_opt(&self,
@@ -811,6 +817,12 @@ impl Drop for DB {
             }
             rocksdb_ffi::rocksdb_close(self.inner);
         }
+    }
+}
+
+impl fmt::Debug for DB {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }
 }
 
