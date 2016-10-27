@@ -71,9 +71,7 @@ pub struct Error {
 
 impl Error {
     fn new(message: String) -> Error {
-        Error {
-            message: message,
-        }
+        Error { message: message }
     }
 
     pub fn to_string(self) -> String {
@@ -118,15 +116,13 @@ impl Iterator for DBIterator {
             let key_ptr = unsafe {
                 rocksdb_ffi::rocksdb_iter_key(native_iter, key_len_ptr)
             };
-            let key = unsafe {
-                slice::from_raw_parts(key_ptr, key_len as usize)
-            };
+            let key =
+                unsafe { slice::from_raw_parts(key_ptr, key_len as usize) };
             let val_ptr = unsafe {
                 rocksdb_ffi::rocksdb_iter_value(native_iter, val_len_ptr)
             };
-            let val = unsafe {
-                slice::from_raw_parts(val_ptr, val_len as usize)
-            };
+            let val =
+                unsafe { slice::from_raw_parts(val_ptr, val_len as usize) };
 
             Some((key.to_vec().into_boxed_slice(),
                   val.to_vec().into_boxed_slice()))
@@ -144,10 +140,7 @@ pub enum IteratorMode<'a> {
 
 
 impl DBIterator {
-    fn new(db: &DB,
-           readopts: &ReadOptions,
-           mode: IteratorMode)
-        -> DBIterator {
+    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -224,9 +217,8 @@ impl Drop for DBIterator {
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
-        let snapshot = unsafe {
-            rocksdb_ffi::rocksdb_create_snapshot(db.inner)
-        };
+        let snapshot =
+            unsafe { rocksdb_ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
             db: db,
             inner: snapshot,
@@ -318,16 +310,18 @@ impl DB {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err(Error::new("Failed to convert path to CString when opening \
-                            rocksdb"
-                               .to_string()))
+                return Err(Error::new("Failed to convert path to CString \
+                                       when opening rocksdb"
+                    .to_string()))
             }
         };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         if let Err(e) = fs::create_dir_all(&ospath) {
-            return Err(Error::new(format!("Failed to create rocksdb directory: {:?}", e)))
+            return Err(Error::new(format!("Failed to create rocksdb \
+                                           directory: {:?}",
+                                          e)));
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -351,27 +345,22 @@ impl DB {
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
             let c_cfs: Vec<CString> = cfs_v.iter()
-                                           .map(|cf| {
-                                               CString::new(cf.as_bytes())
-                                                   .unwrap()
-                                           })
-                                           .collect();
+                .map(|cf| CString::new(cf.as_bytes()).unwrap())
+                .collect();
 
             let cfnames: Vec<*const _> = c_cfs.iter()
-                                              .map(|cf| cf.as_ptr())
-                                              .collect();
+                .map(|cf| cf.as_ptr())
+                .collect();
 
             // These handles will be populated by DB.
-            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
-                cfs_v.iter()
-                     .map(|_| 0 as rocksdb_ffi::DBCFHandle)
-                     .collect();
+            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
+                .map(|_| 0 as rocksdb_ffi::DBCFHandle)
+                .collect();
 
             // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<rocksdb_ffi::DBOptions> =
-                cfs_v.iter()
-                     .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
-                     .collect();
+            let cfopts: Vec<rocksdb_ffi::DBOptions> = cfs_v.iter()
+                .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
+                .collect();
 
             // Prepare to ship to C.
             let copts: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
@@ -386,8 +375,9 @@ impl DB {
 
             for handle in &cfhandles {
                 if handle.is_null() {
-                    return Err(Error::new("Received null column family handle from DB."
-                                   .to_string()));
+                    return Err(Error::new("Received null column family \
+                                           handle from DB."
+                        .to_string()));
                 }
             }
 
@@ -400,7 +390,8 @@ impl DB {
             return Err(Error::new(error_message(err)));
         }
         if db.is_null() {
-            return Err(Error::new("Could not initialize database.".to_string()));
+            return Err(Error::new("Could not initialize database."
+                .to_string()));
         }
 
         Ok(DB {
@@ -470,7 +461,7 @@ impl DB {
         self.write_opt(batch, &WriteOptions::default())
     }
 
-    pub fn write_withou_wal(&self, batch: WriteBatch) -> Result<(), Error> {
+    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error> {
         let mut wo = WriteOptions::new();
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
@@ -481,11 +472,12 @@ impl DB {
                    readopts: &ReadOptions)
                    -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err(Error::new("Unable to create rocksdb read options.  This is a \
-                        fairly trivial call, and its failure may be \
-                        indicative of a mis-compiled or mis-loaded rocksdb \
-                        library."
-                           .to_string()));
+            return Err(Error::new("Unable to create rocksdb read options.  \
+                                   This is a fairly trivial call, and its \
+                                   failure may be indicative of a \
+                                   mis-compiled or mis-loaded rocksdb \
+                                   library."
+                .to_string()));
         }
 
         unsafe {
@@ -522,11 +514,12 @@ impl DB {
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err(Error::new("Unable to create rocksdb read options.  This is a \
-                        fairly trivial call, and its failure may be \
-                        indicative of a mis-compiled or mis-loaded rocksdb \
-                        library."
-                           .to_string()));
+            return Err(Error::new("Unable to create rocksdb read options.  \
+                                   This is a fairly trivial call, and its \
+                                   failure may be indicative of a \
+                                   mis-compiled or mis-loaded rocksdb \
+                                   library."
+                .to_string()));
         }
 
         unsafe {
@@ -567,9 +560,9 @@ impl DB {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err(Error::new("Failed to convert path to CString when opening \
-                            rocksdb"
-                               .to_string()))
+                return Err(Error::new("Failed to convert path to CString \
+                                       when opening rocksdb"
+                    .to_string()))
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -593,7 +586,8 @@ impl DB {
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         let cf = self.cfs.get(name);
         if cf.is_none() {
-            return Err(Error::new(format!("Invalid column family: {}", name).to_string()));
+            return Err(Error::new(format!("Invalid column family: {}", name)
+                .to_string()));
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -1016,8 +1010,9 @@ fn errors_do_stuff() {
     match DB::destroy(&opts, path) {
         Err(s) => {
             assert!(s ==
-                    Error::new("IO error: lock _rust_rocksdb_error/LOCK: No locks \
-                     available".to_string()))
+                    Error::new("IO error: lock _rust_rocksdb_error/LOCK: No \
+                                locks available"
+                .to_string()))
         }
         Ok(_) => panic!("should fail"),
     }
