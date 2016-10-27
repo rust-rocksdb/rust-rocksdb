@@ -22,6 +22,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
+use std::fmt;
 
 use self::libc::size_t;
 
@@ -781,6 +782,12 @@ impl Drop for DB {
             }
             rocksdb_ffi::rocksdb_close(self.inner);
         }
+    }
+}
+
+impl fmt::Debug for DB {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }
 }
 
