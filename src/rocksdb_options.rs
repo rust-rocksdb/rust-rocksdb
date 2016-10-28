@@ -534,12 +534,6 @@ impl Options {
         }
     }
 
-    pub fn set_filter_deletes(&mut self, filter: bool) {
-        unsafe {
-            rocksdb_ffi::rocksdb_options_set_filter_deletes(self.inner, filter);
-        }
-    }
-
     /// Disables automatic compactions. Manual compactions can still
     /// be issued on this column family
     ///
