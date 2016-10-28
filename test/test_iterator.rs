@@ -15,10 +15,6 @@
 
 use rocksdb::{DB, Direction, IteratorMode, Options, Writable, Kv};
 
-fn collect<'a, T: Iterator<Item=Kv<'a>>>(iter: T) -> Vec<(Vec<u8>, Vec<u8>)> {
-    iter.map(|(k, v)| (k.to_vec(), v.to_vec())).collect()
-}
-
 #[test]
 pub fn test_iterator() {
     let path = "_rust_rocksdb_iteratortest";
@@ -38,94 +34,87 @@ pub fn test_iterator() {
         assert!(p.is_ok());
         let p = db.put(k3, v3);
         assert!(p.is_ok());
-        let expected = vec![(k1.to_vec(), v1.to_vec()),
-                            (k2.to_vec(), v2.to_vec()),
-                            (k3.to_vec(), v3.to_vec())];
+        let expected: Vec<Kv> = vec![(k1, v1), (k2, v2), (k3, v3)];
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         // Test that it's idempotent
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         // Test it in reverse a few times
         {
             let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = collect(iterator1);
+            let mut tmp_vec = iterator1.collect::<Vec<Kv>>();
             tmp_vec.reverse();
             assert_eq!(tmp_vec, expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = collect(iterator1);
+            let mut tmp_vec = iterator1.collect::<Vec<Kv>>();
             tmp_vec.reverse();
             assert_eq!(tmp_vec, expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = collect(iterator1);
+            let mut tmp_vec = iterator1.collect::<Vec<Kv>>();
             tmp_vec.reverse();
             assert_eq!(tmp_vec, expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = collect(iterator1);
+            let mut tmp_vec = iterator1.collect::<Vec<Kv>>();
             tmp_vec.reverse();
             assert_eq!(tmp_vec, expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = collect(iterator1);
+            let mut tmp_vec = iterator1.collect::<Vec<Kv>>();
             tmp_vec.reverse();
             assert_eq!(tmp_vec, expected);
         }
         // Try it forward again
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
 
         let old_iterator = db.iterator(IteratorMode::Start);
         let p = db.put(&*k4, &*v4);
         assert!(p.is_ok());
-        let expected2 = vec![(k1.to_vec(), v1.to_vec()),
-                             (k2.to_vec(), v2.to_vec()),
-                             (k3.to_vec(), v3.to_vec()),
-                             (k4.to_vec(), v4.to_vec())];
+        let expected2: Vec<Kv> = vec![(k1, v1), (k2, v2), (k3, v3), (k4, v4)];
         {
-            assert_eq!(collect(old_iterator), expected);
+            assert_eq!(old_iterator.collect::<Vec<Kv>>(), expected);
         }
         {
             let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(collect(iterator1), expected2);
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected2);
         }
         {
             let iterator1 =
                 db.iterator(IteratorMode::From(b"k2", Direction::Forward));
-            let expected = vec![(k2.to_vec(), v2.to_vec()),
-                                (k3.to_vec(), v3.to_vec()),
-                                (k4.to_vec(), v4.to_vec())];
-            assert_eq!(collect(iterator1), expected);
+            let expected: Vec<Kv> = vec![(k2, v2), (k3, v3), (k4, v4)];
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         {
             let iterator1 =
                 db.iterator(IteratorMode::From(b"k2", Direction::Reverse));
-            let expected = vec![(k2.to_vec(), v2.to_vec()), (k1.to_vec(), v1.to_vec())];
-            assert_eq!(collect(iterator1), expected);
+            let expected: Vec<Kv> = vec![(k2, v2), (k1, v1)];
+            assert_eq!(iterator1.collect::<Vec<Kv>>(), expected);
         }
         {
             let iterator1 =
