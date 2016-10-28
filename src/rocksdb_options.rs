@@ -418,6 +418,16 @@ impl Options {
     /// The manifest file is rolled over on reaching this limit.
     /// The older manifest file be deleted.
     /// The default value is MAX_INT so that roll-over does not take place.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// let size = 20 * 1024 * 1024;
+    /// opts.set_max_manifest_file_size(size);
+    /// ```
     pub fn set_max_manifest_file_size(&mut self, size: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_manifest_file_size(self.inner, size);
@@ -680,13 +690,6 @@ impl Default for WriteOptions {
 #[cfg(test)]
 mod tests {
     use super::Options;
-
-    #[test]
-    fn test_set_max_manifest_file_size() {
-        let mut opts = Options::default();
-        let size = 20 * 1024 * 1024;
-        opts.set_max_manifest_file_size(size)
-    }
 
     #[test]
     fn test_enable_statistics() {
