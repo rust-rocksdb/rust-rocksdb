@@ -18,7 +18,7 @@ This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.4.1
   - [x] column family operations
   - [ ] prefix seek
   - [ ] slicetransform
-  - [ ] windows support
+  - [x] windows support
 
 Feedback and pull requests welcome!  If a particular feature of RocksDB is important to you, please let me know by opening an issue, and I'll prioritize it.
 
