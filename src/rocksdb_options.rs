@@ -144,7 +144,7 @@ impl Options {
     /// levels after base level.
     ///
     /// Default: DBCompressionType::None
-    pub fn compression(&mut self, t: DBCompressionType) {
+    pub fn set_compression_type(&mut self, t: DBCompressionType) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression(self.inner, t);
         }
@@ -165,7 +165,7 @@ impl Options {
         }
     }
 
-    pub fn add_merge_operator(&mut self,
+    pub fn set_merge_operator(&mut self,
                               name: &str,
                               merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
@@ -191,7 +191,7 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the
     //// same name and orders keys *exactly* the same as the comparator
     /// provided to previous open calls on the same DB.
-    pub fn add_comparator(&mut self,
+    pub fn set_comparator(&mut self,
                           name: &str,
                           compare_fn: fn(&[u8], &[u8]) -> i32) {
         let cb = Box::new(ComparatorCallback {
@@ -209,7 +209,7 @@ impl Options {
         }
     }
 
-    pub fn set_block_cache_size_mb(&mut self, cache_size: u64) {
+    pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_optimize_for_point_lookup(self.inner,
                                                                    cache_size);
