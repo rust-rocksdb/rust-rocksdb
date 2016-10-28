@@ -22,6 +22,7 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::slice;
 use std::str;
+use std::marker::PhantomData;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 
@@ -83,13 +84,11 @@ pub struct Snapshot<'a> {
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
-// We need to find a better way to add a lifetime in here.
-#[allow(dead_code)]
 pub struct DBIterator<'a> {
-    db: &'a DB,
     inner: *mut ffi::rocksdb_iterator_t,
     direction: Direction,
     just_seeked: bool,
+    phantom: PhantomData<&'a DB>,
 }
 
 pub enum Direction {
@@ -170,10 +169,10 @@ impl<'a> DBIterator<'a> {
             let iterator = ffi::rocksdb_create_iterator(db.inner, readopts.inner);
 
             let mut rv = DBIterator {
-                db: db,
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
+                phantom: PhantomData,
             };
             rv.set_mode(mode);
             rv
@@ -215,10 +214,10 @@ impl<'a> DBIterator<'a> {
             let iterator = ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle);
 
             let mut rv = DBIterator {
-                db: db,
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
+                phantom: PhantomData,
             };
             rv.set_mode(mode);
             Ok(rv)
