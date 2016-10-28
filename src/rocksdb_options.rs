@@ -114,6 +114,15 @@ impl Options {
     /// `total_threads` is used. Good value for `total_threads` is the number of
     /// cores. You almost definitely want to call this function if your system is
     /// bottlenecked by RocksDB.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.increase_parallelism(3);
+    /// ```
     pub fn increase_parallelism(&mut self, parallelism: i32) {
         unsafe {
             rocksdb_ffi::rocksdb_options_increase_parallelism(self.inner,
@@ -132,6 +141,15 @@ impl Options {
     /// If true, the database will be created if it is missing.
     ///
     /// Default: false
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.create_if_missing(true);
+    /// ```
     pub fn create_if_missing(&mut self, create_if_missing: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_create_if_missing(
@@ -144,6 +162,15 @@ impl Options {
     /// levels after base level.
     ///
     /// Default: DBCompressionType::None
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compression_type(DBCompressionType::Snappy);
+    /// ```
     pub fn set_compression_type(&mut self, t: DBCompressionType) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression(self.inner, t);
@@ -157,6 +184,21 @@ impl Options {
     /// be slower. This array, if non-empty, should have an entry for
     /// each level of the database; these override the value specified in
     /// the previous field 'compression'.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.compression_per_level(&[
+    ///     DBCompressionType::None,
+    ///     DBCompressionType::None,
+    ///     DBCompressionType::Snappy,
+    ///     DBCompressionType::Snappy,
+    ///     DBCompressionType::Snappy
+    /// ]);
+    /// ```
     pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_compression_per_level(self.inner,
@@ -237,6 +279,15 @@ impl Options {
     /// compaction. For universal-style compaction, you can usually set it to -1.
     ///
     /// Default: -1
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_max_open_files(10);
+    /// ```
     pub fn set_max_open_files(&mut self, nfiles: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_open_files(self.inner, nfiles);
@@ -247,7 +298,17 @@ impl Options {
     /// If false, then every store to stable storage will issue a fdatasync.
     /// This parameter should be set to true while storing data to
     /// filesystem like ext3 that can lose files after a reboot.
+    ///
     /// Default: false
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_use_fsync(true);
+    /// ```
     pub fn set_use_fsync(&mut self, useit: bool) {
         unsafe {
             if useit {
@@ -271,6 +332,15 @@ impl Options {
     /// to 1MB.
     ///
     /// This option applies to table files
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bytes_per_sync(1024 * 1024);
+    /// ```
     pub fn set_bytes_per_sync(&mut self, nbytes: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_bytes_per_sync(self.inner, nbytes);
@@ -305,6 +375,15 @@ impl Options {
     /// be used. Memory mapped files are not impacted by this parameter.
     ///
     /// Default: true
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.allow_os_buffer(false);
+    /// ```
     pub fn allow_os_buffer(&mut self, is_allow: bool) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_allow_os_buffer(self.inner,
@@ -313,6 +392,17 @@ impl Options {
     }
 
     /// Sets the number of shards used for table cache.
+    ///
+    /// Default: 6
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_table_cache_num_shard_bits(4);
+    /// ```
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_table_cache_numshardbits(self.inner,
@@ -329,6 +419,15 @@ impl Options {
     /// individual write buffers.
     ///
     /// Default: 1
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_min_write_buffer_number(2);
+    /// ```
     pub fn set_min_write_buffer_number(&mut self, nbuf: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_min_write_buffer_number_to_merge(
@@ -360,6 +459,15 @@ impl Options {
     /// If using a TransactionDB/OptimisticTransactionDB, the default value will
     /// be set to the value of 'max_write_buffer_number' if it is not explicitly
     /// set by the user.  Otherwise, the default is 0.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_min_write_buffer_number(4);
+    /// ```
     pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_write_buffer_number(self.inner,
@@ -380,9 +488,18 @@ impl Options {
     /// Note that write_buffer_size is enforced per column family.
     /// See db_write_buffer_size for sharing memory across column families.
     ///
-    /// Default: 64MB
+    /// Default: 67108864 (64MiB)
     ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_write_buffer_size(128 * 1024 * 1024);
+    /// ```
     pub fn set_write_buffer_size(&mut self, size: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_write_buffer_size(self.inner,
@@ -399,9 +516,18 @@ impl Options {
     /// will be 200MB, total file size for level-2 will be 2GB,
     /// and total file size for level-3 will be 20GB.
     ///
-    /// Default: 256MB.
+    /// Default: 268435456 (256MiB).
     ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_max_bytes_for_level_base(512 * 1024 * 1024);
+    /// ```
     pub fn set_max_bytes_for_level_base(&mut self, size: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_bytes_for_level_base(self.inner, size);
@@ -409,6 +535,15 @@ impl Options {
     }
 
     /// Default: 10
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_max_bytes_for_level_multiplier(4);
+    /// ```
     pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_bytes_for_level_multiplier(self.inner, mul);
@@ -425,8 +560,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
-    /// let size = 20 * 1024 * 1024;
-    /// opts.set_max_manifest_file_size(size);
+    /// opts.set_max_manifest_file_size(20 * 1024 * 1024);
     /// ```
     pub fn set_max_manifest_file_size(&mut self, size: usize) {
         unsafe {
@@ -443,9 +577,18 @@ impl Options {
     /// be 2MB, and each file on level 2 will be 20MB,
     /// and each file on level-3 will be 200MB.
     ///
-    /// Default: 64MB.
+    /// Default: 67108864 (64MiB)
     ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_target_file_size_base(128 * 1024 * 1024);
+    /// ```
     pub fn set_target_file_size_base(&mut self, size: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_target_file_size_base(self.inner,
@@ -462,6 +605,15 @@ impl Options {
     /// individual write buffers.
     ///
     /// Default: 1
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_min_write_buffer_number_to_merge(2);
+    /// ```
     pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_min_write_buffer_number_to_merge(
@@ -475,6 +627,15 @@ impl Options {
     /// Default: 4
     ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_level_zero_file_num_compaction_trigger(8);
+    /// ```
     pub fn set_level_zero_file_num_compaction_trigger(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_level0_file_num_compaction_trigger(
@@ -486,7 +647,18 @@ impl Options {
     /// point. A value <0 means that no writing slow down will be triggered by
     /// number of files in level-0.
     ///
+    /// Default: 20
+    ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_level_zero_slowdown_writes_trigger(10);
+    /// ```
     pub fn set_level_zero_slowdown_writes_trigger(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_level0_slowdown_writes_trigger(
@@ -496,7 +668,18 @@ impl Options {
 
     /// Sets the maximum number of level-0 files.  We stop writes at this point.
     ///
+    /// Default: 24
+    ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_level_zero_stop_writes_trigger(48);
+    /// ```
     pub fn set_level_zero_stop_writes_trigger(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_level0_stop_writes_trigger(
@@ -507,6 +690,15 @@ impl Options {
     /// Sets the compaction style.
     ///
     /// Default: DBCompactionStyle::Level
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompactionStyle};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compaction_style(DBCompactionStyle::Universal);
+    /// ```
     pub fn set_compaction_style(&mut self,
                                 style: rocksdb_ffi::DBCompactionStyle) {
         unsafe {
@@ -528,6 +720,15 @@ impl Options {
     /// Env::SetBackgroundThreads
     ///
     /// Default: 1
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_max_background_compactions(2);
+    /// ```
     pub fn set_max_background_compactions(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_background_compactions(
@@ -551,6 +752,15 @@ impl Options {
     /// Env::SetBackgroundThreads
     ///
     /// Default: 1
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_max_background_flushes(2);
+    /// ```
     pub fn set_max_background_flushes(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_max_background_flushes(self.inner,
@@ -561,7 +771,18 @@ impl Options {
     /// Disables automatic compactions. Manual compactions can still
     /// be issued on this column family
     ///
+    /// Default: false
+    ///
     /// Dynamically changeable through SetOptions() API
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_disable_auto_compactions(true);
+    /// ```
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         let c_bool = if disable {
             1
@@ -583,6 +804,15 @@ impl Options {
     /// Measure IO stats in compactions and flushes, if true.
     ///
     /// Default: false
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_report_bg_io_stats(true);
+    /// ```
     pub fn set_report_bg_io_stats(&mut self, enable: bool) {
         unsafe {
             if enable {
@@ -596,6 +826,15 @@ impl Options {
     /// Recovery mode to control the consistency while replaying WAL
     ///
     /// Default: DBRecoveryMode::PointInTime
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBRecoveryMode};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_wal_recovery_mode(DBRecoveryMode::AbsoluteConsistency);
+    /// ```
     pub fn set_wal_recovery_mode(&mut self, mode: DBRecoveryMode) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_wal_recovery_mode(self.inner, mode);
@@ -627,6 +866,15 @@ impl Options {
     /// If not zero, dump rocksdb.stats to LOG every stats_dump_period_sec
     ///
     /// Default: 600 (10 min)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_stats_dump_period_sec(300);
+    /// ```
     pub fn set_stats_dump_period_sec(&mut self, period: usize) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_stats_dump_period_sec(self.inner,
