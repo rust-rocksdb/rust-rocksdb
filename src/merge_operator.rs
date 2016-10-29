@@ -185,7 +185,7 @@ fn mergetest() {
     let path = "_rust_rocksdb_mergetest";
     let mut opts = Options::default();
     opts.create_if_missing(true);
-    opts.add_merge_operator("test operator", test_provided_merge);
+    opts.set_merge_operator("test operator", test_provided_merge);
     {
         let db = DB::open(&opts, path).unwrap();
         let p = db.put(b"k1", b"a");
