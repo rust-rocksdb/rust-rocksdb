@@ -185,6 +185,13 @@ impl Options {
         }
     }
 
+    #[deprecated(since="0.5.0", note="add_merge_operator has been renamed to set_merge_operator")]
+    pub fn add_merge_operator(&mut self,
+                          name: &str,
+                          merge_fn: MergeFn) {
+        self.set_merge_operator(name, merge_fn);
+    }
+
     /// Sets the comparator used to define the order of keys in the table.
     /// Default: a comparator that uses lexicographic byte-wise ordering
     ///
@@ -207,6 +214,13 @@ impl Options {
                 comparator::name_callback);
             rocksdb_ffi::rocksdb_options_set_comparator(self.inner, cmp);
         }
+    }
+
+    #[deprecated(since="0.5.0", note="add_comparator has been renamed to set_comparator")]
+    pub fn add_comparator(&mut self,
+                          name: &str,
+                          compare_fn: fn(&[u8], &[u8]) -> i32) {
+        self.set_comparator(name, compare_fn);
     }
 
     pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
