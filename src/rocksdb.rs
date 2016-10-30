@@ -14,7 +14,7 @@
 //
 
 extern crate libc;
-
+use std::mem;
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fs;
@@ -553,6 +553,117 @@ impl DB {
         self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
+    pub fn multi_get(&self,
+                  keys: Vec<&[u8]>)
+                  -> Vec<Result<Option<DBVector>, String>> {
+        self.multi_get_opt(keys, &ReadOptions::default())
+    }
+
+    pub fn multi_get_opt(&self,
+                      keys: Vec<&[u8]>,
+                      readopts: &ReadOptions)
+                      -> Vec<Result<Option<DBVector>, String>> {
+
+        unsafe {
+            let mut err_ptrs : Vec<*mut i8> = vec![0 as *mut i8; keys.len()];
+            let mut value_ptrs : Vec<*mut u8> = vec![0 as *mut u8; keys.len()];
+            let mut length_ptrs : Vec<size_t> = vec![0 as size_t; keys.len()];
+
+            let mut key_lens : Vec<size_t> =  Vec::with_capacity(keys.len());
+            let mut key_ptrs : Vec<*const u8> = Vec::with_capacity(keys.len());
+            for ref key in &keys {
+                key_lens.push(key.len());
+                key_ptrs.push(key.as_ptr());
+            }
+
+            rocksdb_ffi::rocksdb_multi_get(self.inner,
+                                            readopts.inner,
+                                            keys.len() as size_t,
+                                            key_ptrs.as_ptr(),
+                                            key_lens.as_ptr(),
+                                            value_ptrs.as_mut_ptr(),
+                                            length_ptrs.as_mut_ptr(),
+                                            err_ptrs.as_mut_ptr());
+
+
+            let mut values = vec![];
+            for i in 0..keys.len() {
+
+                let err = err_ptrs[i];
+                if !err.is_null() {
+                    let em = error_message(err);
+                    values.push(Err(em));
+                }
+
+                let val = value_ptrs[i];
+                if val.is_null() {
+                    values.push(Ok(None));
+                } else {
+                    values.push(Ok(Some(DBVector::from_c(val, length_ptrs[i]))));
+                }
+            }
+
+            return values;
+        }
+    }
+
+    pub fn multi_get_cf(&self,
+                  cf: Vec<DBCFHandle>,
+                  keys: Vec<&[u8]>)
+                  -> Vec<Result<Option<DBVector>, String>> {
+        self.multi_get_cf_opt(cf, keys, &ReadOptions::default())
+    }
+
+    pub fn multi_get_cf_opt(&self,
+                      cf: Vec<DBCFHandle>,
+                      keys: Vec<&[u8]>,
+                      readopts: &ReadOptions)
+                      -> Vec<Result<Option<DBVector>, String>> {
+
+        unsafe {
+            let mut err_ptrs : Vec<*mut i8> = vec![0 as *mut i8; keys.len()];
+            let mut value_ptrs : Vec<*mut u8> = vec![0 as *mut u8; keys.len()];
+            let mut length_ptrs : Vec<size_t> = vec![0 as size_t; keys.len()];
+
+            let mut key_lens : Vec<size_t> =  Vec::with_capacity(keys.len());
+            let mut key_ptrs : Vec<*const u8> = Vec::with_capacity(keys.len());
+            for ref key in &keys {
+                key_lens.push(key.len());
+                key_ptrs.push(key.as_ptr());
+            }
+
+            rocksdb_ffi::rocksdb_multi_get_cf(self.inner,
+                                            readopts.inner,
+                                            cf.as_ptr(),
+                                            keys.len() as size_t,
+                                            key_ptrs.as_ptr(),
+                                            key_lens.as_ptr(),
+                                            value_ptrs.as_mut_ptr(),
+                                            length_ptrs.as_mut_ptr(),
+                                            err_ptrs.as_mut_ptr());
+
+
+            let mut values = vec![];
+            for i in 0..keys.len() {
+
+                let err = err_ptrs[i];
+                if !err.is_null() {
+                    let em = error_message(err);
+                    values.push(Err(em));
+                }
+
+                let val = value_ptrs[i];
+                if val.is_null() {
+                    values.push(Ok(None));
+                } else {
+                    values.push(Ok(Some(DBVector::from_c(val, length_ptrs[i]))));
+                }
+            }
+
+            return values;
+        }
+    }
+
     pub fn create_cf(&mut self,
                      name: &str,
                      opts: &Options)
@@ -1047,6 +1158,36 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
+        }
+    }
+    let opts = Options::default();
+    assert!(DB::destroy(&opts, path).is_ok());
+}
+#[test]
+fn multi_get_test() {
+    let path = "_rust_rocksdb_multi_get_test";
+    {
+        let db = DB::open_default(path).unwrap();
+        let p = db.put(b"mk1", b"v1111");
+        assert!(p.is_ok());
+        let p = db.put(b"mk2", b"v2222");
+        assert!(p.is_ok());
+        let p = db.put(b"mk3", b"v3333");
+        assert!(p.is_ok());
+
+        let all = db.multi_get(vec![b"mk1",b"mk2",b"mk3"]);
+        assert_eq!(all.len(), 3);
+        match all[0] {
+            Ok(Some(ref u)) => assert_eq!(u.to_utf8(),Some("v1111")),
+            _ =>  assert!(false)
+        }
+        match all[1] {
+            Ok(Some(ref u)) => assert_eq!(u.to_utf8(),Some("v2222")),
+            _ =>  assert!(false)
+        }
+        match all[2] {
+            Ok(Some(ref u)) => assert_eq!(u.to_utf8(),Some("v3333")),
+            _ =>  assert!(false)
         }
     }
     let opts = Options::default();
