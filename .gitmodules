@@ -1,0 +1,6 @@
+[submodule "rocksdb-sys/snappy"]
+	path = rocksdb-sys/snappy
+	url = https://github.com/google/snappy.git
+[submodule "rocksdb-sys/rocksdb"]
+	path = rocksdb-sys/rocksdb
+	url = https://github.com/facebook/rocksdb.git

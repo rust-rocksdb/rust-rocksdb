@@ -2,37 +2,21 @@ language: rust
 dist: trusty
 sudo: true
 
-matrix:
-  include:
-    - rust: stable
-      env: ROCKSDB_VERSION=4.13
-    - rust: beta
-      env: ROCKSDB_VERSION=4.13
-    - rust: stable
-      env: ROCKSDB_VERSION=4.5
-    - rust: stable
-      env: ROCKSDB_VERSION=4.1
+rust:
+  - stable
+  - beta
 
 addons:
   apt:
     sources:
-    - ubuntu-toolchain-r-test
+      - ubuntu-toolchain-r-test
     packages:
-    - gcc-5
-    - g++-5
-    - libgflags-dev
-    - libsnappy-dev
-    - zlib1g-dev
-    - libbz2-dev
-
-install:
-  - curl -L https://github.com/facebook/rocksdb/archive/$ROCKSDB_VERSION.fb.tar.gz | tar xvz -C $HOME/rocksdb
-  - sudo INSTALL_PATH=/usr make -C $HOME/rocksdb/rocksdb-$ROCKSDB_VERSION.fb install-shared
+      - g++-5
 
 script:
+  - cargo test --manifest-path=rocksdb-sys/Cargo.toml
   - cargo test
 
 cache:
   directories:
     - $HOME/.cache/
-    - $HOME/rocksdb/

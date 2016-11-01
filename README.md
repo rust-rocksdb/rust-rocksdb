@@ -18,19 +18,9 @@ This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.4.1
   - [x] column family operations
   - [ ] prefix seek
   - [ ] slicetransform
-  - [ ] windows support
+  - [x] windows support
 
 Feedback and pull requests welcome!  If a particular feature of RocksDB is important to you, please let me know by opening an issue, and I'll prioritize it.
-
-###### Prerequisite: RocksDB
-
-First, use your system's package manager to install snappy.  This is optional, but lets rocksdb take advantage of better compression, and some code may require it.
-
-```bash
-wget https://github.com/facebook/rocksdb/archive/rocksdb-3.8.tar.gz
-tar xvf rocksdb-3.8.tar.gz && cd rocksdb-rocksdb-3.8 && make shared_lib
-sudo make install
-```
 
 ### Running
 ###### Cargo.toml
