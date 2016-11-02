@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fs;
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::slice;
 use std::str::from_utf8;
 use std::fmt;
@@ -32,7 +32,7 @@ use rocksdb_options::{Options, WriteOptions};
 pub struct DB {
     inner: rocksdb_ffi::DBInstance,
     cfs: BTreeMap<String, DBCFHandle>,
-    path: String,
+    path: PathBuf,
 }
 
 unsafe impl Send for DB {}
@@ -285,14 +285,14 @@ pub trait Writable {
 
 impl DB {
     /// Open a database with default options
-    pub fn open_default(path: &str) -> Result<DB, Error> {
+    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         DB::open(&opts, path)
     }
 
     /// Open the database with specified options
-    pub fn open(opts: &Options, path: &str) -> Result<DB, Error> {
+    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
     }
 
@@ -303,11 +303,13 @@ impl DB {
     /// # Panics
     ///
     /// * Panics if the column family doesn't exist
-    pub fn open_cf(opts: &Options,
-                   path: &str,
+    pub fn open_cf<P: AsRef<Path>>(opts: &Options,
+                   path: P,
                    cfs: &[&str])
                    -> Result<DB, Error> {
-        let cpath = match CString::new(path.as_bytes()) {
+        let path = path.as_ref();
+
+        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new("Failed to convert path to CString \
@@ -317,8 +319,7 @@ impl DB {
         };
         let cpath_ptr = cpath.as_ptr();
 
-        let ospath = Path::new(path);
-        if let Err(e) = fs::create_dir_all(&ospath) {
+        if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!("Failed to create rocksdb \
                                            directory: {:?}",
                                           e)));
@@ -397,12 +398,12 @@ impl DB {
         Ok(DB {
             inner: db,
             cfs: cf_map,
-            path: path.to_owned(),
+            path: path.to_path_buf(),
         })
     }
 
-    pub fn destroy(opts: &Options, path: &str) -> Result<(), Error> {
-        let cpath = CString::new(path.as_bytes()).unwrap();
+    pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
+        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
         let mut err: *const i8 = 0 as *const i8;
@@ -418,8 +419,8 @@ impl DB {
         Ok(())
     }
 
-    pub fn repair(opts: Options, path: &str) -> Result<(), Error> {
-        let cpath = CString::new(path.as_bytes()).unwrap();
+    pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
+        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         let cpath_ptr = cpath.as_ptr();
 
         let mut err: *const i8 = 0 as *const i8;
@@ -435,8 +436,8 @@ impl DB {
         Ok(())
     }
 
-    pub fn path(&self) -> &str {
-        &self.path
+    pub fn path(&self) -> &Path {
+        &self.path.as_path()
     }
 
     pub fn write_opt(&self,
