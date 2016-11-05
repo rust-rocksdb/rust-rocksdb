@@ -12,14 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate rocksdb_sys;
-pub use rocksdb_sys::rocksdb_ffi as rocksdb_ffi;
-pub use rocksdb_ffi::{DBCompactionStyle, DBComparator, DBCompressionType, DBRecoveryMode, new_bloom_filter};
-pub use rocksdb::{DB, DBIterator, DBVector, Direction, IteratorMode, Writable,
-                  WriteBatch, Error};
-pub use rocksdb_options::{BlockBasedOptions, Options, WriteOptions};
-pub use merge_operator::MergeOperands;
-pub mod rocksdb;
-pub mod rocksdb_options;
+
+extern crate libc;
+extern crate rocksdb_sys as ffi;
+
 pub mod merge_operator;
 pub mod comparator;
+
+mod rocksdb;
+mod rocksdb_options;
+
+pub use rocksdb::{DB, DBCompressionType, DBCompactionStyle, DBRecoveryMode, DBIterator, DBVector, Direction, IteratorMode, Writable, WriteBatch, Error, new_bloom_filter};
+pub use merge_operator::MergeOperands;
+
+pub struct BlockBasedOptions {
+    inner: *mut ffi::rocksdb_block_based_table_options_t,
+}
+
+pub struct Options {
+    inner: *mut ffi::rocksdb_options_t,
+}
+
+pub struct WriteOptions {
+    inner: *mut ffi::rocksdb_writeoptions_t,
+}
