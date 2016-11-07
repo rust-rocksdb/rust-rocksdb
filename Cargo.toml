@@ -1,25 +1,23 @@
 [package]
-
 name = "rocksdb"
-description = "A Rust wrapper for Facebook's RocksDB embeddable database."
+description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.4.1"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
 homepage = "https://github.com/spacejam/rust-rocksdb"
 exclude = [
-  ".gitignore",
-  ".travis.yml",
-  "deploy.sh",
-  "test/**/*",
+    ".gitignore",
+    ".travis.yml",
+    "deploy.sh",
+    "test/**/*",
 ]
 
 [features]
-default=[]
-valgrind=[]
+default = []
+valgrind = []
 
 [[test]]
-
 name = "test"
 path = "test/test.rs"
 

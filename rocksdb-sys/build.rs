@@ -14,6 +14,9 @@ fn link(name: &str, bundled: bool) {
 }
 
 fn build_rocksdb() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=rocksdb/");
+
     let mut config = gcc::Config::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
