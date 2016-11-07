@@ -14,28 +14,19 @@
 //
 
 use std::collections::BTreeMap;
-use std::ffi::{CStr, CString};
+use std::ffi::{CString};
+use std::fmt;
 use std::fs;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::slice;
-use std::str::from_utf8;
-use std::fmt;
+use std::str;
 
 use libc::{self, c_char, c_uchar, c_int, c_void, size_t};
 
 use {Options, WriteOptions};
 use ffi;
-
-fn error_message(ptr: *const i8) -> String {
-    let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
-    let s = from_utf8(c_str.to_bytes()).unwrap().to_owned();
-    unsafe {
-        libc::free(ptr as *mut c_void);
-    }
-    s
-}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
@@ -317,13 +308,12 @@ impl DB {
             return Err(Error::new(format!("Failed to create rocksdb directory: {:?}", e)));
         }
 
-        let mut err: *mut c_char = ptr::null_mut();
         let db: *mut ffi::rocksdb_t;
         let mut cf_map = BTreeMap::new();
 
         if cfs.len() == 0 {
             unsafe {
-                db = ffi::rocksdb_open(opts.inner, cpath_ptr as *const _, &mut err);
+                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath_ptr as *const _));
             }
         } else {
             let mut cfs_v = cfs.to_vec();
@@ -344,7 +334,7 @@ impl DB {
             let cfopts: Vec<_> = cfs_v.iter().map(|_| unsafe { ffi::rocksdb_options_create() as *const _ }).collect();
 
             unsafe {
-                db = ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _, cfs_v.len() as c_int, cfnames.as_ptr() as *const _, cfopts.as_ptr(), cfhandles.as_mut_ptr(), &mut err);
+                db = ffi_try!(ffi::rocksdb_open_column_families(opts.inner, cpath_ptr as *const _, cfs_v.len() as c_int, cfnames.as_ptr() as *const _, cfopts.as_ptr(), cfhandles.as_mut_ptr()));
             }
 
             for handle in &cfhandles {
@@ -358,9 +348,6 @@ impl DB {
             }
         }
 
-        if !err.is_null() {
-            return Err(Error::new(error_message(err)));
-        }
         if db.is_null() {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
@@ -374,24 +361,16 @@ impl DB {
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
-        let mut err: *mut c_char = ptr::null_mut();
         unsafe {
-            ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(), &mut err);
-        }
-        if !err.is_null() {
-            return Err(Error::new(error_message(err)));
+            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
 
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
-        let mut err: *mut c_char = ptr::null_mut();
         unsafe {
-            ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(), &mut err);
-        }
-        if !err.is_null() {
-            return Err(Error::new(error_message(err)));
+            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -401,12 +380,8 @@ impl DB {
     }
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
-        let mut err: *mut c_char = ptr::null_mut();
         unsafe {
-            ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner, &mut err);
-        }
-        if !err.is_null() {
-            return Err(Error::new(error_message(err)));
+            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
         }
         Ok(())
     }
@@ -428,11 +403,7 @@ impl DB {
 
         unsafe {
             let mut val_len: size_t = 0;
-            let mut err: *mut c_char = ptr::null_mut();
-            let val = ffi::rocksdb_get(self.inner, readopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, &mut val_len, &mut err) as *mut u8;
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            let val = ffi_try!(ffi::rocksdb_get(self.inner, readopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, &mut val_len)) as *mut u8;
             if val.is_null() {
                 Ok(None)
             } else {
@@ -453,11 +424,7 @@ impl DB {
 
         unsafe {
             let mut val_len: size_t = 0;
-            let mut err: *mut c_char = ptr::null_mut();
-            let val = ffi::rocksdb_get_cf(self.inner, readopts.inner, cf, key.as_ptr() as *const c_char, key.len() as size_t, &mut val_len, &mut err) as *mut u8;
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            let val = ffi_try!(ffi::rocksdb_get_cf(self.inner, readopts.inner, cf, key.as_ptr() as *const c_char, key.len() as size_t, &mut val_len)) as *mut u8;
             if val.is_null() {
                 Ok(None)
             } else {
@@ -477,15 +444,11 @@ impl DB {
                 return Err(Error::new("Failed to convert path to CString when opening rocksdb".to_owned()))
             }
         };
-        let mut err: *mut c_char = ptr::null_mut();
         let cf_handler = unsafe {
-            let cf_handler = ffi::rocksdb_create_column_family(self.inner, opts.inner, cname.as_ptr(), &mut err);
+            let cf_handler = ffi_try!(ffi::rocksdb_create_column_family(self.inner, opts.inner, cname.as_ptr()));
             self.cfs.insert(name.to_string(), cf_handler);
             cf_handler
         };
-        if !err.is_null() {
-            return Err(Error::new(error_message(err)));
-        }
         Ok(cf_handler)
     }
 
@@ -494,12 +457,8 @@ impl DB {
         if cf.is_none() {
             return Err(Error::new(format!("Invalid column family: {}", name).to_owned()));
         }
-        let mut err: *mut c_char = ptr::null_mut();
         unsafe {
-            ffi::rocksdb_drop_column_family(self.inner, *cf.unwrap(), &mut err);
-        }
-        if !err.is_null() {
-            return Err(Error::new(error_message(err)));
+            ffi_try!(ffi::rocksdb_drop_column_family(self.inner, *cf.unwrap()));
         }
         Ok(())
     }
@@ -525,66 +484,42 @@ impl DB {
 
     pub fn put_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            let mut err: *mut c_char = ptr::null_mut();
-            ffi::rocksdb_put(self.inner, writeopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, value.as_ptr() as *const c_char, value.len() as size_t, &mut err);
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            ffi_try!(ffi::rocksdb_put(self.inner, writeopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, value.as_ptr() as *const c_char, value.len() as size_t));
             Ok(())
         }
     }
 
     pub fn put_cf_opt(&self, cf: *mut ffi::rocksdb_column_family_handle_t, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            let mut err: *mut c_char = ptr::null_mut();
-            ffi::rocksdb_put_cf(self.inner, writeopts.inner, cf, key.as_ptr() as *const c_char, key.len() as size_t, value.as_ptr() as *const c_char, value.len() as size_t, &mut err);
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            ffi_try!(ffi::rocksdb_put_cf(self.inner, writeopts.inner, cf, key.as_ptr() as *const c_char, key.len() as size_t, value.as_ptr() as *const c_char, value.len() as size_t));
             Ok(())
         }
     }
 
     pub fn merge_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            let mut err: *mut c_char = ptr::null_mut();
-            ffi::rocksdb_merge(self.inner, writeopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, value.as_ptr() as *const c_char, value.len() as size_t, &mut err);
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            ffi_try!(ffi::rocksdb_merge(self.inner, writeopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, value.as_ptr() as *const c_char, value.len() as size_t));
             Ok(())
         }
     }
 
     fn merge_cf_opt(&self, cf: *mut ffi::rocksdb_column_family_handle_t, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            let mut err: *mut c_char = ptr::null_mut();
-            ffi::rocksdb_merge_cf(self.inner, writeopts.inner, cf, key.as_ptr() as *const i8, key.len() as size_t, value.as_ptr() as *const i8, value.len() as size_t, &mut err);
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            ffi_try!(ffi::rocksdb_merge_cf(self.inner, writeopts.inner, cf, key.as_ptr() as *const i8, key.len() as size_t, value.as_ptr() as *const i8, value.len() as size_t));
             Ok(())
         }
     }
 
     fn delete_opt(&self, key: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            let mut err: *mut c_char = ptr::null_mut();
-            ffi::rocksdb_delete(self.inner, writeopts.inner, key.as_ptr() as *const c_char, key.len() as size_t, &mut err);
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            ffi_try!(ffi::rocksdb_delete(self.inner, writeopts.inner, key.as_ptr() as *const c_char, key.len() as size_t));
             Ok(())
         }
     }
 
     fn delete_cf_opt(&self, cf: *mut ffi::rocksdb_column_family_handle_t, key: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            let mut err: *mut c_char = ptr::null_mut();
-            ffi::rocksdb_delete_cf(self.inner, writeopts.inner, cf, key.as_ptr() as *const c_char, key.len() as size_t, &mut err);
-            if !err.is_null() {
-                return Err(Error::new(error_message(err)));
-            }
+            ffi_try!(ffi::rocksdb_delete_cf(self.inner, writeopts.inner, cf, key.as_ptr() as *const c_char, key.len() as size_t));
             Ok(())
         }
     }
@@ -774,7 +709,7 @@ impl DBVector {
     }
 
     pub fn to_utf8(&self) -> Option<&str> {
-        from_utf8(self.deref()).ok()
+        str::from_utf8(self.deref()).ok()
     }
 }
 
@@ -798,9 +733,9 @@ fn external() {
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let db = DB::open_default(path).unwrap();
+    let _db = DB::open_default(path).unwrap();
     let opts = Options::default();
-    // The DB will still be open when we try to destroy and the lock should fail
+    // The DB will still be open when we try to destroy it and the lock should fail.
     match DB::destroy(&opts, path) {
         Err(s) => {
             assert!(s == Error::new("IO error: lock _rust_rocksdb_error/LOCK: No locks available".to_owned()))
@@ -857,7 +792,7 @@ fn iterator_test() {
         assert!(p.is_ok());
         let iter = db.iterator(IteratorMode::Start);
         for (k, v) in iter {
-            println!("Hello {}: {}", from_utf8(&*k).unwrap(), from_utf8(&*v).unwrap());
+            println!("Hello {}: {}", str::from_utf8(&*k).unwrap(), str::from_utf8(&*v).unwrap());
         }
     }
     let opts = Options::default();

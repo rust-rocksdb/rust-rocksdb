@@ -16,6 +16,9 @@
 extern crate libc;
 extern crate rocksdb_sys as ffi;
 
+#[macro_use]
+mod ffi_util;
+
 pub mod comparator;
 pub mod merge_operator;
 mod rocksdb;
