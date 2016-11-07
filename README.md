@@ -3,9 +3,9 @@ rust-rocksdb
 [![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
 [![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
-This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.4.1 crate should work with the Rust 1.9 stable and nightly releases as of 7/1/16.
+This library has been tested against RocksDB 3.13.1 on Linux and OS X.  The 0.4.1 crate should work with the Rust 1.9 stable and nightly releases as of 7/1/16.
 
-### status
+### Status
   - [x] basic open/put/get/delete/close
   - [x] rustic merge operator
   - [x] write batch (thanks @dgrnbrg!)
@@ -46,7 +46,7 @@ fn main() {
 }
 ```
 
-###### Doing an atomic commit of several writes
+###### Making an atomic commit of several writes
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, WriteBatch, Writable};
@@ -64,7 +64,7 @@ fn main() {
 }
 ```
 
-###### Getting an Iterator
+###### Getting an `Iterator`
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, Direction, IteratorMode};
@@ -93,7 +93,7 @@ fn main() {
 }
 ```
 
-###### Getting an Iterator from a Snapshot
+###### Getting an `Iterator` from a `Snapshot`
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, Direction};
