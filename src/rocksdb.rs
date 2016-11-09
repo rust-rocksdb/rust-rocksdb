@@ -400,7 +400,7 @@ impl DB {
         &self.path.as_path()
     }
 
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn write_opt(&self, batch: &WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         let mut err: *mut c_char = ptr::null_mut();
         unsafe {
             ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner, &mut err);
@@ -411,11 +411,11 @@ impl DB {
         Ok(())
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
+    pub fn write(&self, batch: &WriteBatch) -> Result<(), Error> {
         self.write_opt(batch, &WriteOptions::default())
     }
 
-    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error> {
+    pub fn write_without_wal(&self, batch: &WriteBatch) -> Result<(), Error> {
         let mut wo = WriteOptions::new();
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
@@ -623,6 +623,10 @@ impl WriteBatch {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn clear(&self) {
+        unsafe { ffi::rocksdb_writebatch_clear(self.inner) }
     }
 }
 
