@@ -22,7 +22,7 @@ pub mod comparator;
 mod rocksdb;
 mod rocksdb_options;
 
-pub use rocksdb::{DB, DBCompressionType, DBCompactionStyle, DBRecoveryMode, DBIterator, DBVector, Direction, IteratorMode, Writable, WriteBatch, Error, new_bloom_filter};
+pub use rocksdb::{DB, DBCompressionType, DBCompactionStyle, DBRecoveryMode, DBIterator, DBVector, Direction, IteratorMode, Snapshot, Writable, WriteBatch, Error, new_bloom_filter};
 pub use merge_operator::MergeOperands;
 
 pub struct BlockBasedOptions {
