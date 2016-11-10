@@ -1,4 +1,3 @@
-//
 // Copyright 2014 Tyler Neely, 2016 Alex Regueiro
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

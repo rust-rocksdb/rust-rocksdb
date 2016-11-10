@@ -16,13 +16,15 @@
 extern crate libc;
 extern crate rocksdb_sys as ffi;
 
-pub mod merge_operator;
-pub mod comparator;
+#[macro_use]
+mod ffi_util;
 
+pub mod comparator;
+pub mod merge_operator;
 mod rocksdb;
 mod rocksdb_options;
 
-pub use rocksdb::{DB, DBCompressionType, DBCompactionStyle, DBRecoveryMode, DBIterator, DBVector, Direction, IteratorMode, Writable, WriteBatch, Error, new_bloom_filter};
+pub use rocksdb::{DB, DBCompressionType, DBCompactionStyle, DBRecoveryMode, DBIterator, DBVector, Direction, Error, IteratorMode, Writable, WriteBatch, Snapshot, new_bloom_filter};
 pub use merge_operator::MergeOperands;
 
 pub struct BlockBasedOptions {
