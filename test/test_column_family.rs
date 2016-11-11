@@ -45,8 +45,9 @@ pub fn test_column_family() {
             families")
             }
             Err(e) => {
-                assert!(e.to_string().starts_with("Invalid argument: You have to open \
-                                       all column families."))
+                assert!(e.to_string()
+                    .starts_with("Invalid argument: You have to open all \
+                                  column families."))
             }
         }
     }

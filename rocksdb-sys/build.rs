@@ -27,12 +27,14 @@ fn build_rocksdb() {
     config.define("NDEBUG", Some("1"));
     config.define("SNAPPY", Some("1"));
 
-    let mut lib_sources = include_str!("rocksdb_lib_sources.txt").split(" ").collect::<Vec<&'static str>>();
+    let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
+        .split(" ")
+        .collect::<Vec<&'static str>>();
 
     // We have a pregenerated a version of build_version.cc in the local directory
-    lib_sources = lib_sources.iter().cloned().filter(|file| {
-            *file != "util/build_version.cc"
-        })
+    lib_sources = lib_sources.iter()
+        .cloned()
+        .filter(|file| *file != "util/build_version.cc")
         .collect::<Vec<&'static str>>();
 
     if cfg!(target_os = "macos") {
@@ -45,7 +47,7 @@ fn build_rocksdb() {
         config.define("OS_LINUX", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-        //COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
+        // COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
     }
     if cfg!(target_os = "freebsd") {
         config.define("OS_FREEBSD", Some("1"));
@@ -58,12 +60,14 @@ fn build_rocksdb() {
         config.define("OS_WIN", Some("1"));
 
         // Remove POSIX-specific sources
-        lib_sources = lib_sources.iter().cloned().filter(|file| {
+        lib_sources = lib_sources.iter()
+            .cloned()
+            .filter(|file| {
                 match *file {
                     "port/port_posix.cc" |
                     "util/env_posix.cc" |
                     "util/io_posix.cc" => false,
-                    _ => true
+                    _ => true,
                 }
             })
             .collect::<Vec<&'static str>>();

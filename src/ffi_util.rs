@@ -14,7 +14,7 @@
 //
 
 use libc::{self, c_char, c_void};
-use std::ffi::{CStr};
+use std::ffi::CStr;
 use std::str;
 
 pub fn error_message(ptr: *const c_char) -> String {

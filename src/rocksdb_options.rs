@@ -16,13 +16,14 @@
 use std::ffi::{CStr, CString};
 use std::mem;
 
-use libc::{self, c_int, c_uint, c_uchar, c_void, size_t, uint64_t};
+use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
-use {Options, WriteOptions, BlockBasedOptions};
+use {BlockBasedOptions, Options, WriteOptions};
 use comparator::{self, ComparatorCallback};
 use ffi;
-use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
-use rocksdb::{DBCompressionType, DBCompactionStyle, DBRecoveryMode, new_cache};
+use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
+                     partial_merge_callback};
+use rocksdb::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, new_cache};
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -58,7 +59,8 @@ impl BlockBasedOptions {
     pub fn set_lru_cache(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
-            // Since cache is wrapped in shared_ptr, we don't need to call rocksdb_cache_destroy explicitly.
+            // Since cache is wrapped in shared_ptr, we don't need to
+            // call rocksdb_cache_destroy explicitly.
             ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
         }
     }
@@ -84,9 +86,7 @@ impl BlockBasedOptions {
 
 impl Default for BlockBasedOptions {
     fn default() -> BlockBasedOptions {
-        let block_opts = unsafe {
-            ffi::rocksdb_block_based_options_create()
-        };
+        let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
         if block_opts.is_null() {
             panic!("Could not create rocksdb block based options".to_owned());
         }
@@ -117,7 +117,9 @@ impl Options {
 
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: usize) {
         unsafe {
-            ffi::rocksdb_options_optimize_level_style_compaction(self.inner, memtable_memory_budget as uint64_t);
+            ffi::rocksdb_options_optimize_level_style_compaction(
+                self.inner,
+                memtable_memory_budget as uint64_t);
         }
     }
 
@@ -184,7 +186,9 @@ impl Options {
     pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             let level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
-            ffi::rocksdb_options_set_compression_per_level(self.inner, level_types.as_ptr(), level_types.len() as size_t)
+            ffi::rocksdb_options_set_compression_per_level(self.inner,
+                                                           level_types.as_ptr(),
+                                                           level_types.len() as size_t)
         }
     }
 
@@ -195,7 +199,12 @@ impl Options {
         });
 
         unsafe {
-            let mo = ffi::rocksdb_mergeoperator_create(mem::transmute(cb), Some(merge_operator::destructor_callback), Some(full_merge_callback), Some(partial_merge_callback), None, Some(merge_operator::name_callback));
+            let mo = ffi::rocksdb_mergeoperator_create(mem::transmute(cb),
+                                                       Some(merge_operator::destructor_callback),
+                                                       Some(full_merge_callback),
+                                                       Some(partial_merge_callback),
+                                                       None,
+                                                       Some(merge_operator::name_callback));
             ffi::rocksdb_options_set_merge_operator(self.inner, mo);
         }
     }
@@ -208,7 +217,9 @@ impl Options {
     /// Sets the comparator used to define the order of keys in the table.
     /// Default: a comparator that uses lexicographic byte-wise ordering
     ///
-    /// The client must ensure that the comparator supplied here has the same name and orders keys *exactly* the same as the comparator provided to previous open calls on the same DB.
+    /// The client must ensure that the comparator supplied here has the same
+    /// name and orders keys *exactly* the same as the comparator provided to
+    /// previous open calls on the same DB.
     pub fn set_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
         let cb = Box::new(ComparatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
@@ -216,7 +227,10 @@ impl Options {
         });
 
         unsafe {
-            let cmp = ffi::rocksdb_comparator_create(mem::transmute(cb), Some(comparator::destructor_callback), Some(comparator::compare_callback), Some(comparator::name_callback));
+            let cmp = ffi::rocksdb_comparator_create(mem::transmute(cb),
+                                                     Some(comparator::destructor_callback),
+                                                     Some(comparator::compare_callback),
+                                                     Some(comparator::name_callback));
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
         }
     }
@@ -270,9 +284,7 @@ impl Options {
     /// opts.set_use_fsync(true);
     /// ```
     pub fn set_use_fsync(&mut self, useit: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_use_fsync(self.inner, useit as c_int)
-        }
+        unsafe { ffi::rocksdb_options_set_use_fsync(self.inner, useit as c_int) }
     }
 
     /// Allows OS to incrementally sync files to disk while they are being
@@ -304,9 +316,7 @@ impl Options {
     }
 
     pub fn set_disable_data_sync(&mut self, disable: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_disable_data_sync(self.inner, disable as c_int)
-        }
+        unsafe { ffi::rocksdb_options_set_disable_data_sync(self.inner, disable as c_int) }
     }
 
     /// Hints to the OS that it should not buffer disk I/O. Enabling this
@@ -722,9 +732,7 @@ impl Options {
     /// opts.set_disable_auto_compactions(true);
     /// ```
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int)
-        }
+        unsafe { ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int) }
     }
 
     pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {

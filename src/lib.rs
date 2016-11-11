@@ -24,7 +24,8 @@ pub mod merge_operator;
 mod rocksdb;
 mod rocksdb_options;
 
-pub use rocksdb::{DB, DBCompressionType, DBCompactionStyle, DBRecoveryMode, DBIterator, DBVector, Direction, Error, IteratorMode, Writable, WriteBatch, Snapshot, new_bloom_filter};
+pub use rocksdb::{DB, DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
+                  Direction, Error, IteratorMode, Snapshot, Writable, WriteBatch, new_bloom_filter};
 pub use merge_operator::MergeOperands;
 
 pub struct BlockBasedOptions {
