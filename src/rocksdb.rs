@@ -14,6 +14,7 @@
 //
 
 use std::collections::BTreeMap;
+use std::error;
 use std::ffi::CString;
 use std::fmt;
 use std::fs;
@@ -114,6 +115,16 @@ impl Error {
 impl From<Error> for String {
     fn from(e: Error) -> String {
         e.message
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        &self.message
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
     }
 }
 
