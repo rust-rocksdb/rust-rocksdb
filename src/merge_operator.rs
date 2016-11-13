@@ -13,6 +13,46 @@
 // limitations under the License.
 //
 
+//! rustic merge operator
+//!
+//! ```
+//! use rocksdb::{Options, DB, MergeOperands};
+//!
+//! fn concat_merge(new_key: &[u8],
+//!                 existing_val: Option<&[u8]>,
+//!                 operands: &mut MergeOperands)
+//!                 -> Vec<u8> {
+//!
+//!    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
+//!    existing_val.map(|v| {
+//!        for e in v {
+//!            result.push(*e)
+//!        }
+//!    });
+//!    for op in operands {
+//!        for e in op {
+//!            result.push(*e)
+//!        }
+//!    }
+//!    result
+//! }
+//!
+//! fn main() {
+//!    let path = "/path/to/rocksdb";
+//!    let mut opts = Options::default();
+//!    opts.create_if_missing(true);
+//!    opts.add_merge_operator("test operator", concat_merge);
+//!    let db = DB::open(&opts, path).unwrap();
+//!    let p = db.put(b"k1", b"a");
+//!    db.merge(b"k1", b"b");
+//!    db.merge(b"k1", b"c");
+//!    db.merge(b"k1", b"d");
+//!    db.merge(b"k1", b"efg");
+//!    let r = db.get(b"k1");
+//!    assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+//! }
+//! ```
+
 use std::ffi::CString;
 use std::mem;
 use std::ptr;
@@ -160,7 +200,7 @@ fn test_provided_merge(new_key: &[u8],
 #[test]
 fn mergetest() {
     use Options;
-    use rocksdb::{DB, Writable};
+    use rocksdb::DB;
 
     let path = "_rust_rocksdb_mergetest";
     let mut opts = Options::default();
