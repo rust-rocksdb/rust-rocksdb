@@ -4,6 +4,7 @@ Changelog
 0.5 (in development)
 ~~~~~~~~~~~~~~~~~~~~
 
+ * No more Writable trait, as WriteBatch is not thread-safe as a DB (spacejam)
  * All imports of `rocksdb::rocksdb::*` should now be simply `rocksdb::*` (alexreg)
  * Add iterator_cf to snapshot (jezell)
  * Changelog started
