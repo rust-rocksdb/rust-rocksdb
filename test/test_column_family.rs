@@ -59,6 +59,27 @@ pub fn test_column_family() {
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
     }
+    // TODO should be able to use writebatch ops with a cf
+    {
+    }
+    // TODO should be able to iterate over a cf
+    {
+    }
+    // should b able to drop a cf
+    {
+        let mut db = DB::open_cf(&Options::default(), path, &["cf1"]).unwrap();
+        match db.drop_cf("cf1") {
+            Ok(_) => println!("cf1 successfully dropped."),
+            Err(e) => panic!("failed to drop column family: {}", e),
+        }
+    }
+
+    assert!(DB::destroy(&Options::default(), path).is_ok());
+}
+
+#[ignore]
+fn test_cf_merge() {
+    let path = "_rust_rocksdb_cftest2";
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
         let mut opts = Options::default();
@@ -99,22 +120,7 @@ pub fn test_column_family() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    // TODO should be able to use writebatch ops with a cf
-    {
-    }
-    // TODO should be able to iterate over a cf
-    {
-    }
-    // should b able to drop a cf
-    {
-        let mut db = DB::open_cf(&Options::default(), path, &["cf1"]).unwrap();
-        match db.drop_cf("cf1") {
-            Ok(_) => println!("cf1 successfully dropped."),
-            Err(e) => panic!("failed to drop column family: {}", e),
-        }
-    }
 
-    assert!(DB::destroy(&Options::default(), path).is_ok());
 }
 
 fn test_provided_merge(_: &[u8],

@@ -22,6 +22,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::slice;
 use std::str::from_utf8;
+use std::sync::RwLock;
 
 use self::libc::size_t;
 
@@ -37,7 +38,7 @@ unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
 pub struct WriteBatch {
-    inner: rocksdb_ffi::DBWriteBatch,
+    inner: RwLock<rocksdb_ffi::DBWriteBatch>,
 }
 
 pub struct ReadOptions {
@@ -87,15 +88,13 @@ impl Iterator for DBIterator {
             let key_ptr = unsafe {
                 rocksdb_ffi::rocksdb_iter_key(native_iter, key_len_ptr)
             };
-            let key = unsafe {
-                slice::from_raw_parts(key_ptr, key_len as usize)
-            };
+            let key =
+                unsafe { slice::from_raw_parts(key_ptr, key_len as usize) };
             let val_ptr = unsafe {
                 rocksdb_ffi::rocksdb_iter_value(native_iter, val_len_ptr)
             };
-            let val = unsafe {
-                slice::from_raw_parts(val_ptr, val_len as usize)
-            };
+            let val =
+                unsafe { slice::from_raw_parts(val_ptr, val_len as usize) };
 
             Some((key.to_vec().into_boxed_slice(),
                   val.to_vec().into_boxed_slice()))
@@ -113,10 +112,7 @@ pub enum IteratorMode<'a> {
 
 
 impl DBIterator {
-    fn new(db: &DB,
-           readopts: &ReadOptions,
-           mode: IteratorMode)
-        -> DBIterator {
+    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
         unsafe {
             let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner,
                                                                 readopts.inner);
@@ -193,9 +189,8 @@ impl Drop for DBIterator {
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
-        let snapshot = unsafe {
-            rocksdb_ffi::rocksdb_create_snapshot(db.inner)
-        };
+        let snapshot =
+            unsafe { rocksdb_ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
             db: db,
             inner: snapshot,
@@ -270,14 +265,14 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                    .to_string())
             }
         };
         let cpath_ptr = cpath.as_ptr();
 
         let ospath = Path::new(path);
         if let Err(e) = fs::create_dir_all(&ospath) {
-            return Err(format!("Failed to create rocksdb directory: {:?}", e))
+            return Err(format!("Failed to create rocksdb directory: {:?}", e));
         }
 
         let mut err: *const i8 = 0 as *const i8;
@@ -301,27 +296,22 @@ impl DB {
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
             let c_cfs: Vec<CString> = cfs_v.iter()
-                                           .map(|cf| {
-                                               CString::new(cf.as_bytes())
-                                                   .unwrap()
-                                           })
-                                           .collect();
+                .map(|cf| CString::new(cf.as_bytes()).unwrap())
+                .collect();
 
             let cfnames: Vec<*const _> = c_cfs.iter()
-                                              .map(|cf| cf.as_ptr())
-                                              .collect();
+                .map(|cf| cf.as_ptr())
+                .collect();
 
             // These handles will be populated by DB.
-            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> =
-                cfs_v.iter()
-                     .map(|_| 0 as rocksdb_ffi::DBCFHandle)
-                     .collect();
+            let cfhandles: Vec<rocksdb_ffi::DBCFHandle> = cfs_v.iter()
+                .map(|_| 0 as rocksdb_ffi::DBCFHandle)
+                .collect();
 
             // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<rocksdb_ffi::DBOptions> =
-                cfs_v.iter()
-                     .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
-                     .collect();
+            let cfopts: Vec<rocksdb_ffi::DBOptions> = cfs_v.iter()
+                .map(|_| unsafe { rocksdb_ffi::rocksdb_options_create() })
+                .collect();
 
             // Prepare to ship to C.
             let copts: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
@@ -337,7 +327,7 @@ impl DB {
             for handle in &cfhandles {
                 if handle.is_null() {
                     return Err("Received null column family handle from DB."
-                                   .to_string());
+                        .to_string());
                 }
             }
 
@@ -399,10 +389,11 @@ impl DB {
                      -> Result<(), String> {
         let mut err: *const i8 = 0 as *const i8;
         let err_ptr: *mut *const i8 = &mut err;
+        let wb_inner = batch.inner.read().unwrap();
         unsafe {
             rocksdb_ffi::rocksdb_write(self.inner,
                                        writeopts.inner,
-                                       batch.inner,
+                                       *wb_inner,
                                        err_ptr);
         }
         if !err.is_null() {
@@ -424,7 +415,7 @@ impl DB {
                         fairly trivial call, and its failure may be \
                         indicative of a mis-compiled or mis-loaded rocksdb \
                         library."
-                           .to_string());
+                .to_string());
         }
 
         unsafe {
@@ -464,7 +455,7 @@ impl DB {
                         fairly trivial call, and its failure may be \
                         indicative of a mis-compiled or mis-loaded rocksdb \
                         library."
-                           .to_string());
+                .to_string());
         }
 
         unsafe {
@@ -507,7 +498,7 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
                             rocksdb"
-                               .to_string())
+                    .to_string())
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -734,15 +725,15 @@ impl Writable for DB {
 
 impl Default for WriteBatch {
     fn default() -> WriteBatch {
-        WriteBatch {
-            inner: unsafe { rocksdb_ffi::rocksdb_writebatch_create() },
-        }
+        let inner = unsafe { rocksdb_ffi::rocksdb_writebatch_create() };
+        WriteBatch { inner: RwLock::new(inner) }
     }
 }
 
 impl Drop for WriteBatch {
     fn drop(&mut self) {
-        unsafe { rocksdb_ffi::rocksdb_writebatch_destroy(self.inner) }
+        let inner = self.inner.write().unwrap();
+        unsafe { rocksdb_ffi::rocksdb_writebatch_destroy(*inner) }
     }
 }
 
@@ -759,8 +750,9 @@ impl Drop for DB {
 
 impl Writable for WriteBatch {
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        let inner = self.inner.write().unwrap();
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_put(self.inner,
+            rocksdb_ffi::rocksdb_writebatch_put(*inner,
                                                 key.as_ptr(),
                                                 key.len() as size_t,
                                                 value.as_ptr(),
@@ -774,8 +766,9 @@ impl Writable for WriteBatch {
               key: &[u8],
               value: &[u8])
               -> Result<(), String> {
+        let inner = self.inner.write().unwrap();
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_put_cf(self.inner,
+            rocksdb_ffi::rocksdb_writebatch_put_cf(*inner,
                                                    cf,
                                                    key.as_ptr(),
                                                    key.len() as size_t,
@@ -786,8 +779,9 @@ impl Writable for WriteBatch {
     }
 
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        let inner = self.inner.write().unwrap();
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_merge(self.inner,
+            rocksdb_ffi::rocksdb_writebatch_merge(*inner,
                                                   key.as_ptr(),
                                                   key.len() as size_t,
                                                   value.as_ptr(),
@@ -801,8 +795,9 @@ impl Writable for WriteBatch {
                 key: &[u8],
                 value: &[u8])
                 -> Result<(), String> {
+        let inner = self.inner.write().unwrap();
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_merge_cf(self.inner,
+            rocksdb_ffi::rocksdb_writebatch_merge_cf(*inner,
                                                      cf,
                                                      key.as_ptr(),
                                                      key.len() as size_t,
@@ -813,8 +808,9 @@ impl Writable for WriteBatch {
     }
 
     fn delete(&self, key: &[u8]) -> Result<(), String> {
+        let inner = self.inner.write().unwrap();
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_delete(self.inner,
+            rocksdb_ffi::rocksdb_writebatch_delete(*inner,
                                                    key.as_ptr(),
                                                    key.len() as size_t);
             Ok(())
@@ -822,8 +818,9 @@ impl Writable for WriteBatch {
     }
 
     fn delete_cf(&self, cf: DBCFHandle, key: &[u8]) -> Result<(), String> {
+        let inner = self.inner.write().unwrap();
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_delete_cf(self.inner,
+            rocksdb_ffi::rocksdb_writebatch_delete_cf(*inner,
                                                       cf,
                                                       key.as_ptr(),
                                                       key.len() as size_t);
