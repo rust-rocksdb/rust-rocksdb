@@ -78,7 +78,7 @@ pub enum DBRecoveryMode {
 /// ```
 /// use rocksdb::{DB, WriteBatch};
 ///
-/// let db = DB::open_default("/path/for/rocksdb/storage1").unwrap();
+/// let db = DB::open_default("path/for/rocksdb/storage1").unwrap();
 /// {
 ///     let mut batch = WriteBatch::default();
 ///     batch.put(b"my key", b"my value");
@@ -100,7 +100,7 @@ pub struct ReadOptions {
 /// ```
 /// use rocksdb::{DB, IteratorMode};
 ///
-/// let db = DB::open_default("/path/for/rocksdb/storage3").unwrap();
+/// let db = DB::open_default("path/for/rocksdb/storage3").unwrap();
 /// let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
 /// let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
 /// ```
@@ -116,7 +116,7 @@ pub struct Snapshot<'a> {
 /// ```
 /// use rocksdb::{DB, Direction, IteratorMode};
 ///
-/// let mut db = DB::open_default("/path/for/rocksdb/storage2").unwrap();
+/// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
 /// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
 /// for (key, value) in iter {
 ///     println!("Saw {:?} {:?}", key, value);

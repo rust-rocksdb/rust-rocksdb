@@ -38,7 +38,7 @@
 //! }
 //!
 //! fn main() {
-//!    let path = "/path/to/rocksdb";
+//!    let path = "path/to/rocksdb";
 //!    let mut opts = Options::default();
 //!    opts.create_if_missing(true);
 //!    opts.add_merge_operator("test operator", concat_merge);
