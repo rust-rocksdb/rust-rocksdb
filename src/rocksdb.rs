@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::slice;
 use std::str;
+use std::marker::PhantomData;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 
@@ -84,10 +85,11 @@ pub struct Snapshot<'a> {
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
-pub struct DBIterator {
+pub struct DBIterator<'a> {
     inner: *mut ffi::rocksdb_iterator_t,
     direction: Direction,
     just_seeked: bool,
+    phantom: PhantomData<&'a DB>,
 }
 
 pub enum Direction {
@@ -95,7 +97,7 @@ pub enum Direction {
     Reverse,
 }
 
-pub type KVBytes = (Box<[u8]>, Box<[u8]>);
+pub type Kv<'a> = (&'a [u8], &'a [u8]);
 
 #[derive(Debug, PartialEq)]
 pub struct Error {
@@ -130,10 +132,10 @@ impl fmt::Display for Error {
     }
 }
 
-impl Iterator for DBIterator {
-    type Item = KVBytes;
+impl<'a> Iterator for DBIterator<'a> {
+    type Item = Kv<'a>;
 
-    fn next(&mut self) -> Option<KVBytes> {
+    fn next(&mut self) -> Option<Kv<'a>> {
         let native_iter = self.inner;
         if !self.just_seeked {
             match self.direction {
@@ -155,7 +157,7 @@ impl Iterator for DBIterator {
                 unsafe { ffi::rocksdb_iter_value(native_iter, val_len_ptr) as *const c_uchar };
             let val = unsafe { slice::from_raw_parts(val_ptr, val_len as usize) };
 
-            Some((key.to_vec().into_boxed_slice(), val.to_vec().into_boxed_slice()))
+            Some((key, val))
         } else {
             None
         }
@@ -168,8 +170,8 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+impl<'a> DBIterator<'a> {
+    fn new(db: &'a DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
         unsafe {
             let iterator = ffi::rocksdb_create_iterator(db.inner, readopts.inner);
 
@@ -177,6 +179,7 @@ impl DBIterator {
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
+                phantom: PhantomData,
             };
             rv.set_mode(mode);
             rv
@@ -209,11 +212,11 @@ impl DBIterator {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
     }
 
-    fn new_cf(db: &DB,
+    fn new_cf(db: &'a DB,
               cf_handle: *mut ffi::rocksdb_column_family_handle_t,
               readopts: &ReadOptions,
               mode: IteratorMode)
-              -> Result<DBIterator, Error> {
+              -> Result<DBIterator<'a>, Error> {
         unsafe {
             let iterator = ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle);
 
@@ -221,6 +224,7 @@ impl DBIterator {
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
+                phantom: PhantomData,
             };
             rv.set_mode(mode);
             Ok(rv)
@@ -228,7 +232,7 @@ impl DBIterator {
     }
 }
 
-impl Drop for DBIterator {
+impl<'a> Drop for DBIterator<'a> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
