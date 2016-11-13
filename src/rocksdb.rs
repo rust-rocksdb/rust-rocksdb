@@ -122,10 +122,6 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         &self.message
     }
-
-    fn cause(&self) -> Option<&error::Error> {
-        None
-    }
 }
 
 impl fmt::Display for Error {
