@@ -318,6 +318,44 @@ impl DB {
         DB::open_cf(opts, path, &[])
     }
 
+    // Open the database in read-only mode with specified options
+    // FIXME(ng): reduce code duplication with open_cf
+    pub fn open_for_read_only<P: AsRef<Path>>(opts: &Options, path: P,
+                                              error_if_log_file_exist: bool)
+                                              -> Result<DB, Error> {
+        let path = path.as_ref();
+
+        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::new("Failed to convert path to CString \
+                                       when opening rocksdb"
+                    .to_owned()))
+            }
+        };
+        let cpath_ptr = cpath.as_ptr();
+
+        let db: *mut ffi::rocksdb_t;
+        let cf_map = BTreeMap::new();
+
+        unsafe {
+            db = ffi_try!(
+                ffi::rocksdb_open_for_read_only(
+                    opts.inner, cpath_ptr as *const _,
+                    error_if_log_file_exist as u8));
+        }
+
+        if db.is_null() {
+            return Err(Error::new("Could not initialize database.".to_owned()));
+        }
+
+        Ok(DB {
+            inner: db,
+            cfs: cf_map,
+            path: path.to_path_buf(),
+        })
+    }
+
     /// Open a database with specified options and column family
     ///
     /// A column family must be created first by calling `DB::create_cf`
