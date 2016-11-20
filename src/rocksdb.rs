@@ -911,10 +911,9 @@ fn errors_do_stuff() {
     // The DB will still be open when we try to destroy it and the lock should fail.
     match DB::destroy(&opts, path) {
         Err(s) => {
-            assert!(s ==
-                    Error::new("IO error: lock _rust_rocksdb_error/LOCK: No \
-                                locks available"
-                .to_owned()))
+            let message = s.to_string();
+            assert!(message.find("IO error:").is_some());
+            assert!(message.find("_rust_rocksdb_error/LOCK:").is_some());
         }
         Ok(_) => panic!("should fail"),
     }
