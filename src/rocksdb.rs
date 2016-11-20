@@ -37,7 +37,7 @@ pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
 
-/// RocksDB wrapper object.
+/// A RocksDB database.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
     cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
@@ -72,7 +72,7 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecords = 3,
 }
 
-/// An atomic batch of mutations.
+/// An atomic batch of write operations.
 ///
 /// Making an atomic commit of several writes:
 ///
@@ -346,14 +346,14 @@ impl DB {
         DB::open(&opts, path)
     }
 
-    /// Open the database with specified options
+    /// Open the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
     }
 
-    /// Open a database with specified options and column family
+    /// Open a database with specified options and column family.
     ///
-    /// A column family must be created first by calling `DB::create_cf`
+    /// A column family must be created first by calling `DB::create_cf`.
     ///
     /// # Panics
     ///
@@ -789,7 +789,7 @@ impl WriteBatch {
 
     /// Remove the database entry for key.
     ///
-    /// Returns Err if the key was not found
+    /// Returns an error if the key was not found.
     pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi::rocksdb_writebatch_delete(self.inner,
@@ -880,7 +880,7 @@ impl Default for ReadOptions {
     }
 }
 
-/// Wrapper around bytes stored in the database
+/// Vector of bytes stored in the database.
 pub struct DBVector {
     base: *mut u8,
     len: usize,

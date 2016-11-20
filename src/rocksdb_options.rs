@@ -125,7 +125,7 @@ impl Options {
 
     /// If true, the database will be created if it is missing.
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// # Example
     ///
@@ -247,12 +247,12 @@ impl Options {
     }
 
     /// Sets the number of open files that can be used by the DB. You may need to
-    /// increase this if your database has a large working set. Value -1 means
+    /// increase this if your database has a large working set. Value `-1` means
     /// files opened are always kept open. You can estimate number of files based
     /// on target_file_size_base and target_file_size_multiplier for level-based
-    /// compaction. For universal-style compaction, you can usually set it to -1.
+    /// compaction. For universal-style compaction, you can usually set it to `-1`.
     ///
-    /// Default: -1
+    /// Default: `-1`
     ///
     /// # Example
     ///
@@ -273,7 +273,7 @@ impl Options {
     /// This parameter should be set to true while storing data to
     /// filesystem like ext3 that can lose files after a reboot.
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// # Example
     ///
@@ -291,9 +291,9 @@ impl Options {
     /// written, asynchronously, in the background. This operation can be used
     /// to smooth out write I/Os over time. Users shouldn't rely on it for
     /// persistency guarantee.
-    /// Issue one request for every bytes_per_sync written. 0 turns it off.
+    /// Issue one request for every bytes_per_sync written. `0` turns it off.
     ///
-    /// Default: 0
+    /// Default: `0`
     ///
     /// You may consider using rate_limiter to regulate write rate to device.
     /// When rate limiter is enabled, it automatically enables bytes_per_sync
@@ -331,7 +331,7 @@ impl Options {
     /// cache. If the disk block is requested again this can result in
     /// additional disk I/O.
     ///
-    /// On WINDOWS system, files will be opened in "unbuffered I/O" mode
+    /// On WINDOWS systems, files will be opened in "unbuffered I/O" mode
     /// which means that data read from the disk will not be cached or
     /// bufferized. The hardware buffer of the devices may however still
     /// be used. Memory mapped files are not impacted by this parameter.
@@ -354,7 +354,7 @@ impl Options {
 
     /// Sets the number of shards used for table cache.
     ///
-    /// Default: 6
+    /// Default: `6`
     ///
     /// # Example
     ///
@@ -371,14 +371,14 @@ impl Options {
     }
 
     /// Sets the minimum number of write buffers that will be merged together
-    /// before writing to storage.  If set to 1, then
+    /// before writing to storage.  If set to `1`, then
     /// all write buffers are flushed to L0 as individual files and this increases
     /// read amplification because a get request has to check in all of these
     /// files. Also, an in-memory merge may result in writing lesser
     /// data to storage if there are duplicate records in each of these
     /// individual write buffers.
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -410,9 +410,9 @@ impl Options {
     /// Increasing this value can reduce the number of reads to SST files
     /// done for conflict detection.
     ///
-    /// Setting this value to 0 will cause write buffers to be freed immediately
+    /// Setting this value to `0` will cause write buffers to be freed immediately
     /// after they are flushed.
-    /// If this value is set to -1, 'max_write_buffer_number' will be used.
+    /// If this value is set to `-1`, 'max_write_buffer_number' will be used.
     ///
     /// Default:
     /// If using a TransactionDB/OptimisticTransactionDB, the default value will
@@ -446,7 +446,7 @@ impl Options {
     /// Note that write_buffer_size is enforced per column family.
     /// See db_write_buffer_size for sharing memory across column families.
     ///
-    /// Default: 67108864 (64MiB)
+    /// Default: `0x4000000` (64MiB)
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -473,7 +473,7 @@ impl Options {
     /// will be 200MB, total file size for level-2 will be 2GB,
     /// and total file size for level-3 will be 20GB.
     ///
-    /// Default: 268435456 (256MiB).
+    /// Default: `0x10000000` (256MiB).
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -491,7 +491,7 @@ impl Options {
         }
     }
 
-    /// Default: 10
+    /// Default: `10`
     ///
     /// # Example
     ///
@@ -534,7 +534,7 @@ impl Options {
     /// be 2MB, and each file on level 2 will be 20MB,
     /// and each file on level-3 will be 200MB.
     ///
-    /// Default: 67108864 (64MiB)
+    /// Default: `0x4000000` (64MiB)
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -553,14 +553,14 @@ impl Options {
     }
 
     /// Sets the minimum number of write buffers that will be merged together
-    /// before writing to storage.  If set to 1, then
+    /// before writing to storage.  If set to `1`, then
     /// all write buffers are flushed to L0 as individual files and this increases
     /// read amplification because a get request has to check in all of these
     /// files. Also, an in-memory merge may result in writing lesser
     /// data to storage if there are duplicate records in each of these
     /// individual write buffers.
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -576,10 +576,10 @@ impl Options {
         }
     }
 
-    /// Sets the number of files to trigger level-0 compaction. A value <0 means that
+    /// Sets the number of files to trigger level-0 compaction. A value < `0` means that
     /// level-0 compaction will not be triggered by number of files at all.
     ///
-    /// Default: 4
+    /// Default: `4`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -598,10 +598,10 @@ impl Options {
     }
 
     /// Sets the soft limit on number of level-0 files. We start slowing down writes at this
-    /// point. A value <0 means that no writing slow down will be triggered by
+    /// point. A value < `0` means that no writing slow down will be triggered by
     /// number of files in level-0.
     ///
-    /// Default: 20
+    /// Default: `20`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -621,7 +621,7 @@ impl Options {
 
     /// Sets the maximum number of level-0 files.  We stop writes at this point.
     ///
-    /// Default: 24
+    /// Default: `24`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -669,7 +669,7 @@ impl Options {
     /// LOW priority thread pool. For more information, see
     /// Env::SetBackgroundThreads
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -700,7 +700,7 @@ impl Options {
     /// HIGH priority thread pool. For more information, see
     /// Env::SetBackgroundThreads
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -719,7 +719,7 @@ impl Options {
     /// Disables automatic compactions. Manual compactions can still
     /// be issued on this column family
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -741,9 +741,9 @@ impl Options {
         }
     }
 
-    /// Measure IO stats in compactions and flushes, if true.
+    /// Measure IO stats in compactions and flushes, if `true`.
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// # Example
     ///
@@ -759,7 +759,7 @@ impl Options {
         }
     }
 
-    /// Recovery mode to control the consistency while replaying WAL
+    /// Recovery mode to control the consistency while replaying WAL.
     ///
     /// Default: DBRecoveryMode::PointInTime
     ///
@@ -797,9 +797,9 @@ impl Options {
         }
     }
 
-    /// If not zero, dump rocksdb.stats to LOG every stats_dump_period_sec
+    /// If not zero, dump `rocksdb.stats` to LOG every `stats_dump_period_sec`.
     ///
-    /// Default: 600 (10 min)
+    /// Default: `600` (10 mins)
     ///
     /// # Example
     ///
@@ -815,7 +815,7 @@ impl Options {
         }
     }
 
-    /// Sets the number of levels for this database
+    /// Sets the number of levels for this database.
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
