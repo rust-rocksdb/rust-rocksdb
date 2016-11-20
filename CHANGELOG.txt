@@ -4,6 +4,23 @@ Changelog
 0.5 (in development)
 ~~~~~~~~~~~~~~~~~~~~
 
+**Breaking changes**
+
+ * No more Writable trait, as WriteBatch is not thread-safe as a DB (spacejam)
  * All imports of `rocksdb::rocksdb::*` should now be simply `rocksdb::*` (alexreg)
+ * All errors changed to use a new `rocksdb::Error` type (kaedroho, alexreg)
+ * Removed `Options.set_filter_deletes` as it was removed in RocksDB (kaedroho)
+ * Renamed `add_merge_operator` to `set_merge_operator` and `add_comparator` to `set_comparator` (kaedroho)
+ 
+ **New features**
+ 
+ * Windows support (development by jsgf and arkpar. ported by kaedroho)
+ * The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by jsgf and arkpar. ported by kaedroho)
+ * Cleaned up and improved coverage and tests of the ffi module (alexreg)
+ * Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2. ported by kaedroho)
+ * Added `len` and `is_empty` methods to `WriteBatch` (development by siddontang. ported by kaedroho)
+ * Added `path` mathod to `DB` (development by siddontang. ported by kaedroho)
+ * `DB::open` now accepts any type that implements `Into<Path>` as the path argument (kaedroho)
+ * `DB` now implements the `Debug` trait (kaedroho)
  * Add iterator_cf to snapshot (jezell)
  * Changelog started

@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{DB, MergeOperands, Options, Writable};
+use rocksdb::{DB, MergeOperands, Options};
 
 #[test]
 pub fn test_column_family() {
@@ -96,8 +96,7 @@ fn test_merge_operator() {
         };
         let cf1 = *db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() ==
-                "v1");
+        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         db.merge_cf(cf1, b"k1", b"b").unwrap();

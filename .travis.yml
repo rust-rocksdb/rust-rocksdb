@@ -14,7 +14,7 @@ addons:
       - g++-5
 
 script:
-  - cargo test --manifest-path=rocksdb-sys/Cargo.toml
+  - cargo test --manifest-path=librocksdb-sys/Cargo.toml
   - cargo test
 
 cache:
