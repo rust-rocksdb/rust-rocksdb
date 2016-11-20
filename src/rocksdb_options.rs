@@ -19,7 +19,7 @@ use std::mem;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
 use {BlockBasedOptions, Options, WriteOptions};
-use comparator::{self, ComparatorCallback};
+use comparator::{self, ComparatorCallback, CompareFn};
 use ffi;
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
@@ -220,7 +220,7 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         let cb = Box::new(ComparatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             f: compare_fn,
@@ -236,7 +236,7 @@ impl Options {
     }
 
     #[deprecated(since = "0.5.0", note = "add_comparator has been renamed to set_comparator")]
-    pub fn add_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         self.set_comparator(name, compare_fn);
     }
 
