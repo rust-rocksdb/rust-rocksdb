@@ -49,27 +49,27 @@ unsafe impl Sync for DB {}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBCompressionType {
-    None = 0,
-    Snappy = 1,
-    Zlib = 2,
-    Bz2 = 3,
-    Lz4 = 4,
-    Lz4hc = 5,
+    None = ffi::rocksdb_no_compression as isize,
+    Snappy = ffi::rocksdb_snappy_compression as isize,
+    Zlib = ffi::rocksdb_zlib_compression as isize,
+    Bz2 = ffi::rocksdb_bz2_compression as isize,
+    Lz4 = ffi::rocksdb_lz4_compression as isize,
+    Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBCompactionStyle {
-    Level = 0,
-    Universal = 1,
-    Fifo = 2,
+    Level = ffi::rocksdb_level_compaction as isize,
+    Universal = ffi::rocksdb_universal_compaction as isize,
+    Fifo = ffi::rocksdb_fifo_compaction as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBRecoveryMode {
-    TolerateCorruptedTailRecords = 0,
-    AbsoluteConsistency = 1,
-    PointInTime = 2,
-    SkipAnyCorruptedRecords = 3,
+    TolerateCorruptedTailRecords = ffi::rocksdb_recovery_mode_tolerate_corrupted_tail_records as isize,
+    AbsoluteConsistency = ffi::rocksdb_recovery_mode_absolute_consistency as isize,
+    PointInTime = ffi::rocksdb_recovery_mode_point_in_time as isize,
+    SkipAnyCorruptedRecord = ffi::rocksdb_recovery_mode_skip_any_corrupted_record as isize,
 }
 
 /// An atomic batch of write operations.
