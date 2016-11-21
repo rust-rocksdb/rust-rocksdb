@@ -183,7 +183,7 @@ impl Options {
     ///     DBCompressionType::Snappy
     /// ]);
     /// ```
-    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+    pub fn set_compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             let level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
             ffi::rocksdb_options_set_compression_per_level(self.inner,
@@ -346,7 +346,7 @@ impl Options {
     /// let mut opts = Options::default();
     /// opts.allow_os_buffer(false);
     /// ```
-    pub fn allow_os_buffer(&mut self, is_allow: bool) {
+    pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
         unsafe {
             ffi::rocksdb_options_set_allow_os_buffer(self.inner, is_allow as c_uchar);
         }
