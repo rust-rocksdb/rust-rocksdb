@@ -649,6 +649,16 @@ impl DB {
         }
     }
 
+    pub fn compact_range(&self, start_key: &[u8], limit_key: &[u8]) {
+        unsafe {
+            ffi::rocksdb_compact_range(self.inner,
+                                    start_key.as_ptr() as *const c_char,
+                                    start_key.len() as size_t,
+                                    limit_key.as_ptr() as *const c_char,
+                                    limit_key.len() as size_t);
+        }
+    }
+
     fn merge_cf_opt(&self,
                     cf: *mut ffi::rocksdb_column_family_handle_t,
                     key: &[u8],
