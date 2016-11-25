@@ -26,7 +26,7 @@ use std::str;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 
-use {Options, WriteOptions};
+use {Options, WriteOptions, FlushOptions};
 use ffi;
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
@@ -666,6 +666,13 @@ impl DB {
                                        start_key.len() as size_t,
                                        limit_key_ptr,
                                        limit_key.len() as size_t);
+        }
+    }
+
+    pub fn flush(&self, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
+            Ok(())
         }
     }
 

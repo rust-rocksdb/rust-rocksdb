@@ -39,3 +39,7 @@ pub struct Options {
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
 }
+
+pub struct FlushOptions {
+    inner: *mut ffi::rocksdb_flushoptions_t,
+}

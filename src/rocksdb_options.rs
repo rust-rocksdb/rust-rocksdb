@@ -18,7 +18,7 @@ use std::mem;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
-use {BlockBasedOptions, Options, WriteOptions};
+use {BlockBasedOptions, Options, WriteOptions, FlushOptions};
 use comparator::{self, ComparatorCallback};
 use ffi;
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
@@ -45,6 +45,14 @@ impl Drop for WriteOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for FlushOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_flushoptions_destroy(self.inner);
         }
     }
 }
@@ -861,6 +869,22 @@ impl Default for WriteOptions {
             panic!("Could not create rocksdb write options".to_owned());
         }
         WriteOptions { inner: write_opts }
+    }
+}
+
+impl FlushOptions {
+    pub fn new() -> FlushOptions {
+        FlushOptions::default()
+    }
+}
+
+impl Default for FlushOptions {
+    fn default() -> FlushOptions {
+        let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
+        if flush_opts.is_null() {
+            panic!("Could not create rocksdb flush options".to_owned());
+        }
+        FlushOptions { inner : flush_opts }
     }
 }
 
