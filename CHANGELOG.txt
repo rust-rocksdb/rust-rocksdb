@@ -1,8 +1,11 @@
 Changelog
 =========
 
-0.5 (in development)
+0.6 (in development)
 ~~~~~~~~~~~~~~~~~~~~
+
+0.5 (2016-11-20)
+~~~~~~~~~~~~~~~~
 
 **Breaking changes**
 
