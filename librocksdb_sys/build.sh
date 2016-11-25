@@ -26,15 +26,16 @@ function md5_check() {
     [[ "$hash" == "$2" ]] || error $1: hash not correct, expect $2, got $hash
 }
 
+retry=3
 function download() {
     if [[ -f $2 ]] && md5_check $2 $3; then
         return
     fi
 
-    if which wget &>/dev/null; then
-        wget $1 -O $2
-    elif which curl &>/dev/null; then
-        curl -L $1 -o $2
+    if which curl &>/dev/null; then
+        curl --retry $retry -L $1 -o $2
+    elif which wget &>/dev/null; then
+        wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries $retry $1 -O $2
     else
         error can\'t find wget and curl.
     fi
