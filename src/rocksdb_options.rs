@@ -88,7 +88,7 @@ impl Default for BlockBasedOptions {
     fn default() -> BlockBasedOptions {
         let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
         if block_opts.is_null() {
-            panic!("Could not create rocksdb block based options".to_owned());
+            panic!("Could not create RocksDB block based options");
         }
         BlockBasedOptions { inner: block_opts }
     }
@@ -828,13 +828,12 @@ impl Default for Options {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
-                panic!("Could not create rocksdb options".to_owned());
+                panic!("Could not create RocksDB options");
             }
             Options { inner: opts }
         }
     }
 }
-
 
 impl WriteOptions {
     pub fn new() -> WriteOptions {
@@ -858,7 +857,7 @@ impl Default for WriteOptions {
     fn default() -> WriteOptions {
         let write_opts = unsafe { ffi::rocksdb_writeoptions_create() };
         if write_opts.is_null() {
-            panic!("Could not create rocksdb write options".to_owned());
+            panic!("Could not create RocksDB write options");
         }
         WriteOptions { inner: write_opts }
     }

@@ -14,19 +14,18 @@
 //
 
 use std::collections::BTreeMap;
-use std::error;
 use std::ffi::CString;
 use std::fmt;
 use std::fs;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use std::ptr;
 use std::slice;
 use std::str;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 
-use {Options, WriteOptions};
+use {DB, Error, Options, WriteOptions};
 use ffi;
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
@@ -35,13 +34,6 @@ pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
-}
-
-/// A RocksDB database.
-pub struct DB {
-    inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
-    path: PathBuf,
 }
 
 unsafe impl Send for DB {}
@@ -150,39 +142,6 @@ pub enum Direction {
 }
 
 pub type KVBytes = (Box<[u8]>, Box<[u8]>);
-
-#[derive(Debug, PartialEq)]
-pub struct Error {
-    message: String,
-}
-
-impl Error {
-    fn new(message: String) -> Error {
-        Error { message: message }
-    }
-
-    pub fn to_string(self) -> String {
-        self.into()
-    }
-}
-
-impl From<Error> for String {
-    fn from(e: Error) -> String {
-        e.message
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        &self.message
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.message.fmt(formatter)
-    }
-}
 
 impl Iterator for DBIterator {
     type Item = KVBytes;
@@ -357,23 +316,21 @@ impl DB {
     ///
     /// # Panics
     ///
-    /// * Panics if the column family doesn't exist
+    /// * Panics if the column family doesn't exist.
     pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
         let path = path.as_ref();
-
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new("Failed to convert path to CString \
-                                       when opening rocksdb"
+                                       when opening DB."
                     .to_owned()))
             }
         };
-        let cpath_ptr = cpath.as_ptr();
 
         if let Err(e) = fs::create_dir_all(&path) {
-            return Err(Error::new(format!("Failed to create rocksdb \
-                                           directory: {:?}",
+            return Err(Error::new(format!("Failed to create RocksDB\
+                                           directory: `{:?}`.",
                                           e)));
         }
 
@@ -382,7 +339,7 @@ impl DB {
 
         if cfs.len() == 0 {
             unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath_ptr as *const _));
+                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
             }
         } else {
             let mut cfs_v = cfs.to_vec();
@@ -409,7 +366,7 @@ impl DB {
 
             unsafe {
                 db = ffi_try!(ffi::rocksdb_open_column_families(opts.inner,
-                                                                cpath_ptr as *const _,
+                                                                cpath.as_ptr() as *const _,
                                                                 cfs_v.len() as c_int,
                                                                 cfnames.as_ptr() as *const _,
                                                                 cfopts.as_ptr(),
@@ -479,10 +436,10 @@ impl DB {
 
     pub fn get_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err(Error::new("Unable to create rocksdb read options. \
+            return Err(Error::new("Unable to create RocksDB read options. \
                                    This is a fairly trivial call, and its \
                                    failure may be indicative of a \
-                                   mis-compiled or mis-loaded rocksdb \
+                                   mis-compiled or mis-loaded RocksDB \
                                    library."
                 .to_owned()));
         }
@@ -513,10 +470,10 @@ impl DB {
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err(Error::new("Unable to create rocksdb read options. \
+            return Err(Error::new("Unable to create RocksDB read options. \
                                    This is a fairly trivial call, and its \
                                    failure may be indicative of a \
-                                   mis-compiled or mis-loaded rocksdb \
+                                   mis-compiled or mis-loaded RocksDB \
                                    library."
                 .to_owned()));
         }
