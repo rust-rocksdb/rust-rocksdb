@@ -53,12 +53,12 @@
 //! }
 //! ```
 
+
+use libc::{self, c_char, c_int, c_void, size_t};
 use std::ffi::CString;
 use std::mem;
 use std::ptr;
 use std::slice;
-
-use libc::{self, c_char, c_int, c_void, size_t};
 
 pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>;
 

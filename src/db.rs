@@ -13,27 +13,23 @@
 // limitations under the License.
 //
 
+
+use {DB, Error, Options, WriteOptions};
+use ffi;
+
+use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fmt;
 use std::fs;
 use std::ops::Deref;
-use std::path::{Path};
+use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
 
-use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
-
-use {DB, Error, Options, WriteOptions};
-use ffi;
-
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
-}
-
-pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
-    unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
 
 unsafe impl Send for DB {}

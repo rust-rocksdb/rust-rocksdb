@@ -40,17 +40,17 @@ mod ffi_util;
 pub mod backup;
 mod comparator;
 pub mod merge_operator;
-mod rocksdb;
-mod rocksdb_options;
+mod db;
+mod db_options;
 
+pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
+             Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
+
+pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::path::{PathBuf};
-
-pub use merge_operator::MergeOperands;
-pub use rocksdb::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
-                  Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
+use std::path::PathBuf;
 
 /// A RocksDB database.
 pub struct DB {

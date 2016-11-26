@@ -13,17 +13,21 @@
 // limitations under the License.
 //
 
+
+use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
+     WriteOptions};
+use comparator::{self, ComparatorCallback, CompareFn};
+use ffi;
+
+use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
+use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
+                     partial_merge_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
 
-use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
-
-use {BlockBasedOptions, Options, WriteOptions};
-use comparator::{self, ComparatorCallback, CompareFn};
-use ffi;
-use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
-                     partial_merge_callback};
-use rocksdb::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, new_cache};
+pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
+    unsafe { ffi::rocksdb_cache_create_lru(capacity) }
+}
 
 impl Drop for Options {
     fn drop(&mut self) {

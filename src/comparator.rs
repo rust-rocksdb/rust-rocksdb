@@ -13,12 +13,12 @@
 // limitations under the License.
 //
 
+
+use libc::{c_char, c_int, c_void, size_t};
 use std::cmp::Ordering;
 use std::ffi::CString;
 use std::mem;
 use std::slice;
-
-use libc::{c_char, c_int, c_void, size_t};
 
 pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
 
