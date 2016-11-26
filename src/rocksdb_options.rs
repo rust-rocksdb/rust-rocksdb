@@ -175,7 +175,7 @@ impl Options {
     /// use rocksdb::{Options, DBCompressionType};
     ///
     /// let mut opts = Options::default();
-    /// opts.compression_per_level(&[
+    /// opts.set_compression_per_level(&[
     ///     DBCompressionType::None,
     ///     DBCompressionType::None,
     ///     DBCompressionType::Snappy,
@@ -344,7 +344,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
-    /// opts.allow_os_buffer(false);
+    /// opts.set_allow_os_buffer(false);
     /// ```
     pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
         unsafe {
