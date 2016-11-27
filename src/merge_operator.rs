@@ -199,8 +199,7 @@ fn test_provided_merge(new_key: &[u8],
 
 #[test]
 fn mergetest() {
-    use Options;
-    use rocksdb::DB;
+    use {DB, Options};
 
     let path = "_rust_rocksdb_mergetest";
     let mut opts = Options::default();
