@@ -4,6 +4,9 @@ Changelog
 0.6 (in development)
 ~~~~~~~~~~~~~~~~~~~~
 
+**Breaking changes**
+ * Comparator function now returns an Ordering (alexreg)
+
 0.5 (2016-11-20)
 ~~~~~~~~~~~~~~~~
 
