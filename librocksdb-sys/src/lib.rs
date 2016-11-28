@@ -958,6 +958,11 @@ pub const rocksdb_fifo_compaction: c_int = 2;
 pub const rocksdb_similar_size_compaction_stop_style: c_int = 0;
 pub const rocksdb_total_size_compaction_stop_style: c_int = 1;
 
+pub const rocksdb_recovery_mode_tolerate_corrupted_tail_records: c_int = 0;
+pub const rocksdb_recovery_mode_absolute_consistency: c_int = 1;
+pub const rocksdb_recovery_mode_point_in_time: c_int = 2;
+pub const rocksdb_recovery_mode_skip_any_corrupted_record: c_int = 3;
+
 pub enum rocksdb_t { }
 
 pub enum rocksdb_backup_engine_t { }

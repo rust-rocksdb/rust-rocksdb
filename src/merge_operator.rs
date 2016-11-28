@@ -53,12 +53,12 @@
 //! }
 //! ```
 
+
+use libc::{self, c_char, c_int, c_void, size_t};
 use std::ffi::CString;
 use std::mem;
 use std::ptr;
 use std::slice;
-
-use libc::{self, c_char, c_int, c_void, size_t};
 
 pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>;
 
@@ -199,8 +199,7 @@ fn test_provided_merge(new_key: &[u8],
 
 #[test]
 fn mergetest() {
-    use Options;
-    use rocksdb::DB;
+    use {DB, Options};
 
     let path = "_rust_rocksdb_mergetest";
     let mut opts = Options::default();

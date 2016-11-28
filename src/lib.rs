@@ -37,15 +37,60 @@ extern crate librocksdb_sys as ffi;
 #[macro_use]
 mod ffi_util;
 
+pub mod backup;
 mod comparator;
 pub mod merge_operator;
-mod rocksdb;
-mod rocksdb_options;
+mod db;
+mod db_options;
 
-pub use rocksdb::{DB, DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
-                  Direction, Error, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
+pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
+             Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
+use std::collections::BTreeMap;
+use std::error;
+use std::fmt;
+use std::path::PathBuf;
+
+/// A RocksDB database.
+pub struct DB {
+    inner: *mut ffi::rocksdb_t,
+    cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
+    path: PathBuf,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Error {
+    message: String,
+}
+
+impl Error {
+    fn new(message: String) -> Error {
+        Error { message: message }
+    }
+
+    pub fn to_string(self) -> String {
+        self.into()
+    }
+}
+
+impl From<Error> for String {
+    fn from(e: Error) -> String {
+        e.message
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        &self.message
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.message.fmt(formatter)
+    }
+}
 
 /// For configuring block-based file storage.
 pub struct BlockBasedOptions {

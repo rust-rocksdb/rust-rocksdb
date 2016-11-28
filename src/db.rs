@@ -13,35 +13,23 @@
 // limitations under the License.
 //
 
+
+use {DB, Error, Options, WriteOptions};
+use ffi;
+
+use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
-use std::error;
 use std::ffi::CString;
 use std::fmt;
 use std::fs;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
 
-use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
-
-use {Options, WriteOptions};
-use ffi;
-
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
-}
-
-pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
-    unsafe { ffi::rocksdb_cache_create_lru(capacity) }
-}
-
-/// RocksDB wrapper object.
-pub struct DB {
-    inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
-    path: PathBuf,
 }
 
 unsafe impl Send for DB {}
@@ -49,30 +37,30 @@ unsafe impl Sync for DB {}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBCompressionType {
-    None = 0,
-    Snappy = 1,
-    Zlib = 2,
-    Bz2 = 3,
-    Lz4 = 4,
-    Lz4hc = 5,
+    None = ffi::rocksdb_no_compression as isize,
+    Snappy = ffi::rocksdb_snappy_compression as isize,
+    Zlib = ffi::rocksdb_zlib_compression as isize,
+    Bz2 = ffi::rocksdb_bz2_compression as isize,
+    Lz4 = ffi::rocksdb_lz4_compression as isize,
+    Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBCompactionStyle {
-    Level = 0,
-    Universal = 1,
-    Fifo = 2,
+    Level = ffi::rocksdb_level_compaction as isize,
+    Universal = ffi::rocksdb_universal_compaction as isize,
+    Fifo = ffi::rocksdb_fifo_compaction as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBRecoveryMode {
-    TolerateCorruptedTailRecords = 0,
-    AbsoluteConsistency = 1,
-    PointInTime = 2,
-    SkipAnyCorruptedRecords = 3,
+    TolerateCorruptedTailRecords = ffi::rocksdb_recovery_mode_tolerate_corrupted_tail_records as isize,
+    AbsoluteConsistency = ffi::rocksdb_recovery_mode_absolute_consistency as isize,
+    PointInTime = ffi::rocksdb_recovery_mode_point_in_time as isize,
+    SkipAnyCorruptedRecord = ffi::rocksdb_recovery_mode_skip_any_corrupted_record as isize,
 }
 
-/// An atomic batch of mutations.
+/// An atomic batch of write operations.
 ///
 /// Making an atomic commit of several writes:
 ///
@@ -150,39 +138,6 @@ pub enum Direction {
 }
 
 pub type KVBytes = (Box<[u8]>, Box<[u8]>);
-
-#[derive(Debug, PartialEq)]
-pub struct Error {
-    message: String,
-}
-
-impl Error {
-    fn new(message: String) -> Error {
-        Error { message: message }
-    }
-
-    pub fn to_string(self) -> String {
-        self.into()
-    }
-}
-
-impl From<Error> for String {
-    fn from(e: Error) -> String {
-        e.message
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        &self.message
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.message.fmt(formatter)
-    }
-}
 
 impl Iterator for DBIterator {
     type Item = KVBytes;
@@ -346,34 +301,32 @@ impl DB {
         DB::open(&opts, path)
     }
 
-    /// Open the database with specified options
+    /// Open the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
     }
 
-    /// Open a database with specified options and column family
+    /// Open a database with specified options and column family.
     ///
-    /// A column family must be created first by calling `DB::create_cf`
+    /// A column family must be created first by calling `DB::create_cf`.
     ///
     /// # Panics
     ///
-    /// * Panics if the column family doesn't exist
+    /// * Panics if the column family doesn't exist.
     pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
         let path = path.as_ref();
-
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new("Failed to convert path to CString \
-                                       when opening rocksdb"
+                                       when opening DB."
                     .to_owned()))
             }
         };
-        let cpath_ptr = cpath.as_ptr();
 
         if let Err(e) = fs::create_dir_all(&path) {
-            return Err(Error::new(format!("Failed to create rocksdb \
-                                           directory: {:?}",
+            return Err(Error::new(format!("Failed to create RocksDB\
+                                           directory: `{:?}`.",
                                           e)));
         }
 
@@ -382,7 +335,7 @@ impl DB {
 
         if cfs.len() == 0 {
             unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath_ptr as *const _));
+                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
             }
         } else {
             let mut cfs_v = cfs.to_vec();
@@ -409,7 +362,7 @@ impl DB {
 
             unsafe {
                 db = ffi_try!(ffi::rocksdb_open_column_families(opts.inner,
-                                                                cpath_ptr as *const _,
+                                                                cpath.as_ptr() as *const _,
                                                                 cfs_v.len() as c_int,
                                                                 cfnames.as_ptr() as *const _,
                                                                 cfopts.as_ptr(),
@@ -479,10 +432,10 @@ impl DB {
 
     pub fn get_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err(Error::new("Unable to create rocksdb read options. \
+            return Err(Error::new("Unable to create RocksDB read options. \
                                    This is a fairly trivial call, and its \
                                    failure may be indicative of a \
-                                   mis-compiled or mis-loaded rocksdb \
+                                   mis-compiled or mis-loaded RocksDB \
                                    library."
                 .to_owned()));
         }
@@ -513,10 +466,10 @@ impl DB {
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
-            return Err(Error::new("Unable to create rocksdb read options. \
+            return Err(Error::new("Unable to create RocksDB read options. \
                                    This is a fairly trivial call, and its \
                                    failure may be indicative of a \
-                                   mis-compiled or mis-loaded rocksdb \
+                                   mis-compiled or mis-loaded RocksDB \
                                    library."
                 .to_owned()));
         }
@@ -789,7 +742,7 @@ impl WriteBatch {
 
     /// Remove the database entry for key.
     ///
-    /// Returns Err if the key was not found
+    /// Returns an error if the key was not found.
     pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi::rocksdb_writebatch_delete(self.inner,
@@ -880,7 +833,7 @@ impl Default for ReadOptions {
     }
 }
 
-/// Wrapper around bytes stored in the database
+/// Vector of bytes stored in the database.
 pub struct DBVector {
     base: *mut u8,
     len: usize,
