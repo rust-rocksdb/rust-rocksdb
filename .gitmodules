@@ -1,0 +1,9 @@
+[submodule "librocksdb-sys/rocksdb"]
+	path = librocksdb-sys/rocksdb
+	url = https://github.com/facebook/rocksdb.git
+[submodule "librocksdb-sys/--force"]
+	path = librocksdb-sys/--force
+	url = https://github.com/google/snappy.git
+[submodule "librocksdb-sys/snappy"]
+	path = librocksdb-sys/snappy
+	url = https://github.com/google/snappy.git
