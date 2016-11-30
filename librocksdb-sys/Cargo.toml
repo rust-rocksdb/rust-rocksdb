@@ -1,11 +1,11 @@
 [package]
-name = "rocksdb-sys"
+name = "librocksdb-sys"
 version = "0.4.0"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
-license = "MIT/Apache-2.0/BSD"
+license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
 readme = "README.md"
-repository = "https://github.com/jsgf/rocksdb-sys.git"
+repository = "https://github.com/spacejam/rust-rocksdb.git"
 keywords = [ "ffi", "rocksdb" ]
 
 build = "build.rs"

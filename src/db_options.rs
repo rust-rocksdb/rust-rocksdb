@@ -13,17 +13,21 @@
 // limitations under the License.
 //
 
+
+use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
+     WriteOptions, FlushOptions};
+use comparator::{self, ComparatorCallback, CompareFn};
+use ffi;
+
+use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
+use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
+                     partial_merge_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
 
-use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
-
-use {BlockBasedOptions, Options, WriteOptions, FlushOptions};
-use comparator::{self, ComparatorCallback};
-use ffi;
-use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
-                     partial_merge_callback};
-use rocksdb::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, new_cache};
+pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
+    unsafe { ffi::rocksdb_cache_create_lru(capacity) }
+}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -96,7 +100,7 @@ impl Default for BlockBasedOptions {
     fn default() -> BlockBasedOptions {
         let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
         if block_opts.is_null() {
-            panic!("Could not create rocksdb block based options".to_owned());
+            panic!("Could not create RocksDB block based options");
         }
         BlockBasedOptions { inner: block_opts }
     }
@@ -133,7 +137,7 @@ impl Options {
 
     /// If true, the database will be created if it is missing.
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// # Example
     ///
@@ -183,7 +187,7 @@ impl Options {
     /// use rocksdb::{Options, DBCompressionType};
     ///
     /// let mut opts = Options::default();
-    /// opts.compression_per_level(&[
+    /// opts.set_compression_per_level(&[
     ///     DBCompressionType::None,
     ///     DBCompressionType::None,
     ///     DBCompressionType::Snappy,
@@ -191,7 +195,7 @@ impl Options {
     ///     DBCompressionType::Snappy
     /// ]);
     /// ```
-    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+    pub fn set_compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             let level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
             ffi::rocksdb_options_set_compression_per_level(self.inner,
@@ -228,7 +232,7 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         let cb = Box::new(ComparatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             f: compare_fn,
@@ -244,7 +248,7 @@ impl Options {
     }
 
     #[deprecated(since = "0.5.0", note = "add_comparator has been renamed to set_comparator")]
-    pub fn add_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+    pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         self.set_comparator(name, compare_fn);
     }
 
@@ -255,12 +259,12 @@ impl Options {
     }
 
     /// Sets the number of open files that can be used by the DB. You may need to
-    /// increase this if your database has a large working set. Value -1 means
+    /// increase this if your database has a large working set. Value `-1` means
     /// files opened are always kept open. You can estimate number of files based
     /// on target_file_size_base and target_file_size_multiplier for level-based
-    /// compaction. For universal-style compaction, you can usually set it to -1.
+    /// compaction. For universal-style compaction, you can usually set it to `-1`.
     ///
-    /// Default: -1
+    /// Default: `-1`
     ///
     /// # Example
     ///
@@ -281,7 +285,7 @@ impl Options {
     /// This parameter should be set to true while storing data to
     /// filesystem like ext3 that can lose files after a reboot.
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// # Example
     ///
@@ -299,9 +303,9 @@ impl Options {
     /// written, asynchronously, in the background. This operation can be used
     /// to smooth out write I/Os over time. Users shouldn't rely on it for
     /// persistency guarantee.
-    /// Issue one request for every bytes_per_sync written. 0 turns it off.
+    /// Issue one request for every bytes_per_sync written. `0` turns it off.
     ///
-    /// Default: 0
+    /// Default: `0`
     ///
     /// You may consider using rate_limiter to regulate write rate to device.
     /// When rate limiter is enabled, it automatically enables bytes_per_sync
@@ -339,7 +343,7 @@ impl Options {
     /// cache. If the disk block is requested again this can result in
     /// additional disk I/O.
     ///
-    /// On WINDOWS system, files will be opened in "unbuffered I/O" mode
+    /// On WINDOWS systems, files will be opened in "unbuffered I/O" mode
     /// which means that data read from the disk will not be cached or
     /// bufferized. The hardware buffer of the devices may however still
     /// be used. Memory mapped files are not impacted by this parameter.
@@ -352,9 +356,9 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
-    /// opts.allow_os_buffer(false);
+    /// opts.set_allow_os_buffer(false);
     /// ```
-    pub fn allow_os_buffer(&mut self, is_allow: bool) {
+    pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
         unsafe {
             ffi::rocksdb_options_set_allow_os_buffer(self.inner, is_allow as c_uchar);
         }
@@ -362,7 +366,7 @@ impl Options {
 
     /// Sets the number of shards used for table cache.
     ///
-    /// Default: 6
+    /// Default: `6`
     ///
     /// # Example
     ///
@@ -379,14 +383,14 @@ impl Options {
     }
 
     /// Sets the minimum number of write buffers that will be merged together
-    /// before writing to storage.  If set to 1, then
+    /// before writing to storage.  If set to `1`, then
     /// all write buffers are flushed to L0 as individual files and this increases
     /// read amplification because a get request has to check in all of these
     /// files. Also, an in-memory merge may result in writing lesser
     /// data to storage if there are duplicate records in each of these
     /// individual write buffers.
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -418,9 +422,9 @@ impl Options {
     /// Increasing this value can reduce the number of reads to SST files
     /// done for conflict detection.
     ///
-    /// Setting this value to 0 will cause write buffers to be freed immediately
+    /// Setting this value to `0` will cause write buffers to be freed immediately
     /// after they are flushed.
-    /// If this value is set to -1, 'max_write_buffer_number' will be used.
+    /// If this value is set to `-1`, 'max_write_buffer_number' will be used.
     ///
     /// Default:
     /// If using a TransactionDB/OptimisticTransactionDB, the default value will
@@ -454,7 +458,7 @@ impl Options {
     /// Note that write_buffer_size is enforced per column family.
     /// See db_write_buffer_size for sharing memory across column families.
     ///
-    /// Default: 67108864 (64MiB)
+    /// Default: `0x4000000` (64MiB)
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -481,7 +485,7 @@ impl Options {
     /// will be 200MB, total file size for level-2 will be 2GB,
     /// and total file size for level-3 will be 20GB.
     ///
-    /// Default: 268435456 (256MiB).
+    /// Default: `0x10000000` (256MiB).
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -499,7 +503,7 @@ impl Options {
         }
     }
 
-    /// Default: 10
+    /// Default: `10`
     ///
     /// # Example
     ///
@@ -542,7 +546,7 @@ impl Options {
     /// be 2MB, and each file on level 2 will be 20MB,
     /// and each file on level-3 will be 200MB.
     ///
-    /// Default: 67108864 (64MiB)
+    /// Default: `0x4000000` (64MiB)
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -561,14 +565,14 @@ impl Options {
     }
 
     /// Sets the minimum number of write buffers that will be merged together
-    /// before writing to storage.  If set to 1, then
+    /// before writing to storage.  If set to `1`, then
     /// all write buffers are flushed to L0 as individual files and this increases
     /// read amplification because a get request has to check in all of these
     /// files. Also, an in-memory merge may result in writing lesser
     /// data to storage if there are duplicate records in each of these
     /// individual write buffers.
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -584,10 +588,10 @@ impl Options {
         }
     }
 
-    /// Sets the number of files to trigger level-0 compaction. A value <0 means that
+    /// Sets the number of files to trigger level-0 compaction. A value < `0` means that
     /// level-0 compaction will not be triggered by number of files at all.
     ///
-    /// Default: 4
+    /// Default: `4`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -606,10 +610,10 @@ impl Options {
     }
 
     /// Sets the soft limit on number of level-0 files. We start slowing down writes at this
-    /// point. A value <0 means that no writing slow down will be triggered by
+    /// point. A value < `0` means that no writing slow down will be triggered by
     /// number of files in level-0.
     ///
-    /// Default: 20
+    /// Default: `20`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -629,7 +633,7 @@ impl Options {
 
     /// Sets the maximum number of level-0 files.  We stop writes at this point.
     ///
-    /// Default: 24
+    /// Default: `24`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -677,7 +681,7 @@ impl Options {
     /// LOW priority thread pool. For more information, see
     /// Env::SetBackgroundThreads
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -708,7 +712,7 @@ impl Options {
     /// HIGH priority thread pool. For more information, see
     /// Env::SetBackgroundThreads
     ///
-    /// Default: 1
+    /// Default: `1`
     ///
     /// # Example
     ///
@@ -727,7 +731,7 @@ impl Options {
     /// Disables automatic compactions. Manual compactions can still
     /// be issued on this column family
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// Dynamically changeable through SetOptions() API
     ///
@@ -749,9 +753,9 @@ impl Options {
         }
     }
 
-    /// Measure IO stats in compactions and flushes, if true.
+    /// Measure IO stats in compactions and flushes, if `true`.
     ///
-    /// Default: false
+    /// Default: `false`
     ///
     /// # Example
     ///
@@ -767,7 +771,7 @@ impl Options {
         }
     }
 
-    /// Recovery mode to control the consistency while replaying WAL
+    /// Recovery mode to control the consistency while replaying WAL.
     ///
     /// Default: DBRecoveryMode::PointInTime
     ///
@@ -805,9 +809,9 @@ impl Options {
         }
     }
 
-    /// If not zero, dump rocksdb.stats to LOG every stats_dump_period_sec
+    /// If not zero, dump `rocksdb.stats` to LOG every `stats_dump_period_sec`.
     ///
-    /// Default: 600 (10 min)
+    /// Default: `600` (10 mins)
     ///
     /// # Example
     ///
@@ -823,7 +827,7 @@ impl Options {
         }
     }
 
-    /// Sets the number of levels for this database
+    /// Sets the number of levels for this database.
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
@@ -836,13 +840,12 @@ impl Default for Options {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
-                panic!("Could not create rocksdb options".to_owned());
+                panic!("Could not create RocksDB options");
             }
             Options { inner: opts }
         }
     }
 }
-
 
 impl WriteOptions {
     pub fn new() -> WriteOptions {
@@ -866,7 +869,7 @@ impl Default for WriteOptions {
     fn default() -> WriteOptions {
         let write_opts = unsafe { ffi::rocksdb_writeoptions_create() };
         if write_opts.is_null() {
-            panic!("Could not create rocksdb write options".to_owned());
+            panic!("Could not create RocksDB write options");
         }
         WriteOptions { inner: write_opts }
     }
@@ -884,7 +887,7 @@ impl Default for FlushOptions {
         if flush_opts.is_null() {
             panic!("Could not create rocksdb flush options".to_owned());
         }
-        FlushOptions { inner : flush_opts }
+        FlushOptions { inner: flush_opts }
     }
 }
 

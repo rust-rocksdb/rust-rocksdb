@@ -13,15 +13,18 @@
 // limitations under the License.
 //
 
+
+use libc::{c_char, c_int, c_void, size_t};
+use std::cmp::Ordering;
 use std::ffi::CString;
 use std::mem;
 use std::slice;
 
-use libc::{c_char, c_int, c_void, size_t};
+pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
 
 pub struct ComparatorCallback {
     pub name: CString,
-    pub f: fn(&[u8], &[u8]) -> i32,
+    pub f: CompareFn,
 }
 
 pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
@@ -43,5 +46,9 @@ pub unsafe extern "C" fn compare_callback(raw_cb: *mut c_void,
     let cb: &mut ComparatorCallback = &mut *(raw_cb as *mut ComparatorCallback);
     let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len as usize);
     let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len as usize);
-    (cb.f)(a, b)
+    match (cb.f)(a, b) {
+        Ordering::Less => -1,
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+    }
 }

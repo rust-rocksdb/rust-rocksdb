@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{DB, Options, Writable};
+use rocksdb::{DB, Options};
 use std::thread;
 use std::sync::Arc;
 
