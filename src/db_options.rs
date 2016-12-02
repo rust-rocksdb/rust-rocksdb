@@ -54,6 +54,14 @@ impl Drop for WriteOptions {
 }
 
 impl BlockBasedOptions {
+    pub fn new() -> Self {
+        let opts = unsafe { ffi::rocksdb_block_based_options_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB block based options");
+        }
+        BlockBasedOptions { inner: opts }
+    }
+
     pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             ffi::rocksdb_block_based_options_set_block_size(self.inner, size);
@@ -89,16 +97,22 @@ impl BlockBasedOptions {
 }
 
 impl Default for BlockBasedOptions {
-    fn default() -> BlockBasedOptions {
-        let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
-        if block_opts.is_null() {
-            panic!("Could not create RocksDB block based options");
-        }
-        BlockBasedOptions { inner: block_opts }
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl DbOptions {
+    pub fn new() -> Self {
+        unsafe {
+            let opts = ffi::rocksdb_options_create();
+            if opts.is_null() {
+                panic!("Could not create RocksDB options");
+            }
+            DbOptions { inner: opts }
+        }
+    }
+
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
     /// `total_threads` is used. Good value for `total_threads` is the number of
@@ -828,20 +842,18 @@ impl DbOptions {
 }
 
 impl Default for DbOptions {
-    fn default() -> DbOptions {
-        unsafe {
-            let opts = ffi::rocksdb_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB options");
-            }
-            DbOptions { inner: opts }
-        }
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl WriteOptions {
-    pub fn new() -> WriteOptions {
-        WriteOptions::default()
+    pub fn new() -> Self {
+        let opts = unsafe { ffi::rocksdb_writeoptions_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB write options");
+        }
+        WriteOptions { inner: opts }
     }
 
     pub fn set_sync(&mut self, sync: bool) {
@@ -858,12 +870,8 @@ impl WriteOptions {
 }
 
 impl Default for WriteOptions {
-    fn default() -> WriteOptions {
-        let opts = unsafe { ffi::rocksdb_writeoptions_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB write options");
-        }
-        WriteOptions { inner: opts }
+    fn default() -> Self {
+        Self::new()
     }
 }
 

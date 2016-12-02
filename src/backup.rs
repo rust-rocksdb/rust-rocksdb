@@ -75,19 +75,7 @@ impl BackupEngine {
 }
 
 impl BackupEngineOptions {
-    //
-}
-
-impl RestoreOptions {
-    pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
-        unsafe {
-            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, keep_log_files as c_int);
-        }
-    }
-}
-
-impl Default for BackupEngineOptions {
-    fn default() -> BackupEngineOptions {
+    pub fn new() -> Self {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
@@ -98,8 +86,8 @@ impl Default for BackupEngineOptions {
     }
 }
 
-impl Default for RestoreOptions {
-    fn default() -> RestoreOptions {
+impl RestoreOptions {
+    pub fn new() -> Self {
         unsafe {
             let opts = ffi::rocksdb_restore_options_create();
             if opts.is_null() {
@@ -107,6 +95,24 @@ impl Default for RestoreOptions {
             }
             RestoreOptions { inner: opts }
         }
+    }
+
+    pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
+        unsafe {
+            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, keep_log_files as c_int);
+        }
+    }
+}
+
+impl Default for BackupEngineOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for RestoreOptions {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

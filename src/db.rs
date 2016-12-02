@@ -673,6 +673,10 @@ impl Db {
 }
 
 impl WriteBatch {
+    pub fn new() -> Self {
+        unsafe { WriteBatch { inner: ffi::rocksdb_writebatch_create() } }
+    }
+
     pub fn len(&self) -> usize {
         unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
     }
@@ -763,8 +767,8 @@ impl WriteBatch {
 }
 
 impl Default for WriteBatch {
-    fn default() -> WriteBatch {
-        WriteBatch { inner: unsafe { ffi::rocksdb_writebatch_create() } }
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -798,6 +802,10 @@ impl Drop for ReadOptions {
 }
 
 impl ReadOptions {
+    pub fn new() -> Self {
+        unsafe { ReadOptions { inner: ffi::rocksdb_readoptions_create() } }
+    }
+
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
@@ -824,8 +832,8 @@ impl ReadOptions {
 }
 
 impl Default for ReadOptions {
-    fn default() -> ReadOptions {
-        unsafe { ReadOptions { inner: ffi::rocksdb_readoptions_create() } }
+    fn default() -> Self {
+        Self::new()
     }
 }
 

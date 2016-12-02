@@ -65,18 +65,18 @@ fn internal() {
         rocksdb_writeoptions_destroy(write_opts);
         assert!(err.is_null());
 
-        let readopts = rocksdb_readoptions_create();
-        assert!(!readopts.is_null());
+        let read_opts = rocksdb_readoptions_create();
+        assert!(!read_opts.is_null());
 
         let mut val_len: size_t = 0;
         let val_len_ptr = &mut val_len as *mut size_t;
         rocksdb_get(db,
-                    readopts.clone(),
+                    read_opts.clone(),
                     key.as_ptr() as *const c_char,
                     4,
                     val_len_ptr,
                     err_ptr);
-        rocksdb_readoptions_destroy(readopts);
+        rocksdb_readoptions_destroy(read_opts);
         assert!(err.is_null());
         rocksdb_close(db);
         rocksdb_destroy_db(opts, cpath.as_ptr() as *const _, err_ptr);
