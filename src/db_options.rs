@@ -16,12 +16,13 @@
 
 use {BlockBasedOptions, DbCompactionStyle, DbCompressionType, DbOptions, DbRecoveryMode,
      WriteOptions};
-use comparator::{self, ComparatorCallback, CompareFn};
+use comparator::Comparator;
 use ffi;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
+use slice_transform::SliceTransform;
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -233,29 +234,16 @@ impl DbOptions {
     }
 
     /// Sets the comparator used to define the order of keys in the table.
+    ///
     /// Default: a comparator that uses lexicographic byte-wise ordering
     ///
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
-        let cb = Box::new(ComparatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
-            f: compare_fn,
-        });
-
+    pub fn set_comparator(&mut self, comparator: Comparator) {
         unsafe {
-            let cmp = ffi::rocksdb_comparator_create(mem::transmute(cb),
-                                                     Some(comparator::destructor_callback),
-                                                     Some(comparator::compare_callback),
-                                                     Some(comparator::name_callback));
-            ffi::rocksdb_options_set_comparator(self.inner, cmp);
+            ffi::rocksdb_options_set_comparator(self.inner, comparator.inner);
         }
-    }
-
-    #[deprecated(since = "0.5.0", note = "add_comparator has been renamed to set_comparator")]
-    pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
-        self.set_comparator(name, compare_fn);
     }
 
     pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
@@ -837,6 +825,14 @@ impl DbOptions {
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
+        }
+    }
+
+    /// Sets the prefix extractor for this database.
+    /// Default: none
+    pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
+        unsafe {
+            ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner);
         }
     }
 }

@@ -39,9 +39,10 @@ mod ffi_util;
 
 pub mod backup;
 mod comparator;
-pub mod merge_operator;
 mod db;
 mod db_options;
+pub mod merge_operator;
+mod slice_transform;
 
 pub use db::{DbCompactionStyle, DbCompressionType, DbIterator, DbRecoveryMode, DbVector,
              Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};

@@ -14,6 +14,7 @@
 //
 
 
+use ffi;
 use libc::{c_char, c_int, c_void, size_t};
 use std::cmp::Ordering;
 use std::ffi::CString;
@@ -22,31 +23,60 @@ use std::slice;
 
 pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
 
-pub struct ComparatorCallback {
+pub struct ComparatorState {
     pub name: CString,
-    pub f: CompareFn,
+    pub compare_fn: CompareFn,
 }
 
-pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
-    let _: Box<ComparatorCallback> = mem::transmute(raw_cb);
+pub struct Comparator {
+    pub inner: *mut ffi::rocksdb_comparator_t,
 }
 
-pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
-    let cb: &mut ComparatorCallback = &mut *(raw_cb as *mut ComparatorCallback);
-    let ptr = cb.name.as_ptr();
-    ptr as *const c_char
+impl Comparator {
+    pub fn new(name: &str, compare_fn: CompareFn) -> Self {
+        let state = ComparatorState {
+            name: CString::new(name.as_bytes()).unwrap(),
+            compare_fn: compare_fn,
+        };
+
+        Comparator {
+            inner: unsafe {
+                ffi::rocksdb_comparator_create(mem::transmute(Box::new(state)),
+                                               Some(destructor_callback),
+                                               Some(compare_callback),
+                                               Some(name_callback))
+            },
+        }
+    }
 }
 
-pub unsafe extern "C" fn compare_callback(raw_cb: *mut c_void,
-                                          a_raw: *const c_char,
-                                          a_len: size_t,
-                                          b_raw: *const c_char,
-                                          b_len: size_t)
+impl Drop for Comparator {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_comparator_destroy(self.inner);
+        }
+    }
+}
+
+pub unsafe extern "C" fn destructor_callback(state: *mut c_void) {
+    let _: Box<ComparatorState> = mem::transmute(state);
+}
+
+pub unsafe extern "C" fn name_callback(state: *mut c_void) -> *const c_char {
+    let state = &mut *(state as *mut ComparatorState);
+    state.name.as_ptr() as *const c_char
+}
+
+pub unsafe extern "C" fn compare_callback(state: *mut c_void,
+                                          a: *const c_char,
+                                          alen: size_t,
+                                          b: *const c_char,
+                                          blen: size_t)
                                           -> c_int {
-    let cb: &mut ComparatorCallback = &mut *(raw_cb as *mut ComparatorCallback);
-    let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len as usize);
-    let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len as usize);
-    match (cb.f)(a, b) {
+    let state = &mut *(state as *mut ComparatorState);
+    let a: &[u8] = slice::from_raw_parts(a as *const u8, alen as usize);
+    let b: &[u8] = slice::from_raw_parts(b as *const u8, blen as usize);
+    match (state.compare_fn)(a, b) {
         Ordering::Less => -1,
         Ordering::Equal => 0,
         Ordering::Greater => 1,
