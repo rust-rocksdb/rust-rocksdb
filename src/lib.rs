@@ -18,9 +18,9 @@
 //! # Examples
 //!
 //! ```
-//!  use rocksdb::DB;
-//!  // NB: db is automatically closed at end of lifetime
-//!  let db = DB::open_default("path/for/rocksdb/storage").unwrap();
+//!  use rocksdb::Db;
+//!  // Note: `db` is automatically closed at end of lifetime.
+//!  let db = Db::open_default("path/for/rocksdb/storage").unwrap();
 //!  db.put(b"my key", b"my value");
 //!  match db.get(b"my key") {
 //!     Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
@@ -43,7 +43,7 @@ pub mod merge_operator;
 mod db;
 mod db_options;
 
-pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
+pub use db::{DbCompactionStyle, DbCompressionType, DbIterator, DbRecoveryMode, DbVector,
              Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
@@ -53,7 +53,8 @@ use std::fmt;
 use std::path::PathBuf;
 
 /// A RocksDB database.
-pub struct DB {
+// TODO: rename to 'Db'
+pub struct Db {
     inner: *mut ffi::rocksdb_t,
     cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
     path: PathBuf,
@@ -104,12 +105,12 @@ pub struct BlockBasedOptions {
 /// # Examples
 ///
 /// ```
-/// use rocksdb::{Options, DB};
-/// use rocksdb::DBCompactionStyle;
+/// use rocksdb::{Db, DbOptions};
+/// use rocksdb::DbCompactionStyle;
 ///
-/// fn badly_tuned_for_somebody_elses_disk() -> DB {
+/// fn badly_tuned_for_somebody_elses_disk() -> Db {
 ///    let path = "path/for/rocksdb/storage5";
-///    let mut opts = Options::default();
+///    let mut opts =  DbOptions::default();
 ///    opts.create_if_missing(true);
 ///    opts.set_max_open_files(10000);
 ///    opts.set_use_fsync(false);
@@ -123,15 +124,15 @@ pub struct BlockBasedOptions {
 ///    opts.set_min_write_buffer_number_to_merge(4);
 ///    opts.set_level_zero_stop_writes_trigger(2000);
 ///    opts.set_level_zero_slowdown_writes_trigger(0);
-///    opts.set_compaction_style(DBCompactionStyle::Universal);
+///    opts.set_compaction_style(DbCompactionStyle::Universal);
 ///    opts.set_max_background_compactions(4);
 ///    opts.set_max_background_flushes(4);
 ///    opts.set_disable_auto_compactions(true);
 ///
-///    DB::open(&opts, path).unwrap()
+///    Db::open(&opts, path).unwrap()
 /// }
 /// ```
-pub struct Options {
+pub struct DbOptions {
     inner: *mut ffi::rocksdb_options_t,
 }
 
@@ -142,9 +143,9 @@ pub struct Options {
 /// Making an unsafe write of a batch:
 ///
 /// ```
-/// use rocksdb::{DB, WriteBatch, WriteOptions};
+/// use rocksdb::{Db, WriteBatch, WriteOptions};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storage6").unwrap();
+/// let db = Db::open_default("path/for/rocksdb/storage6").unwrap();
 ///
 /// let mut batch = WriteBatch::default();
 /// batch.put(b"my key", b"my value");

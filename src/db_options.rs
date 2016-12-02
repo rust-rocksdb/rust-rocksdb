@@ -14,7 +14,7 @@
 //
 
 
-use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
+use {BlockBasedOptions, DbCompactionStyle, DbCompressionType, DbOptions, DbRecoveryMode,
      WriteOptions};
 use comparator::{self, ComparatorCallback, CompareFn};
 use ffi;
@@ -29,7 +29,7 @@ pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
 
-impl Drop for Options {
+impl Drop for DbOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_options_destroy(self.inner);
@@ -98,7 +98,7 @@ impl Default for BlockBasedOptions {
     }
 }
 
-impl Options {
+impl DbOptions {
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
     /// `total_threads` is used. Good value for `total_threads` is the number of
@@ -108,9 +108,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.increase_parallelism(3);
     /// ```
     pub fn increase_parallelism(&mut self, parallelism: i32) {
@@ -134,9 +134,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.create_if_missing(true);
     /// ```
     pub fn create_if_missing(&mut self, create_if_missing: bool) {
@@ -149,17 +149,17 @@ impl Options {
     /// contain files. If level-compaction is used, this option will only affect
     /// levels after base level.
     ///
-    /// Default: DBCompressionType::None
+    /// Default: DbCompressionType::None
     ///
     /// # Example
     ///
     /// ```
-    /// use rocksdb::{Options, DBCompressionType};
+    /// use rocksdb::{DbOptions, DbCompressionType};
     ///
-    /// let mut opts = Options::default();
-    /// opts.set_compression_type(DBCompressionType::Snappy);
+    /// let mut opts = DbOptions::default();
+    /// opts.set_compression_type(DbCompressionType::Snappy);
     /// ```
-    pub fn set_compression_type(&mut self, t: DBCompressionType) {
+    pub fn set_compression_type(&mut self, t: DbCompressionType) {
         unsafe {
             ffi::rocksdb_options_set_compression(self.inner, t as c_int);
         }
@@ -176,18 +176,18 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::{Options, DBCompressionType};
+    /// use rocksdb::{DbOptions, DbCompressionType};
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_compression_per_level(&[
-    ///     DBCompressionType::None,
-    ///     DBCompressionType::None,
-    ///     DBCompressionType::Snappy,
-    ///     DBCompressionType::Snappy,
-    ///     DBCompressionType::Snappy
+    ///     DbCompressionType::None,
+    ///     DbCompressionType::None,
+    ///     DbCompressionType::Snappy,
+    ///     DbCompressionType::Snappy,
+    ///     DbCompressionType::Snappy
     /// ]);
     /// ```
-    pub fn set_compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+    pub fn set_compression_per_level(&mut self, level_types: &[DbCompressionType]) {
         unsafe {
             let level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
             ffi::rocksdb_options_set_compression_per_level(self.inner,
@@ -261,9 +261,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_max_open_files(10);
     /// ```
     pub fn set_max_open_files(&mut self, nfiles: c_int) {
@@ -282,9 +282,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_use_fsync(true);
     /// ```
     pub fn set_use_fsync(&mut self, useit: bool) {
@@ -308,9 +308,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_bytes_per_sync(1024 * 1024);
     /// ```
     pub fn set_bytes_per_sync(&mut self, nbytes: u64) {
@@ -345,9 +345,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_allow_os_buffer(false);
     /// ```
     pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
@@ -363,9 +363,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_table_cache_num_shard_bits(4);
     /// ```
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
@@ -387,9 +387,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_min_write_buffer_number(2);
     /// ```
     pub fn set_min_write_buffer_number(&mut self, nbuf: c_int) {
@@ -426,9 +426,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_min_write_buffer_number(4);
     /// ```
     pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
@@ -457,9 +457,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_write_buffer_size(128 * 1024 * 1024);
     /// ```
     pub fn set_write_buffer_size(&mut self, size: usize) {
@@ -484,9 +484,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_max_bytes_for_level_base(512 * 1024 * 1024);
     /// ```
     pub fn set_max_bytes_for_level_base(&mut self, size: u64) {
@@ -500,9 +500,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_max_bytes_for_level_multiplier(4);
     /// ```
     pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
@@ -518,9 +518,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_max_manifest_file_size(20 * 1024 * 1024);
     /// ```
     pub fn set_max_manifest_file_size(&mut self, size: usize) {
@@ -545,9 +545,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_target_file_size_base(128 * 1024 * 1024);
     /// ```
     pub fn set_target_file_size_base(&mut self, size: u64) {
@@ -569,9 +569,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_min_write_buffer_number_to_merge(2);
     /// ```
     pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
@@ -590,9 +590,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_level_zero_file_num_compaction_trigger(8);
     /// ```
     pub fn set_level_zero_file_num_compaction_trigger(&mut self, n: c_int) {
@@ -612,9 +612,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_level_zero_slowdown_writes_trigger(10);
     /// ```
     pub fn set_level_zero_slowdown_writes_trigger(&mut self, n: c_int) {
@@ -632,9 +632,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_level_zero_stop_writes_trigger(48);
     /// ```
     pub fn set_level_zero_stop_writes_trigger(&mut self, n: c_int) {
@@ -645,17 +645,17 @@ impl Options {
 
     /// Sets the compaction style.
     ///
-    /// Default: DBCompactionStyle::Level
+    /// Default: DbCompactionStyle::Level
     ///
     /// # Example
     ///
     /// ```
-    /// use rocksdb::{Options, DBCompactionStyle};
+    /// use rocksdb::{DbOptions, DbCompactionStyle};
     ///
-    /// let mut opts = Options::default();
-    /// opts.set_compaction_style(DBCompactionStyle::Universal);
+    /// let mut opts = DbOptions::default();
+    /// opts.set_compaction_style(DbCompactionStyle::Universal);
     /// ```
-    pub fn set_compaction_style(&mut self, style: DBCompactionStyle) {
+    pub fn set_compaction_style(&mut self, style: DbCompactionStyle) {
         unsafe {
             ffi::rocksdb_options_set_compaction_style(self.inner, style as c_int);
         }
@@ -678,9 +678,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_max_background_compactions(2);
     /// ```
     pub fn set_max_background_compactions(&mut self, n: c_int) {
@@ -709,9 +709,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_max_background_flushes(2);
     /// ```
     pub fn set_max_background_flushes(&mut self, n: c_int) {
@@ -730,9 +730,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_disable_auto_compactions(true);
     /// ```
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
@@ -752,9 +752,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_report_bg_io_stats(true);
     /// ```
     pub fn set_report_bg_io_stats(&mut self, enable: bool) {
@@ -765,17 +765,17 @@ impl Options {
 
     /// Recovery mode to control the consistency while replaying WAL.
     ///
-    /// Default: DBRecoveryMode::PointInTime
+    /// Default: DbRecoveryMode::PointInTime
     ///
     /// # Example
     ///
     /// ```
-    /// use rocksdb::{Options, DBRecoveryMode};
+    /// use rocksdb::{DbOptions, DbRecoveryMode};
     ///
-    /// let mut opts = Options::default();
-    /// opts.set_wal_recovery_mode(DBRecoveryMode::AbsoluteConsistency);
+    /// let mut opts = DbOptions::default();
+    /// opts.set_wal_recovery_mode(DbRecoveryMode::AbsoluteConsistency);
     /// ```
-    pub fn set_wal_recovery_mode(&mut self, mode: DBRecoveryMode) {
+    pub fn set_wal_recovery_mode(&mut self, mode: DbRecoveryMode) {
         unsafe {
             ffi::rocksdb_options_set_wal_recovery_mode(self.inner, mode as c_int);
         }
@@ -808,9 +808,9 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// use rocksdb::Options;
+    /// use rocksdb::DbOptions;
     ///
-    /// let mut opts = Options::default();
+    /// let mut opts = DbOptions::default();
     /// opts.set_stats_dump_period_sec(300);
     /// ```
     pub fn set_stats_dump_period_sec(&mut self, period: c_uint) {
@@ -827,14 +827,14 @@ impl Options {
     }
 }
 
-impl Default for Options {
-    fn default() -> Options {
+impl Default for DbOptions {
+    fn default() -> DbOptions {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
                 panic!("Could not create RocksDB options");
             }
-            Options { inner: opts }
+            DbOptions { inner: opts }
         }
     }
 }
@@ -859,26 +859,26 @@ impl WriteOptions {
 
 impl Default for WriteOptions {
     fn default() -> WriteOptions {
-        let write_opts = unsafe { ffi::rocksdb_writeoptions_create() };
-        if write_opts.is_null() {
+        let opts = unsafe { ffi::rocksdb_writeoptions_create() };
+        if opts.is_null() {
             panic!("Could not create RocksDB write options");
         }
-        WriteOptions { inner: write_opts }
+        WriteOptions { inner: opts }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use Options;
+    use DbOptions;
 
     #[test]
     fn test_enable_statistics() {
-        let mut opts = Options::default();
+        let mut opts = DbOptions::default();
         opts.enable_statistics();
         opts.set_stats_dump_period_sec(60);
         assert!(opts.get_statistics().is_some());
 
-        let opts = Options::default();
+        let opts = DbOptions::default();
         assert!(opts.get_statistics().is_none());
     }
 }

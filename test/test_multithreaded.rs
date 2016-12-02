@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{DB, Options};
+use rocksdb::{Db, DbOptions};
 use std::thread;
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ const N: usize = 100_000;
 pub fn test_multithreaded() {
     let path = "_rust_rocksdb_multithreadtest";
     {
-        let db = DB::open_default(path).unwrap();
+        let db = Db::open_default(path).unwrap();
         let db = Arc::new(db);
 
         db.put(b"key", b"value1").unwrap();
@@ -62,5 +62,5 @@ pub fn test_multithreaded() {
         j2.join().unwrap();
         j3.join().unwrap();
     }
-    assert!(DB::destroy(&Options::default(), path).is_ok());
+    assert!(Db::destroy(&DbOptions::default(), path).is_ok());
 }

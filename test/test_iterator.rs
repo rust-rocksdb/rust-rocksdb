@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{DB, Direction, IteratorMode, Options};
+use rocksdb::{Db, Direction, IteratorMode, DbOptions};
 
 fn cba(input: &Box<[u8]>) -> Box<[u8]> {
     input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
@@ -31,7 +31,7 @@ pub fn test_iterator() {
         let v2: Box<[u8]> = b"v2222".to_vec().into_boxed_slice();
         let v3: Box<[u8]> = b"v3333".to_vec().into_boxed_slice();
         let v4: Box<[u8]> = b"v4444".to_vec().into_boxed_slice();
-        let db = DB::open_default(path).unwrap();
+        let db = Db::open_default(path).unwrap();
         let p = db.put(&*k1, &*v1);
         assert!(p.is_ok());
         let p = db.put(&*k2, &*v2);
@@ -147,6 +147,6 @@ pub fn test_iterator() {
             assert!(!iterator1.valid());
         }
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
+    let opts =  DbOptions::default();
+    assert!(Db::destroy(&opts, path).is_ok());
 }

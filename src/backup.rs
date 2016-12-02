@@ -14,7 +14,7 @@
 //
 
 
-use {DB, Error};
+use {Db, Error};
 use ffi;
 
 use libc::{c_int, uint32_t};
@@ -58,7 +58,7 @@ impl BackupEngine {
         Ok(BackupEngine { inner: be })
     }
 
-    fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
+    fn create_new_backup(&mut self, db: &Db) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup(self.inner, db.inner));
             Ok(())

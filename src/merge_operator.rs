@@ -16,7 +16,7 @@
 //! rustic merge operator
 //!
 //! ```
-//! use rocksdb::{Options, DB, MergeOperands};
+//! use rocksdb::{DbOptions, Db, MergeOperands};
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
@@ -39,10 +39,10 @@
 //!
 //! fn main() {
 //!    let path = "path/to/rocksdb";
-//!    let mut opts = Options::default();
+//!    let mut opts =  DbOptions::default();
 //!    opts.create_if_missing(true);
 //!    opts.add_merge_operator("test operator", concat_merge);
-//!    let db = DB::open(&opts, path).unwrap();
+//!    let db = Db::open(&opts, path).unwrap();
 //!    let p = db.put(b"k1", b"a");
 //!    db.merge(b"k1", b"b");
 //!    db.merge(b"k1", b"c");
@@ -199,14 +199,14 @@ fn test_provided_merge(new_key: &[u8],
 
 #[test]
 fn mergetest() {
-    use {DB, Options};
+    use {Db, DbOptions};
 
     let path = "_rust_rocksdb_mergetest";
-    let mut opts = Options::default();
+    let mut opts = DbOptions::default();
     opts.create_if_missing(true);
     opts.set_merge_operator("test operator", test_provided_merge);
     {
-        let db = DB::open(&opts, path).unwrap();
+        let db = Db::open(&opts, path).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
         let _ = db.merge(b"k1", b"b");
@@ -232,5 +232,5 @@ fn mergetest() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    assert!(DB::destroy(&opts, path).is_ok());
+    assert!(Db::destroy(&opts, path).is_ok());
 }

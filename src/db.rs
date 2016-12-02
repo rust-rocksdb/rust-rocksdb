@@ -14,7 +14,7 @@
 //
 
 
-use {DB, Error, Options, WriteOptions};
+use {Db, DbOptions, Error, WriteOptions};
 use ffi;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -32,11 +32,11 @@ pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
 }
 
-unsafe impl Send for DB {}
-unsafe impl Sync for DB {}
+unsafe impl Send for Db {}
+unsafe impl Sync for Db {}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum DBCompressionType {
+pub enum DbCompressionType {
     None = ffi::rocksdb_no_compression as isize,
     Snappy = ffi::rocksdb_snappy_compression as isize,
     Zlib = ffi::rocksdb_zlib_compression as isize,
@@ -46,14 +46,14 @@ pub enum DBCompressionType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum DBCompactionStyle {
+pub enum DbCompactionStyle {
     Level = ffi::rocksdb_level_compaction as isize,
     Universal = ffi::rocksdb_universal_compaction as isize,
     Fifo = ffi::rocksdb_fifo_compaction as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum DBRecoveryMode {
+pub enum DbRecoveryMode {
     TolerateCorruptedTailRecords = ffi::rocksdb_recovery_mode_tolerate_corrupted_tail_records as isize,
     AbsoluteConsistency = ffi::rocksdb_recovery_mode_absolute_consistency as isize,
     PointInTime = ffi::rocksdb_recovery_mode_point_in_time as isize,
@@ -65,9 +65,9 @@ pub enum DBRecoveryMode {
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, WriteBatch};
+/// use rocksdb::{Db, WriteBatch};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storage1").unwrap();
+/// let db = Db::open_default("path/for/rocksdb/storage1").unwrap();
 /// {
 ///     let mut batch = WriteBatch::default();
 ///     batch.put(b"my key", b"my value");
@@ -87,15 +87,15 @@ pub struct ReadOptions {
 /// A consistent view of the database at the point of creation.
 ///
 /// ```
-/// use rocksdb::{DB, IteratorMode};
+/// use rocksdb::{Db, IteratorMode};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storage3").unwrap();
+/// let db = Db::open_default("path/for/rocksdb/storage3").unwrap();
 /// let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
 /// let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
 /// ```
 ///
 pub struct Snapshot<'a> {
-    db: &'a DB,
+    db: &'a Db,
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
@@ -103,9 +103,9 @@ pub struct Snapshot<'a> {
 /// ranges and direction.
 ///
 /// ```
-/// use rocksdb::{DB, Direction, IteratorMode};
+/// use rocksdb::{Db, Direction, IteratorMode};
 ///
-/// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
+/// let mut db = Db::open_default("path/for/rocksdb/storage2").unwrap();
 /// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
 /// for (key, value) in iter {
 ///     println!("Saw {:?} {:?}", key, value);
@@ -126,7 +126,7 @@ pub struct Snapshot<'a> {
 ///     println!("Saw {:?} {:?}", key, value);
 /// }
 /// ```
-pub struct DBIterator {
+pub struct DbIterator {
     inner: *mut ffi::rocksdb_iterator_t,
     direction: Direction,
     just_seeked: bool,
@@ -139,7 +139,7 @@ pub enum Direction {
 
 pub type KVBytes = (Box<[u8]>, Box<[u8]>);
 
-impl Iterator for DBIterator {
+impl Iterator for DbIterator {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
@@ -177,12 +177,12 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+impl DbIterator {
+    fn new(db: &Db, opts: &ReadOptions, mode: IteratorMode) -> DbIterator {
         unsafe {
-            let iterator = ffi::rocksdb_create_iterator(db.inner, readopts.inner);
+            let iterator = ffi::rocksdb_create_iterator(db.inner, opts.inner);
 
-            let mut rv = DBIterator {
+            let mut rv = DbIterator {
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
@@ -218,15 +218,15 @@ impl DBIterator {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
     }
 
-    fn new_cf(db: &DB,
+    fn new_cf(db: &Db,
               cf_handle: *mut ffi::rocksdb_column_family_handle_t,
-              readopts: &ReadOptions,
+              opts: &ReadOptions,
               mode: IteratorMode)
-              -> Result<DBIterator, Error> {
+              -> Result<DbIterator, Error> {
         unsafe {
-            let iterator = ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle);
+            let iterator = ffi::rocksdb_create_iterator_cf(db.inner, opts.inner, cf_handle);
 
-            let mut rv = DBIterator {
+            let mut rv = DbIterator {
                 inner: iterator,
                 direction: Direction::Forward, // blown away by set_mode()
                 just_seeked: false,
@@ -237,7 +237,7 @@ impl DBIterator {
     }
 }
 
-impl Drop for DBIterator {
+impl Drop for DbIterator {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
@@ -246,7 +246,7 @@ impl Drop for DBIterator {
 }
 
 impl<'a> Snapshot<'a> {
-    pub fn new(db: &DB) -> Snapshot {
+    pub fn new(db: &Db) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
             db: db,
@@ -254,34 +254,34 @@ impl<'a> Snapshot<'a> {
         }
     }
 
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+    pub fn iterator(&self, mode: IteratorMode) -> DbIterator {
+        let mut opts = ReadOptions::default();
+        opts.set_snapshot(self);
+        DbIterator::new(self.db, &opts, mode)
     }
 
     pub fn iterator_cf(&self,
                        cf_handle: *mut ffi::rocksdb_column_family_handle_t,
                        mode: IteratorMode)
-                       -> Result<DBIterator, Error> {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+                       -> Result<DbIterator, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_snapshot(self);
+        DbIterator::new_cf(self.db, cf_handle, &opts, mode)
     }
 
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        self.db.get_opt(key, &readopts)
+    pub fn get(&self, key: &[u8]) -> Result<Option<DbVector>, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_snapshot(self);
+        self.db.get_opt(key, &opts)
     }
 
     pub fn get_cf(&self,
                   cf: *mut ffi::rocksdb_column_family_handle_t,
                   key: &[u8])
-                  -> Result<Option<DBVector>, Error> {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        self.db.get_cf_opt(cf, key, &readopts)
+                  -> Result<Option<DbVector>, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_snapshot(self);
+        self.db.get_cf_opt(cf, key, &opts)
     }
 }
 
@@ -293,27 +293,27 @@ impl<'a> Drop for Snapshot<'a> {
     }
 }
 
-impl DB {
+impl Db {
     /// Open a database with default options.
-    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
-        let mut opts = Options::default();
+    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Db, Error> {
+        let mut opts = DbOptions::default();
         opts.create_if_missing(true);
-        DB::open(&opts, path)
+        Db::open(&opts, path)
     }
 
     /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, &[])
+    pub fn open<P: AsRef<Path>>(opts: &DbOptions, path: P) -> Result<Db, Error> {
+        Db::open_cf(opts, path, &[])
     }
 
     /// Open a database with specified options and column family.
     ///
-    /// A column family must be created first by calling `DB::create_cf`.
+    /// A column family must be created first by calling `Db::create_cf`.
     ///
     /// # Panics
     ///
     /// * Panics if the column family doesn't exist.
-    pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
+    pub fn open_cf<P: AsRef<Path>>(opts: &DbOptions, path: P, cfs: &[&str]) -> Result<Db, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
@@ -386,14 +386,14 @@ impl DB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        Ok(DB {
+        Ok(Db {
             inner: db,
             cfs: cf_map,
             path: path.to_path_buf(),
         })
     }
 
-    pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
+    pub fn destroy<P: AsRef<Path>>(opts: &DbOptions, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
@@ -401,7 +401,7 @@ impl DB {
         Ok(())
     }
 
-    pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
+    pub fn repair<P: AsRef<Path>>(opts: &DbOptions, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
@@ -413,9 +413,9 @@ impl DB {
         &self.path.as_path()
     }
 
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn write_opt(&self, batch: WriteBatch, opts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
+            ffi_try!(ffi::rocksdb_write(self.inner, opts.inner, batch.inner));
         }
         Ok(())
     }
@@ -430,8 +430,8 @@ impl DB {
         self.write_opt(batch, &wo)
     }
 
-    pub fn get_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBVector>, Error> {
-        if readopts.inner.is_null() {
+    pub fn get_opt(&self, key: &[u8], opts: &ReadOptions) -> Result<Option<DbVector>, Error> {
+        if opts.inner.is_null() {
             return Err(Error::new("Unable to create RocksDB read options. \
                                    This is a fairly trivial call, and its \
                                    failure may be indicative of a \
@@ -443,29 +443,29 @@ impl DB {
         unsafe {
             let mut val_len: size_t = 0;
             let val = ffi_try!(ffi::rocksdb_get(self.inner,
-                                                readopts.inner,
+                                                opts.inner,
                                                 key.as_ptr() as *const c_char,
                                                 key.len() as size_t,
                                                 &mut val_len)) as *mut u8;
             if val.is_null() {
                 Ok(None)
             } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
+                Ok(Some(DbVector::from_c(val, val_len)))
             }
         }
     }
 
     /// Return the bytes associated with a key value
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
+    pub fn get(&self, key: &[u8]) -> Result<Option<DbVector>, Error> {
         self.get_opt(key, &ReadOptions::default())
     }
 
     pub fn get_cf_opt(&self,
                       cf: *mut ffi::rocksdb_column_family_handle_t,
                       key: &[u8],
-                      readopts: &ReadOptions)
-                      -> Result<Option<DBVector>, Error> {
-        if readopts.inner.is_null() {
+                      opts: &ReadOptions)
+                      -> Result<Option<DbVector>, Error> {
+        if opts.inner.is_null() {
             return Err(Error::new("Unable to create RocksDB read options. \
                                    This is a fairly trivial call, and its \
                                    failure may be indicative of a \
@@ -477,7 +477,7 @@ impl DB {
         unsafe {
             let mut val_len: size_t = 0;
             let val = ffi_try!(ffi::rocksdb_get_cf(self.inner,
-                                                   readopts.inner,
+                                                   opts.inner,
                                                    cf,
                                                    key.as_ptr() as *const c_char,
                                                    key.len() as size_t,
@@ -485,7 +485,7 @@ impl DB {
             if val.is_null() {
                 Ok(None)
             } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
+                Ok(Some(DbVector::from_c(val, val_len)))
             }
         }
     }
@@ -493,13 +493,13 @@ impl DB {
     pub fn get_cf(&self,
                   cf: *mut ffi::rocksdb_column_family_handle_t,
                   key: &[u8])
-                  -> Result<Option<DBVector>, Error> {
+                  -> Result<Option<DbVector>, Error> {
         self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
     pub fn create_cf(&mut self,
                      name: &str,
-                     opts: &Options)
+                     opts: &DbOptions)
                      -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
@@ -534,27 +534,27 @@ impl DB {
         self.cfs.get(name)
     }
 
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
+    pub fn iterator(&self, mode: IteratorMode) -> DbIterator {
         let opts = ReadOptions::default();
-        DBIterator::new(self, &opts, mode)
+        DbIterator::new(self, &opts, mode)
     }
 
     pub fn iterator_cf(&self,
                        cf_handle: *mut ffi::rocksdb_column_family_handle_t,
                        mode: IteratorMode)
-                       -> Result<DBIterator, Error> {
+                       -> Result<DbIterator, Error> {
         let opts = ReadOptions::default();
-        DBIterator::new_cf(self, cf_handle, &opts, mode)
+        DbIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
     }
 
-    pub fn put_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn put_opt(&self, key: &[u8], value: &[u8], opts: &WriteOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_put(self.inner,
-                                      writeopts.inner,
+                                      opts.inner,
                                       key.as_ptr() as *const c_char,
                                       key.len() as size_t,
                                       value.as_ptr() as *const c_char,
@@ -567,11 +567,11 @@ impl DB {
                       cf: *mut ffi::rocksdb_column_family_handle_t,
                       key: &[u8],
                       value: &[u8],
-                      writeopts: &WriteOptions)
+                      opts: &WriteOptions)
                       -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_put_cf(self.inner,
-                                         writeopts.inner,
+                                         opts.inner,
                                          cf,
                                          key.as_ptr() as *const c_char,
                                          key.len() as size_t,
@@ -581,14 +581,10 @@ impl DB {
         }
     }
 
-    pub fn merge_opt(&self,
-                     key: &[u8],
-                     value: &[u8],
-                     writeopts: &WriteOptions)
-                     -> Result<(), Error> {
+    pub fn merge_opt(&self, key: &[u8], value: &[u8], opts: &WriteOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_merge(self.inner,
-                                        writeopts.inner,
+                                        opts.inner,
                                         key.as_ptr() as *const c_char,
                                         key.len() as size_t,
                                         value.as_ptr() as *const c_char,
@@ -601,11 +597,11 @@ impl DB {
                         cf: *mut ffi::rocksdb_column_family_handle_t,
                         key: &[u8],
                         value: &[u8],
-                        writeopts: &WriteOptions)
+                        opts: &WriteOptions)
                         -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_merge_cf(self.inner,
-                                           writeopts.inner,
+                                           opts.inner,
                                            cf,
                                            key.as_ptr() as *const i8,
                                            key.len() as size_t,
@@ -615,10 +611,10 @@ impl DB {
         }
     }
 
-    pub fn delete_opt(&self, key: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn delete_opt(&self, key: &[u8], opts: &WriteOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_delete(self.inner,
-                                         writeopts.inner,
+                                         opts.inner,
                                          key.as_ptr() as *const c_char,
                                          key.len() as size_t));
             Ok(())
@@ -628,11 +624,11 @@ impl DB {
     pub fn delete_cf_opt(&self,
                          cf: *mut ffi::rocksdb_column_family_handle_t,
                          key: &[u8],
-                         writeopts: &WriteOptions)
+                         opts: &WriteOptions)
                          -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_delete_cf(self.inner,
-                                            writeopts.inner,
+                                            opts.inner,
                                             cf,
                                             key.as_ptr() as *const c_char,
                                             key.len() as size_t));
@@ -778,7 +774,7 @@ impl Drop for WriteBatch {
     }
 }
 
-impl Drop for DB {
+impl Drop for Db {
     fn drop(&mut self) {
         unsafe {
             for cf in self.cfs.values() {
@@ -789,7 +785,7 @@ impl Drop for DB {
     }
 }
 
-impl fmt::Debug for DB {
+impl fmt::Debug for Db {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }
@@ -834,12 +830,12 @@ impl Default for ReadOptions {
 }
 
 /// Vector of bytes stored in the database.
-pub struct DBVector {
+pub struct DbVector {
     base: *mut u8,
     len: usize,
 }
 
-impl Deref for DBVector {
+impl Deref for DbVector {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
@@ -847,7 +843,7 @@ impl Deref for DBVector {
     }
 }
 
-impl Drop for DBVector {
+impl Drop for DbVector {
     fn drop(&mut self) {
         unsafe {
             libc::free(self.base as *mut c_void);
@@ -855,9 +851,9 @@ impl Drop for DBVector {
     }
 }
 
-impl DBVector {
-    pub fn from_c(val: *mut u8, val_len: size_t) -> DBVector {
-        DBVector {
+impl DbVector {
+    pub fn from_c(val: *mut u8, val_len: size_t) -> DbVector {
+        DbVector {
             base: val,
             len: val_len as usize,
         }
@@ -872,26 +868,26 @@ impl DBVector {
 fn external() {
     let path = "_rust_rocksdb_externaltest";
     {
-        let db = DB::open_default(path).unwrap();
+        let db = Db::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
-        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        let r: Result<Option<DbVector>, Error> = db.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    let opts = Options::default();
-    let result = DB::destroy(&opts, path);
+    let opts = DbOptions::default();
+    let result = Db::destroy(&opts, path);
     assert!(result.is_ok());
 }
 
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let _db = DB::open_default(path).unwrap();
-    let opts = Options::default();
+    let _db = Db::open_default(path).unwrap();
+    let opts = DbOptions::default();
     // The DB will still be open when we try to destroy it and the lock should fail.
-    match DB::destroy(&opts, path) {
+    match Db::destroy(&opts, path) {
         Err(s) => {
             let message = s.to_string();
             assert!(message.find("IO error:").is_some());
@@ -905,7 +901,7 @@ fn errors_do_stuff() {
 fn writebatch_works() {
     let path = "_rust_rocksdb_writebacktest";
     {
-        let db = DB::open_default(path).unwrap();
+        let db = Db::open_default(path).unwrap();
         {
             // test put
             let mut batch = WriteBatch::default();
@@ -918,7 +914,7 @@ fn writebatch_works() {
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
-            let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+            let r: Result<Option<DbVector>, Error> = db.get(b"k1");
             assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         }
         {
@@ -932,15 +928,15 @@ fn writebatch_works() {
             assert!(db.get(b"k1").unwrap().is_none());
         }
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
+    let opts = DbOptions::default();
+    assert!(Db::destroy(&opts, path).is_ok());
 }
 
 #[test]
 fn iterator_test() {
     let path = "_rust_rocksdb_iteratortest";
     {
-        let db = DB::open_default(path).unwrap();
+        let db = Db::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let p = db.put(b"k2", b"v2222");
@@ -954,20 +950,20 @@ fn iterator_test() {
                      str::from_utf8(&*v).unwrap());
         }
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
+    let opts = DbOptions::default();
+    assert!(Db::destroy(&opts, path).is_ok());
 }
 
 #[test]
 fn snapshot_test() {
     let path = "_rust_rocksdb_snapshottest";
     {
-        let db = DB::open_default(path).unwrap();
+        let db = Db::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
 
         let snap = db.snapshot();
-        let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
+        let r: Result<Option<DbVector>, Error> = snap.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         let p = db.put(b"k2", b"v2222");
@@ -976,6 +972,6 @@ fn snapshot_test() {
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
+    let opts = DbOptions::default();
+    assert!(Db::destroy(&opts, path).is_ok());
 }

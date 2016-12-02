@@ -50,19 +50,19 @@ fn internal() {
         }
         assert!(err.is_null());
 
-        let writeopts = rocksdb_writeoptions_create();
-        assert!(!writeopts.is_null());
+        let write_opts = rocksdb_writeoptions_create();
+        assert!(!write_opts.is_null());
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
         rocksdb_put(db,
-                    writeopts.clone(),
+                    write_opts.clone(),
                     key.as_ptr() as *const c_char,
                     4,
                     val.as_ptr() as *const c_char,
                     8,
                     err_ptr);
-        rocksdb_writeoptions_destroy(writeopts);
+        rocksdb_writeoptions_destroy(write_opts);
         assert!(err.is_null());
 
         let readopts = rocksdb_readoptions_create();
