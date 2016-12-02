@@ -148,5 +148,5 @@ pub fn test_iterator() {
         }
     }
     let opts =  DbOptions::default();
-    assert!(Db::destroy(&opts, path).is_ok());
+    assert!(Db::destroy(path, opts).is_ok());
 }

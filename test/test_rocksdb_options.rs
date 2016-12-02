@@ -21,6 +21,6 @@ fn test_set_num_levels() {
     let mut opts =  DbOptions::default();
     opts.create_if_missing(true);
     opts.set_num_levels(2);
-    let db = Db::open(&opts, path).unwrap();
+    let db = Db::open(path, opts).unwrap();
     drop(db);
 }

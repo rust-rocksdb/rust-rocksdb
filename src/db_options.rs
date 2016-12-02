@@ -107,7 +107,11 @@ impl DbOptions {
             if opts.is_null() {
                 panic!("Could not create RocksDB options");
             }
-            DbOptions { inner: opts }
+            DbOptions {
+                inner: opts,
+                comparator: None,
+                prefix_extractor: None,
+            }
         }
     }
 
@@ -240,6 +244,7 @@ impl DbOptions {
     pub fn set_comparator(&mut self, comparator: Comparator) {
         unsafe {
             ffi::rocksdb_options_set_comparator(self.inner, comparator.inner);
+            self.comparator = Some(comparator);
         }
     }
 
@@ -265,9 +270,9 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_max_open_files(10);
     /// ```
-    pub fn set_max_open_files(&mut self, nfiles: c_int) {
+    pub fn set_max_open_files(&mut self, num_files: c_int) {
         unsafe {
-            ffi::rocksdb_options_set_max_open_files(self.inner, nfiles);
+            ffi::rocksdb_options_set_max_open_files(self.inner, num_files);
         }
     }
 
@@ -286,8 +291,8 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_use_fsync(true);
     /// ```
-    pub fn set_use_fsync(&mut self, useit: bool) {
-        unsafe { ffi::rocksdb_options_set_use_fsync(self.inner, useit as c_int) }
+    pub fn set_use_fsync(&mut self, use_fsync: bool) {
+        unsafe { ffi::rocksdb_options_set_use_fsync(self.inner, use_fsync as c_int) }
     }
 
     /// Allows OS to incrementally sync files to disk while they are being
@@ -312,9 +317,9 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_bytes_per_sync(1024 * 1024);
     /// ```
-    pub fn set_bytes_per_sync(&mut self, nbytes: u64) {
+    pub fn set_bytes_per_sync(&mut self, num_bytes: u64) {
         unsafe {
-            ffi::rocksdb_options_set_bytes_per_sync(self.inner, nbytes);
+            ffi::rocksdb_options_set_bytes_per_sync(self.inner, num_bytes);
         }
     }
 
@@ -349,9 +354,9 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_allow_os_buffer(false);
     /// ```
-    pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
+    pub fn set_allow_os_buffer(&mut self, allow: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_os_buffer(self.inner, is_allow as c_uchar);
+            ffi::rocksdb_options_set_allow_os_buffer(self.inner, allow as c_uchar);
         }
     }
 
@@ -367,9 +372,9 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_table_cache_num_shard_bits(4);
     /// ```
-    pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
+    pub fn set_table_cache_num_shard_bits(&mut self, num_bits: usize) {
         unsafe {
-            ffi::rocksdb_options_set_table_cache_numshardbits(self.inner, nbits);
+            ffi::rocksdb_options_set_table_cache_numshardbits(self.inner, num_bits as c_int);
         }
     }
 
@@ -391,9 +396,9 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_min_write_buffer_number(2);
     /// ```
-    pub fn set_min_write_buffer_number(&mut self, nbuf: c_int) {
+    pub fn set_min_write_buffer_number(&mut self, num_buffers: usize) {
         unsafe {
-            ffi::rocksdb_options_set_min_write_buffer_number_to_merge(self.inner, nbuf);
+            ffi::rocksdb_options_set_min_write_buffer_number_to_merge(self.inner, num_buffers as c_int);
         }
     }
 
@@ -430,9 +435,9 @@ impl DbOptions {
     /// let mut opts = DbOptions::default();
     /// opts.set_min_write_buffer_number(4);
     /// ```
-    pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
+    pub fn set_max_write_buffer_number(&mut self, num_buffers: usize) {
         unsafe {
-            ffi::rocksdb_options_set_max_write_buffer_number(self.inner, nbuf);
+            ffi::rocksdb_options_set_max_write_buffer_number(self.inner, num_buffers as c_int);
         }
     }
 
@@ -830,6 +835,7 @@ impl DbOptions {
     pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
         unsafe {
             ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner);
+            self.prefix_extractor = Some(prefix_extractor);
         }
     }
 }

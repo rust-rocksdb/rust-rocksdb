@@ -24,7 +24,7 @@ pub fn test_column_family() {
         let mut opts =  DbOptions::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge);
-        let mut db = Db::open(&opts, path).unwrap();
+        let mut db = Db::open(path, opts).unwrap();
         let opts =  DbOptions::default();
         match db.create_cf("cf1", &opts) {
             Ok(_) => println!("cf1 created successfully"),
@@ -38,7 +38,7 @@ pub fn test_column_family() {
     {
         let mut opts =  DbOptions::default();
         opts.set_merge_operator("test operator", test_provided_merge);
-        match Db::open(&opts, path) {
+        match Db::open(path, opts) {
             Ok(_) => {
                 panic!("should not have opened DB successfully without \
                         specifying column
@@ -56,7 +56,7 @@ pub fn test_column_family() {
     {
         let mut opts =  DbOptions::default();
         opts.set_merge_operator("test operator", test_provided_merge);
-        match Db::open_cf(&opts, path, &["cf1"]) {
+        match Db::open_cf(path, &["cf1"], opts) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
@@ -69,14 +69,14 @@ pub fn test_column_family() {
     }
     // should b able to drop a cf
     {
-        let mut db = Db::open_cf(&DbOptions::default(), path, &["cf1"]).unwrap();
+        let mut db = Db::open_cf(path, &["cf1"], DbOptions::default()).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
     }
 
-    assert!(Db::destroy(&DbOptions::default(), path).is_ok());
+    assert!(Db::destroy(path, DbOptions::default()).is_ok());
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_merge_operator() {
     {
         let mut opts =  DbOptions::default();
         opts.set_merge_operator("test operator", test_provided_merge);
-        let db = match Db::open_cf(&opts, path, &["cf1"]) {
+        let db = match Db::open_cf(path, &["cf1"], opts) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db

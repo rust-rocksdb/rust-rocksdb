@@ -42,7 +42,7 @@
 //!    let mut opts =  DbOptions::default();
 //!    opts.create_if_missing(true);
 //!    opts.add_merge_operator("test operator", concat_merge);
-//!    let db = Db::open(&opts, path).unwrap();
+//!    let db = Db::open(path, opts).unwrap();
 //!    let p = db.put(b"k1", b"a");
 //!    db.merge(b"k1", b"b");
 //!    db.merge(b"k1", b"c");
@@ -206,7 +206,7 @@ fn mergetest() {
     opts.create_if_missing(true);
     opts.set_merge_operator("test operator", test_provided_merge);
     {
-        let db = Db::open(&opts, path).unwrap();
+        let db = Db::open(path, opts).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
         let _ = db.merge(b"k1", b"b");
@@ -232,5 +232,5 @@ fn mergetest() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    assert!(Db::destroy(&opts, path).is_ok());
+    assert!(Db::destroy(path, DbOptions::default()).is_ok());
 }

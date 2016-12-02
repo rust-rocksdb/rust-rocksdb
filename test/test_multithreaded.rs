@@ -62,5 +62,5 @@ pub fn test_multithreaded() {
         j2.join().unwrap();
         j3.join().unwrap();
     }
-    assert!(Db::destroy(&DbOptions::default(), path).is_ok());
+    assert!(Db::destroy(path, DbOptions::default()).is_ok());
 }

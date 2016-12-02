@@ -32,8 +32,8 @@ pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
 }
 
-unsafe impl Send for Db {}
-unsafe impl Sync for Db {}
+unsafe impl Send for Db { }
+unsafe impl Sync for Db { }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DbCompressionType {
@@ -298,12 +298,12 @@ impl Db {
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Db, Error> {
         let mut opts = DbOptions::default();
         opts.create_if_missing(true);
-        Db::open(&opts, path)
+        Db::open(path, opts)
     }
 
     /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &DbOptions, path: P) -> Result<Db, Error> {
-        Db::open_cf(opts, path, &[])
+    pub fn open<P: AsRef<Path>>(path: P, opts: DbOptions) -> Result<Db, Error> {
+        Db::open_cf(path, &[], opts)
     }
 
     /// Open a database with specified options and column family.
@@ -313,7 +313,7 @@ impl Db {
     /// # Panics
     ///
     /// * Panics if the column family doesn't exist.
-    pub fn open_cf<P: AsRef<Path>>(opts: &DbOptions, path: P, cfs: &[&str]) -> Result<Db, Error> {
+    pub fn open_cf<P: AsRef<Path>>(path: P, cfs: &[&str], mut opts: DbOptions) -> Result<Db, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
@@ -344,7 +344,7 @@ impl Db {
                 cfs_v.push("default");
             }
 
-            // We need to store our CStrings in an intermediate vector
+            // We need to store the CStrings in an intermediate vector
             // so that their pointers remain valid.
             let c_cfs: Vec<CString> = cfs_v.iter()
                 .map(|cf| CString::new(cf.as_bytes()).unwrap())
@@ -355,7 +355,7 @@ impl Db {
             // These handles will be populated by DB.
             let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
 
-            // TODO(tyler) allow options to be passed in.
+            // TODO(tyler) Allow options to be passed in.
             let cfopts: Vec<_> = cfs_v.iter()
                 .map(|_| unsafe { ffi::rocksdb_options_create() as *const _ })
                 .collect();
@@ -390,10 +390,12 @@ impl Db {
             inner: db,
             cfs: cf_map,
             path: path.to_path_buf(),
+            comparator: opts.comparator.take(),
+            prefix_extractor: opts.prefix_extractor.take(),
         })
     }
 
-    pub fn destroy<P: AsRef<Path>>(opts: &DbOptions, path: P) -> Result<(), Error> {
+    pub fn destroy<P: AsRef<Path>>(path: P, opts: DbOptions) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
@@ -401,7 +403,7 @@ impl Db {
         Ok(())
     }
 
-    pub fn repair<P: AsRef<Path>>(opts: &DbOptions, path: P) -> Result<(), Error> {
+    pub fn repair<P: AsRef<Path>>(path: P, opts: DbOptions) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
@@ -885,7 +887,7 @@ fn external() {
         assert!(db.get(b"k1").unwrap().is_none());
     }
     let opts = DbOptions::default();
-    let result = Db::destroy(&opts, path);
+    let result = Db::destroy(path, opts);
     assert!(result.is_ok());
 }
 
@@ -895,7 +897,7 @@ fn errors_do_stuff() {
     let _db = Db::open_default(path).unwrap();
     let opts = DbOptions::default();
     // The DB will still be open when we try to destroy it and the lock should fail.
-    match Db::destroy(&opts, path) {
+    match Db::destroy(path, opts) {
         Err(s) => {
             let message = s.to_string();
             assert!(message.find("IO error:").is_some());
@@ -937,7 +939,7 @@ fn writebatch_works() {
         }
     }
     let opts = DbOptions::default();
-    assert!(Db::destroy(&opts, path).is_ok());
+    assert!(Db::destroy(path, opts).is_ok());
 }
 
 #[test]
@@ -959,7 +961,7 @@ fn iterator_test() {
         }
     }
     let opts = DbOptions::default();
-    assert!(Db::destroy(&opts, path).is_ok());
+    assert!(Db::destroy(path, opts).is_ok());
 }
 
 #[test]
@@ -981,5 +983,5 @@ fn snapshot_test() {
         assert!(snap.get(b"k2").unwrap().is_none());
     }
     let opts = DbOptions::default();
-    assert!(Db::destroy(&opts, path).is_ok());
+    assert!(Db::destroy(path, opts).is_ok());
 }

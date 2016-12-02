@@ -58,8 +58,13 @@ pub struct Db {
     inner: *mut ffi::rocksdb_t,
     cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
     path: PathBuf,
+    #[allow(dead_code)]
+    comparator: Option<Comparator>,
+    #[allow(dead_code)]
+    prefix_extractor: Option<SliceTransform>,
 }
 
+/// A RocksDB error.
 #[derive(Debug, PartialEq)]
 pub struct Error {
     message: String,
@@ -68,10 +73,6 @@ pub struct Error {
 impl Error {
     fn new(message: String) -> Error {
         Error { message: message }
-    }
-
-    pub fn to_string(self) -> String {
-        self.into()
     }
 }
 
@@ -129,11 +130,13 @@ pub struct BlockBasedOptions {
 ///    opts.set_max_background_flushes(4);
 ///    opts.set_disable_auto_compactions(true);
 ///
-///    Db::open(&opts, path).unwrap()
+///    Db::open(path, opts).unwrap()
 /// }
 /// ```
 pub struct DbOptions {
     inner: *mut ffi::rocksdb_options_t,
+    comparator: Option<Comparator>,
+    prefix_extractor: Option<SliceTransform>,
 }
 
 /// Optionally disable WAL or sync for this write.
