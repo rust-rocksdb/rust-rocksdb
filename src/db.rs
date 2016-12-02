@@ -635,22 +635,18 @@ impl DB {
         }
     }
 
+    pub fn compact(&self) {
+        unsafe {
+            ffi::rocksdb_compact_range(self.inner, ptr::null(), 0, ptr::null(), 0);
+        }
+    }
+
     pub fn compact_range(&self, start_key: &[u8], limit_key: &[u8]) {
         unsafe {
-            let start_key_ptr = if start_key.len() == 0 {
-                ptr::null()
-            } else {
-                start_key.as_ptr() as *const c_char
-            };
-            let limit_key_ptr = if limit_key.len() == 0 {
-                ptr::null()
-            } else {
-                limit_key.as_ptr() as *const c_char
-            };
             ffi::rocksdb_compact_range(self.inner,
-                                       start_key_ptr,
+                                       start_key.as_ptr() as *const c_char,
                                        start_key.len() as size_t,
-                                       limit_key_ptr,
+                                       limit_key.as_ptr() as *const c_char,
                                        limit_key.len() as size_t);
         }
     }
