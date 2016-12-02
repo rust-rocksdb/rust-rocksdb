@@ -35,7 +35,6 @@ pub enum DBWriteBatch {}
 pub enum DBComparator {}
 pub enum DBFlushOptions {}
 pub enum DBCompactionFilter {}
-pub enum DBRateLimiter {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
@@ -187,12 +186,6 @@ extern "C" {
     pub fn rocksdb_options_statistics_get_string(options: *mut DBOptions) -> *const c_char;
     pub fn rocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn rocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
-    pub fn rocksdb_options_set_ratelimiter(options: *mut DBOptions, limiter: *mut DBRateLimiter);
-    pub fn rocksdb_ratelimiter_create(rate_bytes_per_sec: i64,
-                                      refill_period_us: i64,
-                                      fairness: i32)
-                                      -> *mut DBRateLimiter;
-    pub fn rocksdb_ratelimiter_destroy(limiter: *mut DBRateLimiter);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn rocksdb_open(options: *mut DBOptions,

@@ -20,8 +20,7 @@ use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_m
 use merge_operator::MergeFn;
 
 use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
-                  DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance, DBFlushOptions,
-                  DBRateLimiter};
+                  DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance, DBFlushOptions};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -85,31 +84,6 @@ impl BlockBasedOptions {
             rocksdb_ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner,
                                                                                        v as u8);
         }
-    }
-}
-
-pub struct RateLimiter {
-    inner: *mut DBRateLimiter,
-}
-
-impl RateLimiter {
-    pub fn new(rate_bytes_per_sec: i64,
-               refill_period_us: i64,
-               fairness: i32) -> RateLimiter {
-        let limiter = unsafe {
-            rocksdb_ffi::rocksdb_ratelimiter_create(rate_bytes_per_sec,
-                                                    refill_period_us,
-                                                    fairness)
-        };
-        RateLimiter {
-            inner: limiter,
-        }
-    }
-}
-
-impl Drop for RateLimiter {
-    fn drop(&mut self) {
-        unsafe { rocksdb_ffi::rocksdb_ratelimiter_destroy(self.inner) }
     }
 }
 
@@ -566,15 +540,6 @@ impl Options {
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_num_levels(self.inner, n);
-        }
-    }
-
-    pub fn set_ratelimiter(&mut self, rate_bytes_per_sec: i64) {
-        let rate_limiter = RateLimiter::new(rate_bytes_per_sec,
-                                            100 * 1000 /* 100ms should work for most cases */,
-                                            10 /* should be good by leaving it at default 10 */);
-        unsafe {
-            rocksdb_ffi::rocksdb_options_set_ratelimiter(self.inner, rate_limiter.inner);
         }
     }
 }
