@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-
+use SliceTransform;
 use ffi;
 use libc::{c_char, c_uchar, c_void, size_t};
 use std::ffi::CString;
@@ -23,22 +23,15 @@ use std::slice;
 pub type TransformFn = fn(&[u8]) -> Vec<u8>;
 pub type InDomainFn = fn(&[u8]) -> bool;
 
-pub struct SliceTransformState {
+struct SliceTransformState {
     pub name: CString,
     pub transform_res: Vec<u8>,
     pub transform_fn: TransformFn,
     pub in_domain_fn: InDomainFn,
 }
 
-pub struct SliceTransform {
-    pub inner: *mut ffi::rocksdb_slicetransform_t,
-}
-
 impl SliceTransform {
-    pub fn new(name: &str,
-               transform_fn: TransformFn,
-               in_domain_fn: InDomainFn)
-               -> Self {
+    pub fn new(name: &str, transform_fn: TransformFn, in_domain_fn: InDomainFn) -> Self {
         let state = SliceTransformState {
             name: CString::new(name.as_bytes()).unwrap(),
             transform_res: Vec::new(),

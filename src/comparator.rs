@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-
+use Comparator;
 use ffi;
 use libc::{c_char, c_int, c_void, size_t};
 use std::cmp::Ordering;
@@ -23,13 +23,9 @@ use std::slice;
 
 pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
 
-pub struct ComparatorState {
+struct ComparatorState {
     pub name: CString,
     pub compare_fn: CompareFn,
-}
-
-pub struct Comparator {
-    pub inner: *mut ffi::rocksdb_comparator_t,
 }
 
 impl Comparator {
@@ -58,21 +54,21 @@ impl Drop for Comparator {
     }
 }
 
-pub unsafe extern "C" fn destructor_callback(state: *mut c_void) {
+unsafe extern "C" fn destructor_callback(state: *mut c_void) {
     let _: Box<ComparatorState> = mem::transmute(state);
 }
 
-pub unsafe extern "C" fn name_callback(state: *mut c_void) -> *const c_char {
+unsafe extern "C" fn name_callback(state: *mut c_void) -> *const c_char {
     let state = &mut *(state as *mut ComparatorState);
     state.name.as_ptr() as *const c_char
 }
 
-pub unsafe extern "C" fn compare_callback(state: *mut c_void,
-                                          a: *const c_char,
-                                          alen: size_t,
-                                          b: *const c_char,
-                                          blen: size_t)
-                                          -> c_int {
+unsafe extern "C" fn compare_callback(state: *mut c_void,
+                                      a: *const c_char,
+                                      alen: size_t,
+                                      b: *const c_char,
+                                      blen: size_t)
+                                      -> c_int {
     let state = &mut *(state as *mut ComparatorState);
     let a: &[u8] = slice::from_raw_parts(a as *const u8, alen as usize);
     let b: &[u8] = slice::from_raw_parts(b as *const u8, blen as usize);

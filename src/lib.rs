@@ -54,7 +54,6 @@ use std::fmt;
 use std::path::PathBuf;
 
 /// A RocksDB database.
-// TODO: rename to 'Db'
 pub struct Db {
     inner: *mut ffi::rocksdb_t,
     cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
@@ -161,4 +160,14 @@ pub struct DbOptions {
 /// ```
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
+}
+
+/// A key comparator.
+pub struct Comparator {
+    inner: *mut ffi::rocksdb_comparator_t,
+}
+
+/// A slice transform.
+pub struct SliceTransform {
+    inner: *mut ffi::rocksdb_slicetransform_t,
 }

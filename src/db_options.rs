@@ -14,15 +14,12 @@
 //
 
 
-use {BlockBasedOptions, DbCompactionStyle, DbCompressionType, DbOptions, DbRecoveryMode,
-     WriteOptions};
-use comparator::Comparator;
+use {BlockBasedOptions, Comparator, DbCompactionStyle, DbCompressionType, DbOptions,
+     DbRecoveryMode, SliceTransform, WriteOptions};
 use ffi;
-
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
-use slice_transform::SliceTransform;
 use std::ffi::{CStr, CString};
 use std::mem;
 
