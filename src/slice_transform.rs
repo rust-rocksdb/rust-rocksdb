@@ -22,14 +22,12 @@ use std::slice;
 
 pub type TransformFn = fn(&[u8]) -> Vec<u8>;
 pub type InDomainFn = fn(&[u8]) -> bool;
-pub type InRangeFn = fn(&[u8]) -> bool;
 
 pub struct SliceTransformState {
     pub name: CString,
     pub transform_res: Vec<u8>,
     pub transform_fn: TransformFn,
     pub in_domain_fn: InDomainFn,
-    pub in_range_fn: InRangeFn,
 }
 
 pub struct SliceTransform {
@@ -39,15 +37,13 @@ pub struct SliceTransform {
 impl SliceTransform {
     pub fn new(name: &str,
                transform_fn: TransformFn,
-               in_domain_fn: InDomainFn,
-               in_range_fn: InRangeFn)
+               in_domain_fn: InDomainFn)
                -> Self {
         let state = SliceTransformState {
             name: CString::new(name.as_bytes()).unwrap(),
             transform_res: Vec::new(),
             transform_fn: transform_fn,
             in_domain_fn: in_domain_fn,
-            in_range_fn: in_range_fn,
         };
 
         SliceTransform {
@@ -56,7 +52,7 @@ impl SliceTransform {
                                                    Some(destructor_callback),
                                                    Some(transform_callback),
                                                    Some(in_domain_callback),
-                                                   Some(in_range_callback),
+                                                   None,
                                                    Some(name_callback))
             },
         }
@@ -115,13 +111,4 @@ pub unsafe extern "C" fn in_domain_callback(state: *mut c_void,
     let state = &mut *(state as *mut SliceTransformState);
     let key: &[u8] = slice::from_raw_parts(key as *const u8, length as usize);
     (state.in_domain_fn)(key) as c_uchar
-}
-
-pub unsafe extern "C" fn in_range_callback(state: *mut c_void,
-                                           key: *const c_char,
-                                           length: size_t)
-                                           -> c_uchar {
-    let state = &mut *(state as *mut SliceTransformState);
-    let key: &[u8] = slice::from_raw_parts(key as *const u8, length as usize);
-    (state.in_range_fn)(key) as c_uchar
 }
