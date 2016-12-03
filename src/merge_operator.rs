@@ -16,7 +16,7 @@
 //! rustic merge operator
 //!
 //! ```
-//! use rocksdb::{DbOptions, Db, MergeOperands};
+//! use rocksdb::{DbOptions, Db, MergeOperands, ReadOptions, WriteOptions};
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
@@ -43,16 +43,15 @@
 //!    opts.create_if_missing(true);
 //!    opts.add_merge_operator("test operator", concat_merge);
 //!    let db = Db::open(path, opts).unwrap();
-//!    let p = db.put(b"k1", b"a");
-//!    db.merge(b"k1", b"b");
-//!    db.merge(b"k1", b"c");
-//!    db.merge(b"k1", b"d");
-//!    db.merge(b"k1", b"efg");
-//!    let r = db.get(b"k1");
+//!    let p = db.put(b"k1", b"a", &WriteOptions::default());
+//!    db.merge(b"k1", b"b", &WriteOptions::default());
+//!    db.merge(b"k1", b"c", &WriteOptions::default());
+//!    db.merge(b"k1", b"d", &WriteOptions::default());
+//!    db.merge(b"k1", b"efg", &WriteOptions::default());
+//!    let r = db.get(b"k1", &ReadOptions::default());
 //!    assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
 //! }
 //! ```
-
 
 use libc::{self, c_char, c_int, c_void, size_t};
 use std::ffi::CString;
@@ -177,60 +176,65 @@ impl<'a> Iterator for &'a mut MergeOperands {
 }
 
 #[cfg(test)]
-#[allow(unused_variables)]
-fn test_provided_merge(new_key: &[u8],
-                       existing_val: Option<&[u8]>,
-                       operands: &mut MergeOperands)
-                       -> Vec<u8> {
-    let nops = operands.size_hint().0;
-    let mut result: Vec<u8> = Vec::with_capacity(nops);
-    if let Some(v) = existing_val {
-        for e in v {
-            result.push(*e);
-        }
-    }
-    for op in operands {
-        for e in op {
-            result.push(*e);
-        }
-    }
-    result
-}
+mod tests {
+    use {ReadOptions, WriteOptions};
+    use super::*;
 
-#[test]
-fn mergetest() {
-    use {Db, DbOptions};
-
-    let path = "_rust_rocksdb_mergetest";
-    let mut opts = DbOptions::default();
-    opts.create_if_missing(true);
-    opts.set_merge_operator("test operator", test_provided_merge);
-    {
-        let db = Db::open(path, opts).unwrap();
-        let p = db.put(b"k1", b"a");
-        assert!(p.is_ok());
-        let _ = db.merge(b"k1", b"b");
-        let _ = db.merge(b"k1", b"c");
-        let _ = db.merge(b"k1", b"d");
-        let _ = db.merge(b"k1", b"efg");
-        let m = db.merge(b"k1", b"h");
-        assert!(m.is_ok());
-        match db.get(b"k1") {
-            Ok(Some(value)) => {
-                match value.to_utf8() {
-                    Some(v) => println!("retrieved utf8 value: {}", v),
-                    None => println!("did not read valid utf-8 out of the db"),
-                }
+    #[allow(unused_variables)]
+    fn test_provided_merge(new_key: &[u8],
+                           existing_val: Option<&[u8]>,
+                           operands: &mut MergeOperands)
+                           -> Vec<u8> {
+        let nops = operands.size_hint().0;
+        let mut result: Vec<u8> = Vec::with_capacity(nops);
+        if let Some(v) = existing_val {
+            for e in v {
+                result.push(*e);
             }
-            Err(_) => println!("error reading value"),
-            _ => panic!("value not present"),
         }
-
-        assert!(m.is_ok());
-        let r = db.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
-        assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").unwrap().is_none());
+        for op in operands {
+            for e in op {
+                result.push(*e);
+            }
+        }
+        result
     }
-    assert!(Db::destroy(path, DbOptions::default()).is_ok());
+
+    #[test]
+    fn mergetest() {
+        use {Db, DbOptions};
+
+        let path = "_rust_rocksdb_mergetest";
+        let mut opts = DbOptions::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator("test operator", test_provided_merge);
+        {
+            let db = Db::open(path, opts).unwrap();
+            let p = db.put(b"k1", b"a", &WriteOptions::default());
+            assert!(p.is_ok());
+            let _ = db.merge(b"k1", b"b", &WriteOptions::default());
+            let _ = db.merge(b"k1", b"c", &WriteOptions::default());
+            let _ = db.merge(b"k1", b"d", &WriteOptions::default());
+            let _ = db.merge(b"k1", b"efg", &WriteOptions::default());
+            let m = db.merge(b"k1", b"h", &WriteOptions::default());
+            assert!(m.is_ok());
+            match db.get(b"k1", &ReadOptions::default()) {
+                Ok(Some(value)) => {
+                    match value.to_utf8() {
+                        Some(v) => println!("retrieved utf8 value: {}", v),
+                        None => println!("did not read valid utf-8 out of the db"),
+                    }
+                }
+                Err(_) => println!("error reading value"),
+                _ => panic!("value not present"),
+            }
+
+            assert!(m.is_ok());
+            let r = db.get(b"k1", &ReadOptions::default());
+            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
+            assert!(db.delete(b"k1", &WriteOptions::default()).is_ok());
+            assert!(db.get(b"k1", &ReadOptions::default()).unwrap().is_none());
+        }
+        assert!(Db::destroy(path, DbOptions::default()).is_ok());
+    }
 }

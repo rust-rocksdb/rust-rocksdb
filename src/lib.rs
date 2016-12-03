@@ -18,16 +18,17 @@
 //! # Examples
 //!
 //! ```
-//!  use rocksdb::Db;
-//!  // Note: `db` is automatically closed at end of lifetime.
-//!  let db = Db::open_default("path/for/rocksdb/storage").unwrap();
-//!  db.put(b"my key", b"my value");
-//!  match db.get(b"my key") {
+//! use rocksdb::{Db, ReadOptions, WriteOptions};
+//!
+//! // Note: `db` is automatically closed at end of lifetime.
+//! let db = Db::open_default("path/for/rocksdb/storage").unwrap();
+//! db.put(b"my key", b"my value", &WriteOptions::default());
+//! match db.get(b"my key", &ReadOptions::default()) {
 //!     Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
 //!     Ok(None) => println!("value not found"),
 //!     Err(e) => println!("operational problem encountered: {}", e),
-//!  }
-//!  db.delete(b"my key").unwrap();
+//! }
+//! db.delete(b"my key", &WriteOptions::default()).unwrap();
 //! ```
 //!
 
@@ -45,7 +46,7 @@ pub mod merge_operator;
 mod slice_transform;
 
 pub use db::{DbCompactionStyle, DbCompressionType, DbIterator, DbRecoveryMode, DbVector,
-             Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
+             Direction, IteratorMode, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
@@ -139,11 +140,16 @@ pub struct DbOptions {
     prefix_extractor: Option<SliceTransform>,
 }
 
-/// Optionally disable WAL or sync for this write.
+/// Options for read operations.
+pub struct ReadOptions {
+    inner: *mut ffi::rocksdb_readoptions_t,
+}
+
+/// Options for write operations.
 ///
 /// # Examples
 ///
-/// Making an unsafe write of a batch:
+/// Make an unsafe write of a batch:
 ///
 /// ```
 /// use rocksdb::{Db, WriteBatch, WriteOptions};
@@ -159,7 +165,7 @@ pub struct DbOptions {
 /// write_options.set_sync(false);
 /// write_options.disable_wal(true);
 ///
-/// db.write_opt(batch, &write_options);
+/// db.write(batch, &write_options);
 /// ```
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
@@ -173,4 +179,19 @@ pub struct Comparator {
 /// A slice transform.
 pub struct SliceTransform {
     inner: *mut ffi::rocksdb_slicetransform_t,
+}
+
+/// A consistent view of the database at the point of creation.
+///
+/// ```
+/// use rocksdb::{Db, IteratorMode, ReadOptions};
+///
+/// let db = Db::open_default("path/for/rocksdb/storage3").unwrap();
+/// let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
+/// let mut iter = snapshot.iterator(IteratorMode::Start, &mut ReadOptions::default()); // Make as many iterators as you'd like from one snapshot
+/// ```
+///
+pub struct Snapshot<'a> {
+    db: &'a Db,
+    inner: *const ffi::rocksdb_snapshot_t,
 }

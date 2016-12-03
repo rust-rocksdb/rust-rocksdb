@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{Db, DbOptions, MergeOperands};
+use rocksdb::{Db, DbOptions, MergeOperands, ReadOptions, WriteOptions};
 
 #[test]
 pub fn test_column_family() {
@@ -95,18 +95,18 @@ fn test_merge_operator() {
             Err(e) => panic!("failed to open db with column family: {}", e),
         };
         let cf1 = *db.cf_handle("cf1").unwrap();
-        assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
-        let p = db.put_cf(cf1, b"k1", b"a");
+        assert!(db.put_cf(cf1, b"k1", b"v1", &WriteOptions::default()).is_ok());
+        assert!(db.get_cf(cf1, b"k1", &ReadOptions::default()).unwrap().unwrap().to_utf8().unwrap() == "v1");
+        let p = db.put_cf(cf1, b"k1", b"a", &WriteOptions::default());
         assert!(p.is_ok());
-        db.merge_cf(cf1, b"k1", b"b").unwrap();
-        db.merge_cf(cf1, b"k1", b"c").unwrap();
-        db.merge_cf(cf1, b"k1", b"d").unwrap();
-        db.merge_cf(cf1, b"k1", b"efg").unwrap();
-        let m = db.merge_cf(cf1, b"k1", b"h");
+        db.merge_cf(cf1, b"k1", b"b", &WriteOptions::default()).unwrap();
+        db.merge_cf(cf1, b"k1", b"c", &WriteOptions::default()).unwrap();
+        db.merge_cf(cf1, b"k1", b"d", &WriteOptions::default()).unwrap();
+        db.merge_cf(cf1, b"k1", b"efg", &WriteOptions::default()).unwrap();
+        let m = db.merge_cf(cf1, b"k1", b"h", &WriteOptions::default());
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
-        match db.get(b"k1") {
+        match db.get(b"k1", &ReadOptions::default()) {
             Ok(Some(value)) => {
                 match value.to_utf8() {
                     Some(v) => println!("retrieved utf8 value: {}", v),
@@ -117,10 +117,10 @@ fn test_merge_operator() {
             _ => panic!("value not present!"),
         }
 
-        let _ = db.get_cf(cf1, b"k1");
+        let _ = db.get_cf(cf1, b"k1", &ReadOptions::default());
         // TODO assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
-        assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").unwrap().is_none());
+        assert!(db.delete(b"k1", &WriteOptions::default()).is_ok());
+        assert!(db.get(b"k1", &ReadOptions::default()).unwrap().is_none());
     }
 
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{Db, DbOptions};
+use rocksdb::{Db, DbOptions, ReadOptions, WriteOptions};
 use std::thread;
 use std::sync::Arc;
 
@@ -26,26 +26,26 @@ pub fn test_multithreaded() {
         let db = Db::open_default(path).unwrap();
         let db = Arc::new(db);
 
-        db.put(b"key", b"value1").unwrap();
+        db.put(b"key", b"value1", &WriteOptions::default()).unwrap();
 
         let db1 = db.clone();
         let j1 = thread::spawn(move || {
             for _ in 1..N {
-                db1.put(b"key", b"value1").unwrap();
+                db1.put(b"key", b"value1", &WriteOptions::default()).unwrap();
             }
         });
 
         let db2 = db.clone();
         let j2 = thread::spawn(move || {
             for _ in 1..N {
-                db2.put(b"key", b"value2").unwrap();
+                db2.put(b"key", b"value2", &WriteOptions::default()).unwrap();
             }
         });
 
         let db3 = db.clone();
         let j3 = thread::spawn(move || {
             for _ in 1..N {
-                match db3.get(b"key") {
+                match db3.get(b"key", &ReadOptions::default()) {
                     Ok(Some(v)) => {
                         if &v[..] != b"value1" && &v[..] != b"value2" {
                             assert!(false);

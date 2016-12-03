@@ -15,7 +15,7 @@
 
 
 use {BlockBasedOptions, Comparator, DbCompactionStyle, DbCompressionType, DbOptions,
-     DbRecoveryMode, SliceTransform, WriteOptions};
+     DbRecoveryMode, ReadOptions, Snapshot, SliceTransform, WriteOptions};
 use ffi;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
@@ -40,6 +40,12 @@ impl Drop for BlockBasedOptions {
         unsafe {
             ffi::rocksdb_block_based_options_destroy(self.inner);
         }
+    }
+}
+
+impl Drop for ReadOptions {
+    fn drop(&mut self) {
+        unsafe { ffi::rocksdb_readoptions_destroy(self.inner) }
     }
 }
 
@@ -398,7 +404,8 @@ impl DbOptions {
     /// ```
     pub fn set_min_write_buffer_number(&mut self, num_buffers: usize) {
         unsafe {
-            ffi::rocksdb_options_set_min_write_buffer_number_to_merge(self.inner, num_buffers as c_int);
+            ffi::rocksdb_options_set_min_write_buffer_number_to_merge(self.inner,
+                                                                      num_buffers as c_int);
         }
     }
 
@@ -846,6 +853,36 @@ impl Default for DbOptions {
     }
 }
 
+impl ReadOptions {
+    pub fn new() -> Self {
+        unsafe { ReadOptions { inner: ffi::rocksdb_readoptions_create() } }
+    }
+
+    // TODO add snapshot setting here
+    // TODO add snapshot wrapper structs with proper destructors;
+    // that struct needs an "iterator" impl too.
+    #[allow(dead_code)]
+    pub fn fill_cache(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
+        }
+    }
+
+    pub fn set_snapshot(&mut self, snapshot: &Snapshot) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
+        }
+    }
+
+    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
+                                                             key.as_ptr() as *const i8,
+                                                             key.len() as size_t);
+        }
+    }
+}
+
 impl WriteOptions {
     pub fn new() -> Self {
         let opts = unsafe { ffi::rocksdb_writeoptions_create() };
@@ -865,6 +902,12 @@ impl WriteOptions {
         unsafe {
             ffi::rocksdb_writeoptions_disable_WAL(self.inner, disable as c_int);
         }
+    }
+}
+
+impl Default for ReadOptions {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
