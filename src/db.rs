@@ -143,25 +143,22 @@ impl Iterator for DbIterator {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
-        let native_iter = self.inner;
         if !self.just_seeked {
             match self.direction {
-                Direction::Forward => unsafe { ffi::rocksdb_iter_next(native_iter) },
-                Direction::Reverse => unsafe { ffi::rocksdb_iter_prev(native_iter) },
+                Direction::Forward => unsafe { ffi::rocksdb_iter_next(self.inner) },
+                Direction::Reverse => unsafe { ffi::rocksdb_iter_prev(self.inner) },
             }
         } else {
             self.just_seeked = false;
         }
-        if unsafe { ffi::rocksdb_iter_valid(native_iter) != 0 } {
+        if self.valid() {
             let mut key_len: size_t = 0;
-            let key_len_ptr: *mut size_t = &mut key_len;
             let mut val_len: size_t = 0;
-            let val_len_ptr: *mut size_t = &mut val_len;
             let key_ptr =
-                unsafe { ffi::rocksdb_iter_key(native_iter, key_len_ptr) as *const c_uchar };
+                unsafe { ffi::rocksdb_iter_key(self.inner, &mut key_len) as *const c_uchar };
             let key = unsafe { slice::from_raw_parts(key_ptr, key_len as usize) };
             let val_ptr =
-                unsafe { ffi::rocksdb_iter_value(native_iter, val_len_ptr) as *const c_uchar };
+                unsafe { ffi::rocksdb_iter_value(self.inner, &mut val_len) as *const c_uchar };
             let val = unsafe { slice::from_raw_parts(val_ptr, val_len as usize) };
 
             Some((key.to_vec().into_boxed_slice(), val.to_vec().into_boxed_slice()))
@@ -194,6 +191,7 @@ impl DbIterator {
 
     pub fn set_mode(&mut self, mode: IteratorMode) {
         unsafe {
+            // TODO: call `rocksdb_iter_get_error` after seeks
             match mode {
                 IteratorMode::Start => {
                     ffi::rocksdb_iter_seek_to_first(self.inner);
@@ -228,7 +226,7 @@ impl DbIterator {
 
             let mut rv = DbIterator {
                 inner: iterator,
-                direction: Direction::Forward, // blown away by set_mode()
+                direction: Direction::Forward, // blown away by call to `set_mode`
                 just_seeked: false,
             };
             rv.set_mode(mode);
