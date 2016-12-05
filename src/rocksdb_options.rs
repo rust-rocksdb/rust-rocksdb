@@ -20,7 +20,8 @@ use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_m
 use merge_operator::MergeFn;
 
 use rocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
-                  DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance, DBFlushOptions};
+                  DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
+                  DBFlushOptions};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -564,6 +565,31 @@ impl Drop for FlushOptions {
     fn drop(&mut self) {
         unsafe {
             rocksdb_ffi::rocksdb_flushoptions_destroy(self.inner);
+        }
+    }
+}
+
+pub struct RestoreOptions {
+    pub inner: *mut DBRestoreOptions,
+}
+
+impl RestoreOptions {
+    pub fn new() -> RestoreOptions {
+        unsafe { RestoreOptions { inner: rocksdb_ffi::rocksdb_restore_options_create() } }
+    }
+
+    pub fn set_keep_log_files(&mut self, flag: bool) {
+        unsafe {
+            rocksdb_ffi::rocksdb_restore_options_set_keep_log_files(self.inner,
+                                                                    if flag { 1 } else { 0 })
+        }
+    }
+}
+
+impl Drop for RestoreOptions {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_restore_options_destroy(self.inner);
         }
     }
 }

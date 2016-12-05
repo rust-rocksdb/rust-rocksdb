@@ -16,8 +16,8 @@
 
 use libc::{self, c_int, c_void, size_t};
 
-use rocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance};
-use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions};
+use rocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine};
+use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions, RestoreOptions};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::ffi::{CStr, CString};
@@ -806,6 +806,45 @@ impl DB {
     pub fn get_statistics(&self) -> Option<String> {
         self.opts.get_statistics()
     }
+
+    pub fn backup_at(&self, path: &str) -> Result<BackupEngine, String> {
+        let backup_engine = BackupEngine::open(Options::new(), path).unwrap();
+        unsafe {
+            ffi_try!(rocksdb_backup_engine_create_new_backup(backup_engine.inner, self.inner))
+        }
+        Ok(backup_engine)
+    }
+
+    pub fn restore_from(backup_engine: &BackupEngine,
+                        restore_db_path: &str,
+                        restore_wal_path: &str,
+                        ropts: &RestoreOptions)
+                        -> Result<DB, String> {
+        let c_db_path = match CString::new(restore_db_path.as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert restore_db_path to CString when restoring rocksdb"
+                    .to_owned())
+            }
+        };
+
+        let c_wal_path = match CString::new(restore_wal_path.as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert restore_wal_path to CString when restoring rocksdb"
+                    .to_owned())
+            }
+        };
+
+        unsafe {
+            ffi_try!(rocksdb_backup_engine_restore_db_from_latest_backup(backup_engine.inner,
+                                                                         c_db_path.as_ptr(),
+                                                                         c_wal_path.as_ptr(),
+                                                                         ropts.inner))
+        };
+
+        DB::open_default(restore_db_path)
+    }
 }
 
 impl Writable for DB {
@@ -967,6 +1006,40 @@ impl DBVector {
     }
 }
 
+pub struct BackupEngine {
+    inner: *mut DBBackupEngine,
+}
+
+impl BackupEngine {
+    pub fn open(opts: Options, path: &str) -> Result<BackupEngine, String> {
+        let cpath = match CString::new(path.as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when opening rocksdb backup engine"
+                    .to_owned())
+            }
+        };
+
+        if let Err(e) = fs::create_dir_all(path) {
+            return Err(format!("Failed to create rocksdb backup directory: {:?}", e));
+        }
+
+        let backup_engine =
+            unsafe { ffi_try!(rocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) };
+
+        Ok(BackupEngine { inner: backup_engine })
+    }
+}
+
+impl Drop for BackupEngine {
+    fn drop(&mut self) {
+        unsafe {
+            rocksdb_ffi::rocksdb_backup_engine_close(self.inner);
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod test {
     use rocksdb_options::*;
@@ -1112,6 +1185,38 @@ mod test {
         cfs_vec.sort();
         cfs.sort();
         assert_eq!(cfs_vec, cfs);
+    }
+
+    #[test]
+    fn backup_db_test() {
+        let key = b"foo";
+        let value = b"bar";
+
+        let db_dir = TempDir::new("_rust_rocksdb_backuptest").unwrap();
+        let db = DB::open_default(db_dir.path().to_str().unwrap()).unwrap();
+        let p = db.put(key, value);
+        assert!(p.is_ok());
+
+        // Make a backup.
+        let backup_dir = TempDir::new("_rust_rocksdb_backuptest_backup").unwrap();
+        let backup_engine = db.backup_at(backup_dir.path().to_str().unwrap()).unwrap();
+
+        // Restore it.
+        let ropt1 = RestoreOptions::new();
+        let mut ropt2 = RestoreOptions::new();
+        ropt2.set_keep_log_files(true);
+        let ropts = [ropt1, ropt2];
+        for ropt in &ropts {
+            let restore_dir = TempDir::new("_rust_rocksdb_backuptest_restore").unwrap();
+            let restored_db = DB::restore_from(&backup_engine,
+                                               restore_dir.path().to_str().unwrap(),
+                                               restore_dir.path().to_str().unwrap(),
+                                               &ropt)
+                .unwrap();
+
+            let r = restored_db.get(key);
+            assert!(r.unwrap().unwrap().to_utf8().unwrap() == str::from_utf8(value).unwrap());
+        }
     }
 }
 

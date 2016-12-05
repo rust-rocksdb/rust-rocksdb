@@ -35,6 +35,8 @@ pub enum DBWriteBatch {}
 pub enum DBComparator {}
 pub enum DBFlushOptions {}
 pub enum DBCompactionFilter {}
+pub enum DBBackupEngine {}
+pub enum DBRestoreOptions {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { rocksdb_filterpolicy_create_bloom(bits) }
@@ -479,6 +481,27 @@ extern "C" {
     pub fn rocksdb_compactionfilter_set_ignore_snapshots(filter: *mut DBCompactionFilter,
                                                          ignore_snapshot: bool);
     pub fn rocksdb_compactionfilter_destroy(filter: *mut DBCompactionFilter);
+
+    // Restore Option
+    pub fn rocksdb_restore_options_create() -> *mut DBRestoreOptions;
+    pub fn rocksdb_restore_options_destroy(ropts: *mut DBRestoreOptions);
+    pub fn rocksdb_restore_options_set_keep_log_files(ropts: *mut DBRestoreOptions, v: c_int);
+
+    // Backup engine
+    // TODO: add more ffis about backup engine.
+    pub fn rocksdb_backup_engine_open(options: *const DBOptions,
+                                      path: *const c_char,
+                                      err: *mut *mut c_char)
+                                      -> *mut DBBackupEngine;
+    pub fn rocksdb_backup_engine_create_new_backup(be: *mut DBBackupEngine,
+                                                   db: *mut DBInstance,
+                                                   err: *mut *mut c_char);
+    pub fn rocksdb_backup_engine_close(be: *mut DBBackupEngine);
+    pub fn rocksdb_backup_engine_restore_db_from_latest_backup(be: *mut DBBackupEngine,
+                                                               db_path: *const c_char,
+                                                               wal_path: *const c_char,
+                                                               ropts: *const DBRestoreOptions,
+                                                               err: *mut *mut c_char);
 }
 
 #[cfg(test)]
