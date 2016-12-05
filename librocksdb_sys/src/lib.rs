@@ -144,6 +144,7 @@ extern "C" {
                                                  filter: *mut DBCompactionFilter);
     pub fn rocksdb_options_set_create_if_missing(options: *mut DBOptions, v: bool);
     pub fn rocksdb_options_set_max_open_files(options: *mut DBOptions, files: c_int);
+    pub fn rocksdb_options_set_max_total_wal_size(options: *mut DBOptions, size: u64);
     pub fn rocksdb_options_set_use_fsync(options: *mut DBOptions, v: c_int);
     pub fn rocksdb_options_set_bytes_per_sync(options: *mut DBOptions, bytes: u64);
     pub fn rocksdb_options_set_disable_data_sync(options: *mut DBOptions, v: c_int);

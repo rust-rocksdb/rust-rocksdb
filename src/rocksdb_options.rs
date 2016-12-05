@@ -350,6 +350,12 @@ impl Options {
         }
     }
 
+    pub fn set_max_total_wal_size(&mut self, size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_total_wal_size(self.inner, size);
+        }
+    }
+
     pub fn set_use_fsync(&mut self, useit: bool) {
         unsafe {
             if useit {
