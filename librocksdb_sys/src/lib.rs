@@ -189,6 +189,7 @@ extern "C" {
     pub fn rocksdb_options_statistics_get_string(options: *mut DBOptions) -> *const c_char;
     pub fn rocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn rocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
+    pub fn rocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);
     pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn rocksdb_open(options: *mut DBOptions,

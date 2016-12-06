@@ -549,6 +549,13 @@ impl Options {
             rocksdb_ffi::rocksdb_options_set_num_levels(self.inner, n);
         }
     }
+
+    pub fn set_db_log_dir(&mut self, path: &str) {
+        let path = CString::new(path.as_bytes()).unwrap();
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_db_log_dir(self.inner, path.as_ptr());
+        }
+    }
 }
 
 pub struct FlushOptions {

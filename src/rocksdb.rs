@@ -1043,6 +1043,8 @@ impl Drop for BackupEngine {
 #[cfg(test)]
 mod test {
     use rocksdb_options::*;
+    use std::fs;
+    use std::path::Path;
     use std::str;
     use super::*;
     use tempdir::TempDir;
@@ -1216,6 +1218,32 @@ mod test {
 
             let r = restored_db.get(key);
             assert!(r.unwrap().unwrap().to_utf8().unwrap() == str::from_utf8(value).unwrap());
+        }
+    }
+
+    #[test]
+    fn log_dir_test() {
+        let db_dir = TempDir::new("_rust_rocksdb_logdirtest").unwrap();
+        let db_path = db_dir.path().to_str().unwrap();
+        let log_path = format!("{}", Path::new(&db_path).join("log_path").display());
+        fs::create_dir_all(&log_path).unwrap();
+
+        let mut opts = Options::new();
+        opts.create_if_missing(true);
+        opts.set_db_log_dir(&log_path);
+
+        DB::open(opts, db_path).unwrap();
+
+        // Check LOG file.
+        let mut read_dir = fs::read_dir(&log_path).unwrap();
+        let entry = read_dir.next().unwrap().unwrap();
+        let name = entry.file_name();
+        name.to_str().unwrap().find("LOG").unwrap();
+
+        for entry in fs::read_dir(&db_path).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name();
+            assert!(name.to_str().unwrap().find("LOG").is_none());
         }
     }
 }
