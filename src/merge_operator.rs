@@ -119,7 +119,7 @@ pub unsafe extern "C" fn partial_merge_callback(raw_cb: *mut c_void,
     // TODO(tan) investigate zero-copy techniques to improve performance
     let buf = libc::malloc(result.len() as size_t);
     assert!(!buf.is_null());
-    *new_value_length = 1 as size_t;
+    *new_value_length = result.len() as size_t;
     *success = 1 as u8;
     ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
     buf as *mut c_char
