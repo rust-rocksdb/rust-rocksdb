@@ -165,7 +165,8 @@ extern "C" {
     pub fn rocksdb_options_set_max_bytes_for_level_base(options: *mut DBOptions, bytes: u64);
     pub fn rocksdb_options_set_max_bytes_for_level_multiplier(options: *mut DBOptions,
                                                               mul: c_int);
-    pub fn rocksdb_options_set_max_log_file_size(options: *mut DBOptions, bytes: u64);
+    pub fn rocksdb_options_set_max_log_file_size(options: *mut DBOptions, bytes: size_t);
+    pub fn rocksdb_options_set_keep_log_file_num(options: *mut DBOptions, num: size_t);
     pub fn rocksdb_options_set_max_manifest_file_size(options: *mut DBOptions, bytes: u64);
     pub fn rocksdb_options_set_hash_skip_list_rep(options: *mut DBOptions,
                                                   bytes: u64,

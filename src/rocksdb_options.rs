@@ -556,6 +556,18 @@ impl Options {
             rocksdb_ffi::rocksdb_options_set_db_log_dir(self.inner, path.as_ptr());
         }
     }
+
+    pub fn set_max_log_file_size(&mut self, size: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_max_log_file_size(self.inner, size as size_t);
+        }
+    }
+
+    pub fn set_keep_log_file_num(&mut self, num: u64) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_keep_log_file_num(self.inner, num as size_t);
+        }
+    }
 }
 
 pub struct FlushOptions {
