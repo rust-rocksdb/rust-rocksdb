@@ -16,6 +16,7 @@
 
 use {DB, Error, Options, WriteOptions};
 use ffi;
+use ffi_util::opt_bytes_to_ptr;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
@@ -673,6 +674,32 @@ impl DB {
                      key: &[u8])
                      -> Result<(), Error> {
         self.delete_cf_opt(cf, key, &WriteOptions::default())
+    }
+
+    pub fn compact_range(&self,
+                         start: Option<&[u8]>,
+                         end: Option<&[u8]>) {
+        unsafe {
+            ffi::rocksdb_compact_range(self.inner,
+                                       opt_bytes_to_ptr(start),
+                                       start.map_or(0, |s| s.len()) as size_t,
+                                       opt_bytes_to_ptr(end),
+                                       end.map_or(0, |e| e.len()) as size_t);
+       }
+    }
+
+    pub fn compact_range_cf(&self,
+                            cf: *mut ffi::rocksdb_column_family_handle_t,
+                            start: Option<&[u8]>,
+                            end: Option<&[u8]>) {
+        unsafe {
+            ffi::rocksdb_compact_range_cf(self.inner,
+                                          cf,
+                                          opt_bytes_to_ptr(start),
+                                          start.map_or(0, |s| s.len()) as size_t,
+                                          opt_bytes_to_ptr(end),
+                                          end.map_or(0, |e| e.len()) as size_t);
+       }
     }
 }
 
