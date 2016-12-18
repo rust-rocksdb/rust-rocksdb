@@ -40,6 +40,7 @@ mod ffi_util;
 pub mod backup;
 mod comparator;
 pub mod merge_operator;
+pub mod compaction_filter;
 mod db;
 mod db_options;
 
@@ -47,6 +48,7 @@ pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, D
              Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
+pub use compaction_filter::Decision as CompactionDecision;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
