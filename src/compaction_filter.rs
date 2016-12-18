@@ -29,7 +29,7 @@ pub enum Decision {
     /// Remove the object from the database
     Remove,
     /// Change the value for the key
-    Change(&'static [u8])
+    Change(&'static [u8]),
 }
 
 
@@ -42,31 +42,44 @@ pub enum Decision {
 ///
 ///  [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
 pub trait CompactionFilterFn: FnMut(u32, &[u8], &[u8]) -> Decision {}
-impl<F> CompactionFilterFn for F where F: FnMut(u32, &[u8], &[u8]) -> Decision, F: Send + 'static {}
-
-pub struct CompactionFilterCallback<F> where F: CompactionFilterFn {
-    pub name: CString,
-    pub filter_fn: F
+impl<F> CompactionFilterFn for F
+    where F: FnMut(u32, &[u8], &[u8]) -> Decision,
+          F: Send + 'static
+{
 }
 
-pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void) where F: CompactionFilterFn {
+pub struct CompactionFilterCallback<F>
+    where F: CompactionFilterFn
+{
+    pub name: CString,
+    pub filter_fn: F,
+}
+
+pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
+    where F: CompactionFilterFn
+{
     let _: Box<CompactionFilterCallback<F>> = mem::transmute(raw_cb);
 }
 
-pub unsafe extern "C" fn name_callback<F>(raw_cb: *mut c_void) -> *const c_char where F: CompactionFilterFn {
+pub unsafe extern "C" fn name_callback<F>(raw_cb: *mut c_void) -> *const c_char
+    where F: CompactionFilterFn
+{
     let cb = &*(raw_cb as *mut CompactionFilterCallback<F>);
     cb.name.as_ptr()
 }
 
 pub unsafe extern "C" fn filter_callback<F>(raw_cb: *mut c_void,
-                                         level: c_int,
-                                         raw_key: *const c_char,
-                                         key_length: size_t,
-                                         existing_value: *const c_char,
-                                         value_length: size_t,
-                                         new_value: *mut *mut c_char,
-                                         new_value_length: *mut size_t,
-                                         value_changed: *mut c_uchar) -> c_uchar where F: CompactionFilterFn {
+                                            level: c_int,
+                                            raw_key: *const c_char,
+                                            key_length: size_t,
+                                            existing_value: *const c_char,
+                                            value_length: size_t,
+                                            new_value: *mut *mut c_char,
+                                            new_value_length: *mut size_t,
+                                            value_changed: *mut c_uchar)
+                                            -> c_uchar
+    where F: CompactionFilterFn
+{
     use self::Decision::*;
 
     let cb = &mut *(raw_cb as *mut CompactionFilterCallback<F>);
@@ -92,7 +105,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
     match key.first() {
         Some(&b'_') => Remove,
         Some(&b'%') => Change(b"secret"),
-        _ => Keep
+        _ => Keep,
     }
 }
 
@@ -116,5 +129,3 @@ fn compaction_filter_test() {
     }
 
 }
-
-

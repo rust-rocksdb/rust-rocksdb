@@ -676,16 +676,14 @@ impl DB {
         self.delete_cf_opt(cf, key, &WriteOptions::default())
     }
 
-    pub fn compact_range(&self,
-                         start: Option<&[u8]>,
-                         end: Option<&[u8]>) {
+    pub fn compact_range(&self, start: Option<&[u8]>, end: Option<&[u8]>) {
         unsafe {
             ffi::rocksdb_compact_range(self.inner,
                                        opt_bytes_to_ptr(start),
                                        start.map_or(0, |s| s.len()) as size_t,
                                        opt_bytes_to_ptr(end),
                                        end.map_or(0, |e| e.len()) as size_t);
-       }
+        }
     }
 
     pub fn compact_range_cf(&self,
@@ -699,7 +697,7 @@ impl DB {
                                           start.map_or(0, |s| s.len()) as size_t,
                                           opt_bytes_to_ptr(end),
                                           end.map_or(0, |e| e.len()) as size_t);
-       }
+        }
     }
 }
 

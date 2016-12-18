@@ -29,7 +29,7 @@ pub fn error_message(ptr: *const c_char) -> String {
 pub fn opt_bytes_to_ptr(opt: Option<&[u8]>) -> *const c_char {
     match opt {
         Some(v) => v.as_ptr() as *const c_char,
-        None => ptr::null()
+        None => ptr::null(),
     }
 }
 

@@ -22,8 +22,7 @@ use ffi;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
-use compaction_filter::{self, CompactionFilterFn, CompactionFilterCallback,
-                        filter_callback};
+use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -230,7 +229,9 @@ impl Options {
     ///
     /// If multi-threaded compaction is used, `filter_fn` may be called multiple times
     /// simultaneously.
-    pub fn set_compaction_filter<F>(&mut self, name: &str, filter_fn: F) where F: CompactionFilterFn + Send + 'static {
+    pub fn set_compaction_filter<F>(&mut self, name: &str, filter_fn: F)
+        where F: CompactionFilterFn + Send + 'static
+    {
         let cb = Box::new(CompactionFilterCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             filter_fn: filter_fn,
