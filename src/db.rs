@@ -14,7 +14,7 @@
 //
 
 
-use {DB, Error, Options, WriteOptions};
+use {DB, Error, Options, WriteOptions, FlushOptions};
 use ffi;
 use ffi_util::opt_bytes_to_ptr;
 
@@ -305,6 +305,44 @@ impl DB {
     /// Open the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
+    }
+
+    // Open the database in read-only mode with specified options
+    // FIXME(ng): reduce code duplication with open_cf
+    pub fn open_for_read_only<P: AsRef<Path>>(opts: &Options,
+                                              path: P,
+                                              error_if_log_file_exist: bool)
+                                              -> Result<DB, Error> {
+        let path = path.as_ref();
+
+        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::new("Failed to convert path to CString \
+                                       when opening rocksdb"
+                    .to_owned()))
+            }
+        };
+        let cpath_ptr = cpath.as_ptr();
+
+        let db: *mut ffi::rocksdb_t;
+        let cf_map = BTreeMap::new();
+
+        unsafe {
+            db = ffi_try!(ffi::rocksdb_open_for_read_only(opts.inner,
+                                                          cpath_ptr as *const _,
+                                                          error_if_log_file_exist as u8));
+        }
+
+        if db.is_null() {
+            return Err(Error::new("Could not initialize database.".to_owned()));
+        }
+
+        Ok(DB {
+            inner: db,
+            cfs: cf_map,
+            path: path.to_path_buf(),
+        })
     }
 
     /// Open a database with specified options and column family.
@@ -598,12 +636,40 @@ impl DB {
         }
     }
 
+    pub fn compact_range(&self, start_key: &[u8], limit_key: &[u8]) {
+        unsafe {
+            let start_key_ptr = if start_key.len() == 0 {
+                ptr::null()
+            } else {
+                start_key.as_ptr() as *const c_char
+            };
+            let limit_key_ptr = if limit_key.len() == 0 {
+                ptr::null()
+            } else {
+                limit_key.as_ptr() as *const c_char
+            };
+            ffi::rocksdb_compact_range(self.inner,
+                                       start_key_ptr,
+                                       start_key.len() as size_t,
+                                       limit_key_ptr,
+                                       limit_key.len() as size_t);
+        }
+    }
+
+    pub fn flush(&self, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
+            Ok(())
+        }
+    }
+
     pub fn merge_cf_opt(&self,
                         cf: *mut ffi::rocksdb_column_family_handle_t,
                         key: &[u8],
                         value: &[u8],
                         writeopts: &WriteOptions)
                         -> Result<(), Error> {
+
         unsafe {
             ffi_try!(ffi::rocksdb_merge_cf(self.inner,
                                            writeopts.inner,

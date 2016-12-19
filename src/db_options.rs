@@ -15,7 +15,7 @@
 
 
 use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
-     WriteOptions};
+     WriteOptions, FlushOptions};
 use comparator::{self, ComparatorCallback, CompareFn};
 use ffi;
 
@@ -50,6 +50,14 @@ impl Drop for WriteOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for FlushOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_flushoptions_destroy(self.inner);
         }
     }
 }
@@ -892,6 +900,22 @@ impl Default for WriteOptions {
             panic!("Could not create RocksDB write options");
         }
         WriteOptions { inner: write_opts }
+    }
+}
+
+impl FlushOptions {
+    pub fn new() -> FlushOptions {
+        FlushOptions::default()
+    }
+}
+
+impl Default for FlushOptions {
+    fn default() -> FlushOptions {
+        let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
+        if flush_opts.is_null() {
+            panic!("Could not create rocksdb flush options".to_owned());
+        }
+        FlushOptions { inner: flush_opts }
     }
 }
 
