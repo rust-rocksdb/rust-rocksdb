@@ -2,7 +2,8 @@
 
 use rocksdb::{Writable, DB, CompactionFilter, Options};
 use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicBool, Ordering};use tempdir::TempDir;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tempdir::TempDir;
 
 struct Filter {
     drop_called: Arc<AtomicBool>,

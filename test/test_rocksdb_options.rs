@@ -1,5 +1,6 @@
 
-use rocksdb::{DB, Options};use tempdir::TempDir;
+use rocksdb::{DB, Options};
+use tempdir::TempDir;
 
 
 #[test]
@@ -22,4 +23,3 @@ fn test_log_file_opt() {
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }
-

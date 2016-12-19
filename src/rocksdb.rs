@@ -892,11 +892,11 @@ impl WriteBatch {
         self.count() == 0
     }
 
-    pub fn len(&self) -> usize {
+    pub fn data_size(&self) -> usize {
         unsafe {
-            let mut length: usize = 0;
-            let _ = rocksdb_ffi::rocksdb_writebatch_data(self.inner, &mut length);
-            return length;
+            let mut data_size: usize = 0;
+            let _ = rocksdb_ffi::rocksdb_writebatch_data(self.inner, &mut data_size);
+            return data_size;
         }
     }
 
@@ -1118,11 +1118,11 @@ mod test {
         assert!(db.get(b"k1").unwrap().is_none());
 
         let batch = WriteBatch::new();
-        let prev_len = batch.len();
+        let prev_size = batch.data_size();
         let _ = batch.delete(b"k1");
-        assert!(batch.len() > 0);
+        assert!(batch.data_size() > prev_size);
         batch.clear();
-        assert_eq!(batch.len(), prev_len);
+        assert_eq!(batch.data_size(), prev_size);
     }
 
     #[test]

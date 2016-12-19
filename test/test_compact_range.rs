@@ -1,5 +1,6 @@
 
-use rocksdb::{DB, Options, Range, Writable};use tempdir::TempDir;
+use rocksdb::{DB, Options, Range, Writable};
+use tempdir::TempDir;
 
 
 #[test]
