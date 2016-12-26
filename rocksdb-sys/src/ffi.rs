@@ -195,6 +195,7 @@ extern "C" {
                                                 slice_transform: DBSliceTransform);
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int)
                                              -> DBFilterPolicy;
+    pub fn rocksdb_filterpolicy_destroy(filter: DBFilterPolicy);
     pub fn rocksdb_open(options: DBOptions,
                         path: *const i8,
                         err: *mut *const i8)
