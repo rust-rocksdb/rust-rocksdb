@@ -105,9 +105,15 @@ impl BlockBasedOptions {
 
     pub fn set_filter(&mut self, bits: i32) {
         if let Some(filter) = self.filter {
-            unsafe { rocksdb_ffi::rocksdb_filterpolicy_destroy(filter); }
+            unsafe {
+                rocksdb_ffi::rocksdb_filterpolicy_destroy(filter);
+            }
         }
-        unsafe { self.filter = Some(rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits)) }
+        unsafe {
+            let new_filter =  rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits);
+            rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner, new_filter);
+            self.filter = Some(new_filter);
+        }
     }
 }
 
