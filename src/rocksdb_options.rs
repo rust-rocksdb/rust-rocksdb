@@ -29,6 +29,7 @@ pub enum IndexType {
 
 pub struct BlockBasedOptions {
     inner: rocksdb_ffi::DBBlockBasedTableOptions,
+    filter: Option<rocksdb_ffi::DBFilterPolicy>,
 }
 
 pub struct Options {
@@ -75,7 +76,7 @@ impl BlockBasedOptions {
         if block_opts.is_null() {
             panic!("Could not create rocksdb block based options".to_string());
         }
-        BlockBasedOptions { inner: block_opts }
+        BlockBasedOptions { inner: block_opts, filter: None }
     }
 
     pub fn set_block_size(&mut self, size: usize) {
@@ -97,6 +98,14 @@ impl BlockBasedOptions {
 
     pub fn set_cache(&mut self, cache: Cache) {
         unsafe { rocksdb_ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache.inner); }
+    }
+
+    pub fn set_filter(&mut self, bits: i32) {
+        unsafe {
+            let new_filter =  rocksdb_ffi::rocksdb_filterpolicy_create_bloom(bits);
+            rocksdb_ffi::rocksdb_block_based_options_set_filter_policy(self.inner, new_filter);
+            self.filter = Some(new_filter);
+        }
     }
 }
 
