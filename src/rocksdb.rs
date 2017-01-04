@@ -56,6 +56,8 @@ pub struct WriteBatch {
     inner: *mut DBWriteBatch,
 }
 
+unsafe impl Send for WriteBatch {}
+
 pub struct Snapshot<'a> {
     db: &'a DB,
     snap: UnsafeSnap,
