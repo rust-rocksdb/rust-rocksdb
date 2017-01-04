@@ -14,3 +14,6 @@ static-link = []
 # portable doesn't require static link, though it's meaningless
 # when not using with static-link right now in this crate.
 portable = []
+
+[build-dependencies]
+gcc = "0.3"

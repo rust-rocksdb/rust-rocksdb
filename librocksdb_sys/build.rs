@@ -1,3 +1,6 @@
+
+extern crate gcc;
+
 use std::{env, fs, str};
 use std::path::PathBuf;
 use std::process::Command;
@@ -11,8 +14,20 @@ macro_rules! t {
 
 fn main() {
     if !cfg!(feature = "static-link") {
+        gcc::Config::new()
+        .cpp(true)
+        .file("crocksdb/c.cc")
+        .flag("-std=c++11")
+        .flag("-fPIC")
+        .flag("-O2")
+        .compile("libcrocksdb.a");
+
+        println!("cargo:rustc-link-lib=static=crocksdb");
+        println!("cargo:rustc-link-lib=rocksdb");
+
         return;
     }
+
     if !cfg!(target_os = "linux") && !cfg!(target_os = "macos") {
         // only linux and apple support static link right now
         return;
@@ -24,7 +39,9 @@ fn main() {
     t!(fs::create_dir_all(&build));
 
     let fest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let p = PathBuf::from(fest_dir).join("build.sh");
+    let p = PathBuf::from(fest_dir.clone()).join("build.sh");
+    let crocksdb_path = PathBuf::from(fest_dir).join("crocksdb");
+    env::set_var("CROCKSDB_PATH", crocksdb_path.to_str().unwrap());
     for lib in &["z", "snappy", "bz2", "lz4", "rocksdb"] {
         let lib_name = format!("lib{}.a", lib);
         let src = build.join(&lib_name);

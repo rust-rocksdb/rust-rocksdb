@@ -28,7 +28,7 @@ mod compaction_filter;
 
 pub use compaction_filter::CompactionFilter;
 pub use librocksdb_sys::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, new_bloom_filter,
-                         self as rocksdb_ffi};
+                         self as crocksdb_ffi};
 pub use merge_operator::MergeOperands;
 pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, CFHandle, Range,
                   BackupEngine};

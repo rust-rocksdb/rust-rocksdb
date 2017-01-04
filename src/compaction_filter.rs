@@ -1,6 +1,6 @@
 use libc::{c_void, c_char, c_int, size_t};
 
-use rocksdb_ffi::{self, DBCompactionFilter};
+use crocksdb_ffi::{self, DBCompactionFilter};
 use std::ffi::CString;
 use std::slice;
 
@@ -61,7 +61,7 @@ pub struct CompactionFilterHandle {
 impl Drop for CompactionFilterHandle {
     fn drop(&mut self) {
         unsafe {
-            rocksdb_ffi::rocksdb_compactionfilter_destroy(self.inner);
+            crocksdb_ffi::crocksdb_compactionfilter_destroy(self.inner);
         }
     }
 }
@@ -74,10 +74,10 @@ pub unsafe fn new_compaction_filter(c_name: CString,
         name: c_name,
         filter: f,
     }));
-    let filter = rocksdb_ffi::rocksdb_compactionfilter_create(proxy as *mut c_void,
+    let filter = crocksdb_ffi::crocksdb_compactionfilter_create(proxy as *mut c_void,
                                                               destructor,
                                                               filter,
                                                               name);
-    rocksdb_ffi::rocksdb_compactionfilter_set_ignore_snapshots(filter, ignore_snapshots);
+    crocksdb_ffi::crocksdb_compactionfilter_set_ignore_snapshots(filter, ignore_snapshots);
     Ok(CompactionFilterHandle { inner: filter })
 }

@@ -16,7 +16,7 @@
 
 use libc::{self, c_int, c_void, size_t};
 
-use rocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine};
+use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions, RestoreOptions};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -37,7 +37,7 @@ pub struct CFHandle {
 impl Drop for CFHandle {
     fn drop(&mut self) {
         unsafe {
-            rocksdb_ffi::rocksdb_column_family_handle_destroy(self.inner);
+            crocksdb_ffi::crocksdb_column_family_handle_destroy(self.inner);
         }
     }
 }
@@ -66,7 +66,7 @@ pub struct Snapshot<'a> {
 pub struct DBIterator<'a> {
     db: &'a DB,
     readopts: ReadOptions,
-    inner: *mut rocksdb_ffi::DBIterator,
+    inner: *mut crocksdb_ffi::DBIterator,
 }
 
 pub enum SeekKey<'a> {
@@ -84,7 +84,7 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 impl<'a> DBIterator<'a> {
     pub fn new(db: &'a DB, readopts: ReadOptions) -> DBIterator<'a> {
         unsafe {
-            let iterator = rocksdb_ffi::rocksdb_create_iterator(db.inner, readopts.get_inner());
+            let iterator = crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner());
 
             DBIterator {
                 db: db,
@@ -97,10 +97,10 @@ impl<'a> DBIterator<'a> {
     pub fn seek(&mut self, key: SeekKey) -> bool {
         unsafe {
             match key {
-                SeekKey::Start => rocksdb_ffi::rocksdb_iter_seek_to_first(self.inner),
-                SeekKey::End => rocksdb_ffi::rocksdb_iter_seek_to_last(self.inner),
+                SeekKey::Start => crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner),
+                SeekKey::End => crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner),
                 SeekKey::Key(key) => {
-                    rocksdb_ffi::rocksdb_iter_seek(self.inner, key.as_ptr(), key.len() as size_t)
+                    crocksdb_ffi::crocksdb_iter_seek(self.inner, key.as_ptr(), key.len() as size_t)
                 }
             }
         }
@@ -109,14 +109,14 @@ impl<'a> DBIterator<'a> {
 
     pub fn prev(&mut self) -> bool {
         unsafe {
-            rocksdb_ffi::rocksdb_iter_prev(self.inner);
+            crocksdb_ffi::crocksdb_iter_prev(self.inner);
         }
         self.valid()
     }
 
     pub fn next(&mut self) -> bool {
         unsafe {
-            rocksdb_ffi::rocksdb_iter_next(self.inner);
+            crocksdb_ffi::crocksdb_iter_next(self.inner);
         }
         self.valid()
     }
@@ -126,7 +126,7 @@ impl<'a> DBIterator<'a> {
         let mut key_len: size_t = 0;
         let key_len_ptr: *mut size_t = &mut key_len;
         unsafe {
-            let key_ptr = rocksdb_ffi::rocksdb_iter_key(self.inner, key_len_ptr);
+            let key_ptr = crocksdb_ffi::crocksdb_iter_key(self.inner, key_len_ptr);
             slice::from_raw_parts(key_ptr, key_len as usize)
         }
     }
@@ -136,7 +136,7 @@ impl<'a> DBIterator<'a> {
         let mut val_len: size_t = 0;
         let val_len_ptr: *mut size_t = &mut val_len;
         unsafe {
-            let val_ptr = rocksdb_ffi::rocksdb_iter_value(self.inner, val_len_ptr);
+            let val_ptr = crocksdb_ffi::crocksdb_iter_value(self.inner, val_len_ptr);
             slice::from_raw_parts(val_ptr, val_len as usize)
         }
     }
@@ -150,12 +150,12 @@ impl<'a> DBIterator<'a> {
     }
 
     pub fn valid(&self) -> bool {
-        unsafe { rocksdb_ffi::rocksdb_iter_valid(self.inner) }
+        unsafe { crocksdb_ffi::crocksdb_iter_valid(self.inner) }
     }
 
     pub fn new_cf(db: &'a DB, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<'a> {
         unsafe {
-            let iterator = rocksdb_ffi::rocksdb_create_iterator_cf(db.inner,
+            let iterator = crocksdb_ffi::crocksdb_create_iterator_cf(db.inner,
                                                                    readopts.get_inner(),
                                                                    cf_handle.inner);
             DBIterator {
@@ -184,7 +184,7 @@ impl<'b, 'a> Iterator for &'b mut DBIterator<'a> {
 impl<'a> Drop for DBIterator<'a> {
     fn drop(&mut self) {
         unsafe {
-            rocksdb_ffi::rocksdb_iter_destroy(self.inner);
+            crocksdb_ffi::crocksdb_iter_destroy(self.inner);
         }
     }
 }
@@ -320,11 +320,11 @@ impl DB {
                 .collect();
 
             let cfopts: Vec<_> = cf_opts_v.iter()
-                .map(|x| x.inner as *const rocksdb_ffi::DBOptions)
+                .map(|x| x.inner as *const crocksdb_ffi::DBOptions)
                 .collect();
 
             let db = unsafe {
-                ffi_try!(rocksdb_open_column_families(opts.inner,
+                ffi_try!(crocksdb_open_column_families(opts.inner,
                                                       cpath.as_ptr(),
                                                       cfs_v.len() as c_int,
                                                       cfnames.as_ptr(),
@@ -361,7 +361,7 @@ impl DB {
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         unsafe {
-            ffi_try!(rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
+            ffi_try!(crocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -369,7 +369,7 @@ impl DB {
     pub fn repair(opts: Options, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         unsafe {
-            ffi_try!(rocksdb_repair_db(opts.inner, cpath.as_ptr()));
+            ffi_try!(crocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -388,7 +388,7 @@ impl DB {
         unsafe {
             let mut lencf: size_t = 0;
             let list =
-                ffi_try!(rocksdb_list_column_families(opts.inner, cpath.as_ptr(), &mut lencf));
+                ffi_try!(crocksdb_list_column_families(opts.inner, cpath.as_ptr(), &mut lencf));
             let list_cfs = slice::from_raw_parts(list, lencf);
             for &cf_name in list_cfs {
                 let cf = match CStr::from_ptr(cf_name).to_owned().into_string() {
@@ -397,7 +397,7 @@ impl DB {
                 };
                 cfs.push(cf);
             }
-            rocksdb_ffi::rocksdb_list_column_families_destroy(list, lencf);
+            crocksdb_ffi::crocksdb_list_column_families_destroy(list, lencf);
         }
 
         Ok(cfs)
@@ -409,7 +409,7 @@ impl DB {
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_write(self.inner, writeopts.inner, batch.inner));
+            ffi_try!(crocksdb_write(self.inner, writeopts.inner, batch.inner));
         }
         Ok(())
     }
@@ -428,7 +428,7 @@ impl DB {
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
-            let val = ffi_try!(rocksdb_get(self.inner,
+            let val = ffi_try!(crocksdb_get(self.inner,
                                            readopts.get_inner(),
                                            key.as_ptr(),
                                            key.len() as size_t,
@@ -453,7 +453,7 @@ impl DB {
         unsafe {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
-            let val = ffi_try!(rocksdb_get_cf(self.inner,
+            let val = ffi_try!(crocksdb_get_cf(self.inner,
                                               readopts.get_inner(),
                                               cf.inner,
                                               key.as_ptr(),
@@ -481,7 +481,7 @@ impl DB {
         let cname_ptr = cname.as_ptr();
         unsafe {
             let cf_handler =
-                ffi_try!(rocksdb_create_column_family(self.inner, opts.inner, cname_ptr));
+                ffi_try!(crocksdb_create_column_family(self.inner, opts.inner, cname_ptr));
             let handle = CFHandle { inner: cf_handler };
             Ok(match self.cfs.entry(name.to_owned()) {
                 Entry::Occupied(mut e) => {
@@ -500,7 +500,7 @@ impl DB {
         }
 
         unsafe {
-            ffi_try!(rocksdb_drop_column_family(self.inner, cf.unwrap().inner));
+            ffi_try!(crocksdb_drop_column_family(self.inner, cf.unwrap().inner));
         }
 
         Ok(())
@@ -538,7 +538,7 @@ impl DB {
     }
 
     pub unsafe fn release_snap(&self, snap: &UnsafeSnap) {
-        rocksdb_ffi::rocksdb_release_snapshot(self.inner, snap.get_inner())
+        crocksdb_ffi::crocksdb_release_snapshot(self.inner, snap.get_inner())
     }
 
     pub fn put_opt(&self,
@@ -547,7 +547,7 @@ impl DB {
                    writeopts: &WriteOptions)
                    -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_put(self.inner,
+            ffi_try!(crocksdb_put(self.inner,
                                  writeopts.inner,
                                  key.as_ptr(),
                                  key.len() as size_t,
@@ -564,7 +564,7 @@ impl DB {
                       writeopts: &WriteOptions)
                       -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_put_cf(self.inner,
+            ffi_try!(crocksdb_put_cf(self.inner,
                                     writeopts.inner,
                                     cf.inner,
                                     key.as_ptr(),
@@ -580,7 +580,7 @@ impl DB {
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_merge(self.inner,
+            ffi_try!(crocksdb_merge(self.inner,
                                    writeopts.inner,
                                    key.as_ptr(),
                                    key.len() as size_t,
@@ -596,7 +596,7 @@ impl DB {
                     writeopts: &WriteOptions)
                     -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_merge_cf(self.inner,
+            ffi_try!(crocksdb_merge_cf(self.inner,
                                       writeopts.inner,
                                       cf.inner,
                                       key.as_ptr(),
@@ -608,7 +608,7 @@ impl DB {
     }
     fn delete_opt(&self, key: &[u8], writeopts: &WriteOptions) -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_delete(self.inner,
+            ffi_try!(crocksdb_delete(self.inner,
                                     writeopts.inner,
                                     key.as_ptr(),
                                     key.len() as size_t));
@@ -622,7 +622,7 @@ impl DB {
                      writeopts: &WriteOptions)
                      -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_delete_cf(self.inner,
+            ffi_try!(crocksdb_delete_cf(self.inner,
                                        writeopts.inner,
                                        cf.inner,
                                        key.as_ptr(),
@@ -640,7 +640,7 @@ impl DB {
         unsafe {
             let mut opts = FlushOptions::new();
             opts.set_wait(sync);
-            ffi_try!(rocksdb_flush(self.inner, opts.inner));
+            ffi_try!(crocksdb_flush(self.inner, opts.inner));
             Ok(())
         }
     }
@@ -683,7 +683,7 @@ impl DB {
              sizes.as_mut_ptr());
         match cf {
             None => unsafe {
-                rocksdb_ffi::rocksdb_approximate_sizes(self.inner,
+                crocksdb_ffi::crocksdb_approximate_sizes(self.inner,
                                                        n,
                                                        start_key_ptr,
                                                        start_key_len_ptr,
@@ -692,7 +692,7 @@ impl DB {
                                                        size_ptr)
             },
             Some(cf) => unsafe {
-                rocksdb_ffi::rocksdb_approximate_sizes_cf(self.inner,
+                crocksdb_ffi::crocksdb_approximate_sizes_cf(self.inner,
                                                           cf.inner,
                                                           n,
                                                           start_key_ptr,
@@ -709,7 +709,7 @@ impl DB {
         unsafe {
             let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
-            rocksdb_ffi::rocksdb_compact_range(self.inner, start, s_len, end, e_len);
+            crocksdb_ffi::crocksdb_compact_range(self.inner, start, s_len, end, e_len);
         }
     }
 
@@ -720,13 +720,13 @@ impl DB {
         unsafe {
             let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
-            rocksdb_ffi::rocksdb_compact_range_cf(self.inner, cf.inner, start, s_len, end, e_len);
+            crocksdb_ffi::crocksdb_compact_range_cf(self.inner, cf.inner, start, s_len, end, e_len);
         }
     }
 
     pub fn delete_file_in_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_delete_file_in_range(self.inner,
+            ffi_try!(crocksdb_delete_file_in_range(self.inner,
                                                   start_key.as_ptr(),
                                                   start_key.len() as size_t,
                                                   end_key.as_ptr(),
@@ -741,7 +741,7 @@ impl DB {
                                    end_key: &[u8])
                                    -> Result<(), String> {
         unsafe {
-            ffi_try!(rocksdb_delete_file_in_range_cf(self.inner,
+            ffi_try!(crocksdb_delete_file_in_range_cf(self.inner,
                                                      cf.inner,
                                                      start_key.as_ptr(),
                                                      start_key.len() as size_t,
@@ -774,9 +774,9 @@ impl DB {
             let prop_name = CString::new(name).unwrap();
 
             let value = match cf {
-                None => rocksdb_ffi::rocksdb_property_value(self.inner, prop_name.as_ptr()),
+                None => crocksdb_ffi::crocksdb_property_value(self.inner, prop_name.as_ptr()),
                 Some(cf) => {
-                    rocksdb_ffi::rocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr())
+                    crocksdb_ffi::crocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr())
                 }
             };
 
@@ -810,7 +810,7 @@ impl DB {
     pub fn backup_at(&self, path: &str) -> Result<BackupEngine, String> {
         let backup_engine = BackupEngine::open(Options::new(), path).unwrap();
         unsafe {
-            ffi_try!(rocksdb_backup_engine_create_new_backup(backup_engine.inner, self.inner))
+            ffi_try!(crocksdb_backup_engine_create_new_backup(backup_engine.inner, self.inner))
         }
         Ok(backup_engine)
     }
@@ -837,7 +837,7 @@ impl DB {
         };
 
         unsafe {
-            ffi_try!(rocksdb_backup_engine_restore_db_from_latest_backup(backup_engine.inner,
+            ffi_try!(crocksdb_backup_engine_restore_db_from_latest_backup(backup_engine.inner,
                                                                          c_db_path.as_ptr(),
                                                                          c_wal_path.as_ptr(),
                                                                          ropts.inner))
@@ -875,7 +875,7 @@ impl Writable for DB {
 
 impl Default for WriteBatch {
     fn default() -> WriteBatch {
-        WriteBatch { inner: unsafe { rocksdb_ffi::rocksdb_writebatch_create() } }
+        WriteBatch { inner: unsafe { crocksdb_ffi::crocksdb_writebatch_create() } }
     }
 }
 
@@ -885,7 +885,7 @@ impl WriteBatch {
     }
 
     pub fn count(&self) -> usize {
-        unsafe { rocksdb_ffi::rocksdb_writebatch_count(self.inner) as usize }
+        unsafe { crocksdb_ffi::crocksdb_writebatch_count(self.inner) as usize }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -909,7 +909,7 @@ impl WriteBatch {
 
 impl Drop for WriteBatch {
     fn drop(&mut self) {
-        unsafe { rocksdb_ffi::rocksdb_writebatch_destroy(self.inner) }
+        unsafe { crocksdb_ffi::crocksdb_writebatch_destroy(self.inner) }
     }
 }
 
@@ -917,7 +917,7 @@ impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
             self.cfs.clear();
-            rocksdb_ffi::rocksdb_close(self.inner);
+            crocksdb_ffi::crocksdb_close(self.inner);
         }
     }
 }
@@ -925,7 +925,7 @@ impl Drop for DB {
 impl Writable for WriteBatch {
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_put(self.inner,
+            crocksdb_ffi::crocksdb_writebatch_put(self.inner,
                                                 key.as_ptr(),
                                                 key.len() as size_t,
                                                 value.as_ptr(),
@@ -936,7 +936,7 @@ impl Writable for WriteBatch {
 
     fn put_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_put_cf(self.inner,
+            crocksdb_ffi::crocksdb_writebatch_put_cf(self.inner,
                                                    cf.inner,
                                                    key.as_ptr(),
                                                    key.len() as size_t,
@@ -948,7 +948,7 @@ impl Writable for WriteBatch {
 
     fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_merge(self.inner,
+            crocksdb_ffi::crocksdb_writebatch_merge(self.inner,
                                                   key.as_ptr(),
                                                   key.len() as size_t,
                                                   value.as_ptr(),
@@ -959,7 +959,7 @@ impl Writable for WriteBatch {
 
     fn merge_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_merge_cf(self.inner,
+            crocksdb_ffi::crocksdb_writebatch_merge_cf(self.inner,
                                                      cf.inner,
                                                      key.as_ptr(),
                                                      key.len() as size_t,
@@ -971,14 +971,14 @@ impl Writable for WriteBatch {
 
     fn delete(&self, key: &[u8]) -> Result<(), String> {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_delete(self.inner, key.as_ptr(), key.len() as size_t);
+            crocksdb_ffi::crocksdb_writebatch_delete(self.inner, key.as_ptr(), key.len() as size_t);
             Ok(())
         }
     }
 
     fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_delete_cf(self.inner,
+            crocksdb_ffi::crocksdb_writebatch_delete_cf(self.inner,
                                                       cf.inner,
                                                       key.as_ptr(),
                                                       key.len() as size_t);
@@ -1039,7 +1039,7 @@ impl BackupEngine {
         }
 
         let backup_engine =
-            unsafe { ffi_try!(rocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) };
+            unsafe { ffi_try!(crocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) };
 
         Ok(BackupEngine { inner: backup_engine })
     }
@@ -1048,7 +1048,7 @@ impl BackupEngine {
 impl Drop for BackupEngine {
     fn drop(&mut self) {
         unsafe {
-            rocksdb_ffi::rocksdb_backup_engine_close(self.inner);
+            crocksdb_ffi::crocksdb_backup_engine_close(self.inner);
         }
     }
 }
