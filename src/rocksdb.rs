@@ -897,14 +897,14 @@ impl WriteBatch {
     pub fn data_size(&self) -> usize {
         unsafe {
             let mut data_size: usize = 0;
-            let _ = rocksdb_ffi::rocksdb_writebatch_data(self.inner, &mut data_size);
+            let _ = crocksdb_ffi::crocksdb_writebatch_data(self.inner, &mut data_size);
             return data_size;
         }
     }
 
     pub fn clear(&self) {
         unsafe {
-            rocksdb_ffi::rocksdb_writebatch_clear(self.inner);
+            crocksdb_ffi::crocksdb_writebatch_clear(self.inner);
         }
     }
 }

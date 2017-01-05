@@ -873,7 +873,7 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_tailing(
     crocksdb_readoptions_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_readahead_size(
     crocksdb_readoptions_t*, size_t);
-extern ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_total_order_seek(
+extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_total_order_seek(
     crocksdb_readoptions_t*, unsigned char);
 
 /* Write options */
