@@ -109,6 +109,19 @@ impl<'a> DBIterator<'a> {
         self.valid()
     }
 
+    pub fn seek_for_prev(&mut self, key: SeekKey) -> bool {
+        unsafe {
+            match key {
+                SeekKey::Start => crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner),
+                SeekKey::End => crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner),
+                SeekKey::Key(key) => {
+                    crocksdb_ffi::crocksdb_iter_seek_for_prev(self.inner, key.as_ptr(), key.len() as size_t)
+                }
+            }
+        }
+        self.valid()
+    }
+
     pub fn prev(&mut self) -> bool {
         unsafe {
             crocksdb_ffi::crocksdb_iter_prev(self.inner);

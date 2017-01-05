@@ -319,6 +319,7 @@ extern "C" {
     pub fn crocksdb_iter_seek_to_first(iter: *mut DBIterator);
     pub fn crocksdb_iter_seek_to_last(iter: *mut DBIterator);
     pub fn crocksdb_iter_seek(iter: *mut DBIterator, key: *const u8, klen: size_t);
+    pub fn crocksdb_iter_seek_for_prev(iter: *mut DBIterator, key: *const u8, klen: size_t);
     pub fn crocksdb_iter_next(iter: *mut DBIterator);
     pub fn crocksdb_iter_prev(iter: *mut DBIterator);
     pub fn crocksdb_iter_key(iter: *const DBIterator, klen: *mut size_t) -> *mut u8;
