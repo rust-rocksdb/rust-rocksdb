@@ -655,8 +655,6 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_manifest_preallocation_si
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_purge_redundant_kvs_while_flush(crocksdb_options_t*,
                                                     unsigned char);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_allow_os_buffer(
-    crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_allow_mmap_reads(
     crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_allow_mmap_writes(

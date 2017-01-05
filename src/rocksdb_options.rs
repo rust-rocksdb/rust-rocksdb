@@ -382,12 +382,6 @@ impl Options {
         }
     }
 
-    pub fn allow_os_buffer(&mut self, is_allow: bool) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_allow_os_buffer(self.inner, is_allow);
-        }
-    }
-
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_table_cache_numshardbits(self.inner, nbits);

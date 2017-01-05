@@ -1710,11 +1710,6 @@ void crocksdb_options_set_manifest_preallocation_size(
 void crocksdb_options_set_purge_redundant_kvs_while_flush(crocksdb_options_t* opt,
                                                          unsigned char v) {}
 
-void crocksdb_options_set_allow_os_buffer(crocksdb_options_t* opt,
-                                         unsigned char v) {
-  opt->rep.allow_os_buffer = v;
-}
-
 void crocksdb_options_set_allow_mmap_reads(
     crocksdb_options_t* opt, unsigned char v) {
   opt->rep.allow_mmap_reads = v;
