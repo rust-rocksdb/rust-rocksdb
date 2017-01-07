@@ -55,12 +55,16 @@ use std::fmt;
 use std::path::PathBuf;
 
 /// A RocksDB database.
+///
+/// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
+    cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
 }
 
+/// A simple wrapper round a string, used for errors reported from
+/// ffi calls.
 #[derive(Debug, PartialEq)]
 pub struct Error {
     message: String,
@@ -161,4 +165,11 @@ pub struct Options {
 /// ```
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
+}
+
+/// An opaque type used to represent a column family. Returned from some functions, and used
+/// in others
+#[derive(Copy, Clone)]
+pub struct ColumnFamily {
+    inner: *mut ffi::rocksdb_column_family_handle_t,
 }
