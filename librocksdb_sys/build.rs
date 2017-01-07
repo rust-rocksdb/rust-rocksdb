@@ -32,7 +32,6 @@ fn main() {
         // only linux and apple support static link right now
         return;
     }
-    println!("cargo:rerun-if-changed=build.sh");
 
     let dst = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let build = dst.join("build");
