@@ -1,6 +1,5 @@
-use libc::{c_void, c_char, c_int, size_t};
-
 use crocksdb_ffi::{self, DBCompactionFilter};
+use libc::{c_void, c_char, c_int, size_t};
 use std::ffi::CString;
 use std::slice;
 
@@ -75,9 +74,9 @@ pub unsafe fn new_compaction_filter(c_name: CString,
         filter: f,
     }));
     let filter = crocksdb_ffi::crocksdb_compactionfilter_create(proxy as *mut c_void,
-                                                              destructor,
-                                                              filter,
-                                                              name);
+                                                                destructor,
+                                                                filter,
+                                                                name);
     crocksdb_ffi::crocksdb_compactionfilter_set_ignore_snapshots(filter, ignore_snapshots);
     Ok(CompactionFilterHandle { inner: filter })
 }

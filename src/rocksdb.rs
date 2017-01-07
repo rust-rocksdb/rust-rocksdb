@@ -13,10 +13,8 @@
 // limitations under the License.
 //
 
-
-use libc::{self, c_int, c_void, size_t};
-
 use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine};
+use libc::{self, c_int, c_void, size_t};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions, RestoreOptions};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -115,7 +113,9 @@ impl<'a> DBIterator<'a> {
                 SeekKey::Start => crocksdb_ffi::crocksdb_iter_seek_to_first(self.inner),
                 SeekKey::End => crocksdb_ffi::crocksdb_iter_seek_to_last(self.inner),
                 SeekKey::Key(key) => {
-                    crocksdb_ffi::crocksdb_iter_seek_for_prev(self.inner, key.as_ptr(), key.len() as size_t)
+                    crocksdb_ffi::crocksdb_iter_seek_for_prev(self.inner,
+                                                              key.as_ptr(),
+                                                              key.len() as size_t)
                 }
             }
         }
@@ -171,8 +171,8 @@ impl<'a> DBIterator<'a> {
     pub fn new_cf(db: &'a DB, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<'a> {
         unsafe {
             let iterator = crocksdb_ffi::crocksdb_create_iterator_cf(db.inner,
-                                                                   readopts.get_inner(),
-                                                                   cf_handle.inner);
+                                                                     readopts.get_inner(),
+                                                                     cf_handle.inner);
             DBIterator {
                 db: db,
                 readopts: readopts,
@@ -340,11 +340,11 @@ impl DB {
 
             let db = unsafe {
                 ffi_try!(crocksdb_open_column_families(opts.inner,
-                                                      cpath.as_ptr(),
-                                                      cfs_v.len() as c_int,
-                                                      cfnames.as_ptr(),
-                                                      cfopts.as_ptr(),
-                                                      cfhandles.as_ptr()))
+                                                       cpath.as_ptr(),
+                                                       cfs_v.len() as c_int,
+                                                       cfnames.as_ptr(),
+                                                       cfopts.as_ptr(),
+                                                       cfhandles.as_ptr()))
             };
 
             for handle in &cfhandles {
@@ -444,10 +444,10 @@ impl DB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let val = ffi_try!(crocksdb_get(self.inner,
-                                           readopts.get_inner(),
-                                           key.as_ptr(),
-                                           key.len() as size_t,
-                                           val_len_ptr));
+                                            readopts.get_inner(),
+                                            key.as_ptr(),
+                                            key.len() as size_t,
+                                            val_len_ptr));
             if val.is_null() {
                 Ok(None)
             } else {
@@ -469,11 +469,11 @@ impl DB {
             let val_len: size_t = 0;
             let val_len_ptr = &val_len as *const size_t;
             let val = ffi_try!(crocksdb_get_cf(self.inner,
-                                              readopts.get_inner(),
-                                              cf.inner,
-                                              key.as_ptr(),
-                                              key.len() as size_t,
-                                              val_len_ptr));
+                                               readopts.get_inner(),
+                                               cf.inner,
+                                               key.as_ptr(),
+                                               key.len() as size_t,
+                                               val_len_ptr));
             if val.is_null() {
                 Ok(None)
             } else {
@@ -563,11 +563,11 @@ impl DB {
                    -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_put(self.inner,
-                                 writeopts.inner,
-                                 key.as_ptr(),
-                                 key.len() as size_t,
-                                 value.as_ptr(),
-                                 value.len() as size_t));
+                                  writeopts.inner,
+                                  key.as_ptr(),
+                                  key.len() as size_t,
+                                  value.as_ptr(),
+                                  value.len() as size_t));
             Ok(())
         }
     }
@@ -580,12 +580,12 @@ impl DB {
                       -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_put_cf(self.inner,
-                                    writeopts.inner,
-                                    cf.inner,
-                                    key.as_ptr(),
-                                    key.len() as size_t,
-                                    value.as_ptr(),
-                                    value.len() as size_t));
+                                     writeopts.inner,
+                                     cf.inner,
+                                     key.as_ptr(),
+                                     key.len() as size_t,
+                                     value.as_ptr(),
+                                     value.len() as size_t));
             Ok(())
         }
     }
@@ -596,11 +596,11 @@ impl DB {
                      -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_merge(self.inner,
-                                   writeopts.inner,
-                                   key.as_ptr(),
-                                   key.len() as size_t,
-                                   value.as_ptr(),
-                                   value.len() as size_t));
+                                    writeopts.inner,
+                                    key.as_ptr(),
+                                    key.len() as size_t,
+                                    value.as_ptr(),
+                                    value.len() as size_t));
             Ok(())
         }
     }
@@ -612,21 +612,21 @@ impl DB {
                     -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_merge_cf(self.inner,
-                                      writeopts.inner,
-                                      cf.inner,
-                                      key.as_ptr(),
-                                      key.len() as size_t,
-                                      value.as_ptr(),
-                                      value.len() as size_t));
+                                       writeopts.inner,
+                                       cf.inner,
+                                       key.as_ptr(),
+                                       key.len() as size_t,
+                                       value.as_ptr(),
+                                       value.len() as size_t));
             Ok(())
         }
     }
     fn delete_opt(&self, key: &[u8], writeopts: &WriteOptions) -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_delete(self.inner,
-                                    writeopts.inner,
-                                    key.as_ptr(),
-                                    key.len() as size_t));
+                                     writeopts.inner,
+                                     key.as_ptr(),
+                                     key.len() as size_t));
             Ok(())
         }
     }
@@ -638,10 +638,10 @@ impl DB {
                      -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_delete_cf(self.inner,
-                                       writeopts.inner,
-                                       cf.inner,
-                                       key.as_ptr(),
-                                       key.len() as size_t));
+                                        writeopts.inner,
+                                        cf.inner,
+                                        key.as_ptr(),
+                                        key.len() as size_t));
             Ok(())
         }
     }
@@ -699,22 +699,22 @@ impl DB {
         match cf {
             None => unsafe {
                 crocksdb_ffi::crocksdb_approximate_sizes(self.inner,
-                                                       n,
-                                                       start_key_ptr,
-                                                       start_key_len_ptr,
-                                                       end_key_ptr,
-                                                       end_key_len_ptr,
-                                                       size_ptr)
+                                                         n,
+                                                         start_key_ptr,
+                                                         start_key_len_ptr,
+                                                         end_key_ptr,
+                                                         end_key_len_ptr,
+                                                         size_ptr)
             },
             Some(cf) => unsafe {
                 crocksdb_ffi::crocksdb_approximate_sizes_cf(self.inner,
-                                                          cf.inner,
-                                                          n,
-                                                          start_key_ptr,
-                                                          start_key_len_ptr,
-                                                          end_key_ptr,
-                                                          end_key_len_ptr,
-                                                          size_ptr)
+                                                            cf.inner,
+                                                            n,
+                                                            start_key_ptr,
+                                                            start_key_len_ptr,
+                                                            end_key_ptr,
+                                                            end_key_len_ptr,
+                                                            size_ptr)
             },
         }
         sizes
@@ -742,10 +742,10 @@ impl DB {
     pub fn delete_file_in_range(&self, start_key: &[u8], end_key: &[u8]) -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_delete_file_in_range(self.inner,
-                                                  start_key.as_ptr(),
-                                                  start_key.len() as size_t,
-                                                  end_key.as_ptr(),
-                                                  end_key.len() as size_t));
+                                                   start_key.as_ptr(),
+                                                   start_key.len() as size_t,
+                                                   end_key.as_ptr(),
+                                                   end_key.len() as size_t));
             Ok(())
         }
     }
@@ -757,11 +757,11 @@ impl DB {
                                    -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_delete_file_in_range_cf(self.inner,
-                                                     cf.inner,
-                                                     start_key.as_ptr(),
-                                                     start_key.len() as size_t,
-                                                     end_key.as_ptr(),
-                                                     end_key.len() as size_t));
+                                                      cf.inner,
+                                                      start_key.as_ptr(),
+                                                      start_key.len() as size_t,
+                                                      end_key.as_ptr(),
+                                                      end_key.len() as size_t));
             Ok(())
         }
     }
@@ -791,7 +791,9 @@ impl DB {
             let value = match cf {
                 None => crocksdb_ffi::crocksdb_property_value(self.inner, prop_name.as_ptr()),
                 Some(cf) => {
-                    crocksdb_ffi::crocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr())
+                    crocksdb_ffi::crocksdb_property_value_cf(self.inner,
+                                                             cf.inner,
+                                                             prop_name.as_ptr())
                 }
             };
 
@@ -853,9 +855,9 @@ impl DB {
 
         unsafe {
             ffi_try!(crocksdb_backup_engine_restore_db_from_latest_backup(backup_engine.inner,
-                                                                         c_db_path.as_ptr(),
-                                                                         c_wal_path.as_ptr(),
-                                                                         ropts.inner))
+                                                                          c_db_path.as_ptr(),
+                                                                          c_wal_path.as_ptr(),
+                                                                          ropts.inner))
         };
 
         DB::open_default(restore_db_path)
@@ -941,29 +943,6 @@ impl Writable for WriteBatch {
     fn put(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
             crocksdb_ffi::crocksdb_writebatch_put(self.inner,
-                                                key.as_ptr(),
-                                                key.len() as size_t,
-                                                value.as_ptr(),
-                                                value.len() as size_t);
-            Ok(())
-        }
-    }
-
-    fn put_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String> {
-        unsafe {
-            crocksdb_ffi::crocksdb_writebatch_put_cf(self.inner,
-                                                   cf.inner,
-                                                   key.as_ptr(),
-                                                   key.len() as size_t,
-                                                   value.as_ptr(),
-                                                   value.len() as size_t);
-            Ok(())
-        }
-    }
-
-    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
-        unsafe {
-            crocksdb_ffi::crocksdb_writebatch_merge(self.inner,
                                                   key.as_ptr(),
                                                   key.len() as size_t,
                                                   value.as_ptr(),
@@ -972,14 +951,37 @@ impl Writable for WriteBatch {
         }
     }
 
-    fn merge_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String> {
+    fn put_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String> {
         unsafe {
-            crocksdb_ffi::crocksdb_writebatch_merge_cf(self.inner,
+            crocksdb_ffi::crocksdb_writebatch_put_cf(self.inner,
                                                      cf.inner,
                                                      key.as_ptr(),
                                                      key.len() as size_t,
                                                      value.as_ptr(),
                                                      value.len() as size_t);
+            Ok(())
+        }
+    }
+
+    fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), String> {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_merge(self.inner,
+                                                    key.as_ptr(),
+                                                    key.len() as size_t,
+                                                    value.as_ptr(),
+                                                    value.len() as size_t);
+            Ok(())
+        }
+    }
+
+    fn merge_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String> {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_merge_cf(self.inner,
+                                                       cf.inner,
+                                                       key.as_ptr(),
+                                                       key.len() as size_t,
+                                                       value.as_ptr(),
+                                                       value.len() as size_t);
             Ok(())
         }
     }
@@ -994,9 +996,9 @@ impl Writable for WriteBatch {
     fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
         unsafe {
             crocksdb_ffi::crocksdb_writebatch_delete_cf(self.inner,
-                                                      cf.inner,
-                                                      key.as_ptr(),
-                                                      key.len() as size_t);
+                                                        cf.inner,
+                                                        key.as_ptr(),
+                                                        key.len() as size_t);
             Ok(())
         }
     }

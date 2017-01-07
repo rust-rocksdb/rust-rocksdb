@@ -15,13 +15,13 @@
 
 use compaction_filter::{CompactionFilter, new_compaction_filter, CompactionFilterHandle};
 use comparator::{self, ComparatorCallback, compare_callback};
+
+use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
+                   DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
+                   DBFlushOptions};
 use libc::{self, c_int, size_t, c_void};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
 use merge_operator::MergeFn;
-
-use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
-                  DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
-                  DBFlushOptions};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -154,8 +154,8 @@ impl ReadOptions {
         self.upper_bound = Vec::from(key);
         unsafe {
             crocksdb_ffi::crocksdb_readoptions_set_iterate_upper_bound(self.inner,
-                                                                     self.upper_bound.as_ptr(),
-                                                                     self.upper_bound.len());
+                                                                       self.upper_bound.as_ptr(),
+                                                                       self.upper_bound.len());
         }
     }
 
@@ -247,7 +247,7 @@ impl Options {
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: i32) {
         unsafe {
             crocksdb_ffi::crocksdb_options_optimize_level_style_compaction(self.inner,
-                                                                         memtable_memory_budget);
+                                                                           memtable_memory_budget);
         }
     }
 
@@ -277,10 +277,10 @@ impl Options {
             };
             self.filter = Some(try!(new_compaction_filter(c_name, ignore_snapshots, filter)));
             crocksdb_ffi::crocksdb_options_set_compaction_filter(self.inner,
-                                                               self.filter
-                                                                   .as_ref()
-                                                                   .unwrap()
-                                                                   .inner);
+                                                                 self.filter
+                                                                     .as_ref()
+                                                                     .unwrap()
+                                                                     .inner);
             Ok(())
         }
     }
@@ -300,8 +300,8 @@ impl Options {
     pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compression_per_level(self.inner,
-                                                                   level_types.as_ptr(),
-                                                                   level_types.len() as size_t)
+                                                                     level_types.as_ptr(),
+                                                                     level_types.len() as size_t)
         }
     }
 
@@ -312,12 +312,13 @@ impl Options {
         });
 
         unsafe {
-            let mo = crocksdb_ffi::crocksdb_mergeoperator_create(mem::transmute(cb),
-                                                               merge_operator::destructor_callback,
-                                                               full_merge_callback,
-                                                               partial_merge_callback,
-                                                               None,
-                                                               merge_operator::name_callback);
+            let mo =
+                crocksdb_ffi::crocksdb_mergeoperator_create(mem::transmute(cb),
+                                                            merge_operator::destructor_callback,
+                                                            full_merge_callback,
+                                                            partial_merge_callback,
+                                                            None,
+                                                            merge_operator::name_callback);
             crocksdb_ffi::crocksdb_options_set_merge_operator(self.inner, mo);
         }
     }
@@ -330,9 +331,9 @@ impl Options {
 
         unsafe {
             let cmp = crocksdb_ffi::crocksdb_comparator_create(mem::transmute(cb),
-                                                             comparator::destructor_callback,
-                                                             compare_callback,
-                                                             comparator::name_callback);
+                                                               comparator::destructor_callback,
+                                                               compare_callback,
+                                                               comparator::name_callback);
             crocksdb_ffi::crocksdb_options_set_comparator(self.inner, cmp);
         }
     }
@@ -432,7 +433,8 @@ impl Options {
 
     pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
         unsafe {
-            crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner, to_merge);
+            crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner,
+                                                                                to_merge);
         }
     }
 
@@ -600,7 +602,7 @@ impl RestoreOptions {
     pub fn set_keep_log_files(&mut self, flag: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_restore_options_set_keep_log_files(self.inner,
-                                                                    if flag { 1 } else { 0 })
+                                                                      if flag { 1 } else { 0 })
         }
     }
 }
