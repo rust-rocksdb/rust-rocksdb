@@ -510,14 +510,14 @@ impl DB {
                     .to_owned()))
             }
         };
-        let cf_handler = unsafe {
+        let cf = unsafe {
             let cf_handler =
                 ffi_try!(ffi::rocksdb_create_column_family(self.inner, opts.inner, cname.as_ptr()));
-            let cf_handler = ColumnFamily { inner: cf_handler };
-            self.cfs.insert(name.to_string(), cf_handler);
-            cf_handler
+            let cf = ColumnFamily { inner: cf_handler };
+            self.cfs.insert(name.to_string(), cf);
+            cf
         };
-        Ok(cf_handler)
+        Ok(cf)
     }
 
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
@@ -533,7 +533,7 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.get(name).map(|cf| *cf)
+        self.cfs.get(name).cloned()
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
