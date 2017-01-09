@@ -17,7 +17,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate tempdir;
 
-use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t};
+use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t, c_double};
 use std::ffi::CStr;
 
 pub enum DBOptions {}
@@ -37,6 +37,7 @@ pub enum DBFlushOptions {}
 pub enum DBCompactionFilter {}
 pub enum DBBackupEngine {}
 pub enum DBRestoreOptions {}
+pub enum DBSliceTransform {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -190,6 +191,10 @@ extern "C" {
     pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn crocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);
+    pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
+                                                 prefix_extractor: *mut DBSliceTransform);
+    pub fn crocksdb_options_set_memtable_prefix_bloom_size_ratio(options: *mut DBOptions,
+                                                                 ratio: c_double);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(options: *mut DBOptions,
@@ -505,6 +510,23 @@ extern "C" {
                                                                 wal_path: *const c_char,
                                                                 ropts: *const DBRestoreOptions,
                                                                 err: *mut *mut c_char);
+    // SliceTransform
+    pub fn crocksdb_slicetransform_create(state: *mut c_void,
+                                          destructor: extern "C" fn(*mut c_void),
+                                          transform: extern "C" fn(*mut c_void,
+                                                                   *const u8,
+                                                                   size_t,
+                                                                   *mut size_t)
+                                                                   -> *const u8,
+                                          in_domain: extern "C" fn(*mut c_void,
+                                                                   *const u8,
+                                                                   size_t)
+                                                                   -> u8,
+                                          in_range: extern "C" fn(*mut c_void, *const u8, size_t)
+                                                                  -> u8,
+                                          name: extern "C" fn(*mut c_void) -> *const c_char)
+                                          -> *mut DBSliceTransform;
+    pub fn crocksdb_slicetransform_destroy(transform: *mut DBSliceTransform);
 }
 
 #[cfg(test)]

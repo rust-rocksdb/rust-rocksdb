@@ -22,6 +22,7 @@ use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DB
 use libc::{self, c_int, size_t, c_void};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
 use merge_operator::MergeFn;
+use slice_transform::{SliceTransform, new_slice_transform};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -84,6 +85,12 @@ impl BlockBasedOptions {
         unsafe {
             crocksdb_ffi::crocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner,
                                                                                        v as u8);
+        }
+    }
+
+    pub fn set_whole_key_filtering(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_whole_key_filtering(self.inner, v);
         }
     }
 }
@@ -562,6 +569,29 @@ impl Options {
     pub fn set_keep_log_file_num(&mut self, num: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_keep_log_file_num(self.inner, num as size_t);
+        }
+    }
+
+    pub fn set_prefix_extractor<S>(&mut self,
+                                   name: S,
+                                   transform: Box<SliceTransform>)
+                                   -> Result<(), String>
+        where S: Into<Vec<u8>>
+    {
+        unsafe {
+            let c_name = match CString::new(name) {
+                Ok(s) => s,
+                Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
+            };
+            let transform = try!(new_slice_transform(c_name, transform));
+            crocksdb_ffi::crocksdb_options_set_prefix_extractor(self.inner, transform);
+            Ok(())
+        }
+    }
+
+    pub fn set_memtable_prefix_bloom_size_ratio(&mut self, ratio: f64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_memtable_prefix_bloom_size_ratio(self.inner, ratio);
         }
     }
 }
