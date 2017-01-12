@@ -94,7 +94,7 @@ fn test_merge_operator() {
             }
             Err(e) => panic!("failed to open db with column family: {}", e),
         };
-        let cf1 = *db.cf_handle("cf1").unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
         assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
