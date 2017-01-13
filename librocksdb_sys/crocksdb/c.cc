@@ -683,6 +683,24 @@ void crocksdb_delete_cf(
         Slice(key, keylen)));
 }
 
+void crocksdb_single_delete(
+    crocksdb_t* db,
+    const crocksdb_writeoptions_t* options,
+    const char* key, size_t keylen,
+    char** errptr) {
+  SaveError(errptr, db->rep->SingleDelete(options->rep, Slice(key, keylen)));
+}
+
+void crocksdb_single_delete_cf(
+    crocksdb_t* db,
+    const crocksdb_writeoptions_t* options,
+    crocksdb_column_family_handle_t* column_family,
+    const char* key, size_t keylen,
+    char** errptr) {
+  SaveError(errptr, db->rep->SingleDelete(options->rep, column_family->rep,
+        Slice(key, keylen)));
+}
+
 void crocksdb_merge(
     crocksdb_t* db,
     const crocksdb_writeoptions_t* options,
@@ -1216,6 +1234,19 @@ void crocksdb_writebatch_delete_cf(
     crocksdb_column_family_handle_t* column_family,
     const char* key, size_t klen) {
   b->rep.Delete(column_family->rep, Slice(key, klen));
+}
+
+void crocksdb_writebatch_single_delete(
+    crocksdb_writebatch_t* b,
+    const char* key, size_t klen) {
+  b->rep.SingleDelete(Slice(key, klen));
+}
+
+void crocksdb_writebatch_single_delete_cf(
+    crocksdb_writebatch_t* b,
+    crocksdb_column_family_handle_t* column_family,
+    const char* key, size_t klen) {
+  b->rep.SingleDelete(column_family->rep, Slice(key, klen));
 }
 
 void crocksdb_writebatch_deletev(

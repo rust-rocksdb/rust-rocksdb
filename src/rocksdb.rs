@@ -257,6 +257,8 @@ pub trait Writable {
     fn merge_cf(&self, cf: &CFHandle, key: &[u8], value: &[u8]) -> Result<(), String>;
     fn delete(&self, key: &[u8]) -> Result<(), String>;
     fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String>;
+    fn single_delete(&self, key: &[u8]) -> Result<(), String>;
+    fn single_delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String>;
 }
 
 /// A range of keys, `start_key` is included, but not `end_key`.
@@ -650,6 +652,31 @@ impl DB {
         }
     }
 
+    fn single_delete_opt(&self, key: &[u8], writeopts: &WriteOptions) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_single_delete(self.inner,
+                                            writeopts.inner,
+                                            key.as_ptr(),
+                                            key.len() as size_t));
+            Ok(())
+        }
+    }
+
+    fn single_delete_cf_opt(&self,
+                            cf: &CFHandle,
+                            key: &[u8],
+                            writeopts: &WriteOptions)
+                            -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_single_delete_cf(self.inner,
+                                               writeopts.inner,
+                                               cf.inner,
+                                               key.as_ptr(),
+                                               key.len() as size_t));
+            Ok(())
+        }
+    }
+
     /// Flush all memtable data.
     ///
     /// Due to lack of abi, only default cf is supported.
@@ -892,6 +919,14 @@ impl Writable for DB {
     fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
         self.delete_cf_opt(cf, key, &WriteOptions::new())
     }
+
+    fn single_delete(&self, key: &[u8]) -> Result<(), String> {
+        self.single_delete_opt(key, &WriteOptions::new())
+    }
+
+    fn single_delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
+        self.single_delete_cf_opt(cf, key, &WriteOptions::new())
+    }
 }
 
 impl Default for WriteBatch {
@@ -1003,6 +1038,25 @@ impl Writable for WriteBatch {
                                                         cf.inner,
                                                         key.as_ptr(),
                                                         key.len() as size_t);
+            Ok(())
+        }
+    }
+
+    fn single_delete(&self, key: &[u8]) -> Result<(), String> {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_single_delete(self.inner,
+                                                            key.as_ptr(),
+                                                            key.len() as size_t);
+            Ok(())
+        }
+    }
+
+    fn single_delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_single_delete_cf(self.inner,
+                                                               cf.inner,
+                                                               key.as_ptr(),
+                                                               key.len() as size_t);
             Ok(())
         }
     }
@@ -1287,6 +1341,41 @@ mod test {
             let name = entry.file_name();
             assert!(name.to_str().unwrap().find("LOG").is_none());
         }
+    }
+
+    #[test]
+    fn single_delete_test() {
+        let path = TempDir::new("_rust_rocksdb_singledeletetest").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+        db.put(b"a", b"v1").unwrap();
+        let a = db.get(b"a");
+        assert_eq!(a.unwrap().unwrap().to_utf8().unwrap(), "v1");
+        db.single_delete(b"a").unwrap();
+        let a = db.get(b"a");
+        assert!(a.unwrap().is_none());
+
+        db.put(b"a", b"v2").unwrap();
+        let a = db.get(b"a");
+        assert_eq!(a.unwrap().unwrap().to_utf8().unwrap(), "v2");
+        db.single_delete(b"a").unwrap();
+        let a = db.get(b"a");
+        assert!(a.unwrap().is_none());
+
+        let cf_handle = db.cf_handle("default").unwrap();
+        db.put_cf(cf_handle, b"a", b"v3").unwrap();
+        let a = db.get_cf(cf_handle, b"a");
+        assert_eq!(a.unwrap().unwrap().to_utf8().unwrap(), "v3");
+        db.single_delete_cf(cf_handle, b"a").unwrap();
+        let a = db.get_cf(cf_handle, b"a");
+        assert!(a.unwrap().is_none());
+
+        db.put_cf(cf_handle, b"a", b"v4").unwrap();
+        let a = db.get_cf(cf_handle, b"a");
+        assert_eq!(a.unwrap().unwrap().to_utf8().unwrap(), "v4");
+        db.single_delete_cf(cf_handle, b"a").unwrap();
+        let a = db.get_cf(cf_handle, b"a");
+        assert!(a.unwrap().is_none());
     }
 }
 

@@ -269,6 +269,17 @@ extern "C" {
                               k: *const u8,
                               kLen: size_t,
                               err: *mut *mut c_char);
+    pub fn crocksdb_single_delete(db: *mut DBInstance,
+                                  writeopts: *const DBWriteOptions,
+                                  k: *const u8,
+                                  kLen: size_t,
+                                  err: *mut *mut c_char);
+    pub fn crocksdb_single_delete_cf(db: *mut DBInstance,
+                                     writeopts: *const DBWriteOptions,
+                                     cf: *mut DBCFHandle,
+                                     k: *const u8,
+                                     kLen: size_t,
+                                     err: *mut *mut c_char);
     pub fn crocksdb_close(db: *mut DBInstance);
     pub fn crocksdb_destroy_db(options: *const DBOptions,
                                path: *const c_char,
@@ -368,6 +379,13 @@ extern "C" {
                                          cf: *mut DBCFHandle,
                                          key: *const u8,
                                          klen: size_t);
+    pub fn crocksdb_writebatch_single_delete(batch: *mut DBWriteBatch,
+                                             key: *const u8,
+                                             klen: size_t);
+    pub fn crocksdb_writebatch_single_delete_cf(batch: *mut DBWriteBatch,
+                                                cf: *mut DBCFHandle,
+                                                key: *const u8,
+                                                klen: size_t);
     pub fn crocksdb_writebatch_iterate(batch: *mut DBWriteBatch,
                                        state: *mut c_void,
                                        put_fn: extern "C" fn(state: *mut c_void,
