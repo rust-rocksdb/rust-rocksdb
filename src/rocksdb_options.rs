@@ -600,6 +600,12 @@ impl Options {
             crocksdb_ffi::crocksdb_options_set_memtable_prefix_bloom_size_ratio(self.inner, ratio);
         }
     }
+
+    pub fn set_compaction_readahead_size(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compaction_readahead_size(self.inner, size as size_t);
+        }
+    }
 }
 
 pub struct FlushOptions {

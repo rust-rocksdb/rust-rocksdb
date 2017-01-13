@@ -188,6 +188,7 @@ extern "C" {
     pub fn crocksdb_options_set_filter_deletes(options: *mut DBOptions, v: bool);
     pub fn crocksdb_options_set_disable_auto_compactions(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
+    pub fn crocksdb_options_set_compaction_readahead_size(options: *mut DBOptions, v: size_t);
     pub fn crocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
     pub fn crocksdb_options_enable_statistics(options: *mut DBOptions);
     pub fn crocksdb_options_statistics_get_string(options: *mut DBOptions) -> *const c_char;

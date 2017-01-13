@@ -1978,6 +1978,11 @@ void crocksdb_options_set_report_bg_io_stats(
   opt->rep.report_bg_io_stats = v;
 }
 
+void crocksdb_options_set_compaction_readahead_size(
+    crocksdb_options_t* opt, size_t v) {
+  opt->rep.compaction_readahead_size = v;
+}
+
 void crocksdb_options_set_compaction_style(crocksdb_options_t *opt, int style) {
   opt->rep.compaction_style = static_cast<rocksdb::CompactionStyle>(style);
 }

@@ -23,3 +23,13 @@ fn test_log_file_opt() {
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }
+
+#[test]
+fn test_compaction_readahead_size() {
+    let path = TempDir::new("_rust_rocksdb_compaction_readahead_size").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_compaction_readahead_size(2048);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    drop(db);
+}
