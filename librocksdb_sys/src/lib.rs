@@ -35,6 +35,9 @@ pub enum DBWriteBatch {}
 pub enum DBComparator {}
 pub enum DBFlushOptions {}
 pub enum DBCompactionFilter {}
+pub enum EnvOptions {}
+pub enum SstFileWriter {}
+pub enum IngestExternalFileOptions {}
 pub enum DBBackupEngine {}
 pub enum DBRestoreOptions {}
 pub enum DBSliceTransform {}
@@ -509,6 +512,54 @@ extern "C" {
                                                           ignore_snapshot: bool);
     pub fn crocksdb_compactionfilter_destroy(filter: *mut DBCompactionFilter);
 
+    // EnvOptions
+    pub fn crocksdb_envoptions_create() -> *mut EnvOptions;
+    pub fn crocksdb_envoptions_destroy(opt: *mut EnvOptions);
+
+    // IngestExternalFileOptions
+    pub fn crocksdb_ingestexternalfileoptions_create() -> *mut IngestExternalFileOptions;
+    pub fn crocksdb_ingestexternalfileoptions_set_move_files(opt: *mut IngestExternalFileOptions,
+                                                             move_files: bool);
+    pub fn crocksdb_ingestexternalfileoptions_set_snapshot_consistency(
+        opt: *mut IngestExternalFileOptions, snapshot_consistency: bool);
+    pub fn crocksdb_ingestexternalfileoptions_set_allow_global_seqno(
+        opt: *mut IngestExternalFileOptions, allow_global_seqno: bool);
+    pub fn crocksdb_ingestexternalfileoptions_set_allow_blocking_flush(
+        opt: *mut IngestExternalFileOptions, allow_blocking_flush: bool);
+    pub fn crocksdb_ingestexternalfileoptions_destroy(opt: *mut IngestExternalFileOptions);
+
+    // SstFileWriter
+    pub fn crocksdb_sstfilewriter_create(env: *mut EnvOptions,
+                                         io_options: *const DBOptions)
+                                         -> *mut SstFileWriter;
+    pub fn crocksdb_sstfilewriter_create_with_comparator(env: *mut EnvOptions,
+                                                         io_options: *const DBOptions,
+                                                         comparator: *const DBComparator)
+                                                         -> *mut SstFileWriter;
+    pub fn crocksdb_sstfilewriter_open(writer: *mut SstFileWriter,
+                                       name: *const c_char,
+                                       err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_add(writer: *mut SstFileWriter,
+                                      key: *const u8,
+                                      key_len: size_t,
+                                      val: *const u8,
+                                      val_len: size_t,
+                                      err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_finish(writer: *mut SstFileWriter, err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_destroy(writer: *mut SstFileWriter);
+
+    pub fn crocksdb_ingest_external_file(db: *mut DBInstance,
+                                         file_list: *const *const c_char,
+                                         list_len: size_t,
+                                         opt: *const IngestExternalFileOptions,
+                                         err: *mut *mut c_char);
+    pub fn crocksdb_ingest_external_file_cf(db: *mut DBInstance,
+                                            handle: *const DBCFHandle,
+                                            file_list: *const *const c_char,
+                                            list_len: size_t,
+                                            opt: *const IngestExternalFileOptions,
+                                            err: *mut *mut c_char);
+
     // Restore Option
     pub fn crocksdb_restore_options_create() -> *mut DBRestoreOptions;
     pub fn crocksdb_restore_options_destroy(ropts: *mut DBRestoreOptions);
@@ -551,8 +602,8 @@ extern "C" {
 #[cfg(test)]
 mod test {
     use libc::{self, c_void};
+    use std::{ptr, slice, fs};
     use std::ffi::{CStr, CString};
-    use std::ptr;
     use super::*;
     use tempdir::TempDir;
 
@@ -633,6 +684,106 @@ mod test {
             crocksdb_close(db);
             crocksdb_destroy_db(opts, cpath_ptr, &mut err);
             assert!(err.is_null());
+        }
+    }
+
+    unsafe fn check_get(db: *mut DBInstance,
+                        opt: *const DBReadOptions,
+                        key: &[u8],
+                        val: Option<&[u8]>) {
+        let mut val_len = 0;
+        let mut err = ptr::null_mut();
+        let res_ptr = crocksdb_get(db, opt, key.as_ptr(), key.len(), &mut val_len, &mut err);
+        assert!(err.is_null());
+        let res = if res_ptr.is_null() {
+            None
+        } else {
+            Some(slice::from_raw_parts(res_ptr, val_len))
+        };
+        assert_eq!(res, val);
+        if !res_ptr.is_null() {
+            libc::free(res_ptr as *mut libc::c_void);
+        }
+    }
+
+    #[test]
+    fn test_ingest_external_file() {
+        unsafe {
+            let opts = crocksdb_options_create();
+            crocksdb_options_set_create_if_missing(opts, true);
+
+            let rustpath = TempDir::new("_rust_rocksdb_internaltest").expect("");
+            let cpath = CString::new(rustpath.path().to_str().unwrap()).unwrap();
+            let cpath_ptr = cpath.as_ptr();
+
+            let mut err = ptr::null_mut();
+            let db = crocksdb_open(opts, cpath_ptr, &mut err);
+            assert!(err.is_null(), error_message(err));
+
+            let env_opt = crocksdb_envoptions_create();
+            let io_options = crocksdb_options_create();
+            let writer = crocksdb_sstfilewriter_create(env_opt, io_options);
+
+            let sst_dir = TempDir::new("_rust_rocksdb_internaltest").expect("");
+            let sst_path = sst_dir.path().join("sstfilename");
+            let c_sst_path = CString::new(sst_path.to_str().unwrap()).unwrap();
+            let c_sst_path_ptr = c_sst_path.as_ptr();
+
+            crocksdb_sstfilewriter_open(writer, c_sst_path_ptr, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_add(writer, b"sstk1".as_ptr(), 5, b"v1".as_ptr(), 2, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_add(writer, b"sstk2".as_ptr(), 5, b"v2".as_ptr(), 2, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_add(writer, b"sstk3".as_ptr(), 5, b"v3".as_ptr(), 2, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_finish(writer, &mut err);
+            assert!(err.is_null(), error_message(err));
+
+            let ing_opt = crocksdb_ingestexternalfileoptions_create();
+            let file_list = &[c_sst_path_ptr];
+            crocksdb_ingest_external_file(db, file_list.as_ptr(), 1, ing_opt, &mut err);
+            assert!(err.is_null(), error_message(err));
+            let roptions = crocksdb_readoptions_create();
+            check_get(db, roptions, b"sstk1", Some(b"v1"));
+            check_get(db, roptions, b"sstk2", Some(b"v2"));
+            check_get(db, roptions, b"sstk3", Some(b"v3"));
+
+            let snap = crocksdb_create_snapshot(db);
+
+            fs::remove_file(sst_path).unwrap();
+            crocksdb_sstfilewriter_open(writer, c_sst_path_ptr, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_add(writer, "sstk2".as_ptr(), 5, "v4".as_ptr(), 2, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_add(writer, "sstk22".as_ptr(), 6, "v5".as_ptr(), 2, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_add(writer, "sstk3".as_ptr(), 5, "v6".as_ptr(), 2, &mut err);
+            assert!(err.is_null(), error_message(err));
+            crocksdb_sstfilewriter_finish(writer, &mut err);
+            assert!(err.is_null(), error_message(err));
+
+            crocksdb_ingest_external_file(db, file_list.as_ptr(), 1, ing_opt, &mut err);
+            assert!(err.is_null(), error_message(err));
+            check_get(db, roptions, b"sstk1", Some(b"v1"));
+            check_get(db, roptions, b"sstk2", Some(b"v4"));
+            check_get(db, roptions, b"sstk22", Some(b"v5"));
+            check_get(db, roptions, b"sstk3", Some(b"v6"));
+
+            let roptions2 = crocksdb_readoptions_create();
+            crocksdb_readoptions_set_snapshot(roptions2, snap);
+            check_get(db, roptions2, b"sstk1", Some(b"v1"));
+            check_get(db, roptions2, b"sstk2", Some(b"v2"));
+            check_get(db, roptions2, b"sstk22", None);
+            check_get(db, roptions2, b"sstk3", Some(b"v3"));
+            crocksdb_readoptions_destroy(roptions2);
+
+            crocksdb_readoptions_destroy(roptions);
+            crocksdb_release_snapshot(db, snap);
+            crocksdb_ingestexternalfileoptions_destroy(ing_opt);
+            crocksdb_sstfilewriter_destroy(writer);
+            crocksdb_options_destroy(io_options);
+            crocksdb_envoptions_destroy(env_opt);
         }
     }
 }

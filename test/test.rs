@@ -7,4 +7,5 @@ mod test_column_family;
 mod test_compaction_filter;
 mod test_compact_range;
 mod test_rocksdb_options;
+mod test_ingest_external_file;
 mod test_slice_transform;
