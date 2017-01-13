@@ -166,6 +166,12 @@ impl ReadOptions {
         }
     }
 
+    pub fn set_total_order_seek(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_readoptions_set_total_order_seek(self.inner, v);
+        }
+    }
+
     pub unsafe fn get_inner(&self) -> *const DBReadOptions {
         self.inner
     }

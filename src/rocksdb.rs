@@ -544,6 +544,10 @@ impl DB {
         DBIterator::new_cf(self, cf_handle, opts)
     }
 
+    pub fn iter_cf_opt(&self, cf_handle: &CFHandle, opts: ReadOptions) -> DBIterator {
+        DBIterator::new_cf(self, cf_handle, opts)
+    }
+
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
     }

@@ -33,7 +33,7 @@ pub trait SliceTransform {
     fn in_domain(&mut self, key: &[u8]) -> bool;
 
     // This is currently not used and remains here for backward compatibility.
-    fn in_range(&mut self, key: &[u8]) -> bool {
+    fn in_range(&mut self, _: &[u8]) -> bool {
         true
     }
 }
