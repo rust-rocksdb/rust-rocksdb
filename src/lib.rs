@@ -40,6 +40,7 @@ mod ffi_util;
 pub mod backup;
 mod comparator;
 pub mod merge_operator;
+pub mod compaction_filter;
 mod db;
 mod db_options;
 
@@ -47,18 +48,23 @@ pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, D
              Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
+pub use compaction_filter::Decision as CompactionDecision;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
 use std::path::PathBuf;
 
 /// A RocksDB database.
+///
+/// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
+    cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
 }
 
+/// A simple wrapper round a string, used for errors reported from
+/// ffi calls.
 #[derive(Debug, PartialEq)]
 pub struct Error {
     message: String,
@@ -163,4 +169,11 @@ pub struct WriteOptions {
 
 pub struct FlushOptions {
     inner: *mut ffi::rocksdb_flushoptions_t,
+}
+
+/// An opaque type used to represent a column family. Returned from some functions, and used
+/// in others
+#[derive(Copy, Clone)]
+pub struct ColumnFamily {
+    inner: *mut ffi::rocksdb_column_family_handle_t,
 }

@@ -22,6 +22,7 @@ use ffi;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
+use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -224,6 +225,33 @@ impl Options {
     #[deprecated(since="0.5.0", note="add_merge_operator has been renamed to set_merge_operator")]
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         self.set_merge_operator(name, merge_fn);
+    }
+
+    /// Sets a compaction filter used to determine if entries should be kept, changed,
+    /// or removed during compaction.
+    ///
+    /// An example use case is to remove entries with an expired TTL.
+    ///
+    /// If you take a snapshot of the database, only values written since the last
+    /// snapshot will be passed through the compaction filter.
+    ///
+    /// If multi-threaded compaction is used, `filter_fn` may be called multiple times
+    /// simultaneously.
+    pub fn set_compaction_filter<F>(&mut self, name: &str, filter_fn: F)
+        where F: CompactionFilterFn + Send + 'static
+    {
+        let cb = Box::new(CompactionFilterCallback {
+            name: CString::new(name.as_bytes()).unwrap(),
+            filter_fn: filter_fn,
+        });
+
+        unsafe {
+            let cf = ffi::rocksdb_compactionfilter_create(mem::transmute(cb),
+                                                          Some(compaction_filter::destructor_callback::<F>),
+                                                          Some(filter_callback::<F>),
+                                                          Some(compaction_filter::name_callback::<F>));
+            ffi::rocksdb_options_set_compaction_filter(self.inner, cf);
+        }
     }
 
     /// Sets the comparator used to define the order of keys in the table.

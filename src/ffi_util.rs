@@ -15,6 +15,7 @@
 
 use libc::{self, c_char, c_void};
 use std::ffi::CStr;
+use std::ptr;
 
 pub fn error_message(ptr: *const c_char) -> String {
     let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
@@ -23,6 +24,13 @@ pub fn error_message(ptr: *const c_char) -> String {
         libc::free(ptr as *mut c_void);
     }
     s
+}
+
+pub fn opt_bytes_to_ptr(opt: Option<&[u8]>) -> *const c_char {
+    match opt {
+        Some(v) => v.as_ptr() as *const c_char,
+        None => ptr::null(),
+    }
 }
 
 macro_rules! ffi_try {
