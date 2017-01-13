@@ -637,22 +637,6 @@ impl DB {
         }
     }
 
-    pub fn compact(&self) {
-        unsafe {
-            ffi::rocksdb_compact_range(self.inner, ptr::null(), 0, ptr::null(), 0);
-        }
-    }
-
-    pub fn compact_range(&self, start_key: &[u8], limit_key: &[u8]) {
-        unsafe {
-            ffi::rocksdb_compact_range(self.inner,
-                                       start_key.as_ptr() as *const c_char,
-                                       start_key.len() as size_t,
-                                       limit_key.as_ptr() as *const c_char,
-                                       limit_key.len() as size_t);
-        }
-    }
-
     pub fn flush(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
