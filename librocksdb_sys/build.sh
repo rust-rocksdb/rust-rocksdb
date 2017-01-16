@@ -48,10 +48,10 @@ function compile_z() {
         return
     fi
 
-    rm -rf zlib-1.2.10
-    download http://zlib.net/zlib-1.2.10.tar.gz zlib-1.2.10.tar.gz d9794246f853d15ce0fcbf79b9a3cf13
-    tar xf zlib-1.2.10.tar.gz
-    cd zlib-1.2.10
+    rm -rf zlib-1.2.11
+    download http://zlib.net/zlib-1.2.11.tar.gz zlib-1.2.11.tar.gz 1c9f62f0778697a09d36121ead88e08e
+    tar xf zlib-1.2.11.tar.gz
+    cd zlib-1.2.11
     CFLAGS='-fPIC' ./configure --static
     make -j $con
     cp libz.a ../
