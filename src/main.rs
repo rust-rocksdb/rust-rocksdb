@@ -176,7 +176,6 @@ mod tests {
         opts.set_compaction_style(DBUniversal);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
-        opts.set_filter_deletes(false);
         opts.set_report_bg_io_stats(true);
         opts.set_wal_recovery_mode(DBRecoveryMode::PointInTime);
         opts.enable_statistics();
