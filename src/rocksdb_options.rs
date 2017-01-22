@@ -487,12 +487,6 @@ impl Options {
         }
     }
 
-    pub fn set_filter_deletes(&mut self, filter: bool) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_filter_deletes(self.inner, filter);
-        }
-    }
-
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe {
             if disable {
@@ -603,7 +597,8 @@ impl Options {
 
     pub fn set_compaction_readahead_size(&mut self, size: u64) {
         unsafe {
-            crocksdb_ffi::crocksdb_options_set_compaction_readahead_size(self.inner, size as size_t);
+            crocksdb_ffi::crocksdb_options_set_compaction_readahead_size(self.inner,
+                                                                         size as size_t);
         }
     }
 }

@@ -185,7 +185,6 @@ extern "C" {
                                                            max_bg_compactions: c_int);
     pub fn crocksdb_options_set_max_background_flushes(options: *mut DBOptions,
                                                        max_bg_flushes: c_int);
-    pub fn crocksdb_options_set_filter_deletes(options: *mut DBOptions, v: bool);
     pub fn crocksdb_options_set_disable_auto_compactions(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_compaction_readahead_size(options: *mut DBOptions, v: size_t);

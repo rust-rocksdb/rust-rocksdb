@@ -1220,7 +1220,11 @@ mod test {
         let opts = Options::new();
         // The DB will still be open when we try to destroy and the lock should fail
         match DB::destroy(&opts, path_str) {
-            Err(ref s) => assert!(s.contains("LOCK: No locks available")),
+            Err(ref s) => {
+                assert!(s.contains("IO error: ") && s.contains("lock"),
+                        "expect lock fail, but got {}",
+                        s);
+            }
             Ok(_) => panic!("should fail"),
         }
     }
