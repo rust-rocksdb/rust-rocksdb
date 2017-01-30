@@ -609,9 +609,9 @@ impl DB {
             ffi_try!(ffi::rocksdb_merge_cf(self.inner,
                                            writeopts.inner,
                                            cf.inner,
-                                           key.as_ptr() as *const i8,
+                                           key.as_ptr() as *const c_char,
                                            key.len() as size_t,
-                                           value.as_ptr() as *const i8,
+                                           value.as_ptr() as *const c_char,
                                            value.len() as size_t));
             Ok(())
         }
@@ -715,9 +715,9 @@ impl WriteBatch {
     pub fn put(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi::rocksdb_writebatch_put(self.inner,
-                                        key.as_ptr() as *const i8,
+                                        key.as_ptr() as *const c_char,
                                         key.len() as size_t,
-                                        value.as_ptr() as *const i8,
+                                        value.as_ptr() as *const c_char,
                                         value.len() as size_t);
             Ok(())
         }
@@ -731,9 +731,9 @@ impl WriteBatch {
         unsafe {
             ffi::rocksdb_writebatch_put_cf(self.inner,
                                            cf.inner,
-                                           key.as_ptr() as *const i8,
+                                           key.as_ptr() as *const c_char,
                                            key.len() as size_t,
-                                           value.as_ptr() as *const i8,
+                                           value.as_ptr() as *const c_char,
                                            value.len() as size_t);
             Ok(())
         }
@@ -742,9 +742,9 @@ impl WriteBatch {
     pub fn merge(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi::rocksdb_writebatch_merge(self.inner,
-                                          key.as_ptr() as *const i8,
+                                          key.as_ptr() as *const c_char,
                                           key.len() as size_t,
-                                          value.as_ptr() as *const i8,
+                                          value.as_ptr() as *const c_char,
                                           value.len() as size_t);
             Ok(())
         }
@@ -758,9 +758,9 @@ impl WriteBatch {
         unsafe {
             ffi::rocksdb_writebatch_merge_cf(self.inner,
                                              cf.inner,
-                                             key.as_ptr() as *const i8,
+                                             key.as_ptr() as *const c_char,
                                              key.len() as size_t,
-                                             value.as_ptr() as *const i8,
+                                             value.as_ptr() as *const c_char,
                                              value.len() as size_t);
             Ok(())
         }
@@ -772,7 +772,7 @@ impl WriteBatch {
     pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi::rocksdb_writebatch_delete(self.inner,
-                                           key.as_ptr() as *const i8,
+                                           key.as_ptr() as *const c_char,
                                            key.len() as size_t);
             Ok(())
         }
@@ -785,7 +785,7 @@ impl WriteBatch {
         unsafe {
             ffi::rocksdb_writebatch_delete_cf(self.inner,
                                               cf.inner,
-                                              key.as_ptr() as *const i8,
+                                              key.as_ptr() as *const c_char,
                                               key.len() as size_t);
             Ok(())
         }
@@ -847,7 +847,7 @@ impl ReadOptions {
     pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner,
-                                                             key.as_ptr() as *const i8,
+                                                             key.as_ptr() as *const c_char,
                                                              key.len() as size_t);
         }
     }
