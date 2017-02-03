@@ -48,10 +48,10 @@ function compile_z() {
         return
     fi
 
-    rm -rf zlib-1.2.10
-    download http://zlib.net/zlib-1.2.10.tar.gz zlib-1.2.10.tar.gz d9794246f853d15ce0fcbf79b9a3cf13
-    tar xf zlib-1.2.10.tar.gz
-    cd zlib-1.2.10
+    rm -rf zlib-1.2.11
+    download http://zlib.net/zlib-1.2.11.tar.gz zlib-1.2.11.tar.gz 1c9f62f0778697a09d36121ead88e08e
+    tar xf zlib-1.2.11.tar.gz
+    cd zlib-1.2.11
     CFLAGS='-fPIC' ./configure --static
     make -j $con
     cp libz.a ../
@@ -106,17 +106,17 @@ function compile_rocksdb() {
         return
     fi
 
-    version=v5.0.1
-    vernum=5.0.1
+    version=v5.0.2
+    vernum=5.0.2
     echo building rocksdb-$version
     rm -rf rocksdb-$vernum
-    download https://github.com/facebook/rocksdb/archive/$version.tar.gz rocksdb-$version.tar.gz e5443504b430c71c04f19f13ebc89a4b
+    download https://github.com/facebook/rocksdb/archive/$version.tar.gz rocksdb-$version.tar.gz 7b9392a6c4a664a1e75bee420ada77cb
     tar xf rocksdb-$version.tar.gz
     wd=`pwd`
     cd rocksdb-$vernum
-    cp $CROCKSDB_PATH/c.cc ./db/c.cc
-    cp $CROCKSDB_PATH/rocksdb/c.h ./include/rocksdb/c.h
-    export EXTRA_CFLAGS="-fPIC -I${wd}/zlib-1.2.10 -I${wd}/bzip2-1.0.6 -I${wd}/snappy-1.1.1 -I${wd}/lz4-r131/lib"
+    #cp $CROCKSDB_PATH/c.cc ./db/c.cc
+    #cp $CROCKSDB_PATH/rocksdb/c.h ./include/rocksdb/c.h
+    export EXTRA_CFLAGS="-fPIC -I${wd}/zlib-1.2.11 -I${wd}/bzip2-1.0.6 -I${wd}/snappy-1.1.1 -I${wd}/lz4-r131/lib"
     export EXTRA_CXXFLAGS="-DZLIB -DBZIP2 -DSNAPPY -DLZ4 $EXTRA_CFLAGS"
     make static_lib -j $con
     mv librocksdb.a ../
