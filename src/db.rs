@@ -127,6 +127,39 @@ pub struct Snapshot<'a> {
 ///     println!("Saw {:?} {:?}", key, value);
 /// }
 /// ```
+pub struct DBRawIterator {
+    inner: *mut ffi::rocksdb_iterator_t,
+    just_seeked: bool,
+}
+
+
+/// An iterator over a database or column family, with specifiable
+/// ranges and direction.
+///
+/// ```
+/// use rocksdb::{DB, Direction, IteratorMode};
+///
+/// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
+/// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+/// iter = db.iterator(IteratorMode::End);  // Always iterates backward
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+/// iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+///
+/// // You can seek with an existing Iterator instance, too
+/// iter = db.iterator(IteratorMode::Start);
+/// iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+/// ```
 pub struct DBIterator {
     inner: *mut ffi::rocksdb_iterator_t,
     direction: Direction,
@@ -176,6 +209,122 @@ pub enum IteratorMode<'a> {
     Start,
     End,
     From(&'a [u8], Direction),
+}
+
+impl DBRawIterator {
+    fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
+        unsafe {
+            let iterator = ffi::rocksdb_create_iterator(db.inner, readopts.inner);
+
+            let mut rv = DBRawIterator {
+                inner: iterator,
+                just_seeked: false,
+            };
+            rv.seek_to_first();
+            rv
+        }
+    }
+
+    fn new_cf(db: &DB,
+              cf_handle: ColumnFamily,
+              readopts: &ReadOptions)
+              -> Result<DBRawIterator, Error> {
+        unsafe {
+            let iterator = ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner);
+
+            let mut rv = DBRawIterator {
+                inner: iterator,
+                just_seeked: false,
+            };
+            rv.seek_to_first();
+            Ok(rv)
+        }
+    }
+
+    pub fn valid(&self) -> bool {
+        unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
+    }
+
+    pub fn seek_to_first(&mut self) {
+        unsafe { ffi::rocksdb_iter_seek_to_first(self.inner); }
+        self.just_seeked = true;
+    }
+
+    pub fn seek_to_last(&mut self) {
+        unsafe { ffi::rocksdb_iter_seek_to_last(self.inner); }
+        self.just_seeked = true;
+    }
+
+    pub fn seek(&mut self, key: &[u8]) {
+        unsafe { ffi::rocksdb_iter_seek(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
+        self.just_seeked = true;
+    }
+
+/*
+    pub fn seek_for_prev(&mut self, key: [u8]) {
+        unsafe { ffi::rocksdb_iter_seek_for_prev(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
+        self.just_seeked = true;
+    }
+*/
+
+    pub fn next(&mut self) -> bool {
+        // Initial call to next() after seeking should not move the iterator
+        // as the iterator would be positioned on the first element
+        // This behaviour allows the next() method to be used in a while-loop (eg. while iter.next())
+        if self.just_seeked {
+            self.just_seeked = false;
+            return self.valid();
+        } else {
+            unsafe { ffi::rocksdb_iter_next(self.inner); }
+        }
+
+        self.valid()
+    }
+
+    pub fn prev(&mut self) -> bool {
+        // Initial call to prev() after seeking should not move the iterator
+        // as the iterator would be positioned on the first element
+        // This behaviour allows the prev() method to be used in a while-loop (eg. while iter.prev())
+        if self.just_seeked {
+            self.just_seeked = false;
+        } else {
+            unsafe { ffi::rocksdb_iter_prev(self.inner); }
+        }
+
+        self.valid()
+    }
+
+    pub unsafe fn key<'a>(&'a self) -> Option<&'a [u8]> {
+        if self.valid() {
+            let mut key_len: size_t = 0;
+            let key_len_ptr: *mut size_t = &mut key_len;
+            let key_ptr = ffi::rocksdb_iter_key(self.inner, key_len_ptr) as *const c_uchar;
+
+            Some(slice::from_raw_parts(key_ptr, key_len as usize))
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn value<'a>(&'a self) -> Option<&'a [u8]> {
+        if self.valid() {
+            let mut val_len: size_t = 0;
+            let val_len_ptr: *mut size_t = &mut val_len;
+            let val_ptr = ffi::rocksdb_iter_value(self.inner, val_len_ptr) as *const c_uchar;
+
+            Some(slice::from_raw_parts(val_ptr, val_len as usize))
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for DBRawIterator {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_iter_destroy(self.inner);
+        }
+    }
 }
 
 impl DBIterator {
@@ -268,6 +417,20 @@ impl<'a> Snapshot<'a> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+    }
+
+    pub fn raw_iterator(&self) -> DBRawIterator {
+        let mut readopts = ReadOptions::default();
+        readopts.set_snapshot(self);
+        DBRawIterator::new(self.db, &readopts)
+    }
+
+    pub fn raw_iterator_cf(&self,
+                       cf_handle: ColumnFamily)
+                       -> Result<DBRawIterator, Error> {
+        let mut readopts = ReadOptions::default();
+        readopts.set_snapshot(self);
+        DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
@@ -547,6 +710,18 @@ impl DB {
                        -> Result<DBIterator, Error> {
         let opts = ReadOptions::default();
         DBIterator::new_cf(self, cf_handle, &opts, mode)
+    }
+
+    pub fn raw_iterator(&self) -> DBRawIterator {
+        let opts = ReadOptions::default();
+        DBRawIterator::new(self, &opts)
+    }
+
+    pub fn raw_iterator_cf(&self,
+                       cf_handle: ColumnFamily)
+                       -> Result<DBRawIterator, Error> {
+        let opts = ReadOptions::default();
+        DBRawIterator::new_cf(self, cf_handle, &opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
