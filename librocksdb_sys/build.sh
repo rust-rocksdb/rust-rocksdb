@@ -49,7 +49,7 @@ function compile_z() {
     fi
 
     rm -rf zlib-1.2.11
-    download http://zlib.net/zlib-1.2.11.tar.gz zlib-1.2.11.tar.gz 1c9f62f0778697a09d36121ead88e08e
+    download https://github.com/madler/zlib/archive/v1.2.11.tar.gz zlib-1.2.11.tar.gz 0095d2d2d1f3442ce1318336637b695f
     tar xf zlib-1.2.11.tar.gz
     cd zlib-1.2.11
     CFLAGS='-fPIC' ./configure --static
