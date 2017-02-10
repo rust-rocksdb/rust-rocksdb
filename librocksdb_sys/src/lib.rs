@@ -83,6 +83,55 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecords = 3,
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub enum DBStatisticsTickerType {
+    BlockCacheMiss = 0, // total block cache miss
+    BlockCacheHit = 1, // total block cache hit
+    BlockCacheIndexMiss = 4, // times cache miss when accessing index block from block cache
+    BlockCacheIndexHit = 5,
+    BlockCacheFilterMiss = 9, // times cache miss when accessing filter block from block cache
+    BlockCacheFilterHit = 10,
+    BloomFilterUseful = 20, // times bloom filter has avoided file reads
+    MemtableHit = 25,
+    MemtableMiss = 26,
+    GetHitL0 = 27, // Get() queries served by L0
+    GetHitL1 = 28, // Get() queries served by L1
+    GetHitL2AndUp = 29, // Get() queries served by L2 and up
+    NumberKeysWritten = 35, // number of keys written to the database via the Put and Write call's
+    NumberKeysRead = 36, // number of keys read
+    BytesWritten = 38, // the number of uncompressed bytes read from DB::Put, DB::Delete,
+    // DB::Merge and DB::Write
+    BytesRead = 39, // the number of uncompressed bytes read from DB::Get()
+    NumberDbSeek = 40, // the number of calls to seek/next/prev
+    NumberDbNext = 41,
+    NumberDbPrev = 42,
+    NumberDbSeekFound = 43, // the number of calls to seek/next/prev that returned data
+    NumberDbNextFound = 44,
+    NumberDbPrevFound = 45,
+    IterBytesRead = 46, // the number of uncompressed bytes read from an iterator, include size of
+    // key and value
+    StallMicros = 53, // writer has to wait for compaction or flush to finish
+    NoIterators = 56, // number of iterators currently open
+    BloomFilterPrefixChecked = 62, // number of times bloom was checked before creating iterator
+    // on a file
+    BloomFilterPrefixUseful = 63, // number of times the check was useful in avoiding iterator
+    // creating
+    WalFileSynced = 70, // number of times WAL sync is done
+    WalFileBytes = 71, // number of bytes written to WAL
+    CompactReadBytes = 76, // bytes read during compaction
+    CompactWriteBytes = 77, // bytes written during compaction
+    FlushWriteBytes = 78, // bytes written during flush
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub enum DBStatisticsHistogramType {
+    DbGetMicros = 0,
+    DbWriteMicros = 1,
+    DbSeekMicros = 19,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -191,6 +240,15 @@ extern "C" {
     pub fn crocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
     pub fn crocksdb_options_enable_statistics(options: *mut DBOptions);
     pub fn crocksdb_options_statistics_get_string(options: *mut DBOptions) -> *const c_char;
+    pub fn crocksdb_options_statistics_get_ticker_count(options: *mut DBOptions,
+                                                        ticker_type: DBStatisticsTickerType)
+                                                        -> u64;
+    pub fn crocksdb_options_statistics_get_and_reset_ticker_count(options: *mut DBOptions,
+                                                        ticker_type: DBStatisticsTickerType)
+                                                        -> u64;
+    pub fn crocksdb_options_statistics_get_histogram_string(options: *mut DBOptions,
+                                                            hist_type: DBStatisticsHistogramType)
+                                                            -> *const c_char;
     pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn crocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);

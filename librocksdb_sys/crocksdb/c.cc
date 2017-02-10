@@ -2005,6 +2005,33 @@ char *crocksdb_options_statistics_get_string(crocksdb_options_t *opt) {
   return nullptr;
 }
 
+uint64_t crocksdb_options_statistics_get_ticker_count(crocksdb_options_t* opt,
+                                                      uint32_t ticker_type) {
+  rocksdb::Statistics* statistics = opt->rep.statistics.get();
+  if (statistics) {
+    return statistics->getTickerCount(ticker_type);
+  }
+  return 0;
+}
+
+uint64_t crocksdb_options_statistics_get_and_reset_ticker_count(crocksdb_options_t* opt,
+                                                                uint32_t ticker_type) {
+  rocksdb::Statistics* statistics = opt->rep.statistics.get();
+  if (statistics) {
+    return statistics->getAndResetTickerCount(ticker_type);
+  }
+  return 0;
+}
+
+char* crocksdb_options_statistics_get_histogram_string(crocksdb_options_t* opt,
+                                                       uint32_t type) {
+  rocksdb::Statistics* statistics = opt->rep.statistics.get();
+  if (statistics) {
+    return strdup(statistics->getHistogramString(type).c_str());
+  }
+  return nullptr;
+}
+
 void crocksdb_options_set_ratelimiter(crocksdb_options_t *opt, crocksdb_ratelimiter_t *limiter) {
   opt->rep.rate_limiter.reset(limiter->rep);
   limiter->rep = nullptr;

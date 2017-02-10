@@ -18,7 +18,7 @@ use comparator::{self, ComparatorCallback, compare_callback};
 
 use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
                    DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
-                   DBFlushOptions};
+                   DBFlushOptions, DBStatisticsTickerType, DBStatisticsHistogramType};
 use libc::{self, c_int, size_t, c_void};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
 use merge_operator::MergeFn;
@@ -525,6 +525,38 @@ impl Options {
         }
     }
 
+    pub fn get_statistics_ticker_count(&self, ticker_type: DBStatisticsTickerType) -> u64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_statistics_get_ticker_count(self.inner, ticker_type)
+        }
+    }
+
+    pub fn get_and_reset_statistics_ticker_count(&self,
+                                                 ticker_type: DBStatisticsTickerType)
+                                                 -> u64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_statistics_get_and_reset_ticker_count(self.inner,
+                                                                                 ticker_type)
+        }
+    }
+
+    pub fn get_statistics_histogram_string(&self,
+                                           hist_type: DBStatisticsHistogramType)
+                                           -> Option<String> {
+        unsafe {
+            let value = crocksdb_ffi::crocksdb_options_statistics_get_histogram_string(self.inner,
+                                                                                       hist_type);
+
+            if value.is_null() {
+                return None;
+            }
+
+            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            libc::free(value as *mut c_void);
+            Some(s)
+        }
+    }
+
     pub fn get_statistics(&self) -> Option<String> {
         unsafe {
             let value = crocksdb_ffi::crocksdb_options_statistics_get_string(self.inner);
@@ -730,28 +762,5 @@ impl Drop for RestoreOptions {
         unsafe {
             crocksdb_ffi::crocksdb_restore_options_destroy(self.inner);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Options;
-
-    #[test]
-    fn test_set_max_manifest_file_size() {
-        let mut opts = Options::new();
-        let size = 20 * 1024 * 1024;
-        opts.set_max_manifest_file_size(size)
-    }
-
-    #[test]
-    fn test_enable_statistics() {
-        let mut opts = Options::new();
-        opts.enable_statistics();
-        opts.set_stats_dump_period_sec(60);
-        assert!(opts.get_statistics().is_some());
-
-        let opts = Options::new();
-        assert!(opts.get_statistics().is_none());
     }
 }

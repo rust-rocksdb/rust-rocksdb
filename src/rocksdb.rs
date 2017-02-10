@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 
-use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine};
+use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine,
+                   DBStatisticsTickerType, DBStatisticsHistogramType};
 use libc::{self, c_int, c_void, size_t};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions,
                       RestoreOptions, IngestExternalFileOptions};
@@ -855,6 +856,22 @@ impl DB {
 
     pub fn get_statistics(&self) -> Option<String> {
         self.opts.get_statistics()
+    }
+
+    pub fn get_statistics_ticker_count(&self, ticker_type: DBStatisticsTickerType) -> u64 {
+        self.opts.get_statistics_ticker_count(ticker_type)
+    }
+
+    pub fn get_and_reset_statistics_ticker_count(&self,
+                                                 ticker_type: DBStatisticsTickerType)
+                                                 -> u64 {
+        self.opts.get_and_reset_statistics_ticker_count(ticker_type)
+    }
+
+    pub fn get_statistics_histogram_string(&self,
+                                           hist_type: DBStatisticsHistogramType)
+                                           -> Option<String> {
+        self.opts.get_statistics_histogram_string(hist_type)
     }
 
     pub fn get_options(&self) -> &Options {

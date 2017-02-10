@@ -617,6 +617,13 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_enable_statistics(
 /* returns a pointer to a malloc()-ed, null terminated string */
 extern C_ROCKSDB_LIBRARY_API char* crocksdb_options_statistics_get_string(
     crocksdb_options_t* opt);
+extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_options_statistics_get_ticker_count(
+    crocksdb_options_t* opt, uint32_t ticker_type);
+extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_options_statistics_get_and_reset_ticker_count(
+    crocksdb_options_t* opt, uint32_t ticker_type);
+extern C_ROCKSDB_LIBRARY_API char*
+crocksdb_options_statistics_get_histogram_string(crocksdb_options_t* opt,
+                                                 uint32_t type);
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_write_buffer_number(
     crocksdb_options_t*, int);
