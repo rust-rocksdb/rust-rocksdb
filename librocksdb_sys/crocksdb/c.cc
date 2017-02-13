@@ -79,6 +79,7 @@ using rocksdb::RestoreOptions;
 using rocksdb::CompactRangeOptions;
 using rocksdb::RateLimiter;
 using rocksdb::NewGenericRateLimiter;
+using rocksdb::HistogramData;
 
 using std::shared_ptr;
 
@@ -116,6 +117,7 @@ struct crocksdb_envoptions_t      { EnvOptions        rep; };
 struct crocksdb_ingestexternalfileoptions_t  { IngestExternalFileOptions rep; };
 struct crocksdb_sstfilewriter_t   { SstFileWriter*    rep; };
 struct crocksdb_ratelimiter_t     { RateLimiter*      rep; };
+struct crocksdb_histogramdata_t   { HistogramData     rep; };
 
 struct crocksdb_compactionfiltercontext_t {
   CompactionFilter::Context rep;
@@ -2030,6 +2032,28 @@ char* crocksdb_options_statistics_get_histogram_string(crocksdb_options_t* opt,
     return strdup(statistics->getHistogramString(type).c_str());
   }
   return nullptr;
+}
+
+unsigned char crocksdb_options_statistics_get_histogram(
+    crocksdb_options_t* opt,
+    uint32_t type,
+    double* median,
+    double* percentile95,
+    double* percentile99,
+    double* average,
+    double* standard_deviation) {
+  rocksdb::Statistics* statistics = opt->rep.statistics.get();
+  if (statistics) {
+    crocksdb_histogramdata_t data;
+    statistics->histogramData(type, &data.rep);
+    *median = data.rep.median;
+    *percentile95 = data.rep.percentile95;
+    *percentile99 = data.rep.percentile99;
+    *average = data.rep.average;
+    *standard_deviation = data.rep.standard_deviation;
+    return 1;
+  }
+  return 0;
 }
 
 void crocksdb_options_set_ratelimiter(crocksdb_options_t *opt, crocksdb_ratelimiter_t *limiter) {

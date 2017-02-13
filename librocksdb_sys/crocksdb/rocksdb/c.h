@@ -624,6 +624,14 @@ extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_options_statistics_get_and_reset_
 extern C_ROCKSDB_LIBRARY_API char*
 crocksdb_options_statistics_get_histogram_string(crocksdb_options_t* opt,
                                                  uint32_t type);
+extern C_ROCKSDB_LIBRARY_API unsigned char crocksdb_options_statistics_get_histogram(
+    crocksdb_options_t* opt,
+    uint32_t type,
+    double* median,
+    double* percentile95,
+    double* percentile99,
+    double* average,
+    double* standard_deviation);
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_write_buffer_number(
     crocksdb_options_t*, int);

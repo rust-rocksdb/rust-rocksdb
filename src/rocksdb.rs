@@ -17,7 +17,7 @@ use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine,
                    DBStatisticsTickerType, DBStatisticsHistogramType};
 use libc::{self, c_int, c_void, size_t};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions,
-                      RestoreOptions, IngestExternalFileOptions};
+                      RestoreOptions, IngestExternalFileOptions, HistogramData};
 use std::{fs, ptr, slice};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -872,6 +872,12 @@ impl DB {
                                            hist_type: DBStatisticsHistogramType)
                                            -> Option<String> {
         self.opts.get_statistics_histogram_string(hist_type)
+    }
+
+    pub fn get_statistics_histogram(&self,
+                                    hist_type: DBStatisticsHistogramType)
+                                    -> Option<HistogramData> {
+        self.opts.get_statistics_histogram(hist_type)
     }
 
     pub fn get_options(&self) -> &Options {

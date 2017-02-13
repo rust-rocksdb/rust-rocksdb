@@ -249,6 +249,13 @@ extern "C" {
     pub fn crocksdb_options_statistics_get_histogram_string(options: *mut DBOptions,
                                                             hist_type: DBStatisticsHistogramType)
                                                             -> *const c_char;
+    pub fn crocksdb_options_statistics_get_histogram(options: *mut DBOptions,
+                                                     hist_type: DBStatisticsHistogramType,
+                                                     median: *mut c_double,
+                                                     percentile95: *mut c_double,
+                                                     percentile99: *mut c_double,
+                                                     average: *mut c_double,
+                                                     standard_deviation: *mut c_double) -> bool;
     pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn crocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);

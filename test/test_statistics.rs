@@ -37,4 +37,5 @@ fn test_db_statistics() {
     assert!(db.get_and_reset_statistics_ticker_count(TickerType::BlockCacheHit) > 0);
     assert_eq!(db.get_statistics_ticker_count(TickerType::BlockCacheHit), 0);
     assert!(db.get_statistics_histogram_string(HistogramType::DbGetMicros).is_some());
+    assert!(db.get_statistics_histogram(HistogramType::DbGetMicros).is_some());
 }

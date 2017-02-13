@@ -26,6 +26,15 @@ use slice_transform::{SliceTransform, new_slice_transform};
 use std::ffi::{CStr, CString};
 use std::mem;
 
+#[derive(Default, Debug)]
+pub struct HistogramData {
+    pub median: f64,
+    pub percentile95: f64,
+    pub percentile99: f64,
+    pub average: f64,
+    pub standard_deviation: f64,
+}
+
 pub struct BlockBasedOptions {
     inner: *mut DBBlockBasedTableOptions,
 }
@@ -537,6 +546,25 @@ impl Options {
         unsafe {
             crocksdb_ffi::crocksdb_options_statistics_get_and_reset_ticker_count(self.inner,
                                                                                  ticker_type)
+        }
+    }
+
+    pub fn get_statistics_histogram(&self,
+                                    hist_type: DBStatisticsHistogramType)
+                                    -> Option<HistogramData> {
+        unsafe {
+            let mut data = HistogramData::default();
+            let ret = crocksdb_ffi::crocksdb_options_statistics_get_histogram(self.inner,
+                                                hist_type,
+                                                &mut data.median,
+                                                &mut data.percentile95,
+                                                &mut data.percentile99,
+                                                &mut data.average,
+                                                &mut data.standard_deviation);
+            if !ret {
+                return None;
+            }
+            Some(data)
         }
     }
 
