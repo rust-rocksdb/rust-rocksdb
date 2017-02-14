@@ -587,6 +587,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compression_options(
     crocksdb_options_t*, int, int, int, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_prefix_extractor(
     crocksdb_options_t*, crocksdb_slicetransform_t*);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
+    crocksdb_options_t*, crocksdb_slicetransform_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_num_levels(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void

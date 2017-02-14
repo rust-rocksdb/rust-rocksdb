@@ -1705,6 +1705,11 @@ void crocksdb_options_set_prefix_extractor(
   opt->rep.prefix_extractor.reset(prefix_extractor);
 }
 
+void crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
+    crocksdb_options_t* opt, crocksdb_slicetransform_t* prefix_extractor) {
+  opt->rep.memtable_insert_with_hint_prefix_extractor.reset(prefix_extractor);
+}
+
 void crocksdb_options_set_disable_data_sync(
     crocksdb_options_t* opt, int disable_data_sync) {
   opt->rep.disableDataSync = disable_data_sync;

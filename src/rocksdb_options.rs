@@ -649,6 +649,24 @@ impl Options {
         }
     }
 
+    pub fn set_memtable_insert_hint_prefix_extractor<S>(&mut self,
+                                                        name: S,
+                                                        transform: Box<SliceTransform>)
+                                                        -> Result<(), String>
+        where S: Into<Vec<u8>>
+    {
+        unsafe {
+            let c_name = match CString::new(name) {
+                Ok(s) => s,
+                Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
+            };
+            let transform = try!(new_slice_transform(c_name, transform));
+            crocksdb_ffi::crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
+                self.inner, transform);
+            Ok(())
+        }
+    }
+
     pub fn set_memtable_prefix_bloom_size_ratio(&mut self, ratio: f64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_memtable_prefix_bloom_size_ratio(self.inner, ratio);

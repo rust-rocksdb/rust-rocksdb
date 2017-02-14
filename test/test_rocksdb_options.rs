@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, Options};
+use rocksdb::{DB, Options, WriteOptions, SliceTransform};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType};
 use tempdir::TempDir;
@@ -71,4 +71,39 @@ fn test_enable_statistics() {
 
     let opts = Options::new();
     assert!(opts.get_statistics().is_none());
+}
+
+struct FixedPrefixTransform {
+    pub prefix_len: usize,
+}
+
+impl SliceTransform for FixedPrefixTransform {
+    fn transform<'a>(&mut self, key: &'a [u8]) -> &'a [u8] {
+        &key[..self.prefix_len]
+    }
+
+    fn in_domain(&mut self, key: &[u8]) -> bool {
+        key.len() >= self.prefix_len
+    }
+}
+
+#[test]
+fn test_memtable_insert_hint_prefix_extractor() {
+    let path = TempDir::new("_rust_rocksdb_memtable_insert_hint_prefix_extractor").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_memtable_insert_hint_prefix_extractor("FixedPrefixTransform",
+                                                   Box::new(FixedPrefixTransform {
+                                                       prefix_len: 2,
+                                                   }))
+        .unwrap();
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let wopts = WriteOptions::new();
+
+    db.put_opt(b"k0-1", b"a", &wopts).unwrap();
+    db.put_opt(b"k0-2", b"b", &wopts).unwrap();
+    db.put_opt(b"k0-3", b"c", &wopts).unwrap();
+    assert_eq!(db.get(b"k0-1").unwrap().unwrap(), b"a");
+    assert_eq!(db.get(b"k0-2").unwrap().unwrap(), b"b");
+    assert_eq!(db.get(b"k0-3").unwrap().unwrap(), b"c");
 }
