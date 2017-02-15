@@ -22,6 +22,8 @@ pub struct SstFileWriter {
     inner: *mut librocksdb_sys::SstFileWriter,
 }
 
+unsafe impl Send for SstFileWriter {}
+
 impl SstFileWriter {
     pub fn new(env_opt: &EnvOptions, opt: &Options) -> SstFileWriter {
         unsafe {
