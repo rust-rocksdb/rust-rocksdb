@@ -531,6 +531,14 @@ void crocksdb_close(crocksdb_t* db) {
   delete db;
 }
 
+void crocksdb_pause_bg_work(crocksdb_t* db) {
+  db->rep->PauseBackgroundWork();
+}
+
+void crocksdb_continue_bg_work(crocksdb_t* db) {
+  db->rep->ContinueBackgroundWork();
+}
+
 crocksdb_t* crocksdb_open_column_families(
     const crocksdb_options_t* db_options,
     const char* name,

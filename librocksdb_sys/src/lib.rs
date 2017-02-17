@@ -352,6 +352,8 @@ extern "C" {
                                      kLen: size_t,
                                      err: *mut *mut c_char);
     pub fn crocksdb_close(db: *mut DBInstance);
+    pub fn crocksdb_pause_bg_work(db: *mut DBInstance);
+    pub fn crocksdb_continue_bg_work(db: *mut DBInstance);
     pub fn crocksdb_destroy_db(options: *const DBOptions,
                                path: *const c_char,
                                err: *mut *mut c_char);

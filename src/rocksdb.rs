@@ -423,6 +423,18 @@ impl DB {
         Ok(cfs)
     }
 
+    pub fn pause_bg_work(&self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_pause_bg_work(self.inner);
+        }
+    }
+
+    pub fn continue_bg_work(&self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_continue_bg_work(self.inner);
+        }
+    }
+
     pub fn path(&self) -> &str {
         &self.path
     }
@@ -1219,6 +1231,9 @@ mod test {
     use std::fs;
     use std::path::Path;
     use std::str;
+    use std::string::String;
+    use std::sync::*;
+    use std::thread;
     use super::*;
     use tempdir::TempDir;
 
@@ -1464,6 +1479,30 @@ mod test {
         db.single_delete_cf(cf_handle, b"a").unwrap();
         let a = db.get_cf(cf_handle, b"a");
         assert!(a.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_pause_bg_work() {
+        let path = TempDir::new("_rust_rocksdb_pause_bg_work").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+        let db = Arc::new(db);
+        let db1 = db.clone();
+        let builder = thread::Builder::new().name(String::from("put-thread"));
+        let h = builder.spawn(move || {
+                db1.put(b"k1", b"v1").unwrap();
+                db1.put(b"k2", b"v2").unwrap();
+                db1.flush(true).unwrap();
+                db1.compact_range(None, None);
+            })
+            .unwrap();
+        // Wait until all currently running background processes finish.
+        db.pause_bg_work();
+        assert_eq!(db.get_property_int("rocksdb.num-running-compactions").unwrap(),
+                   0);
+        assert_eq!(db.get_property_int("rocksdb.num-running-flushes").unwrap(),
+                   0);
+        db.continue_bg_work();
+        h.join().unwrap();
     }
 }
 
