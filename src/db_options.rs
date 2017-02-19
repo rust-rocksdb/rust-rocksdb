@@ -16,13 +16,13 @@
 
 use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
      WriteOptions, FlushOptions};
+use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use comparator::{self, ComparatorCallback, CompareFn};
 use ffi;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
-use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -108,6 +108,14 @@ impl Default for BlockBasedOptions {
 }
 
 impl Options {
+    pub fn set_read_only(&mut self, b: bool) {
+        self.read_only = b;
+    }
+
+    pub fn set_error_if_log_file_exists(&mut self, b: bool) {
+        self.error_if_log_file_exists = b;
+    }
+
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
     /// `total_threads` is used. Good value for `total_threads` is the number of
@@ -130,9 +138,9 @@ impl Options {
 
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: usize) {
         unsafe {
-            ffi::rocksdb_options_optimize_level_style_compaction(
-                self.inner,
-                memtable_memory_budget as uint64_t);
+            ffi::rocksdb_options_optimize_level_style_compaction(self.inner,
+                                                                 memtable_memory_budget as
+                                                                 uint64_t);
         }
     }
 
@@ -870,7 +878,11 @@ impl Default for Options {
             if opts.is_null() {
                 panic!("Could not create RocksDB options");
             }
-            Options { inner: opts }
+            Options {
+                inner: opts,
+                read_only: true,
+                error_if_log_file_exists: false,
+            }
         }
     }
 }

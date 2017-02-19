@@ -44,11 +44,11 @@ pub mod compaction_filter;
 mod db;
 mod db_options;
 
-pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
-             Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
+pub use compaction_filter::Decision as CompactionDecision;
+pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector, Direction,
+             IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
-pub use compaction_filter::Decision as CompactionDecision;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
@@ -139,6 +139,8 @@ pub struct BlockBasedOptions {
 /// ```
 pub struct Options {
     inner: *mut ffi::rocksdb_options_t,
+    read_only: bool,
+    error_if_log_file_exists: bool,
 }
 
 /// Optionally disable WAL or sync for this write.
