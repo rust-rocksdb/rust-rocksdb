@@ -11,3 +11,7 @@ Feedback and pull requests welcome!  If a particular feature of RocksDB is impor
 [dependencies]
 rocksdb = "0.6.0"
 ```
+
+This binding is statically linked with a specific version of RocksDB. If you want to build it yourself, make sure you've also cloned the RocksDB and Snappy submodules:
+
+    git submodule update --init --recursive
