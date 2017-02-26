@@ -46,7 +46,7 @@ mod db_options;
 
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector, Direction,
-             IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
+             IteratorMode, Snapshot, WriteBatch, ReadOptions, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
