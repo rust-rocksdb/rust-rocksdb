@@ -453,7 +453,7 @@ extern "C" {
 
     pub fn rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache
         (options: *mut rocksdb_block_based_table_options_t,
-         v: c_uchar);
+v: c_uchar);
 
     pub fn rocksdb_block_based_options_set_skip_table_builder_flush(options: *mut rocksdb_block_based_table_options_t, skip_table_builder_flush: c_uchar);
 
@@ -469,14 +469,14 @@ extern "C" {
                                                  v: f64);
 
     pub fn rocksdb_cuckoo_options_set_max_search_depth(options: *mut rocksdb_cuckoo_table_options_t,
-                                                       v: uint32_t);
+v: uint32_t);
 
     pub fn rocksdb_cuckoo_options_set_cuckoo_block_size(options: *mut rocksdb_cuckoo_table_options_t, v: uint32_t);
 
     pub fn rocksdb_cuckoo_options_set_identity_as_first_hash(options: *mut rocksdb_cuckoo_table_options_t, v: c_uchar);
 
     pub fn rocksdb_cuckoo_options_set_use_module_hash(options: *mut rocksdb_cuckoo_table_options_t,
-                                                      v: c_uchar);
+v: c_uchar);
 
     pub fn rocksdb_options_set_cuckoo_table_factory(opt: *mut rocksdb_options_t, table_options: *mut rocksdb_cuckoo_table_options_t);
 
@@ -497,6 +497,12 @@ extern "C" {
 
     pub fn rocksdb_options_optimize_universal_style_compaction(opt: *mut rocksdb_options_t,
                                                                memtable_memory_budget: uint64_t);
+
+    pub fn rocksdb_options_set_allow_concurrent_memtable_write(opt: *mut rocksdb_options_t,
+                                                               v: c_uchar);
+
+    pub fn rocksdb_options_set_enable_write_thread_adaptive_yield(opt: *mut rocksdb_options_t,
+                                                                  v: c_uchar);
 
     pub fn rocksdb_options_set_compaction_filter(opt: *mut rocksdb_options_t,
                                                  filter: *mut rocksdb_compactionfilter_t);
@@ -722,7 +728,7 @@ extern "C" {
     pub fn rocksdb_options_set_universal_compaction_options(opt: *mut rocksdb_options_t, uco: *mut rocksdb_universal_compaction_options_t);
 
     pub fn rocksdb_options_set_fifo_compaction_options(opt: *mut rocksdb_options_t,
-                                                       fifo: *mut rocksdb_fifo_compaction_options_t);
+fifo: *mut rocksdb_fifo_compaction_options_t);
 
     // Compaction filter
 
@@ -740,7 +746,7 @@ extern "C" {
                                              value_changed: *mut c_uchar)
                                              -> c_uchar>,
          name: Option<unsafe extern "C" fn(state: *mut c_void) -> *const c_char>)
-         -> *mut rocksdb_compactionfilter_t;
+-> *mut rocksdb_compactionfilter_t;
 
     pub fn rocksdb_compactionfilter_set_ignore_snapshots(filter: *mut rocksdb_compactionfilter_t,
                                                          v: c_uchar);
@@ -783,7 +789,8 @@ extern "C" {
 
     pub fn rocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut rocksdb_filterpolicy_t;
 
-    pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut rocksdb_filterpolicy_t;
+    pub fn rocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int)
+                                                  -> *mut rocksdb_filterpolicy_t;
 
     // Merge Operator
 
@@ -858,7 +865,8 @@ extern "C" {
 
     pub fn rocksdb_slicetransform_create(state: *mut c_void, destructor: Option<unsafe extern "C" fn(state: *mut c_void)>, transform: Option<unsafe extern "C" fn(state: *mut c_void, key: *const c_char, length: size_t, dst_length: *mut size_t) -> *mut c_char>, in_domain: Option<unsafe extern "C" fn(state: *mut c_void, key: *const c_char, length: size_t) -> c_uchar>, in_range: Option<unsafe extern "C" fn(state: *mut c_void, key: *const c_char, length: size_t) -> c_uchar>, name: Option<unsafe extern "C" fn(state: *mut c_void) -> *const c_char>) -> *mut rocksdb_slicetransform_t;
 
-    pub fn rocksdb_slicetransform_create_fixed_prefix(len: size_t) -> *mut rocksdb_slicetransform_t;
+    pub fn rocksdb_slicetransform_create_fixed_prefix(len: size_t)
+                                                      -> *mut rocksdb_slicetransform_t;
 
     pub fn rocksdb_slicetransform_create_noop() -> *mut rocksdb_slicetransform_t;
 
@@ -878,11 +886,11 @@ extern "C" {
 
     pub fn rocksdb_universal_compaction_options_set_max_size_amplification_percent
         (uco: *mut rocksdb_universal_compaction_options_t,
-         p: c_int);
+p: c_int);
 
     pub fn rocksdb_universal_compaction_options_set_compression_size_percent
         (uco: *mut rocksdb_universal_compaction_options_t,
-         p: c_int);
+p: c_int);
 
     pub fn rocksdb_universal_compaction_options_set_stop_style(uco: *mut rocksdb_universal_compaction_options_t, style: c_int);
 

@@ -302,6 +302,18 @@ impl Options {
         }
     }
 
+    pub fn allow_concurrent_memtable_write(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner, v as c_uchar);
+        }
+    }
+
+    pub fn enable_write_thread_adaptive_yield(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_write_thread_adaptive_yield(self.inner, v as c_uchar);
+        }
+    }
+
     /// Sets the number of open files that can be used by the DB. You may need to
     /// increase this if your database has a large working set. Value `-1` means
     /// files opened are always kept open. You can estimate number of files based
