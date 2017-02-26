@@ -112,8 +112,16 @@ impl Options {
         self.read_only = b;
     }
 
+    pub fn read_only(&self) -> bool {
+        self.read_only
+    }
+
     pub fn set_error_if_log_file_exists(&mut self, b: bool) {
         self.error_if_log_file_exists = b;
+    }
+
+    pub fn error_if_log_file_exists(self) -> bool {
+        self.error_if_log_file_exists
     }
 
     /// By default, RocksDB uses only one background thread for flush and
@@ -867,6 +875,12 @@ impl Options {
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
+        }
+    }
+
+    pub fn prepare_for_bulk_load(&mut self) {
+        unsafe {
+            ffi::rocksdb_options_prepare_for_bulk_load(self.inner);
         }
     }
 }
