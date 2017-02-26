@@ -134,7 +134,7 @@ pub struct BlockBasedOptions {
 ///    opts.set_max_background_flushes(4);
 ///    opts.set_disable_auto_compactions(true);
 ///
-///    DB::open(&opts, path).unwrap()
+///    DB::open(opts, path).unwrap()
 /// }
 /// ```
 pub struct Options {
@@ -178,4 +178,9 @@ pub struct FlushOptions {
 #[derive(Copy, Clone)]
 pub struct ColumnFamily {
     inner: *mut ffi::rocksdb_column_family_handle_t,
+}
+
+pub struct ColumnFamilyDescriptor {
+    name: &'static str,
+    options: Options,
 }

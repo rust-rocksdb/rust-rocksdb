@@ -118,7 +118,7 @@ fn compaction_filter_test() {
     opts.create_if_missing(true);
     opts.set_compaction_filter("test", test_filter);
     {
-        let db = DB::open(&opts, path).unwrap();
+        let db = DB::open(opts, path).unwrap();
         let _ = db.put(b"k1", b"a");
         let _ = db.put(b"_k", b"b");
         let _ = db.put(b"%k", b"c");

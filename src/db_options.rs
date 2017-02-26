@@ -880,7 +880,7 @@ impl Default for Options {
             }
             Options {
                 inner: opts,
-                read_only: true,
+                read_only: false,
                 error_if_log_file_exists: false,
             }
         }

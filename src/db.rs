@@ -14,7 +14,7 @@
 //
 
 
-use {DB, Error, Options, WriteOptions, FlushOptions, ColumnFamily};
+use {DB, Error, Options, WriteOptions, FlushOptions, ColumnFamily, ColumnFamilyDescriptor};
 use ffi;
 use ffi_util::opt_bytes_to_ptr;
 
@@ -297,11 +297,11 @@ impl DB {
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        DB::open(&opts, path)
+        DB::open(opts, path)
     }
 
     /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
+    pub fn open<P: AsRef<Path>>(opts: Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
     }
 
@@ -312,7 +312,10 @@ impl DB {
     /// # Panics
     ///
     /// * Panics if the column family doesn't exist.
-    pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
+    pub fn open_cf<P: AsRef<Path>>(opts: Options,
+                                   path: P,
+                                   cfds: &[ColumnFamilyDescriptor])
+                                   -> Result<DB, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
@@ -332,40 +335,37 @@ impl DB {
         let db: *mut ffi::rocksdb_t;
         let mut cf_map = BTreeMap::new();
 
-        if cfs.len() == 0 {
+        if cfds.len() == 0 {
             unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
+                db = if opts.read_only {
+                    ffi_try!(ffi::rocksdb_open_for_read_only(opts.inner,
+                                                             cpath.as_ptr() as *const _,
+                                                             opts.error_if_log_file_exists as u8))
+                } else {
+                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
+                }
             }
         } else {
-            let mut cfs_v = cfs.to_vec();
-            // Always open the default column family.
-            if !cfs_v.contains(&"default") {
-                cfs_v.push("default");
-            }
-
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v.iter()
-                .map(|cf| CString::new(cf.as_bytes()).unwrap())
+            let c_cfs: Vec<CString> = cfds.iter()
+                .map(|cf| CString::new(cf.name().as_bytes()).unwrap())
                 .collect();
 
             let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
             // These handles will be populated by DB.
-            let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
+            let mut cfhandles: Vec<_> = cfds.iter().map(|_| ptr::null_mut()).collect();
 
-            // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<_> = cfs_v.iter()
-                .map(|_| unsafe { ffi::rocksdb_options_create() as *const _ })
-                .collect();
+            let c_cfopts: Vec<_> = cfds.iter().map(|cfd| cfd.options().inner as *const _).collect();
 
             db = if opts.read_only {
                 unsafe {
                     ffi_try!(ffi::rocksdb_open_for_read_only_column_families(opts.inner,
                                                                     cpath.as_ptr() as *const _,
-                                                                    cfs_v.len() as c_int,
+                                                                    cfds.len() as c_int,
                                                                     cfnames.as_ptr() as *const _,
-                                                                    cfopts.as_ptr(),
+                                                                    c_cfopts.as_ptr(),
                                                                     cfhandles.as_mut_ptr(),
                                                                     opts.error_if_log_file_exists as u8))
                 }
@@ -373,9 +373,9 @@ impl DB {
                 unsafe {
                     ffi_try!(ffi::rocksdb_open_column_families(opts.inner,
                                                                cpath.as_ptr() as *const _,
-                                                               cfs_v.len() as c_int,
+                                                               cfds.len() as c_int,
                                                                cfnames.as_ptr() as *const _,
-                                                               cfopts.as_ptr(),
+                                                               c_cfopts.as_ptr(),
                                                                cfhandles.as_mut_ptr()))
                 }
             };
@@ -388,8 +388,8 @@ impl DB {
                 }
             }
 
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert(n.to_string(), ColumnFamily { inner: h });
+            for (n, h) in cfds.iter().zip(cfhandles) {
+                cf_map.insert(n.name().to_string(), ColumnFamily { inner: h });
             }
         }
 
@@ -775,6 +775,36 @@ impl WriteBatch {
                                               key.as_ptr() as *const i8,
                                               key.len() as size_t);
             Ok(())
+        }
+    }
+}
+
+impl ColumnFamilyDescriptor {
+    pub fn new(name: &'static str) -> ColumnFamilyDescriptor {
+        ColumnFamilyDescriptor {
+            name: name,
+            options: Options::default(),
+        }
+    }
+    pub fn set_options(&mut self, opts: Options) {
+        self.options = opts
+    }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn options(&self) -> &Options {
+        &self.options
+    }
+    pub fn is_default(&self) -> bool {
+        self.name.to_string() == "default".to_string()
+    }
+}
+
+impl Default for ColumnFamilyDescriptor {
+    fn default() -> ColumnFamilyDescriptor {
+        ColumnFamilyDescriptor {
+            name: "default",
+            options: Options::default(),
         }
     }
 }
