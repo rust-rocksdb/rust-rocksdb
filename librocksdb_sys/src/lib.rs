@@ -470,6 +470,8 @@ extern "C" {
                                                                  k: *const u8,
                                                                  klen: size_t));
     pub fn crocksdb_writebatch_data(batch: *mut DBWriteBatch, size: *mut size_t) -> *const u8;
+    pub fn crocksdb_writebatch_set_save_point(batch: *mut DBWriteBatch);
+    pub fn crocksdb_writebatch_rollback_to_save_point(batch: *mut DBWriteBatch, err: *mut *mut c_char);
 
     // Comparator
     pub fn crocksdb_options_set_comparator(options: *mut DBOptions, cb: *mut DBComparator);

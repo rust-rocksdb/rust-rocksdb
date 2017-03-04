@@ -12,8 +12,7 @@
 // limitations under the License.
 
 use rocksdb::*;
-use self::crocksdb_ffi::{DBStatisticsTickerType as TickerType,
-                         DBStatisticsHistogramType as HistogramType};
+use rocksdb::{DBStatisticsTickerType as TickerType, DBStatisticsHistogramType as HistogramType};
 use tempdir::TempDir;
 
 #[test]

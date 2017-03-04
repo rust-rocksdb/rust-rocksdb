@@ -1034,6 +1034,19 @@ impl WriteBatch {
             crocksdb_ffi::crocksdb_writebatch_clear(self.inner);
         }
     }
+
+    pub fn set_save_point(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_set_save_point(self.inner);
+        }
+    }
+
+    pub fn rollback_to_save_point(&mut self) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_writebatch_rollback_to_save_point(self.inner));
+        }
+        Ok(())
+    }
 }
 
 impl Drop for WriteBatch {
@@ -1283,8 +1296,8 @@ mod test {
         assert!(db.get(b"k1").unwrap().is_none());
         let p = db.write(batch);
         assert!(p.is_ok());
-        let r: Result<Option<DBVector>, String> = db.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        let r = db.get(b"k1");
+        assert_eq!(r.unwrap().unwrap(), b"v1111");
 
         // test delete
         let batch = WriteBatch::new();
@@ -1301,6 +1314,28 @@ mod test {
         assert!(batch.data_size() > prev_size);
         batch.clear();
         assert_eq!(batch.data_size(), prev_size);
+
+        // test save point
+        let mut batch = WriteBatch::new();
+        batch.put(b"k10", b"v10").unwrap();
+        batch.set_save_point();
+        batch.put(b"k11", b"v11").unwrap();
+        batch.set_save_point();
+        batch.put(b"k12", b"v12").unwrap();
+        batch.set_save_point();
+        batch.put(b"k13", b"v13").unwrap();
+        batch.rollback_to_save_point().unwrap();
+        batch.rollback_to_save_point().unwrap();
+        let p = db.write(batch);
+        assert!(p.is_ok());
+        let r = db.get(b"k10");
+        assert_eq!(r.unwrap().unwrap(), b"v10");
+        let r = db.get(b"k11");
+        assert_eq!(r.unwrap().unwrap(), b"v11");
+        let r = db.get(b"k12");
+        assert!(r.unwrap().is_none());
+        let r = db.get(b"k13");
+        assert!(r.unwrap().is_none());
     }
 
     #[test]
@@ -1504,29 +1539,29 @@ mod test {
         db.continue_bg_work();
         h.join().unwrap();
     }
-}
 
-#[test]
-fn snapshot_test() {
-    let path = "_rust_rocksdb_snapshottest";
-    {
-        let db = DB::open_default(path).unwrap();
-        let p = db.put(b"k1", b"v1111");
-        assert!(p.is_ok());
+    #[test]
+    fn snapshot_test() {
+        let path = "_rust_rocksdb_snapshottest";
+        {
+            let db = DB::open_default(path).unwrap();
+            let p = db.put(b"k1", b"v1111");
+            assert!(p.is_ok());
 
-        let snap = db.snapshot();
-        let mut r: Result<Option<DBVector>, String> = snap.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+            let snap = db.snapshot();
+            let mut r: Result<Option<DBVector>, String> = snap.get(b"k1");
+            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
-        r = db.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+            r = db.get(b"k1");
+            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
-        let p = db.put(b"k2", b"v2222");
-        assert!(p.is_ok());
+            let p = db.put(b"k2", b"v2222");
+            assert!(p.is_ok());
 
-        assert!(db.get(b"k2").unwrap().is_some());
-        assert!(snap.get(b"k2").unwrap().is_none());
+            assert!(db.get(b"k2").unwrap().is_some());
+            assert!(snap.get(b"k2").unwrap().is_none());
+        }
+        let opts = Options::new();
+        assert!(DB::destroy(&opts, path).is_ok());
     }
-    let opts = Options::new();
-    assert!(DB::destroy(&opts, path).is_ok());
 }

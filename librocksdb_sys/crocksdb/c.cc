@@ -1364,6 +1364,14 @@ const char* crocksdb_writebatch_data(crocksdb_writebatch_t* b, size_t* size) {
   return b->rep.Data().c_str();
 }
 
+void crocksdb_writebatch_set_save_point(crocksdb_writebatch_t* b) {
+  b->rep.SetSavePoint();
+}
+
+void crocksdb_writebatch_rollback_to_save_point(crocksdb_writebatch_t* b, char** errptr) {
+  SaveError(errptr, b->rep.RollbackToSavePoint());
+}
+
 crocksdb_block_based_table_options_t*
 crocksdb_block_based_options_create() {
   return new crocksdb_block_based_table_options_t;
