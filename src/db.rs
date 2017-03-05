@@ -294,7 +294,7 @@ impl DBRawIterator {
         self.valid()
     }
 
-    pub unsafe fn key<'a>(&'a self) -> Option<&'a [u8]> {
+    pub unsafe fn key_inner<'a>(&'a self) -> Option<&'a [u8]> {
         if self.valid() {
             let mut key_len: size_t = 0;
             let key_len_ptr: *mut size_t = &mut key_len;
@@ -306,7 +306,13 @@ impl DBRawIterator {
         }
     }
 
-    pub unsafe fn value<'a>(&'a self) -> Option<&'a [u8]> {
+    pub fn key(&self) -> Option<Vec<u8>> {
+        unsafe {
+            self.key_inner().map(|key| key.to_vec())
+        }
+    }
+
+    pub unsafe fn value_inner<'a>(&'a self) -> Option<&'a [u8]> {
         if self.valid() {
             let mut val_len: size_t = 0;
             let val_len_ptr: *mut size_t = &mut val_len;
@@ -315,6 +321,12 @@ impl DBRawIterator {
             Some(slice::from_raw_parts(val_ptr, val_len as usize))
         } else {
             None
+        }
+    }
+
+    pub fn value(&self) -> Option<Vec<u8>> {
+        unsafe {
+            self.value_inner().map(|value| value.to_vec())
         }
     }
 }
