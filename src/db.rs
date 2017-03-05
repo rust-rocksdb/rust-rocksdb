@@ -111,7 +111,7 @@ pub struct Snapshot<'a> {
 /// ```
 /// use rocksdb::DB;
 ///
-/// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
+/// let mut db = DB::open_default("path/for/rocksdb/storage4").unwrap();
 /// let mut iter = db.raw_iterator();
 ///
 /// // Forwards iteration
@@ -127,12 +127,12 @@ pub struct Snapshot<'a> {
 /// }
 ///
 /// // Seeking
-/// iter = iter.seek(b"my key");
+/// iter.seek(b"my key");
 /// while iter.next() {
 ///     println!("Saw {:?} {:?}", iter.key(), iter.value());
 /// }
 ///
-/// iter = iter.seek_for_prev(b"my key");
+/// iter.seek_for_prev(b"my key");
 /// while iter.prev() {
 ///     println!("Saw {:?} {:?}", iter.key(), iter.value());
 /// }
@@ -262,24 +262,27 @@ impl DBRawIterator {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust
+    /// use rocksdb::DB;
+    ///
+    /// let mut db = DB::open_default("path/for/rocksdb/storage5").unwrap();
+    /// let mut iter = db.raw_iterator();
+    ///
     /// // Iterate all keys from the start in lexicographic order
     ///
-    /// iterator.seek_to_first();
+    /// iter.seek_to_first();
     ///
-    /// while iterator.next() {
-    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    /// while iter.next() {
+    ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// }
-    /// ```
     ///
-    /// ```rust,no_run
     /// // Read just the first key
     ///
-    /// iterator.seek_to_first();
+    /// iter.seek_to_first();
     ///
-    /// let is_valid = iterator.next();
+    /// let is_valid = iter.next();
     /// if is_valid {
-    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
     /// }
@@ -295,24 +298,27 @@ impl DBRawIterator {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust
+    /// use rocksdb::DB;
+    ///
+    /// let mut db = DB::open_default("path/for/rocksdb/storage6").unwrap();
+    /// let mut iter = db.raw_iterator();
+    ///
     /// // Iterate all keys from the end in reverse lexicographic order
     ///
-    /// iterator.seek_to_last();
+    /// iter.seek_to_last();
     ///
-    /// while iterator.prev() {
-    ///    println!("{:?} {:?}", iterator.key(), iterator.value());;
+    /// while iter.prev() {
+    ///    println!("{:?} {:?}", iter.key(), iter.value());;
     /// }
-    /// ```
     ///
-    /// ```rust,no_run
     /// // Read just the last key
     ///
-    /// iterator.seek_to_last();
+    /// iter.seek_to_last();
     ///
-    /// let is_valid = iterator.prev();
+    /// let is_valid = iter.prev();
     /// if is_valid {
-    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
     /// }
@@ -331,14 +337,19 @@ impl DBRawIterator {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust
+    /// use rocksdb::DB;
+    ///
+    /// let mut db = DB::open_default("path/for/rocksdb/storage7").unwrap();
+    /// let mut iter = db.raw_iterator();
+    ///
     /// // Read the first key that starts with 'a'
     ///
-    /// iterator.seek(b"a");
+    /// iter.seek(b"a");
     ///
-    /// let is_valid = iterator.next();
+    /// let is_valid = iter.next();
     /// if is_valid {
-    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
     /// }
@@ -357,14 +368,19 @@ impl DBRawIterator {
     /// Like the other seek methods, you must call ``.next()`` or ``.prev()`` before reading a key.
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust
+    /// use rocksdb::DB;
+    ///
+    /// let mut db = DB::open_default("path/for/rocksdb/storage8").unwrap();
+    /// let mut iter = db.raw_iterator();
+    ///
     /// // Read the last key that starts with 'a'
     ///
-    /// iterator.seek_for_prev(b"b");
+    /// iter.seek_for_prev(b"b");
     ///
-    /// let is_valid = iterator.prev();
+    /// let is_valid = iter.prev();
     /// if is_valid {
-    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
     /// }
