@@ -167,9 +167,8 @@ pub struct DBRawIterator {
 /// }
 /// ```
 pub struct DBIterator {
-    inner: *mut ffi::rocksdb_iterator_t,
+    raw: DBRawIterator,
     direction: Direction,
-    just_seeked: bool,
 }
 
 pub enum Direction {
@@ -183,28 +182,14 @@ impl Iterator for DBIterator {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
-        let native_iter = self.inner;
-        if !self.just_seeked {
-            match self.direction {
-                Direction::Forward => unsafe { ffi::rocksdb_iter_next(native_iter) },
-                Direction::Reverse => unsafe { ffi::rocksdb_iter_prev(native_iter) },
-            }
-        } else {
-            self.just_seeked = false;
-        }
-        if unsafe { ffi::rocksdb_iter_valid(native_iter) != 0 } {
-            let mut key_len: size_t = 0;
-            let key_len_ptr: *mut size_t = &mut key_len;
-            let mut val_len: size_t = 0;
-            let val_len_ptr: *mut size_t = &mut val_len;
-            let key_ptr =
-                unsafe { ffi::rocksdb_iter_key(native_iter, key_len_ptr) as *const c_uchar };
-            let key = unsafe { slice::from_raw_parts(key_ptr, key_len as usize) };
-            let val_ptr =
-                unsafe { ffi::rocksdb_iter_value(native_iter, val_len_ptr) as *const c_uchar };
-            let val = unsafe { slice::from_raw_parts(val_ptr, val_len as usize) };
+        let valid = match self.direction {
+            Direction::Forward => self.raw.next(),
+            Direction::Reverse => self.raw.prev(),
+        };
 
-            Some((key.to_vec().into_boxed_slice(), val.to_vec().into_boxed_slice()))
+        if valid {
+            // .key() and .value() only ever return None if valid == false, which we've just cheked
+            Some((self.raw.key().unwrap().into_boxed_slice(), self.raw.value().unwrap().into_boxed_slice()))
         } else {
             None
         }
@@ -485,43 +470,34 @@ impl Drop for DBRawIterator {
 
 impl DBIterator {
     fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
-        unsafe {
-            let iterator = ffi::rocksdb_create_iterator(db.inner, readopts.inner);
-
-            let mut rv = DBIterator {
-                inner: iterator,
-                direction: Direction::Forward, // blown away by set_mode()
-                just_seeked: false,
-            };
-            rv.set_mode(mode);
-            rv
-        }
+        let mut rv = DBIterator {
+            raw: DBRawIterator::new(db, readopts),
+            direction: Direction::Forward, // blown away by set_mode()
+        };
+        rv.set_mode(mode);
+        rv
     }
 
     pub fn set_mode(&mut self, mode: IteratorMode) {
-        unsafe {
-            match mode {
-                IteratorMode::Start => {
-                    ffi::rocksdb_iter_seek_to_first(self.inner);
-                    self.direction = Direction::Forward;
-                }
-                IteratorMode::End => {
-                    ffi::rocksdb_iter_seek_to_last(self.inner);
-                    self.direction = Direction::Reverse;
-                }
-                IteratorMode::From(key, dir) => {
-                    ffi::rocksdb_iter_seek(self.inner,
-                                           key.as_ptr() as *const c_char,
-                                           key.len() as size_t);
-                    self.direction = dir;
-                }
-            };
-            self.just_seeked = true;
-        }
+        match mode {
+            IteratorMode::Start => {
+                self.raw.seek_to_first();
+                self.direction = Direction::Forward;
+            }
+            IteratorMode::End => {
+                self.raw.seek_to_last();
+                self.direction = Direction::Reverse;
+            }
+            IteratorMode::From(key, dir) => {
+                // TODO: Should use seek_for_prev when reversing
+                self.raw.seek(key);
+                self.direction = dir;
+            }
+        };
     }
 
     pub fn valid(&self) -> bool {
-        unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
+        self.raw.valid()
     }
 
     fn new_cf(db: &DB,
@@ -529,25 +505,12 @@ impl DBIterator {
               readopts: &ReadOptions,
               mode: IteratorMode)
               -> Result<DBIterator, Error> {
-        unsafe {
-            let iterator = ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner);
-
-            let mut rv = DBIterator {
-                inner: iterator,
-                direction: Direction::Forward, // blown away by set_mode()
-                just_seeked: false,
-            };
-            rv.set_mode(mode);
-            Ok(rv)
-        }
-    }
-}
-
-impl Drop for DBIterator {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::rocksdb_iter_destroy(self.inner);
-        }
+        let mut rv = DBIterator {
+            raw: try!(DBRawIterator::new_cf(db, cf_handle, readopts)),
+            direction: Direction::Forward, // blown away by set_mode()
+        };
+        rv.set_mode(mode);
+        Ok(rv)
     }
 }
 
