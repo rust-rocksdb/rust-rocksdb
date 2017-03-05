@@ -260,12 +260,10 @@ impl DBRawIterator {
         self.just_seeked = true;
     }
 
-/*
-    pub fn seek_for_prev(&mut self, key: [u8]) {
+    pub fn seek_for_prev(&mut self, key: &[u8]) {
         unsafe { ffi::rocksdb_iter_seek_for_prev(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
         self.just_seeked = true;
     }
-*/
 
     pub fn next(&mut self) -> bool {
         // Initial call to next() after seeking should not move the iterator
