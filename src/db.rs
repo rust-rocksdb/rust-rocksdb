@@ -178,24 +178,6 @@ pub enum Direction {
 
 pub type KVBytes = (Box<[u8]>, Box<[u8]>);
 
-impl Iterator for DBIterator {
-    type Item = KVBytes;
-
-    fn next(&mut self) -> Option<KVBytes> {
-        let valid = match self.direction {
-            Direction::Forward => self.raw.next(),
-            Direction::Reverse => self.raw.prev(),
-        };
-
-        if valid {
-            // .key() and .value() only ever return None if valid == false, which we've just cheked
-            Some((self.raw.key().unwrap().into_boxed_slice(), self.raw.value().unwrap().into_boxed_slice()))
-        } else {
-            None
-        }
-    }
-}
-
 pub enum IteratorMode<'a> {
     Start,
     End,
@@ -478,6 +460,19 @@ impl DBIterator {
         rv
     }
 
+    fn new_cf(db: &DB,
+              cf_handle: ColumnFamily,
+              readopts: &ReadOptions,
+              mode: IteratorMode)
+              -> Result<DBIterator, Error> {
+        let mut rv = DBIterator {
+            raw: try!(DBRawIterator::new_cf(db, cf_handle, readopts)),
+            direction: Direction::Forward, // blown away by set_mode()
+        };
+        rv.set_mode(mode);
+        Ok(rv)
+    }
+
     pub fn set_mode(&mut self, mode: IteratorMode) {
         match mode {
             IteratorMode::Start => {
@@ -499,18 +494,23 @@ impl DBIterator {
     pub fn valid(&self) -> bool {
         self.raw.valid()
     }
+}
 
-    fn new_cf(db: &DB,
-              cf_handle: ColumnFamily,
-              readopts: &ReadOptions,
-              mode: IteratorMode)
-              -> Result<DBIterator, Error> {
-        let mut rv = DBIterator {
-            raw: try!(DBRawIterator::new_cf(db, cf_handle, readopts)),
-            direction: Direction::Forward, // blown away by set_mode()
+impl Iterator for DBIterator {
+    type Item = KVBytes;
+
+    fn next(&mut self) -> Option<KVBytes> {
+        let valid = match self.direction {
+            Direction::Forward => self.raw.next(),
+            Direction::Reverse => self.raw.prev(),
         };
-        rv.set_mode(mode);
-        Ok(rv)
+
+        if valid {
+            // .key() and .value() only ever return None if valid == false, which we've just cheked
+            Some((self.raw.key().unwrap().into_boxed_slice(), self.raw.value().unwrap().into_boxed_slice()))
+        } else {
+            None
+        }
     }
 }
 
