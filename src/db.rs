@@ -132,10 +132,6 @@ pub struct Snapshot<'a> {
 ///     println!("Saw {:?} {:?}", iter.key(), iter.value());
 /// }
 ///
-/// iter.seek_for_prev(b"my key");
-/// while iter.prev() {
-///     println!("Saw {:?} {:?}", iter.key(), iter.value());
-/// }
 /// ```
 pub struct DBRawIterator {
     inner: *mut ffi::rocksdb_iterator_t,
@@ -359,6 +355,9 @@ impl DBRawIterator {
         self.just_seeked = true;
     }
 
+/*
+    SeekForPrev was added in RocksDB 4.13 but not implemented in the C API until RocksDB 5.0
+
     /// Seeks to the specified key, or the first key that lexicographically precedes it.
     ///
     /// Like ``.seek()`` this method will attempt to seek to the specified key.
@@ -388,6 +387,7 @@ impl DBRawIterator {
         unsafe { ffi::rocksdb_iter_seek_for_prev(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
         self.just_seeked = true;
     }
+*/
 
     /// Seeks to the next key.
     ///
