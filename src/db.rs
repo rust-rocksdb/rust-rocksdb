@@ -103,28 +103,38 @@ pub struct Snapshot<'a> {
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///
+/// This iterator is different to the standard ``DBIterator`` as it aims Into
+/// replicate the underlying iterator API within RocksDB itself. This should
+/// give access to more performance and flexibility but departs from the
+/// widely recognised Rust idioms.
+///
 /// ```
-/// use rocksdb::{DB, Direction, IteratorMode};
+/// use rocksdb::DB;
 ///
 /// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
-/// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
-/// }
-/// iter = db.iterator(IteratorMode::End);  // Always iterates backward
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
-/// }
-/// iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
+/// let mut iter = db.raw_iterator();
+///
+/// // Forwards iteration
+/// iter.seek_to_first();
+/// while iter.next() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
 /// }
 ///
-/// // You can seek with an existing Iterator instance, too
-/// iter = db.iterator(IteratorMode::Start);
-/// iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
+/// // Reverse iteration
+/// iter.seek_to_last();
+/// while iter.prev() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+/// }
+///
+/// // Seeking
+/// iter = iter.seek(b"my key");
+/// while iter.next() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+/// }
+///
+/// iter = iter.seek_for_prev(b"my key");
+/// while iter.prev() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
 /// }
 /// ```
 pub struct DBRawIterator {
@@ -241,30 +251,131 @@ impl DBRawIterator {
         }
     }
 
+    /// Returns true if the iterator is valid.
     pub fn valid(&self) -> bool {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
     }
 
+    /// Seeks to the first key in the database.
+    ///
+    /// You must call ``.next()`` before reading the key.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// // Iterate all keys from the start in lexicographic order
+    ///
+    /// iterator.seek_to_first();
+    ///
+    /// while iterator.next() {
+    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    /// }
+    /// ```
+    ///
+    /// ```rust,no_run
+    /// // Read just the first key
+    ///
+    /// iterator.seek_to_first();
+    ///
+    /// let is_valid = iterator.next();
+    /// if is_valid {
+    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    /// } else {
+    ///    // There are no keys in the database
+    /// }
+    /// ```
     pub fn seek_to_first(&mut self) {
         unsafe { ffi::rocksdb_iter_seek_to_first(self.inner); }
         self.just_seeked = true;
     }
 
+    /// Seeks to the last key in the database.
+    ///
+    /// You must call ``.prev()`` before reading the key.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// // Iterate all keys from the end in reverse lexicographic order
+    ///
+    /// iterator.seek_to_last();
+    ///
+    /// while iterator.prev() {
+    ///    println!("{:?} {:?}", iterator.key(), iterator.value());;
+    /// }
+    /// ```
+    ///
+    /// ```rust,no_run
+    /// // Read just the last key
+    ///
+    /// iterator.seek_to_last();
+    ///
+    /// let is_valid = iterator.prev();
+    /// if is_valid {
+    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    /// } else {
+    ///    // There are no keys in the database
+    /// }
+    /// ```
     pub fn seek_to_last(&mut self) {
         unsafe { ffi::rocksdb_iter_seek_to_last(self.inner); }
         self.just_seeked = true;
     }
 
+    /// Seeks to the specified key or the first key that lexicographically follows it.
+    ///
+    /// This method will attempt to seek to the specified key. If that key does not exist, it will
+    /// find and seek to the key that lexicographically follows it instead.
+    ///
+    /// Like the other seek methods, you must call ``.next()`` or ``.prev()`` before reading a key.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// // Read the first key that starts with 'a'
+    ///
+    /// iterator.seek(b"a");
+    ///
+    /// let is_valid = iterator.next();
+    /// if is_valid {
+    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    /// } else {
+    ///    // There are no keys in the database
+    /// }
+    /// ```
     pub fn seek(&mut self, key: &[u8]) {
         unsafe { ffi::rocksdb_iter_seek(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
         self.just_seeked = true;
     }
 
+    /// Seeks to the specified key, or the first key that lexicographically precedes it.
+    ///
+    /// Like ``.seek()`` this method will attempt to seek to the specified key.
+    /// The difference with ``.seek()`` is that if the specified key do not exist, this method will
+    /// seek to key that lexicographically precedes it instead.
+    ///
+    /// Like the other seek methods, you must call ``.next()`` or ``.prev()`` before reading a key.
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// // Read the last key that starts with 'a'
+    ///
+    /// iterator.seek_for_prev(b"b");
+    ///
+    /// let is_valid = iterator.prev();
+    /// if is_valid {
+    ///    println!("{:?} {:?}", iterator.key(), iterator.value());
+    /// } else {
+    ///    // There are no keys in the database
+    /// }
     pub fn seek_for_prev(&mut self, key: &[u8]) {
         unsafe { ffi::rocksdb_iter_seek_for_prev(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
         self.just_seeked = true;
     }
 
+    /// Seeks to the next key.
+    ///
+    /// Returns true if the iterator is valid after this operation.
     pub fn next(&mut self) -> bool {
         // Initial call to next() after seeking should not move the iterator
         // as the iterator would be positioned on the first element
@@ -279,6 +390,9 @@ impl DBRawIterator {
         self.valid()
     }
 
+    /// Seeks to the previous key.
+    ///
+    /// Returns true if the iterator is valid after this operation.
     pub fn prev(&mut self) -> bool {
         // Initial call to prev() after seeking should not move the iterator
         // as the iterator would be positioned on the first element
@@ -292,6 +406,13 @@ impl DBRawIterator {
         self.valid()
     }
 
+    /// Returns a slice to the internal buffer storing the current key.
+    ///
+    /// This may be slightly more performant to use than the standard ``.key()`` method
+    /// as it does not copy the key. However, you must be careful to not use the buffer
+    /// if the iterator's seek position is ever moved by any of the seek commands or the
+    /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
+    /// for something else or freed entirely.
     pub unsafe fn key_inner<'a>(&'a self) -> Option<&'a [u8]> {
         if self.valid() {
             let mut key_len: size_t = 0;
@@ -304,12 +425,20 @@ impl DBRawIterator {
         }
     }
 
+    /// Returns a copy of the current key.
     pub fn key(&self) -> Option<Vec<u8>> {
         unsafe {
             self.key_inner().map(|key| key.to_vec())
         }
     }
 
+    /// Returns a slice to the internal buffer storing the current value.
+    ///
+    /// This may be slightly more performant to use than the standard ``.value()`` method
+    /// as it does not copy the value. However, you must be careful to not use the buffer
+    /// if the iterator's seek position is ever moved by any of the seek commands or the
+    /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
+    /// for something else or freed entirely.
     pub unsafe fn value_inner<'a>(&'a self) -> Option<&'a [u8]> {
         if self.valid() {
             let mut val_len: size_t = 0;
@@ -322,6 +451,7 @@ impl DBRawIterator {
         }
     }
 
+    /// Returns a copy of the current value.
     pub fn value(&self) -> Option<Vec<u8>> {
         unsafe {
             self.value_inner().map(|value| value.to_vec())
