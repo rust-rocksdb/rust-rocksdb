@@ -514,6 +514,12 @@ impl Iterator for DBIterator {
     }
 }
 
+impl Into<DBRawIterator> for DBIterator {
+    fn into(self) -> DBRawIterator {
+        self.raw
+    }
+}
+
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
