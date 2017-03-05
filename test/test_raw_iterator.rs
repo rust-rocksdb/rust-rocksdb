@@ -41,32 +41,20 @@ pub fn test_forwards_iteration() {
     let mut iter = db.raw_iterator();
     iter.seek_to_first();
 
-    // Shouldn't be valid yet
-    assert_eq!(iter.valid(), false);
-    assert_eq!(iter.key(), None);
-    assert_eq!(iter.value(), None);
-
-    let valid = iter.next();
-
-    assert_eq!(valid, true);
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k1".to_vec()));
     assert_eq!(iter.value(), Some(b"v1".to_vec()));
 
-    let valid = iter.next();
+    iter.next();
 
-    assert_eq!(valid, true);
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k2".to_vec()));
     assert_eq!(iter.value(), Some(b"v2".to_vec()));
 
     iter.next();  // k3
     iter.next();  // k4
+    iter.next();  // invalid!
 
-    let valid = iter.next();
-
-    // Should be invalid again
-    assert_eq!(valid, false);
     assert_eq!(iter.valid(), false);
     assert_eq!(iter.key(), None);
     assert_eq!(iter.value(), None);
@@ -84,32 +72,20 @@ pub fn test_seek_last() {
     let mut iter = db.raw_iterator();
     iter.seek_to_last();
 
-    // Shouldn't be valid yet
-    assert_eq!(iter.valid(), false);
-    assert_eq!(iter.key(), None);
-    assert_eq!(iter.value(), None);
-
-    let valid = iter.prev();
-
-    assert_eq!(valid, true);
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k4".to_vec()));
     assert_eq!(iter.value(), Some(b"v4".to_vec()));
 
-    let valid = iter.prev();
+    iter.prev();
 
-    assert_eq!(valid, true);
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k3".to_vec()));
     assert_eq!(iter.value(), Some(b"v3".to_vec()));
 
     iter.prev();  // k2
     iter.prev();  // k1
+    iter.prev();  // invalid!
 
-    let valid = iter.prev();
-
-    // Should be invalid again
-    assert_eq!(valid, false);
     assert_eq!(iter.valid(), false);
     assert_eq!(iter.key(), None);
     assert_eq!(iter.value(), None);
@@ -127,41 +103,6 @@ pub fn test_seek() {
     let mut iter = db.raw_iterator();
     iter.seek(b"k2");
 
-    // Shouldn't be valid yet
-    assert_eq!(iter.valid(), false);
-    assert_eq!(iter.key(), None);
-    assert_eq!(iter.value(), None);
-
-    let valid = iter.next();
-
-    // Should now be valid
-    assert_eq!(valid, true);
-    assert_eq!(iter.valid(), true);
-    assert_eq!(iter.key(), Some(b"k2".to_vec()));
-    assert_eq!(iter.value(), Some(b"v2".to_vec()));
-}
-
-
-#[test]
-pub fn test_seek_then_prev() {
-    let db = setup_test_db("seek_then_prev");
-    db.put(b"k1", b"v1").unwrap();
-    db.put(b"k2", b"v2").unwrap();
-    db.put(b"k3", b"v3").unwrap();
-    db.put(b"k4", b"v4").unwrap();
-
-    let mut iter = db.raw_iterator();
-    iter.seek(b"k2");
-
-    // Shouldn't be valid yet
-    assert_eq!(iter.valid(), false);
-    assert_eq!(iter.key(), None);
-    assert_eq!(iter.value(), None);
-
-    let valid = iter.prev();
-
-    // Should now be valid
-    assert_eq!(valid, true);
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k2".to_vec()));
     assert_eq!(iter.value(), Some(b"v2".to_vec()));
@@ -178,14 +119,6 @@ pub fn test_seek_to_nonexistant() {
     let mut iter = db.raw_iterator();
     iter.seek(b"k2");
 
-    // Shouldn't be valid yet
-    assert_eq!(iter.valid(), false);
-    assert_eq!(iter.key(), None);
-    assert_eq!(iter.value(), None);
-
-    let valid = iter.next();
-
-    assert_eq!(valid, true);
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k3".to_vec()));
     assert_eq!(iter.value(), Some(b"v3".to_vec()));

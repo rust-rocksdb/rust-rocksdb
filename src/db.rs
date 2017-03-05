@@ -116,26 +116,28 @@ pub struct Snapshot<'a> {
 ///
 /// // Forwards iteration
 /// iter.seek_to_first();
-/// while iter.next() {
+/// while iter.valid() {
 ///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.next();
 /// }
 ///
 /// // Reverse iteration
 /// iter.seek_to_last();
-/// while iter.prev() {
+/// while iter.valid() {
 ///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.prev();
 /// }
 ///
 /// // Seeking
 /// iter.seek(b"my key");
-/// while iter.next() {
+/// while iter.valid() {
 ///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.next();
 /// }
 ///
 /// ```
 pub struct DBRawIterator {
     inner: *mut ffi::rocksdb_iterator_t,
-    just_seeked: bool,
 }
 
 
@@ -169,6 +171,7 @@ pub struct DBRawIterator {
 pub struct DBIterator {
     raw: DBRawIterator,
     direction: Direction,
+    just_seeked: bool,
 }
 
 pub enum Direction {
@@ -187,14 +190,9 @@ pub enum IteratorMode<'a> {
 impl DBRawIterator {
     fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
         unsafe {
-            let iterator = ffi::rocksdb_create_iterator(db.inner, readopts.inner);
-
-            let mut rv = DBRawIterator {
-                inner: iterator,
-                just_seeked: false,
-            };
-            rv.seek_to_first();
-            rv
+            DBRawIterator {
+                inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
+            }
         }
     }
 
@@ -203,14 +201,9 @@ impl DBRawIterator {
               readopts: &ReadOptions)
               -> Result<DBRawIterator, Error> {
         unsafe {
-            let iterator = ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner);
-
-            let mut rv = DBRawIterator {
-                inner: iterator,
-                just_seeked: false,
-            };
-            rv.seek_to_first();
-            Ok(rv)
+            Ok(DBRawIterator {
+                inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
+            })
         }
     }
 
@@ -220,8 +213,6 @@ impl DBRawIterator {
     }
 
     /// Seeks to the first key in the database.
-    ///
-    /// You must call ``.next()`` before reading the key.
     ///
     /// # Examples
     ///
@@ -235,16 +226,17 @@ impl DBRawIterator {
     ///
     /// iter.seek_to_first();
     ///
-    /// while iter.next() {
+    /// while iter.valid() {
     ///    println!("{:?} {:?}", iter.key(), iter.value());
+    ///
+    ///    iter.next();
     /// }
     ///
     /// // Read just the first key
     ///
     /// iter.seek_to_first();
     ///
-    /// let is_valid = iter.next();
-    /// if is_valid {
+    /// if iter.valid() {
     ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
@@ -252,12 +244,9 @@ impl DBRawIterator {
     /// ```
     pub fn seek_to_first(&mut self) {
         unsafe { ffi::rocksdb_iter_seek_to_first(self.inner); }
-        self.just_seeked = true;
     }
 
     /// Seeks to the last key in the database.
-    ///
-    /// You must call ``.prev()`` before reading the key.
     ///
     /// # Examples
     ///
@@ -271,16 +260,17 @@ impl DBRawIterator {
     ///
     /// iter.seek_to_last();
     ///
-    /// while iter.prev() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());;
+    /// while iter.valid() {
+    ///    println!("{:?} {:?}", iter.key(), iter.value());
+    ///
+    ///    iter.prev();
     /// }
     ///
     /// // Read just the last key
     ///
     /// iter.seek_to_last();
     ///
-    /// let is_valid = iter.prev();
-    /// if is_valid {
+    /// if iter.valid() {
     ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
@@ -288,15 +278,12 @@ impl DBRawIterator {
     /// ```
     pub fn seek_to_last(&mut self) {
         unsafe { ffi::rocksdb_iter_seek_to_last(self.inner); }
-        self.just_seeked = true;
     }
 
     /// Seeks to the specified key or the first key that lexicographically follows it.
     ///
     /// This method will attempt to seek to the specified key. If that key does not exist, it will
     /// find and seek to the key that lexicographically follows it instead.
-    ///
-    /// Like the other seek methods, you must call ``.next()`` or ``.prev()`` before reading a key.
     ///
     /// # Examples
     ///
@@ -310,8 +297,7 @@ impl DBRawIterator {
     ///
     /// iter.seek(b"a");
     ///
-    /// let is_valid = iter.next();
-    /// if is_valid {
+    /// if iter.valid() {
     ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
@@ -319,7 +305,6 @@ impl DBRawIterator {
     /// ```
     pub fn seek(&mut self, key: &[u8]) {
         unsafe { ffi::rocksdb_iter_seek(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
-        self.just_seeked = true;
     }
 
 /*
@@ -331,7 +316,6 @@ impl DBRawIterator {
     /// The difference with ``.seek()`` is that if the specified key do not exist, this method will
     /// seek to key that lexicographically precedes it instead.
     ///
-    /// Like the other seek methods, you must call ``.next()`` or ``.prev()`` before reading a key.
     /// # Examples
     ///
     /// ```rust
@@ -344,49 +328,28 @@ impl DBRawIterator {
     ///
     /// iter.seek_for_prev(b"b");
     ///
-    /// let is_valid = iter.prev();
-    /// if is_valid {
+    /// if iter.valid() {
     ///    println!("{:?} {:?}", iter.key(), iter.value());
     /// } else {
     ///    // There are no keys in the database
     /// }
     pub fn seek_for_prev(&mut self, key: &[u8]) {
         unsafe { ffi::rocksdb_iter_seek_for_prev(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
-        self.just_seeked = true;
     }
 */
 
     /// Seeks to the next key.
     ///
     /// Returns true if the iterator is valid after this operation.
-    pub fn next(&mut self) -> bool {
-        // Initial call to next() after seeking should not move the iterator
-        // as the iterator would be positioned on the first element
-        // This behaviour allows the next() method to be used in a while-loop (eg. while iter.next())
-        if self.just_seeked {
-            self.just_seeked = false;
-            return self.valid();
-        } else {
-            unsafe { ffi::rocksdb_iter_next(self.inner); }
-        }
-
-        self.valid()
+    pub fn next(&mut self) {
+        unsafe { ffi::rocksdb_iter_next(self.inner); }
     }
 
     /// Seeks to the previous key.
     ///
     /// Returns true if the iterator is valid after this operation.
-    pub fn prev(&mut self) -> bool {
-        // Initial call to prev() after seeking should not move the iterator
-        // as the iterator would be positioned on the first element
-        // This behaviour allows the prev() method to be used in a while-loop (eg. while iter.prev())
-        if self.just_seeked {
-            self.just_seeked = false;
-        } else {
-            unsafe { ffi::rocksdb_iter_prev(self.inner); }
-        }
-
-        self.valid()
+    pub fn prev(&mut self) {
+        unsafe { ffi::rocksdb_iter_prev(self.inner); }
     }
 
     /// Returns a slice to the internal buffer storing the current key.
@@ -455,6 +418,7 @@ impl DBIterator {
         let mut rv = DBIterator {
             raw: DBRawIterator::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
+            just_seeked: false,
         };
         rv.set_mode(mode);
         rv
@@ -468,6 +432,7 @@ impl DBIterator {
         let mut rv = DBIterator {
             raw: try!(DBRawIterator::new_cf(db, cf_handle, readopts)),
             direction: Direction::Forward, // blown away by set_mode()
+            just_seeked: false,
         };
         rv.set_mode(mode);
         Ok(rv)
@@ -489,6 +454,8 @@ impl DBIterator {
                 self.direction = dir;
             }
         };
+
+        self.just_seeked = true;
     }
 
     pub fn valid(&self) -> bool {
@@ -500,12 +467,18 @@ impl Iterator for DBIterator {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
-        let valid = match self.direction {
-            Direction::Forward => self.raw.next(),
-            Direction::Reverse => self.raw.prev(),
-        };
+        // Initial call to next() after seeking should not move the iterator
+        // or the first item will not be returned
+        if !self.just_seeked {
+            match self.direction {
+                Direction::Forward => self.raw.next(),
+                Direction::Reverse => self.raw.prev(),
+            }
+        } else {
+            self.just_seeked = false;
+        }
 
-        if valid {
+        if self.raw.valid() {
             // .key() and .value() only ever return None if valid == false, which we've just cheked
             Some((self.raw.key().unwrap().into_boxed_slice(), self.raw.value().unwrap().into_boxed_slice()))
         } else {
