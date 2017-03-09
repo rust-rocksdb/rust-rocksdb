@@ -41,6 +41,7 @@ pub enum IngestExternalFileOptions {}
 pub enum DBBackupEngine {}
 pub enum DBRestoreOptions {}
 pub enum DBSliceTransform {}
+pub enum DBRateLimiter {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -266,6 +267,12 @@ extern "C" {
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_memtable_prefix_bloom_size_ratio(options: *mut DBOptions,
                                                                  ratio: c_double);
+    pub fn crocksdb_options_set_ratelimiter(options: *mut DBOptions, limiter: *mut DBRateLimiter);
+    pub fn crocksdb_ratelimiter_create(rate_bytes_per_sec: i64,
+                                       refill_period_us: i64,
+                                       fairness: i32)
+                                       -> *mut DBRateLimiter;
+    pub fn crocksdb_ratelimiter_destroy(limiter: *mut DBRateLimiter);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(options: *mut DBOptions,

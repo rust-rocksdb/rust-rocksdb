@@ -107,3 +107,14 @@ fn test_memtable_insert_hint_prefix_extractor() {
     assert_eq!(db.get(b"k0-2").unwrap().unwrap(), b"b");
     assert_eq!(db.get(b"k0-3").unwrap().unwrap(), b"c");
 }
+
+#[test]
+fn test_set_ratelimiter() {
+    let path = TempDir::new("_rust_rocksdb_test_set_rate_limiter").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    // compaction and flush rate limited below 100MB/sec
+    opts.set_ratelimiter(100 * 1024 * 1024);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    drop(db);
+}
