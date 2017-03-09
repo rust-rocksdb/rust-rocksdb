@@ -1,14 +1,13 @@
 rust-rocksdb
 ============
-[![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
-[![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
-This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.0 crate should work with the Rust 1.5 stable and nightly releases as of 1/4/16.
+This library has been tested against RocksDB 5.1.2 on Linux and macOS.
 
 ### status
   - [x] basic open/put/get/delete/close
   - [x] rustic merge operator
   - [x] write batch (thanks @dgrnbrg!)
+   - [x] save ponit
   - [x] compaction filter, style
   - [x] LRU cache
   - [x] destroy/repair
@@ -16,11 +15,16 @@ This library has been tested against RocksDB 3.13.1 on linux and OSX.  The 0.3.0
   - [x] comparator
   - [x] snapshot
   - [x] column family operations
-  - [ ] prefix seek
-  - [ ] slicetransform
+  - [x] prefix seek
+  - [x] slicetransform
+  - [x] rate limiter
+  - [x] statistics
+  - [x] recovery
+  - [x] backup
+  - [x] pause/continue background work
   - [ ] windows support
 
-Feedback and pull requests welcome!  If a particular feature of RocksDB is important to you, please let me know by opening an issue, and I'll prioritize it.
+Feedback and pull requests welcome! If a particular feature of RocksDB is important to you, please let us know by opening an issue, and we will prioritize it.
 
 ###### Prerequisite: RocksDB
 
@@ -28,11 +32,17 @@ First, use your system's package manager to install snappy.  This is optional, b
 
 To install rocksdb, please refer to it's installation guide. For Windows users, please make sure you configure rocksdb with `CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS` enabled.
 
+Or enable feature `static-link`, the crate will download and complie RocksDB automatically, including its dependencies.
+
+```bash
+cargo build --features static-link
+```
+
 ### Running
 ###### Cargo.toml
 ```rust
-[dependencies]
-rocksdb = "0.3.0"
+[dependencies.rocksdb]
+git = "https://github.com/pingcap/rust-rocksdb.git"
 ```
 ###### Code
 ```rust
