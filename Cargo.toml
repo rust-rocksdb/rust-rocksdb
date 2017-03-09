@@ -11,7 +11,7 @@ exclude = [
   ".gitignore",
   ".travis.yml",
   "deploy.sh",
-  "test/**/*",
+  "tests/**/*",
 ]
 
 [features]
@@ -23,7 +23,7 @@ portable = ["librocksdb_sys/portable"]
 [[test]]
 
 name = "test"
-path = "test/test.rs"
+path = "tests/test.rs"
 
 [dependencies]
 libc = "0.2.11"
