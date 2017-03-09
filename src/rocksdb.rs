@@ -264,6 +264,12 @@ pub trait Writable {
     fn delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String>;
     fn single_delete(&self, key: &[u8]) -> Result<(), String>;
     fn single_delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String>;
+    fn delete_range(&self, begin_key: &[u8], end_key: &[u8]) -> Result<(), String>;
+    fn delete_range_cf(&self,
+                       cf: &CFHandle,
+                       begin_key: &[u8],
+                       end_key: &[u8])
+                       -> Result<(), String>;
 }
 
 /// A range of keys, `start_key` is included, but not `end_key`.
@@ -692,6 +698,24 @@ impl DB {
         }
     }
 
+    fn delete_range_cf_opt(&self,
+                           cf: &CFHandle,
+                           begin_key: &[u8],
+                           end_key: &[u8],
+                           writeopts: &WriteOptions)
+                           -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_delete_range_cf(self.inner,
+                                              writeopts.inner,
+                                              cf.inner,
+                                              begin_key.as_ptr(),
+                                              begin_key.len() as size_t,
+                                              end_key.as_ptr(),
+                                              end_key.len() as size_t));
+            Ok(())
+        }
+    }
+
     /// Flush all memtable data.
     ///
     /// Due to lack of abi, only default cf is supported.
@@ -1000,6 +1024,19 @@ impl Writable for DB {
     fn single_delete_cf(&self, cf: &CFHandle, key: &[u8]) -> Result<(), String> {
         self.single_delete_cf_opt(cf, key, &WriteOptions::new())
     }
+
+    fn delete_range(&self, begin_key: &[u8], end_key: &[u8]) -> Result<(), String> {
+        let handle = self.cf_handle("default").unwrap();
+        self.delete_range_cf(handle, begin_key, end_key)
+    }
+
+    fn delete_range_cf(&self,
+                       cf: &CFHandle,
+                       begin_key: &[u8],
+                       end_key: &[u8])
+                       -> Result<(), String> {
+        self.delete_range_cf_opt(cf, begin_key, end_key, &WriteOptions::new())
+    }
 }
 
 impl Default for WriteBatch {
@@ -1143,6 +1180,33 @@ impl Writable for WriteBatch {
                                                                cf.inner,
                                                                key.as_ptr(),
                                                                key.len() as size_t);
+            Ok(())
+        }
+    }
+
+    fn delete_range(&self, begin_key: &[u8], end_key: &[u8]) -> Result<(), String> {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_delete_range(self.inner,
+                                                           begin_key.as_ptr(),
+                                                           begin_key.len(),
+                                                           end_key.as_ptr(),
+                                                           end_key.len());
+            Ok(())
+        }
+    }
+
+    fn delete_range_cf(&self,
+                       cf: &CFHandle,
+                       begin_key: &[u8],
+                       end_key: &[u8])
+                       -> Result<(), String> {
+        unsafe {
+            crocksdb_ffi::crocksdb_writebatch_delete_range_cf(self.inner,
+                                                              cf.inner,
+                                                              begin_key.as_ptr(),
+                                                              begin_key.len(),
+                                                              end_key.as_ptr(),
+                                                              end_key.len());
             Ok(())
         }
     }
@@ -1514,6 +1578,58 @@ mod test {
         db.single_delete_cf(cf_handle, b"a").unwrap();
         let a = db.get_cf(cf_handle, b"a");
         assert!(a.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_delete_range() {
+        // Test `DB::delete_range()`
+        let path = TempDir::new("_rust_rocksdb_test_delete_range").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+        // Prepare some data.
+        let prepare_data = || {
+            db.put(b"a", b"v1").unwrap();
+            let a = db.get(b"a");
+            assert_eq!(a.unwrap().unwrap(), b"v1");
+            db.put(b"b", b"v2").unwrap();
+            let b = db.get(b"b");
+            assert_eq!(b.unwrap().unwrap(), b"v2");
+            db.put(b"c", b"v3").unwrap();
+            let c = db.get(b"c");
+            assert_eq!(c.unwrap().unwrap(), b"v3");
+        };
+        prepare_data();
+
+        // Ensure delete range interface works to delete the specified range `[b"a", b"c")`.
+        db.delete_range(b"a", b"c").unwrap();
+
+        let check_data = || {
+            assert!(db.get(b"a").unwrap().is_none());
+            assert!(db.get(b"b").unwrap().is_none());
+            let c = db.get(b"c");
+            assert_eq!(c.unwrap().unwrap(), b"v3");
+        };
+        check_data();
+
+        // Test `DB::delete_range_cf()`
+        prepare_data();
+        let cf_handle = db.cf_handle("default").unwrap();
+        db.delete_range_cf(cf_handle, b"a", b"c").unwrap();
+        check_data();
+
+        // Test `WriteBatch::delete_range()`
+        prepare_data();
+        let batch = WriteBatch::new();
+        batch.delete_range(b"a", b"c").unwrap();
+        assert!(db.write(batch).is_ok());
+        check_data();
+
+        // Test `WriteBatch::delete_range_cf()`
+        prepare_data();
+        let batch = WriteBatch::new();
+        batch.delete_range_cf(cf_handle, b"a", b"c").unwrap();
+        assert!(db.write(batch).is_ok());
+        check_data();
     }
 
     #[test]

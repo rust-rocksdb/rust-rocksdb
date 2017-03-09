@@ -235,6 +235,13 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_single_delete_cf(
     crocksdb_column_family_handle_t* column_family, const char* key,
     size_t keylen, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_delete_range_cf(
+    crocksdb_t* db, const crocksdb_writeoptions_t* options,
+    crocksdb_column_family_handle_t* column_family,
+    const char* begin_key, size_t begin_keylen,
+    const char* end_key, size_t end_keylen,
+    char **errptr);
+
 extern C_ROCKSDB_LIBRARY_API void crocksdb_merge(
     crocksdb_t* db, const crocksdb_writeoptions_t* options, const char* key,
     size_t keylen, const char* val, size_t vallen, char** errptr);

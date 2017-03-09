@@ -351,6 +351,14 @@ extern "C" {
                                      k: *const u8,
                                      kLen: size_t,
                                      err: *mut *mut c_char);
+    pub fn crocksdb_delete_range_cf(db: *mut DBInstance,
+                                    writeopts: *const DBWriteOptions,
+                                    cf: *mut DBCFHandle,
+                                    begin_key: *const u8,
+                                    begin_keylen: size_t,
+                                    end_key: *const u8,
+                                    end_keylen: size_t,
+                                    err: *mut *mut c_char);
     pub fn crocksdb_close(db: *mut DBInstance);
     pub fn crocksdb_pause_bg_work(db: *mut DBInstance);
     pub fn crocksdb_continue_bg_work(db: *mut DBInstance);
@@ -459,6 +467,17 @@ extern "C" {
                                                 cf: *mut DBCFHandle,
                                                 key: *const u8,
                                                 klen: size_t);
+    pub fn crocksdb_writebatch_delete_range(batch: *mut DBWriteBatch,
+                                            begin_key: *const u8,
+                                            begin_keylen: size_t,
+                                            end_key: *const u8,
+                                            end_keylen: size_t);
+    pub fn crocksdb_writebatch_delete_range_cf(batch: *mut DBWriteBatch,
+                                               cf: *mut DBCFHandle,
+                                               begin_key: *const u8,
+                                               begin_keylen: size_t,
+                                               end_key: *const u8,
+                                               end_keylen: size_t);
     pub fn crocksdb_writebatch_iterate(batch: *mut DBWriteBatch,
                                        state: *mut c_void,
                                        put_fn: extern "C" fn(state: *mut c_void,

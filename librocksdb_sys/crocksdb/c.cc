@@ -711,6 +711,17 @@ void crocksdb_single_delete_cf(
         Slice(key, keylen)));
 }
 
+void crocksdb_delete_range_cf(
+    crocksdb_t* db,
+    const crocksdb_writeoptions_t* options,
+    crocksdb_column_family_handle_t* column_family,
+    const char* begin_key, size_t begin_keylen,
+    const char* end_key, size_t end_keylen,
+    char** errptr) {
+  SaveError(errptr, db->rep->DeleteRange(options->rep, column_family->rep,
+        Slice(begin_key, begin_keylen), Slice(end_key, end_keylen)));
+}
+
 void crocksdb_merge(
     crocksdb_t* db,
     const crocksdb_writeoptions_t* options,
