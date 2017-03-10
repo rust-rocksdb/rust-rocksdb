@@ -58,14 +58,14 @@ impl BackupEngine {
         Ok(BackupEngine { inner: be })
     }
 
-    fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
+    pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup(self.inner, db.inner));
             Ok(())
         }
     }
 
-    fn purge_old_backups(&mut self, num_backups_to_keep: usize) -> Result<(), Error> {
+    pub fn purge_old_backups(&mut self, num_backups_to_keep: usize) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_purge_old_backups(self.inner,
                                                                   num_backups_to_keep as uint32_t));
