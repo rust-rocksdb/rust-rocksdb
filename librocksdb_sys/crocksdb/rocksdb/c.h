@@ -986,11 +986,13 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_envoptions_destroy(
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_sstfilewriter_t*
 crocksdb_sstfilewriter_create(const crocksdb_envoptions_t* env,
-                             const crocksdb_options_t* io_options);
+                             const crocksdb_options_t* io_options,
+                             crocksdb_column_family_handle_t* column_family);
 extern C_ROCKSDB_LIBRARY_API crocksdb_sstfilewriter_t*
 crocksdb_sstfilewriter_create_with_comparator(
     const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options,
-    const crocksdb_comparator_t* comparator);
+    const crocksdb_comparator_t* comparator,
+    crocksdb_column_family_handle_t* column_family);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_open(
     crocksdb_sstfilewriter_t* writer, const char* name, char** errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_add(

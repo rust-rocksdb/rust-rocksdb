@@ -16,10 +16,10 @@ use rocksdb::*;
 use std::fs;
 use tempdir::TempDir;
 
-fn gen_sst(opt: &Options, path: &str, data: &[(&[u8], &[u8])]) {
+fn gen_sst(opt: &Options, cf: &CFHandle, path: &str, data: &[(&[u8], &[u8])]) {
     let _ = fs::remove_file(path);
     let env_opt = EnvOptions::new();
-    let mut writer = SstFileWriter::new(&env_opt, opt);
+    let mut writer = SstFileWriter::new(&env_opt, opt, cf);
     writer.open(path).unwrap();
     for &(k, v) in data {
         writer.add(k, v).unwrap();
@@ -44,6 +44,7 @@ fn test_ingest_external_file() {
     let test_sstfile_str = test_sstfile.to_str().unwrap();
 
     gen_sst(db.get_options(),
+            db.cf_handle("default").unwrap(),
             test_sstfile_str,
             &[(b"k1", b"v1"), (b"k2", b"v2")]);
 
@@ -54,6 +55,7 @@ fn test_ingest_external_file() {
     assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
 
     gen_sst(&cf_opts,
+            handle,
             test_sstfile_str,
             &[(b"k1", b"v3"), (b"k2", b"v4")]);
     db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str]).unwrap();
@@ -63,6 +65,7 @@ fn test_ingest_external_file() {
     let snap = db.snapshot();
 
     gen_sst(db.get_options(),
+            handle,
             test_sstfile_str,
             &[(b"k2", b"v5"), (b"k3", b"v6")]);
     ingest_opt = ingest_opt.move_files(true);

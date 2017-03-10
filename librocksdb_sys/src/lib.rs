@@ -629,11 +629,13 @@ extern "C" {
 
     // SstFileWriter
     pub fn crocksdb_sstfilewriter_create(env: *mut EnvOptions,
-                                         io_options: *const DBOptions)
+                                         io_options: *const DBOptions,
+                                         cf: *mut DBCFHandle)
                                          -> *mut SstFileWriter;
     pub fn crocksdb_sstfilewriter_create_with_comparator(env: *mut EnvOptions,
                                                          io_options: *const DBOptions,
-                                                         comparator: *const DBComparator)
+                                                         comparator: *const DBComparator,
+                                                         cf: *mut DBCFHandle)
                                                          -> *mut SstFileWriter;
     pub fn crocksdb_sstfilewriter_open(writer: *mut SstFileWriter,
                                        name: *const c_char,

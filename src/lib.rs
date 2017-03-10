@@ -25,17 +25,15 @@ pub mod rocksdb_options;
 pub mod merge_operator;
 pub mod comparator;
 mod compaction_filter;
-mod external_file;
 mod slice_transform;
 
 pub use compaction_filter::CompactionFilter;
-pub use external_file::SstFileWriter;
 pub use librocksdb_sys::{DBCompactionStyle, DBCompressionType, DBRecoveryMode,
                          DBStatisticsTickerType, DBStatisticsHistogramType, new_bloom_filter,
                          self as crocksdb_ffi};
 pub use merge_operator::MergeOperands;
 pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, CFHandle, Range,
-                  BackupEngine};
+                  BackupEngine, SstFileWriter};
 pub use rocksdb_options::{BlockBasedOptions, Options, ReadOptions, WriteOptions, RestoreOptions,
                           IngestExternalFileOptions, EnvOptions, HistogramData};
 pub use slice_transform::SliceTransform;
