@@ -44,7 +44,7 @@ pub mod compaction_filter;
 mod db;
 mod db_options;
 
-pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector,
+pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DBRecoveryMode, DBVector,
              Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
