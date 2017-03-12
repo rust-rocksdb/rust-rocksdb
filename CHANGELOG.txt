@@ -13,6 +13,7 @@ Changelog
  **New features**
  * Compaction filter (tmccombs)
  * Support for backups (alexreg)
+ * Support for raw iterator access (kaedroho)
 
 0.5 (2016-11-20)
 ~~~~~~~~~~~~~~~~
