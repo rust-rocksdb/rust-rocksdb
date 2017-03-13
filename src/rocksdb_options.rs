@@ -285,6 +285,15 @@ impl Options {
         Options::default()
     }
 
+    pub fn new_with(inner: *mut DBOptions) -> Options {
+        assert!(!inner.is_null(),
+                "could not new rocksdb options with null inner");
+        Options {
+            inner: inner,
+            filter: None,
+        }
+    }
+
     pub fn increase_parallelism(&mut self, parallelism: i32) {
         unsafe {
             crocksdb_ffi::crocksdb_options_increase_parallelism(self.inner, parallelism);

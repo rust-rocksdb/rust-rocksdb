@@ -362,6 +362,12 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_disable_file_deletions(crocksdb_t* db
 extern C_ROCKSDB_LIBRARY_API void crocksdb_enable_file_deletions(
     crocksdb_t* db, unsigned char force, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_get_options(
+    const crocksdb_t* db);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_get_options_cf(
+    const crocksdb_t* db, crocksdb_column_family_handle_t* column_family);
+
 /* Management operations */
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_destroy_db(

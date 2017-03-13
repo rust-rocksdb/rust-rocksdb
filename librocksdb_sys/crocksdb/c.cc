@@ -1053,6 +1053,20 @@ void crocksdb_enable_file_deletions(
   SaveError(errptr, db->rep->EnableFileDeletions(force));
 }
 
+crocksdb_options_t* crocksdb_get_options(const crocksdb_t* db) {
+  crocksdb_options_t* options = new crocksdb_options_t;
+  options->rep = db->rep->GetOptions();
+  return options;
+}
+
+crocksdb_options_t* crocksdb_get_options_cf(
+    const crocksdb_t* db,
+    crocksdb_column_family_handle_t* column_family) {
+  crocksdb_options_t* options = new crocksdb_options_t;
+  options->rep = db->rep->GetOptions(column_family->rep);
+  return options;
+}
+
 void crocksdb_destroy_db(
     const crocksdb_options_t* options,
     const char* name,

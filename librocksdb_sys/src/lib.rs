@@ -158,6 +158,8 @@ macro_rules! ffi_try {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 extern "C" {
+    pub fn crocksdb_get_options(db: *mut DBInstance) -> *mut DBOptions;
+    pub fn crocksdb_get_options_cf(db: *mut DBInstance, cf: *mut DBCFHandle) -> *mut DBOptions;
     pub fn crocksdb_options_create() -> *mut DBOptions;
     pub fn crocksdb_options_destroy(opts: *mut DBOptions);
     pub fn crocksdb_cache_create_lru(capacity: size_t) -> *mut DBCache;

@@ -43,7 +43,8 @@ fn test_ingest_external_file() {
     let test_sstfile = gen_path.path().join("test_sst_file");
     let test_sstfile_str = test_sstfile.to_str().unwrap();
 
-    gen_sst(db.get_options(),
+    let default_options = db.get_options();
+    gen_sst(&default_options,
             db.cf_handle("default").unwrap(),
             test_sstfile_str,
             &[(b"k1", b"v1"), (b"k2", b"v2")]);
@@ -64,7 +65,7 @@ fn test_ingest_external_file() {
 
     let snap = db.snapshot();
 
-    gen_sst(db.get_options(),
+    gen_sst(&default_options,
             handle,
             test_sstfile_str,
             &[(b"k2", b"v5"), (b"k3", b"v6")]);
