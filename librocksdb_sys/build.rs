@@ -64,6 +64,10 @@ fn main() {
                 if cfg!(feature = "portable") {
                     cmd.env("PORTABLE", "1");
                 }
+
+                if cfg!(feature = "sse") {
+                    cmd.env("USE_SSE", "1");
+                }
             }
             run(&mut cmd);
         }
