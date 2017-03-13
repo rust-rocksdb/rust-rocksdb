@@ -285,7 +285,7 @@ impl Options {
         Options::default()
     }
 
-    pub fn new_with(inner: *mut DBOptions) -> Options {
+    pub unsafe fn from_raw(inner: *mut DBOptions) -> Options {
         assert!(!inner.is_null(),
                 "could not new rocksdb options with null inner");
         Options {

@@ -919,14 +919,14 @@ impl DB {
     pub fn get_options(&self) -> Options {
         unsafe {
             let inner = crocksdb_ffi::crocksdb_get_options(self.inner);
-            Options::new_with(inner)
+            Options::from_raw(inner)
         }
     }
 
     pub fn get_options_cf(&self, cf: &CFHandle) -> Options {
         unsafe {
             let inner = crocksdb_ffi::crocksdb_get_options_cf(self.inner, cf.inner);
-            Options::new_with(inner)
+            Options::from_raw(inner)
         }
     }
 
