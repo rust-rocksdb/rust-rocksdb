@@ -654,6 +654,25 @@ impl Options {
         }
     }
 
+    pub fn set_wal_dir(&mut self, path: &str) {
+        let path = CString::new(path.as_bytes()).unwrap();
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_wal_dir(self.inner, path.as_ptr());
+        }
+    }
+
+    pub fn set_wal_ttl_seconds(&mut self, ttl: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_WAL_ttl_seconds(self.inner, ttl as u64);
+        }
+    }
+
+    pub fn set_wal_size_limit_mb(&mut self, limit: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_WAL_size_limit_MB(self.inner, limit as u64);
+        }
+    }
+
     pub fn set_max_log_file_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_log_file_size(self.inner, size as size_t);
