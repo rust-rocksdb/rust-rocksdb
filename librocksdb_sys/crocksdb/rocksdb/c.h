@@ -938,7 +938,7 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_destroy(
     crocksdb_writeoptions_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_set_sync(
     crocksdb_writeoptions_t*, unsigned char);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_disable_WAL(
+extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_disable_wal(
     crocksdb_writeoptions_t* opt, int disable);
 
 /* Compact range options */

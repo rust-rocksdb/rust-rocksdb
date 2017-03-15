@@ -246,9 +246,9 @@ impl WriteOptions {
     pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
             if disable {
-                crocksdb_ffi::crocksdb_writeoptions_disable_WAL(self.inner, 1);
+                crocksdb_ffi::crocksdb_writeoptions_disable_wal(self.inner, 1);
             } else {
-                crocksdb_ffi::crocksdb_writeoptions_disable_WAL(self.inner, 0);
+                crocksdb_ffi::crocksdb_writeoptions_disable_wal(self.inner, 0);
             }
         }
     }

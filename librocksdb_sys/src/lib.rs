@@ -287,7 +287,7 @@ extern "C" {
     pub fn crocksdb_writeoptions_create() -> *mut DBWriteOptions;
     pub fn crocksdb_writeoptions_destroy(writeopts: *mut DBWriteOptions);
     pub fn crocksdb_writeoptions_set_sync(writeopts: *mut DBWriteOptions, v: bool);
-    pub fn crocksdb_writeoptions_disable_WAL(writeopts: *mut DBWriteOptions, v: c_int);
+    pub fn crocksdb_writeoptions_disable_wal(writeopts: *mut DBWriteOptions, v: c_int);
     pub fn crocksdb_put(db: *mut DBInstance,
                         writeopts: *mut DBWriteOptions,
                         k: *const u8,

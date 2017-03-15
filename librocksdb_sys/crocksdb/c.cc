@@ -2379,7 +2379,7 @@ void crocksdb_writeoptions_set_sync(
   opt->rep.sync = v;
 }
 
-void crocksdb_writeoptions_disable_WAL(crocksdb_writeoptions_t* opt, int disable) {
+void crocksdb_writeoptions_disable_wal(crocksdb_writeoptions_t* opt, int disable) {
   opt->rep.disableWAL = disable;
 }
 
