@@ -118,3 +118,17 @@ fn test_set_ratelimiter() {
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }
+
+#[test]
+fn test_set_wal_opt() {
+    let path = TempDir::new("_rust_rocksdb_test_set_wal_opt").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_wal_ttl_seconds(86400);
+    opts.set_wal_size_limit_mb(10);
+    let wal_dir = TempDir::new("_rust_rocksdb_test_set_wal_dir").expect("");
+    opts.set_wal_dir(wal_dir.path().to_str().unwrap());
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    drop(db);
+}
+
