@@ -264,8 +264,8 @@ extern "C" {
     pub fn crocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);
     pub fn crocksdb_options_set_wal_dir(options: *mut DBOptions, path: *const c_char);
-    pub fn crocksdb_options_set_WAL_ttl_seconds(options: *mut DBOptions, ttl: u64);
-    pub fn crocksdb_options_set_WAL_size_limit_MB(options: *mut DBOptions, limit: u64);
+    pub fn crocksdb_options_set_wal_ttl_seconds(options: *mut DBOptions, ttl: u64);
+    pub fn crocksdb_options_set_wal_size_limit_mb(options: *mut DBOptions, limit: u64);
     pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(options: *mut DBOptions,
