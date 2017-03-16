@@ -1771,11 +1771,11 @@ void crocksdb_options_set_wal_dir(
   opt->rep.wal_dir = v;
 }
 
-void crocksdb_options_set_WAL_ttl_seconds(crocksdb_options_t* opt, uint64_t ttl) {
+void crocksdb_options_set_wal_ttl_seconds(crocksdb_options_t* opt, uint64_t ttl) {
   opt->rep.WAL_ttl_seconds = ttl;
 }
 
-void crocksdb_options_set_WAL_size_limit_MB(
+void crocksdb_options_set_wal_size_limit_mb(
     crocksdb_options_t* opt, uint64_t limit) {
   opt->rep.WAL_size_limit_MB = limit;
 }
@@ -2379,7 +2379,7 @@ void crocksdb_writeoptions_set_sync(
   opt->rep.sync = v;
 }
 
-void crocksdb_writeoptions_disable_WAL(crocksdb_writeoptions_t* opt, int disable) {
+void crocksdb_writeoptions_disable_wal(crocksdb_writeoptions_t* opt, int disable) {
   opt->rep.disableWAL = disable;
 }
 

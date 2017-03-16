@@ -263,6 +263,9 @@ extern "C" {
     pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
     pub fn crocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);
+    pub fn crocksdb_options_set_wal_dir(options: *mut DBOptions, path: *const c_char);
+    pub fn crocksdb_options_set_wal_ttl_seconds(options: *mut DBOptions, ttl: u64);
+    pub fn crocksdb_options_set_wal_size_limit_mb(options: *mut DBOptions, limit: u64);
     pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(options: *mut DBOptions,
@@ -284,7 +287,7 @@ extern "C" {
     pub fn crocksdb_writeoptions_create() -> *mut DBWriteOptions;
     pub fn crocksdb_writeoptions_destroy(writeopts: *mut DBWriteOptions);
     pub fn crocksdb_writeoptions_set_sync(writeopts: *mut DBWriteOptions, v: bool);
-    pub fn crocksdb_writeoptions_disable_WAL(writeopts: *mut DBWriteOptions, v: c_int);
+    pub fn crocksdb_writeoptions_disable_wal(writeopts: *mut DBWriteOptions, v: c_int);
     pub fn crocksdb_put(db: *mut DBInstance,
                         writeopts: *mut DBWriteOptions,
                         k: *const u8,

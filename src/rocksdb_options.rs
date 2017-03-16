@@ -246,9 +246,9 @@ impl WriteOptions {
     pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
             if disable {
-                crocksdb_ffi::crocksdb_writeoptions_disable_WAL(self.inner, 1);
+                crocksdb_ffi::crocksdb_writeoptions_disable_wal(self.inner, 1);
             } else {
-                crocksdb_ffi::crocksdb_writeoptions_disable_WAL(self.inner, 0);
+                crocksdb_ffi::crocksdb_writeoptions_disable_wal(self.inner, 0);
             }
         }
     }
@@ -651,6 +651,25 @@ impl Options {
         let path = CString::new(path.as_bytes()).unwrap();
         unsafe {
             crocksdb_ffi::crocksdb_options_set_db_log_dir(self.inner, path.as_ptr());
+        }
+    }
+
+    pub fn set_wal_dir(&mut self, path: &str) {
+        let path = CString::new(path.as_bytes()).unwrap();
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_wal_dir(self.inner, path.as_ptr());
+        }
+    }
+
+    pub fn set_wal_ttl_seconds(&mut self, ttl: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_wal_ttl_seconds(self.inner, ttl as u64);
+        }
+    }
+
+    pub fn set_wal_size_limit_mb(&mut self, limit: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_wal_size_limit_mb(self.inner, limit as u64);
         }
     }
 

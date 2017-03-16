@@ -700,9 +700,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_db_log_dir(
     crocksdb_options_t*, const char*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_wal_dir(crocksdb_options_t*,
                                                             const char*);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_WAL_ttl_seconds(
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_wal_ttl_seconds(
     crocksdb_options_t*, uint64_t);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_WAL_size_limit_MB(
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_wal_size_limit_mb(
     crocksdb_options_t*, uint64_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_manifest_preallocation_size(
     crocksdb_options_t*, size_t);
@@ -938,7 +938,7 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_destroy(
     crocksdb_writeoptions_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_set_sync(
     crocksdb_writeoptions_t*, unsigned char);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_disable_WAL(
+extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_disable_wal(
     crocksdb_writeoptions_t* opt, int disable);
 
 /* Compact range options */
