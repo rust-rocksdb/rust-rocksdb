@@ -299,11 +299,11 @@ impl DB {
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        DB::open(opts, path)
+        DB::open(&opts, path)
     }
 
     /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: Options, path: P) -> Result<DB, Error> {
+    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, &[])
     }
 
@@ -314,7 +314,7 @@ impl DB {
     /// # Panics
     ///
     /// * Panics if the column family doesn't exist.
-    pub fn open_cf<P: AsRef<Path>>(opts: Options,
+    pub fn open_cf<P: AsRef<Path>>(opts: &Options,
                                    path: P,
                                    cfds: &[ColumnFamilyDescriptor])
                                    -> Result<DB, Error> {
@@ -324,7 +324,7 @@ impl DB {
             Err(_) => {
                 return Err(Error::new("Failed to convert path to CString \
                                        when opening DB."
-                    .to_owned()))
+                                              .to_owned()))
             }
         };
 
@@ -350,9 +350,8 @@ impl DB {
         } else {
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfds.iter()
-                .map(|cf| CString::new(cf.name().as_bytes()).unwrap())
-                .collect();
+            let c_cfs: Vec<CString> =
+                cfds.iter().map(|cf| CString::new(cf.name().as_bytes()).unwrap()).collect();
 
             let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
@@ -386,7 +385,7 @@ impl DB {
                 if handle.is_null() {
                     return Err(Error::new("Received null column family \
                                            handle from DB."
-                        .to_owned()));
+                                                  .to_owned()));
                 }
             }
 
@@ -400,10 +399,10 @@ impl DB {
         }
 
         Ok(DB {
-            inner: db,
-            cfs: cf_map,
-            path: path.to_path_buf(),
-        })
+               inner: db,
+               cfs: cf_map,
+               path: path.to_path_buf(),
+           })
     }
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
@@ -450,7 +449,7 @@ impl DB {
                                    failure may be indicative of a \
                                    mis-compiled or mis-loaded RocksDB \
                                    library."
-                .to_owned()));
+                                          .to_owned()));
         }
 
         unsafe {
@@ -484,7 +483,7 @@ impl DB {
                                    failure may be indicative of a \
                                    mis-compiled or mis-loaded RocksDB \
                                    library."
-                .to_owned()));
+                                          .to_owned()));
         }
 
         unsafe {
@@ -513,7 +512,7 @@ impl DB {
             Err(_) => {
                 return Err(Error::new("Failed to convert path to CString \
                                        when opening rocksdb"
-                    .to_owned()))
+                                              .to_owned()))
             }
         };
         let cf = unsafe {
@@ -953,7 +952,10 @@ fn external() {
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert!(r.unwrap()
+                    .unwrap()
+                    .to_utf8()
+                    .unwrap() == "v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
@@ -996,7 +998,10 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+            assert!(r.unwrap()
+                        .unwrap()
+                        .to_utf8()
+                        .unwrap() == "v1111");
         }
         {
             // test delete
@@ -1045,7 +1050,10 @@ fn snapshot_test() {
 
         let snap = db.snapshot();
         let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert!(r.unwrap()
+                    .unwrap()
+                    .to_utf8()
+                    .unwrap() == "v1111");
 
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());

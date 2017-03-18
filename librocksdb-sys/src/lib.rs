@@ -639,8 +639,6 @@ v: c_uchar);
     pub fn rocksdb_options_set_purge_redundant_kvs_while_flush(opt: *mut rocksdb_options_t,
                                                                v: c_uchar);
 
-    pub fn rocksdb_options_set_allow_os_buffer(opt: *mut rocksdb_options_t, v: c_uchar);
-
     pub fn rocksdb_options_set_allow_mmap_reads(opt: *mut rocksdb_options_t, v: c_uchar);
 
     pub fn rocksdb_options_set_allow_mmap_writes(opt: *mut rocksdb_options_t, v: c_uchar);
