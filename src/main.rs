@@ -163,7 +163,6 @@ mod tests {
         opts.set_max_open_files(10000);
         opts.set_use_fsync(false);
         opts.set_bytes_per_sync(8388608);
-        opts.set_disable_data_sync(false);
         opts.set_block_cache_size_mb(1024);
         opts.set_table_cache_num_shard_bits(6);
         opts.set_max_write_buffer_number(32);

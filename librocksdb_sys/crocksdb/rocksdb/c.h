@@ -530,9 +530,6 @@ crocksdb_block_based_options_set_cache_index_and_filter_blocks(
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
     crocksdb_block_based_table_options_t*, unsigned char);
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_block_based_options_set_skip_table_builder_flush(
-    crocksdb_block_based_table_options_t* options, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_block_based_table_factory(
     crocksdb_options_t* opt, crocksdb_block_based_table_options_t* table_options);
 
@@ -734,13 +731,8 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_enable_write_thread_adaptive_yield(crocksdb_options_t*,
                                                        unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
-crocksdb_options_set_verify_checksums_in_compaction(crocksdb_options_t*,
-                                                   unsigned char);
-extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_sequential_skip_in_iterations(crocksdb_options_t*,
                                                       uint64_t);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_disable_data_sync(
-    crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_disable_auto_compactions(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
@@ -769,8 +761,6 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_memtable_huge_page_size(
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_successive_merges(
     crocksdb_options_t*, size_t);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_min_partial_merge_operands(
-    crocksdb_options_t*, uint32_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_bloom_locality(
     crocksdb_options_t*, uint32_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_inplace_update_support(
