@@ -731,6 +731,27 @@ impl Options {
             crocksdb_ffi::crocksdb_options_set_ratelimiter(self.inner, rate_limiter.inner);
         }
     }
+
+    // Create a info log with `path` and save to options logger field directly.
+    // TODO: export more logger options like level, roll size, time, etc...
+    pub fn create_info_log(&self, path: &str) -> Result<(), String> {
+        let cpath = match CString::new(path.as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when creating rocksdb info log"
+                    .to_owned())
+            }
+        };
+
+        unsafe {
+            let logger = ffi_try!(crocksdb_create_log_from_options(cpath.as_ptr(), self.inner));
+            crocksdb_ffi::crocksdb_options_set_info_log(self.inner, logger);
+            // logger uses shared_ptr, it is OK to destroy here.
+            crocksdb_ffi::crocksdb_log_destroy(logger);
+        }
+
+        Ok(())
+    }
 }
 
 pub struct FlushOptions {

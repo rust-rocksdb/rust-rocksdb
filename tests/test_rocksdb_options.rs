@@ -14,6 +14,7 @@
 use rocksdb::{DB, Options, WriteOptions, SliceTransform};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType};
+use std::path::Path;
 use tempdir::TempDir;
 
 
@@ -132,3 +133,17 @@ fn test_set_wal_opt() {
     drop(db);
 }
 
+#[test]
+fn test_create_info_log() {
+    let path = TempDir::new("_rust_rocksdb_test_create_info_log_opt").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+
+    let info_dir = TempDir::new("_rust_rocksdb_test_info_log_dir").expect("");
+    opts.create_info_log(info_dir.path().to_str().unwrap()).unwrap();
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+
+    assert!(Path::new(info_dir.path().join("LOG").to_str().unwrap()).is_file());
+
+    drop(db);
+}
