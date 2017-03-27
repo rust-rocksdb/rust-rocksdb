@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, Options, WriteOptions, SliceTransform};
+use rocksdb::{DB, Options, BlockBasedOptions, WriteOptions, SliceTransform};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType};
 use std::path::Path;
@@ -145,5 +145,17 @@ fn test_create_info_log() {
 
     assert!(Path::new(info_dir.path().join("LOG").to_str().unwrap()).is_file());
 
+    drop(db);
+}
+
+#[test]
+fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
+    let path = TempDir::new("_rust_rocksdb_set_cache_and_index").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    let mut block_opts = BlockBasedOptions::new();
+    block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+    opts.set_block_based_table_factory(&block_opts);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }

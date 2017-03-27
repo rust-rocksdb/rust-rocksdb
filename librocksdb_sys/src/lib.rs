@@ -193,6 +193,8 @@ extern "C" {
     pub fn crocksdb_options_set_block_based_table_factory(
         options: *mut DBOptions,
         block_options: *mut DBBlockBasedTableOptions);
+    pub fn crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
+        block_options: *mut DBBlockBasedTableOptions, v: c_uchar);
     pub fn crocksdb_options_increase_parallelism(options: *mut DBOptions, threads: c_int);
     pub fn crocksdb_options_optimize_level_style_compaction(options: *mut DBOptions,
                                                             memtable_memory_budget: c_int);

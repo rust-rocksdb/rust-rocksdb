@@ -103,6 +103,14 @@ impl BlockBasedOptions {
             crocksdb_ffi::crocksdb_block_based_options_set_whole_key_filtering(self.inner, v);
         }
     }
+
+    pub fn set_pin_l0_filter_and_index_blocks_in_cache(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
+                self.inner,
+                v as u8);
+        }
+    }
 }
 
 pub struct RateLimiter {
