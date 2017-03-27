@@ -27,6 +27,8 @@ format:
 	@$(call format-code-in, .)
 	@$(call format-code-in, tests/test.rs)
 	@$(call format-code-in, librocksdb_sys)
+	# User may not install clang-format-diff.py, ignore any error here. 
+	@librocksdb_sys/crocksdb/format-diff.sh > /dev/null || true 
 
 clean:
 	@cargo clean
