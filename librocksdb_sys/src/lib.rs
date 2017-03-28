@@ -134,6 +134,18 @@ pub enum DBStatisticsHistogramType {
     DbSeekMicros = 19,
 }
 
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub enum DBInfoLogLevel {
+    DBDebug = 0,
+    DBInfo = 1,
+    DBWarn = 2,
+    DBError = 3,
+    DBFatal = 4,
+    DBHeader = 5,
+    DBNumInfoLog = 6,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -223,6 +235,8 @@ extern "C" {
     pub fn crocksdb_options_set_max_bytes_for_level_multiplier(options: *mut DBOptions,
                                                                mul: c_int);
     pub fn crocksdb_options_set_max_log_file_size(options: *mut DBOptions, bytes: size_t);
+    pub fn crocksdb_options_set_log_file_time_to_roll(options: *mut DBOptions, bytes: size_t);
+    pub fn crocksdb_options_set_info_log_level(options: *mut DBOptions, level: DBInfoLogLevel);
     pub fn crocksdb_options_set_keep_log_file_num(options: *mut DBOptions, num: size_t);
     pub fn crocksdb_options_set_max_manifest_file_size(options: *mut DBOptions, bytes: u64);
     pub fn crocksdb_options_set_hash_skip_list_rep(options: *mut DBOptions,

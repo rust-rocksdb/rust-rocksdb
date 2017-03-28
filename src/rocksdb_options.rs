@@ -19,7 +19,7 @@ use comparator::{self, ComparatorCallback, compare_callback};
 use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
                    DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
                    DBFlushOptions, DBStatisticsTickerType, DBStatisticsHistogramType,
-                   DBRateLimiter};
+                   DBRateLimiter, DBInfoLogLevel};
 use libc::{self, c_int, size_t, c_void};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
 use merge_operator::MergeFn;
@@ -674,6 +674,18 @@ impl Options {
     pub fn set_max_log_file_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_log_file_size(self.inner, size as size_t);
+        }
+    }
+
+    pub fn set_log_file_time_to_roll(&mut self, ttl: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_log_file_time_to_roll(self.inner, ttl as size_t);
+        }
+    }
+
+    pub fn set_info_log_level(&mut self, level: DBInfoLogLevel) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_info_log_level(self.inner, level);
         }
     }
 
