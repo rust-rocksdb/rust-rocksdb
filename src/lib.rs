@@ -44,9 +44,8 @@ pub mod compaction_filter;
 mod db;
 mod db_options;
 
-pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRecoveryMode, DBVector, Direction,
-             IteratorMode, Snapshot, WriteBatch, ReadOptions, new_bloom_filter};
+pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DBRecoveryMode, DBVector,
+             ReadOptions, Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
@@ -134,7 +133,7 @@ pub struct BlockBasedOptions {
 ///    opts.set_max_background_flushes(4);
 ///    opts.set_disable_auto_compactions(true);
 ///
-///    DB::open(opts, path).unwrap()
+///    DB::open(&opts, path).unwrap()
 /// }
 /// ```
 pub struct Options {

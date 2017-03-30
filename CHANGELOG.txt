@@ -4,6 +4,12 @@ Changelog
 0.7 (in development)
 ~~~~~~~~~~~~~~~~~~~~
 
+0.6.1 (2017-03-13)
+~~~~~~~~~~~~~~~~~~
+
+**New features**
+ * Support for raw iterator access (kaedroho)
+
 0.6 (2016-12-18)
 ~~~~~~~~~~~~~~~~~~~~
 
