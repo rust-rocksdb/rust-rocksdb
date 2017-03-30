@@ -194,3 +194,12 @@ fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }
+#[test]
+fn test_pending_compaction_bytes_limit() {
+    let path = TempDir::new("_rust_rocksdb_pending_compaction_bytes_limit").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_soft_pending_compaction_bytes_limit(64 * 1024 * 1024 * 1024);
+    opts.set_hard_pending_compaction_bytes_limit(256 * 1024 * 1024 * 1024);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}

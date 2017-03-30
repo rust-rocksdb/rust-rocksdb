@@ -295,6 +295,10 @@ extern "C" {
                                        fairness: i32)
                                        -> *mut DBRateLimiter;
     pub fn crocksdb_ratelimiter_destroy(limiter: *mut DBRateLimiter);
+    pub fn crocksdb_options_set_soft_pending_compaction_bytes_limit(options: *mut DBOptions,
+                                                                    v: u64);
+    pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut DBOptions,
+                                                                    v: u64);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(options: *mut DBOptions,

@@ -473,6 +473,20 @@ impl Options {
         }
     }
 
+    pub fn set_soft_pending_compaction_bytes_limit(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_soft_pending_compaction_bytes_limit(self.inner,
+                                                                                   size);
+        }
+    }
+
+    pub fn set_hard_pending_compaction_bytes_limit(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_hard_pending_compaction_bytes_limit(self.inner,
+                                                                                   size);
+        }
+    }
+
     pub fn set_max_manifest_file_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_manifest_file_size(self.inner, size);

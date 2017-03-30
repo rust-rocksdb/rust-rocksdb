@@ -679,6 +679,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_soft_rate_limit(
     crocksdb_options_t*, double);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hard_rate_limit(
     crocksdb_options_t*, double);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_soft_pending_compaction_bytes_limit(
+    crocksdb_options_t* opt, size_t v);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hard_pending_compaction_bytes_limit(
+    crocksdb_options_t* opt, size_t v);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_rate_limit_delay_max_milliseconds(crocksdb_options_t*,
                                                       unsigned int);

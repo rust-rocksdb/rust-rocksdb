@@ -1903,6 +1903,14 @@ void crocksdb_options_set_hard_rate_limit(crocksdb_options_t* opt, double v) {
   opt->rep.hard_rate_limit = v;
 }
 
+void crocksdb_options_set_soft_pending_compaction_bytes_limit(crocksdb_options_t* opt, size_t v) {
+  opt->rep.soft_pending_compaction_bytes_limit = v;
+}
+
+void crocksdb_options_set_hard_pending_compaction_bytes_limit(crocksdb_options_t* opt, size_t v) {
+  opt->rep.hard_pending_compaction_bytes_limit = v;
+}
+
 void crocksdb_options_set_rate_limit_delay_max_milliseconds(
     crocksdb_options_t* opt, unsigned int v) {
   opt->rep.rate_limit_delay_max_milliseconds = v;
