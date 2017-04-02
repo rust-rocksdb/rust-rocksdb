@@ -36,6 +36,7 @@ pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
+unsafe impl Send for ColumnFamily {}
 unsafe impl Sync for ColumnFamily {}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -191,11 +192,7 @@ pub enum IteratorMode<'a> {
 
 impl DBRawIterator {
     fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
-        unsafe {
-            DBRawIterator {
-                inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
-            }
-        }
+        unsafe { DBRawIterator { inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner) } }
     }
 
     fn new_cf(db: &DB,
@@ -204,8 +201,10 @@ impl DBRawIterator {
               -> Result<DBRawIterator, Error> {
         unsafe {
             Ok(DBRawIterator {
-                inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
-            })
+                   inner: ffi::rocksdb_create_iterator_cf(db.inner,
+                                                          readopts.inner,
+                                                          cf_handle.inner),
+               })
         }
     }
 
@@ -245,7 +244,9 @@ impl DBRawIterator {
     /// }
     /// ```
     pub fn seek_to_first(&mut self) {
-        unsafe { ffi::rocksdb_iter_seek_to_first(self.inner); }
+        unsafe {
+            ffi::rocksdb_iter_seek_to_first(self.inner);
+        }
     }
 
     /// Seeks to the last key in the database.
@@ -279,7 +280,9 @@ impl DBRawIterator {
     /// }
     /// ```
     pub fn seek_to_last(&mut self) {
-        unsafe { ffi::rocksdb_iter_seek_to_last(self.inner); }
+        unsafe {
+            ffi::rocksdb_iter_seek_to_last(self.inner);
+        }
     }
 
     /// Seeks to the specified key or the first key that lexicographically follows it.
@@ -306,10 +309,14 @@ impl DBRawIterator {
     /// }
     /// ```
     pub fn seek(&mut self, key: &[u8]) {
-        unsafe { ffi::rocksdb_iter_seek(self.inner, key.as_ptr() as *const c_char, key.len() as size_t); }
+        unsafe {
+            ffi::rocksdb_iter_seek(self.inner,
+                                   key.as_ptr() as *const c_char,
+                                   key.len() as size_t);
+        }
     }
 
-/*
+    /*
     SeekForPrev was added in RocksDB 4.13 but not implemented in the C API until RocksDB 5.0
 
     /// Seeks to the specified key, or the first key that lexicographically precedes it.
@@ -344,14 +351,18 @@ impl DBRawIterator {
     ///
     /// Returns true if the iterator is valid after this operation.
     pub fn next(&mut self) {
-        unsafe { ffi::rocksdb_iter_next(self.inner); }
+        unsafe {
+            ffi::rocksdb_iter_next(self.inner);
+        }
     }
 
     /// Seeks to the previous key.
     ///
     /// Returns true if the iterator is valid after this operation.
     pub fn prev(&mut self) {
-        unsafe { ffi::rocksdb_iter_prev(self.inner); }
+        unsafe {
+            ffi::rocksdb_iter_prev(self.inner);
+        }
     }
 
     /// Returns a slice to the internal buffer storing the current key.
@@ -375,9 +386,7 @@ impl DBRawIterator {
 
     /// Returns a copy of the current key.
     pub fn key(&self) -> Option<Vec<u8>> {
-        unsafe {
-            self.key_inner().map(|key| key.to_vec())
-        }
+        unsafe { self.key_inner().map(|key| key.to_vec()) }
     }
 
     /// Returns a slice to the internal buffer storing the current value.
@@ -401,9 +410,7 @@ impl DBRawIterator {
 
     /// Returns a copy of the current value.
     pub fn value(&self) -> Option<Vec<u8>> {
-        unsafe {
-            self.value_inner().map(|value| value.to_vec())
-        }
+        unsafe { self.value_inner().map(|value| value.to_vec()) }
     }
 }
 
@@ -482,7 +489,8 @@ impl Iterator for DBIterator {
 
         if self.raw.valid() {
             // .key() and .value() only ever return None if valid == false, which we've just cheked
-            Some((self.raw.key().unwrap().into_boxed_slice(), self.raw.value().unwrap().into_boxed_slice()))
+            Some((self.raw.key().unwrap().into_boxed_slice(),
+                  self.raw.value().unwrap().into_boxed_slice()))
         } else {
             None
         }
@@ -525,9 +533,7 @@ impl<'a> Snapshot<'a> {
         DBRawIterator::new(self.db, &readopts)
     }
 
-    pub fn raw_iterator_cf(&self,
-                       cf_handle: ColumnFamily)
-                       -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
@@ -610,15 +616,18 @@ impl DB {
         } else {
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
-            let c_cfs: Vec<CString> =
-                cfds.iter().map(|cf| CString::new(cf.name().as_bytes()).unwrap()).collect();
+            let c_cfs: Vec<CString> = cfds.iter()
+                .map(|cf| CString::new(cf.name().as_bytes()).unwrap())
+                .collect();
 
             let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
             // These handles will be populated by DB.
             let mut cfhandles: Vec<_> = cfds.iter().map(|_| ptr::null_mut()).collect();
 
-            let c_cfopts: Vec<_> = cfds.iter().map(|cfd| cfd.options().inner as *const _).collect();
+            let c_cfopts: Vec<_> = cfds.iter()
+                .map(|cfd| cfd.options().inner as *const _)
+                .collect();
 
             db = if opts.read_only {
                 unsafe {
@@ -819,9 +828,7 @@ impl DB {
         DBRawIterator::new(self, &opts)
     }
 
-    pub fn raw_iterator_cf(&self,
-                       cf_handle: ColumnFamily)
-                       -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, &opts)
     }
@@ -1224,10 +1231,7 @@ fn external() {
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-        assert!(r.unwrap()
-                    .unwrap()
-                    .to_utf8()
-                    .unwrap() == "v1111");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
@@ -1270,10 +1274,7 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-            assert!(r.unwrap()
-                        .unwrap()
-                        .to_utf8()
-                        .unwrap() == "v1111");
+            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         }
         {
             // test delete
@@ -1322,10 +1323,7 @@ fn snapshot_test() {
 
         let snap = db.snapshot();
         let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
-        assert!(r.unwrap()
-                    .unwrap()
-                    .to_utf8()
-                    .unwrap() == "v1111");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());
