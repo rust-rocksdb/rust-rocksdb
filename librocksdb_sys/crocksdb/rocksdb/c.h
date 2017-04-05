@@ -775,6 +775,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_report_bg_io_stats(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compaction_readahead_size(
     crocksdb_options_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_subcompactions(
+    crocksdb_options_t*, size_t);
 
 enum {
   crocksdb_tolerate_corrupted_tail_records_recovery = 0,

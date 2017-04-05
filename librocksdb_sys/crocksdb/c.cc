@@ -1489,6 +1489,9 @@ void crocksdb_options_set_block_based_table_factory(
   }
 }
 
+void crocksdb_options_set_max_subcompactions(crocksdb_options_t *opt, size_t v) {
+  opt->rep.max_subcompactions = v;
+}
 
 crocksdb_cuckoo_table_options_t*
 crocksdb_cuckoo_options_create() {

@@ -542,6 +542,12 @@ impl Options {
         }
     }
 
+    pub fn set_max_subcompactions(&mut self, n: usize) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_subcompactions(self.inner, n);
+        }
+    }
+
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe {
             if disable {
