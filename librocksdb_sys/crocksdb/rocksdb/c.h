@@ -362,9 +362,6 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_disable_file_deletions(crocksdb_t* db
 extern C_ROCKSDB_LIBRARY_API void crocksdb_enable_file_deletions(
     crocksdb_t* db, unsigned char force, char** errptr);
 
-extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_get_options(
-    const crocksdb_t* db);
-
 extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_get_options_cf(
     const crocksdb_t* db, crocksdb_column_family_handle_t* column_family);
 
@@ -532,6 +529,9 @@ crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
     crocksdb_block_based_table_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_block_based_table_factory(
     crocksdb_options_t* opt, crocksdb_block_based_table_options_t* table_options);
+
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_block_cache_usage(
+    crocksdb_options_t *opt);
 
 /* Cuckoo table options */
 

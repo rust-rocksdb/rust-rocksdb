@@ -72,8 +72,8 @@ pub enum DBCompactionStyle {
 
 #[repr(C)]
 pub enum DBUniversalCompactionStyle {
-    crocksdb_similar_size_compaction_stop_style = 0,
-    crocksdb_total_size_compaction_stop_style = 1,
+    SimilarSize = 0,
+    TotalSize = 1,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -171,7 +171,6 @@ macro_rules! ffi_try {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 extern "C" {
-    pub fn crocksdb_get_options(db: *mut DBInstance) -> *mut DBOptions;
     pub fn crocksdb_get_options_cf(db: *mut DBInstance, cf: *mut DBCFHandle) -> *mut DBOptions;
     pub fn crocksdb_options_create() -> *mut DBOptions;
     pub fn crocksdb_options_destroy(opts: *mut DBOptions);
@@ -291,6 +290,7 @@ extern "C" {
                                                                  ratio: c_double);
     pub fn crocksdb_options_set_ratelimiter(options: *mut DBOptions, limiter: *mut DBRateLimiter);
     pub fn crocksdb_options_set_info_log(options: *mut DBOptions, logger: *mut DBLogger);
+    pub fn crocksdb_options_get_block_cache_usage(options: *const DBOptions) -> usize;
     pub fn crocksdb_ratelimiter_create(rate_bytes_per_sec: i64,
                                        refill_period_us: i64,
                                        fairness: i32)

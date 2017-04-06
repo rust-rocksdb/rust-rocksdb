@@ -917,8 +917,9 @@ impl DB {
     }
 
     pub fn get_options(&self) -> Options {
+        let cf = self.cf_handle("default").unwrap();
         unsafe {
-            let inner = crocksdb_ffi::crocksdb_get_options(self.inner);
+            let inner = crocksdb_ffi::crocksdb_get_options_cf(self.inner, cf.inner);
             Options::from_raw(inner)
         }
     }
@@ -999,6 +1000,14 @@ impl DB {
         };
 
         DB::open_default(restore_db_path)
+    }
+
+    pub fn get_block_cache_usage(&self) -> u64 {
+        self.get_options().get_block_cache_usage()
+    }
+
+    pub fn get_block_cache_usage_cf(&self, cf: &CFHandle) -> u64 {
+        self.get_options_cf(cf).get_block_cache_usage()
     }
 }
 
@@ -1744,5 +1753,23 @@ mod test {
         }
         let opts = Options::new();
         assert!(DB::destroy(&opts, path).is_ok());
+    }
+
+    #[test]
+    fn block_cache_usage() {
+        let path = TempDir::new("_rust_rocksdb_block_cache_usage").expect("");
+        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+        for i in 0..200 {
+            db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
+        }
+        db.flush(true).unwrap();
+        for i in 0..200 {
+            db.get(format!("k_{}", i).as_bytes()).unwrap();
+        }
+
+        assert!(db.get_block_cache_usage() > 0);
+        let cf_handle = db.cf_handle("default").unwrap();
+        assert!(db.get_block_cache_usage_cf(cf_handle) > 0);
     }
 }

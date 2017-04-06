@@ -85,6 +85,8 @@ using std::shared_ptr;
 
 extern "C" {
 
+const char* block_base_table_str = "BlockBasedTable";
+
 struct crocksdb_t                 { DB*               rep; };
 struct crocksdb_backup_engine_t   { BackupEngine*     rep; };
 struct crocksdb_backup_engine_info_t { std::vector<BackupInfo> rep; };
@@ -1053,12 +1055,6 @@ void crocksdb_enable_file_deletions(
   SaveError(errptr, db->rep->EnableFileDeletions(force));
 }
 
-crocksdb_options_t* crocksdb_get_options(const crocksdb_t* db) {
-  crocksdb_options_t* options = new crocksdb_options_t;
-  options->rep = db->rep->GetOptions();
-  return options;
-}
-
 crocksdb_options_t* crocksdb_get_options_cf(
     const crocksdb_t* db,
     crocksdb_column_family_handle_t* column_family) {
@@ -1491,6 +1487,16 @@ void crocksdb_options_set_block_based_table_factory(
 
 void crocksdb_options_set_max_subcompactions(crocksdb_options_t *opt, size_t v) {
   opt->rep.max_subcompactions = v;
+}
+
+size_t crocksdb_options_get_block_cache_usage(crocksdb_options_t *opt) {
+  if (opt && opt->rep.table_factory != nullptr) {
+    void* table_opt = opt->rep.table_factory->GetOptions();
+    if (table_opt && strcmp(opt->rep.table_factory->Name(), block_base_table_str) == 0) {
+      return static_cast<BlockBasedTableOptions*>(table_opt)->block_cache->GetUsage();
+    }
+  }
+  return 0;
 }
 
 crocksdb_cuckoo_table_options_t*
