@@ -574,6 +574,10 @@ extern "C" {
     pub fn crocksdb_flush(db: *mut DBInstance,
                           options: *const DBFlushOptions,
                           err: *mut *mut c_char);
+    pub fn crocksdb_flush_cf(db: *mut DBInstance,
+                             cf: *mut DBCFHandle,
+                             options: *const DBFlushOptions,
+                             err: *mut *mut c_char);
 
     pub fn crocksdb_approximate_sizes(db: *mut DBInstance,
                                       num_ranges: c_int,

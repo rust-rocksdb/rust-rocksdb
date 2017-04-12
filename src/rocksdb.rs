@@ -717,15 +717,23 @@ impl DB {
     }
 
     /// Flush all memtable data.
-    ///
-    /// Due to lack of abi, only default cf is supported.
-    ///
     /// If sync, the flush will wait until the flush is done.
     pub fn flush(&self, sync: bool) -> Result<(), String> {
         unsafe {
             let mut opts = FlushOptions::new();
             opts.set_wait(sync);
             ffi_try!(crocksdb_flush(self.inner, opts.inner));
+            Ok(())
+        }
+    }
+
+    /// Flush all memtable data for specified cf.
+    /// If sync, the flush will wait until the flush is done.
+    pub fn flush_cf(&self, cf: &CFHandle, sync: bool) -> Result<(), String> {
+        unsafe {
+            let mut opts = FlushOptions::new();
+            opts.set_wait(sync);
+            ffi_try!(crocksdb_flush_cf(self.inner, cf.inner, opts.inner));
             Ok(())
         }
     }
@@ -1771,5 +1779,24 @@ mod test {
         assert!(db.get_block_cache_usage() > 0);
         let cf_handle = db.cf_handle("default").unwrap();
         assert!(db.get_block_cache_usage_cf(cf_handle) > 0);
+    }
+
+    #[test]
+    fn flush_cf() {
+        let path = TempDir::new("_rust_rocksdb_flush_cf").expect("");
+        let mut opts = Options::new();
+        opts.create_if_missing(true);
+        let mut db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+        let opts = Options::new();
+        db.create_cf("cf", &opts).unwrap();
+
+        let cf_handle = db.cf_handle("cf").unwrap();
+        for i in 0..200 {
+            db.put_cf(cf_handle, format!("k_{}", i).as_bytes(), b"v").unwrap();
+        }
+        db.flush_cf(cf_handle, true).unwrap();
+
+        let total_sst_files_size = db.get_property_int_cf(cf_handle, "rocksdb.total-sst-files-size").unwrap();
+        assert!(total_sst_files_size > 0);
     }
 }
