@@ -114,7 +114,7 @@ pub struct BlockBasedOptions {
 /// use rocksdb::DBCompactionStyle;
 ///
 /// fn badly_tuned_for_somebody_elses_disk() -> DB {
-///    let path = "path/for/rocksdb/storage5";
+///    let path = "path/for/rocksdb/storageX";
 ///    let mut opts = Options::default();
 ///    opts.create_if_missing(true);
 ///    opts.set_max_open_files(10000);
@@ -150,7 +150,7 @@ pub struct Options {
 /// ```
 /// use rocksdb::{DB, WriteBatch, WriteOptions};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storage6").unwrap();
+/// let db = DB::open_default("path/for/rocksdb/storageY").unwrap();
 ///
 /// let mut batch = WriteBatch::default();
 /// batch.put(b"my key", b"my value");
