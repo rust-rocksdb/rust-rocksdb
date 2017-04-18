@@ -96,7 +96,7 @@ function compile_lz4() {
     download https://github.com/Cyan4973/lz4/archive/r131.tar.gz lz4-r131.tar.gz 42b09fab42331da9d3fb33bd5c560de9
     tar xvzf lz4-r131.tar.gz
     cd lz4-r131/lib
-    make CFLAGS='-fPIC' all -j $con
+    make CFLAGS='-fPIC -O2' all -j $con
     mv liblz4.a ../../
     cd ../..
 }
