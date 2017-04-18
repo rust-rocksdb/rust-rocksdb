@@ -52,6 +52,12 @@ pub struct DB {
     opts: Options,
 }
 
+impl Debug for DB {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Db [path={}]", self.path)
+    }
+}
+
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
