@@ -292,6 +292,13 @@ impl Options {
         }
     }
 
+    pub fn set_db_write_buffer_size(&mut self, size: size_t) {
+        unsafe {
+            rocksdb_ffi::rocksdb_options_set_db_write_buffer_size(self.inner,
+                                                               size);
+        }
+    }
+
     pub fn set_target_file_size_base(&mut self, size: u64) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_target_file_size_base(self.inner,
