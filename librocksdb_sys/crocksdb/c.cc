@@ -1758,6 +1758,11 @@ void crocksdb_options_set_prefix_extractor(
   opt->rep.prefix_extractor.reset(prefix_extractor);
 }
 
+void crocksdb_options_set_optimize_filters_for_hits(
+    crocksdb_options_t* opt, unsigned char v) {
+  opt->rep.optimize_filters_for_hits = v;
+}
+
 void crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
     crocksdb_options_t* opt, crocksdb_slicetransform_t* prefix_extractor) {
   opt->rep.memtable_insert_with_hint_prefix_extractor.reset(prefix_extractor);

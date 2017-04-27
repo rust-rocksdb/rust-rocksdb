@@ -628,6 +628,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_target_file_size_multipli
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_bytes_for_level_base(
     crocksdb_options_t*, uint64_t);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_optimize_filters_for_hits(
+    crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level_compaction_dynamic_level_bytes(crocksdb_options_t*,
                                                          unsigned char);

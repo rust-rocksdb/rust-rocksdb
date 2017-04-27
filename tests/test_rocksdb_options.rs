@@ -213,6 +213,15 @@ fn test_set_max_subcompactions() {
 }
 
 #[test]
+fn test_set_optimize_filters_for_hits() {
+    let path = TempDir::new("_rust_rocksdb_optimize_filters_for_hits").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_optimize_filters_for_hits(true);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
 fn test_get_block_cache_usage() {
     let path = TempDir::new("_rust_rocksdb_set_cache_and_index").expect("");
 

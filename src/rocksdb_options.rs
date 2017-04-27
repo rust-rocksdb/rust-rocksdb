@@ -732,6 +732,12 @@ impl Options {
         }
     }
 
+    pub fn set_optimize_filters_for_hits(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_optimize_filters_for_hits(self.inner, v);
+        }
+    }
+
     pub fn set_memtable_insert_hint_prefix_extractor<S>(&mut self,
                                                         name: S,
                                                         transform: Box<SliceTransform>)
