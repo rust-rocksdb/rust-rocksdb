@@ -473,6 +473,12 @@ impl Options {
         }
     }
 
+    pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v);
+        }
+    }
+
     pub fn set_soft_pending_compaction_bytes_limit(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_soft_pending_compaction_bytes_limit(self.inner,
@@ -800,9 +806,7 @@ impl Options {
     }
 
     pub fn get_block_cache_usage(&self) -> u64 {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64
-        }
+        unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64 }
     }
 }
 

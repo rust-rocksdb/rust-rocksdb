@@ -244,3 +244,12 @@ fn test_get_block_cache_usage() {
 
     assert!(db.get_options().get_block_cache_usage() > 0);
 }
+
+#[test]
+fn test_set_level_compaction_dynamic_level_bytes() {
+    let path = TempDir::new("_rust_rocksdb_level_compaction_dynamic_level_bytes").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_level_compaction_dynamic_level_bytes(true);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}

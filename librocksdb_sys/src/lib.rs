@@ -285,6 +285,8 @@ extern "C" {
     pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_optimize_filters_for_hits(options: *mut DBOptions, v: bool);
+    pub fn crocksdb_options_set_level_compaction_dynamic_level_bytes(options: *mut DBOptions,
+                                                                     v: bool);
     pub fn crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(options: *mut DBOptions,
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_memtable_prefix_bloom_size_ratio(options: *mut DBOptions,
