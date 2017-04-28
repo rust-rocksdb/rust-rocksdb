@@ -2482,6 +2482,14 @@ crocksdb_envoptions_t* crocksdb_envoptions_create() {
 void crocksdb_envoptions_destroy(crocksdb_envoptions_t* opt) { delete opt; }
 
 crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create(
+    const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options) {
+  crocksdb_sstfilewriter_t* writer = new crocksdb_sstfilewriter_t;
+  writer->rep =
+      new SstFileWriter(env->rep, io_options->rep, io_options->rep.comparator);
+  return writer;
+}
+
+crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create_cf(
     const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options,
     crocksdb_column_family_handle_t* column_family) {
   crocksdb_sstfilewriter_t* writer = new crocksdb_sstfilewriter_t;

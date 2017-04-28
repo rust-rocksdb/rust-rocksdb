@@ -1343,12 +1343,20 @@ pub struct SstFileWriter {
 unsafe impl Send for SstFileWriter {}
 
 impl SstFileWriter {
-    pub fn new(env_opt: &EnvOptions, opt: &Options, cf: &CFHandle) -> SstFileWriter {
+    pub fn new(env_opt: &EnvOptions, opt: &Options) -> SstFileWriter {
         unsafe {
             SstFileWriter {
-                inner: crocksdb_ffi::crocksdb_sstfilewriter_create(env_opt.inner,
-                                                                   opt.inner,
-                                                                   cf.inner),
+                inner: crocksdb_ffi::crocksdb_sstfilewriter_create(env_opt.inner, opt.inner),
+            }
+        }
+    }
+
+    pub fn new_cf(env_opt: &EnvOptions, opt: &Options, cf: &CFHandle) -> SstFileWriter {
+        unsafe {
+            SstFileWriter {
+                inner: crocksdb_ffi::crocksdb_sstfilewriter_create_cf(env_opt.inner,
+                                                                      opt.inner,
+                                                                      cf.inner),
             }
         }
     }
@@ -1802,7 +1810,8 @@ mod test {
         }
         db.flush_cf(cf_handle, true).unwrap();
 
-        let total_sst_files_size = db.get_property_int_cf(cf_handle, "rocksdb.total-sst-files-size").unwrap();
+        let total_sst_files_size = db.get_property_int_cf(cf_handle, "rocksdb.total-sst-files-size")
+            .unwrap();
         assert!(total_sst_files_size > 0);
     }
 }

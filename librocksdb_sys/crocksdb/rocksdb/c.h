@@ -994,6 +994,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_envoptions_destroy(
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_sstfilewriter_t*
 crocksdb_sstfilewriter_create(const crocksdb_envoptions_t* env,
+                              const crocksdb_options_t* io_options);
+extern C_ROCKSDB_LIBRARY_API crocksdb_sstfilewriter_t*
+crocksdb_sstfilewriter_create_cf(const crocksdb_envoptions_t* env,
                              const crocksdb_options_t* io_options,
                              crocksdb_column_family_handle_t* column_family);
 extern C_ROCKSDB_LIBRARY_API crocksdb_sstfilewriter_t*
