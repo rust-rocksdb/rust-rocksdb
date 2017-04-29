@@ -136,6 +136,17 @@ fn test_set_wal_opt() {
 }
 
 #[test]
+fn test_sync_wal() {
+    let path = TempDir::new("_rust_rocksdb_test_sync_wal").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    db.put(b"key", b"value");
+    db.sync_wal();
+    drop(db);
+}
+
+#[test]
 fn test_create_info_log() {
     let path = TempDir::new("_rust_rocksdb_test_create_info_log_opt").expect("");
     let mut opts = Options::new();

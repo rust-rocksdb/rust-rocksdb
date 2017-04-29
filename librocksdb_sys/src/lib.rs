@@ -581,6 +581,8 @@ extern "C" {
                              cf: *mut DBCFHandle,
                              options: *const DBFlushOptions,
                              err: *mut *mut c_char);
+    pub fn crocksdb_sync_wal(db: *mut DBInstance,
+                             err: *mut *mut c_char);
 
     pub fn crocksdb_approximate_sizes(db: *mut DBInstance,
                                       num_ranges: c_int,
