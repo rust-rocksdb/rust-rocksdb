@@ -15,14 +15,14 @@
 
 
 use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
-     WriteOptions};
+     WriteOptions, FlushOptions};
+use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use comparator::{self, ComparatorCallback, CompareFn};
 use ffi;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
                      partial_merge_callback};
-use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
 
@@ -50,6 +50,14 @@ impl Drop for WriteOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for FlushOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_flushoptions_destroy(self.inner);
         }
     }
 }
@@ -100,6 +108,22 @@ impl Default for BlockBasedOptions {
 }
 
 impl Options {
+    pub fn set_read_only(&mut self, b: bool) {
+        self.read_only = b;
+    }
+
+    pub fn read_only(&self) -> bool {
+        self.read_only
+    }
+
+    pub fn set_error_if_log_file_exists(&mut self, b: bool) {
+        self.error_if_log_file_exists = b;
+    }
+
+    pub fn error_if_log_file_exists(self) -> bool {
+        self.error_if_log_file_exists
+    }
+
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
     /// `total_threads` is used. Good value for `total_threads` is the number of
@@ -122,9 +146,9 @@ impl Options {
 
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: usize) {
         unsafe {
-            ffi::rocksdb_options_optimize_level_style_compaction(
-                self.inner,
-                memtable_memory_budget as uint64_t);
+            ffi::rocksdb_options_optimize_level_style_compaction(self.inner,
+                                                                 memtable_memory_budget as
+                                                                 uint64_t);
         }
     }
 
@@ -199,9 +223,9 @@ impl Options {
 
     pub fn set_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
-            merge_fn: merge_fn,
-        });
+                              name: CString::new(name.as_bytes()).unwrap(),
+                              merge_fn: merge_fn,
+                          });
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(mem::transmute(cb),
@@ -233,9 +257,9 @@ impl Options {
         where F: CompactionFilterFn + Send + 'static
     {
         let cb = Box::new(CompactionFilterCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
-            filter_fn: filter_fn,
-        });
+                              name: CString::new(name.as_bytes()).unwrap(),
+                              filter_fn: filter_fn,
+                          });
 
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(mem::transmute(cb),
@@ -254,9 +278,9 @@ impl Options {
     /// previous open calls on the same DB.
     pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         let cb = Box::new(ComparatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
-            f: compare_fn,
-        });
+                              name: CString::new(name.as_bytes()).unwrap(),
+                              f: compare_fn,
+                          });
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(mem::transmute(cb),
@@ -275,6 +299,18 @@ impl Options {
     pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
         unsafe {
             ffi::rocksdb_options_optimize_for_point_lookup(self.inner, cache_size);
+        }
+    }
+
+    pub fn allow_concurrent_memtable_write(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner, v as c_uchar);
+        }
+    }
+
+    pub fn enable_write_thread_adaptive_yield(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_write_thread_adaptive_yield(self.inner, v as c_uchar);
         }
     }
 
@@ -349,39 +385,6 @@ impl Options {
 
     pub fn set_disable_data_sync(&mut self, disable: bool) {
         unsafe { ffi::rocksdb_options_set_disable_data_sync(self.inner, disable as c_int) }
-    }
-
-    /// Hints to the OS that it should not buffer disk I/O. Enabling this
-    /// parameter may improve performance but increases pressure on the
-    /// system cache.
-    ///
-    /// The exact behavior of this parameter is platform dependent.
-    ///
-    /// On POSIX systems, after RocksDB reads data from disk it will
-    /// mark the pages as "unneeded". The operating system may - or may not
-    /// - evict these pages from memory, reducing pressure on the system
-    /// cache. If the disk block is requested again this can result in
-    /// additional disk I/O.
-    ///
-    /// On WINDOWS systems, files will be opened in "unbuffered I/O" mode
-    /// which means that data read from the disk will not be cached or
-    /// bufferized. The hardware buffer of the devices may however still
-    /// be used. Memory mapped files are not impacted by this parameter.
-    ///
-    /// Default: true
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rocksdb::Options;
-    ///
-    /// let mut opts = Options::default();
-    /// opts.set_allow_os_buffer(false);
-    /// ```
-    pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_allow_os_buffer(self.inner, is_allow as c_uchar);
-        }
     }
 
     /// Sets the number of shards used for table cache.
@@ -853,6 +856,12 @@ impl Options {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
         }
     }
+
+    pub fn prepare_for_bulk_load(&mut self) {
+        unsafe {
+            ffi::rocksdb_options_prepare_for_bulk_load(self.inner);
+        }
+    }
 }
 
 impl Default for Options {
@@ -862,7 +871,11 @@ impl Default for Options {
             if opts.is_null() {
                 panic!("Could not create RocksDB options");
             }
-            Options { inner: opts }
+            Options {
+                inner: opts,
+                read_only: false,
+                error_if_log_file_exists: false,
+            }
         }
     }
 }
@@ -892,6 +905,22 @@ impl Default for WriteOptions {
             panic!("Could not create RocksDB write options");
         }
         WriteOptions { inner: write_opts }
+    }
+}
+
+impl FlushOptions {
+    pub fn new() -> FlushOptions {
+        FlushOptions::default()
+    }
+}
+
+impl Default for FlushOptions {
+    fn default() -> FlushOptions {
+        let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
+        if flush_opts.is_null() {
+            panic!("Could not create rocksdb flush options".to_owned());
+        }
+        FlushOptions { inner: flush_opts }
     }
 }
 

@@ -232,5 +232,5 @@ fn mergetest() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    assert!(DB::destroy(&opts, path).is_ok());
+    assert!(DB::destroy(&Options::default(), path).is_ok());
 }

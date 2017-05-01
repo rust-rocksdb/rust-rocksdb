@@ -39,6 +39,7 @@ fn build_rocksdb() {
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
+        .map(|s| s.trim())
         .collect::<Vec<&'static str>>();
 
     // We have a pregenerated a version of build_version.cc in the local directory
@@ -72,13 +73,11 @@ fn build_rocksdb() {
         // Remove POSIX-specific sources
         lib_sources = lib_sources.iter()
             .cloned()
-            .filter(|file| {
-                match *file {
-                    "port/port_posix.cc" |
-                    "util/env_posix.cc" |
-                    "util/io_posix.cc" => false,
-                    _ => true,
-                }
+            .filter(|file| match *file {
+                "port/port_posix.cc" |
+                "util/env_posix.cc" |
+                "util/io_posix.cc" => false,
+                _ => true,
             })
             .collect::<Vec<&'static str>>();
 

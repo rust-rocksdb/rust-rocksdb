@@ -48,7 +48,6 @@ pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DB
              ReadOptions, Direction, IteratorMode, Snapshot, WriteBatch, new_bloom_filter};
 
 pub use merge_operator::MergeOperands;
-pub use compaction_filter::Decision as CompactionDecision;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
@@ -139,6 +138,8 @@ pub struct BlockBasedOptions {
 /// ```
 pub struct Options {
     inner: *mut ffi::rocksdb_options_t,
+    read_only: bool,
+    error_if_log_file_exists: bool,
 }
 
 /// Optionally disable WAL or sync for this write.
@@ -167,9 +168,18 @@ pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
+pub struct FlushOptions {
+    inner: *mut ffi::rocksdb_flushoptions_t,
+}
+
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
 #[derive(Copy, Clone)]
 pub struct ColumnFamily {
     inner: *mut ffi::rocksdb_column_family_handle_t,
+}
+
+pub struct ColumnFamilyDescriptor {
+    name: &'static str,
+    options: Options,
 }

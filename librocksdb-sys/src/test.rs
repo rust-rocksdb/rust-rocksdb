@@ -13,12 +13,12 @@
 // limitations under the License.
 //
 
+
+use super::*;
 use libc::*;
 use std::ffi::{CStr, CString};
 use std::ptr;
 use std::str;
-
-use super::*;
 
 pub fn error_message(ptr: *const i8) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
