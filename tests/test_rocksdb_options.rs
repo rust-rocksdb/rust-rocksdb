@@ -213,6 +213,16 @@ fn test_set_max_subcompactions() {
 }
 
 #[test]
+fn test_set_bytes_per_sync() {
+    let path = TempDir::new("_rust_rocksdb_bytes_per_sync").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_bytes_per_sync(1024 * 1024);
+    opts.set_wal_bytes_per_sync(1024 * 1024);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
 fn test_set_optimize_filters_for_hits() {
     let path = TempDir::new("_rust_rocksdb_optimize_filters_for_hits").expect("");
     let mut opts = Options::new();
