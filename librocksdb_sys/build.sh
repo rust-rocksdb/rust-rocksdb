@@ -3,10 +3,14 @@
 set -e
 
 con=1
-if [[ -f /proc/cpuinfo ]]; then
-    con=`grep -c processor /proc/cpuinfo`
+if [ "$MAKE_PARALLELISM" ]; then
+  con=$MAKE_PARALLELISM
 else
-    con=`sysctl -n hw.ncpu 2>/dev/null || echo 1`
+  if [[ -f /proc/cpuinfo ]]; then
+      con=`grep -c processor /proc/cpuinfo`
+  else
+      con=`sysctl -n hw.ncpu 2>/dev/null || echo 1`
+  fi
 fi
 
 function error() {

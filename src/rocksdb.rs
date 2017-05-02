@@ -744,6 +744,17 @@ impl DB {
         }
     }
 
+    /// Sync the wal. Note that Write() followed by SyncWAL() is not exactly the
+    /// same as Write() with sync=true: in the latter case the changes won't be
+    /// visible until the sync is done.
+    /// Currently only works if allow_mmap_writes = false in Options.
+    pub fn sync_wal(&self) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_sync_wal(self.inner));
+            Ok(())
+        }
+    }
+
     /// Return the approximate file system space used by keys in each ranges.
     ///
     /// Note that the returned sizes measure file system space usage, so
