@@ -1507,10 +1507,6 @@ void crocksdb_options_set_wal_bytes_per_sync(crocksdb_options_t *opt, uint64_t v
   opt->rep.wal_bytes_per_sync = v;
 }
 
-void crocksdb_options_set_bytes_per_sync(crocksdb_options_t *opt, uint64_t v) {
-  opt->rep.bytes_per_sync = v;
-}
-
 size_t crocksdb_options_get_block_cache_usage(crocksdb_options_t *opt) {
   if (opt && opt->rep.table_factory != nullptr) {
     void* table_opt = opt->rep.table_factory->GetOptions();

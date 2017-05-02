@@ -560,12 +560,6 @@ impl Options {
         }
     }
 
-    pub fn set_bytes_per_sync(&mut self, n: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_bytes_per_sync(self.inner, n);
-        }
-    }
-
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe {
             if disable {
