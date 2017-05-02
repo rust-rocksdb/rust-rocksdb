@@ -141,8 +141,8 @@ fn test_sync_wal() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
-    db.put(b"key", b"value");
-    db.sync_wal();
+    db.put(b"key", b"value").unwrap();
+    db.sync_wal().unwrap();
     drop(db);
 }
 
