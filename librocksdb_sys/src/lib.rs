@@ -283,6 +283,8 @@ extern "C" {
     pub fn crocksdb_options_set_wal_dir(options: *mut DBOptions, path: *const c_char);
     pub fn crocksdb_options_set_wal_ttl_seconds(options: *mut DBOptions, ttl: u64);
     pub fn crocksdb_options_set_wal_size_limit_mb(options: *mut DBOptions, limit: u64);
+    pub fn crocksdb_options_set_use_direct_reads(options: *mut DBOptions, v: bool);
+    pub fn crocksdb_options_set_use_direct_writes(options: *mut DBOptions, v: bool);
     pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_optimize_filters_for_hits(options: *mut DBOptions, v: bool);

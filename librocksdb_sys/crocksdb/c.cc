@@ -1763,6 +1763,14 @@ void crocksdb_options_set_compression_options(crocksdb_options_t* opt, int w_bit
   opt->rep.compression_opts.max_dict_bytes = max_dict_bytes;
 }
 
+void crocksdb_options_set_use_direct_reads(crocksdb_options_t* opt, unsigned char v) {
+  opt->rep.use_direct_reads = v;
+}
+
+void crocksdb_options_set_use_direct_writes(crocksdb_options_t* opt, unsigned char v) {
+  opt->rep.use_direct_writes = v;
+}
+
 void crocksdb_options_set_prefix_extractor(
     crocksdb_options_t* opt, crocksdb_slicetransform_t* prefix_extractor) {
   opt->rep.prefix_extractor.reset(prefix_extractor);

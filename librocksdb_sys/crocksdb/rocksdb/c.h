@@ -610,6 +610,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_total_wal_size(
     crocksdb_options_t* opt, uint64_t n);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compression_options(
     crocksdb_options_t*, int, int, int, int);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_use_direct_reads(crocksdb_options_t* opt,
+    unsigned char v);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_use_direct_writes(crocksdb_options_t* opt,
+    unsigned char v);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_prefix_extractor(
     crocksdb_options_t*, crocksdb_slicetransform_t*);
 extern C_ROCKSDB_LIBRARY_API void

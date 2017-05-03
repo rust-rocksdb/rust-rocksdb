@@ -479,6 +479,18 @@ impl Options {
         }
     }
 
+    pub fn set_use_direct_reads(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_use_direct_reads(self.inner, v);
+        }
+    }
+
+    pub fn set_use_direct_writes(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_use_direct_writes(self.inner, v);
+        }
+    }
+
     pub fn set_soft_pending_compaction_bytes_limit(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_soft_pending_compaction_bytes_limit(self.inner,
