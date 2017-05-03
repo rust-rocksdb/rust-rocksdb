@@ -11,7 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, Options, BlockBasedOptions, WriteOptions, SliceTransform, Writable};
+use rocksdb::{DB, Options, BlockBasedOptions, WriteOptions, SliceTransform, Writable,
+              CompactOptions};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType, DBInfoLogLevel as InfoLogLevel};
 use std::path::Path;
@@ -273,6 +274,20 @@ fn test_set_level_compaction_dynamic_level_bytes() {
     opts.create_if_missing(true);
     opts.set_level_compaction_dynamic_level_bytes(true);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
+fn test_compact_options() {
+    let path = TempDir::new("_rust_rocksdb_compact_options").expect("");
+    let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+    db.put(b"k1", b"v1").unwrap();
+    db.put(b"k2", b"v2").unwrap();
+    db.flush(true).unwrap();
+
+    let mut compact_opts = CompactOptions::new();
+    compact_opts.set_exclusive_manual_compaction(false);
+    let cf = db.cf_handle("default").unwrap();
+    db.compact_range_cf_opt(cf, &compact_opts, None, None);
 }
 
 #[test]

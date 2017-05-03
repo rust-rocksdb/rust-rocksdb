@@ -35,5 +35,5 @@ pub use merge_operator::MergeOperands;
 pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, CFHandle, Range,
                   BackupEngine, SstFileWriter};
 pub use rocksdb_options::{BlockBasedOptions, Options, ReadOptions, WriteOptions, RestoreOptions,
-                          IngestExternalFileOptions, EnvOptions, HistogramData};
+                          IngestExternalFileOptions, EnvOptions, HistogramData, CompactOptions};
 pub use slice_transform::SliceTransform;

@@ -17,7 +17,7 @@ use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine,
                    DBStatisticsTickerType, DBStatisticsHistogramType};
 use libc::{self, c_int, c_void, size_t};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions, EnvOptions,
-                      RestoreOptions, IngestExternalFileOptions, HistogramData};
+                      RestoreOptions, IngestExternalFileOptions, HistogramData, CompactOptions};
 use std::{fs, ptr, slice};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -831,6 +831,24 @@ impl DB {
             let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
             crocksdb_ffi::crocksdb_compact_range_cf(self.inner, cf.inner, start, s_len, end, e_len);
+        }
+    }
+
+    pub fn compact_range_cf_opt(&self,
+                                cf: &CFHandle,
+                                compact_options: &CompactOptions,
+                                start_key: Option<&[u8]>,
+                                end_key: Option<&[u8]>) {
+        unsafe {
+            let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            let (end, e_len) = end_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
+            crocksdb_ffi::crocksdb_compact_range_cf_opt(self.inner,
+                                                        cf.inner,
+                                                        compact_options.inner,
+                                                        start,
+                                                        s_len,
+                                                        end,
+                                                        e_len);
         }
     }
 
