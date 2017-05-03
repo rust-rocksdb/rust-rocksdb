@@ -113,33 +113,6 @@ fn custom_merge() {
     DB::destroy(&opts, path).is_ok();
 }
 
-#[cfg(feature = "valgrind")]
-fn main() {
-    let path = "_rust_rocksdb_valgrind";
-    let mut opts = Options::new();
-    opts.create_if_missing(true);
-    opts.add_merge_operator("test operator", concat_merge);
-    let db = DB::open(&opts, path).unwrap();
-    loop {
-        db.put(b"k1", b"a");
-        db.merge(b"k1", b"b");
-        db.merge(b"k1", b"c");
-        db.merge(b"k1", b"d");
-        db.merge(b"k1", b"efg");
-        db.merge(b"k1", b"h");
-        db.get(b"k1")
-            .map(|value| {
-                match value.to_utf8() {
-                    Some(v) => (),
-                    None => panic!("value corrupted"),
-                }
-            })
-            .or_else(|e| panic!("error retrieving value: {}", e));
-        db.delete(b"k1");
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
