@@ -1966,6 +1966,11 @@ void crocksdb_options_set_table_cache_numshardbits(
   opt->rep.table_cache_numshardbits = v;
 }
 
+void crocksdb_options_set_writable_file_max_buffer_size(
+    crocksdb_options_t* opt, int v) {
+  opt->rep.writable_file_max_buffer_size = v;
+}
+
 void crocksdb_options_set_table_cache_remove_scan_count_limit(
     crocksdb_options_t* opt, int v) {
   // this option is deprecated

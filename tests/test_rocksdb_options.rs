@@ -299,3 +299,12 @@ fn test_direct_read_write() {
     opts.set_use_direct_writes(true);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
 }
+
+#[test]
+fn test_writable_file_max_buffer_size() {
+    let path = TempDir::new("_rust_rocksdb_writable_file_max_buffer_size").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_writable_file_max_buffer_size(1024 * 1024);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}

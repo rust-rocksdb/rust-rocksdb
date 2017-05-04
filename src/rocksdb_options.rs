@@ -467,6 +467,12 @@ impl Options {
         }
     }
 
+    pub fn set_writable_file_max_buffer_size(&mut self, nbytes: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_writable_file_max_buffer_size(self.inner, nbytes);
+        }
+    }
+
     pub fn set_min_write_buffer_number(&mut self, nbuf: c_int) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner, nbuf);

@@ -220,6 +220,7 @@ extern "C" {
     pub fn crocksdb_options_optimize_for_point_lookup(options: *mut DBOptions,
                                                       block_cache_size_mb: u64);
     pub fn crocksdb_options_set_table_cache_numshardbits(options: *mut DBOptions, bits: c_int);
+    pub fn crocksdb_options_set_writable_file_max_buffer_size(options: *mut DBOptions, nbytes: c_int);
     pub fn crocksdb_options_set_max_write_buffer_number(options: *mut DBOptions, bufno: c_int);
     pub fn crocksdb_options_set_min_write_buffer_number_to_merge(options: *mut DBOptions,
                                                                  bufno: c_int);

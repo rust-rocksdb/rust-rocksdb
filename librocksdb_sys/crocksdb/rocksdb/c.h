@@ -703,6 +703,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_manifest_file_size(
     crocksdb_options_t*, size_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_table_cache_numshardbits(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_writable_file_max_buffer_size(
+    crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_table_cache_remove_scan_count_limit(crocksdb_options_t*,
                                                         int);
