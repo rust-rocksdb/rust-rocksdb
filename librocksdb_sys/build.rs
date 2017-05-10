@@ -41,7 +41,7 @@ fn main() {
     let p = PathBuf::from(fest_dir.clone()).join("build.sh");
     let crocksdb_path = PathBuf::from(fest_dir).join("crocksdb");
     env::set_var("CROCKSDB_PATH", crocksdb_path.to_str().unwrap());
-    for lib in &["z", "snappy", "bz2", "lz4", "rocksdb"] {
+    for lib in &["z", "snappy", "bz2", "lz4", "zstd", "rocksdb"] {
         let lib_name = format!("lib{}.a", lib);
         let src = build.join(&lib_name);
         let dst = dst.join(&lib_name);
@@ -84,6 +84,7 @@ fn main() {
     println!("cargo:rustc-link-lib=static=z");
     println!("cargo:rustc-link-lib=static=bz2");
     println!("cargo:rustc-link-lib=static=lz4");
+    println!("cargo:rustc-link-lib=static=zstd");
     println!("cargo:rustc-link-lib=static=snappy");
     println!("cargo:rustc-link-search=native={}", dst.display());
 

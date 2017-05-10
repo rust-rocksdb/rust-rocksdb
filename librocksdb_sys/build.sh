@@ -105,6 +105,20 @@ function compile_lz4() {
     cd ../..
 }
 
+function compile_zstd() {
+    if [[ -f libzstd.a ]]; then
+        return
+    fi
+
+    rm -rf zstd-1.2.0
+    download https://github.com/facebook/zstd/archive/v1.2.0.tar.gz zstd-1.2.0.tar.gz d7777b0aafa7002a4dee1e2db42afe30
+    tar xvzf zstd-1.2.0.tar.gz
+    cd zstd-1.2.0/lib
+    make CPPFLAGS='-fPIC -I. -I./common' -j $con
+    mv libzstd.a ../..
+    cd ../..
+}
+
 function compile_rocksdb() {
     if [[ -f librocksdb.a ]]; then
         return
@@ -120,8 +134,8 @@ function compile_rocksdb() {
     cd rocksdb-$vernum
     cp $CROCKSDB_PATH/c.cc ./db/c.cc
     cp $CROCKSDB_PATH/rocksdb/c.h ./include/rocksdb/c.h
-    export EXTRA_CFLAGS="-fPIC -I${wd}/zlib-1.2.11 -I${wd}/bzip2-1.0.6 -I${wd}/snappy-1.1.1 -I${wd}/lz4-r131/lib"
-    export EXTRA_CXXFLAGS="-DZLIB -DBZIP2 -DSNAPPY -DLZ4 $EXTRA_CFLAGS"
+    export EXTRA_CFLAGS="-fPIC -I${wd}/zlib-1.2.11 -I${wd}/bzip2-1.0.6 -I${wd}/snappy-1.1.1 -I${wd}/lz4-r131/lib -I${wd}/zstd-1.2.0/lib"
+    export EXTRA_CXXFLAGS="-DZLIB -DBZIP2 -DSNAPPY -DLZ4 -DZSTD $EXTRA_CFLAGS"
     make static_lib -j $con
     mv librocksdb.a ../
     cd ..
@@ -142,7 +156,7 @@ function find_library() {
 }
 
 if [[ $# -eq 0 ]]; then
-    error $0 [compile_bz2\|compile_z\|compile_lz4\|compile_rocksdb\|compile_snappy\|find_library]
+    error $0 [compile_bz2\|compile_z\|compile_lz4\|compile_zstd\|compile_rocksdb\|compile_snappy\|find_library]
 fi
 
 $@
