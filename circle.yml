@@ -1,0 +1,65 @@
+machine:
+  environment:
+    PATH: "$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+    LD_LIBRARY_PATH: "$LD_LIBRARY_PATH:$HOME/.local/lib"
+    LD_RUN_PATH: "$LD_RUN_PATH:$HOME/.local/lib"
+    DYLD_LIBRARY_PATH: "$DYLD_LIBRARY_PATH:$HOME/.local/lib"
+    LDFLAGS: "-L$HOME/.local/lib"
+    CPPFLAGS: "-I$HOME/.local/include"
+    CXXFLAGS: "-I$HOME/.local/include"
+    PKG_CONFIG_PATH: "$PKG_CONFIG_PATH:$HOME/.local/lib/pkgconfig"
+    RUSTC_DATE: "2017-03-28"
+    LOCAL_PREFIX: "$HOME/.local"
+    # used by cargo
+    LIBRARY_PATH: "$LIBRARY_PATH:$HOME/.local/lib"
+    RUST_TEST_THREADS: 1
+    RUST_BACKTRACE: 1
+    RUSTFLAGS: "-Dwarnings"
+    RUSTFMT_VERSION: "v0.6.0"
+  pre:
+    - |
+      sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y;
+      sudo apt-get update -y;
+      sudo apt-get install -y g++-4.8 zlib1g-dev libbz2-dev libsnappy-dev curl libdw-dev libelf-dev elfutils binutils-dev
+  post:
+    # Fixes: cargo under CircleCI
+    - sed -i 's/github/git-non-exist-hub/g' ~/.gitconfig
+
+dependencies:
+  cache_directories:
+    - ~/.multirust
+    - ~/.cargo
+    - ~/.local
+    - target
+  pre:
+    # install rust/cargo
+    - |
+      if [[ ! -e $HOME/.cargo ]]; then
+        curl https://sh.rustup.rs -sSf |
+          sh -s -- --no-modify-path --default-toolchain "nightly-${RUSTC_DATE}" -y;
+        rustup default "nightly-${RUSTC_DATE}";
+      else
+        rustup default "nightly-${RUSTC_DATE}";
+      fi
+    - cargo install --force --vers 0.6.1 rustfmt || true
+    - |
+      if [[ ! -e $HOME/.local/lib/librocksdb.so ]]; then
+        export CPLUS_INCLUDE_PATH="${LOCAL_PREFIX}/include" && \
+        cd /tmp && \
+        curl -L https://github.com/facebook/rocksdb/archive/v5.2.1.tar.gz -o rocksdb.tar.gz && \
+        tar xf rocksdb.tar.gz && \
+        cd rocksdb-5.2.1 && \
+        INSTALL_PATH=${LOCAL_PREFIX} make -j install-shared;
+      fi
+  post:
+    # cargo test also use debug
+    - cargo build -v:
+        timeout: 1800
+    - cargo test -v --no-run:
+        timeout: 1800
+
+
+test:
+  override:
+    - cargo fmt && git diff-index --quiet HEAD -- || (echo please make format and run tests before creating a pr!; git diff HEAD; exit 1)
+    - cargo test -- --nocapture

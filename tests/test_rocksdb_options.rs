@@ -65,7 +65,8 @@ fn test_enable_statistics() {
     opts.enable_statistics();
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
-    assert!(opts.get_statistics_histogram_string(HistogramType::DbSeekMicros).is_some());
+    assert!(opts.get_statistics_histogram_string(HistogramType::DbSeekMicros)
+                .is_some());
     assert_eq!(opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
                0);
     assert_eq!(opts.get_and_reset_statistics_ticker_count(TickerType::BlockCacheMiss),
@@ -98,8 +99,8 @@ fn test_memtable_insert_hint_prefix_extractor() {
     opts.create_if_missing(true);
     opts.set_memtable_insert_hint_prefix_extractor("FixedPrefixTransform",
                                                    Box::new(FixedPrefixTransform {
-                                                       prefix_len: 2,
-                                                   }))
+                                                                prefix_len: 2,
+                                                            }))
         .unwrap();
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     let wopts = WriteOptions::new();
@@ -156,7 +157,8 @@ fn test_create_info_log() {
     opts.set_log_file_time_to_roll(1);
 
     let info_dir = TempDir::new("_rust_rocksdb_test_info_log_dir").expect("");
-    opts.create_info_log(info_dir.path().to_str().unwrap()).unwrap();
+    opts.create_info_log(info_dir.path().to_str().unwrap())
+        .unwrap();
 
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     assert!(Path::new(info_dir.path().join("LOG").to_str().unwrap()).is_file());
@@ -183,7 +185,8 @@ fn test_auto_roll_max_size_info_log() {
     opts.set_max_log_file_size(10);
 
     let info_dir = TempDir::new("_rust_rocksdb_max_size_info_log_dir").expect("");
-    opts.create_info_log(info_dir.path().to_str().unwrap()).unwrap();
+    opts.create_info_log(info_dir.path().to_str().unwrap())
+        .unwrap();
 
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     assert!(Path::new(info_dir.path().join("LOG").to_str().unwrap()).is_file());

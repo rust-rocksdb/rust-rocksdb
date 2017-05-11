@@ -23,7 +23,10 @@ struct Filter {
 
 impl CompactionFilter for Filter {
     fn filter(&mut self, _: usize, key: &[u8], value: &[u8]) -> bool {
-        self.filtered_kvs.write().unwrap().push((key.to_vec(), value.to_vec()));
+        self.filtered_kvs
+            .write()
+            .unwrap()
+            .push((key.to_vec(), value.to_vec()));
         true
     }
 }
@@ -44,16 +47,14 @@ fn test_compaction_filter() {
     opts.set_compaction_filter("test",
                                false,
                                Box::new(Filter {
-                                   drop_called: drop_called.clone(),
-                                   filtered_kvs: filtered_kvs.clone(),
-                               }))
+                                            drop_called: drop_called.clone(),
+                                            filtered_kvs: filtered_kvs.clone(),
+                                        }))
         .unwrap();
     opts.create_if_missing(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
-    let samples = vec![
-        (b"key1".to_vec(), b"value1".to_vec()),
-        (b"key2".to_vec(), b"value2".to_vec()),
-    ];
+    let samples = vec![(b"key1".to_vec(), b"value1".to_vec()),
+                       (b"key2".to_vec(), b"value2".to_vec())];
     for &(ref k, ref v) in &samples {
         db.put(k, v).unwrap();
         assert_eq!(v.as_slice(), &*db.get(k).unwrap().unwrap());
@@ -76,9 +77,9 @@ fn test_compaction_filter() {
     opts.set_compaction_filter("test",
                                true,
                                Box::new(Filter {
-                                   drop_called: drop_called.clone(),
-                                   filtered_kvs: filtered_kvs.clone(),
-                               }))
+                                            drop_called: drop_called.clone(),
+                                            filtered_kvs: filtered_kvs.clone(),
+                                        }))
         .unwrap();
     assert!(drop_called.load(Ordering::Relaxed));
     drop_called.store(false, Ordering::Relaxed);

@@ -1,13 +1,28 @@
 language: rust
-
+dist: trusty
+sudo: required
 rust:
-  - stable
-  - beta
-  - nightly
+- beta
+- nightly
+- stable
+
+cache:
+  directories:
+  - target
 
 os:
   - linux
-  - osx
+#  - osx
+
+before_script:
+- cargo install --force --vers 0.6.1 rustfmt || true
 
 script:
-  - rustc -Z parse-only src/lib.rs
+- cargo fmt && git diff-index --quiet HEAD -- || (echo please make format and run tests before creating a pr!; exit 1)
+- cargo build --features static-link
+- cargo test --all --features static-link
+
+env:
+  global:
+  - RUST_TEST_THREADS=1
+  - LD_LIBRARY_PATH: "/usr/local/lib"

@@ -42,7 +42,9 @@ impl Drop for CFHandle {
 }
 
 fn build_cstring_list(str_list: &[&str]) -> Vec<CString> {
-    str_list.into_iter().map(|s| CString::new(s.as_bytes()).unwrap()).collect()
+    str_list.into_iter()
+        .map(|s| CString::new(s.as_bytes()).unwrap())
+        .collect()
 }
 
 pub struct DB {
@@ -342,14 +344,10 @@ impl DB {
             // so that their pointers remain valid.
             let c_cfs = build_cstring_list(&cfs_v);
 
-            let cfnames: Vec<*const _> = c_cfs.iter()
-                .map(|cf| cf.as_ptr())
-                .collect();
+            let cfnames: Vec<*const _> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
             // These handles will be populated by DB.
-            let cfhandles: Vec<_> = cfs_v.iter()
-                .map(|_| ptr::null_mut())
-                .collect();
+            let cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
 
             let cfopts: Vec<_> = cf_opts_v.iter()
                 .map(|x| x.inner as *const crocksdb_ffi::DBOptions)
@@ -771,18 +769,10 @@ impl DB {
     }
 
     fn get_approximate_sizes_cfopt(&self, cf: Option<&CFHandle>, ranges: &[Range]) -> Vec<u64> {
-        let start_keys: Vec<*const u8> = ranges.iter()
-            .map(|x| x.start_key.as_ptr())
-            .collect();
-        let start_key_lens: Vec<_> = ranges.iter()
-            .map(|x| x.start_key.len())
-            .collect();
-        let end_keys: Vec<*const u8> = ranges.iter()
-            .map(|x| x.end_key.as_ptr())
-            .collect();
-        let end_key_lens: Vec<_> = ranges.iter()
-            .map(|x| x.end_key.len())
-            .collect();
+        let start_keys: Vec<*const u8> = ranges.iter().map(|x| x.start_key.as_ptr()).collect();
+        let start_key_lens: Vec<_> = ranges.iter().map(|x| x.start_key.len()).collect();
+        let end_keys: Vec<*const u8> = ranges.iter().map(|x| x.end_key.as_ptr()).collect();
+        let end_key_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
         let mut sizes: Vec<u64> = vec![0; ranges.len()];
         let (n, start_key_ptr, start_key_len_ptr, end_key_ptr, end_key_len_ptr, size_ptr) =
             (ranges.len() as i32,
@@ -944,7 +934,8 @@ impl DB {
     pub fn get_and_reset_statistics_ticker_count(&self,
                                                  ticker_type: DBStatisticsTickerType)
                                                  -> u64 {
-        self.opts.get_and_reset_statistics_ticker_count(ticker_type)
+        self.opts
+            .get_and_reset_statistics_ticker_count(ticker_type)
     }
 
     pub fn get_statistics_histogram_string(&self,
@@ -1624,7 +1615,8 @@ mod test {
 
         // Make a backup.
         let backup_dir = TempDir::new("_rust_rocksdb_backuptest_backup").unwrap();
-        let backup_engine = db.backup_at(backup_dir.path().to_str().unwrap()).unwrap();
+        let backup_engine = db.backup_at(backup_dir.path().to_str().unwrap())
+            .unwrap();
 
         // Restore it.
         let ropt1 = RestoreOptions::new();
@@ -1773,9 +1765,11 @@ mod test {
             .unwrap();
         // Wait until all currently running background processes finish.
         db.pause_bg_work();
-        assert_eq!(db.get_property_int("rocksdb.num-running-compactions").unwrap(),
+        assert_eq!(db.get_property_int("rocksdb.num-running-compactions")
+                       .unwrap(),
                    0);
-        assert_eq!(db.get_property_int("rocksdb.num-running-flushes").unwrap(),
+        assert_eq!(db.get_property_int("rocksdb.num-running-flushes")
+                       .unwrap(),
                    0);
         db.continue_bg_work();
         h.join().unwrap();
@@ -1835,7 +1829,8 @@ mod test {
 
         let cf_handle = db.cf_handle("cf").unwrap();
         for i in 0..200 {
-            db.put_cf(cf_handle, format!("k_{}", i).as_bytes(), b"v").unwrap();
+            db.put_cf(cf_handle, format!("k_{}", i).as_bytes(), b"v")
+                .unwrap();
         }
         db.flush_cf(cf_handle, true).unwrap();
 

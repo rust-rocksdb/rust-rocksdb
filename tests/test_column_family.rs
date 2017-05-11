@@ -76,8 +76,11 @@ pub fn test_column_family() {
         };
         let cf1 = db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() ==
-                "v1");
+        assert!(db.get_cf(cf1, b"k1")
+                    .unwrap()
+                    .unwrap()
+                    .to_utf8()
+                    .unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         /*
@@ -108,11 +111,9 @@ pub fn test_column_family() {
         */
     }
     // TODO should be able to use writebatch ops with a cf
-    {
-    }
+    {}
     // TODO should be able to iterate over a cf
-    {
-    }
+    {}
     // should b able to drop a cf
     {
         let mut db = DB::open_cf(Options::new(), path_str, &["cf1"], &[&Options::new()]).unwrap();

@@ -54,7 +54,8 @@ fn test_ingest_external_file() {
             &[(b"k1", b"v1"), (b"k2", b"v2")]);
 
     let mut ingest_opt = IngestExternalFileOptions::new();
-    db.ingest_external_file(&ingest_opt, &[test_sstfile_str]).unwrap();
+    db.ingest_external_file(&ingest_opt, &[test_sstfile_str])
+        .unwrap();
     assert!(test_sstfile.exists());
     assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
     assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
@@ -63,7 +64,8 @@ fn test_ingest_external_file() {
             None,
             test_sstfile_str,
             &[(b"k1", b"v3"), (b"k2", b"v4")]);
-    db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str]).unwrap();
+    db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str])
+        .unwrap();
     assert_eq!(db.get_cf(handle, b"k1").unwrap().unwrap(), b"v3");
     assert_eq!(db.get_cf(handle, b"k2").unwrap().unwrap(), b"v4");
 
@@ -74,7 +76,8 @@ fn test_ingest_external_file() {
             test_sstfile_str,
             &[(b"k2", b"v5"), (b"k3", b"v6")]);
     ingest_opt = ingest_opt.move_files(true);
-    db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str]).unwrap();
+    db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str])
+        .unwrap();
 
     assert_eq!(db.get_cf(handle, b"k1").unwrap().unwrap(), b"v3");
     assert_eq!(db.get_cf(handle, b"k2").unwrap().unwrap(), b"v5");
