@@ -1103,6 +1103,10 @@ impl WriteBatch {
         WriteBatch::default()
     }
 
+    pub fn with_capacity(cap: usize) -> WriteBatch {
+        WriteBatch { inner: unsafe { crocksdb_ffi::crocksdb_writebatch_create_with_capacity(cap) } }
+    }
+
     pub fn count(&self) -> usize {
         unsafe { crocksdb_ffi::crocksdb_writebatch_count(self.inner) as usize }
     }
@@ -1516,6 +1520,17 @@ mod test {
         assert!(r.unwrap().is_none());
         let r = db.get(b"k13");
         assert!(r.unwrap().is_none());
+
+        // test with capacity
+        let batch = WriteBatch::with_capacity(1024);
+        batch.put(b"kc1", b"v1").unwrap();
+        batch.put(b"kc2", b"v2").unwrap();
+        let p = db.write(batch);
+        assert!(p.is_ok());
+        let r = db.get(b"kc1");
+        assert!(r.unwrap().is_some());
+        let r = db.get(b"kc2");
+        assert!(r.unwrap().is_some());
     }
 
     #[test]

@@ -404,6 +404,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_iter_get_error(
 /* Write batch */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t* crocksdb_writebatch_create();
+extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t*
+    crocksdb_writebatch_create_with_capacity(size_t reserved_bytes);
 extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t* crocksdb_writebatch_create_from(
     const char* rep, size_t size);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_destroy(

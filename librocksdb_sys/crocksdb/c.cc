@@ -1145,6 +1145,12 @@ crocksdb_writebatch_t* crocksdb_writebatch_create() {
   return new crocksdb_writebatch_t;
 }
 
+crocksdb_writebatch_t* crocksdb_writebatch_create_with_capacity(size_t reserved_bytes) {
+  crocksdb_writebatch_t* b = new crocksdb_writebatch_t;
+  b->rep = WriteBatch(reserved_bytes);
+  return b;
+}
+
 crocksdb_writebatch_t* crocksdb_writebatch_create_from(const char* rep,
                                                      size_t size) {
   crocksdb_writebatch_t* b = new crocksdb_writebatch_t;
