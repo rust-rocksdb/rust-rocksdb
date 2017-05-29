@@ -244,7 +244,7 @@ fn main() {
 	snappy_config.file("snappy/snappy.cc");
 	snappy_config.file("snappy/snappy-sinksource.cc");
 	snappy_config.file("snappy/snappy-c.cc");
-	snappy_config.cpp(true);
+	//snappy_config.cpp(true);
 	snappy_config.compile("libsnappy.a");
 }
 
