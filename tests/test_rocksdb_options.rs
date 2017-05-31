@@ -66,7 +66,7 @@ fn test_enable_statistics() {
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
     assert!(opts.get_statistics_histogram_string(HistogramType::DbSeekMicros)
-                .is_some());
+        .is_some());
     assert_eq!(opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
                0);
     assert_eq!(opts.get_and_reset_statistics_ticker_count(TickerType::BlockCacheMiss),
@@ -99,8 +99,8 @@ fn test_memtable_insert_hint_prefix_extractor() {
     opts.create_if_missing(true);
     opts.set_memtable_insert_hint_prefix_extractor("FixedPrefixTransform",
                                                    Box::new(FixedPrefixTransform {
-                                                                prefix_len: 2,
-                                                            }))
+                                                       prefix_len: 2,
+                                                   }))
         .unwrap();
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     let wopts = WriteOptions::new();

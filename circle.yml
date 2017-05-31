@@ -41,7 +41,7 @@ dependencies:
       else
         rustup default "nightly-${RUSTC_DATE}";
       fi
-    - cargo install --force --vers 0.6.1 rustfmt || true
+    - make -f travis-build/Makefile prepare-rustfmt
     - |
       if [[ ! -e $HOME/.local/lib/librocksdb.so ]]; then
         export CPLUS_INCLUDE_PATH="${LOCAL_PREFIX}/include" && \

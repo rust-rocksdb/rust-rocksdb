@@ -15,7 +15,7 @@ os:
 #  - osx
 
 before_script:
-- cargo install --force --vers 0.6.1 rustfmt || true
+- make -f travis-build/Makefile prepare-rustfmt
 
 script:
 - cargo fmt && git diff-index --quiet HEAD -- || (echo please make format and run tests before creating a pr!; exit 1)
@@ -26,3 +26,4 @@ env:
   global:
   - RUST_TEST_THREADS=1
   - LD_LIBRARY_PATH: "/usr/local/lib"
+  - RUSTFMT_VERSION=v0.6.0

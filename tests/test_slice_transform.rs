@@ -58,10 +58,8 @@ fn test_slice_transform() {
 
     let mut it = db.iter();
 
-    let invalid_seeks = vec![b"key_".to_vec(),
-                             b"key_0".to_vec(),
-                             b"key_030".to_vec(),
-                             b"key_03000".to_vec()];
+    let invalid_seeks =
+        vec![b"key_".to_vec(), b"key_0".to_vec(), b"key_030".to_vec(), b"key_03000".to_vec()];
 
     for key in invalid_seeks {
         it.seek(SeekKey::Key(&key));

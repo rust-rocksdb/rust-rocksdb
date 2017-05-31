@@ -47,9 +47,9 @@ fn test_compaction_filter() {
     opts.set_compaction_filter("test",
                                false,
                                Box::new(Filter {
-                                            drop_called: drop_called.clone(),
-                                            filtered_kvs: filtered_kvs.clone(),
-                                        }))
+                                   drop_called: drop_called.clone(),
+                                   filtered_kvs: filtered_kvs.clone(),
+                               }))
         .unwrap();
     opts.create_if_missing(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -77,9 +77,9 @@ fn test_compaction_filter() {
     opts.set_compaction_filter("test",
                                true,
                                Box::new(Filter {
-                                            drop_called: drop_called.clone(),
-                                            filtered_kvs: filtered_kvs.clone(),
-                                        }))
+                                   drop_called: drop_called.clone(),
+                                   filtered_kvs: filtered_kvs.clone(),
+                               }))
         .unwrap();
     assert!(drop_called.load(Ordering::Relaxed));
     drop_called.store(false, Ordering::Relaxed);

@@ -56,9 +56,8 @@ pub fn test_iterator() {
     assert!(p.is_ok());
     let p = db.put(k3, v3);
     assert!(p.is_ok());
-    let expected = vec![(k1.to_vec(), v1.to_vec()),
-                        (k2.to_vec(), v2.to_vec()),
-                        (k3.to_vec(), v3.to_vec())];
+    let expected =
+        vec![(k1.to_vec(), v1.to_vec()), (k2.to_vec(), v2.to_vec()), (k3.to_vec(), v3.to_vec())];
 
     let mut iter = db.iter();
 
@@ -102,9 +101,8 @@ pub fn test_iterator() {
     assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
     iter.seek(SeekKey::Key(k2));
-    let expected = vec![(k2.to_vec(), v2.to_vec()),
-                        (k3.to_vec(), v3.to_vec()),
-                        (k4.to_vec(), v4.to_vec())];
+    let expected =
+        vec![(k2.to_vec(), v2.to_vec()), (k3.to_vec(), v3.to_vec()), (k4.to_vec(), v4.to_vec())];
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     iter.seek(SeekKey::Key(k2));
