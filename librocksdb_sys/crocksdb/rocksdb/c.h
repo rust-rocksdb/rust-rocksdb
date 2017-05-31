@@ -404,8 +404,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_iter_get_error(
 /* Write batch */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t* crocksdb_writebatch_create();
-extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t*
-    crocksdb_writebatch_create_with_capacity(size_t reserved_bytes);
+extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t *
+crocksdb_writebatch_create_with_capacity(size_t reserved_bytes);
 extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t* crocksdb_writebatch_create_from(
     const char* rep, size_t size);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_destroy(
@@ -614,8 +614,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compression_options(
     crocksdb_options_t*, int, int, int, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_use_direct_reads(crocksdb_options_t* opt,
     unsigned char v);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_use_direct_writes(crocksdb_options_t* opt,
-    unsigned char v);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_options_set_use_direct_io_for_flush_and_compaction(
+    crocksdb_options_t *opt, unsigned char v);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_prefix_extractor(
     crocksdb_options_t*, crocksdb_slicetransform_t*);
 extern C_ROCKSDB_LIBRARY_API void
@@ -792,8 +793,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_report_bg_io_stats(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compaction_readahead_size(
     crocksdb_options_t*, size_t);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_subcompactions(
-    crocksdb_options_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_options_set_max_subcompactions(crocksdb_options_t *, uint32_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_wal_bytes_per_sync(
     crocksdb_options_t*, uint64_t);
 

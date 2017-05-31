@@ -515,9 +515,10 @@ impl Options {
         }
     }
 
-    pub fn set_use_direct_writes(&mut self, v: bool) {
+    pub fn set_use_direct_io_for_flush_and_compaction(&mut self, v: bool) {
         unsafe {
-            crocksdb_ffi::crocksdb_options_set_use_direct_writes(self.inner, v);
+            crocksdb_ffi::crocksdb_options_set_use_direct_io_for_flush_and_compaction(self.inner,
+                                                                                      v);
         }
     }
 
@@ -596,7 +597,7 @@ impl Options {
         }
     }
 
-    pub fn set_max_subcompactions(&mut self, n: usize) {
+    pub fn set_max_subcompactions(&mut self, n: u32) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_subcompactions(self.inner, n);
         }

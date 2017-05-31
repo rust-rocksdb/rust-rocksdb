@@ -1145,8 +1145,9 @@ crocksdb_writebatch_t* crocksdb_writebatch_create() {
   return new crocksdb_writebatch_t;
 }
 
-crocksdb_writebatch_t* crocksdb_writebatch_create_with_capacity(size_t reserved_bytes) {
-  crocksdb_writebatch_t* b = new crocksdb_writebatch_t;
+crocksdb_writebatch_t *
+crocksdb_writebatch_create_with_capacity(size_t reserved_bytes) {
+  crocksdb_writebatch_t *b = new crocksdb_writebatch_t;
   b->rep = WriteBatch(reserved_bytes);
   return b;
 }
@@ -1505,7 +1506,8 @@ void crocksdb_options_set_block_based_table_factory(
   }
 }
 
-void crocksdb_options_set_max_subcompactions(crocksdb_options_t *opt, size_t v) {
+void crocksdb_options_set_max_subcompactions(crocksdb_options_t *opt,
+                                             uint32_t v) {
   opt->rep.max_subcompactions = v;
 }
 
@@ -1773,8 +1775,9 @@ void crocksdb_options_set_use_direct_reads(crocksdb_options_t* opt, unsigned cha
   opt->rep.use_direct_reads = v;
 }
 
-void crocksdb_options_set_use_direct_writes(crocksdb_options_t* opt, unsigned char v) {
-  opt->rep.use_direct_writes = v;
+void crocksdb_options_set_use_direct_io_for_flush_and_compaction(
+    crocksdb_options_t *opt, unsigned char v) {
+  opt->rep.use_direct_io_for_flush_and_compaction = v;
 }
 
 void crocksdb_options_set_prefix_extractor(

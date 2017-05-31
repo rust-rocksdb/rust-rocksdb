@@ -263,7 +263,7 @@ extern "C" {
     pub fn crocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_compaction_readahead_size(options: *mut DBOptions, v: size_t);
     pub fn crocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
-    pub fn crocksdb_options_set_max_subcompactions(options: *mut DBOptions, v: size_t);
+    pub fn crocksdb_options_set_max_subcompactions(options: *mut DBOptions, v: u32);
     pub fn crocksdb_options_set_wal_bytes_per_sync(options: *mut DBOptions, v: u64);
     pub fn crocksdb_options_enable_statistics(options: *mut DBOptions);
     pub fn crocksdb_options_statistics_get_string(options: *mut DBOptions) -> *const c_char;
@@ -291,7 +291,8 @@ extern "C" {
     pub fn crocksdb_options_set_wal_ttl_seconds(options: *mut DBOptions, ttl: u64);
     pub fn crocksdb_options_set_wal_size_limit_mb(options: *mut DBOptions, limit: u64);
     pub fn crocksdb_options_set_use_direct_reads(options: *mut DBOptions, v: bool);
-    pub fn crocksdb_options_set_use_direct_writes(options: *mut DBOptions, v: bool);
+    pub fn crocksdb_options_set_use_direct_io_for_flush_and_compaction(options: *mut DBOptions,
+                                                                       v: bool);
     pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_optimize_filters_for_hits(options: *mut DBOptions, v: bool);

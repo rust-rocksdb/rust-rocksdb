@@ -299,7 +299,7 @@ fn test_direct_read_write() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.set_use_direct_reads(true);
-    opts.set_use_direct_writes(true);
+    opts.set_use_direct_io_for_flush_and_compaction(true);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
 }
 
