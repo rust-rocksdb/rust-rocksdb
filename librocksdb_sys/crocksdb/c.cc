@@ -80,6 +80,7 @@ using rocksdb::CompactRangeOptions;
 using rocksdb::RateLimiter;
 using rocksdb::NewGenericRateLimiter;
 using rocksdb::HistogramData;
+using rocksdb::PinnableSlice;
 
 using std::shared_ptr;
 
@@ -120,6 +121,7 @@ struct crocksdb_ingestexternalfileoptions_t  { IngestExternalFileOptions rep; };
 struct crocksdb_sstfilewriter_t   { SstFileWriter*    rep; };
 struct crocksdb_ratelimiter_t     { RateLimiter*      rep; };
 struct crocksdb_histogramdata_t   { HistogramData     rep; };
+struct crocksdb_pinnableslice_t   { PinnableSlice     rep; };
 
 struct crocksdb_compactionfiltercontext_t {
   CompactionFilter::Context rep;
@@ -2853,4 +2855,45 @@ crocksdb_logger_t *crocksdb_create_log_from_options(const char *path,
 
 void crocksdb_log_destroy(crocksdb_logger_t *logger) { delete logger; }
 
+crocksdb_pinnableslice_t* crocksdb_get_pinned(
+    crocksdb_t* db, const crocksdb_readoptions_t* options, const char* key,
+    size_t keylen, char** errptr) {
+  crocksdb_pinnableslice_t* v = new (crocksdb_pinnableslice_t);
+  Status s = db->rep->Get(options->rep, db->rep->DefaultColumnFamily(),
+                          Slice(key, keylen), &v->rep);
+  if (!s.ok()) {
+    delete (v);
+    if (!s.IsNotFound()) {
+      SaveError(errptr, s);
+    }
+    return NULL;
+  }
+  return v;
+}
+
+crocksdb_pinnableslice_t* crocksdb_get_pinned_cf(
+    crocksdb_t* db, const crocksdb_readoptions_t* options,
+    crocksdb_column_family_handle_t* column_family, const char* key,
+    size_t keylen, char** errptr) {
+  crocksdb_pinnableslice_t* v = new (crocksdb_pinnableslice_t);
+  Status s = db->rep->Get(options->rep, column_family->rep, Slice(key, keylen),
+                          &v->rep);
+  if (!s.ok()) {
+    delete v;
+    if (!s.IsNotFound()) {
+      SaveError(errptr, s);
+    }
+    return NULL;
+  }
+  return v;
+}
+
+void crocksdb_pinnableslice_destroy(crocksdb_pinnableslice_t* v) { delete v; }
+
+const char* crocksdb_pinnableslice_value(const crocksdb_pinnableslice_t* v,
+                                        size_t* vlen) {
+  // v can't be null.
+  *vlen = v->rep.size();
+  return v->rep.data();
+}
 }  // end extern "C"

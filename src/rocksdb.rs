@@ -14,7 +14,7 @@
 //
 
 use crocksdb_ffi::{self, DBWriteBatch, DBCFHandle, DBInstance, DBBackupEngine,
-                   DBStatisticsTickerType, DBStatisticsHistogramType};
+                   DBStatisticsTickerType, DBStatisticsHistogramType, DBPinnableSlice};
 use libc::{self, c_int, c_void, size_t};
 use rocksdb_options::{Options, ReadOptions, UnsafeSnap, WriteOptions, FlushOptions, EnvOptions,
                       RestoreOptions, IngestExternalFileOptions, HistogramData, CompactOptions};
@@ -468,17 +468,14 @@ impl DB {
 
     pub fn get_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBVector>, String> {
         unsafe {
-            let val_len: size_t = 0;
-            let val_len_ptr = &val_len as *const size_t;
-            let val = ffi_try!(crocksdb_get(self.inner,
-                                            readopts.get_inner(),
-                                            key.as_ptr(),
-                                            key.len() as size_t,
-                                            val_len_ptr));
+            let val = ffi_try!(crocksdb_get_pinned(self.inner,
+                                                   readopts.get_inner(),
+                                                   key.as_ptr(),
+                                                   key.len() as size_t));
             if val.is_null() {
                 Ok(None)
             } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
+                Ok(Some(DBVector::from_pinned_slice(val)))
             }
         }
     }
@@ -493,18 +490,15 @@ impl DB {
                       readopts: &ReadOptions)
                       -> Result<Option<DBVector>, String> {
         unsafe {
-            let val_len: size_t = 0;
-            let val_len_ptr = &val_len as *const size_t;
-            let val = ffi_try!(crocksdb_get_cf(self.inner,
-                                               readopts.get_inner(),
-                                               cf.inner,
-                                               key.as_ptr(),
-                                               key.len() as size_t,
-                                               val_len_ptr));
+            let val = ffi_try!(crocksdb_get_pinned_cf(self.inner,
+                                                      readopts.get_inner(),
+                                                      cf.inner,
+                                                      key.as_ptr(),
+                                                      key.len() as size_t));
             if val.is_null() {
                 Ok(None)
             } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
+                Ok(Some(DBVector::from_pinned_slice(val)))
             }
         }
     }
@@ -1270,54 +1264,44 @@ impl Writable for WriteBatch {
 }
 
 pub struct DBVector {
-    base: *mut u8,
-    len: usize,
+    pinned_slice: *mut DBPinnableSlice,
 }
 
 impl Debug for DBVector {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
-        unsafe {
-            write!(formatter,
-                   "{:?}",
-                   slice::from_raw_parts(self.base, self.len))
-        }
+        write!(formatter, "{:?}", &**self)
     }
 }
 
 impl<'a> PartialEq<&'a [u8]> for DBVector {
     fn eq(&self, rhs: &&[u8]) -> bool {
-        if self.len != rhs.len() {
-            return false;
-        }
-        unsafe {
-            libc::memcmp(self.base as *mut c_void,
-                         rhs.as_ptr() as *mut c_void,
-                         self.len) == 0
-        }
+        **rhs == **self
     }
 }
 
 impl Deref for DBVector {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.base, self.len) }
+        let mut val_len: size_t = 0;
+        let val_len_ptr = &mut val_len as *mut size_t;
+        unsafe {
+            let val = crocksdb_ffi::crocksdb_pinnableslice_value(self.pinned_slice, val_len_ptr);
+            slice::from_raw_parts(val, val_len)
+        }
     }
 }
 
 impl Drop for DBVector {
     fn drop(&mut self) {
         unsafe {
-            libc::free(self.base as *mut c_void);
+            crocksdb_ffi::crocksdb_pinnableslice_destroy(self.pinned_slice);
         }
     }
 }
 
 impl DBVector {
-    pub fn from_c(val: *mut u8, val_len: size_t) -> DBVector {
-        DBVector {
-            base: val,
-            len: val_len as usize,
-        }
+    pub fn from_pinned_slice(s: *mut DBPinnableSlice) -> DBVector {
+        DBVector { pinned_slice: s }
     }
 
     pub fn to_utf8(&self) -> Option<&str> {

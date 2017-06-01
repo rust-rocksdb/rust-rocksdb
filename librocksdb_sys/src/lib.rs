@@ -44,6 +44,7 @@ pub enum DBSliceTransform {}
 pub enum DBRateLimiter {}
 pub enum DBLogger {}
 pub enum DBCompactOptions {}
+pub enum DBPinnableSlice {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -764,6 +765,24 @@ extern "C" {
                                             err: *mut *mut c_char)
                                             -> *mut DBLogger;
     pub fn crocksdb_log_destroy(logger: *mut DBLogger);
+
+    pub fn crocksdb_get_pinned(db: *mut DBInstance,
+                               readopts: *const DBReadOptions,
+                               k: *const u8,
+                               kLen: size_t,
+                               err: *mut *mut c_char)
+                               -> *mut DBPinnableSlice;
+    pub fn crocksdb_get_pinned_cf(db: *mut DBInstance,
+                                  readopts: *const DBReadOptions,
+                                  cf_handle: *mut DBCFHandle,
+                                  k: *const u8,
+                                  kLen: size_t,
+                                  err: *mut *mut c_char)
+                                  -> *mut DBPinnableSlice;
+    pub fn crocksdb_pinnableslice_value(s: *const DBPinnableSlice,
+                                        valLen: *mut size_t)
+                                        -> *const u8;
+    pub fn crocksdb_pinnableslice_destroy(v: *mut DBPinnableSlice);
 }
 
 #[cfg(test)]

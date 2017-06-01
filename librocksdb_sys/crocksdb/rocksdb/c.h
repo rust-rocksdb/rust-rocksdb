@@ -110,6 +110,7 @@ typedef struct crocksdb_envoptions_t      crocksdb_envoptions_t;
 typedef struct crocksdb_ingestexternalfileoptions_t crocksdb_ingestexternalfileoptions_t;
 typedef struct crocksdb_sstfilewriter_t   crocksdb_sstfilewriter_t;
 typedef struct crocksdb_ratelimiter_t     crocksdb_ratelimiter_t;
+typedef struct crocksdb_pinnableslice_t   crocksdb_pinnableslice_t;
 
 /* DB operations */
 
@@ -404,8 +405,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_iter_get_error(
 /* Write batch */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t* crocksdb_writebatch_create();
-extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t *
-crocksdb_writebatch_create_with_capacity(size_t reserved_bytes);
+extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t*
+    crocksdb_writebatch_create_with_capacity(size_t reserved_bytes);
 extern C_ROCKSDB_LIBRARY_API crocksdb_writebatch_t* crocksdb_writebatch_create_from(
     const char* rep, size_t size);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_destroy(
@@ -793,8 +794,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_report_bg_io_stats(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compaction_readahead_size(
     crocksdb_options_t*, size_t);
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_options_set_max_subcompactions(crocksdb_options_t *, uint32_t);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_subcompactions(
+    crocksdb_options_t*, uint32_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_wal_bytes_per_sync(
     crocksdb_options_t*, uint64_t);
 
@@ -1148,6 +1149,19 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_logger_t *
 crocksdb_create_log_from_options(const char *path, crocksdb_options_t *opts,
                                  char **errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_log_destroy(crocksdb_logger_t *);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_pinnableslice_t* crocksdb_get_pinned(
+    crocksdb_t* db, const crocksdb_readoptions_t* options, const char* key,
+    size_t keylen, char** errptr);
+extern C_ROCKSDB_LIBRARY_API crocksdb_pinnableslice_t* crocksdb_get_pinned_cf(
+    crocksdb_t* db, const crocksdb_readoptions_t* options,
+    crocksdb_column_family_handle_t* column_family, const char* key,
+    size_t keylen, char** errptr);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_pinnableslice_destroy(
+    crocksdb_pinnableslice_t* v);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_pinnableslice_value(
+    const crocksdb_pinnableslice_t* t, size_t* vlen);
+
 #ifdef __cplusplus
 }  /* end extern "C" */
 #endif
