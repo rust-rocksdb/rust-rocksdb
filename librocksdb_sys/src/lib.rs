@@ -89,6 +89,26 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecords = 3,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum CompactionPriority {
+    // In Level-based compaction, it Determines which file from a level to be
+    // picked to merge to the next level. We suggest people try
+    // kMinOverlappingRatio first when you tune your database.
+    ByCompensatedSize = 0,
+    // First compact files whose data's latest update time is oldest.
+    // Try this if you only update some hot keys in small ranges.
+    OldestLargestSeqFirst = 1,
+    // First compact files whose range hasn't been compacted to the next level
+    // for the longest. If your updates are random across the key space,
+    // write amplification is slightly better with this option.
+    OldestSmallestSeqFirst = 2,
+    // First compact files whose ratio between overlapping size in next level
+    // and its size is the smallest. It in many cases can optimize write
+    // amplification.
+    MinOverlappingRatio = 3,
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub enum DBStatisticsTickerType {
@@ -315,6 +335,8 @@ extern "C" {
                                                                     v: u64);
     pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut DBOptions,
                                                                     v: u64);
+    pub fn crocksdb_options_set_compaction_priority(options: *mut DBOptions,
+                                                    v: CompactionPriority);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(options: *mut DBOptions,

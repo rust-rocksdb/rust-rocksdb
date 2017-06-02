@@ -579,6 +579,12 @@ impl Options {
         }
     }
 
+    pub fn compaction_priority(&mut self, priority: crocksdb_ffi::CompactionPriority) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compaction_priority(self.inner, priority);
+        }
+    }
+
     pub fn set_base_background_compactions(&mut self, n: c_int) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_base_background_compactions(self.inner, n);

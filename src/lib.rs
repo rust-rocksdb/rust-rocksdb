@@ -30,7 +30,7 @@ mod slice_transform;
 pub use compaction_filter::CompactionFilter;
 pub use librocksdb_sys::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, DBInfoLogLevel,
                          DBStatisticsTickerType, DBStatisticsHistogramType, new_bloom_filter,
-                         self as crocksdb_ffi};
+                         CompactionPriority, self as crocksdb_ffi};
 pub use merge_operator::MergeOperands;
 pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, CFHandle, Range,
                   BackupEngine, SstFileWriter};

@@ -14,7 +14,8 @@
 use rocksdb::{DB, Options, BlockBasedOptions, WriteOptions, SliceTransform, Writable,
               CompactOptions};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
-                            DBStatisticsTickerType as TickerType, DBInfoLogLevel as InfoLogLevel};
+                            DBStatisticsTickerType as TickerType, DBInfoLogLevel as InfoLogLevel,
+                            CompactionPriority};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -318,5 +319,14 @@ fn test_set_base_background_compactions() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
     opts.set_base_background_compactions(4);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
+fn test_set_compaction_pri() {
+    let path = TempDir::new("_rust_rocksdb_compaction_pri").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.compaction_priority(CompactionPriority::MinOverlappingRatio);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
 }
