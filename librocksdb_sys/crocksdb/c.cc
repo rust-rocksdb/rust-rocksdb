@@ -81,6 +81,8 @@ using rocksdb::RateLimiter;
 using rocksdb::NewGenericRateLimiter;
 using rocksdb::HistogramData;
 using rocksdb::PinnableSlice;
+using rocksdb::FilterBitsBuilder;
+using rocksdb::FilterBitsReader;
 
 using std::shared_ptr;
 
@@ -2089,7 +2091,8 @@ void crocksdb_options_set_fifo_compaction_options(
   opt->rep.compaction_options_fifo = fifo->rep;
 }
 
-void crocksdb_options_set_compaction_priority(crocksdb_options_t *opt, unsigned char priority) {
+void crocksdb_options_set_compaction_priority(crocksdb_options_t *opt,
+                                              unsigned char priority) {
   opt->rep.compaction_pri = static_cast<rocksdb::CompactionPri>(priority);
 }
 
@@ -2309,6 +2312,13 @@ crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom_format(int bits_per_
     }
     bool KeyMayMatch(const Slice& key, const Slice& filter) const override {
       return rep_->KeyMayMatch(key, filter);
+    }
+    virtual FilterBitsBuilder *GetFilterBitsBuilder() const override {
+      return rep_->GetFilterBitsBuilder();
+    }
+    virtual FilterBitsReader *
+    GetFilterBitsReader(const Slice &contents) const override {
+      return rep_->GetFilterBitsReader(contents);
     }
     static void DoNothing(void*) { }
   };

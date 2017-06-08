@@ -835,13 +835,13 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_ratelimiter(
     crocksdb_options_t* opt, crocksdb_ratelimiter_t* limiter);
 
 enum {
-    compaction_by_compensated_size = 0,
-    compaction_by_oldest_largestseq_first = 1,
-    compaction_by_oldest_smallest_seq_first = 2,
-    compaction_by_min_overlapping_ratio = 3,
+  compaction_by_compensated_size = 0,
+  compaction_by_oldest_largestseq_first = 1,
+  compaction_by_oldest_smallest_seq_first = 2,
+  compaction_by_min_overlapping_ratio = 3,
 };
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compaction_priority(
-    crocksdb_options_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_options_set_compaction_priority(crocksdb_options_t *, unsigned char);
 
 /* RateLimiter */
 extern C_ROCKSDB_LIBRARY_API crocksdb_ratelimiter_t* crocksdb_ratelimiter_create(
