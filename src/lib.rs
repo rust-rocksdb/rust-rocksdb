@@ -65,7 +65,7 @@ pub struct DB {
 
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Error {
     message: String,
 }
@@ -77,6 +77,12 @@ impl Error {
 
     pub fn to_string(self) -> String {
         self.into()
+    }
+}
+
+impl AsRef<str> for Error {
+    fn as_ref(&self) -> &str {
+        &self.message
     }
 }
 
