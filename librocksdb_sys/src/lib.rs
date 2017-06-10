@@ -374,6 +374,7 @@ extern "C" {
     pub fn crocksdb_readoptions_set_read_tier(readopts: *mut DBReadOptions, tier: c_int);
     pub fn crocksdb_readoptions_set_tailing(readopts: *mut DBReadOptions, v: bool);
     pub fn crocksdb_readoptions_set_total_order_seek(readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_prefix_same_as_start(readopts: *mut DBReadOptions, v: bool);
 
     pub fn crocksdb_get(db: *const DBInstance,
                         readopts: *const DBReadOptions,

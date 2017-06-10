@@ -11,3 +11,4 @@ tags
 .idea/
 out/
 *.iml
+.vscode

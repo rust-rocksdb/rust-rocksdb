@@ -214,6 +214,12 @@ impl ReadOptions {
         }
     }
 
+    pub fn set_prefix_same_as_start(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_readoptions_set_prefix_same_as_start(self.inner, v);
+        }
+    }
+
     pub unsafe fn get_inner(&self) -> *const DBReadOptions {
         self.inner
     }

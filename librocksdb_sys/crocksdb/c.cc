@@ -2424,6 +2424,11 @@ void crocksdb_readoptions_set_total_order_seek(crocksdb_readoptions_t* opt,
   opt->rep.total_order_seek = v;
 }
 
+void crocksdb_readoptions_set_prefix_same_as_start(crocksdb_readoptions_t* opt,
+    unsigned char v) {
+  opt->rep.prefix_same_as_start = v;
+}
+
 crocksdb_writeoptions_t* crocksdb_writeoptions_create() {
   return new crocksdb_writeoptions_t;
 }
