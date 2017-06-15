@@ -26,3 +26,4 @@ path = "test/test.rs"
 [dependencies]
 libc = "0.2"
 rocksdb-sys = { path = "rocksdb-sys", version = "0.3.0" }
+local-encoding = "*"
