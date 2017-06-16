@@ -278,8 +278,16 @@ impl DB {
     	if cfs.len() != cf_opts.len() {
 			return Err(format!("Mismatching number of CF options"));
 		}
-        let encoded_path = Encoding::ANSI.to_bytes(path);
-        let cpath = match CString::new(encoded_path.unwrap()) {
+        let encoded_path = match Encoding::ANSI.to_bytes(path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when opening \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cpath = match CString::new(encoded_path) {
             Ok(c) => c,
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
@@ -381,8 +389,23 @@ impl DB {
     }
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
-        let encoded_path = Encoding::ANSI.to_bytes(path);
-        let cpath = CString::new(encoded_path.unwrap()).unwrap();
+        let encoded_path = match Encoding::ANSI.to_bytes(path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when destroying \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cpath = match CString::new(encoded_path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when destroying \
+                            rocksdb"
+                               .to_string())
+            }
+        };
 
         let cpath_ptr = cpath.as_ptr();
 
@@ -400,8 +423,23 @@ impl DB {
     }
 
     pub fn repair(opts: &Options, path: &str) -> Result<(), String> {
-        let encoded_path = Encoding::ANSI.to_bytes(path);
-        let cpath = CString::new(encoded_path.unwrap()).unwrap();
+        let encoded_path = match Encoding::ANSI.to_bytes(path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when repairing \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cpath = match CString::new(encoded_path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when repairing \
+                            rocksdb"
+                               .to_string())
+            }
+        };
 
         let cpath_ptr = cpath.as_ptr();
 
@@ -525,8 +563,16 @@ impl DB {
                      name: &str,
                      opts: &Options)
                      -> Result<Column, String> {
-        let encoded_name = Encoding::ANSI.to_bytes(name);
-        let cname = match CString::new(encoded_name.unwrap()) {
+        let encoded_name = match Encoding::ANSI.to_bytes(name) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when opening \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cname = match CString::new(encoded_name) {
             Ok(c) => c,
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
