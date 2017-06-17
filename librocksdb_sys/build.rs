@@ -1,5 +1,5 @@
-
 extern crate gcc;
+extern crate pkg_config;
 
 use std::{env, fs, str};
 use std::path::PathBuf;
@@ -13,7 +13,15 @@ macro_rules! t {
 }
 
 fn main() {
+    const ROCKSDB_VERSION: &'static str = "5.4";
+
     if !cfg!(feature = "static-link") {
+        match pkg_config::Config::new().atleast_version(ROCKSDB_VERSION).probe("rocksdb") {
+            Ok(_) => (),
+            Err(_) => {
+                panic!("failed to find rocksdb >= {} by pkg-config", ROCKSDB_VERSION);
+            }
+        }
         gcc::Config::new()
         .cpp(true)
         .file("crocksdb/c.cc")

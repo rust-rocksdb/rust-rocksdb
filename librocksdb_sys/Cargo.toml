@@ -18,3 +18,4 @@ sse = []
 
 [build-dependencies]
 gcc = "0.3"
+pkg-config = "0.3.8"
