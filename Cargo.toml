@@ -17,10 +17,6 @@ exclude = [
 default = []
 valgrind = []
 
-[[test]]
-name = "test"
-path = "test/test.rs"
-
 [dependencies]
 libc = "0.2"
 librocksdb-sys = { path = "librocksdb-sys", version = "0.4.1" }
