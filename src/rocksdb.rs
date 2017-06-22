@@ -28,6 +28,8 @@ use self::libc::size_t;
 use rocksdb_ffi::{self, DBCFHandle, error_message};
 use rocksdb_options::{Options, WriteOptions};
 
+use local_encoding::{Encoding, Encoder};
+
 pub struct DB {
     inner: rocksdb_ffi::DBInstance,
     cfs: BTreeMap<String, DBCFHandle>,
@@ -276,7 +278,16 @@ impl DB {
     	if cfs.len() != cf_opts.len() {
 			return Err(format!("Mismatching number of CF options"));
 		}
-        let cpath = match CString::new(path.as_bytes()) {
+        let encoded_path = match Encoding::ANSI.to_bytes(path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when opening \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cpath = match CString::new(encoded_path) {
             Ok(c) => c,
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
@@ -378,7 +389,24 @@ impl DB {
     }
 
     pub fn destroy(opts: &Options, path: &str) -> Result<(), String> {
-        let cpath = CString::new(path.as_bytes()).unwrap();
+        let encoded_path = match Encoding::ANSI.to_bytes(path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when destroying \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cpath = match CString::new(encoded_path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when destroying \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
         let cpath_ptr = cpath.as_ptr();
 
         let mut err: *const i8 = 0 as *const i8;
@@ -395,7 +423,24 @@ impl DB {
     }
 
     pub fn repair(opts: &Options, path: &str) -> Result<(), String> {
-        let cpath = CString::new(path.as_bytes()).unwrap();
+        let encoded_path = match Encoding::ANSI.to_bytes(path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when repairing \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cpath = match CString::new(encoded_path) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when repairing \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
         let cpath_ptr = cpath.as_ptr();
 
         let mut err: *const i8 = 0 as *const i8;
@@ -518,7 +563,16 @@ impl DB {
                      name: &str,
                      opts: &Options)
                      -> Result<Column, String> {
-        let cname = match CString::new(name.as_bytes()) {
+        let encoded_name = match Encoding::ANSI.to_bytes(name) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to encode path to codepage when opening \
+                            rocksdb"
+                               .to_string())
+            }
+        };
+
+        let cname = match CString::new(encoded_name) {
             Ok(c) => c,
             Err(_) => {
                 return Err("Failed to convert path to CString when opening \
@@ -1019,6 +1073,18 @@ fn iterator_test() {
                      from_utf8(&*k).unwrap(),
                      from_utf8(&*v).unwrap());
         }
+    }
+    let opts = Options::new();
+    assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
+fn non_unicode_path_test() {
+    let path = "путь_не_юникод/_rust_rocksdb_unicode_test";
+    {
+        let db = DB::open_default(path).unwrap();
+        assert!(db.put(b"my key", b"my value").is_ok());
+        assert!(db.delete(b"my key").is_ok());
     }
     let opts = Options::new();
     assert!(DB::destroy(&opts, path).is_ok());
