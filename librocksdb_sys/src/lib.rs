@@ -17,7 +17,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate tempdir;
 
-use libc::{c_char, c_uchar, c_int, c_void, size_t, uint64_t, c_double};
+use libc::{c_char, c_uchar, c_int, c_void, size_t, uint8_t, uint64_t, c_double};
 use std::ffi::CStr;
 
 pub enum DBOptions {}
@@ -45,6 +45,9 @@ pub enum DBRateLimiter {}
 pub enum DBLogger {}
 pub enum DBCompactOptions {}
 pub enum DBPinnableSlice {}
+pub enum DBUserCollectedProperties {}
+pub enum DBTablePropertiesCollection {}
+pub enum DBTablePropertiesCollectorFactory {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -52,6 +55,16 @@ pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
 
 pub fn new_cache(capacity: size_t) -> *mut DBCache {
     unsafe { crocksdb_cache_create_lru(capacity) }
+}
+
+#[repr(C)]
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum DBEntryType {
+    DBPut = 0,
+    DBDelete = 1,
+    DBSingleDelete = 2,
+    DBMerge = 3,
+    DBOther = 4,
 }
 
 #[derive(Copy, Clone)]
@@ -806,6 +819,45 @@ extern "C" {
                                         valLen: *mut size_t)
                                         -> *const u8;
     pub fn crocksdb_pinnableslice_destroy(v: *mut DBPinnableSlice);
+
+    pub fn crocksdb_user_collected_properties_add(props: *mut c_void,
+                                                  key: *const uint8_t,
+                                                  key_len: size_t,
+                                                  value: *const uint8_t,
+                                                  value_len: size_t);
+
+    pub fn crocksdb_table_properties_collector_factory_create
+        (context: *mut c_void)
+         -> *mut DBTablePropertiesCollectorFactory;
+
+    pub fn crocksdb_table_properties_collector_factory_destroy(
+        factory: *mut DBTablePropertiesCollectorFactory);
+
+    pub fn crocksdb_options_add_table_properties_collector_factory(
+        options: *mut DBOptions, factory: *mut DBTablePropertiesCollectorFactory);
+
+    pub fn crocksdb_table_properties_collection_create() -> *mut DBTablePropertiesCollection;
+
+    pub fn crocksdb_table_properties_collection_destroy(c: *mut DBTablePropertiesCollection);
+
+    pub fn crocksdb_get_properties_of_all_tables(db: *mut DBInstance,
+                                                 props: *mut DBTablePropertiesCollection,
+                                                 errptr: *mut *mut c_char);
+
+    pub fn crocksdb_get_properties_of_all_tables_cf(db: *mut DBInstance,
+                                                    cf: *mut DBCFHandle,
+                                                    props: *mut DBTablePropertiesCollection,
+                                                    errptr: *mut *mut c_char);
+
+    pub fn crocksdb_get_properties_of_tables_in_range(db: *mut DBInstance,
+                                                      cf: *mut DBCFHandle,
+                                                      num_ranges: c_int,
+                                                      start_keys: *const *const uint8_t,
+                                                      start_keys_lens: *const size_t,
+                                                      limit_keys: *const *const uint8_t,
+                                                      limit_keys_lens: *const size_t,
+                                                      props: *mut DBTablePropertiesCollection,
+                                                      errptr: *mut *mut c_char);
 }
 
 #[cfg(test)]

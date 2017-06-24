@@ -26,6 +26,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::path::Path;
 use std::str::from_utf8;
+use table_properties::{TablePropertiesCollection, TablePropertiesCollectionHandle};
 
 const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
@@ -1036,6 +1037,46 @@ impl DB {
 
     pub fn get_block_cache_usage_cf(&self, cf: &CFHandle) -> u64 {
         self.get_options_cf(cf).get_block_cache_usage()
+    }
+
+    pub fn get_properties_of_all_tables(&self) -> Result<TablePropertiesCollection, String> {
+        unsafe {
+            let props = TablePropertiesCollectionHandle::new();
+            ffi_try!(crocksdb_get_properties_of_all_tables(self.inner, props.inner));
+            props.normalize()
+        }
+    }
+
+    pub fn get_properties_of_all_tables_cf(&self,
+                                           cf: &CFHandle)
+                                           -> Result<TablePropertiesCollection, String> {
+        unsafe {
+            let props = TablePropertiesCollectionHandle::new();
+            ffi_try!(crocksdb_get_properties_of_all_tables_cf(self.inner, cf.inner, props.inner));
+            props.normalize()
+        }
+    }
+
+    pub fn get_properties_of_tables_in_range(&self,
+                                             cf: &CFHandle,
+                                             ranges: &[Range])
+                                             -> Result<TablePropertiesCollection, String> {
+        let start_keys: Vec<*const u8> = ranges.iter().map(|x| x.start_key.as_ptr()).collect();
+        let start_keys_lens: Vec<_> = ranges.iter().map(|x| x.start_key.len()).collect();
+        let limit_keys: Vec<*const u8> = ranges.iter().map(|x| x.end_key.as_ptr()).collect();
+        let limit_keys_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
+        unsafe {
+            let props = TablePropertiesCollectionHandle::new();
+            ffi_try!(crocksdb_get_properties_of_tables_in_range(self.inner,
+                                                                cf.inner,
+                                                                ranges.len() as i32,
+                                                                start_keys.as_ptr(),
+                                                                start_keys_lens.as_ptr(),
+                                                                limit_keys.as_ptr(),
+                                                                limit_keys_lens.as_ptr(),
+                                                                props.inner));
+            props.normalize()
+        }
     }
 }
 
