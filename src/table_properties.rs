@@ -71,8 +71,8 @@ impl CShallowStringsMap {
             let keys = slice::from_raw_parts(self.keys, self.size);
             let values = slice::from_raw_parts(self.values, self.size);
             for i in 0..self.size {
-                let k = ptr_to_string(keys[i])?;
-                let v = ptr_to_string(values[i])?;
+                let k = try!(ptr_to_string(keys[i]));
+                let v = try!(ptr_to_string(values[i]));
                 res.insert(k, v);
             }
         }
@@ -152,15 +152,15 @@ impl TablePropertiesCollectionHandle {
                     format_version: props.format_version,
                     fixed_key_len: props.fixed_key_len,
                     column_family_id: props.column_family_id,
-                    column_family_name: ptr_to_string(props.column_family_name)?,
-                    filter_policy_name: ptr_to_string(props.filter_policy_name)?,
-                    comparator_name: ptr_to_string(props.comparator_name)?,
-                    merge_operator_name: ptr_to_string(props.merge_operator_name)?,
-                    prefix_extractor_name: ptr_to_string(props.prefix_extractor_name)?,
-                    property_collectors_names: ptr_to_string(props.property_collectors_names)?,
-                    compression_name: ptr_to_string(props.compression_name)?,
-                    user_collected_properties: props.user_collected_properties.to_bytes_map()?,
-                    readable_properties: props.readable_properties.to_strings_map()?,
+                    column_family_name: try!(ptr_to_string(props.column_family_name)),
+                    filter_policy_name: try!(ptr_to_string(props.filter_policy_name)),
+                    comparator_name: try!(ptr_to_string(props.comparator_name)),
+                    merge_operator_name: try!(ptr_to_string(props.merge_operator_name)),
+                    prefix_extractor_name: try!(ptr_to_string(props.prefix_extractor_name)),
+                    property_collectors_names: try!(ptr_to_string(props.property_collectors_names)),
+                    compression_name: try!(ptr_to_string(props.compression_name)),
+                    user_collected_properties: try!(props.user_collected_properties.to_bytes_map()),
+                    readable_properties: try!(props.readable_properties.to_strings_map()),
                 };
                 collection.insert(k, v);
             }
