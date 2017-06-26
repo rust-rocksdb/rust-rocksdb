@@ -2935,18 +2935,6 @@ void crocksdb_user_collected_properties_add(crocksdb_user_collected_properties_t
   props->inner->emplace(std::make_pair(std::string(key, key_len), std::string(value, value_len)));
 }
 
-struct crocksdb_table_properties_collector_context_t {
-  void* collector;
-  const char* (*name)(void*);
-  void (*destructor)(void*);
-  void (*add_userkey)(void*,
-                      const char* key, size_t key_len,
-                      const char* value, size_t value_len,
-                      int entry_type, uint64_t seq, uint64_t file_size);
-  void (*finish)(void*, crocksdb_user_collected_properties_t* props);
-  void (*readable_properties)(void*, crocksdb_user_collected_properties_t* props);
-};
-
 struct crocksdb_table_properties_collector_t : public TablePropertiesCollector {
   crocksdb_table_properties_collector_context_t* rep_;
 
@@ -2985,14 +2973,6 @@ struct crocksdb_table_properties_collector_t : public TablePropertiesCollector {
   const char* Name() const override {
     return rep_->name(rep_);
   }
-};
-
-struct crocksdb_table_properties_collector_factory_context_t {
-  void* factory;
-  const char* (*name)(void*);
-  void (*destructor)(void*);
-  crocksdb_table_properties_collector_context_t*
-  (*create_table_properties_collector)(void*, uint32_t cf);
 };
 
 struct crocksdb_table_properties_collector_factory_t : public TablePropertiesCollectorFactory {
