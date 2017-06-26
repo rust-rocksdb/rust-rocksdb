@@ -17,7 +17,7 @@ extern crate libc;
 #[cfg(test)]
 extern crate tempdir;
 
-use libc::{c_char, c_uchar, c_int, c_void, size_t, uint8_t, uint64_t, c_double};
+use libc::{c_char, c_uchar, c_int, c_void, size_t, uint8_t, uint32_t, uint64_t, c_double};
 use std::ffi::CStr;
 
 pub enum DBOptions {}
@@ -181,6 +181,31 @@ pub enum DBInfoLogLevel {
     DBFatal = 4,
     DBHeader = 5,
     DBNumInfoLog = 6,
+}
+
+#[repr(C)]
+pub struct DBTablePropertiesCollectorContext {
+    pub collector: *mut c_void,
+    pub name: extern "C" fn(*mut c_void) -> *const c_char,
+    pub destructor: extern "C" fn(*mut c_void),
+    pub add_userkey: extern "C" fn(*mut c_void,
+                                   *const uint8_t,
+                                   size_t,
+                                   *const uint8_t,
+                                   size_t,
+                                   c_int,
+                                   uint64_t,
+                                   uint64_t),
+    pub finish: extern "C" fn(*mut c_void, *mut c_void),
+    pub readable_properties: extern "C" fn(*mut c_void, *mut c_void),
+}
+
+#[repr(C)]
+pub struct DBTablePropertiesCollectorFactoryContext {
+    pub factory: *mut c_void,
+    pub name: extern "C" fn(*mut c_void) -> *const c_char,
+    pub destructor: extern "C" fn(*mut c_void),
+    pub create_table_properties_collector: extern "C" fn(*mut c_void, uint32_t) -> *mut c_void,
 }
 
 pub fn error_message(ptr: *mut c_char) -> String {
@@ -827,7 +852,7 @@ extern "C" {
                                                   value_len: size_t);
 
     pub fn crocksdb_table_properties_collector_factory_create
-        (context: *mut c_void)
+        (context: *mut DBTablePropertiesCollectorFactoryContext)
          -> *mut DBTablePropertiesCollectorFactory;
 
     pub fn crocksdb_table_properties_collector_factory_destroy(

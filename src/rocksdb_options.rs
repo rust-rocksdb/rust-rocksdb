@@ -384,8 +384,7 @@ impl Options {
     pub fn add_table_properties_collector_factory(&mut self,
                                                   factory: Box<TablePropertiesCollectorFactory>) {
         unsafe {
-            let context = new_table_properties_collector_factory_context(factory);
-            let context = Box::into_raw(context) as *mut c_void;
+            let context = Box::into_raw(new_table_properties_collector_factory_context(factory));
             let f = crocksdb_ffi::crocksdb_table_properties_collector_factory_create(context);
             crocksdb_ffi::crocksdb_options_add_table_properties_collector_factory(self.inner, f);
         }

@@ -55,9 +55,11 @@ impl CShallowStringsMap {
             let keys_lens = slice::from_raw_parts(self.keys_lens, self.size);
             let values = slice::from_raw_parts(self.values, self.size);
             let values_lens = slice::from_raw_parts(self.values_lens, self.size);
-            for i in 0..self.size {
-                let k = slice::from_raw_parts(keys[i] as *const u8, keys_lens[i]);
-                let v = slice::from_raw_parts(values[i] as *const u8, values_lens[i]);
+            for ((k, klen), (v, vlen)) in keys.iter()
+                .zip(keys_lens.iter())
+                .zip(values.iter().zip(values_lens.iter())) {
+                let k = slice::from_raw_parts(*k as *const u8, *klen);
+                let v = slice::from_raw_parts(*v as *const u8, *vlen);
                 res.insert(k.to_owned(), v.to_owned());
             }
         }
