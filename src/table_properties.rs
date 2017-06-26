@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::slice;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct TableProperties {
     pub data_size: u64,
