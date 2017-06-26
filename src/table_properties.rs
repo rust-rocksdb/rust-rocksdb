@@ -1,7 +1,5 @@
-use crocksdb_ffi::{self, DBTablePropertiesCollection};
-use libc::{c_void, c_char, size_t, uint64_t};
+use crocksdb_ffi::{self, DBTablePropertiesCollection, ptr_to_string};
 use std::collections::HashMap;
-use std::ffi::CStr;
 use std::slice;
 
 #[derive(Debug)]
@@ -29,89 +27,6 @@ pub struct TableProperties {
 
 pub type TablePropertiesCollection = HashMap<String, TableProperties>;
 
-fn ptr_to_string(ptr: *const c_char) -> Result<String, String> {
-    unsafe {
-        match CStr::from_ptr(ptr).to_str() {
-            Ok(s) => Ok(s.to_owned()),
-            Err(e) => Err(format!("{}", e)),
-        }
-    }
-}
-
-#[repr(C)]
-struct CShallowStringsMap {
-    size: size_t,
-    keys: *const *const c_char,
-    keys_lens: *const size_t,
-    values: *const *const c_char,
-    values_lens: *const size_t,
-}
-
-impl CShallowStringsMap {
-    fn to_bytes_map(&self) -> Result<HashMap<Vec<u8>, Vec<u8>>, String> {
-        let mut res = HashMap::new();
-        unsafe {
-            let keys = slice::from_raw_parts(self.keys, self.size);
-            let keys_lens = slice::from_raw_parts(self.keys_lens, self.size);
-            let values = slice::from_raw_parts(self.values, self.size);
-            let values_lens = slice::from_raw_parts(self.values_lens, self.size);
-            for ((k, klen), (v, vlen)) in keys.iter()
-                .zip(keys_lens.iter())
-                .zip(values.iter().zip(values_lens.iter())) {
-                let k = slice::from_raw_parts(*k as *const u8, *klen);
-                let v = slice::from_raw_parts(*v as *const u8, *vlen);
-                res.insert(k.to_owned(), v.to_owned());
-            }
-        }
-        Ok(res)
-    }
-
-    fn to_strings_map(&self) -> Result<HashMap<String, String>, String> {
-        let mut res = HashMap::new();
-        unsafe {
-            let keys = slice::from_raw_parts(self.keys, self.size);
-            let values = slice::from_raw_parts(self.values, self.size);
-            for i in 0..self.size {
-                let k = try!(ptr_to_string(keys[i]));
-                let v = try!(ptr_to_string(values[i]));
-                res.insert(k, v);
-            }
-        }
-        Ok(res)
-    }
-}
-
-#[repr(C)]
-struct TablePropertiesContext {
-    data_size: uint64_t,
-    index_size: uint64_t,
-    filter_size: uint64_t,
-    raw_key_size: uint64_t,
-    raw_value_size: uint64_t,
-    num_data_blocks: uint64_t,
-    num_entries: uint64_t,
-    format_version: uint64_t,
-    fixed_key_len: uint64_t,
-    column_family_id: uint64_t,
-    column_family_name: *const c_char,
-    filter_policy_name: *const c_char,
-    comparator_name: *const c_char,
-    merge_operator_name: *const c_char,
-    prefix_extractor_name: *const c_char,
-    property_collectors_names: *const c_char,
-    compression_name: *const c_char,
-    user_collected_properties: CShallowStringsMap,
-    readable_properties: CShallowStringsMap,
-}
-
-#[repr(C)]
-pub struct TablePropertiesCollectionContext {
-    inner: *mut c_void,
-    size: size_t,
-    keys: *const *const c_char,
-    values: *const TablePropertiesContext,
-}
-
 pub struct TablePropertiesCollectionHandle {
     pub inner: *mut DBTablePropertiesCollection,
 }
@@ -136,7 +51,7 @@ impl TablePropertiesCollectionHandle {
     pub fn normalize(&self) -> Result<TablePropertiesCollection, String> {
         let mut collection = TablePropertiesCollection::new();
         unsafe {
-            let ctx = &*(self.inner as *mut TablePropertiesCollectionContext);
+            let ctx = &*(self.inner as *mut DBTablePropertiesCollection);
             let keys = slice::from_raw_parts(ctx.keys, ctx.size);
             let values = slice::from_raw_parts(ctx.values, ctx.size);
             for i in 0..ctx.size {

@@ -18,7 +18,9 @@ extern crate libc;
 extern crate tempdir;
 
 use libc::{c_char, c_uchar, c_int, c_void, size_t, uint8_t, uint32_t, uint64_t, c_double};
+use std::collections::HashMap;
 use std::ffi::CStr;
+use std::slice;
 
 pub enum DBOptions {}
 pub enum DBInstance {}
@@ -46,7 +48,6 @@ pub enum DBLogger {}
 pub enum DBCompactOptions {}
 pub enum DBPinnableSlice {}
 pub enum DBUserCollectedProperties {}
-pub enum DBTablePropertiesCollection {}
 pub enum DBTablePropertiesCollectorFactory {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
@@ -184,6 +185,80 @@ pub enum DBInfoLogLevel {
 }
 
 #[repr(C)]
+pub struct CShallowStringsMap {
+    pub size: size_t,
+    pub keys: *const *const c_char,
+    pub keys_lens: *const size_t,
+    pub values: *const *const c_char,
+    pub values_lens: *const size_t,
+}
+
+impl CShallowStringsMap {
+    pub fn to_bytes_map(&self) -> Result<HashMap<Vec<u8>, Vec<u8>>, String> {
+        let mut res = HashMap::new();
+        unsafe {
+            let keys = slice::from_raw_parts(self.keys, self.size);
+            let keys_lens = slice::from_raw_parts(self.keys_lens, self.size);
+            let values = slice::from_raw_parts(self.values, self.size);
+            let values_lens = slice::from_raw_parts(self.values_lens, self.size);
+            for ((k, klen), (v, vlen)) in keys.iter()
+                .zip(keys_lens.iter())
+                .zip(values.iter().zip(values_lens.iter())) {
+                let k = slice::from_raw_parts(*k as *const u8, *klen);
+                let v = slice::from_raw_parts(*v as *const u8, *vlen);
+                res.insert(k.to_owned(), v.to_owned());
+            }
+        }
+        Ok(res)
+    }
+
+    pub fn to_strings_map(&self) -> Result<HashMap<String, String>, String> {
+        let mut res = HashMap::new();
+        unsafe {
+            let keys = slice::from_raw_parts(self.keys, self.size);
+            let values = slice::from_raw_parts(self.values, self.size);
+            for i in 0..self.size {
+                let k = try!(ptr_to_string(keys[i]));
+                let v = try!(ptr_to_string(values[i]));
+                res.insert(k, v);
+            }
+        }
+        Ok(res)
+    }
+}
+
+#[repr(C)]
+pub struct DBTableProperties {
+    pub data_size: uint64_t,
+    pub index_size: uint64_t,
+    pub filter_size: uint64_t,
+    pub raw_key_size: uint64_t,
+    pub raw_value_size: uint64_t,
+    pub num_data_blocks: uint64_t,
+    pub num_entries: uint64_t,
+    pub format_version: uint64_t,
+    pub fixed_key_len: uint64_t,
+    pub column_family_id: uint64_t,
+    pub column_family_name: *const c_char,
+    pub filter_policy_name: *const c_char,
+    pub comparator_name: *const c_char,
+    pub merge_operator_name: *const c_char,
+    pub prefix_extractor_name: *const c_char,
+    pub property_collectors_names: *const c_char,
+    pub compression_name: *const c_char,
+    pub user_collected_properties: CShallowStringsMap,
+    pub readable_properties: CShallowStringsMap,
+}
+
+#[repr(C)]
+pub struct DBTablePropertiesCollection {
+    pub inner: *mut c_void,
+    pub size: size_t,
+    pub keys: *const *const c_char,
+    pub values: *const DBTableProperties,
+}
+
+#[repr(C)]
 pub struct DBTablePropertiesCollectorContext {
     pub collector: *mut c_void,
     pub name: extern "C" fn(*mut c_void) -> *const c_char,
@@ -206,6 +281,15 @@ pub struct DBTablePropertiesCollectorFactoryContext {
     pub name: extern "C" fn(*mut c_void) -> *const c_char,
     pub destructor: extern "C" fn(*mut c_void),
     pub create_table_properties_collector: extern "C" fn(*mut c_void, uint32_t) -> *mut c_void,
+}
+
+pub fn ptr_to_string(ptr: *const c_char) -> Result<String, String> {
+    unsafe {
+        match CStr::from_ptr(ptr).to_str() {
+            Ok(s) => Ok(s.to_owned()),
+            Err(e) => Err(format!("{}", e)),
+        }
+    }
 }
 
 pub fn error_message(ptr: *mut c_char) -> String {
