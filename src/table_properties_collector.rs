@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crocksdb_ffi::{self, DBEntryType, DBTablePropertiesCollectorContext};
+use crocksdb_ffi::{self, DBEntryType, DBUserCollectedProperties, DBTablePropertiesCollector};
 use libc::{c_void, c_char, c_int, uint8_t, uint64_t, size_t};
 use std::collections::HashMap;
 use std::mem;
@@ -33,28 +33,23 @@ pub trait TablePropertiesCollector {
     /// Will be called when a table has already been built and is ready for
     /// writing the properties block.
     fn finish(&mut self) -> HashMap<Vec<u8>, Vec<u8>>;
-
-    /// Return the human-readable properties, where the key is property name and
-    /// the value is the human-readable form of value.
-    fn readable_properties(&self) -> HashMap<String, String>;
 }
 
-extern "C" fn name(context: *mut c_void) -> *const c_char {
+extern "C" fn name(collector: *mut c_void) -> *const c_char {
     unsafe {
-        let context = &mut *(context as *mut DBTablePropertiesCollectorContext);
-        let collector = &mut *(context.collector as *mut Box<TablePropertiesCollector>);
+        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
         collector.name().as_ptr() as *const c_char
     }
 }
 
-extern "C" fn destructor(context: *mut c_void) {
+extern "C" fn destruct(collector: *mut c_void) {
     unsafe {
-        let context = Box::from_raw(context as *mut DBTablePropertiesCollectorContext);
-        Box::from_raw(context.collector as *mut Box<TablePropertiesCollector>);
+        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
+        Box::from_raw(collector);
     }
 }
 
-pub extern "C" fn add_userkey(context: *mut c_void,
+pub extern "C" fn add_userkey(collector: *mut c_void,
                               key: *const uint8_t,
                               key_len: size_t,
                               value: *const uint8_t,
@@ -63,18 +58,16 @@ pub extern "C" fn add_userkey(context: *mut c_void,
                               _: uint64_t,
                               _: uint64_t) {
     unsafe {
-        let context = &mut *(context as *mut DBTablePropertiesCollectorContext);
-        let collector = &mut *(context.collector as *mut Box<TablePropertiesCollector>);
+        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
         let key = slice::from_raw_parts(key, key_len);
         let value = slice::from_raw_parts(value, value_len);
-        collector.add_userkey(key, value, mem::transmute(entry_type))
+        collector.add_userkey(key, value, mem::transmute(entry_type));
     }
 }
 
-pub extern "C" fn finish(context: *mut c_void, props: *mut c_void) {
+pub extern "C" fn finish(collector: *mut c_void, props: *mut DBUserCollectedProperties) {
     unsafe {
-        let context = &mut *(context as *mut DBTablePropertiesCollectorContext);
-        let collector = &mut *(context.collector as *mut Box<TablePropertiesCollector>);
+        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
         for (key, value) in collector.finish() {
             crocksdb_ffi::crocksdb_user_collected_properties_add(props,
                                                                  key.as_ptr(),
@@ -85,28 +78,13 @@ pub extern "C" fn finish(context: *mut c_void, props: *mut c_void) {
     }
 }
 
-pub extern "C" fn readable_properties(context: *mut c_void, props: *mut c_void) {
-    unsafe {
-        let context = &mut *(context as *mut DBTablePropertiesCollectorContext);
-        let collector = &mut *(context.collector as *mut Box<TablePropertiesCollector>);
-        for (key, value) in collector.readable_properties() {
-            crocksdb_ffi::crocksdb_user_collected_properties_add(props,
-                                                                 key.as_ptr(),
-                                                                 key.len(),
-                                                                 value.as_ptr(),
-                                                                 value.len());
-        }
-    }
-}
-
-pub unsafe fn new_table_properties_collector_context(collector: Box<TablePropertiesCollector>)
-                                                     -> Box<DBTablePropertiesCollectorContext> {
-    Box::new(DBTablePropertiesCollectorContext {
-        collector: Box::into_raw(Box::new(collector)) as *mut c_void,
-        name: name,
-        destructor: destructor,
-        add_userkey: add_userkey,
-        finish: finish,
-        readable_properties: readable_properties,
-    })
+pub unsafe fn new_table_properties_collector(collector: Box<TablePropertiesCollector>)
+                                             -> *mut DBTablePropertiesCollector {
+    crocksdb_ffi::crocksdb_table_properties_collector_create(
+        Box::into_raw(Box::new(collector)) as *mut c_void,
+        name,
+        destruct,
+        add_userkey,
+        finish,
+    )
 }

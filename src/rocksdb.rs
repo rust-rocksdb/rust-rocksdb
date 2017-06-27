@@ -34,6 +34,12 @@ pub struct CFHandle {
     inner: *mut DBCFHandle,
 }
 
+impl CFHandle {
+    fn get_id(&self) -> u32 {
+        unsafe { crocksdb_ffi::crocksdb_column_family_handle_get_id(self.inner) }
+    }
+}
+
 impl Drop for CFHandle {
     fn drop(&mut self) {
         unsafe {

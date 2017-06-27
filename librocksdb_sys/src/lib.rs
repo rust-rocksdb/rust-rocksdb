@@ -18,9 +18,7 @@ extern crate libc;
 extern crate tempdir;
 
 use libc::{c_char, c_uchar, c_int, c_void, size_t, uint8_t, uint32_t, uint64_t, c_double};
-use std::collections::HashMap;
 use std::ffi::CStr;
-use std::slice;
 
 pub enum DBOptions {}
 pub enum DBInstance {}
@@ -48,6 +46,11 @@ pub enum DBLogger {}
 pub enum DBCompactOptions {}
 pub enum DBPinnableSlice {}
 pub enum DBUserCollectedProperties {}
+pub enum DBUserCollectedPropertiesIterator {}
+pub enum DBTableProperties {}
+pub enum DBTablePropertiesCollection {}
+pub enum DBTablePropertiesCollectionIterator {}
+pub enum DBTablePropertiesCollector {}
 pub enum DBTablePropertiesCollectorFactory {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
@@ -61,11 +64,11 @@ pub fn new_cache(capacity: size_t) -> *mut DBCache {
 #[repr(C)]
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum DBEntryType {
-    DBPut = 0,
-    DBDelete = 1,
-    DBSingleDelete = 2,
-    DBMerge = 3,
-    DBOther = 4,
+    Put = 0,
+    Delete = 1,
+    SingleDelete = 2,
+    Merge = 3,
+    Other = 4,
 }
 
 #[derive(Copy, Clone)]
@@ -184,112 +187,26 @@ pub enum DBInfoLogLevel {
     DBNumInfoLog = 6,
 }
 
+#[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CShallowStringsMap {
-    pub size: size_t,
-    pub keys: *const *const c_char,
-    pub keys_lens: *const size_t,
-    pub values: *const *const c_char,
-    pub values_lens: *const size_t,
-}
-
-impl CShallowStringsMap {
-    pub fn to_bytes_map(&self) -> Result<HashMap<Vec<u8>, Vec<u8>>, String> {
-        let mut res = HashMap::new();
-        unsafe {
-            let keys = slice::from_raw_parts(self.keys, self.size);
-            let keys_lens = slice::from_raw_parts(self.keys_lens, self.size);
-            let values = slice::from_raw_parts(self.values, self.size);
-            let values_lens = slice::from_raw_parts(self.values_lens, self.size);
-            for ((k, klen), (v, vlen)) in keys.iter()
-                .zip(keys_lens.iter())
-                .zip(values.iter().zip(values_lens.iter())) {
-                let k = slice::from_raw_parts(*k as *const u8, *klen);
-                let v = slice::from_raw_parts(*v as *const u8, *vlen);
-                res.insert(k.to_owned(), v.to_owned());
-            }
-        }
-        Ok(res)
-    }
-
-    pub fn to_strings_map(&self) -> Result<HashMap<String, String>, String> {
-        let mut res = HashMap::new();
-        unsafe {
-            let keys = slice::from_raw_parts(self.keys, self.size);
-            let values = slice::from_raw_parts(self.values, self.size);
-            for i in 0..self.size {
-                let k = try!(ptr_to_string(keys[i]));
-                let v = try!(ptr_to_string(values[i]));
-                res.insert(k, v);
-            }
-        }
-        Ok(res)
-    }
-}
-
-#[repr(C)]
-pub struct DBTableProperties {
-    pub data_size: uint64_t,
-    pub index_size: uint64_t,
-    pub filter_size: uint64_t,
-    pub raw_key_size: uint64_t,
-    pub raw_value_size: uint64_t,
-    pub num_data_blocks: uint64_t,
-    pub num_entries: uint64_t,
-    pub format_version: uint64_t,
-    pub fixed_key_len: uint64_t,
-    pub column_family_id: uint64_t,
-    pub column_family_name: *const c_char,
-    pub filter_policy_name: *const c_char,
-    pub comparator_name: *const c_char,
-    pub merge_operator_name: *const c_char,
-    pub prefix_extractor_name: *const c_char,
-    pub property_collectors_names: *const c_char,
-    pub compression_name: *const c_char,
-    pub user_collected_properties: CShallowStringsMap,
-    pub readable_properties: CShallowStringsMap,
-}
-
-#[repr(C)]
-pub struct DBTablePropertiesCollection {
-    pub inner: *mut c_void,
-    pub size: size_t,
-    pub keys: *const *const c_char,
-    pub values: *const DBTableProperties,
-}
-
-#[repr(C)]
-pub struct DBTablePropertiesCollectorContext {
-    pub collector: *mut c_void,
-    pub name: extern "C" fn(*mut c_void) -> *const c_char,
-    pub destructor: extern "C" fn(*mut c_void),
-    pub add_userkey: extern "C" fn(*mut c_void,
-                                   *const uint8_t,
-                                   size_t,
-                                   *const uint8_t,
-                                   size_t,
-                                   c_int,
-                                   uint64_t,
-                                   uint64_t),
-    pub finish: extern "C" fn(*mut c_void, *mut c_void),
-    pub readable_properties: extern "C" fn(*mut c_void, *mut c_void),
-}
-
-#[repr(C)]
-pub struct DBTablePropertiesCollectorFactoryContext {
-    pub factory: *mut c_void,
-    pub name: extern "C" fn(*mut c_void) -> *const c_char,
-    pub destructor: extern "C" fn(*mut c_void),
-    pub create_table_properties_collector: extern "C" fn(*mut c_void, uint32_t) -> *mut c_void,
-}
-
-pub fn ptr_to_string(ptr: *const c_char) -> Result<String, String> {
-    unsafe {
-        match CStr::from_ptr(ptr).to_str() {
-            Ok(s) => Ok(s.to_owned()),
-            Err(e) => Err(format!("{}", e)),
-        }
-    }
+pub enum DBTableProperty {
+    DataSize = 1,
+    IndexSize,
+    FilterSize,
+    RawKeySize,
+    RawValueSize,
+    NumDataBlocks,
+    NumEntries,
+    FormatVersion,
+    FixedKeyLen,
+    ColumnFamilyId,
+    ColumnFamilyName = 11,
+    FilterPolicyName,
+    ComparatorName,
+    MergeOperatorName,
+    PrefixExtractorName,
+    PropertyCollectorsNames,
+    CompressionName,
 }
 
 pub fn error_message(ptr: *mut c_char) -> String {
@@ -719,6 +636,7 @@ extern "C" {
     pub fn crocksdb_drop_column_family(db: *mut DBInstance,
                                        column_family_handle: *mut DBCFHandle,
                                        err: *mut *mut c_char);
+    pub fn crocksdb_column_family_handle_get_id(column_family_handle: *mut DBCFHandle) -> u32;
     pub fn crocksdb_column_family_handle_destroy(column_family_handle: *mut DBCFHandle);
     pub fn crocksdb_list_column_families(db: *const DBOptions,
                                          path: *const c_char,
@@ -929,25 +847,99 @@ extern "C" {
                                         -> *const u8;
     pub fn crocksdb_pinnableslice_destroy(v: *mut DBPinnableSlice);
 
-    pub fn crocksdb_user_collected_properties_add(props: *mut c_void,
+    pub fn crocksdb_user_collected_properties_add(props: *mut DBUserCollectedProperties,
                                                   key: *const uint8_t,
                                                   key_len: size_t,
                                                   value: *const uint8_t,
                                                   value_len: size_t);
 
-    pub fn crocksdb_table_properties_collector_factory_create
-        (context: *mut DBTablePropertiesCollectorFactoryContext)
-         -> *mut DBTablePropertiesCollectorFactory;
+    pub fn crocksdb_user_collected_properties_iter_create
+        (props: *mut DBUserCollectedProperties)
+         -> *mut DBUserCollectedPropertiesIterator;
 
-    pub fn crocksdb_table_properties_collector_factory_destroy(
-        factory: *mut DBTablePropertiesCollectorFactory);
+    pub fn crocksdb_user_collected_properties_iter_destroy
+        (it: *mut DBUserCollectedPropertiesIterator);
 
-    pub fn crocksdb_options_add_table_properties_collector_factory(
-        options: *mut DBOptions, factory: *mut DBTablePropertiesCollectorFactory);
+    pub fn crocksdb_user_collected_properties_iter_valid
+        (it: *mut DBUserCollectedPropertiesIterator) -> bool;
+
+    pub fn crocksdb_user_collected_properties_iter_next
+        (it: *mut DBUserCollectedPropertiesIterator);
+
+    pub fn crocksdb_user_collected_properties_iter_key(it: *mut DBUserCollectedPropertiesIterator,
+                                                       klen: *mut size_t)
+                                                       -> *const uint8_t;
+
+    pub fn crocksdb_user_collected_properties_iter_value
+        (it: *mut DBUserCollectedPropertiesIterator, vlen: *mut size_t) -> *const uint8_t;
+
+    pub fn crocksdb_table_properties_get_u64(props: *mut DBTableProperties,
+                                             prop: DBTableProperty)
+                                             -> uint64_t;
+
+    pub fn crocksdb_table_properties_get_str(props: *mut DBTableProperties,
+                                             prop: DBTableProperty,
+                                             slen: *mut size_t)
+                                             -> *const uint8_t;
+
+    pub fn crocksdb_table_properties_get_user_properties(props: *mut DBTableProperties)
+                                                         -> *mut DBUserCollectedProperties;
 
     pub fn crocksdb_table_properties_collection_create() -> *mut DBTablePropertiesCollection;
 
-    pub fn crocksdb_table_properties_collection_destroy(c: *mut DBTablePropertiesCollection);
+    pub fn crocksdb_table_properties_collection_destroy(props: *mut DBTablePropertiesCollection);
+
+    pub fn crocksdb_table_properties_collection_iter_create
+        (props: *mut DBTablePropertiesCollection)
+         -> *mut DBTablePropertiesCollectionIterator;
+
+    pub fn crocksdb_table_properties_collection_iter_destroy
+        (it: *mut DBTablePropertiesCollectionIterator);
+
+    pub fn crocksdb_table_properties_collection_iter_valid
+        (it: *mut DBTablePropertiesCollectionIterator) -> bool;
+
+    pub fn crocksdb_table_properties_collection_iter_next
+        (it: *mut DBTablePropertiesCollectionIterator);
+
+    pub fn crocksdb_table_properties_collection_iter_key(it: *mut DBTablePropertiesCollectionIterator,
+                                                       klen: *mut size_t)
+                                                       -> *const uint8_t;
+
+    pub fn crocksdb_table_properties_collection_iter_value
+        (it: *mut DBTablePropertiesCollectionIterator) -> *mut DBTableProperties;
+
+    pub fn crocksdb_table_properties_collector_create(state: *mut c_void,
+                                                      name: extern "C" fn(*mut c_void)
+                                                                          -> *const c_char,
+                                                      destruct: extern "C" fn(*mut c_void),
+                                                      add_userkey: extern "C" fn(*mut c_void,
+                                                                                 *const uint8_t,
+                                                                                 size_t,
+                                                                                 *const uint8_t,
+                                                                                 size_t,
+                                                                                 c_int,
+                                                                                 uint64_t,
+                                                                                 uint64_t),
+                                                      finish: extern "C" fn(*mut c_void,
+                                                                            *mut DBUserCollectedProperties))
+                                                      -> *mut DBTablePropertiesCollector;
+
+    pub fn crocksdb_table_properties_collector_destroy(c: *mut DBTablePropertiesCollector);
+
+    pub fn crocksdb_table_properties_collector_factory_create
+        (state: *mut c_void,
+         name: extern "C" fn(*mut c_void) -> *const c_char,
+         destruct: extern "C" fn(*mut c_void),
+         create_table_properties_collector: extern "C" fn(*mut c_void, uint32_t)
+                                                          -> *mut DBTablePropertiesCollector)
+         -> *mut DBTablePropertiesCollectorFactory;
+
+    pub fn crocksdb_table_properties_collector_factory_destroy(
+        f: *mut DBTablePropertiesCollectorFactory);
+
+    pub fn crocksdb_options_add_table_properties_collector_factory(
+        options: *mut DBOptions, f: *mut DBTablePropertiesCollectorFactory);
 
     pub fn crocksdb_get_properties_of_all_tables(db: *mut DBInstance,
                                                  props: *mut DBTablePropertiesCollection,
@@ -967,6 +959,7 @@ extern "C" {
                                                       limit_keys_lens: *const size_t,
                                                       props: *mut DBTablePropertiesCollection,
                                                       errptr: *mut *mut c_char);
+
 }
 
 #[cfg(test)]

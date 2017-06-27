@@ -106,25 +106,16 @@ impl TablePropertiesCollector for ExampleCollector {
             self.last_key.extend_from_slice(key);
         }
         match entry_type {
-            DBEntryType::DBPut => self.num_puts += 1,
-            DBEntryType::DBMerge => self.num_merges += 1,
-            DBEntryType::DBDelete |
-            DBEntryType::DBSingleDelete => self.num_deletes += 1,
-            DBEntryType::DBOther => {}
+            DBEntryType::Put => self.num_puts += 1,
+            DBEntryType::Merge => self.num_merges += 1,
+            DBEntryType::Delete |
+            DBEntryType::SingleDelete => self.num_deletes += 1,
+            DBEntryType::Other => {}
         }
     }
 
     fn finish(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
         self.encode()
-    }
-
-    fn readable_properties(&self) -> HashMap<String, String> {
-        let mut props = HashMap::new();
-        props.insert("num_keys".to_owned(), self.num_keys.to_string());
-        props.insert("num_puts".to_owned(), self.num_puts.to_string());
-        props.insert("num_merges".to_owned(), self.num_merges.to_string());
-        props.insert("num_deletes".to_owned(), self.num_deletes.to_string());
-        props
     }
 }
 

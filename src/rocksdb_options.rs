@@ -27,7 +27,7 @@ use slice_transform::{SliceTransform, new_slice_transform};
 use std::ffi::{CStr, CString};
 use std::mem;
 use table_properties_collector_factory::{TablePropertiesCollectorFactory,
-                                         new_table_properties_collector_factory_context};
+                                         new_table_properties_collector_factory};
 
 #[derive(Default, Debug)]
 pub struct HistogramData {
@@ -384,8 +384,7 @@ impl Options {
     pub fn add_table_properties_collector_factory(&mut self,
                                                   factory: Box<TablePropertiesCollectorFactory>) {
         unsafe {
-            let context = Box::into_raw(new_table_properties_collector_factory_context(factory));
-            let f = crocksdb_ffi::crocksdb_table_properties_collector_factory_create(context);
+            let f = new_table_properties_collector_factory(factory);
             crocksdb_ffi::crocksdb_options_add_table_properties_collector_factory(self.inner, f);
         }
     }
