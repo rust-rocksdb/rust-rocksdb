@@ -73,9 +73,8 @@ impl BlockBasedOptions {
     pub fn set_lru_cache(&mut self, size: size_t) {
         let cache = crocksdb_ffi::new_cache(size);
         unsafe {
-            // because cache is wrapped in shared_ptr, so we don't need to call
-            // rocksdb_cache_destroy explicitly.
             crocksdb_ffi::crocksdb_block_based_options_set_block_cache(self.inner, cache);
+            crocksdb_ffi::crocksdb_cache_destroy(cache);
         }
     }
 
