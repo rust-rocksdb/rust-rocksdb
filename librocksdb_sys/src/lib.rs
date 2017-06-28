@@ -902,9 +902,8 @@ extern "C" {
     pub fn crocksdb_table_properties_collection_iter_next
         (it: *mut DBTablePropertiesCollectionIterator);
 
-    pub fn crocksdb_table_properties_collection_iter_key(it: *mut DBTablePropertiesCollectionIterator,
-                                                       klen: *mut size_t)
-                                                       -> *const uint8_t;
+    pub fn crocksdb_table_properties_collection_iter_key(
+        it: *mut DBTablePropertiesCollectionIterator, klen: *mut size_t) -> *const uint8_t;
 
     pub fn crocksdb_table_properties_collection_iter_value
         (it: *mut DBTablePropertiesCollectionIterator) -> *mut DBTableProperties;
@@ -921,8 +920,9 @@ extern "C" {
                                                                                  c_int,
                                                                                  uint64_t,
                                                                                  uint64_t),
-                                                      finish: extern "C" fn(*mut c_void,
-                                                                            *mut DBUserCollectedProperties))
+                                                      finish: extern "C" fn(
+                                                          *mut c_void,
+                                                          *mut DBUserCollectedProperties))
                                                       -> *mut DBTablePropertiesCollector;
 
     pub fn crocksdb_table_properties_collector_destroy(c: *mut DBTablePropertiesCollector);

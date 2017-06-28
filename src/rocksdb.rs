@@ -35,7 +35,7 @@ pub struct CFHandle {
 }
 
 impl CFHandle {
-    fn get_id(&self) -> u32 {
+    pub fn get_id(&self) -> u32 {
         unsafe { crocksdb_ffi::crocksdb_column_family_handle_get_id(self.inner) }
     }
 }

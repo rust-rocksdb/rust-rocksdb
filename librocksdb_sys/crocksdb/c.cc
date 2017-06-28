@@ -2935,8 +2935,8 @@ struct crocksdb_user_collected_properties_t {
 };
 
 struct crocksdb_user_collected_properties_iterator_t {
-  const UserCollectedProperties* rep_ = nullptr;
-  UserCollectedProperties::const_iterator iter_;
+  UserCollectedProperties* rep_ = nullptr;
+  UserCollectedProperties::iterator iter_;
 };
 
 void crocksdb_user_collected_properties_add(crocksdb_user_collected_properties_t* props,
@@ -3038,8 +3038,7 @@ const char* crocksdb_table_properties_get_str(crocksdb_table_properties_t* props
 
 crocksdb_user_collected_properties_t*
 crocksdb_table_properties_get_user_properties(crocksdb_table_properties_t* props) {
-  props->user_props_.rep_ =
-    const_cast<UserCollectedProperties*>(&props->rep_->user_collected_properties);
+  props->user_props_.rep_ = &props->rep_->user_collected_properties;
   return &props->user_props_;
 }
 
@@ -3058,8 +3057,8 @@ struct crocksdb_table_properties_collection_t {
 };
 
 struct crocksdb_table_properties_collection_iterator_t {
-  const TablePropertiesCollection* rep_ = nullptr;
-  TablePropertiesCollection::const_iterator iter_;
+  TablePropertiesCollection* rep_ = nullptr;
+  TablePropertiesCollection::iterator iter_;
   crocksdb_table_properties_t props_;
 };
 
@@ -3147,8 +3146,7 @@ struct crocksdb_table_properties_collector_t : public TablePropertiesCollector {
 
   virtual UserCollectedProperties GetReadableProperties() const override {
     // Seems rocksdb will not return the readable properties and we don't need them too.
-    UserCollectedProperties props;
-    return props;
+    return UserCollectedProperties();
   }
 
   const char* Name() const override {
@@ -3258,7 +3256,10 @@ void crocksdb_get_properties_of_tables_in_range(
     ranges.emplace_back(Range(Slice(start_keys[i], start_keys_lens[i]),
                               Slice(limit_keys[i], limit_keys_lens[i])));
   }
-  auto s = db->rep->GetPropertiesOfTablesInRange(cf->rep, &ranges[0], ranges.size(), props->rep_);
+  auto s = db->rep->GetPropertiesOfTablesInRange(cf->rep,
+                                                 ranges.data(),
+                                                 ranges.size(),
+                                                 props->rep_);
   if (!s.ok()) {
     SaveError(errptr, s);
   }

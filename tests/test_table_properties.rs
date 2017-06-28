@@ -157,9 +157,10 @@ fn check_collection(collection: &TablePropertiesCollection,
 
 #[test]
 fn test_table_properties_collector_factory() {
+    let f = ExampleFactory::new();
     let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.add_table_properties_collector_factory(Box::new(ExampleFactory::new()));
+    opts.add_table_properties_collector_factory(Box::new(f));
 
     let path = TempDir::new("_rust_rocksdb_collectortest").expect("");
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();

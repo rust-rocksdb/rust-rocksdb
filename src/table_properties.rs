@@ -169,9 +169,8 @@ impl TablePropertiesCollectionIter {
     fn key(&self) -> Result<String, String> {
         unsafe {
             let mut klen: size_t = 0;
-            let k =
-                crocksdb_ffi::crocksdb_table_properties_collection_iter_key(self.inner,
-                                                                            &mut klen as *mut size_t);
+            let k = crocksdb_ffi::crocksdb_table_properties_collection_iter_key(
+                self.inner, &mut klen as *mut size_t);
             let bytes = slice::from_raw_parts(k, klen);
             String::from_utf8(bytes.to_owned()).or_else(|e| Err(format!("{}", e)))
         }
@@ -226,9 +225,8 @@ impl UserCollectedPropertiesIter {
     fn value(&self) -> &[u8] {
         unsafe {
             let mut vlen: size_t = 0;
-            let v =
-                crocksdb_ffi::crocksdb_user_collected_properties_iter_value(self.inner,
-                                                                            &mut vlen as *mut size_t);
+            let v = crocksdb_ffi::crocksdb_user_collected_properties_iter_value(
+                self.inner, &mut vlen as *mut size_t);
             slice::from_raw_parts(v, vlen)
         }
     }
