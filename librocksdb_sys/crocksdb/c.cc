@@ -2965,7 +2965,7 @@ unsigned char crocksdb_user_collected_properties_iter_valid(
 
 void crocksdb_user_collected_properties_iter_next(
   crocksdb_user_collected_properties_iterator_t* it) {
-  (it->iter_)++;
+  ++(it->iter_);
 }
 
 const char* crocksdb_user_collected_properties_iter_key(
@@ -3092,7 +3092,7 @@ unsigned char crocksdb_table_properties_collection_iter_valid(
 
 void crocksdb_table_properties_collection_iter_next(
   crocksdb_table_properties_collection_iterator_t* it) {
-  (it->iter_)++;
+  ++(it->iter_);
 }
 
 const char* crocksdb_table_properties_collection_iter_key(
