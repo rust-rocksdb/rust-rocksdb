@@ -2993,16 +2993,16 @@ uint64_t crocksdb_table_properties_get_u64(crocksdb_table_properties_t* props,
                                            crocksdb_table_property_t prop) {
   auto rep = props->rep_;
   switch (prop) {
-  case DATA_SIZE: return rep->data_size;
-  case INDEX_SIZE: return rep->index_size;
-  case FILTER_SIZE: return rep->filter_size;
-  case RAW_KEY_SIZE: return rep->raw_key_size;
-  case RAW_VALUE_SIZE: return rep->raw_value_size;
-  case NUM_DATA_BLOCKS: return rep->num_data_blocks;
-  case NUM_ENTRIES: return rep->num_entries;
-  case FORMAT_VERSION: return rep->format_version;
-  case FIXED_KEY_LEN: return rep->data_size;
-  case COLUMN_FAMILY_ID: return rep->column_family_id;
+  case kDataSize: return rep->data_size;
+  case kIndexSize: return rep->index_size;
+  case kFilterSize: return rep->filter_size;
+  case kRawKeySize: return rep->raw_key_size;
+  case kRawValueSize: return rep->raw_value_size;
+  case kNumDataBlocks: return rep->num_data_blocks;
+  case kNumEntries: return rep->num_entries;
+  case kFormatVersion: return rep->format_version;
+  case kFixedKeyLen: return rep->data_size;
+  case kColumnFamilyID: return rep->column_family_id;
   }
   return 0;
 }
@@ -3011,29 +3011,30 @@ const char* crocksdb_table_properties_get_str(crocksdb_table_properties_t* props
                                               crocksdb_table_property_t prop, size_t* slen) {
   auto rep = props->rep_;
   switch (prop) {
-  case COLUMN_FAMILY_NAME:
+  case kColumnFamilyName:
     if (slen) *slen = rep->column_family_name.size();
     return rep->column_family_name.data();
-  case FILTER_POLICY_NAME:
+  case kFilterPolicyName:
     if (slen) *slen = rep->filter_policy_name.size();
     return rep->filter_policy_name.data();
-  case COMPARATOR_NAME:
+  case kComparatorName:
     if (slen) *slen = rep->comparator_name.size();
     return rep->comparator_name.data();
-  case MERGE_OPERATOR_NAME:
+  case kMergeOperatorName:
     if (slen) *slen = rep->merge_operator_name.size();
     return rep->merge_operator_name.data();
-  case PREFIX_EXTRACTOR_NAME:
+  case kPrefixExtractorName:
     if (slen) *slen = rep->prefix_extractor_name.size();
     return rep->prefix_extractor_name.data();
-  case PROPERTY_COLLECTORS_NAMES:
+  case kPropertyCollectorsNames:
     if (slen) *slen = rep->property_collectors_names.size();
     return rep->property_collectors_names.data();
-  case COMPRESSION_NAME:
+  case kCompressionName:
     if (slen) *slen = rep->compression_name.size();
     return rep->compression_name.data();
   }
-  return "";
+  if (slen) *slen = 0;
+  return nullptr;
 }
 
 crocksdb_user_collected_properties_t*
