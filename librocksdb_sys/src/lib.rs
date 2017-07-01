@@ -187,7 +187,7 @@ pub enum DBInfoLogLevel {
     DBNumInfoLog = 6,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub enum DBTableProperty {
     DataSize = 1,

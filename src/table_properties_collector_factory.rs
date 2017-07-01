@@ -13,13 +13,14 @@
 
 use crocksdb_ffi::{self, DBTablePropertiesCollector, DBTablePropertiesCollectorFactory};
 use libc::{c_void, c_char, uint32_t};
+use std::ffi::CString;
 use table_properties_collector::{TablePropertiesCollector, new_table_properties_collector};
 
 /// Constructs `TablePropertiesCollector`.
 /// Internals create a new `TablePropertiesCollector` for each new table.
 pub trait TablePropertiesCollectorFactory {
     /// The name of the properties collector factory.
-    fn name(&self) -> &str;
+    fn name(&self) -> &CString;
     /// Has to be thread-safe.
     fn create_table_properties_collector(&mut self, cf: u32) -> Box<TablePropertiesCollector>;
 }
@@ -27,7 +28,7 @@ pub trait TablePropertiesCollectorFactory {
 extern "C" fn name(factory: *mut c_void) -> *const c_char {
     unsafe {
         let factory = &mut *(factory as *mut Box<TablePropertiesCollectorFactory>);
-        factory.name().as_ptr() as *const c_char
+        factory.name().as_ptr()
     }
 }
 
