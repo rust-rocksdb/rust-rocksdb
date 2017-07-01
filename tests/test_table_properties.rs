@@ -16,6 +16,7 @@ use rocksdb::{DB, Range, Options, Writable, DBEntryType, TablePropertiesCollecti
               TablePropertiesCollector, TablePropertiesCollectorFactory};
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::fmt;
 use std::io::Cursor;
 use tempdir::TempDir;
@@ -39,6 +40,7 @@ fn decode_u32(x: &[u8]) -> u32 {
 }
 
 struct ExampleCollector {
+    name: CString,
     num_keys: u32,
     num_puts: u32,
     num_merges: u32,
@@ -49,6 +51,7 @@ struct ExampleCollector {
 impl ExampleCollector {
     fn new() -> ExampleCollector {
         ExampleCollector {
+            name: CString::new("example-collector").unwrap(),
             num_keys: 0,
             num_puts: 0,
             num_merges: 0,
@@ -95,11 +98,11 @@ impl fmt::Display for ExampleCollector {
 }
 
 impl TablePropertiesCollector for ExampleCollector {
-    fn name(&self) -> &str {
-        "example-collector"
+    fn name(&self) -> &CString {
+        &self.name
     }
 
-    fn add_userkey(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType) {
+    fn add_userkey(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType, _: u64, _: u64) {
         if key.cmp(&self.last_key) != Ordering::Equal {
             self.num_keys += 1;
             self.last_key.clear();
@@ -119,17 +122,19 @@ impl TablePropertiesCollector for ExampleCollector {
     }
 }
 
-struct ExampleFactory {}
+struct ExampleFactory {
+    name: CString,
+}
 
 impl ExampleFactory {
     fn new() -> ExampleFactory {
-        ExampleFactory {}
+        ExampleFactory { name: CString::new("example-factory").unwrap() }
     }
 }
 
 impl TablePropertiesCollectorFactory for ExampleFactory {
-    fn name(&self) -> &str {
-        "example-factory"
+    fn name(&self) -> &CString {
+        &self.name
     }
 
     fn create_table_properties_collector(&mut self, _: u32) -> Box<TablePropertiesCollector> {
@@ -143,12 +148,19 @@ fn check_collection(collection: &TablePropertiesCollection,
                     num_puts: u32,
                     num_merges: u32,
                     num_deletes: u32) {
+    let mut len = 0;
     let mut res = ExampleCollector::new();
-    for (_, props) in collection {
-        assert_eq!(props.property_collectors_names, "[example-factory]");
-        res.add(&ExampleCollector::decode(&props.user_collected_properties));
+    let mut iter = collection.iter();
+    while iter.valid() {
+        len += 1;
+        {
+            let v = iter.value();
+            assert_eq!(v.property_collectors_names(), "[example-factory]");
+            res.add(&ExampleCollector::decode(&v.user_collected_properties()));
+        }
+        iter.next();
     }
-    assert_eq!(collection.len() as u32, num_files);
+    assert_eq!(len, num_files);
     assert_eq!(res.num_keys, num_keys);
     assert_eq!(res.num_puts, num_puts);
     assert_eq!(res.num_merges, num_merges);

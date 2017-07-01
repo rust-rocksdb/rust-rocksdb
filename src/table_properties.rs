@@ -16,58 +16,20 @@ use crocksdb_ffi::{self, DBTableProperties, DBTableProperty, DBUserCollectedProp
                    DBTablePropertiesCollectionIterator};
 use libc::size_t;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::slice;
 
-#[derive(Debug)]
-pub struct TableProperties {
-    pub data_size: u64,
-    pub index_size: u64,
-    pub filter_size: u64,
-    pub raw_key_size: u64,
-    pub raw_value_size: u64,
-    pub num_data_blocks: u64,
-    pub num_entries: u64,
-    pub format_version: u64,
-    pub fixed_key_len: u64,
-    pub column_family_id: u64,
-    pub column_family_name: String,
-    pub filter_policy_name: String,
-    pub comparator_name: String,
-    pub merge_operator_name: String,
-    pub prefix_extractor_name: String,
-    pub property_collectors_names: String,
-    pub compression_name: String,
-    pub user_collected_properties: HashMap<Vec<u8>, Vec<u8>>,
+pub struct TablePropertiesCollection {
+    handle: TablePropertiesCollectionHandle,
 }
 
-pub type TablePropertiesCollection = HashMap<String, TableProperties>;
-
-pub struct TablePropertiesHandle {
-    pub inner: *mut DBTableProperties,
-}
-
-impl TablePropertiesHandle {
-    fn new(inner: *mut DBTableProperties) -> TablePropertiesHandle {
-        TablePropertiesHandle { inner: inner }
+impl TablePropertiesCollection {
+    pub fn new(handle: TablePropertiesCollectionHandle) -> TablePropertiesCollection {
+        TablePropertiesCollection { handle: handle }
     }
 
-    fn get_u64(&self, prop: DBTableProperty) -> u64 {
-        unsafe { crocksdb_ffi::crocksdb_table_properties_get_u64(self.inner, prop) }
-    }
-
-    fn get_str(&self, prop: DBTableProperty) -> Result<String, String> {
-        unsafe {
-            let mut slen: size_t = 0;
-            let s = crocksdb_ffi::crocksdb_table_properties_get_str(self.inner,
-                                                                    prop,
-                                                                    &mut slen as *mut size_t);
-            let bytes = slice::from_raw_parts(s, slen);
-            String::from_utf8(bytes.to_owned()).or_else(|e| Err(format!("{}", e)))
-        }
-    }
-
-    fn get_user_properties(&self) -> *mut DBUserCollectedProperties {
-        unsafe { crocksdb_ffi::crocksdb_table_properties_get_user_properties(self.inner) }
+    pub fn iter(&self) -> TablePropertiesCollectionIter {
+        TablePropertiesCollectionIter::new(self, self.handle.inner)
     }
 }
 
@@ -91,55 +53,14 @@ impl TablePropertiesCollectionHandle {
             }
         }
     }
-
-    pub fn normalize(&self) -> Result<TablePropertiesCollection, String> {
-        let mut collection = TablePropertiesCollection::new();
-        let mut it = TablePropertiesCollectionIter::new(self.inner);
-        while it.valid() {
-            let k = try!(it.key());
-            let v = TablePropertiesHandle::new(it.value());
-            let mut props = TableProperties {
-                data_size: v.get_u64(DBTableProperty::DataSize),
-                index_size: v.get_u64(DBTableProperty::IndexSize),
-                filter_size: v.get_u64(DBTableProperty::FilterSize),
-                raw_key_size: v.get_u64(DBTableProperty::RawKeySize),
-                raw_value_size: v.get_u64(DBTableProperty::RawValueSize),
-                num_data_blocks: v.get_u64(DBTableProperty::NumDataBlocks),
-                num_entries: v.get_u64(DBTableProperty::NumEntries),
-                format_version: v.get_u64(DBTableProperty::FormatVersion),
-                fixed_key_len: v.get_u64(DBTableProperty::FixedKeyLen),
-                column_family_id: v.get_u64(DBTableProperty::ColumnFamilyId),
-                column_family_name: try!(v.get_str(DBTableProperty::ColumnFamilyName)),
-                filter_policy_name: try!(v.get_str(DBTableProperty::FilterPolicyName)),
-                comparator_name: try!(v.get_str(DBTableProperty::ComparatorName)),
-                merge_operator_name: try!(v.get_str(DBTableProperty::MergeOperatorName)),
-                prefix_extractor_name: try!(v.get_str(DBTableProperty::PrefixExtractorName)),
-                property_collectors_names:
-                    try!(v.get_str(DBTableProperty::PropertyCollectorsNames)),
-                compression_name: try!(v.get_str(DBTableProperty::CompressionName)),
-                user_collected_properties: HashMap::new(),
-            };
-            let mut user_it = UserCollectedPropertiesIter::new(v.get_user_properties());
-            while user_it.valid() {
-                {
-                    let k = user_it.key();
-                    let v = user_it.value();
-                    props.user_collected_properties.insert(k.to_owned(), v.to_owned());
-                }
-                user_it.next();
-            }
-            collection.insert(k, props);
-            it.next();
-        }
-        Ok(collection)
-    }
 }
 
-struct TablePropertiesCollectionIter {
-    pub inner: *mut DBTablePropertiesCollectionIterator,
+pub struct TablePropertiesCollectionIter<'a> {
+    props: &'a TablePropertiesCollection,
+    inner: *mut DBTablePropertiesCollectionIterator,
 }
 
-impl Drop for TablePropertiesCollectionIter {
+impl<'a> Drop for TablePropertiesCollectionIter<'a> {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_table_properties_collection_iter_destroy(self.inner);
@@ -147,45 +68,159 @@ impl Drop for TablePropertiesCollectionIter {
     }
 }
 
-impl TablePropertiesCollectionIter {
-    fn new(inner: *mut DBTablePropertiesCollection) -> TablePropertiesCollectionIter {
+impl<'a> TablePropertiesCollectionIter<'a> {
+    fn new(props: &'a TablePropertiesCollection,
+           inner: *mut DBTablePropertiesCollection)
+           -> TablePropertiesCollectionIter<'a> {
         unsafe {
             TablePropertiesCollectionIter {
+                props: props,
                 inner: crocksdb_ffi::crocksdb_table_properties_collection_iter_create(inner),
             }
         }
     }
 
-    fn valid(&self) -> bool {
+    pub fn valid(&self) -> bool {
         unsafe { crocksdb_ffi::crocksdb_table_properties_collection_iter_valid(self.inner) }
     }
 
-    fn next(&mut self) {
+    pub fn next(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_table_properties_collection_iter_next(self.inner);
         }
     }
 
-    fn key(&self) -> Result<String, String> {
+    pub fn key(&self) -> String {
         unsafe {
             let mut klen: size_t = 0;
-            let k = crocksdb_ffi::crocksdb_table_properties_collection_iter_key(
-                self.inner, &mut klen as *mut size_t);
+            let k = crocksdb_ffi::crocksdb_table_properties_collection_iter_key(self.inner,
+                                                                                &mut klen);
             let bytes = slice::from_raw_parts(k, klen);
-            String::from_utf8(bytes.to_owned()).or_else(|e| Err(format!("{}", e)))
+            String::from_utf8(bytes.to_owned()).unwrap()
         }
     }
 
-    fn value(&self) -> *mut DBTableProperties {
-        unsafe { crocksdb_ffi::crocksdb_table_properties_collection_iter_value(self.inner) }
+    pub fn value(&self) -> TableProperties {
+        unsafe {
+            let inner = crocksdb_ffi::crocksdb_table_properties_collection_iter_value(self.inner);
+            TableProperties::new(self.props, inner)
+        }
     }
 }
 
-struct UserCollectedPropertiesIter {
-    pub inner: *mut DBUserCollectedPropertiesIterator,
+pub struct TableProperties<'a> {
+    phantom: PhantomData<&'a TablePropertiesCollection>,
+    inner: *mut DBTableProperties,
 }
 
-impl Drop for UserCollectedPropertiesIter {
+impl<'a> TableProperties<'a> {
+    fn new(_: &'a TablePropertiesCollection, inner: *mut DBTableProperties) -> TableProperties {
+        TableProperties {
+            phantom: PhantomData,
+            inner: inner,
+        }
+    }
+
+    fn get_u64(&self, prop: DBTableProperty) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_table_properties_get_u64(self.inner, prop) }
+    }
+
+    fn get_str(&self, prop: DBTableProperty) -> String {
+        unsafe {
+            let mut slen: size_t = 0;
+            let s = crocksdb_ffi::crocksdb_table_properties_get_str(self.inner, prop, &mut slen);
+            let bytes = slice::from_raw_parts(s, slen);
+            String::from_utf8(bytes.to_owned()).unwrap()
+        }
+    }
+
+    pub fn data_size(&self) -> u64 {
+        self.get_u64(DBTableProperty::DataSize)
+    }
+
+    pub fn index_size(&self) -> u64 {
+        self.get_u64(DBTableProperty::IndexSize)
+    }
+
+    pub fn filter_size(&self) -> u64 {
+        self.get_u64(DBTableProperty::FilterSize)
+    }
+
+    pub fn raw_key_size(&self) -> u64 {
+        self.get_u64(DBTableProperty::RawKeySize)
+    }
+
+    pub fn raw_value_size(&self) -> u64 {
+        self.get_u64(DBTableProperty::RawValueSize)
+    }
+
+    pub fn num_data_blocks(&self) -> u64 {
+        self.get_u64(DBTableProperty::NumDataBlocks)
+    }
+
+    pub fn num_entries(&self) -> u64 {
+        self.get_u64(DBTableProperty::NumEntries)
+    }
+
+    pub fn format_version(&self) -> u64 {
+        self.get_u64(DBTableProperty::FormatVersion)
+    }
+
+    pub fn fixed_key_len(&self) -> u64 {
+        self.get_u64(DBTableProperty::FixedKeyLen)
+    }
+
+    pub fn column_family_id(&self) -> u64 {
+        self.get_u64(DBTableProperty::ColumnFamilyId)
+    }
+
+    pub fn column_family_name(&self) -> String {
+        self.get_str(DBTableProperty::ColumnFamilyName)
+    }
+
+    pub fn filter_policy_name(&self) -> String {
+        self.get_str(DBTableProperty::FilterPolicyName)
+    }
+
+    pub fn comparator_name(&self) -> String {
+        self.get_str(DBTableProperty::ComparatorName)
+    }
+
+    pub fn merge_operator_name(&self) -> String {
+        self.get_str(DBTableProperty::MergeOperatorName)
+    }
+
+    pub fn prefix_extractor_name(&self) -> String {
+        self.get_str(DBTableProperty::PrefixExtractorName)
+    }
+
+    pub fn property_collectors_names(&self) -> String {
+        self.get_str(DBTableProperty::PropertyCollectorsNames)
+    }
+
+    pub fn compression_name(&self) -> String {
+        self.get_str(DBTableProperty::CompressionName)
+    }
+
+    pub fn user_collected_properties(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        let inner =
+            unsafe { crocksdb_ffi::crocksdb_table_properties_get_user_properties(self.inner) };
+        let mut iter = UserCollectedPropertiesIter::new(self, inner);
+        let mut props = HashMap::new();
+        while iter.valid() {
+            props.insert(iter.key().to_owned(), iter.value().to_owned());
+            iter.next();
+        }
+        props
+    }
+}
+
+struct UserCollectedPropertiesIter<'a> {
+    phantom: PhantomData<&'a TableProperties<'a>>,
+    inner: *mut DBUserCollectedPropertiesIterator,
+}
+
+impl<'a> Drop for UserCollectedPropertiesIter<'a> {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_user_collected_properties_iter_destroy(self.inner);
@@ -193,10 +228,13 @@ impl Drop for UserCollectedPropertiesIter {
     }
 }
 
-impl UserCollectedPropertiesIter {
-    fn new(inner: *mut DBUserCollectedProperties) -> UserCollectedPropertiesIter {
+impl<'a> UserCollectedPropertiesIter<'a> {
+    fn new(_: &'a TableProperties,
+           inner: *mut DBUserCollectedProperties)
+           -> UserCollectedPropertiesIter<'a> {
         unsafe {
             UserCollectedPropertiesIter {
+                phantom: PhantomData,
                 inner: crocksdb_ffi::crocksdb_user_collected_properties_iter_create(inner),
             }
         }
@@ -215,9 +253,8 @@ impl UserCollectedPropertiesIter {
     fn key(&self) -> &[u8] {
         unsafe {
             let mut klen: size_t = 0;
-            let k =
-                crocksdb_ffi::crocksdb_user_collected_properties_iter_key(self.inner,
-                                                                          &mut klen as *mut size_t);
+            let k = crocksdb_ffi::crocksdb_user_collected_properties_iter_key(self.inner,
+                                                                              &mut klen);
             slice::from_raw_parts(k, klen)
         }
     }
@@ -225,8 +262,8 @@ impl UserCollectedPropertiesIter {
     fn value(&self) -> &[u8] {
         unsafe {
             let mut vlen: size_t = 0;
-            let v = crocksdb_ffi::crocksdb_user_collected_properties_iter_value(
-                self.inner, &mut vlen as *mut size_t);
+            let v = crocksdb_ffi::crocksdb_user_collected_properties_iter_value(self.inner,
+                                                                                &mut vlen);
             slice::from_raw_parts(v, vlen)
         }
     }

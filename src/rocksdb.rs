@@ -35,7 +35,7 @@ pub struct CFHandle {
 }
 
 impl CFHandle {
-    pub fn get_id(&self) -> u32 {
+    pub fn id(&self) -> u32 {
         unsafe { crocksdb_ffi::crocksdb_column_family_handle_get_id(self.inner) }
     }
 }
@@ -1047,9 +1047,9 @@ impl DB {
 
     pub fn get_properties_of_all_tables(&self) -> Result<TablePropertiesCollection, String> {
         unsafe {
-            let props = TablePropertiesCollectionHandle::new();
-            ffi_try!(crocksdb_get_properties_of_all_tables(self.inner, props.inner));
-            props.normalize()
+            let handle = TablePropertiesCollectionHandle::new();
+            ffi_try!(crocksdb_get_properties_of_all_tables(self.inner, handle.inner));
+            Ok(TablePropertiesCollection::new(handle))
         }
     }
 
@@ -1057,9 +1057,9 @@ impl DB {
                                            cf: &CFHandle)
                                            -> Result<TablePropertiesCollection, String> {
         unsafe {
-            let props = TablePropertiesCollectionHandle::new();
-            ffi_try!(crocksdb_get_properties_of_all_tables_cf(self.inner, cf.inner, props.inner));
-            props.normalize()
+            let handle = TablePropertiesCollectionHandle::new();
+            ffi_try!(crocksdb_get_properties_of_all_tables_cf(self.inner, cf.inner, handle.inner));
+            Ok(TablePropertiesCollection::new(handle))
         }
     }
 
@@ -1072,7 +1072,7 @@ impl DB {
         let limit_keys: Vec<*const u8> = ranges.iter().map(|x| x.end_key.as_ptr()).collect();
         let limit_keys_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
         unsafe {
-            let props = TablePropertiesCollectionHandle::new();
+            let handle = TablePropertiesCollectionHandle::new();
             ffi_try!(crocksdb_get_properties_of_tables_in_range(self.inner,
                                                                 cf.inner,
                                                                 ranges.len() as i32,
@@ -1080,8 +1080,8 @@ impl DB {
                                                                 start_keys_lens.as_ptr(),
                                                                 limit_keys.as_ptr(),
                                                                 limit_keys_lens.as_ptr(),
-                                                                props.inner));
-            props.normalize()
+                                                                handle.inner));
+            Ok(TablePropertiesCollection::new(handle))
         }
     }
 }
