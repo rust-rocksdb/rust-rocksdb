@@ -2096,6 +2096,10 @@ void crocksdb_options_set_compaction_priority(crocksdb_options_t *opt,
   opt->rep.compaction_pri = static_cast<rocksdb::CompactionPri>(priority);
 }
 
+void crocksdb_options_set_delayed_write_rate(crocksdb_options_t *opt, uint64_t delayed_write_rate) {
+  opt->rep.delayed_write_rate = delayed_write_rate;
+}
+
 char *crocksdb_options_statistics_get_string(crocksdb_options_t *opt) {
   rocksdb::Statistics *statistics = opt->rep.statistics.get();
   if (statistics) {

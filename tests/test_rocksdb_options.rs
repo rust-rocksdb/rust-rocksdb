@@ -115,6 +115,16 @@ fn test_memtable_insert_hint_prefix_extractor() {
 }
 
 #[test]
+fn test_set_delayed_write_rate() {
+    let path = TempDir::new("_rust_rocksdb_test_set_delayed_write_rate").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.set_delayed_write_rate(2 * 1024 * 1024);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    drop(db);
+}
+
+#[test]
 fn test_set_ratelimiter() {
     let path = TempDir::new("_rust_rocksdb_test_set_rate_limiter").expect("");
     let mut opts = Options::new();

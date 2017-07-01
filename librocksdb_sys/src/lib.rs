@@ -324,6 +324,7 @@ extern "C" {
                                                  prefix_extractor: *mut DBSliceTransform);
     pub fn crocksdb_options_set_memtable_prefix_bloom_size_ratio(options: *mut DBOptions,
                                                                  ratio: c_double);
+    pub fn crocksdb_options_set_delayed_write_rate(options: *mut DBOptions, rate: u64);
     pub fn crocksdb_options_set_ratelimiter(options: *mut DBOptions, limiter: *mut DBRateLimiter);
     pub fn crocksdb_options_set_info_log(options: *mut DBOptions, logger: *mut DBLogger);
     pub fn crocksdb_options_get_block_cache_usage(options: *const DBOptions) -> usize;

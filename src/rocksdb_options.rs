@@ -652,6 +652,12 @@ impl Options {
         }
     }
 
+    pub fn set_delayed_write_rate(&mut self, rate: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_delayed_write_rate(self.inner, rate);
+        }
+    }
+
     pub fn enable_statistics(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_options_enable_statistics(self.inner);
