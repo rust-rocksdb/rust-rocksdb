@@ -73,12 +73,12 @@ impl ExampleCollector {
         props
     }
 
-    fn decode(props: &HashMap<Vec<u8>, Vec<u8>>) -> ExampleCollector {
+    fn decode(props: HashMap<&[u8], &[u8]>) -> ExampleCollector {
         let mut c = ExampleCollector::new();
-        c.num_keys = decode_u32(props.get(&vec![Props::NumKeys as u8]).unwrap());
-        c.num_puts = decode_u32(props.get(&vec![Props::NumPuts as u8]).unwrap());
-        c.num_merges = decode_u32(props.get(&vec![Props::NumMerges as u8]).unwrap());
-        c.num_deletes = decode_u32(props.get(&vec![Props::NumDeletes as u8]).unwrap());
+        c.num_keys = decode_u32(props.get(&[Props::NumKeys as u8].as_ref()).unwrap());
+        c.num_puts = decode_u32(props.get(&[Props::NumPuts as u8].as_ref()).unwrap());
+        c.num_merges = decode_u32(props.get(&[Props::NumMerges as u8].as_ref()).unwrap());
+        c.num_deletes = decode_u32(props.get(&[Props::NumDeletes as u8].as_ref()).unwrap());
         c
     }
 }
@@ -99,7 +99,7 @@ impl TablePropertiesCollector for ExampleCollector {
         "example-collector"
     }
 
-    fn add_userkey(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType, _: u64, _: u64) {
+    fn add(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType, _: u64, _: u64) {
         if key.cmp(&self.last_key) != Ordering::Equal {
             self.num_keys += 1;
             self.last_key.clear();
@@ -138,24 +138,19 @@ impl TablePropertiesCollectorFactory for ExampleFactory {
 }
 
 fn check_collection(collection: &TablePropertiesCollection,
-                    num_files: u32,
+                    num_files: usize,
                     num_keys: u32,
                     num_puts: u32,
                     num_merges: u32,
                     num_deletes: u32) {
-    let mut len = 0;
     let mut res = ExampleCollector::new();
-    let mut iter = collection.iter();
-    while iter.valid() {
-        len += 1;
-        {
-            let v = iter.value();
-            assert_eq!(v.property_collectors_names(), "[example-factory]");
-            res.add(&ExampleCollector::decode(&v.user_collected_properties()));
-        }
-        iter.next();
+    let props = collection.collect();
+    for (k, v) in &props {
+        assert!(k.ends_with(".sst"));
+        assert_eq!(v.property_collectors_names(), "[example-factory]");
+        res.add(&ExampleCollector::decode(v.user_collected_properties()));
     }
-    assert_eq!(len, num_files);
+    assert_eq!(props.len(), num_files);
     assert_eq!(res.num_keys, num_keys);
     assert_eq!(res.num_puts, num_puts);
     assert_eq!(res.num_merges, num_merges);

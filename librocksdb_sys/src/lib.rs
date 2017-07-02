@@ -636,7 +636,7 @@ extern "C" {
     pub fn crocksdb_drop_column_family(db: *mut DBInstance,
                                        column_family_handle: *mut DBCFHandle,
                                        err: *mut *mut c_char);
-    pub fn crocksdb_column_family_handle_get_id(column_family_handle: *mut DBCFHandle) -> u32;
+    pub fn crocksdb_column_family_handle_id(column_family_handle: *mut DBCFHandle) -> u32;
     pub fn crocksdb_column_family_handle_destroy(column_family_handle: *mut DBCFHandle);
     pub fn crocksdb_list_column_families(db: *const DBOptions,
                                          path: *const c_char,
@@ -873,6 +873,10 @@ extern "C" {
     pub fn crocksdb_user_collected_properties_iter_value
         (it: *mut DBUserCollectedPropertiesIterator, vlen: *mut size_t) -> *const uint8_t;
 
+    pub fn crocksdb_table_properties_create() -> *mut DBTableProperties;
+
+    pub fn crocksdb_table_properties_destroy(props: *mut DBTableProperties);
+
     pub fn crocksdb_table_properties_get_u64(props: *mut DBTableProperties,
                                              prop: DBTableProperty)
                                              -> uint64_t;
@@ -906,7 +910,7 @@ extern "C" {
         it: *mut DBTablePropertiesCollectionIterator, klen: *mut size_t) -> *const uint8_t;
 
     pub fn crocksdb_table_properties_collection_iter_value
-        (it: *mut DBTablePropertiesCollectionIterator) -> *mut DBTableProperties;
+        (it: *mut DBTablePropertiesCollectionIterator, value: *mut DBTableProperties);
 
     pub fn crocksdb_table_properties_collector_create(state: *mut c_void,
                                                       name: extern "C" fn(*mut c_void)

@@ -662,7 +662,7 @@ void crocksdb_drop_column_family(
   SaveError(errptr, db->rep->DropColumnFamily(handle->rep));
 }
 
-uint32_t crocksdb_column_family_handle_get_id(crocksdb_column_family_handle_t* handle) {
+uint32_t crocksdb_column_family_handle_id(crocksdb_column_family_handle_t* handle) {
   return handle->rep->GetID();
 }
 
@@ -2934,22 +2934,24 @@ struct crocksdb_user_collected_properties_t {
   UserCollectedProperties* rep_ = nullptr;
 };
 
-struct crocksdb_user_collected_properties_iterator_t {
-  UserCollectedProperties* rep_ = nullptr;
-  UserCollectedProperties::iterator iter_;
-};
-
-void crocksdb_user_collected_properties_add(crocksdb_user_collected_properties_t* props,
-                                            const char* k, size_t klen,
-                                            const char* v, size_t vlen) {
+void crocksdb_user_collected_properties_add(
+  crocksdb_user_collected_properties_t* props,
+  const char* k, size_t klen,
+  const char* v, size_t vlen) {
   props->rep_->emplace(std::make_pair(std::string(k, klen), std::string(v, vlen)));
 }
 
+struct crocksdb_user_collected_properties_iterator_t {
+  UserCollectedProperties::iterator cur_;
+  UserCollectedProperties::iterator end_;
+};
+
 crocksdb_user_collected_properties_iterator_t*
-crocksdb_user_collected_properties_iter_create(crocksdb_user_collected_properties_t* props) {
+crocksdb_user_collected_properties_iter_create(
+  crocksdb_user_collected_properties_t* props) {
   auto it = new crocksdb_user_collected_properties_iterator_t;
-  it->rep_ = props->rep_;
-  it->iter_ = props->rep_->begin();
+  it->cur_ = props->rep_->begin();
+  it->end_ = props->rep_->end();
   return it;
 }
 
@@ -2960,34 +2962,47 @@ void crocksdb_user_collected_properties_iter_destroy(
 
 unsigned char crocksdb_user_collected_properties_iter_valid(
   crocksdb_user_collected_properties_iterator_t* it) {
-  return it->iter_ != it->rep_->end();
+  return it->cur_ != it->end_;
 }
 
 void crocksdb_user_collected_properties_iter_next(
   crocksdb_user_collected_properties_iterator_t* it) {
-  ++(it->iter_);
+  ++(it->cur_);
 }
 
 const char* crocksdb_user_collected_properties_iter_key(
   crocksdb_user_collected_properties_iterator_t* it, size_t* klen) {
   if (klen) {
-    *klen = it->iter_->first.size();
+    *klen = it->cur_->first.size();
   }
-  return it->iter_->first.data();
+  return it->cur_->first.data();
 }
 
 const char* crocksdb_user_collected_properties_iter_value(
   crocksdb_user_collected_properties_iterator_t* it, size_t* vlen) {
   if (vlen) {
-    *vlen = it->iter_->second.size();
+    *vlen = it->cur_->second.size();
   }
-  return it->iter_->second.data();
+  return it->cur_->second.data();
 }
 
 struct crocksdb_table_properties_t {
-  TableProperties* rep_ = nullptr;
-  crocksdb_user_collected_properties_t user_props_;
+  std::shared_ptr<const TableProperties> rep_;
+  crocksdb_user_collected_properties_t users_;
+
+  void init(std::shared_ptr<const TableProperties> rep) {
+    rep_ = rep;
+    users_.rep_ = const_cast<UserCollectedProperties*>(&rep->user_collected_properties);
+  }
 };
+
+crocksdb_table_properties_t* crocksdb_table_properties_create() {
+  return new crocksdb_table_properties_t;
+}
+
+void crocksdb_table_properties_destroy(crocksdb_table_properties_t* props) {
+  delete props;
+}
 
 uint64_t crocksdb_table_properties_get_u64(crocksdb_table_properties_t* props,
                                            crocksdb_table_property_t prop) {
@@ -3033,14 +3048,12 @@ const char* crocksdb_table_properties_get_str(crocksdb_table_properties_t* props
     if (slen) *slen = rep->compression_name.size();
     return rep->compression_name.data();
   }
-  if (slen) *slen = 0;
   return nullptr;
 }
 
 crocksdb_user_collected_properties_t*
 crocksdb_table_properties_get_user_properties(crocksdb_table_properties_t* props) {
-  props->user_props_.rep_ = &props->rep_->user_collected_properties;
-  return &props->user_props_;
+  return &props->users_;
 }
 
 /* Table Properties Collection */
@@ -3057,12 +3070,6 @@ struct crocksdb_table_properties_collection_t {
   }
 };
 
-struct crocksdb_table_properties_collection_iterator_t {
-  TablePropertiesCollection* rep_ = nullptr;
-  TablePropertiesCollection::iterator iter_;
-  crocksdb_table_properties_t props_;
-};
-
 crocksdb_table_properties_collection_t*
 crocksdb_table_properties_collection_create() {
   return new crocksdb_table_properties_collection_t;
@@ -3073,11 +3080,17 @@ void crocksdb_table_properties_collection_destroy(
   delete collection;
 }
 
+struct crocksdb_table_properties_collection_iterator_t {
+  TablePropertiesCollection::iterator cur_;
+  TablePropertiesCollection::iterator end_;
+};
+
 crocksdb_table_properties_collection_iterator_t*
-crocksdb_table_properties_collection_iter_create(crocksdb_table_properties_collection_t* c) {
+crocksdb_table_properties_collection_iter_create(
+  crocksdb_table_properties_collection_t* collection) {
   auto it = new crocksdb_table_properties_collection_iterator_t;
-  it->rep_ = c->rep_;
-  it->iter_ = c->rep_->begin();
+  it->cur_ = collection->rep_->begin();
+  it->end_ = collection->rep_->end();
   return it;
 }
 
@@ -3088,26 +3101,25 @@ void crocksdb_table_properties_collection_iter_destroy(
 
 unsigned char crocksdb_table_properties_collection_iter_valid(
   crocksdb_table_properties_collection_iterator_t* it) {
-  return it->iter_ != it->rep_->end();
+  return it->cur_ != it->end_;
 }
 
 void crocksdb_table_properties_collection_iter_next(
   crocksdb_table_properties_collection_iterator_t* it) {
-  ++(it->iter_);
+  ++(it->cur_);
 }
 
 const char* crocksdb_table_properties_collection_iter_key(
   crocksdb_table_properties_collection_iterator_t* it, size_t* klen) {
   if (klen) {
-    *klen = it->iter_->first.size();
+    *klen = it->cur_->first.size();
   }
-  return it->iter_->first.data();
+  return it->cur_->first.data();
 }
 
-crocksdb_table_properties_t* crocksdb_table_properties_collection_iter_value(
-  crocksdb_table_properties_collection_iterator_t* it) {
-  it->props_.rep_ = const_cast<TableProperties*>(it->iter_->second.get());
-  return &it->props_;
+void crocksdb_table_properties_collection_iter_value(
+  crocksdb_table_properties_collection_iterator_t* it, crocksdb_table_properties_t* props) {
+  props->init(it->cur_->second);
 }
 
 /* Table Properties Collector */
@@ -3116,10 +3128,10 @@ struct crocksdb_table_properties_collector_t : public TablePropertiesCollector {
   void* state_;
   const char* (*name_)(void*);
   void (*destruct_)(void*);
-  void (*add_userkey_)(void*,
-                      const char* key, size_t key_len,
-                      const char* value, size_t value_len,
-                      int entry_type, uint64_t seq, uint64_t file_size);
+  void (*add_)(void*,
+               const char* key, size_t key_len,
+               const char* value, size_t value_len,
+               int entry_type, uint64_t seq, uint64_t file_size);
   void (*finish_)(void*, crocksdb_user_collected_properties_t* props);
 
   virtual ~crocksdb_table_properties_collector_t() {
@@ -3131,10 +3143,10 @@ struct crocksdb_table_properties_collector_t : public TablePropertiesCollector {
                             EntryType entry_type,
                             SequenceNumber seq,
                             uint64_t file_size) override {
-    add_userkey_(state_,
-                 key.data(), key.size(),
-                 value.data(), value.size(),
-                 entry_type, seq, file_size);
+    add_(state_,
+         key.data(), key.size(),
+         value.data(), value.size(),
+         entry_type, seq, file_size);
     return Status::OK();
   }
 
@@ -3160,16 +3172,16 @@ crocksdb_table_properties_collector_create(
   void* state,
   const char* (*name)(void*),
   void (*destruct)(void*),
-  void (*add_userkey)(void*,
-                      const char* key, size_t key_len,
-                      const char* value, size_t value_len,
-                      int entry_type, uint64_t seq, uint64_t file_size),
+  void (*add)(void*,
+              const char* key, size_t key_len,
+              const char* value, size_t value_len,
+              int entry_type, uint64_t seq, uint64_t file_size),
   void (*finish)(void*, crocksdb_user_collected_properties_t* props)) {
   auto c = new crocksdb_table_properties_collector_t;
   c->state_ = state;
   c->name_ = name;
   c->destruct_ = destruct;
-  c->add_userkey_ = add_userkey;
+  c->add_ = add;
   c->finish_ = finish;
   return c;
 }

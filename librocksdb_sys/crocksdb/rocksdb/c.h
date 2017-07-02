@@ -231,7 +231,7 @@ crocksdb_create_column_family(crocksdb_t* db,
 extern C_ROCKSDB_LIBRARY_API void crocksdb_drop_column_family(
     crocksdb_t* db, crocksdb_column_family_handle_t* handle, char** errptr);
 
-extern C_ROCKSDB_LIBRARY_API uint32_t crocksdb_column_family_handle_get_id(
+extern C_ROCKSDB_LIBRARY_API uint32_t crocksdb_column_family_handle_id(
     crocksdb_column_family_handle_t*);
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_column_family_handle_destroy(
@@ -1211,6 +1211,23 @@ extern C_ROCKSDB_LIBRARY_API const char* crocksdb_pinnableslice_value(
 
 /* Table Properties */
 
+extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_t*
+crocksdb_table_properties_create();
+
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_table_properties_destroy(crocksdb_table_properties_t*);
+
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_table_properties_get_u64(crocksdb_table_properties_t*,
+                                  crocksdb_table_property_t prop);
+
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_table_properties_get_str(crocksdb_table_properties_t*,
+                                  crocksdb_table_property_t prop, size_t* slen);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_user_collected_properties_t*
+crocksdb_table_properties_get_user_properties(crocksdb_table_properties_t*);
+
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_user_collected_properties_add(
     crocksdb_user_collected_properties_t*,
@@ -1240,17 +1257,6 @@ extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_user_collected_properties_iter_value(
     crocksdb_user_collected_properties_iterator_t*, size_t* vlen);
 
-extern C_ROCKSDB_LIBRARY_API uint64_t
-crocksdb_table_properties_get_u64(crocksdb_table_properties_t*,
-                                  crocksdb_table_property_t prop);
-
-extern C_ROCKSDB_LIBRARY_API const char*
-crocksdb_table_properties_get_str(crocksdb_table_properties_t*,
-                                  crocksdb_table_property_t prop, size_t* slen);
-
-extern C_ROCKSDB_LIBRARY_API crocksdb_user_collected_properties_t*
-crocksdb_table_properties_get_user_properties(crocksdb_table_properties_t*);
-
 /* Table Properties Collection */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_t*
@@ -1279,9 +1285,9 @@ extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_table_properties_collection_iter_key(
     crocksdb_table_properties_collection_iterator_t*, size_t* klen);
 
-extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_t*
+extern C_ROCKSDB_LIBRARY_API void
 crocksdb_table_properties_collection_iter_value(
-    crocksdb_table_properties_collection_iterator_t*);
+    crocksdb_table_properties_collection_iterator_t*, crocksdb_table_properties_t* props);
 
 /* Table Properties Collector */
 
@@ -1290,10 +1296,10 @@ crocksdb_table_properties_collector_create(
     void* state,
     const char* (*name)(void*),
     void (*destruct)(void*),
-    void (*add_userkey)(void*,
-                        const char* key, size_t key_len,
-                        const char* value, size_t value_len,
-                        int entry_type, uint64_t seq, uint64_t file_size),
+    void (*add)(void*,
+                const char* key, size_t key_len,
+                const char* value, size_t value_len,
+                int entry_type, uint64_t seq, uint64_t file_size),
     void (*finish)(void*, crocksdb_user_collected_properties_t* props));
 
 extern C_ROCKSDB_LIBRARY_API void

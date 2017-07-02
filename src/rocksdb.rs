@@ -26,7 +26,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::path::Path;
 use std::str::from_utf8;
-use table_properties::{TablePropertiesCollection, TablePropertiesCollectionHandle};
+use table_properties::TablePropertiesCollection;
 
 const DEFAULT_COLUMN_FAMILY: &'static str = "default";
 
@@ -36,7 +36,7 @@ pub struct CFHandle {
 
 impl CFHandle {
     pub fn id(&self) -> u32 {
-        unsafe { crocksdb_ffi::crocksdb_column_family_handle_get_id(self.inner) }
+        unsafe { crocksdb_ffi::crocksdb_column_family_handle_id(self.inner) }
     }
 }
 
@@ -1047,9 +1047,9 @@ impl DB {
 
     pub fn get_properties_of_all_tables(&self) -> Result<TablePropertiesCollection, String> {
         unsafe {
-            let handle = TablePropertiesCollectionHandle::new();
-            ffi_try!(crocksdb_get_properties_of_all_tables(self.inner, handle.inner));
-            Ok(TablePropertiesCollection::new(handle))
+            let props = TablePropertiesCollection::new();
+            ffi_try!(crocksdb_get_properties_of_all_tables(self.inner, props.inner));
+            Ok(props)
         }
     }
 
@@ -1057,9 +1057,9 @@ impl DB {
                                            cf: &CFHandle)
                                            -> Result<TablePropertiesCollection, String> {
         unsafe {
-            let handle = TablePropertiesCollectionHandle::new();
-            ffi_try!(crocksdb_get_properties_of_all_tables_cf(self.inner, cf.inner, handle.inner));
-            Ok(TablePropertiesCollection::new(handle))
+            let props = TablePropertiesCollection::new();
+            ffi_try!(crocksdb_get_properties_of_all_tables_cf(self.inner, cf.inner, props.inner));
+            Ok(props)
         }
     }
 
@@ -1072,7 +1072,7 @@ impl DB {
         let limit_keys: Vec<*const u8> = ranges.iter().map(|x| x.end_key.as_ptr()).collect();
         let limit_keys_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
         unsafe {
-            let handle = TablePropertiesCollectionHandle::new();
+            let props = TablePropertiesCollection::new();
             ffi_try!(crocksdb_get_properties_of_tables_in_range(self.inner,
                                                                 cf.inner,
                                                                 ranges.len() as i32,
@@ -1080,8 +1080,8 @@ impl DB {
                                                                 start_keys_lens.as_ptr(),
                                                                 limit_keys.as_ptr(),
                                                                 limit_keys_lens.as_ptr(),
-                                                                handle.inner));
-            Ok(TablePropertiesCollection::new(handle))
+                                                                props.inner));
+            Ok(props)
         }
     }
 }

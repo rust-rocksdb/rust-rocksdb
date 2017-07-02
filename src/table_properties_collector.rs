@@ -29,12 +29,12 @@ pub trait TablePropertiesCollector {
     fn name(&self) -> &str;
 
     /// Will be called when a new key/value pair is inserted into the table.
-    fn add_userkey(&mut self,
-                   key: &[u8],
-                   value: &[u8],
-                   entry_type: DBEntryType,
-                   seq: u64,
-                   file_size: u64);
+    fn add(&mut self,
+           key: &[u8],
+           value: &[u8],
+           entry_type: DBEntryType,
+           seq: u64,
+           file_size: u64);
 
     /// Will be called when a table has already been built and is ready for
     /// writing the properties block.
@@ -69,19 +69,19 @@ extern "C" fn destruct(handle: *mut c_void) {
     }
 }
 
-pub extern "C" fn add_userkey(handle: *mut c_void,
-                              key: *const uint8_t,
-                              key_len: size_t,
-                              value: *const uint8_t,
-                              value_len: size_t,
-                              entry_type: c_int,
-                              seq: uint64_t,
-                              file_size: uint64_t) {
+pub extern "C" fn add(handle: *mut c_void,
+                      key: *const uint8_t,
+                      key_len: size_t,
+                      value: *const uint8_t,
+                      value_len: size_t,
+                      entry_type: c_int,
+                      seq: uint64_t,
+                      file_size: uint64_t) {
     unsafe {
         let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
         let key = slice::from_raw_parts(key, key_len);
         let value = slice::from_raw_parts(value, value_len);
-        handle.rep.add_userkey(key, value, mem::transmute(entry_type), seq, file_size);
+        handle.rep.add(key, value, mem::transmute(entry_type), seq, file_size);
     }
 }
 
@@ -105,7 +105,7 @@ pub unsafe fn new_table_properties_collector(collector: Box<TablePropertiesColle
         Box::into_raw(Box::new(handle)) as *mut c_void,
         name,
         destruct,
-        add_userkey,
+        add,
         finish,
     )
 }
