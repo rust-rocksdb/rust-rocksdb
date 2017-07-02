@@ -26,7 +26,7 @@ use std::slice;
 /// TablePropertiesCollector object per table and then call it sequentially
 pub trait TablePropertiesCollector {
     /// The name of the properties collector.
-    fn name(&self) -> &CString;
+    fn name(&self) -> &str;
 
     /// Will be called when a new key/value pair is inserted into the table.
     fn add_userkey(&mut self,
@@ -41,21 +41,35 @@ pub trait TablePropertiesCollector {
     fn finish(&mut self) -> HashMap<Vec<u8>, Vec<u8>>;
 }
 
-extern "C" fn name(collector: *mut c_void) -> *const c_char {
-    unsafe {
-        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
-        collector.name().as_ptr()
+struct TablePropertiesCollectorHandle {
+    name: CString,
+    rep: Box<TablePropertiesCollector>,
+}
+
+impl TablePropertiesCollectorHandle {
+    fn new(collector: Box<TablePropertiesCollector>) -> TablePropertiesCollectorHandle {
+        TablePropertiesCollectorHandle {
+            name: CString::new(collector.name()).unwrap(),
+            rep: collector,
+        }
     }
 }
 
-extern "C" fn destruct(collector: *mut c_void) {
+extern "C" fn name(handle: *mut c_void) -> *const c_char {
     unsafe {
-        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
-        Box::from_raw(collector);
+        let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
+        handle.name.as_ptr()
     }
 }
 
-pub extern "C" fn add_userkey(collector: *mut c_void,
+extern "C" fn destruct(handle: *mut c_void) {
+    unsafe {
+        let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
+        Box::from_raw(handle);
+    }
+}
+
+pub extern "C" fn add_userkey(handle: *mut c_void,
                               key: *const uint8_t,
                               key_len: size_t,
                               value: *const uint8_t,
@@ -64,17 +78,17 @@ pub extern "C" fn add_userkey(collector: *mut c_void,
                               seq: uint64_t,
                               file_size: uint64_t) {
     unsafe {
-        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
+        let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
         let key = slice::from_raw_parts(key, key_len);
         let value = slice::from_raw_parts(value, value_len);
-        collector.add_userkey(key, value, mem::transmute(entry_type), seq, file_size);
+        handle.rep.add_userkey(key, value, mem::transmute(entry_type), seq, file_size);
     }
 }
 
-pub extern "C" fn finish(collector: *mut c_void, props: *mut DBUserCollectedProperties) {
+pub extern "C" fn finish(handle: *mut c_void, props: *mut DBUserCollectedProperties) {
     unsafe {
-        let collector = &mut *(collector as *mut Box<TablePropertiesCollector>);
-        for (key, value) in collector.finish() {
+        let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
+        for (key, value) in handle.rep.finish() {
             crocksdb_ffi::crocksdb_user_collected_properties_add(props,
                                                                  key.as_ptr(),
                                                                  key.len(),
@@ -86,8 +100,9 @@ pub extern "C" fn finish(collector: *mut c_void, props: *mut DBUserCollectedProp
 
 pub unsafe fn new_table_properties_collector(collector: Box<TablePropertiesCollector>)
                                              -> *mut DBTablePropertiesCollector {
+    let handle = TablePropertiesCollectorHandle::new(collector);
     crocksdb_ffi::crocksdb_table_properties_collector_create(
-        Box::into_raw(Box::new(collector)) as *mut c_void,
+        Box::into_raw(Box::new(handle)) as *mut c_void,
         name,
         destruct,
         add_userkey,

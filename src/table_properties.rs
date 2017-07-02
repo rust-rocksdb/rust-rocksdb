@@ -18,6 +18,7 @@ use libc::size_t;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::slice;
+use std::str;
 
 pub struct TablePropertiesCollection {
     handle: TablePropertiesCollectionHandle,
@@ -90,13 +91,13 @@ impl<'a> TablePropertiesCollectionIter<'a> {
         }
     }
 
-    pub fn key(&self) -> String {
+    pub fn key(&self) -> &str {
         unsafe {
             let mut klen: size_t = 0;
             let k = crocksdb_ffi::crocksdb_table_properties_collection_iter_key(self.inner,
                                                                                 &mut klen);
             let bytes = slice::from_raw_parts(k, klen);
-            String::from_utf8(bytes.to_owned()).unwrap()
+            str::from_utf8(bytes).unwrap()
         }
     }
 

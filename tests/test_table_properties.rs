@@ -16,7 +16,6 @@ use rocksdb::{DB, Range, Options, Writable, DBEntryType, TablePropertiesCollecti
               TablePropertiesCollector, TablePropertiesCollectorFactory};
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::fmt;
 use std::io::Cursor;
 use tempdir::TempDir;
@@ -40,7 +39,6 @@ fn decode_u32(x: &[u8]) -> u32 {
 }
 
 struct ExampleCollector {
-    name: CString,
     num_keys: u32,
     num_puts: u32,
     num_merges: u32,
@@ -51,7 +49,6 @@ struct ExampleCollector {
 impl ExampleCollector {
     fn new() -> ExampleCollector {
         ExampleCollector {
-            name: CString::new("example-collector").unwrap(),
             num_keys: 0,
             num_puts: 0,
             num_merges: 0,
@@ -98,8 +95,8 @@ impl fmt::Display for ExampleCollector {
 }
 
 impl TablePropertiesCollector for ExampleCollector {
-    fn name(&self) -> &CString {
-        &self.name
+    fn name(&self) -> &str {
+        "example-collector"
     }
 
     fn add_userkey(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType, _: u64, _: u64) {
@@ -122,19 +119,17 @@ impl TablePropertiesCollector for ExampleCollector {
     }
 }
 
-struct ExampleFactory {
-    name: CString,
-}
+struct ExampleFactory {}
 
 impl ExampleFactory {
     fn new() -> ExampleFactory {
-        ExampleFactory { name: CString::new("example-factory").unwrap() }
+        ExampleFactory {}
     }
 }
 
 impl TablePropertiesCollectorFactory for ExampleFactory {
-    fn name(&self) -> &CString {
-        &self.name
+    fn name(&self) -> &str {
+        "example-factory"
     }
 
     fn create_table_properties_collector(&mut self, _: u32) -> Box<TablePropertiesCollector> {
