@@ -17,7 +17,6 @@ use rocksdb::{DB, Range, Options, Writable, DBEntryType, TablePropertiesCollecti
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
-use std::io::Cursor;
 use tempdir::TempDir;
 
 enum Props {
@@ -33,9 +32,8 @@ fn encode_u32(x: u32) -> Vec<u8> {
     w
 }
 
-fn decode_u32(x: &[u8]) -> u32 {
-    let mut r = Cursor::new(x);
-    r.read_u32::<LittleEndian>().unwrap()
+fn decode_u32(mut x: &[u8]) -> u32 {
+    x.read_u32::<LittleEndian>().unwrap()
 }
 
 struct ExampleCollector {
