@@ -54,7 +54,7 @@ pub fn test_column_family() {
         }
     }
 
-    // should properly open db when specyfing all column families
+    // should properly open db when specifying all column families
     {
         let mut opts = Options::new();
         opts.add_merge_operator("test operator", test_provided_merge);
