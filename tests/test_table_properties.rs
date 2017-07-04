@@ -14,7 +14,6 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rocksdb::{DB, Range, Options, Writable, DBEntryType, TablePropertiesCollection,
               TablePropertiesCollector, TablePropertiesCollectorFactory};
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use tempdir::TempDir;
@@ -94,7 +93,7 @@ impl fmt::Display for ExampleCollector {
 
 impl TablePropertiesCollector for ExampleCollector {
     fn add(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType, _: u64, _: u64) {
-        if key.cmp(&self.last_key) != Ordering::Equal {
+        if key != self.last_key.as_slice() {
             self.num_keys += 1;
             self.last_key.clear();
             self.last_key.extend_from_slice(key);

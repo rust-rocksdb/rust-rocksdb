@@ -61,8 +61,7 @@ extern "C" fn name(handle: *mut c_void) -> *const c_char {
 
 extern "C" fn destruct(handle: *mut c_void) {
     unsafe {
-        let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
-        Box::from_raw(handle);
+        Box::from_raw(handle as *mut TablePropertiesCollectorHandle);
     }
 }
 
