@@ -854,6 +854,8 @@ enum {
 };
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compression(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_compression(
+    crocksdb_options_t*);
 
 enum {
   crocksdb_level_compaction = 0,

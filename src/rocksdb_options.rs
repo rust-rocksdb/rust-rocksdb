@@ -401,6 +401,10 @@ impl Options {
         }
     }
 
+    pub fn get_compression(&self) -> DBCompressionType {
+        unsafe { crocksdb_ffi::crocksdb_options_get_compression(self.inner) }
+    }
+
     pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compression_per_level(self.inner,

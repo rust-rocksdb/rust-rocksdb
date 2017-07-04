@@ -1768,6 +1768,10 @@ void crocksdb_options_set_compression(crocksdb_options_t* opt, int t) {
   opt->rep.compression = static_cast<CompressionType>(t);
 }
 
+int crocksdb_options_get_compression(crocksdb_options_t* opt) {
+  return static_cast<int>(opt->rep.compression);
+}
+
 void crocksdb_options_set_compression_per_level(crocksdb_options_t* opt,
                                                int* level_values,
                                                size_t num_levels) {

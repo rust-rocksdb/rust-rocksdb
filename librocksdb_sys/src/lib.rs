@@ -71,7 +71,7 @@ pub enum DBEntryType {
     Other = 4,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub enum DBCompressionType {
     DBNo = 0,
@@ -311,6 +311,7 @@ extern "C" {
     pub fn crocksdb_options_set_compaction_style(options: *mut DBOptions, cs: DBCompactionStyle);
     pub fn crocksdb_options_set_compression(options: *mut DBOptions,
                                             compression_style_no: DBCompressionType);
+    pub fn crocksdb_options_get_compression(options: *mut DBOptions) -> DBCompressionType;
     pub fn crocksdb_options_set_compression_per_level(options: *mut DBOptions,
                                                       level_values: *const DBCompressionType,
                                                       num_levels: size_t);
