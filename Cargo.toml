@@ -32,3 +32,6 @@ tempdir = "0.3.4"
 
 [dependencies.librocksdb_sys]
 path = "librocksdb_sys"
+
+[dev-dependencies]
+byteorder = "1.0.0"
