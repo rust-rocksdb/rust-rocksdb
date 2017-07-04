@@ -382,9 +382,10 @@ impl Options {
     }
 
     pub fn add_table_properties_collector_factory(&mut self,
+                                                  fname: &str,
                                                   factory: Box<TablePropertiesCollectorFactory>) {
         unsafe {
-            let f = new_table_properties_collector_factory(factory);
+            let f = new_table_properties_collector_factory(fname, factory);
             crocksdb_ffi::crocksdb_options_add_table_properties_collector_factory(self.inner, f);
         }
     }

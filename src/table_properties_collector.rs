@@ -25,9 +25,6 @@ use std::slice;
 /// don't need to be thread-safe, as we will create exactly one
 /// TablePropertiesCollector object per table and then call it sequentially
 pub trait TablePropertiesCollector {
-    /// The name of the properties collector.
-    fn name(&self) -> &str;
-
     /// Will be called when a new key/value pair is inserted into the table.
     fn add(&mut self,
            key: &[u8],
@@ -47,10 +44,10 @@ struct TablePropertiesCollectorHandle {
 }
 
 impl TablePropertiesCollectorHandle {
-    fn new(collector: Box<TablePropertiesCollector>) -> TablePropertiesCollectorHandle {
+    fn new(name: &str, rep: Box<TablePropertiesCollector>) -> TablePropertiesCollectorHandle {
         TablePropertiesCollectorHandle {
-            name: CString::new(collector.name()).unwrap(),
-            rep: collector,
+            name: CString::new(name).unwrap(),
+            rep: rep,
         }
     }
 }
@@ -98,9 +95,10 @@ pub extern "C" fn finish(handle: *mut c_void, props: *mut DBUserCollectedPropert
     }
 }
 
-pub unsafe fn new_table_properties_collector(collector: Box<TablePropertiesCollector>)
+pub unsafe fn new_table_properties_collector(cname: &str,
+                                             collector: Box<TablePropertiesCollector>)
                                              -> *mut DBTablePropertiesCollector {
-    let handle = TablePropertiesCollectorHandle::new(collector);
+    let handle = TablePropertiesCollectorHandle::new(cname, collector);
     crocksdb_ffi::crocksdb_table_properties_collector_create(
         Box::into_raw(Box::new(handle)) as *mut c_void,
         name,

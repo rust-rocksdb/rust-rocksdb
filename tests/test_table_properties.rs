@@ -93,10 +93,6 @@ impl fmt::Display for ExampleCollector {
 }
 
 impl TablePropertiesCollector for ExampleCollector {
-    fn name(&self) -> &str {
-        "example-collector"
-    }
-
     fn add(&mut self, key: &[u8], _: &[u8], entry_type: DBEntryType, _: u64, _: u64) {
         if key.cmp(&self.last_key) != Ordering::Equal {
             self.num_keys += 1;
@@ -126,10 +122,6 @@ impl ExampleFactory {
 }
 
 impl TablePropertiesCollectorFactory for ExampleFactory {
-    fn name(&self) -> &str {
-        "example-factory"
-    }
-
     fn create_table_properties_collector(&mut self, _: u32) -> Box<TablePropertiesCollector> {
         Box::new(ExampleCollector::new())
     }
@@ -145,7 +137,7 @@ fn check_collection(collection: &TablePropertiesCollection,
     let props = collection.collect();
     for (k, v) in &props {
         assert!(k.ends_with(".sst"));
-        assert_eq!(v.property_collectors_names(), "[example-factory]");
+        assert_eq!(v.property_collectors_names(), "[example-collector]");
         res.add(&ExampleCollector::decode(v.user_collected_properties()));
     }
     assert_eq!(props.len(), num_files);
@@ -160,7 +152,7 @@ fn test_table_properties_collector_factory() {
     let f = ExampleFactory::new();
     let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.add_table_properties_collector_factory(Box::new(f));
+    opts.add_table_properties_collector_factory("example-collector", Box::new(f));
 
     let path = TempDir::new("_rust_rocksdb_collectortest").expect("");
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();

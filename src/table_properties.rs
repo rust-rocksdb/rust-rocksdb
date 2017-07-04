@@ -11,20 +11,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crocksdb_ffi::{self, DBTableProperties, DBTableProperty, DBUserCollectedProperties,
-                   DBUserCollectedPropertiesIterator, DBTablePropertiesCollection,
-                   DBTablePropertiesCollectionIterator};
+use crocksdb_ffi::{self, DBTableProperties, DBTableProperty, DBUserCollectedPropertiesIterator,
+                   DBTablePropertiesCollection, DBTablePropertiesCollectionIterator};
 use libc::size_t;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::slice;
 use std::str;
 
-pub struct TablePropertiesCollection {
+pub struct TablePropertiesCollectionHandle {
     pub inner: *mut DBTablePropertiesCollection,
 }
 
-impl Drop for TablePropertiesCollection {
+impl Drop for TablePropertiesCollectionHandle {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_table_properties_collection_destroy(self.inner);
@@ -32,18 +31,28 @@ impl Drop for TablePropertiesCollection {
     }
 }
 
-impl TablePropertiesCollection {
-    pub fn new() -> TablePropertiesCollection {
+impl TablePropertiesCollectionHandle {
+    pub fn new() -> TablePropertiesCollectionHandle {
         unsafe {
-            TablePropertiesCollection {
+            TablePropertiesCollectionHandle {
                 inner: crocksdb_ffi::crocksdb_table_properties_collection_create(),
             }
         }
     }
+}
+
+pub struct TablePropertiesCollection {
+    handle: TablePropertiesCollectionHandle,
+}
+
+impl TablePropertiesCollection {
+    pub fn new(handle: TablePropertiesCollectionHandle) -> TablePropertiesCollection {
+        TablePropertiesCollection { handle: handle }
+    }
 
     pub fn collect(&self) -> HashMap<&str, TableProperties> {
         let mut res = HashMap::new();
-        let mut iter = TablePropertiesCollectionIter::new(self, self.inner);
+        let mut iter = TablePropertiesCollectionIter::new(self);
         while iter.valid() {
             res.insert(iter.key(), iter.value());
             iter.next();
@@ -66,10 +75,9 @@ impl<'a> Drop for TablePropertiesCollectionIter<'a> {
 }
 
 impl<'a> TablePropertiesCollectionIter<'a> {
-    fn new(_: &'a TablePropertiesCollection,
-           inner: *mut DBTablePropertiesCollection)
-           -> TablePropertiesCollectionIter<'a> {
+    fn new(props: &'a TablePropertiesCollection) -> TablePropertiesCollectionIter<'a> {
         unsafe {
+            let inner = props.handle.inner;
             TablePropertiesCollectionIter {
                 props: PhantomData,
                 inner: crocksdb_ffi::crocksdb_table_properties_collection_iter_create(inner),
@@ -206,13 +214,10 @@ impl TableProperties {
 
     pub fn user_collected_properties(&self) -> HashMap<&[u8], &[u8]> {
         let mut res = HashMap::new();
-        unsafe {
-            let inner = crocksdb_ffi::crocksdb_table_properties_get_user_properties(self.inner);
-            let mut iter = UserCollectedPropertiesIter::new(self, inner);
-            while iter.valid() {
-                res.insert(iter.key(), iter.value());
-                iter.next();
-            }
+        let mut iter = UserCollectedPropertiesIter::new(self);
+        while iter.valid() {
+            res.insert(iter.key(), iter.value());
+            iter.next();
         }
         res
     }
@@ -232,10 +237,9 @@ impl<'a> Drop for UserCollectedPropertiesIter<'a> {
 }
 
 impl<'a> UserCollectedPropertiesIter<'a> {
-    fn new(_: &'a TableProperties,
-           inner: *mut DBUserCollectedProperties)
-           -> UserCollectedPropertiesIter<'a> {
+    fn new(props: &'a TableProperties) -> UserCollectedPropertiesIter<'a> {
         unsafe {
+            let inner = crocksdb_ffi::crocksdb_table_properties_get_user_properties(props.inner);
             UserCollectedPropertiesIter {
                 props: PhantomData,
                 inner: crocksdb_ffi::crocksdb_user_collected_properties_iter_create(inner),

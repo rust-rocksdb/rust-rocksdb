@@ -2972,17 +2972,13 @@ void crocksdb_user_collected_properties_iter_next(
 
 const char* crocksdb_user_collected_properties_iter_key(
   crocksdb_user_collected_properties_iterator_t* it, size_t* klen) {
-  if (klen) {
-    *klen = it->cur_->first.size();
-  }
+  *klen = it->cur_->first.size();
   return it->cur_->first.data();
 }
 
 const char* crocksdb_user_collected_properties_iter_value(
   crocksdb_user_collected_properties_iterator_t* it, size_t* vlen) {
-  if (vlen) {
-    *vlen = it->cur_->second.size();
-  }
+  *vlen = it->cur_->second.size();
   return it->cur_->second.data();
 }
 
@@ -3111,9 +3107,7 @@ void crocksdb_table_properties_collection_iter_next(
 
 const char* crocksdb_table_properties_collection_iter_key(
   crocksdb_table_properties_collection_iterator_t* it, size_t* klen) {
-  if (klen) {
-    *klen = it->cur_->first.size();
-  }
+  *klen = it->cur_->first.size();
   return it->cur_->first.data();
 }
 

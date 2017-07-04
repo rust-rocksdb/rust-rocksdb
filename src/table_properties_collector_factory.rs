@@ -19,8 +19,6 @@ use table_properties_collector::{TablePropertiesCollector, new_table_properties_
 /// Constructs `TablePropertiesCollector`.
 /// Internals create a new `TablePropertiesCollector` for each new table.
 pub trait TablePropertiesCollectorFactory {
-    /// The name of the properties collector factory.
-    fn name(&self) -> &str;
     /// Has to be thread-safe.
     fn create_table_properties_collector(&mut self, cf: u32) -> Box<TablePropertiesCollector>;
 }
@@ -31,9 +29,11 @@ struct TablePropertiesCollectorFactoryHandle {
 }
 
 impl TablePropertiesCollectorFactoryHandle {
-    fn new(rep: Box<TablePropertiesCollectorFactory>) -> TablePropertiesCollectorFactoryHandle {
+    fn new(name: &str,
+           rep: Box<TablePropertiesCollectorFactory>)
+           -> TablePropertiesCollectorFactoryHandle {
         TablePropertiesCollectorFactoryHandle {
-            name: CString::new(rep.name()).unwrap(),
+            name: CString::new(name).unwrap(),
             rep: rep,
         }
     }
@@ -58,14 +58,14 @@ extern "C" fn create_table_properties_collector(handle: *mut c_void,
     unsafe {
         let handle = &mut *(handle as *mut TablePropertiesCollectorFactoryHandle);
         let collector = handle.rep.create_table_properties_collector(cf);
-        new_table_properties_collector(collector)
+        new_table_properties_collector(handle.name.to_str().unwrap(), collector)
     }
 }
 
 pub unsafe fn new_table_properties_collector_factory
-    (factory: Box<TablePropertiesCollectorFactory>)
+    (fname: &str, factory: Box<TablePropertiesCollectorFactory>)
      -> *mut DBTablePropertiesCollectorFactory {
-    let handle = TablePropertiesCollectorFactoryHandle::new(factory);
+    let handle = TablePropertiesCollectorFactoryHandle::new(fname, factory);
     crocksdb_ffi::crocksdb_table_properties_collector_factory_create(
             Box::into_raw(Box::new(handle)) as *mut c_void,
             name,
