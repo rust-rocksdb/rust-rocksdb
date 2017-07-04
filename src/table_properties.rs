@@ -224,7 +224,7 @@ impl TableProperties {
 }
 
 struct UserCollectedPropertiesIter<'a> {
-    props: PhantomData<&'a TablePropertiesCollection>,
+    props: PhantomData<&'a TableProperties>,
     inner: *mut DBUserCollectedPropertiesIterator,
 }
 
