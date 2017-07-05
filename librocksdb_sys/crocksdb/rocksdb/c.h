@@ -624,6 +624,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_merge_operator(
     crocksdb_options_t*, crocksdb_mergeoperator_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compression_per_level(
     crocksdb_options_t* opt, int* level_values, size_t num_levels);
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_compression_level_number(
+    crocksdb_options_t* opt);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_get_compression_per_level(
+    crocksdb_options_t* opt, int *level_values);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_create_if_missing(
     crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void

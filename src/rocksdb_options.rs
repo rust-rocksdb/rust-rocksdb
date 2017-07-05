@@ -413,6 +413,21 @@ impl Options {
         }
     }
 
+    pub fn get_compression_level_number(&self) -> usize {
+        unsafe { crocksdb_ffi::crocksdb_options_get_compression_level_number(self.inner) as usize }
+    }
+
+    pub fn get_compression_per_level(&self) -> Vec<DBCompressionType> {
+        let size = self.get_compression_level_number();
+        unsafe {
+            let mut ret = Vec::with_capacity(size);
+            let pret = ret.as_mut_ptr();
+            crocksdb_ffi::crocksdb_options_get_compression_per_level(self.inner, pret);
+            ret.set_len(size);
+            ret
+        }
+    }
+
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),

@@ -1782,6 +1782,17 @@ void crocksdb_options_set_compression_per_level(crocksdb_options_t* opt,
   }
 }
 
+size_t crocksdb_options_get_compression_level_number(crocksdb_options_t* opt) {
+  return opt->rep.compression_per_level.size();
+}
+
+void crocksdb_options_get_compression_per_level(crocksdb_options_t* opt,
+                                               int* level_values) {
+  for (size_t i = 0; i < opt->rep.compression_per_level.size(); i++) {
+    level_values[i] = static_cast<int>(opt->rep.compression_per_level[i]);
+  }
+}
+
 void crocksdb_options_set_compression_options(crocksdb_options_t* opt, int w_bits,
                                              int level, int strategy,
                                              int max_dict_bytes) {
