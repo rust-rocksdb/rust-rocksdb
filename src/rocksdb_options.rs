@@ -439,6 +439,10 @@ impl Options {
         }
     }
 
+    pub fn bottommost_compression(&self, c: DBCompressionType) {
+        unsafe { crocksdb_ffi::crocksdb_set_bottommost_compression(self.inner, c) }
+    }
+
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),

@@ -629,6 +629,8 @@ extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_compression_level_numbe
     crocksdb_options_t* opt);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_get_compression_per_level(
     crocksdb_options_t* opt, int *level_values);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_set_bottommost_compression(
+    crocksdb_options_t* opt, int c);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_create_if_missing(
     crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
