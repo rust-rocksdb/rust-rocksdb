@@ -1593,11 +1593,11 @@ crocksdb_options_t* crocksdb_options_create() {
   return new crocksdb_options_t;
 }
 
-crocksdb_options_t* crocksdb_options_copy(crocksdb_options_t *other) {
+crocksdb_options_t* crocksdb_options_copy(const crocksdb_options_t *other) {
   return new crocksdb_options_t(*other);
 }
 
-void crocksdb_options_destroy(const crocksdb_options_t* options) {
+void crocksdb_options_destroy(crocksdb_options_t* options) {
   delete options;
 }
 

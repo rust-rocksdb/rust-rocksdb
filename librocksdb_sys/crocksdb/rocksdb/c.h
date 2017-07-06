@@ -602,8 +602,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_cuckoo_table_factory(
 /* Options */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_options_create();
-extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_options_copy(crocksdb_options_t*);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_destroy(const crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_options_copy(const crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_destroy(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_increase_parallelism(
     crocksdb_options_t* opt, int total_threads);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_optimize_for_point_lookup(
