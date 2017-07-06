@@ -360,3 +360,19 @@ fn test_get_compression() {
     opts.compression(DBCompressionType::DBSnappy);
     assert_eq!(opts.get_compression(), DBCompressionType::DBSnappy);
 }
+
+#[test]
+fn test_get_compression_per_level() {
+    let mut opts = Options::new();
+    let compressions = &[DBCompressionType::DBNo, DBCompressionType::DBSnappy];
+    opts.compression_per_level(compressions);
+    let v = opts.get_compression_per_level();
+    assert_eq!(v.len(), 2);
+    assert_eq!(v[0], DBCompressionType::DBNo);
+    assert_eq!(v[1], DBCompressionType::DBSnappy);
+    let mut opts2 = Options::new();
+    let empty: &[DBCompressionType] = &[];
+    opts2.compression_per_level(empty);
+    let v2 = opts2.get_compression_per_level();
+    assert_eq!(v2.len(), 0);
+}
