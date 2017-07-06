@@ -378,6 +378,15 @@ fn test_get_compression_per_level() {
 }
 
 #[test]
+fn test_bottommost_compression() {
+    let path = TempDir::new("_rust_rocksdb_bottommost_compression").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.bottommost_compression(DBCompressionType::DBNo);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
 fn test_clone_options() {
     let mut opts = Options::new();
     opts.compression(DBCompressionType::DBSnappy);

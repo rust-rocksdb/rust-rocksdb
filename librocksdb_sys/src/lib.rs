@@ -320,6 +320,7 @@ extern "C" {
     pub fn crocksdb_options_get_compression_level_number(options: *mut DBOptions) -> size_t;
     pub fn crocksdb_options_get_compression_per_level(options: *mut DBOptions,
                                                       level_values: *mut DBCompressionType);
+    pub fn crocksdb_set_bottommost_compression(options: *mut DBOptions, c: DBCompressionType);
     pub fn crocksdb_options_set_base_background_compactions(optinos: *mut DBOptions,
                                                             base_bg_compactions: c_int);
     pub fn crocksdb_options_set_max_background_compactions(options: *mut DBOptions,
