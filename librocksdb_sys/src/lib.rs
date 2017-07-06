@@ -82,6 +82,7 @@ pub enum DBCompressionType {
     DBLz4hc = 5,
     // DBXpress = 6, not support currently.
     DBZstd = 7,
+    DBZstdNotFinal = 0x40,
 }
 
 #[repr(C)]
@@ -852,6 +853,8 @@ extern "C" {
                                         valLen: *mut size_t)
                                         -> *const u8;
     pub fn crocksdb_pinnableslice_destroy(v: *mut DBPinnableSlice);
+    pub fn crocksdb_get_supported_compression_number() -> size_t;
+    pub fn crocksdb_get_supported_compression(v: *mut DBCompressionType, l: size_t);
 
     pub fn crocksdb_user_collected_properties_add(props: *mut DBUserCollectedProperties,
                                                   key: *const uint8_t,
