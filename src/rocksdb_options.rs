@@ -319,6 +319,20 @@ impl Default for Options {
     }
 }
 
+impl Clone for Options {
+    fn clone(&self) -> Self {
+        assert!(self.filter.is_none());
+        unsafe {
+            let opts = crocksdb_ffi::crocksdb_options_copy(self.inner);
+            assert!(!opts.is_null());
+            Options {
+                inner: opts,
+                filter: None,
+            }
+        }
+    }
+}
+
 impl Options {
     pub fn new() -> Options {
         Options::default()

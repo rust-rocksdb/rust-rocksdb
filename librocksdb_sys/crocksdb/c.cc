@@ -1590,6 +1590,10 @@ crocksdb_options_t* crocksdb_options_create() {
   return new crocksdb_options_t;
 }
 
+crocksdb_options_t* crocksdb_options_copy(const crocksdb_options_t *other) {
+  return new crocksdb_options_t { Options(other->rep) };
+}
+
 void crocksdb_options_destroy(crocksdb_options_t* options) {
   delete options;
 }

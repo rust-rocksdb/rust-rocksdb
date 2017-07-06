@@ -376,3 +376,11 @@ fn test_get_compression_per_level() {
     let v2 = opts2.get_compression_per_level();
     assert_eq!(v2.len(), 0);
 }
+
+#[test]
+fn test_clone_options() {
+    let mut opts = Options::new();
+    opts.compression(DBCompressionType::DBSnappy);
+    let opts2 = opts.clone();
+    assert_eq!(opts.get_compression(), opts2.get_compression());
+}
