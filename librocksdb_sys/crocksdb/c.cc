@@ -112,7 +112,10 @@ struct crocksdb_readoptions_t {
    Slice upper_bound; // stack variable to set pointer to in ReadOptions
 };
 struct crocksdb_writeoptions_t    { WriteOptions      rep; };
-struct crocksdb_options_t         { Options           rep; };
+struct crocksdb_options_t         { 
+  crocksdb_options_t() = default;
+  crocksdb_options_t(const crocksdb_options_t& other): rep(other.rep) {}
+  Options           rep; };
 struct crocksdb_compactoptions_t {
   CompactRangeOptions rep;
 };
@@ -1590,7 +1593,11 @@ crocksdb_options_t* crocksdb_options_create() {
   return new crocksdb_options_t;
 }
 
-void crocksdb_options_destroy(crocksdb_options_t* options) {
+crocksdb_options_t* crocksdb_options_copy(crocksdb_options_t *other) {
+  return new crocksdb_options_t(*other);
+}
+
+void crocksdb_options_destroy(const crocksdb_options_t* options) {
   delete options;
 }
 

@@ -237,6 +237,7 @@ macro_rules! ffi_try {
 extern "C" {
     pub fn crocksdb_get_options_cf(db: *mut DBInstance, cf: *mut DBCFHandle) -> *mut DBOptions;
     pub fn crocksdb_options_create() -> *mut DBOptions;
+    pub fn crocksdb_options_copy(opts: *const DBOptions) -> *mut DBOptions;
     pub fn crocksdb_options_destroy(opts: *mut DBOptions);
     pub fn crocksdb_cache_create_lru(capacity: size_t) -> *mut DBCache;
     pub fn crocksdb_cache_destroy(cache: *mut DBCache);
