@@ -40,6 +40,6 @@ pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, C
 pub use rocksdb_options::{BlockBasedOptions, Options, ReadOptions, WriteOptions, RestoreOptions,
                           IngestExternalFileOptions, EnvOptions, HistogramData, CompactOptions};
 pub use slice_transform::SliceTransform;
-pub use table_properties::{TableProperties, TablePropertiesCollection};
+pub use table_properties::{TableProperties, TablePropertiesCollection, UserCollectedProperties};
 pub use table_properties_collector::TablePropertiesCollector;
 pub use table_properties_collector_factory::TablePropertiesCollectorFactory;

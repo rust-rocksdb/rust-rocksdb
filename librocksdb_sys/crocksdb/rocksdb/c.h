@@ -1226,22 +1226,23 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_get_supported_compression(int *, size
 
 /* Table Properties */
 
-extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_t*
-crocksdb_table_properties_create();
+extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_table_properties_get_u64(
+    const crocksdb_table_properties_t*, crocksdb_table_property_t prop);
 
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_table_properties_destroy(crocksdb_table_properties_t*);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_table_properties_get_str(
+    const crocksdb_table_properties_t*, crocksdb_table_property_t prop,
+    size_t* slen);
 
-extern C_ROCKSDB_LIBRARY_API uint64_t
-crocksdb_table_properties_get_u64(crocksdb_table_properties_t*,
-                                  crocksdb_table_property_t prop);
+extern C_ROCKSDB_LIBRARY_API const crocksdb_user_collected_properties_t*
+crocksdb_table_properties_get_user_properties(
+    const crocksdb_table_properties_t*);
 
-extern C_ROCKSDB_LIBRARY_API const char*
-crocksdb_table_properties_get_str(crocksdb_table_properties_t*,
-                                  crocksdb_table_property_t prop, size_t* slen);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_user_collected_properties_get(
+    const crocksdb_user_collected_properties_t* props, const char* key,
+    size_t klen, size_t* vlen);
 
-extern C_ROCKSDB_LIBRARY_API crocksdb_user_collected_properties_t*
-crocksdb_table_properties_get_user_properties(crocksdb_table_properties_t*);
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_user_collected_properties_len(
+    const crocksdb_user_collected_properties_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_user_collected_properties_add(
@@ -1250,15 +1251,15 @@ crocksdb_user_collected_properties_add(
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_user_collected_properties_iterator_t*
 crocksdb_user_collected_properties_iter_create(
-   crocksdb_user_collected_properties_t*);
+    const crocksdb_user_collected_properties_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_user_collected_properties_iter_destroy(
    crocksdb_user_collected_properties_iterator_t*);
 
 extern C_ROCKSDB_LIBRARY_API unsigned char
- crocksdb_user_collected_properties_iter_valid(
-   crocksdb_user_collected_properties_iterator_t*);
+crocksdb_user_collected_properties_iter_valid(
+    const crocksdb_user_collected_properties_iterator_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_user_collected_properties_iter_next(
@@ -1266,23 +1267,23 @@ crocksdb_user_collected_properties_iter_next(
 
 extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_user_collected_properties_iter_key(
-    crocksdb_user_collected_properties_iterator_t*, size_t* klen);
+    const crocksdb_user_collected_properties_iterator_t*, size_t* klen);
 
 extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_user_collected_properties_iter_value(
-    crocksdb_user_collected_properties_iterator_t*, size_t* vlen);
+    const crocksdb_user_collected_properties_iterator_t*, size_t* vlen);
 
 /* Table Properties Collection */
 
-extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_t*
-crocksdb_table_properties_collection_create();
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_table_properties_collection_len(
+    const crocksdb_table_properties_collection_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_table_properties_collection_destroy(crocksdb_table_properties_collection_t*);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_iterator_t*
 crocksdb_table_properties_collection_iter_create(
-    crocksdb_table_properties_collection_t*);
+    const crocksdb_table_properties_collection_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_table_properties_collection_iter_destroy(
@@ -1290,7 +1291,7 @@ crocksdb_table_properties_collection_iter_destroy(
 
 extern C_ROCKSDB_LIBRARY_API unsigned char
 crocksdb_table_properties_collection_iter_valid(
-    crocksdb_table_properties_collection_iterator_t*);
+    const crocksdb_table_properties_collection_iterator_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_table_properties_collection_iter_next(
@@ -1298,11 +1299,11 @@ crocksdb_table_properties_collection_iter_next(
 
 extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_table_properties_collection_iter_key(
-    crocksdb_table_properties_collection_iterator_t*, size_t* klen);
+    const crocksdb_table_properties_collection_iterator_t*, size_t* klen);
 
-extern C_ROCKSDB_LIBRARY_API void
+extern C_ROCKSDB_LIBRARY_API const crocksdb_table_properties_t*
 crocksdb_table_properties_collection_iter_value(
-    crocksdb_table_properties_collection_iterator_t*, crocksdb_table_properties_t* props);
+    const crocksdb_table_properties_collection_iterator_t*);
 
 /* Table Properties Collector */
 
@@ -1340,22 +1341,20 @@ crocksdb_options_add_table_properties_collector_factory(
 
 /* Get Table Properties */
 
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_get_propeties_of_all_tables(crocksdb_t* db,
-    crocksdb_table_properties_collection_t* props, char** errptr);
+extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_t*
+crocksdb_get_propeties_of_all_tables(crocksdb_t* db, char** errptr);
 
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_get_propeties_of_all_tables_cf(
-    crocksdb_t* db, crocksdb_column_family_handle_t* cf,
-    crocksdb_table_properties_collection_t* props, char** errptr);
+extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_t*
+crocksdb_get_propeties_of_all_tables_cf(crocksdb_t* db,
+                                        crocksdb_column_family_handle_t* cf,
+                                        char** errptr);
 
-extern C_ROCKSDB_LIBRARY_API void
+extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_t*
 crocksdb_get_propeties_of_tables_in_range(
-    crocksdb_t* db, crocksdb_column_family_handle_t* cf,
-    int num_ranges,
+    crocksdb_t* db, crocksdb_column_family_handle_t* cf, int num_ranges,
     const char* const* start_keys, const size_t* start_keys_lens,
     const char* const* limit_keys, const size_t* limit_keys_lens,
-    crocksdb_table_properties_collection_t* props, char** errptr);
+    char** errptr);
 
 #ifdef __cplusplus
 }  /* end extern "C" */

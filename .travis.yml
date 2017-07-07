@@ -18,7 +18,7 @@ before_script:
 - make -f travis-build/Makefile prepare-rustfmt
 
 script:
-- cargo fmt && git diff-index --quiet HEAD -- || (echo please make format and run tests before creating a pr!; exit 1)
+- cargo fmt -- --write-mode diff || (echo please make format and run tests before creating a pr!; exit 1)
 - cargo build --features static-link
 - cargo test --all --features static-link
 

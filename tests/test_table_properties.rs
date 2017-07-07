@@ -13,7 +13,7 @@
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rocksdb::{DB, Range, Options, Writable, DBEntryType, TablePropertiesCollection,
-              TablePropertiesCollector, TablePropertiesCollectorFactory};
+              TablePropertiesCollector, TablePropertiesCollectorFactory, UserCollectedProperties};
 use std::collections::HashMap;
 use std::fmt;
 use tempdir::TempDir;
@@ -70,12 +70,20 @@ impl ExampleCollector {
         props
     }
 
-    fn decode(props: HashMap<&[u8], &[u8]>) -> ExampleCollector {
+    fn decode(props: &UserCollectedProperties) -> ExampleCollector {
+        assert!(!props.is_empty());
         let mut c = ExampleCollector::new();
-        c.num_keys = decode_u32(props.get(&[Props::NumKeys as u8].as_ref()).unwrap());
-        c.num_puts = decode_u32(props.get(&[Props::NumPuts as u8].as_ref()).unwrap());
-        c.num_merges = decode_u32(props.get(&[Props::NumMerges as u8].as_ref()).unwrap());
-        c.num_deletes = decode_u32(props.get(&[Props::NumDeletes as u8].as_ref()).unwrap());
+        c.num_keys = decode_u32(&props[&[Props::NumKeys as u8]]);
+        c.num_puts = decode_u32(&props[&[Props::NumPuts as u8]]);
+        c.num_merges = decode_u32(&props[&[Props::NumMerges as u8]]);
+        c.num_deletes = decode_u32(&props[&[Props::NumDeletes as u8]]);
+
+        for (k, v) in props {
+            assert_eq!(v, props.get(k).unwrap());
+        }
+        assert!(props.get(&[Props::NumKeys as u8, Props::NumPuts as u8]).is_none());
+        assert!(props.len() >= 4);
+
         c
     }
 }
@@ -133,7 +141,9 @@ fn check_collection(collection: &TablePropertiesCollection,
                     num_merges: u32,
                     num_deletes: u32) {
     let mut res = ExampleCollector::new();
-    let props = collection.collect();
+    assert!(!collection.is_empty());
+    let props: HashMap<_, _> = collection.iter().collect();
+    assert_eq!(props.len(), collection.len());
     for (k, v) in &props {
         assert!(k.ends_with(".sst"));
         assert_eq!(v.property_collectors_names(), "[example-collector]");

@@ -866,63 +866,67 @@ extern "C" {
                                                   value_len: size_t);
 
     pub fn crocksdb_user_collected_properties_iter_create
-        (props: *mut DBUserCollectedProperties)
+        (props: *const DBUserCollectedProperties)
          -> *mut DBUserCollectedPropertiesIterator;
 
     pub fn crocksdb_user_collected_properties_iter_destroy
         (it: *mut DBUserCollectedPropertiesIterator);
 
     pub fn crocksdb_user_collected_properties_iter_valid
-        (it: *mut DBUserCollectedPropertiesIterator) -> bool;
+        (it: *const DBUserCollectedPropertiesIterator) -> bool;
 
     pub fn crocksdb_user_collected_properties_iter_next
         (it: *mut DBUserCollectedPropertiesIterator);
 
-    pub fn crocksdb_user_collected_properties_iter_key(it: *mut DBUserCollectedPropertiesIterator,
+    pub fn crocksdb_user_collected_properties_iter_key(it: *const DBUserCollectedPropertiesIterator,
                                                        klen: *mut size_t)
                                                        -> *const uint8_t;
 
     pub fn crocksdb_user_collected_properties_iter_value
-        (it: *mut DBUserCollectedPropertiesIterator, vlen: *mut size_t) -> *const uint8_t;
+        (it: *const DBUserCollectedPropertiesIterator, vlen: *mut size_t) -> *const uint8_t;
 
-    pub fn crocksdb_table_properties_create() -> *mut DBTableProperties;
-
-    pub fn crocksdb_table_properties_destroy(props: *mut DBTableProperties);
-
-    pub fn crocksdb_table_properties_get_u64(props: *mut DBTableProperties,
+    pub fn crocksdb_table_properties_get_u64(props: *const DBTableProperties,
                                              prop: DBTableProperty)
                                              -> uint64_t;
 
-    pub fn crocksdb_table_properties_get_str(props: *mut DBTableProperties,
+    pub fn crocksdb_table_properties_get_str(props: *const DBTableProperties,
                                              prop: DBTableProperty,
                                              slen: *mut size_t)
                                              -> *const uint8_t;
 
-    pub fn crocksdb_table_properties_get_user_properties(props: *mut DBTableProperties)
-                                                         -> *mut DBUserCollectedProperties;
+    pub fn crocksdb_table_properties_get_user_properties(props: *const DBTableProperties)
+                                                         -> *const DBUserCollectedProperties;
 
-    pub fn crocksdb_table_properties_collection_create() -> *mut DBTablePropertiesCollection;
+    pub fn crocksdb_user_collected_properties_get(props: *const DBUserCollectedProperties,
+                                                  key: *const uint8_t,
+                                                  klen: size_t,
+                                                  vlen: *mut size_t)
+                                                  -> *const uint8_t;
+
+    pub fn crocksdb_user_collected_properties_len(props: *const DBUserCollectedProperties) -> size_t;
+
+    pub fn crocksdb_table_properties_collection_len(props: *const DBTablePropertiesCollection) -> size_t;
 
     pub fn crocksdb_table_properties_collection_destroy(props: *mut DBTablePropertiesCollection);
 
     pub fn crocksdb_table_properties_collection_iter_create
-        (props: *mut DBTablePropertiesCollection)
+        (props: *const DBTablePropertiesCollection)
          -> *mut DBTablePropertiesCollectionIterator;
 
     pub fn crocksdb_table_properties_collection_iter_destroy
         (it: *mut DBTablePropertiesCollectionIterator);
 
     pub fn crocksdb_table_properties_collection_iter_valid
-        (it: *mut DBTablePropertiesCollectionIterator) -> bool;
+        (it: *const DBTablePropertiesCollectionIterator) -> bool;
 
     pub fn crocksdb_table_properties_collection_iter_next
         (it: *mut DBTablePropertiesCollectionIterator);
 
     pub fn crocksdb_table_properties_collection_iter_key(
-        it: *mut DBTablePropertiesCollectionIterator, klen: *mut size_t) -> *const uint8_t;
+        it: *const DBTablePropertiesCollectionIterator, klen: *mut size_t) -> *const uint8_t;
 
     pub fn crocksdb_table_properties_collection_iter_value
-        (it: *mut DBTablePropertiesCollectionIterator, value: *mut DBTableProperties);
+        (it: *const DBTablePropertiesCollectionIterator) -> *const DBTableProperties;
 
     pub fn crocksdb_table_properties_collector_create(state: *mut c_void,
                                                       name: extern "C" fn(*mut c_void)
@@ -958,13 +962,13 @@ extern "C" {
         options: *mut DBOptions, f: *mut DBTablePropertiesCollectorFactory);
 
     pub fn crocksdb_get_properties_of_all_tables(db: *mut DBInstance,
-                                                 props: *mut DBTablePropertiesCollection,
-                                                 errptr: *mut *mut c_char);
+                                                 errptr: *mut *mut c_char)
+                                                 -> *mut DBTablePropertiesCollection;
 
     pub fn crocksdb_get_properties_of_all_tables_cf(db: *mut DBInstance,
                                                     cf: *mut DBCFHandle,
-                                                    props: *mut DBTablePropertiesCollection,
-                                                    errptr: *mut *mut c_char);
+                                                    errptr: *mut *mut c_char)
+                                                    -> *mut DBTablePropertiesCollection;
 
     pub fn crocksdb_get_properties_of_tables_in_range(db: *mut DBInstance,
                                                       cf: *mut DBCFHandle,
@@ -973,8 +977,8 @@ extern "C" {
                                                       start_keys_lens: *const size_t,
                                                       limit_keys: *const *const uint8_t,
                                                       limit_keys_lens: *const size_t,
-                                                      props: *mut DBTablePropertiesCollection,
-                                                      errptr: *mut *mut c_char);
+                                                      errptr: *mut *mut c_char)
+                                                      -> *mut DBTablePropertiesCollection;
 
 }
 
