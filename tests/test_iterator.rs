@@ -284,7 +284,8 @@ fn test_total_order_seek() {
 
     let mut iter = db.iter();
     // only iterate sst files and memtables that contain keys with the same prefix as b"k1"
-    // but it still can next/prev to the keys which is not prefixed as b"k1" with prefix_same_as_start
+    // but it still can next/prev to the keys which is not prefixed as b"k1" with
+    // prefix_same_as_start
     iter.seek(SeekKey::Key(b"k1-0"));
     let mut key_count = 0;
     while iter.valid() {

@@ -282,6 +282,7 @@ extern "C" {
     pub fn crocksdb_options_set_max_total_wal_size(options: *mut DBOptions, size: u64);
     pub fn crocksdb_options_set_use_fsync(options: *mut DBOptions, v: c_int);
     pub fn crocksdb_options_set_bytes_per_sync(options: *mut DBOptions, bytes: u64);
+    pub fn crocksdb_options_set_enable_pipelined_write(options: *mut DBOptions, v: bool);
     pub fn crocksdb_options_set_allow_concurrent_memtable_write(options: *mut DBOptions, v: bool);
     pub fn crocksdb_options_optimize_for_point_lookup(options: *mut DBOptions,
                                                       block_cache_size_mb: u64);

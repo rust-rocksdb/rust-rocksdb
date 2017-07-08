@@ -354,6 +354,18 @@ fn test_allow_concurrent_memtable_write() {
 }
 
 #[test]
+fn test_enable_pipelined_write() {
+    let path = TempDir::new("_rust_rocksdb_enable_pipelined_write").expect("");
+    let mut opts = Options::new();
+    opts.create_if_missing(true);
+    opts.enable_pipelined_write(true);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    for i in 0..200 {
+        db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
+    }
+}
+
+#[test]
 fn test_get_compression() {
     let mut opts = Options::new();
     opts.create_if_missing(true);

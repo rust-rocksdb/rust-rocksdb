@@ -926,6 +926,12 @@ impl Options {
         unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64 }
     }
 
+    pub fn enable_pipelined_write(&self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_enable_pipelined_write(self.inner, v);
+        }
+    }
+
     pub fn allow_concurrent_memtable_write(&self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_allow_concurrent_memtable_write(self.inner, v);
