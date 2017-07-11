@@ -5,6 +5,8 @@ use std::{env, fs, str};
 use std::path::PathBuf;
 use std::process::Command;
 
+use gcc::Config;
+
 macro_rules! t {
     ($e:expr) => (match $e {
         Ok(n) => n,
@@ -13,24 +15,40 @@ macro_rules! t {
 }
 
 fn main() {
+    let mut cfg = build_rocksdb();
+
+    cfg.cpp(true).file("crocksdb/c.cc");
+    if !cfg!(target_os = "windows") {
+        cfg.flag("-std=c++11");
+    }
+    cfg.compile("libcrocksdb.a");
+
+    println!("cargo:rustc-link-lib=static=crocksdb");
+}
+
+fn build_rocksdb() -> Config {
+    let mut cfg = Config::new();
+
     if !cfg!(feature = "static-link") {
-        gcc::Config::new()
-        .cpp(true)
-        .file("crocksdb/c.cc")
-        .flag("-std=c++11")
-        .flag("-fPIC")
-        .flag("-O2")
-        .compile("libcrocksdb.a");
-
-        println!("cargo:rustc-link-lib=static=crocksdb");
-        println!("cargo:rustc-link-lib=rocksdb");
-
-        return;
+        if cfg!(target_os = "windows") {
+            println!("cargo:rustc-link-lib=rocksdb-shared");
+        } else {
+            println!("cargo:rustc-link-lib=rocksdb");
+        }
+        return cfg;
     }
 
+    println!("cargo:rustc-link-lib=static=rocksdb");
+    println!("cargo:rustc-link-lib=static=z");
+    println!("cargo:rustc-link-lib=static=bz2");
+    println!("cargo:rustc-link-lib=static=lz4");
+    println!("cargo:rustc-link-lib=static=zstd");
+    println!("cargo:rustc-link-lib=static=snappy");
+
     if !cfg!(target_os = "linux") && !cfg!(target_os = "macos") {
-        // only linux and apple support static link right now
-        return;
+        // Compilation is not tested in other platform, so hopefully
+        // the static library is built already.
+        return cfg;
     }
 
     let dst = PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -39,8 +57,6 @@ fn main() {
 
     let fest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let p = PathBuf::from(fest_dir.clone()).join("build.sh");
-    let crocksdb_path = PathBuf::from(fest_dir).join("crocksdb");
-    env::set_var("CROCKSDB_PATH", crocksdb_path.to_str().unwrap());
     for lib in &["z", "snappy", "bz2", "lz4", "zstd", "rocksdb"] {
         let lib_name = format!("lib{}.a", lib);
         let src = build.join(&lib_name);
@@ -80,13 +96,8 @@ fn main() {
         }
     }
 
-    println!("cargo:rustc-link-lib=static=rocksdb");
-    println!("cargo:rustc-link-lib=static=z");
-    println!("cargo:rustc-link-lib=static=bz2");
-    println!("cargo:rustc-link-lib=static=lz4");
-    println!("cargo:rustc-link-lib=static=zstd");
-    println!("cargo:rustc-link-lib=static=snappy");
     println!("cargo:rustc-link-search=native={}", dst.display());
+    cfg.include(dst.join("build").join("rocksdb").join("include"));
 
     let mut cpp_linked = false;
     let std_lib_name = if cfg!(target_os = "linux") {
@@ -108,25 +119,29 @@ fn main() {
             }
         }
     }
-    if !cpp_linked {
-        let output =
-            Command::new(p.as_path()).args(&["find_library", std_lib_name]).output().unwrap();
-        if output.status.success() && !output.stdout.is_empty() {
-            if let Ok(path_str) = str::from_utf8(&output.stdout) {
-                let path = PathBuf::from(path_str);
-                if path.is_absolute() {
-                    println!("cargo:rustc-link-lib=static=stdc++");
-                    println!("cargo:rustc-link-search=native={}",
-                             path.parent().unwrap().display());
-                    return;
-                }
+    if cpp_linked {
+        cfg.cpp_link_stdlib(None);
+        return cfg;
+    }
+
+    let output =
+        Command::new(p.as_path()).args(&["find_library", std_lib_name]).output().unwrap();
+    if output.status.success() && !output.stdout.is_empty() {
+        if let Ok(path_str) = str::from_utf8(&output.stdout) {
+            let path = PathBuf::from(path_str);
+            if path.is_absolute() {
+                println!("cargo:rustc-link-lib=static=stdc++");
+                println!("cargo:rustc-link-search=native={}",
+                            path.parent().unwrap().display());
+                cfg.cpp_link_stdlib(None);
+                return cfg;
             }
         }
-        println!("failed to detect {}: {:?}, fallback to dynamic",
-                 std_lib_name,
-                 output);
-        println!("cargo:rustc-link-lib={}", &short_std_lib_name);
     }
+    println!("failed to detect {}: {:?}, fallback to dynamic",
+             std_lib_name,
+             output);
+    cfg
 }
 
 fn run(cmd: &mut Command) {

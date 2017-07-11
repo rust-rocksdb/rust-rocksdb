@@ -127,13 +127,12 @@ function compile_rocksdb() {
     version=v5.5.1
     vernum=5.5.1
     echo building rocksdb-$version
-    rm -rf rocksdb-$vernum
+    rm -rf rocksdb rocksdb-$vernum
     download https://github.com/facebook/rocksdb/archive/$version.tar.gz rocksdb-$version.tar.gz d10fe596fe4c926ed3d68a8179f8edaa
     tar xf rocksdb-$version.tar.gz
     wd=`pwd`
-    cd rocksdb-$vernum
-    cp $CROCKSDB_PATH/c.cc ./db/c.cc
-    cp $CROCKSDB_PATH/rocksdb/c.h ./include/rocksdb/c.h
+    mv rocksdb-$vernum rocksdb
+    cd rocksdb
     export EXTRA_CFLAGS="-fPIC -I${wd}/zlib-1.2.11 -I${wd}/bzip2-1.0.6 -I${wd}/snappy-1.1.1 -I${wd}/lz4-r131/lib -I${wd}/zstd-1.2.0/lib"
     export EXTRA_CXXFLAGS="-DZLIB -DBZIP2 -DSNAPPY -DLZ4 -DZSTD $EXTRA_CFLAGS"
     make static_lib -j $con

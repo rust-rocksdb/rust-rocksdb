@@ -148,6 +148,7 @@ fn test_set_wal_opt() {
     drop(db);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_sync_wal() {
     let path = TempDir::new("_rust_rocksdb_test_sync_wal").expect("");
