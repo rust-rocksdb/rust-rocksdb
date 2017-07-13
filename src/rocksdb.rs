@@ -306,6 +306,13 @@ impl<'a> Range<'a> {
     }
 }
 
+pub struct KeyVersion {
+    pub key: String,
+    pub value: String,
+    pub seq: u64,
+    pub value_type: c_int,
+}
+
 impl DB {
     pub fn open_default(path: &str) -> Result<DB, String> {
         let mut opts = Options::new();
@@ -1079,6 +1086,35 @@ impl DB {
                                                                 limit_keys.as_ptr(),
                                                                 limit_keys_lens.as_ptr()));
             Ok(TablePropertiesCollection::from_raw(props))
+        }
+    }
+
+    pub fn get_all_key_versions(&self,
+                                start_key: &[u8],
+                                end_key: &[u8])
+                                -> Result<Vec<KeyVersion>, String> {
+        unsafe {
+            let kvs = ffi_try!(crocksdb_get_all_key_versions(self.inner,
+                                                             start_key.as_ptr(),
+                                                             start_key.len() as size_t,
+                                                             end_key.as_ptr(),
+                                                             end_key.len() as size_t));
+            let size = crocksdb_ffi::crocksdb_keyversions_count(kvs) as usize;
+            let mut key_versions = Vec::with_capacity(size);
+            for i in 0..size {
+                key_versions.push(KeyVersion {
+                    key: CStr::from_ptr(crocksdb_ffi::crocksdb_keyversions_key(kvs, i))
+                        .to_string_lossy()
+                        .into_owned(),
+                    value: CStr::from_ptr(crocksdb_ffi::crocksdb_keyversions_value(kvs, i))
+                        .to_string_lossy()
+                        .into_owned(),
+                    seq: crocksdb_ffi::crocksdb_keyversions_seq(kvs, i),
+                    value_type: crocksdb_ffi::crocksdb_keyversions_type(kvs, i),
+                })
+            }
+            crocksdb_ffi::crocksdb_keyversions_destroy(kvs);
+            Ok(key_versions)
         }
     }
 }
@@ -1913,5 +1949,29 @@ mod test {
                 _ => assert!(false),
             }
         }
+    }
+
+    #[test]
+    fn test_get_all_key_versions() {
+        let mut opts = Options::new();
+        opts.create_if_missing(true);
+        let path = TempDir::new("_rust_rocksdb_get_all_key_version_test").expect("");
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+
+        let samples = vec![(b"key1".to_vec(), b"value1".to_vec()),
+                           (b"key2".to_vec(), b"value2".to_vec()),
+                           (b"key3".to_vec(), b"value3".to_vec()),
+                           (b"key4".to_vec(), b"value4".to_vec())];
+
+        // Put 4 keys.
+        for &(ref k, ref v) in &samples {
+            db.put(k, v).unwrap();
+            assert_eq!(v.as_slice(), &*db.get(k).unwrap().unwrap());
+        }
+        db.flush(true).unwrap();
+        let key_versions = db.get_all_key_versions(b"key2", b"key4").unwrap();
+        assert_eq!(key_versions[1].key, "key3");
+        assert_eq!(key_versions[1].value, "value3");
+        assert_eq!(key_versions[1].seq, 3);
     }
 }

@@ -56,6 +56,7 @@ pub enum DBFlushJobInfo {}
 pub enum DBCompactionJobInfo {}
 pub enum DBIngestionInfo {}
 pub enum DBEventListener {}
+pub enum DBKeyVersions {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -1037,6 +1038,26 @@ extern "C" {
                                          -> *mut DBEventListener;
     pub fn crocksdb_eventlistener_destroy(et: *mut DBEventListener);
     pub fn crocksdb_options_add_eventlistener(opt: *mut DBOptions, et: *mut DBEventListener);
+    // Get All Key Versions
+    pub fn crocksdb_keyversions_destroy(kvs: *mut DBKeyVersions);
+
+    pub fn crocksdb_get_all_key_versions(db: *mut DBInstance,
+                                         begin_key: *const u8,
+                                         begin_keylen: size_t,
+                                         end_key: *const u8,
+                                         end_keylen: size_t,
+                                         errptr: *mut *mut c_char)
+                                         -> *mut DBKeyVersions;
+
+    pub fn crocksdb_keyversions_count(kvs: *mut DBKeyVersions) -> size_t;
+
+    pub fn crocksdb_keyversions_key(kvs: *mut DBKeyVersions, index: usize) -> *const c_char;
+
+    pub fn crocksdb_keyversions_value(kvs: *mut DBKeyVersions, index: usize) -> *const c_char;
+
+    pub fn crocksdb_keyversions_seq(kvs: *mut DBKeyVersions, index: usize) -> uint64_t;
+
+    pub fn crocksdb_keyversions_type(kvs: *mut DBKeyVersions, index: usize) -> c_int;
 }
 
 #[cfg(test)]

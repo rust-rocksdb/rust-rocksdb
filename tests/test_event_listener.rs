@@ -12,10 +12,10 @@
 // limitations under the License.
 
 
-use std::sync::Arc;
-use std::sync::atomic::*;
 
 use rocksdb::*;
+use std::sync::Arc;
+use std::sync::atomic::*;
 use tempdir::TempDir;
 
 use test_ingest_external_file::gen_sst;
@@ -84,7 +84,7 @@ fn test_event_listener_basic() {
     let db = DB::open(opts, path_str).unwrap();
     for i in 1..8000 {
         db.put(format!("{:04}", i).as_bytes(),
-                    format!("{:04}", i).as_bytes())
+                 format!("{:04}", i).as_bytes())
             .unwrap();
     }
     db.flush(true).unwrap();
@@ -92,7 +92,7 @@ fn test_event_listener_basic() {
 
     for i in 1..8000 {
         db.put(format!("{:04}", i).as_bytes(),
-                    format!("{:04}", i).as_bytes())
+                 format!("{:04}", i).as_bytes())
             .unwrap();
     }
     db.flush(true).unwrap();

@@ -9,7 +9,6 @@
 
 #include "crocksdb/c.h"
 
-#include <stdlib.h>
 #include "rocksdb/cache.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/comparator.h"
@@ -30,7 +29,9 @@
 #include "rocksdb/table_properties.h"
 #include "rocksdb/universal_compaction.h"
 #include "rocksdb/utilities/backupable_db.h"
+#include "rocksdb/utilities/debug.h"
 #include "rocksdb/write_batch.h"
+#include <stdlib.h>
 
 using rocksdb::Cache;
 using rocksdb::ColumnFamilyDescriptor;
@@ -96,6 +97,7 @@ using rocksdb::TableProperties;
 using rocksdb::TablePropertiesCollection;
 using rocksdb::TablePropertiesCollector;
 using rocksdb::TablePropertiesCollectorFactory;
+using rocksdb::KeyVersion;
 
 using std::shared_ptr;
 
@@ -145,6 +147,10 @@ struct crocksdb_compactionjobinfo_t {
 };
 struct crocksdb_externalfileingestioninfo_t {
   ExternalFileIngestionInfo rep;
+};
+
+struct crocksdb_keyversions_t {
+  std::vector<KeyVersion> rep;
 };
 
 struct crocksdb_compactionfiltercontext_t {
@@ -1923,7 +1929,7 @@ void crocksdb_options_set_compression(crocksdb_options_t* opt, int t) {
   opt->rep.compression = static_cast<CompressionType>(t);
 }
 
-int crocksdb_options_get_compression(crocksdb_options_t* opt) {
+int crocksdb_options_get_compression(crocksdb_options_t *opt) {
   return static_cast<int>(opt->rep.compression);
 }
 
@@ -3485,8 +3491,44 @@ crocksdb_get_properties_of_tables_in_range(
   return props.release();
 }
 
-void crocksdb_set_bottommost_compression(crocksdb_options_t* opt, int c) {
+void crocksdb_set_bottommost_compression(crocksdb_options_t *opt, int c) {
   opt->rep.bottommost_compression = static_cast<CompressionType>(c);
+}
+// Get All Key Versions
+void crocksdb_keyversions_destroy(crocksdb_keyversions_t *kvs) { delete kvs; }
+
+crocksdb_keyversions_t *
+crocksdb_get_all_key_versions(crocksdb_t *db, const char *begin_key,
+                              size_t begin_keylen, const char *end_key,
+                              size_t end_keylen, char **errptr) {
+  crocksdb_keyversions_t *result = new crocksdb_keyversions_t;
+  SaveError(errptr,
+            GetAllKeyVersions(db->rep, Slice(begin_key, begin_keylen),
+                              Slice(end_key, end_keylen), &result->rep));
+  return result;
+}
+
+size_t crocksdb_keyversions_count(const crocksdb_keyversions_t *kvs) {
+  return kvs->rep.size();
+}
+
+const char *crocksdb_keyversions_key(const crocksdb_keyversions_t *kvs,
+                                     int index) {
+  return kvs->rep[index].user_key.c_str();
+}
+
+const char *crocksdb_keyversions_value(const crocksdb_keyversions_t *kvs,
+                                       int index) {
+  return kvs->rep[index].value.c_str();
+}
+
+uint64_t crocksdb_keyversions_seq(const crocksdb_keyversions_t *kvs,
+                                  int index) {
+  return kvs->rep[index].sequence;
+}
+
+int crocksdb_keyversions_type(const crocksdb_keyversions_t *kvs, int index) {
+  return kvs->rep[index].type;
 }
 
 }  // end extern "C"

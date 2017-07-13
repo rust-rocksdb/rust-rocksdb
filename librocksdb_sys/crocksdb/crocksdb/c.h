@@ -129,6 +129,7 @@ typedef struct crocksdb_compactionjobinfo_t crocksdb_compactionjobinfo_t;
 typedef struct crocksdb_externalfileingestioninfo_t
     crocksdb_externalfileingestioninfo_t;
 typedef struct crocksdb_eventlistener_t crocksdb_eventlistener_t;
+typedef struct crocksdb_keyversions_t crocksdb_keyversions_t;
 
 typedef enum crocksdb_table_property_t {
   kDataSize = 1,
@@ -695,8 +696,8 @@ extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_compression_level_numbe
     crocksdb_options_t* opt);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_get_compression_per_level(
     crocksdb_options_t* opt, int *level_values);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_set_bottommost_compression(
-    crocksdb_options_t* opt, int c);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_set_bottommost_compression(crocksdb_options_t *opt, int c);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_create_if_missing(
     crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
@@ -930,8 +931,8 @@ enum {
 };
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compression(
     crocksdb_options_t*, int);
-extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_compression(
-    crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API int
+crocksdb_options_get_compression(crocksdb_options_t *);
 
 enum {
   crocksdb_level_compaction = 0,
@@ -1424,6 +1425,31 @@ crocksdb_get_propeties_of_tables_in_range(
     const char* const* start_keys, const size_t* start_keys_lens,
     const char* const* limit_keys, const size_t* limit_keys_lens,
     char** errptr);
+
+/* Get All Key Versions */
+
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_keyversions_destroy(crocksdb_keyversions_t *kvs);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_keyversions_t *
+crocksdb_get_all_key_versions(crocksdb_t *db, const char *begin_key,
+                              size_t begin_keylen, const char *end_key,
+                              size_t end_keylen, char **errptr);
+
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_keyversions_count(const crocksdb_keyversions_t *kvs);
+
+extern C_ROCKSDB_LIBRARY_API const char *
+crocksdb_keyversions_key(const crocksdb_keyversions_t *kvs, int index);
+
+extern C_ROCKSDB_LIBRARY_API const char *
+crocksdb_keyversions_key(const crocksdb_keyversions_t *kvs, int index);
+
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_keyversions_seq(const crocksdb_keyversions_t *kvs, int index);
+
+extern C_ROCKSDB_LIBRARY_API int
+crocksdb_keyversions_type(const crocksdb_keyversions_t *kvs, int index);
 
 #ifdef __cplusplus
 }  /* end extern "C" */
