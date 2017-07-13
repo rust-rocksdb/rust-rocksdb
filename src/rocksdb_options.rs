@@ -20,6 +20,7 @@ use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DB
                    DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
                    DBFlushOptions, DBStatisticsTickerType, DBStatisticsHistogramType,
                    DBRateLimiter, DBInfoLogLevel, DBCompactOptions};
+use event_listener::{EventListener, new_event_listener};
 use libc::{self, c_int, size_t, c_void};
 use merge_operator::{self, MergeOperatorCallback, full_merge_callback, partial_merge_callback};
 use merge_operator::MergeFn;
@@ -392,6 +393,11 @@ impl Options {
                                                                      .inner);
             Ok(())
         }
+    }
+
+    pub fn add_event_listener<L: EventListener>(&mut self, l: L) {
+        let handle = new_event_listener(l);
+        unsafe { crocksdb_ffi::crocksdb_options_add_eventlistener(self.inner, handle) }
     }
 
     pub fn add_table_properties_collector_factory(&mut self,

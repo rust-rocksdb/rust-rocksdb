@@ -124,6 +124,11 @@ typedef struct crocksdb_table_properties_collector_t
     crocksdb_table_properties_collector_t;
 typedef struct crocksdb_table_properties_collector_factory_t
     crocksdb_table_properties_collector_factory_t;
+typedef struct crocksdb_flushjobinfo_t crocksdb_flushjobinfo_t;
+typedef struct crocksdb_compactionjobinfo_t crocksdb_compactionjobinfo_t;
+typedef struct crocksdb_externalfileingestioninfo_t
+    crocksdb_externalfileingestioninfo_t;
+typedef struct crocksdb_eventlistener_t crocksdb_eventlistener_t;
 
 typedef enum crocksdb_table_property_t {
   kDataSize = 1,
@@ -578,6 +583,67 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_block_based_table_factory
 
 extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_block_cache_usage(
     crocksdb_options_t *opt);
+
+/* Flush job info */
+
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_flushjobinfo_cf_name(
+    const crocksdb_flushjobinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_flushjobinfo_file_path(
+    const crocksdb_flushjobinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const crocksdb_table_properties_t*
+crocksdb_flushjobinfo_table_properties(const crocksdb_flushjobinfo_t*);
+
+/* Compaction job info */
+
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_compactionjobinfo_cf_name(
+    const crocksdb_compactionjobinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_compactionjobinfo_input_files_count(
+    const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_compactionjobinfo_input_file_at(const crocksdb_compactionjobinfo_t*,
+                                         size_t pos, size_t*);
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_compactionjobinfo_output_files_count(
+    const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_compactionjobinfo_output_file_at(const crocksdb_compactionjobinfo_t*,
+                                          size_t pos, size_t*);
+extern C_ROCKSDB_LIBRARY_API const crocksdb_table_properties_collection_t*
+crocksdb_compactionjobinfo_table_properties(
+    const crocksdb_compactionjobinfo_t*);
+
+/* External file ingestion info */
+
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_externalfileingestioninfo_cf_name(
+    const crocksdb_externalfileingestioninfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_externalfileingestioninfo_internal_file_path(
+    const crocksdb_externalfileingestioninfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const crocksdb_table_properties_t*
+crocksdb_externalfileingestioninfo_table_properties(
+    const crocksdb_externalfileingestioninfo_t*);
+
+/* Event listener */
+
+typedef void (*on_flush_completed_cb)(void*, crocksdb_t*,
+                                      const crocksdb_flushjobinfo_t*);
+typedef void (*on_compaction_completed_cb)(void*, crocksdb_t*,
+                                           const crocksdb_compactionjobinfo_t*);
+typedef void (*on_external_file_ingested_cb)(
+    void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_eventlistener_t*
+crocksdb_eventlistener_create(
+    void* state_, void (*destructor_)(void*),
+    on_flush_completed_cb on_flush_completed,
+    on_compaction_completed_cb on_compaction_completed,
+    on_external_file_ingested_cb on_external_file_ingested);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_eventlistener_destroy(
+    crocksdb_eventlistener_t*);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_add_eventlistener(
+    crocksdb_options_t*, crocksdb_eventlistener_t*);
 
 /* Cuckoo table options */
 

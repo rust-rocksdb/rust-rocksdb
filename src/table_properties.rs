@@ -18,24 +18,16 @@ use crocksdb_ffi::{self, DBTableProperties, DBTableProperty, DBUserCollectedProp
 use libc::size_t;
 use std::{slice, str, mem};
 use std::marker::PhantomData;
-use std::ops::Index;
+use std::ops::{Index, Deref};
 
 
-pub struct TablePropertiesCollection {
-    inner: *mut DBTablePropertiesCollection,
-}
+pub struct TablePropertiesCollectionView(DBTablePropertiesCollection);
 
-impl Drop for TablePropertiesCollection {
-    fn drop(&mut self) {
-        unsafe {
-            crocksdb_ffi::crocksdb_table_properties_collection_destroy(self.inner);
-        }
-    }
-}
-
-impl TablePropertiesCollection {
-    pub unsafe fn from_raw(ptr: *mut DBTablePropertiesCollection) -> TablePropertiesCollection {
-        TablePropertiesCollection { inner: ptr }
+impl TablePropertiesCollectionView {
+    pub unsafe fn from_ptr<'a>(collection: *const DBTablePropertiesCollection)
+                               -> &'a TablePropertiesCollectionView {
+        let c = &*collection;
+        mem::transmute(c)
     }
 
     pub fn iter(&self) -> TablePropertiesCollectionIter {
@@ -43,7 +35,7 @@ impl TablePropertiesCollection {
     }
 
     pub fn len(&self) -> usize {
-        unsafe { crocksdb_ffi::crocksdb_table_properties_collection_len(self.inner) }
+        unsafe { crocksdb_ffi::crocksdb_table_properties_collection_len(&self.0) }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -51,7 +43,7 @@ impl TablePropertiesCollection {
     }
 }
 
-impl<'a> IntoIterator for &'a TablePropertiesCollection {
+impl<'a> IntoIterator for &'a TablePropertiesCollectionView {
     type Item = (&'a str, &'a TableProperties);
     type IntoIter = TablePropertiesCollectionIter<'a>;
 
@@ -74,11 +66,11 @@ impl<'a> Drop for TablePropertiesCollectionIter<'a> {
 }
 
 impl<'a> TablePropertiesCollectionIter<'a> {
-    fn new(props: &'a TablePropertiesCollection) -> TablePropertiesCollectionIter<'a> {
+    fn new(props: &'a TablePropertiesCollectionView) -> TablePropertiesCollectionIter<'a> {
         unsafe {
             TablePropertiesCollectionIter {
                 props: PhantomData,
-                inner: crocksdb_ffi::crocksdb_table_properties_collection_iter_create(props.inner),
+                inner: crocksdb_ffi::crocksdb_table_properties_collection_iter_create(&props.0),
             }
         }
     }
@@ -106,16 +98,40 @@ impl<'a> Iterator for TablePropertiesCollectionIter<'a> {
     }
 }
 
+pub struct TablePropertiesCollection {
+    inner: *mut DBTablePropertiesCollection,
+}
+
+impl Drop for TablePropertiesCollection {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_table_properties_collection_destroy(self.inner);
+        }
+    }
+}
+
+impl TablePropertiesCollection {
+    pub unsafe fn from_raw(ptr: *mut DBTablePropertiesCollection) -> TablePropertiesCollection {
+        TablePropertiesCollection { inner: ptr }
+    }
+}
+
+impl Deref for TablePropertiesCollection {
+    type Target = TablePropertiesCollectionView;
+
+    fn deref(&self) -> &TablePropertiesCollectionView {
+        unsafe { TablePropertiesCollectionView::from_ptr(self.inner) }
+    }
+}
+
 pub struct TableProperties {
     inner: DBTableProperties,
 }
 
 impl TableProperties {
-    fn from_ptr<'a>(ptr: *const DBTableProperties) -> &'a TableProperties {
-        unsafe {
-            let res = &*ptr;
-            mem::transmute(res)
-        }
+    pub unsafe fn from_ptr<'a>(ptr: *const DBTableProperties) -> &'a TableProperties {
+        let res = &*ptr;
+        mem::transmute(res)
     }
 
     fn get_u64(&self, prop: DBTableProperty) -> u64 {

@@ -52,6 +52,10 @@ pub enum DBTablePropertiesCollection {}
 pub enum DBTablePropertiesCollectionIterator {}
 pub enum DBTablePropertiesCollector {}
 pub enum DBTablePropertiesCollectorFactory {}
+pub enum DBFlushJobInfo {}
+pub enum DBCompactionJobInfo {}
+pub enum DBIngestionInfo {}
+pub enum DBEventListener {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -904,9 +908,11 @@ extern "C" {
                                                   vlen: *mut size_t)
                                                   -> *const uint8_t;
 
-    pub fn crocksdb_user_collected_properties_len(props: *const DBUserCollectedProperties) -> size_t;
+    pub fn crocksdb_user_collected_properties_len(props: *const DBUserCollectedProperties)
+                                                  -> size_t;
 
-    pub fn crocksdb_table_properties_collection_len(props: *const DBTablePropertiesCollection) -> size_t;
+    pub fn crocksdb_table_properties_collection_len(props: *const DBTablePropertiesCollection)
+                                                    -> size_t;
 
     pub fn crocksdb_table_properties_collection_destroy(props: *mut DBTablePropertiesCollection);
 
@@ -981,6 +987,56 @@ extern "C" {
                                                       errptr: *mut *mut c_char)
                                                       -> *mut DBTablePropertiesCollection;
 
+    pub fn crocksdb_flushjobinfo_cf_name(info: *const DBFlushJobInfo,
+                                         size: *mut size_t)
+                                         -> *const c_char;
+    pub fn crocksdb_flushjobinfo_file_path(info: *const DBFlushJobInfo,
+                                           size: *mut size_t)
+                                           -> *const c_char;
+    pub fn crocksdb_flushjobinfo_table_properties(info: *const DBFlushJobInfo)
+                                                  -> *const DBTableProperties;
+
+    pub fn crocksdb_compactionjobinfo_cf_name(info: *const DBCompactionJobInfo,
+                                              size: *mut size_t)
+                                              -> *const c_char;
+    pub fn crocksdb_compactionjobinfo_input_files_count(info: *const DBCompactionJobInfo)
+                                                        -> size_t;
+    pub fn crocksdb_compactionjobinfo_input_file_at(info: *const DBCompactionJobInfo,
+                                                    pos: size_t,
+                                                    len: *mut size_t)
+                                                    -> *const c_char;
+    pub fn crocksdb_compactionjobinfo_output_files_count(info: *const DBCompactionJobInfo)
+                                                         -> size_t;
+    pub fn crocksdb_compactionjobinfo_output_file_at(info: *const DBCompactionJobInfo,
+                                                     pos: size_t,
+                                                     len: *mut size_t)
+                                                     -> *const c_char;
+    pub fn crocksdb_compactionjobinfo_table_properties(info: *const DBCompactionJobInfo)
+                                                       -> *const DBTablePropertiesCollection;
+
+    pub fn crocksdb_externalfileingestioninfo_cf_name(info: *const DBIngestionInfo,
+                                                      size: *mut size_t)
+                                                      -> *const c_char;
+    pub fn crocksdb_externalfileingestioninfo_internal_file_path(info: *const DBIngestionInfo,
+                                                                 size: *mut size_t)
+                                                                 -> *const c_char;
+    pub fn crocksdb_externalfileingestioninfo_table_properties(info: *const DBIngestionInfo)
+                                                               -> *const DBTableProperties;
+
+    pub fn crocksdb_eventlistener_create(state: *mut c_void,
+                                         destructor: extern "C" fn(*mut c_void),
+                                         flush: extern "C" fn(*mut c_void,
+                                                              *mut DBInstance,
+                                                              *const DBFlushJobInfo),
+                                         compact: extern "C" fn(*mut c_void,
+                                                                *mut DBInstance,
+                                                                *const DBCompactionJobInfo),
+                                         ingest: extern "C" fn(*mut c_void,
+                                                               *mut DBInstance,
+                                                               *const DBIngestionInfo))
+                                         -> *mut DBEventListener;
+    pub fn crocksdb_eventlistener_destroy(et: *mut DBEventListener);
+    pub fn crocksdb_options_add_eventlistener(opt: *mut DBOptions, et: *mut DBEventListener);
 }
 
 #[cfg(test)]

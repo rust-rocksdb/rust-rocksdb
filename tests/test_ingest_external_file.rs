@@ -16,7 +16,7 @@ use rocksdb::*;
 use std::fs;
 use tempdir::TempDir;
 
-fn gen_sst(opt: Options, cf: Option<&CFHandle>, path: &str, data: &[(&[u8], &[u8])]) {
+pub fn gen_sst(opt: Options, cf: Option<&CFHandle>, path: &str, data: &[(&[u8], &[u8])]) {
     let _ = fs::remove_file(path);
     let env_opt = EnvOptions::new();
     let mut writer = if cf.is_some() {
