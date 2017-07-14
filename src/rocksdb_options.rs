@@ -985,41 +985,37 @@ impl IngestExternalFileOptions {
 
     /// If set to false, an ingested file keys could appear in existing snapshots
     /// that where created before the file was ingested.
-    pub fn snapshot_consistent(self, whether_consistent: bool) -> IngestExternalFileOptions {
+    pub fn snapshot_consistent(&mut self, whether_consistent: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_ingestexternalfileoptions_set_snapshot_consistency(
                 self.inner, whether_consistent);
         }
-        self
     }
 
     /// If set to false, DB::ingest_external_file() will fail if the file key range
     /// overlaps with existing keys or tombstones in the DB.
-    pub fn allow_global_seqno(self, whether_allow: bool) -> IngestExternalFileOptions {
+    pub fn allow_global_seqno(&mut self, whether_allow: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_ingestexternalfileoptions_set_allow_global_seqno(self.inner,
                                                                                     whether_allow);
         }
-        self
     }
 
     /// If set to false and the file key range overlaps with the memtable key range
     /// (memtable flush required), DB::ingest_external_file will fail.
-    pub fn allow_blocking_flush(self, whether_allow: bool) -> IngestExternalFileOptions {
+    pub fn allow_blocking_flush(&mut self, whether_allow: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_ingestexternalfileoptions_set_allow_blocking_flush(self.inner,
                                                                                      whether_allow);
         }
-        self
     }
 
     /// Set to true to move the files instead of copying them.
-    pub fn move_files(self, whether_move: bool) -> IngestExternalFileOptions {
+    pub fn move_files(&mut self, whether_move: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_ingestexternalfileoptions_set_move_files(self.inner,
                                                                             whether_move);
         }
-        self
     }
 }
 

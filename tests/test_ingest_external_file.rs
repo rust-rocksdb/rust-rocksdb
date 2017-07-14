@@ -76,7 +76,7 @@ fn test_ingest_external_file() {
             None,
             test_sstfile_str,
             &[(b"k2", b"v5"), (b"k3", b"v6")]);
-    ingest_opt = ingest_opt.move_files(true);
+    ingest_opt.move_files(true);
     db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str])
         .unwrap();
 
