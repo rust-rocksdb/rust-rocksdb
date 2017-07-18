@@ -158,6 +158,7 @@ mod tests {
         blockopts.set_bloom_filter(10, false);
         opts.set_block_based_table_factory(blockopts);
         opts.set_disable_auto_compactions(true);
+        opts.set_max_compaction_bytes(1073741824 * 25);
 
         // let filter = new_bloom_filter(10);
         // opts.set_filter(filter);

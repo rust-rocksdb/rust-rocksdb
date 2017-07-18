@@ -559,6 +559,12 @@ impl Options {
         }
     }
 
+    pub fn set_max_compaction_bytes(&mut self, bytes: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_compaction_bytes(self.inner, bytes);
+        }
+    }
+
     pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v);
