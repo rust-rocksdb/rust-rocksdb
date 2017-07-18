@@ -1793,58 +1793,6 @@ mod test {
     }
 
     #[test]
-    fn test_delete_range() {
-        // Test `DB::delete_range()`
-        let path = TempDir::new("_rust_rocksdb_test_delete_range").expect("");
-        let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
-
-        // Prepare some data.
-        let prepare_data = || {
-            db.put(b"a", b"v1").unwrap();
-            let a = db.get(b"a");
-            assert_eq!(a.unwrap().unwrap(), b"v1");
-            db.put(b"b", b"v2").unwrap();
-            let b = db.get(b"b");
-            assert_eq!(b.unwrap().unwrap(), b"v2");
-            db.put(b"c", b"v3").unwrap();
-            let c = db.get(b"c");
-            assert_eq!(c.unwrap().unwrap(), b"v3");
-        };
-        prepare_data();
-
-        // Ensure delete range interface works to delete the specified range `[b"a", b"c")`.
-        db.delete_range(b"a", b"c").unwrap();
-
-        let check_data = || {
-            assert!(db.get(b"a").unwrap().is_none());
-            assert!(db.get(b"b").unwrap().is_none());
-            let c = db.get(b"c");
-            assert_eq!(c.unwrap().unwrap(), b"v3");
-        };
-        check_data();
-
-        // Test `DB::delete_range_cf()`
-        prepare_data();
-        let cf_handle = db.cf_handle("default").unwrap();
-        db.delete_range_cf(cf_handle, b"a", b"c").unwrap();
-        check_data();
-
-        // Test `WriteBatch::delete_range()`
-        prepare_data();
-        let batch = WriteBatch::new();
-        batch.delete_range(b"a", b"c").unwrap();
-        assert!(db.write(batch).is_ok());
-        check_data();
-
-        // Test `WriteBatch::delete_range_cf()`
-        prepare_data();
-        let batch = WriteBatch::new();
-        batch.delete_range_cf(cf_handle, b"a", b"c").unwrap();
-        assert!(db.write(batch).is_ok());
-        check_data();
-    }
-
-    #[test]
     fn test_pause_bg_work() {
         let path = TempDir::new("_rust_rocksdb_pause_bg_work").expect("");
         let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
