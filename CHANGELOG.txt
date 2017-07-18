@@ -10,6 +10,7 @@ Changelog
 
 **Internal cleanups**
  * Fixed race condition in tests (debris)
+ * Move tests to the default `tests` directory (vmx)
 
 0.6.1 (2017-03-13)
 ~~~~~~~~~~~~~~~~~~
