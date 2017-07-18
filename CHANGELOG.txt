@@ -4,6 +4,13 @@ Changelog
 0.7 (in development)
 ~~~~~~~~~~~~~~~~~~~~
 
+**New features**
+ * ReadOptions is now public (rschmukler)
+ * Implement Clone and AsRef<str> for Error (daboross)
+
+**Internal cleanups**
+ * Fixed race condition in tests (debris)
+
 0.6.1 (2017-03-13)
 ~~~~~~~~~~~~~~~~~~
 
