@@ -116,7 +116,7 @@ fn custom_merge() {
 #[cfg(test)]
 mod tests {
     use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
-    use rocksdb::DBCompactionStyle::DBUniversal;
+    use rocksdb::DBCompactionStyle;
     use rocksdb::DBRecoveryMode;
 
     #[allow(dead_code)]
@@ -124,13 +124,13 @@ mod tests {
                                      mut opts: Options,
                                      blockopts: &mut BlockBasedOptions)
                                      -> DB {
-        let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::DBNo,
-                                                             DBCompressionType::DBNo,
-                                                             DBCompressionType::DBNo,
-                                                             DBCompressionType::DBLz4,
-                                                             DBCompressionType::DBLz4,
-                                                             DBCompressionType::DBLz4,
-                                                             DBCompressionType::DBLz4];
+        let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::No,
+                                                             DBCompressionType::No,
+                                                             DBCompressionType::No,
+                                                             DBCompressionType::Lz4,
+                                                             DBCompressionType::Lz4,
+                                                             DBCompressionType::Lz4,
+                                                             DBCompressionType::Lz4];
 
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
@@ -145,7 +145,7 @@ mod tests {
         opts.set_level_zero_file_num_compaction_trigger(4);
         opts.set_level_zero_stop_writes_trigger(2000);
         opts.set_level_zero_slowdown_writes_trigger(0);
-        opts.set_compaction_style(DBUniversal);
+        opts.set_compaction_style(DBCompactionStyle::Universal);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
         opts.set_report_bg_io_stats(true);

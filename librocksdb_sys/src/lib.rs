@@ -79,23 +79,23 @@ pub enum DBEntryType {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub enum DBCompressionType {
-    DBNo = 0,
-    DBSnappy = 1,
-    DBZlib = 2,
-    DBBz2 = 3,
-    DBLz4 = 4,
-    DBLz4hc = 5,
+    No = 0,
+    Snappy = 1,
+    Zlib = 2,
+    Bz2 = 3,
+    Lz4 = 4,
+    Lz4hc = 5,
     // DBXpress = 6, not support currently.
-    DBZstd = 7,
-    DBZstdNotFinal = 0x40,
-    DBDisableCompression = 0xff,
+    Zstd = 7,
+    ZstdNotFinal = 0x40,
+    Disable = 0xff,
 }
 
 #[repr(C)]
 pub enum DBCompactionStyle {
-    DBLevel = 0,
-    DBUniversal = 1,
-    DBFifo = 2,
+    Level = 0,
+    Universal = 1,
+    Fifo = 2,
 }
 
 #[repr(C)]
@@ -177,21 +177,21 @@ pub enum DBStatisticsTickerType {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub enum DBStatisticsHistogramType {
-    DbGetMicros = 0,
-    DbWriteMicros = 1,
-    DbSeekMicros = 19,
+    GetMicros = 0,
+    WriteMicros = 1,
+    SeekMicros = 19,
 }
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub enum DBInfoLogLevel {
-    DBDebug = 0,
-    DBInfo = 1,
-    DBWarn = 2,
-    DBError = 3,
-    DBFatal = 4,
-    DBHeader = 5,
-    DBNumInfoLog = 6,
+    Debug = 0,
+    Info = 1,
+    Warn = 2,
+    Error = 3,
+    Fatal = 4,
+    Header = 5,
+    NumInfoLog = 6,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

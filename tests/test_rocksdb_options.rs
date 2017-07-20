@@ -66,7 +66,7 @@ fn test_enable_statistics() {
     opts.enable_statistics();
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
-    assert!(opts.get_statistics_histogram_string(HistogramType::DbSeekMicros)
+    assert!(opts.get_statistics_histogram_string(HistogramType::SeekMicros)
         .is_some());
     assert_eq!(opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
                0);
@@ -165,7 +165,7 @@ fn test_create_info_log() {
     let path = TempDir::new("_rust_rocksdb_test_create_info_log_opt").expect("");
     let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.set_info_log_level(InfoLogLevel::DBDebug);
+    opts.set_info_log_level(InfoLogLevel::Debug);
     opts.set_log_file_time_to_roll(1);
 
     let info_dir = TempDir::new("_rust_rocksdb_test_info_log_dir").expect("");
@@ -370,19 +370,19 @@ fn test_enable_pipelined_write() {
 fn test_get_compression() {
     let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.compression(DBCompressionType::DBSnappy);
-    assert_eq!(opts.get_compression(), DBCompressionType::DBSnappy);
+    opts.compression(DBCompressionType::Snappy);
+    assert_eq!(opts.get_compression(), DBCompressionType::Snappy);
 }
 
 #[test]
 fn test_get_compression_per_level() {
     let mut opts = Options::new();
-    let compressions = &[DBCompressionType::DBNo, DBCompressionType::DBSnappy];
+    let compressions = &[DBCompressionType::No, DBCompressionType::Snappy];
     opts.compression_per_level(compressions);
     let v = opts.get_compression_per_level();
     assert_eq!(v.len(), 2);
-    assert_eq!(v[0], DBCompressionType::DBNo);
-    assert_eq!(v[1], DBCompressionType::DBSnappy);
+    assert_eq!(v[0], DBCompressionType::No);
+    assert_eq!(v[1], DBCompressionType::Snappy);
     let mut opts2 = Options::new();
     let empty: &[DBCompressionType] = &[];
     opts2.compression_per_level(empty);
@@ -395,14 +395,14 @@ fn test_bottommost_compression() {
     let path = TempDir::new("_rust_rocksdb_bottommost_compression").expect("");
     let mut opts = Options::new();
     opts.create_if_missing(true);
-    opts.bottommost_compression(DBCompressionType::DBNo);
+    opts.bottommost_compression(DBCompressionType::No);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
 }
 
 #[test]
 fn test_clone_options() {
     let mut opts = Options::new();
-    opts.compression(DBCompressionType::DBSnappy);
+    opts.compression(DBCompressionType::Snappy);
     let opts2 = opts.clone();
     assert_eq!(opts.get_compression(), opts2.get_compression());
 }
