@@ -77,7 +77,7 @@ fn test_event_listener_basic() {
     let path = TempDir::new("_rust_rocksdb_event_listener_flush").expect("");
     let path_str = path.path().to_str().unwrap();
 
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     let counter = EventCounter::default();
     opts.add_event_listener(counter.clone());
     opts.create_if_missing(true);
@@ -111,7 +111,7 @@ fn test_event_listener_ingestion() {
     let path = TempDir::new("_rust_rocksdb_event_listener_ingestion").expect("");
     let path_str = path.path().to_str().unwrap();
 
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     let counter = EventCounter::default();
     opts.add_event_listener(counter.clone());
     opts.create_if_missing(true);

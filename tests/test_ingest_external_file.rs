@@ -16,7 +16,10 @@ use rocksdb::*;
 use std::fs;
 use tempdir::TempDir;
 
-pub fn gen_sst(opt: Options, cf: Option<&CFHandle>, path: &str, data: &[(&[u8], &[u8])]) {
+pub fn gen_sst(opt: ColumnFamilyOptions,
+               cf: Option<&CFHandle>,
+               path: &str,
+               data: &[(&[u8], &[u8])]) {
     let _ = fs::remove_file(path);
     let env_opt = EnvOptions::new();
     let mut writer = if cf.is_some() {
@@ -36,11 +39,11 @@ fn test_ingest_external_file() {
     let path = TempDir::new("_rust_rocksdb_ingest_sst").expect("");
     let path_str = path.path().to_str().unwrap();
 
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let mut db = DB::open(opts, path_str).unwrap();
-    let cf_opts = Options::new();
-    db.create_cf("cf1", &cf_opts).unwrap();
+    let cf_opts = ColumnFamilyOptions::new();
+    db.create_cf("cf1", cf_opts).unwrap();
     let handle = db.cf_handle("cf1").unwrap();
 
     let gen_path = TempDir::new("_rust_rocksdb_ingest_sst_gen").expect("");
@@ -60,7 +63,7 @@ fn test_ingest_external_file() {
     assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
     assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
 
-    gen_sst(cf_opts,
+    gen_sst(ColumnFamilyOptions::new(),
             None,
             test_sstfile_str,
             &[(b"k1", b"v3"), (b"k2", b"v4")]);
@@ -71,8 +74,7 @@ fn test_ingest_external_file() {
 
     let snap = db.snapshot();
 
-    let opt = Options::new();
-    gen_sst(opt,
+    gen_sst(ColumnFamilyOptions::new(),
             None,
             test_sstfile_str,
             &[(b"k2", b"v5"), (b"k3", b"v6")]);

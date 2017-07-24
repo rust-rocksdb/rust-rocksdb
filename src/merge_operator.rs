@@ -148,7 +148,7 @@ impl<'a> Iterator for &'a mut MergeOperands {
 #[cfg(test)]
 mod test {
     use rocksdb::{DB, DBVector, Writable};
-    use rocksdb_options::Options;
+    use rocksdb_options::{DBOptions, ColumnFamilyOptions};
     use super::*;
     use tempdir::TempDir;
 
@@ -177,10 +177,15 @@ mod test {
     #[test]
     fn mergetest() {
         let path = TempDir::new("_rust_rocksdb_mergetest").expect("");
-        let mut opts = Options::new();
+        let mut opts = DBOptions::new();
         opts.create_if_missing(true);
-        opts.add_merge_operator("test operator", test_provided_merge);
-        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+        let mut cf_opts = ColumnFamilyOptions::new();
+        cf_opts.add_merge_operator("test operator", test_provided_merge);
+        let db = DB::open_cf(opts,
+                             path.path().to_str().unwrap(),
+                             vec!["default"],
+                             vec![cf_opts])
+            .unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());
         let _ = db.merge(b"k1", b"b");

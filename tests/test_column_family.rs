@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{DB, MergeOperands, Options, Writable};
+use rocksdb::{DB, MergeOperands, DBOptions, ColumnFamilyOptions, Writable};
 use tempdir::TempDir;
 
 #[test]
@@ -23,12 +23,13 @@ pub fn test_column_family() {
 
     // should be able to create column families
     {
-        let mut opts = Options::new();
+        let mut opts = DBOptions::new();
         opts.create_if_missing(true);
-        opts.add_merge_operator("test operator", test_provided_merge);
-        let mut db = DB::open(opts, path_str).unwrap();
-        let opts = Options::new();
-        match db.create_cf("cf1", &opts) {
+        let mut cf_opts = ColumnFamilyOptions::new();
+        cf_opts.add_merge_operator("test operator", test_provided_merge);
+        let mut db = DB::open_cf(opts, path_str, vec!["default"], vec![cf_opts]).unwrap();
+        let cf_opts = ColumnFamilyOptions::new();
+        match db.create_cf("cf1", cf_opts) {
             Ok(_) => println!("cf1 created successfully"),
             Err(e) => {
                 panic!("could not create column family: {}", e);
@@ -39,9 +40,9 @@ pub fn test_column_family() {
 
     // should fail to open db without specifying same column families
     {
-        let mut opts = Options::new();
-        opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open(opts, path_str) {
+        let mut cf_opts = ColumnFamilyOptions::new();
+        cf_opts.add_merge_operator("test operator", test_provided_merge);
+        match DB::open_cf(DBOptions::new(), path_str, vec!["default"], vec![cf_opts]) {
             Ok(_) => {
                 panic!("should not have opened DB successfully without \
                         specifying column
@@ -56,18 +57,18 @@ pub fn test_column_family() {
 
     // should properly open db when specifying all column families
     {
-        let mut opts = Options::new();
-        opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open_cf(Options::new(), path_str, &["cf1"], &[&opts]) {
+        let mut cf_opts = ColumnFamilyOptions::new();
+        cf_opts.add_merge_operator("test operator", test_provided_merge);
+        match DB::open_cf(DBOptions::new(), path_str, vec!["cf1"], vec![cf_opts]) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
     }
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
-        let mut opts = Options::new();
-        opts.add_merge_operator("test operator", test_provided_merge);
-        let db = match DB::open_cf(Options::new(), path_str, &["cf1"], &[&opts]) {
+        let mut cf_opts = ColumnFamilyOptions::new();
+        cf_opts.add_merge_operator("test operator", test_provided_merge);
+        let db = match DB::open_cf(DBOptions::new(), path_str, vec!["cf1"], vec![cf_opts]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
@@ -114,9 +115,13 @@ pub fn test_column_family() {
     {}
     // TODO should be able to iterate over a cf
     {}
-    // should b able to drop a cf
+    // should be able to drop a cf
     {
-        let mut db = DB::open_cf(Options::new(), path_str, &["cf1"], &[&Options::new()]).unwrap();
+        let mut db = DB::open_cf(DBOptions::new(),
+                                 path_str,
+                                 vec!["cf1"],
+                                 vec![ColumnFamilyOptions::new()])
+            .unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),

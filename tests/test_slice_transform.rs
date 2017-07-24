@@ -11,7 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{Writable, DB, SliceTransform, Options, SeekKey, BlockBasedOptions};
+use rocksdb::{Writable, DB, SliceTransform, ColumnFamilyOptions, DBOptions, SeekKey,
+              BlockBasedOptions};
 use tempdir::TempDir;
 
 struct FixedPostfixTransform {
@@ -32,20 +33,25 @@ impl SliceTransform for FixedPostfixTransform {
 #[test]
 fn test_slice_transform() {
     let path = TempDir::new("_rust_rocksdb_slice_transform_test").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
 
     let mut block_opts = BlockBasedOptions::new();
     block_opts.set_bloom_filter(10, false);
     block_opts.set_whole_key_filtering(false);
 
-    opts.set_block_based_table_factory(&block_opts);
-    opts.set_memtable_prefix_bloom_size_ratio(0.25);
+    cf_opts.set_block_based_table_factory(&block_opts);
+    cf_opts.set_memtable_prefix_bloom_size_ratio(0.25);
 
-    opts.set_prefix_extractor("test", Box::new(FixedPostfixTransform { postfix_len: 2 }))
+    cf_opts.set_prefix_extractor("test", Box::new(FixedPostfixTransform { postfix_len: 2 }))
         .unwrap();
     opts.create_if_missing(true);
 
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
     let samples = vec![(b"key_01".to_vec(), b"1".to_vec()),
                        (b"key_02".to_vec(), b"2".to_vec()),
                        (b"key_0303".to_vec(), b"3".to_vec()),

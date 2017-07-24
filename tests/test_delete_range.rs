@@ -15,7 +15,7 @@ use rocksdb::*;
 use std::fs;
 use tempdir::TempDir;
 
-fn gen_sst(opt: Options, cf: Option<&CFHandle>, path: &str) {
+fn gen_sst(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str) {
     let _ = fs::remove_file(path);
     let env_opt = EnvOptions::new();
     let mut writer = if cf.is_some() {
@@ -157,7 +157,7 @@ fn test_delete_range_sst_files() {
 fn test_delete_range_ingest_file() {
     let path = TempDir::new("_rust_rocksdb_test_delete_range_ingest_file").expect("");
     let path_str = path.path().to_str().unwrap();
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let mut db = DB::open(opts, path_str).unwrap();
     let gen_path = TempDir::new("_rust_rocksdb_ingest_sst_gen").expect("");
@@ -183,10 +183,10 @@ fn test_delete_range_ingest_file() {
              db.cf_handle("default"),
              &[(b"key1", None), (b"key2", None), (b"key3", None), (b"key4", Some(b"value4"))]);
 
-    let cf_opts = Options::new();
-    db.create_cf("cf1", &cf_opts).unwrap();
+    let cf_opts = ColumnFamilyOptions::new();
+    db.create_cf("cf1", cf_opts).unwrap();
     let handle = db.cf_handle("cf1").unwrap();
-    gen_sst(cf_opts, None, test_sstfile_str);
+    gen_sst(ColumnFamilyOptions::new(), None, test_sstfile_str);
 
     db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str])
         .unwrap();

@@ -12,8 +12,9 @@
 // limitations under the License.
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use rocksdb::{DB, Range, Options, Writable, DBEntryType, TablePropertiesCollection,
-              TablePropertiesCollector, TablePropertiesCollectorFactory, UserCollectedProperties};
+use rocksdb::{DB, Range, ColumnFamilyOptions, DBOptions, Writable, DBEntryType,
+              TablePropertiesCollection, TablePropertiesCollector,
+              TablePropertiesCollectorFactory, UserCollectedProperties};
 use std::collections::HashMap;
 use std::fmt;
 use tempdir::TempDir;
@@ -159,12 +160,17 @@ fn check_collection(collection: &TablePropertiesCollection,
 #[test]
 fn test_table_properties_collector_factory() {
     let f = ExampleFactory::new();
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.add_table_properties_collector_factory("example-collector", Box::new(f));
+    cf_opts.add_table_properties_collector_factory("example-collector", Box::new(f));
 
     let path = TempDir::new("_rust_rocksdb_collectortest").expect("");
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
 
     let samples = vec![(b"key1".to_vec(), b"value1".to_vec()),
                        (b"key2".to_vec(), b"value2".to_vec()),

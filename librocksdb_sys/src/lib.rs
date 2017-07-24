@@ -20,7 +20,7 @@ extern crate tempdir;
 use libc::{c_char, c_uchar, c_int, c_void, size_t, uint8_t, uint32_t, uint64_t, c_double};
 use std::ffi::CStr;
 
-pub enum DBOptions {}
+pub enum Options {}
 pub enum DBInstance {}
 pub enum DBWriteOptions {}
 pub enum DBReadOptions {}
@@ -241,10 +241,10 @@ macro_rules! ffi_try {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 extern "C" {
-    pub fn crocksdb_get_options_cf(db: *mut DBInstance, cf: *mut DBCFHandle) -> *mut DBOptions;
-    pub fn crocksdb_options_create() -> *mut DBOptions;
-    pub fn crocksdb_options_copy(opts: *const DBOptions) -> *mut DBOptions;
-    pub fn crocksdb_options_destroy(opts: *mut DBOptions);
+    pub fn crocksdb_get_options_cf(db: *mut DBInstance, cf: *mut DBCFHandle) -> *mut Options;
+    pub fn crocksdb_options_create() -> *mut Options;
+    pub fn crocksdb_options_copy(opts: *const Options) -> *mut Options;
+    pub fn crocksdb_options_destroy(opts: *mut Options);
     pub fn crocksdb_cache_create_lru(capacity: size_t) -> *mut DBCache;
     pub fn crocksdb_cache_destroy(cache: *mut DBCache);
     pub fn crocksdb_block_based_options_create() -> *mut DBBlockBasedTableOptions;
@@ -273,86 +273,84 @@ extern "C" {
     pub fn crocksdb_block_based_options_set_whole_key_filtering(
         ck_options: *mut DBBlockBasedTableOptions, doit: bool);
     pub fn crocksdb_options_set_block_based_table_factory(
-        options: *mut DBOptions,
+        options: *mut Options,
         block_options: *mut DBBlockBasedTableOptions);
     pub fn crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
         block_options: *mut DBBlockBasedTableOptions, v: c_uchar);
-    pub fn crocksdb_options_increase_parallelism(options: *mut DBOptions, threads: c_int);
-    pub fn crocksdb_options_optimize_level_style_compaction(options: *mut DBOptions,
+    pub fn crocksdb_options_increase_parallelism(options: *mut Options, threads: c_int);
+    pub fn crocksdb_options_optimize_level_style_compaction(options: *mut Options,
                                                             memtable_memory_budget: c_int);
-    pub fn crocksdb_options_set_compaction_filter(options: *mut DBOptions,
+    pub fn crocksdb_options_set_compaction_filter(options: *mut Options,
                                                   filter: *mut DBCompactionFilter);
-    pub fn crocksdb_options_set_create_if_missing(options: *mut DBOptions, v: bool);
-    pub fn crocksdb_options_set_max_open_files(options: *mut DBOptions, files: c_int);
-    pub fn crocksdb_options_set_max_total_wal_size(options: *mut DBOptions, size: u64);
-    pub fn crocksdb_options_set_use_fsync(options: *mut DBOptions, v: c_int);
-    pub fn crocksdb_options_set_bytes_per_sync(options: *mut DBOptions, bytes: u64);
-    pub fn crocksdb_options_set_enable_pipelined_write(options: *mut DBOptions, v: bool);
-    pub fn crocksdb_options_set_allow_concurrent_memtable_write(options: *mut DBOptions, v: bool);
-    pub fn crocksdb_options_optimize_for_point_lookup(options: *mut DBOptions,
+    pub fn crocksdb_options_set_create_if_missing(options: *mut Options, v: bool);
+    pub fn crocksdb_options_set_max_open_files(options: *mut Options, files: c_int);
+    pub fn crocksdb_options_set_max_total_wal_size(options: *mut Options, size: u64);
+    pub fn crocksdb_options_set_use_fsync(options: *mut Options, v: c_int);
+    pub fn crocksdb_options_set_bytes_per_sync(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_set_enable_pipelined_write(options: *mut Options, v: bool);
+    pub fn crocksdb_options_set_allow_concurrent_memtable_write(options: *mut Options, v: bool);
+    pub fn crocksdb_options_optimize_for_point_lookup(options: *mut Options,
                                                       block_cache_size_mb: u64);
-    pub fn crocksdb_options_set_table_cache_numshardbits(options: *mut DBOptions, bits: c_int);
-    pub fn crocksdb_options_set_writable_file_max_buffer_size(options: *mut DBOptions,
+    pub fn crocksdb_options_set_table_cache_numshardbits(options: *mut Options, bits: c_int);
+    pub fn crocksdb_options_set_writable_file_max_buffer_size(options: *mut Options,
                                                               nbytes: c_int);
-    pub fn crocksdb_options_set_max_write_buffer_number(options: *mut DBOptions, bufno: c_int);
-    pub fn crocksdb_options_set_min_write_buffer_number_to_merge(options: *mut DBOptions,
+    pub fn crocksdb_options_set_max_write_buffer_number(options: *mut Options, bufno: c_int);
+    pub fn crocksdb_options_set_min_write_buffer_number_to_merge(options: *mut Options,
                                                                  bufno: c_int);
-    pub fn crocksdb_options_set_level0_file_num_compaction_trigger(options: *mut DBOptions,
+    pub fn crocksdb_options_set_level0_file_num_compaction_trigger(options: *mut Options,
                                                                    no: c_int);
-    pub fn crocksdb_options_set_level0_slowdown_writes_trigger(options: *mut DBOptions,
-                                                               no: c_int);
-    pub fn crocksdb_options_set_level0_stop_writes_trigger(options: *mut DBOptions, no: c_int);
-    pub fn crocksdb_options_set_write_buffer_size(options: *mut DBOptions, bytes: u64);
-    pub fn crocksdb_options_set_target_file_size_base(options: *mut DBOptions, bytes: u64);
-    pub fn crocksdb_options_set_target_file_size_multiplier(options: *mut DBOptions, mul: c_int);
-    pub fn crocksdb_options_set_max_bytes_for_level_base(options: *mut DBOptions, bytes: u64);
-    pub fn crocksdb_options_set_max_bytes_for_level_multiplier(options: *mut DBOptions,
-                                                               mul: c_int);
-    pub fn crocksdb_options_set_max_compaction_bytes(options: *mut DBOptions, bytes: uint64_t);
-    pub fn crocksdb_options_set_max_log_file_size(options: *mut DBOptions, bytes: size_t);
-    pub fn crocksdb_options_set_log_file_time_to_roll(options: *mut DBOptions, bytes: size_t);
-    pub fn crocksdb_options_set_info_log_level(options: *mut DBOptions, level: DBInfoLogLevel);
-    pub fn crocksdb_options_set_keep_log_file_num(options: *mut DBOptions, num: size_t);
-    pub fn crocksdb_options_set_max_manifest_file_size(options: *mut DBOptions, bytes: u64);
-    pub fn crocksdb_options_set_hash_skip_list_rep(options: *mut DBOptions,
+    pub fn crocksdb_options_set_level0_slowdown_writes_trigger(options: *mut Options, no: c_int);
+    pub fn crocksdb_options_set_level0_stop_writes_trigger(options: *mut Options, no: c_int);
+    pub fn crocksdb_options_set_write_buffer_size(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_set_target_file_size_base(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_set_target_file_size_multiplier(options: *mut Options, mul: c_int);
+    pub fn crocksdb_options_set_max_bytes_for_level_base(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_set_max_bytes_for_level_multiplier(options: *mut Options, mul: c_int);
+    pub fn crocksdb_options_set_max_compaction_bytes(options: *mut Options, bytes: uint64_t);
+    pub fn crocksdb_options_set_max_log_file_size(options: *mut Options, bytes: size_t);
+    pub fn crocksdb_options_set_log_file_time_to_roll(options: *mut Options, bytes: size_t);
+    pub fn crocksdb_options_set_info_log_level(options: *mut Options, level: DBInfoLogLevel);
+    pub fn crocksdb_options_set_keep_log_file_num(options: *mut Options, num: size_t);
+    pub fn crocksdb_options_set_max_manifest_file_size(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_set_hash_skip_list_rep(options: *mut Options,
                                                    bytes: u64,
                                                    a1: i32,
                                                    a2: i32);
-    pub fn crocksdb_options_set_compaction_style(options: *mut DBOptions, cs: DBCompactionStyle);
-    pub fn crocksdb_options_set_compression(options: *mut DBOptions,
+    pub fn crocksdb_options_set_compaction_style(options: *mut Options, cs: DBCompactionStyle);
+    pub fn crocksdb_options_set_compression(options: *mut Options,
                                             compression_style_no: DBCompressionType);
-    pub fn crocksdb_options_get_compression(options: *mut DBOptions) -> DBCompressionType;
-    pub fn crocksdb_options_set_compression_per_level(options: *mut DBOptions,
+    pub fn crocksdb_options_get_compression(options: *mut Options) -> DBCompressionType;
+    pub fn crocksdb_options_set_compression_per_level(options: *mut Options,
                                                       level_values: *const DBCompressionType,
                                                       num_levels: size_t);
-    pub fn crocksdb_options_get_compression_level_number(options: *mut DBOptions) -> size_t;
-    pub fn crocksdb_options_get_compression_per_level(options: *mut DBOptions,
+    pub fn crocksdb_options_get_compression_level_number(options: *mut Options) -> size_t;
+    pub fn crocksdb_options_get_compression_per_level(options: *mut Options,
                                                       level_values: *mut DBCompressionType);
-    pub fn crocksdb_set_bottommost_compression(options: *mut DBOptions, c: DBCompressionType);
-    pub fn crocksdb_options_set_base_background_compactions(optinos: *mut DBOptions,
+    pub fn crocksdb_set_bottommost_compression(options: *mut Options, c: DBCompressionType);
+    pub fn crocksdb_options_set_base_background_compactions(optinos: *mut Options,
                                                             base_bg_compactions: c_int);
-    pub fn crocksdb_options_set_max_background_compactions(options: *mut DBOptions,
+    pub fn crocksdb_options_set_max_background_compactions(options: *mut Options,
                                                            max_bg_compactions: c_int);
-    pub fn crocksdb_options_set_max_background_flushes(options: *mut DBOptions,
+    pub fn crocksdb_options_set_max_background_flushes(options: *mut Options,
                                                        max_bg_flushes: c_int);
-    pub fn crocksdb_options_set_disable_auto_compactions(options: *mut DBOptions, v: c_int);
-    pub fn crocksdb_options_set_report_bg_io_stats(options: *mut DBOptions, v: c_int);
-    pub fn crocksdb_options_set_compaction_readahead_size(options: *mut DBOptions, v: size_t);
-    pub fn crocksdb_options_set_wal_recovery_mode(options: *mut DBOptions, mode: DBRecoveryMode);
-    pub fn crocksdb_options_set_max_subcompactions(options: *mut DBOptions, v: u32);
-    pub fn crocksdb_options_set_wal_bytes_per_sync(options: *mut DBOptions, v: u64);
-    pub fn crocksdb_options_enable_statistics(options: *mut DBOptions);
-    pub fn crocksdb_options_statistics_get_string(options: *mut DBOptions) -> *const c_char;
-    pub fn crocksdb_options_statistics_get_ticker_count(options: *mut DBOptions,
+    pub fn crocksdb_options_set_disable_auto_compactions(options: *mut Options, v: c_int);
+    pub fn crocksdb_options_set_report_bg_io_stats(options: *mut Options, v: c_int);
+    pub fn crocksdb_options_set_compaction_readahead_size(options: *mut Options, v: size_t);
+    pub fn crocksdb_options_set_wal_recovery_mode(options: *mut Options, mode: DBRecoveryMode);
+    pub fn crocksdb_options_set_max_subcompactions(options: *mut Options, v: u32);
+    pub fn crocksdb_options_set_wal_bytes_per_sync(options: *mut Options, v: u64);
+    pub fn crocksdb_options_enable_statistics(options: *mut Options);
+    pub fn crocksdb_options_statistics_get_string(options: *mut Options) -> *const c_char;
+    pub fn crocksdb_options_statistics_get_ticker_count(options: *mut Options,
                                                         ticker_type: DBStatisticsTickerType)
                                                         -> u64;
-    pub fn crocksdb_options_statistics_get_and_reset_ticker_count(options: *mut DBOptions,
+    pub fn crocksdb_options_statistics_get_and_reset_ticker_count(options: *mut Options,
                                                         ticker_type: DBStatisticsTickerType)
                                                         -> u64;
-    pub fn crocksdb_options_statistics_get_histogram_string(options: *mut DBOptions,
+    pub fn crocksdb_options_statistics_get_histogram_string(options: *mut Options,
                                                             hist_type: DBStatisticsHistogramType)
                                                             -> *const c_char;
-    pub fn crocksdb_options_statistics_get_histogram(options: *mut DBOptions,
+    pub fn crocksdb_options_statistics_get_histogram(options: *mut Options,
                                                      hist_type: DBStatisticsHistogramType,
                                                      median: *mut c_double,
                                                      percentile95: *mut c_double,
@@ -360,42 +358,41 @@ extern "C" {
                                                      average: *mut c_double,
                                                      standard_deviation: *mut c_double)
                                                      -> bool;
-    pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut DBOptions, v: usize);
-    pub fn crocksdb_options_set_num_levels(options: *mut DBOptions, v: c_int);
-    pub fn crocksdb_options_set_db_log_dir(options: *mut DBOptions, path: *const c_char);
-    pub fn crocksdb_options_set_wal_dir(options: *mut DBOptions, path: *const c_char);
-    pub fn crocksdb_options_set_wal_ttl_seconds(options: *mut DBOptions, ttl: u64);
-    pub fn crocksdb_options_set_wal_size_limit_mb(options: *mut DBOptions, limit: u64);
-    pub fn crocksdb_options_set_use_direct_reads(options: *mut DBOptions, v: bool);
-    pub fn crocksdb_options_set_use_direct_io_for_flush_and_compaction(options: *mut DBOptions,
+    pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut Options, v: usize);
+    pub fn crocksdb_options_set_num_levels(options: *mut Options, v: c_int);
+    pub fn crocksdb_options_set_db_log_dir(options: *mut Options, path: *const c_char);
+    pub fn crocksdb_options_set_wal_dir(options: *mut Options, path: *const c_char);
+    pub fn crocksdb_options_set_wal_ttl_seconds(options: *mut Options, ttl: u64);
+    pub fn crocksdb_options_set_wal_size_limit_mb(options: *mut Options, limit: u64);
+    pub fn crocksdb_options_set_use_direct_reads(options: *mut Options, v: bool);
+    pub fn crocksdb_options_set_use_direct_io_for_flush_and_compaction(options: *mut Options,
                                                                        v: bool);
-    pub fn crocksdb_options_set_prefix_extractor(options: *mut DBOptions,
+    pub fn crocksdb_options_set_prefix_extractor(options: *mut Options,
                                                  prefix_extractor: *mut DBSliceTransform);
-    pub fn crocksdb_options_set_optimize_filters_for_hits(options: *mut DBOptions, v: bool);
-    pub fn crocksdb_options_set_level_compaction_dynamic_level_bytes(options: *mut DBOptions,
+    pub fn crocksdb_options_set_optimize_filters_for_hits(options: *mut Options, v: bool);
+    pub fn crocksdb_options_set_level_compaction_dynamic_level_bytes(options: *mut Options,
                                                                      v: bool);
-    pub fn crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(options: *mut DBOptions,
+    pub fn crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(options: *mut Options,
                                                  prefix_extractor: *mut DBSliceTransform);
-    pub fn crocksdb_options_set_memtable_prefix_bloom_size_ratio(options: *mut DBOptions,
+    pub fn crocksdb_options_set_memtable_prefix_bloom_size_ratio(options: *mut Options,
                                                                  ratio: c_double);
-    pub fn crocksdb_options_set_delayed_write_rate(options: *mut DBOptions, rate: u64);
-    pub fn crocksdb_options_set_ratelimiter(options: *mut DBOptions, limiter: *mut DBRateLimiter);
-    pub fn crocksdb_options_set_info_log(options: *mut DBOptions, logger: *mut DBLogger);
-    pub fn crocksdb_options_get_block_cache_usage(options: *const DBOptions) -> usize;
+    pub fn crocksdb_options_set_delayed_write_rate(options: *mut Options, rate: u64);
+    pub fn crocksdb_options_set_ratelimiter(options: *mut Options, limiter: *mut DBRateLimiter);
+    pub fn crocksdb_options_set_info_log(options: *mut Options, logger: *mut DBLogger);
+    pub fn crocksdb_options_get_block_cache_usage(options: *const Options) -> usize;
     pub fn crocksdb_ratelimiter_create(rate_bytes_per_sec: i64,
                                        refill_period_us: i64,
                                        fairness: i32)
                                        -> *mut DBRateLimiter;
     pub fn crocksdb_ratelimiter_destroy(limiter: *mut DBRateLimiter);
-    pub fn crocksdb_options_set_soft_pending_compaction_bytes_limit(options: *mut DBOptions,
+    pub fn crocksdb_options_set_soft_pending_compaction_bytes_limit(options: *mut Options,
                                                                     v: u64);
-    pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut DBOptions,
+    pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut Options,
                                                                     v: u64);
-    pub fn crocksdb_options_set_compaction_priority(options: *mut DBOptions,
-                                                    v: CompactionPriority);
+    pub fn crocksdb_options_set_compaction_priority(options: *mut Options, v: CompactionPriority);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
-    pub fn crocksdb_open(options: *mut DBOptions,
+    pub fn crocksdb_open(options: *mut Options,
                          path: *const c_char,
                          err: *mut *mut c_char)
                          -> *mut DBInstance;
@@ -490,10 +487,10 @@ extern "C" {
     pub fn crocksdb_close(db: *mut DBInstance);
     pub fn crocksdb_pause_bg_work(db: *mut DBInstance);
     pub fn crocksdb_continue_bg_work(db: *mut DBInstance);
-    pub fn crocksdb_destroy_db(options: *const DBOptions,
+    pub fn crocksdb_destroy_db(options: *const Options,
                                path: *const c_char,
                                err: *mut *mut c_char);
-    pub fn crocksdb_repair_db(options: *const DBOptions,
+    pub fn crocksdb_repair_db(options: *const Options,
                               path: *const c_char,
                               err: *mut *mut c_char);
     // Merge
@@ -538,7 +535,7 @@ extern "C" {
         name_fn: extern fn(*mut c_void) -> *const c_char,
     ) -> *mut DBMergeOperator;
     pub fn crocksdb_mergeoperator_destroy(mo: *mut DBMergeOperator);
-    pub fn crocksdb_options_set_merge_operator(options: *mut DBOptions, mo: *mut DBMergeOperator);
+    pub fn crocksdb_options_set_merge_operator(options: *mut Options, mo: *mut DBMergeOperator);
     // Iterator
     pub fn crocksdb_iter_destroy(iter: *mut DBIterator);
     pub fn crocksdb_iter_valid(iter: *const DBIterator) -> bool;
@@ -623,7 +620,7 @@ extern "C" {
                                                       err: *mut *mut c_char);
 
     // Comparator
-    pub fn crocksdb_options_set_comparator(options: *mut DBOptions, cb: *mut DBComparator);
+    pub fn crocksdb_options_set_comparator(options: *mut Options, cb: *mut DBComparator);
     pub fn crocksdb_comparator_create(state: *mut c_void,
                                       destroy: extern "C" fn(*mut c_void) -> (),
                                       compare: extern "C" fn(arg: *mut c_void,
@@ -637,16 +634,16 @@ extern "C" {
     pub fn crocksdb_comparator_destroy(cmp: *mut DBComparator);
 
     // Column Family
-    pub fn crocksdb_open_column_families(options: *const DBOptions,
+    pub fn crocksdb_open_column_families(options: *const Options,
                                          path: *const c_char,
                                          num_column_families: c_int,
                                          column_family_names: *const *const c_char,
-                                         column_family_options: *const *const DBOptions,
+                                         column_family_options: *const *const Options,
                                          column_family_handles: *const *mut DBCFHandle,
                                          err: *mut *mut c_char)
                                          -> *mut DBInstance;
     pub fn crocksdb_create_column_family(db: *mut DBInstance,
-                                         column_family_options: *const DBOptions,
+                                         column_family_options: *const Options,
                                          column_family_name: *const c_char,
                                          err: *mut *mut c_char)
                                          -> *mut DBCFHandle;
@@ -655,7 +652,7 @@ extern "C" {
                                        err: *mut *mut c_char);
     pub fn crocksdb_column_family_handle_id(column_family_handle: *mut DBCFHandle) -> u32;
     pub fn crocksdb_column_family_handle_destroy(column_family_handle: *mut DBCFHandle);
-    pub fn crocksdb_list_column_families(db: *const DBOptions,
+    pub fn crocksdb_list_column_families(db: *const Options,
                                          path: *const c_char,
                                          lencf: *mut size_t,
                                          err: *mut *mut c_char)
@@ -768,14 +765,14 @@ extern "C" {
 
     // SstFileWriter
     pub fn crocksdb_sstfilewriter_create(env: *mut EnvOptions,
-                                         io_options: *const DBOptions)
+                                         io_options: *const Options)
                                          -> *mut SstFileWriter;
     pub fn crocksdb_sstfilewriter_create_cf(env: *mut EnvOptions,
-                                            io_options: *const DBOptions,
+                                            io_options: *const Options,
                                             cf: *mut DBCFHandle)
                                             -> *mut SstFileWriter;
     pub fn crocksdb_sstfilewriter_create_with_comparator(env: *mut EnvOptions,
-                                                         io_options: *const DBOptions,
+                                                         io_options: *const Options,
                                                          comparator: *const DBComparator,
                                                          cf: *mut DBCFHandle)
                                                          -> *mut SstFileWriter;
@@ -810,7 +807,7 @@ extern "C" {
 
     // Backup engine
     // TODO: add more ffis about backup engine.
-    pub fn crocksdb_backup_engine_open(options: *const DBOptions,
+    pub fn crocksdb_backup_engine_open(options: *const Options,
                                        path: *const c_char,
                                        err: *mut *mut c_char)
                                        -> *mut DBBackupEngine;
@@ -841,7 +838,7 @@ extern "C" {
                                           -> *mut DBSliceTransform;
     pub fn crocksdb_slicetransform_destroy(transform: *mut DBSliceTransform);
     pub fn crocksdb_create_log_from_options(path: *const c_char,
-                                            options: *mut DBOptions,
+                                            options: *mut Options,
                                             err: *mut *mut c_char)
                                             -> *mut DBLogger;
     pub fn crocksdb_log_destroy(logger: *mut DBLogger);
@@ -968,7 +965,7 @@ extern "C" {
         f: *mut DBTablePropertiesCollectorFactory);
 
     pub fn crocksdb_options_add_table_properties_collector_factory(
-        options: *mut DBOptions, f: *mut DBTablePropertiesCollectorFactory);
+        options: *mut Options, f: *mut DBTablePropertiesCollectorFactory);
 
     pub fn crocksdb_get_properties_of_all_tables(db: *mut DBInstance,
                                                  errptr: *mut *mut c_char)
@@ -1038,7 +1035,7 @@ extern "C" {
                                                                *const DBIngestionInfo))
                                          -> *mut DBEventListener;
     pub fn crocksdb_eventlistener_destroy(et: *mut DBEventListener);
-    pub fn crocksdb_options_add_eventlistener(opt: *mut DBOptions, et: *mut DBEventListener);
+    pub fn crocksdb_options_add_eventlistener(opt: *mut Options, et: *mut DBEventListener);
     // Get All Key Versions
     pub fn crocksdb_keyversions_destroy(kvs: *mut DBKeyVersions);
 

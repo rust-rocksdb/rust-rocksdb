@@ -16,7 +16,7 @@
 use compaction_filter::{CompactionFilter, new_compaction_filter, CompactionFilterHandle};
 use comparator::{self, ComparatorCallback, compare_callback};
 
-use crocksdb_ffi::{self, DBOptions, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
+use crocksdb_ffi::{self, Options, DBWriteOptions, DBBlockBasedTableOptions, DBReadOptions,
                    DBRestoreOptions, DBCompressionType, DBRecoveryMode, DBSnapshot, DBInstance,
                    DBFlushOptions, DBStatisticsTickerType, DBStatisticsHistogramType,
                    DBRateLimiter, DBInfoLogLevel, DBCompactOptions};
@@ -294,12 +294,11 @@ impl Drop for CompactOptions {
     }
 }
 
-pub struct Options {
-    pub inner: *mut DBOptions,
-    filter: Option<CompactionFilterHandle>,
+pub struct DBOptions {
+    pub inner: *mut Options,
 }
 
-impl Drop for Options {
+impl Drop for DBOptions {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_options_destroy(self.inner);
@@ -307,45 +306,29 @@ impl Drop for Options {
     }
 }
 
-impl Default for Options {
-    fn default() -> Options {
+impl Default for DBOptions {
+    fn default() -> DBOptions {
         unsafe {
             let opts = crocksdb_ffi::crocksdb_options_create();
-            assert!(!opts.is_null(), "Could not create rocksdb options");
-            Options {
-                inner: opts,
-                filter: None,
-            }
+            assert!(!opts.is_null(), "Could not create rocksdb db options");
+            DBOptions { inner: opts }
         }
     }
 }
 
-impl Clone for Options {
+impl Clone for DBOptions {
     fn clone(&self) -> Self {
-        assert!(self.filter.is_none());
         unsafe {
             let opts = crocksdb_ffi::crocksdb_options_copy(self.inner);
             assert!(!opts.is_null());
-            Options {
-                inner: opts,
-                filter: None,
-            }
+            DBOptions { inner: opts }
         }
     }
 }
 
-impl Options {
-    pub fn new() -> Options {
-        Options::default()
-    }
-
-    pub unsafe fn from_raw(inner: *mut DBOptions) -> Options {
-        assert!(!inner.is_null(),
-                "could not new rocksdb options with null inner");
-        Options {
-            inner: inner,
-            filter: None,
-        }
+impl DBOptions {
+    pub fn new() -> DBOptions {
+        DBOptions::default()
     }
 
     pub fn increase_parallelism(&mut self, parallelism: i32) {
@@ -354,138 +337,14 @@ impl Options {
         }
     }
 
-    pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: i32) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_optimize_level_style_compaction(self.inner,
-                                                                           memtable_memory_budget);
-        }
-    }
-
-    /// Set compaction filter.
-    ///
-    /// filter will be dropped when this option is dropped or a new filter is
-    /// set.
-    ///
-    /// By default, compaction will only pass keys written after the most
-    /// recent call to GetSnapshot() to filter. However, if `ignore_snapshots`
-    /// is set to true, even if the keys were written before the last snapshot
-    /// will be passed to filter too. For more details please checkout
-    /// rocksdb's documentation.
-    ///
-    /// See also `CompactionFilter`.
-    pub fn set_compaction_filter<S>(&mut self,
-                                    name: S,
-                                    ignore_snapshots: bool,
-                                    filter: Box<CompactionFilter>)
-                                    -> Result<(), String>
-        where S: Into<Vec<u8>>
-    {
-        unsafe {
-            let c_name = match CString::new(name) {
-                Ok(s) => s,
-                Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
-            };
-            self.filter = Some(try!(new_compaction_filter(c_name, ignore_snapshots, filter)));
-            crocksdb_ffi::crocksdb_options_set_compaction_filter(self.inner,
-                                                                 self.filter
-                                                                     .as_ref()
-                                                                     .unwrap()
-                                                                     .inner);
-            Ok(())
-        }
-    }
-
     pub fn add_event_listener<L: EventListener>(&mut self, l: L) {
         let handle = new_event_listener(l);
         unsafe { crocksdb_ffi::crocksdb_options_add_eventlistener(self.inner, handle) }
     }
 
-    pub fn add_table_properties_collector_factory(&mut self,
-                                                  fname: &str,
-                                                  factory: Box<TablePropertiesCollectorFactory>) {
-        unsafe {
-            let f = new_table_properties_collector_factory(fname, factory);
-            crocksdb_ffi::crocksdb_options_add_table_properties_collector_factory(self.inner, f);
-        }
-    }
-
     pub fn create_if_missing(&mut self, create_if_missing: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_create_if_missing(self.inner, create_if_missing);
-        }
-    }
-
-    pub fn compression(&mut self, t: DBCompressionType) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_compression(self.inner, t);
-        }
-    }
-
-    pub fn get_compression(&self) -> DBCompressionType {
-        unsafe { crocksdb_ffi::crocksdb_options_get_compression(self.inner) }
-    }
-
-    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_compression_per_level(self.inner,
-                                                                     level_types.as_ptr(),
-                                                                     level_types.len() as size_t)
-        }
-    }
-
-    pub fn get_compression_per_level(&self) -> Vec<DBCompressionType> {
-        unsafe {
-            let size =
-                crocksdb_ffi::crocksdb_options_get_compression_level_number(self.inner) as usize;
-            let mut ret = Vec::with_capacity(size);
-            let pret = ret.as_mut_ptr();
-            crocksdb_ffi::crocksdb_options_get_compression_per_level(self.inner, pret);
-            ret.set_len(size);
-            ret
-        }
-    }
-
-    pub fn bottommost_compression(&self, c: DBCompressionType) {
-        unsafe { crocksdb_ffi::crocksdb_set_bottommost_compression(self.inner, c) }
-    }
-
-    pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
-        let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
-            merge_fn: merge_fn,
-        });
-
-        unsafe {
-            let mo =
-                crocksdb_ffi::crocksdb_mergeoperator_create(mem::transmute(cb),
-                                                            merge_operator::destructor_callback,
-                                                            full_merge_callback,
-                                                            partial_merge_callback,
-                                                            None,
-                                                            merge_operator::name_callback);
-            crocksdb_ffi::crocksdb_options_set_merge_operator(self.inner, mo);
-        }
-    }
-
-    pub fn add_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
-        let cb = Box::new(ComparatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
-            f: compare_fn,
-        });
-
-        unsafe {
-            let cmp = crocksdb_ffi::crocksdb_comparator_create(mem::transmute(cb),
-                                                               comparator::destructor_callback,
-                                                               compare_callback,
-                                                               comparator::name_callback);
-            crocksdb_ffi::crocksdb_options_set_comparator(self.inner, cmp);
-        }
-    }
-
-
-    pub fn set_block_cache_size_mb(&mut self, cache_size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_optimize_for_point_lookup(self.inner, cache_size);
         }
     }
 
@@ -529,48 +388,6 @@ impl Options {
         }
     }
 
-    pub fn set_min_write_buffer_number(&mut self, nbuf: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner, nbuf);
-        }
-    }
-
-    pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_write_buffer_number(self.inner, nbuf);
-        }
-    }
-
-    pub fn set_write_buffer_size(&mut self, size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_write_buffer_size(self.inner, size);
-        }
-    }
-
-    pub fn set_max_bytes_for_level_base(&mut self, size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_bytes_for_level_base(self.inner, size);
-        }
-    }
-
-    pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_bytes_for_level_multiplier(self.inner, mul);
-        }
-    }
-
-    pub fn set_max_compaction_bytes(&mut self, bytes: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_compaction_bytes(self.inner, bytes);
-        }
-    }
-
-    pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v);
-        }
-    }
-
     pub fn set_use_direct_reads(&mut self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_use_direct_reads(self.inner, v);
@@ -584,78 +401,9 @@ impl Options {
         }
     }
 
-    pub fn set_soft_pending_compaction_bytes_limit(&mut self, size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_soft_pending_compaction_bytes_limit(self.inner,
-                                                                                   size);
-        }
-    }
-
-    pub fn set_hard_pending_compaction_bytes_limit(&mut self, size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_hard_pending_compaction_bytes_limit(self.inner,
-                                                                                   size);
-        }
-    }
-
     pub fn set_max_manifest_file_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_manifest_file_size(self.inner, size);
-        }
-    }
-
-    pub fn set_target_file_size_base(&mut self, size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_target_file_size_base(self.inner, size);
-        }
-    }
-
-    pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner,
-                                                                                to_merge);
-        }
-    }
-
-    pub fn set_level_zero_file_num_compaction_trigger(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_level0_file_num_compaction_trigger(self.inner, n);
-        }
-    }
-
-    pub fn set_level_zero_slowdown_writes_trigger(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_level0_slowdown_writes_trigger(self.inner, n);
-        }
-    }
-
-    pub fn set_level_zero_stop_writes_trigger(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_level0_stop_writes_trigger(self.inner, n);
-        }
-    }
-
-    pub fn set_compaction_style(&mut self, style: crocksdb_ffi::DBCompactionStyle) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_compaction_style(self.inner, style);
-        }
-    }
-
-    pub fn compaction_priority(&mut self, priority: crocksdb_ffi::CompactionPriority) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_compaction_priority(self.inner, priority);
-        }
-    }
-
-    pub fn set_base_background_compactions(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_base_background_compactions(self.inner, n);
-        }
-    }
-
-    pub fn set_max_background_compactions(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_background_compactions(self.inner, n);
         }
     }
 
@@ -677,29 +425,16 @@ impl Options {
         }
     }
 
-    pub fn set_disable_auto_compactions(&mut self, disable: bool) {
+
+    pub fn set_base_background_compactions(&mut self, n: c_int) {
         unsafe {
-            if disable {
-                crocksdb_ffi::crocksdb_options_set_disable_auto_compactions(self.inner, 1)
-            } else {
-                crocksdb_ffi::crocksdb_options_set_disable_auto_compactions(self.inner, 0)
-            }
+            crocksdb_ffi::crocksdb_options_set_base_background_compactions(self.inner, n);
         }
     }
 
-    pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {
+    pub fn set_max_background_compactions(&mut self, n: c_int) {
         unsafe {
-            crocksdb_ffi::crocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
-        }
-    }
-
-    pub fn set_report_bg_io_stats(&mut self, enable: bool) {
-        unsafe {
-            if enable {
-                crocksdb_ffi::crocksdb_options_set_report_bg_io_stats(self.inner, 1);
-            } else {
-                crocksdb_ffi::crocksdb_options_set_report_bg_io_stats(self.inner, 0);
-            }
+            crocksdb_ffi::crocksdb_options_set_max_background_compactions(self.inner, n);
         }
     }
 
@@ -794,12 +529,6 @@ impl Options {
         }
     }
 
-    pub fn set_num_levels(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_num_levels(self.inner, n);
-        }
-    }
-
     pub fn set_db_log_dir(&mut self, path: &str) {
         let path = CString::new(path.as_bytes()).unwrap();
         unsafe {
@@ -850,6 +579,367 @@ impl Options {
         }
     }
 
+    pub fn set_compaction_readahead_size(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compaction_readahead_size(self.inner,
+                                                                         size as size_t);
+        }
+    }
+
+    pub fn set_ratelimiter(&mut self, rate_bytes_per_sec: i64) {
+        let rate_limiter = RateLimiter::new(rate_bytes_per_sec,
+                                            DEFAULT_REFILL_PERIOD_US,
+                                            DEFAULT_FAIRNESS);
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_ratelimiter(self.inner, rate_limiter.inner);
+        }
+    }
+
+    // Create a info log with `path` and save to options logger field directly.
+    // TODO: export more logger options like level, roll size, time, etc...
+    pub fn create_info_log(&self, path: &str) -> Result<(), String> {
+        let cpath = match CString::new(path.as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err("Failed to convert path to CString when creating rocksdb info log"
+                    .to_owned())
+            }
+        };
+
+        unsafe {
+            let logger = ffi_try!(crocksdb_create_log_from_options(cpath.as_ptr(), self.inner));
+            crocksdb_ffi::crocksdb_options_set_info_log(self.inner, logger);
+            // logger uses shared_ptr, it is OK to destroy here.
+            crocksdb_ffi::crocksdb_log_destroy(logger);
+        }
+
+        Ok(())
+    }
+
+    pub fn enable_pipelined_write(&self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_enable_pipelined_write(self.inner, v);
+        }
+    }
+
+    pub fn allow_concurrent_memtable_write(&self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_allow_concurrent_memtable_write(self.inner, v);
+        }
+    }
+}
+
+pub struct ColumnFamilyOptions {
+    pub inner: *mut Options,
+    filter: Option<CompactionFilterHandle>,
+}
+
+impl Drop for ColumnFamilyOptions {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Default for ColumnFamilyOptions {
+    fn default() -> ColumnFamilyOptions {
+        unsafe {
+            let opts = crocksdb_ffi::crocksdb_options_create();
+            assert!(!opts.is_null(),
+                    "Could not create rocksdb column family options");
+            ColumnFamilyOptions {
+                inner: opts,
+                filter: None,
+            }
+        }
+    }
+}
+
+impl Clone for ColumnFamilyOptions {
+    fn clone(&self) -> Self {
+        assert!(self.filter.is_none());
+        unsafe {
+            let opts = crocksdb_ffi::crocksdb_options_copy(self.inner);
+            assert!(!opts.is_null());
+            ColumnFamilyOptions {
+                inner: opts,
+                filter: None,
+            }
+        }
+    }
+}
+
+impl ColumnFamilyOptions {
+    pub fn new() -> ColumnFamilyOptions {
+        ColumnFamilyOptions::default()
+    }
+
+    pub unsafe fn from_raw(inner: *mut Options) -> ColumnFamilyOptions {
+        assert!(!inner.is_null(),
+                "could not new rocksdb options with null inner");
+        ColumnFamilyOptions {
+            inner: inner,
+            filter: None,
+        }
+    }
+
+    pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: i32) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_optimize_level_style_compaction(self.inner,
+                                                                           memtable_memory_budget);
+        }
+    }
+
+    /// Set compaction filter.
+    ///
+    /// filter will be dropped when this option is dropped or a new filter is
+    /// set.
+    ///
+    /// By default, compaction will only pass keys written after the most
+    /// recent call to GetSnapshot() to filter. However, if `ignore_snapshots`
+    /// is set to true, even if the keys were written before the last snapshot
+    /// will be passed to filter too. For more details please checkout
+    /// rocksdb's documentation.
+    ///
+    /// See also `CompactionFilter`.
+    pub fn set_compaction_filter<S>(&mut self,
+                                    name: S,
+                                    ignore_snapshots: bool,
+                                    filter: Box<CompactionFilter>)
+                                    -> Result<(), String>
+        where S: Into<Vec<u8>>
+    {
+        unsafe {
+            let c_name = match CString::new(name) {
+                Ok(s) => s,
+                Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
+            };
+            self.filter = Some(try!(new_compaction_filter(c_name, ignore_snapshots, filter)));
+            crocksdb_ffi::crocksdb_options_set_compaction_filter(self.inner,
+                                                                 self.filter
+                                                                     .as_ref()
+                                                                     .unwrap()
+                                                                     .inner);
+            Ok(())
+        }
+    }
+
+    pub fn add_table_properties_collector_factory(&mut self,
+                                                  fname: &str,
+                                                  factory: Box<TablePropertiesCollectorFactory>) {
+        unsafe {
+            let f = new_table_properties_collector_factory(fname, factory);
+            crocksdb_ffi::crocksdb_options_add_table_properties_collector_factory(self.inner, f);
+        }
+    }
+
+
+    pub fn compression(&mut self, t: DBCompressionType) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compression(self.inner, t);
+        }
+    }
+
+    pub fn get_compression(&self) -> DBCompressionType {
+        unsafe { crocksdb_ffi::crocksdb_options_get_compression(self.inner) }
+    }
+
+    pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compression_per_level(self.inner,
+                                                                     level_types.as_ptr(),
+                                                                     level_types.len() as size_t)
+        }
+    }
+
+    pub fn get_compression_per_level(&self) -> Vec<DBCompressionType> {
+        unsafe {
+            let size =
+                crocksdb_ffi::crocksdb_options_get_compression_level_number(self.inner) as usize;
+            let mut ret = Vec::with_capacity(size);
+            let pret = ret.as_mut_ptr();
+            crocksdb_ffi::crocksdb_options_get_compression_per_level(self.inner, pret);
+            ret.set_len(size);
+            ret
+        }
+    }
+
+    pub fn bottommost_compression(&self, c: DBCompressionType) {
+        unsafe { crocksdb_ffi::crocksdb_set_bottommost_compression(self.inner, c) }
+    }
+
+    pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
+        let cb = Box::new(MergeOperatorCallback {
+            name: CString::new(name.as_bytes()).unwrap(),
+            merge_fn: merge_fn,
+        });
+
+        unsafe {
+            let mo =
+                crocksdb_ffi::crocksdb_mergeoperator_create(mem::transmute(cb),
+                                                            merge_operator::destructor_callback,
+                                                            full_merge_callback,
+                                                            partial_merge_callback,
+                                                            None,
+                                                            merge_operator::name_callback);
+            crocksdb_ffi::crocksdb_options_set_merge_operator(self.inner, mo);
+        }
+    }
+
+    pub fn add_comparator(&mut self, name: &str, compare_fn: fn(&[u8], &[u8]) -> i32) {
+        let cb = Box::new(ComparatorCallback {
+            name: CString::new(name.as_bytes()).unwrap(),
+            f: compare_fn,
+        });
+
+        unsafe {
+            let cmp = crocksdb_ffi::crocksdb_comparator_create(mem::transmute(cb),
+                                                               comparator::destructor_callback,
+                                                               compare_callback,
+                                                               comparator::name_callback);
+            crocksdb_ffi::crocksdb_options_set_comparator(self.inner, cmp);
+        }
+    }
+
+
+    pub fn set_block_cache_size_mb(&mut self, cache_size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_optimize_for_point_lookup(self.inner, cache_size);
+        }
+    }
+
+    pub fn set_min_write_buffer_number(&mut self, nbuf: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner, nbuf);
+        }
+    }
+
+    pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_write_buffer_number(self.inner, nbuf);
+        }
+    }
+
+    pub fn set_write_buffer_size(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_write_buffer_size(self.inner, size);
+        }
+    }
+
+    pub fn set_max_bytes_for_level_base(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_bytes_for_level_base(self.inner, size);
+        }
+    }
+
+    pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_bytes_for_level_multiplier(self.inner, mul);
+        }
+    }
+
+    pub fn set_max_compaction_bytes(&mut self, bytes: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_compaction_bytes(self.inner, bytes);
+        }
+    }
+
+    pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v);
+        }
+    }
+
+    pub fn set_soft_pending_compaction_bytes_limit(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_soft_pending_compaction_bytes_limit(self.inner,
+                                                                                   size);
+        }
+    }
+
+    pub fn set_hard_pending_compaction_bytes_limit(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_hard_pending_compaction_bytes_limit(self.inner,
+                                                                                   size);
+        }
+    }
+
+    pub fn set_target_file_size_base(&mut self, size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_target_file_size_base(self.inner, size);
+        }
+    }
+
+    pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_min_write_buffer_number_to_merge(self.inner,
+                                                                                to_merge);
+        }
+    }
+
+    pub fn set_level_zero_file_num_compaction_trigger(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_level0_file_num_compaction_trigger(self.inner, n);
+        }
+    }
+
+    pub fn set_level_zero_slowdown_writes_trigger(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_level0_slowdown_writes_trigger(self.inner, n);
+        }
+    }
+
+    pub fn set_level_zero_stop_writes_trigger(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_level0_stop_writes_trigger(self.inner, n);
+        }
+    }
+
+    pub fn set_compaction_style(&mut self, style: crocksdb_ffi::DBCompactionStyle) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compaction_style(self.inner, style);
+        }
+    }
+
+    pub fn compaction_priority(&mut self, priority: crocksdb_ffi::CompactionPriority) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compaction_priority(self.inner, priority);
+        }
+    }
+
+    pub fn set_disable_auto_compactions(&mut self, disable: bool) {
+        unsafe {
+            if disable {
+                crocksdb_ffi::crocksdb_options_set_disable_auto_compactions(self.inner, 1)
+            } else {
+                crocksdb_ffi::crocksdb_options_set_disable_auto_compactions(self.inner, 0)
+            }
+        }
+    }
+
+    pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
+        }
+    }
+
+    pub fn set_report_bg_io_stats(&mut self, enable: bool) {
+        unsafe {
+            if enable {
+                crocksdb_ffi::crocksdb_options_set_report_bg_io_stats(self.inner, 1);
+            } else {
+                crocksdb_ffi::crocksdb_options_set_report_bg_io_stats(self.inner, 0);
+            }
+        }
+    }
+
+    pub fn set_num_levels(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_num_levels(self.inner, n);
+        }
+    }
+
     pub fn set_prefix_extractor<S>(&mut self,
                                    name: S,
                                    transform: Box<SliceTransform>)
@@ -897,57 +987,8 @@ impl Options {
         }
     }
 
-    pub fn set_compaction_readahead_size(&mut self, size: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_compaction_readahead_size(self.inner,
-                                                                         size as size_t);
-        }
-    }
-
-    pub fn set_ratelimiter(&mut self, rate_bytes_per_sec: i64) {
-        let rate_limiter = RateLimiter::new(rate_bytes_per_sec,
-                                            DEFAULT_REFILL_PERIOD_US,
-                                            DEFAULT_FAIRNESS);
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_ratelimiter(self.inner, rate_limiter.inner);
-        }
-    }
-
-    // Create a info log with `path` and save to options logger field directly.
-    // TODO: export more logger options like level, roll size, time, etc...
-    pub fn create_info_log(&self, path: &str) -> Result<(), String> {
-        let cpath = match CString::new(path.as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err("Failed to convert path to CString when creating rocksdb info log"
-                    .to_owned())
-            }
-        };
-
-        unsafe {
-            let logger = ffi_try!(crocksdb_create_log_from_options(cpath.as_ptr(), self.inner));
-            crocksdb_ffi::crocksdb_options_set_info_log(self.inner, logger);
-            // logger uses shared_ptr, it is OK to destroy here.
-            crocksdb_ffi::crocksdb_log_destroy(logger);
-        }
-
-        Ok(())
-    }
-
     pub fn get_block_cache_usage(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64 }
-    }
-
-    pub fn enable_pipelined_write(&self, v: bool) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_enable_pipelined_write(self.inner, v);
-        }
-    }
-
-    pub fn allow_concurrent_memtable_write(&self, v: bool) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_allow_concurrent_memtable_write(self.inner, v);
-        }
     }
 }
 

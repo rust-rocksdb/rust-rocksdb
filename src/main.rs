@@ -14,7 +14,7 @@
 //
 
 extern crate rocksdb;
-use rocksdb::{DB, MergeOperands, Options, Writable};
+use rocksdb::{DB, MergeOperands, DBOptions, Writable, ColumnFamilyOptions};
 
 // fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
@@ -87,11 +87,12 @@ fn concat_merge(_: &[u8], existing_val: Option<&[u8]>, operands: &mut MergeOpera
 
 fn custom_merge() {
     let path = "_rust_rocksdb_mergetest";
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
-    opts.add_merge_operator("test operator", concat_merge);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.add_merge_operator("test operator", concat_merge);
     {
-        let db = DB::open(opts, path).unwrap();
+        let db = DB::open_cf(opts, path, vec!["default"], vec![cf_opts]).unwrap();
         db.put(b"k1", b"a").unwrap();
         db.merge(b"k1", b"b").unwrap();
         db.merge(b"k1", b"c").unwrap();
@@ -109,19 +110,19 @@ fn custom_merge() {
             Err(e) => println!("error retrieving value: {}", e),
         }
     }
-    let opts = Options::new();
+    let opts = DBOptions::new();
     DB::destroy(&opts, path).is_ok();
 }
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, Options};
+    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, ColumnFamilyOptions, DBOptions};
     use rocksdb::DBCompactionStyle;
     use rocksdb::DBRecoveryMode;
 
     #[allow(dead_code)]
     fn tuned_for_somebody_elses_disk(path: &str,
-                                     mut opts: Options,
+                                     mut opts: DBOptions,
                                      blockopts: &mut BlockBasedOptions)
                                      -> DB {
         let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::No,
@@ -131,39 +132,39 @@ mod tests {
                                                              DBCompressionType::Lz4,
                                                              DBCompressionType::Lz4,
                                                              DBCompressionType::Lz4];
-
+        let mut cf_opts = ColumnFamilyOptions::new();
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);
         opts.set_use_fsync(false);
         opts.set_bytes_per_sync(8388608);
-        opts.set_block_cache_size_mb(1024);
+        cf_opts.set_block_cache_size_mb(1024);
         opts.set_table_cache_num_shard_bits(6);
-        opts.set_max_write_buffer_number(32);
-        opts.set_write_buffer_size(536870912);
-        opts.set_target_file_size_base(1073741824);
-        opts.set_min_write_buffer_number_to_merge(4);
-        opts.set_level_zero_file_num_compaction_trigger(4);
-        opts.set_level_zero_stop_writes_trigger(2000);
-        opts.set_level_zero_slowdown_writes_trigger(0);
-        opts.set_compaction_style(DBCompactionStyle::Universal);
+        cf_opts.set_max_write_buffer_number(32);
+        cf_opts.set_write_buffer_size(536870912);
+        cf_opts.set_target_file_size_base(1073741824);
+        cf_opts.set_min_write_buffer_number_to_merge(4);
+        cf_opts.set_level_zero_file_num_compaction_trigger(4);
+        cf_opts.set_level_zero_stop_writes_trigger(2000);
+        cf_opts.set_level_zero_slowdown_writes_trigger(0);
+        cf_opts.set_compaction_style(DBCompactionStyle::Universal);
         opts.set_max_background_compactions(4);
         opts.set_max_background_flushes(4);
-        opts.set_report_bg_io_stats(true);
+        cf_opts.set_report_bg_io_stats(true);
         opts.set_wal_recovery_mode(DBRecoveryMode::PointInTime);
         opts.enable_statistics();
         opts.set_stats_dump_period_sec(60);
-        opts.compression_per_level(&per_level_compression);
+        cf_opts.compression_per_level(&per_level_compression);
         blockopts.set_block_size(524288);
         blockopts.set_cache_index_and_filter_blocks(true);
         blockopts.set_bloom_filter(10, false);
-        opts.set_block_based_table_factory(blockopts);
-        opts.set_disable_auto_compactions(true);
-        opts.set_max_compaction_bytes(1073741824 * 25);
+        cf_opts.set_block_based_table_factory(blockopts);
+        cf_opts.set_disable_auto_compactions(true);
+        cf_opts.set_max_compaction_bytes(1073741824 * 25);
 
         // let filter = new_bloom_filter(10);
         // opts.set_filter(filter);
 
-        DB::open(opts, path).unwrap()
+        DB::open_cf(opts, path, vec!["default"], vec![cf_opts]).unwrap()
     }
 
     // TODO(tyler) unstable

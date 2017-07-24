@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, Options, BlockBasedOptions, WriteOptions, SliceTransform, Writable,
-              CompactOptions};
+use rocksdb::{DB, ColumnFamilyOptions, DBOptions, BlockBasedOptions, WriteOptions, SliceTransform,
+              Writable, CompactOptions};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType, DBInfoLogLevel as InfoLogLevel,
                             CompactionPriority, DBCompressionType};
@@ -25,17 +25,22 @@ use tempdir::TempDir;
 #[test]
 fn test_set_num_levels() {
     let path = TempDir::new("_rust_rocksdb_test_set_num_levels").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.set_num_levels(2);
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.set_num_levels(2);
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
     drop(db);
 }
 
 #[test]
 fn test_log_file_opt() {
     let path = TempDir::new("_rust_rocksdb_log_file_opt").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_max_log_file_size(100 * 1024 * 1024);
     opts.set_keep_log_file_num(10);
@@ -46,7 +51,7 @@ fn test_log_file_opt() {
 #[test]
 fn test_compaction_readahead_size() {
     let path = TempDir::new("_rust_rocksdb_compaction_readahead_size").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_compaction_readahead_size(2048);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -55,14 +60,14 @@ fn test_compaction_readahead_size() {
 
 #[test]
 fn test_set_max_manifest_file_size() {
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     let size = 20 * 1024 * 1024;
     opts.set_max_manifest_file_size(size)
 }
 
 #[test]
 fn test_enable_statistics() {
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.enable_statistics();
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
@@ -75,7 +80,7 @@ fn test_enable_statistics() {
     assert_eq!(opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
                0);
 
-    let opts = Options::new();
+    let opts = DBOptions::new();
     assert!(opts.get_statistics().is_none());
 }
 
@@ -96,14 +101,19 @@ impl SliceTransform for FixedPrefixTransform {
 #[test]
 fn test_memtable_insert_hint_prefix_extractor() {
     let path = TempDir::new("_rust_rocksdb_memtable_insert_hint_prefix_extractor").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.set_memtable_insert_hint_prefix_extractor("FixedPrefixTransform",
+    cf_opts.set_memtable_insert_hint_prefix_extractor("FixedPrefixTransform",
                                                    Box::new(FixedPrefixTransform {
                                                        prefix_len: 2,
                                                    }))
         .unwrap();
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
     let wopts = WriteOptions::new();
 
     db.put_opt(b"k0-1", b"a", &wopts).unwrap();
@@ -117,7 +127,7 @@ fn test_memtable_insert_hint_prefix_extractor() {
 #[test]
 fn test_set_delayed_write_rate() {
     let path = TempDir::new("_rust_rocksdb_test_set_delayed_write_rate").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_delayed_write_rate(2 * 1024 * 1024);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -127,7 +137,7 @@ fn test_set_delayed_write_rate() {
 #[test]
 fn test_set_ratelimiter() {
     let path = TempDir::new("_rust_rocksdb_test_set_rate_limiter").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     // compaction and flush rate limited below 100MB/sec
     opts.set_ratelimiter(100 * 1024 * 1024);
@@ -138,7 +148,7 @@ fn test_set_ratelimiter() {
 #[test]
 fn test_set_wal_opt() {
     let path = TempDir::new("_rust_rocksdb_test_set_wal_opt").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_wal_ttl_seconds(86400);
     opts.set_wal_size_limit_mb(10);
@@ -152,7 +162,7 @@ fn test_set_wal_opt() {
 #[test]
 fn test_sync_wal() {
     let path = TempDir::new("_rust_rocksdb_test_sync_wal").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     db.put(b"key", b"value").unwrap();
@@ -163,7 +173,7 @@ fn test_sync_wal() {
 #[test]
 fn test_create_info_log() {
     let path = TempDir::new("_rust_rocksdb_test_create_info_log_opt").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_info_log_level(InfoLogLevel::Debug);
     opts.set_log_file_time_to_roll(1);
@@ -192,7 +202,7 @@ fn test_create_info_log() {
 #[test]
 fn test_auto_roll_max_size_info_log() {
     let path = TempDir::new("_rust_rocksdb_test_max_size_info_log_opt").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_max_log_file_size(10);
 
@@ -213,27 +223,37 @@ fn test_auto_roll_max_size_info_log() {
 #[test]
 fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
     let path = TempDir::new("_rust_rocksdb_set_cache_and_index").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
     block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-    opts.set_block_based_table_factory(&block_opts);
-    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.set_block_based_table_factory(&block_opts);
+    DB::open_cf(opts,
+                path.path().to_str().unwrap(),
+                vec!["default"],
+                vec![cf_opts])
+        .unwrap();
 }
 #[test]
 fn test_pending_compaction_bytes_limit() {
     let path = TempDir::new("_rust_rocksdb_pending_compaction_bytes_limit").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.set_soft_pending_compaction_bytes_limit(64 * 1024 * 1024 * 1024);
-    opts.set_hard_pending_compaction_bytes_limit(256 * 1024 * 1024 * 1024);
-    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.set_soft_pending_compaction_bytes_limit(64 * 1024 * 1024 * 1024);
+    cf_opts.set_hard_pending_compaction_bytes_limit(256 * 1024 * 1024 * 1024);
+    DB::open_cf(opts,
+                path.path().to_str().unwrap(),
+                vec!["default"],
+                vec![cf_opts])
+        .unwrap();
 }
 
 #[test]
 fn test_set_max_subcompactions() {
     let path = TempDir::new("_rust_rocksdb_max_subcompactions").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_max_subcompactions(4);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -242,7 +262,7 @@ fn test_set_max_subcompactions() {
 #[test]
 fn test_set_bytes_per_sync() {
     let path = TempDir::new("_rust_rocksdb_bytes_per_sync").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_bytes_per_sync(1024 * 1024);
     opts.set_wal_bytes_per_sync(1024 * 1024);
@@ -252,24 +272,34 @@ fn test_set_bytes_per_sync() {
 #[test]
 fn test_set_optimize_filters_for_hits() {
     let path = TempDir::new("_rust_rocksdb_optimize_filters_for_hits").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.set_optimize_filters_for_hits(true);
-    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.set_optimize_filters_for_hits(true);
+    DB::open_cf(opts,
+                path.path().to_str().unwrap(),
+                vec!["default"],
+                vec![cf_opts])
+        .unwrap();
 }
 
 #[test]
 fn test_get_block_cache_usage() {
     let path = TempDir::new("_rust_rocksdb_set_cache_and_index").expect("");
 
-    let mut opts = Options::new();
-    assert_eq!(opts.get_block_cache_usage(), 0);
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    assert_eq!(cf_opts.get_block_cache_usage(), 0);
 
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
     block_opts.set_lru_cache(16 * 1024 * 1024);
-    opts.set_block_based_table_factory(&block_opts);
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.set_block_based_table_factory(&block_opts);
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
 
     for i in 0..200 {
         db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
@@ -285,10 +315,15 @@ fn test_get_block_cache_usage() {
 #[test]
 fn test_set_level_compaction_dynamic_level_bytes() {
     let path = TempDir::new("_rust_rocksdb_level_compaction_dynamic_level_bytes").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.set_level_compaction_dynamic_level_bytes(true);
-    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.set_level_compaction_dynamic_level_bytes(true);
+    DB::open_cf(opts,
+                path.path().to_str().unwrap(),
+                vec!["default"],
+                vec![cf_opts])
+        .unwrap();
 }
 
 #[test]
@@ -308,7 +343,7 @@ fn test_compact_options() {
 #[test]
 fn test_direct_read_write() {
     let path = TempDir::new("_rust_rocksdb_direct_read_write").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_use_direct_reads(true);
     opts.set_use_direct_io_for_flush_and_compaction(true);
@@ -318,7 +353,7 @@ fn test_direct_read_write() {
 #[test]
 fn test_writable_file_max_buffer_size() {
     let path = TempDir::new("_rust_rocksdb_writable_file_max_buffer_size").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_writable_file_max_buffer_size(1024 * 1024);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -327,7 +362,7 @@ fn test_writable_file_max_buffer_size() {
 #[test]
 fn test_set_base_background_compactions() {
     let path = TempDir::new("_rust_rocksdb_base_background_compactions").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.set_base_background_compactions(4);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -336,16 +371,21 @@ fn test_set_base_background_compactions() {
 #[test]
 fn test_set_compaction_pri() {
     let path = TempDir::new("_rust_rocksdb_compaction_pri").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.compaction_priority(CompactionPriority::MinOverlappingRatio);
-    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.compaction_priority(CompactionPriority::MinOverlappingRatio);
+    DB::open_cf(opts,
+                path.path().to_str().unwrap(),
+                vec!["default"],
+                vec![cf_opts])
+        .unwrap();
 }
 
 #[test]
 fn test_allow_concurrent_memtable_write() {
     let path = TempDir::new("_rust_rocksdb_allow_concurrent_memtable_write").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.allow_concurrent_memtable_write(false);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -357,7 +397,7 @@ fn test_allow_concurrent_memtable_write() {
 #[test]
 fn test_enable_pipelined_write() {
     let path = TempDir::new("_rust_rocksdb_enable_pipelined_write").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.enable_pipelined_write(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -368,41 +408,47 @@ fn test_enable_pipelined_write() {
 
 #[test]
 fn test_get_compression() {
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.compression(DBCompressionType::Snappy);
-    assert_eq!(opts.get_compression(), DBCompressionType::Snappy);
+    cf_opts.compression(DBCompressionType::Snappy);
+    assert_eq!(cf_opts.get_compression(), DBCompressionType::Snappy);
 }
 
 #[test]
 fn test_get_compression_per_level() {
-    let mut opts = Options::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     let compressions = &[DBCompressionType::No, DBCompressionType::Snappy];
-    opts.compression_per_level(compressions);
-    let v = opts.get_compression_per_level();
+    cf_opts.compression_per_level(compressions);
+    let v = cf_opts.get_compression_per_level();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0], DBCompressionType::No);
     assert_eq!(v[1], DBCompressionType::Snappy);
-    let mut opts2 = Options::new();
+    let mut cf_opts2 = ColumnFamilyOptions::new();
     let empty: &[DBCompressionType] = &[];
-    opts2.compression_per_level(empty);
-    let v2 = opts2.get_compression_per_level();
+    cf_opts2.compression_per_level(empty);
+    let v2 = cf_opts2.get_compression_per_level();
     assert_eq!(v2.len(), 0);
 }
 
 #[test]
 fn test_bottommost_compression() {
     let path = TempDir::new("_rust_rocksdb_bottommost_compression").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.bottommost_compression(DBCompressionType::No);
-    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    cf_opts.bottommost_compression(DBCompressionType::No);
+    DB::open_cf(opts,
+                path.path().to_str().unwrap(),
+                vec!["default"],
+                vec![cf_opts])
+        .unwrap();
 }
 
 #[test]
 fn test_clone_options() {
-    let mut opts = Options::new();
-    opts.compression(DBCompressionType::Snappy);
-    let opts2 = opts.clone();
-    assert_eq!(opts.get_compression(), opts2.get_compression());
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.compression(DBCompressionType::Snappy);
+    let cf_opts2 = cf_opts.clone();
+    assert_eq!(cf_opts.get_compression(), cf_opts2.get_compression());
 }

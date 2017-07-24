@@ -165,7 +165,7 @@ pub fn test_iterator() {
 #[test]
 fn test_seek_for_prev() {
     let path = TempDir::new("_rust_rocksdb_seek_for_prev").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     {
         let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -213,7 +213,7 @@ fn test_seek_for_prev() {
 #[test]
 fn read_with_upper_bound() {
     let path = TempDir::new("_rust_rocksdb_read_with_upper_bound_test").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     {
         let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -237,18 +237,23 @@ fn test_total_order_seek() {
     let mut bbto = BlockBasedOptions::new();
     bbto.set_bloom_filter(10, false);
     bbto.set_whole_key_filtering(false);
-    let mut opts = Options::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
-    opts.set_block_based_table_factory(&bbto);
-    opts.set_prefix_extractor("FixedPrefixTransform",
+    cf_opts.set_block_based_table_factory(&bbto);
+    cf_opts.set_prefix_extractor("FixedPrefixTransform",
                               Box::new(FixedPrefixTransform { prefix_len: 2 }))
         .unwrap();
     // also create prefix bloom for memtable
-    opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
+    cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
 
     let keys = vec![b"k1-1", b"k1-2", b"k1-3", b"k2-1", b"k2-2", b"k2-3", b"k3-1", b"k3-2",
                     b"k3-3"];
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
     let wopts = WriteOptions::new();
 
     // sst1
@@ -315,14 +320,19 @@ fn test_fixed_suffix_seek() {
     let mut bbto = BlockBasedOptions::new();
     bbto.set_bloom_filter(10, false);
     bbto.set_whole_key_filtering(false);
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    opts.set_block_based_table_factory(&bbto);
-    opts.set_prefix_extractor("FixedSuffixTransform",
+    cf_opts.set_block_based_table_factory(&bbto);
+    cf_opts.set_prefix_extractor("FixedSuffixTransform",
                               Box::new(FixedSuffixTransform { suffix_len: 2 }))
         .unwrap();
 
-    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let db = DB::open_cf(opts,
+                         path.path().to_str().unwrap(),
+                         vec!["default"],
+                         vec![cf_opts])
+        .unwrap();
     db.put(b"k-eghe-5", b"a").unwrap();
     db.put(b"k-24yfae-6", b"a").unwrap();
     db.put(b"k-h1fwd-7", b"a").unwrap();

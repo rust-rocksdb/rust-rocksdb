@@ -11,14 +11,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, Options, Range, Writable};
+use rocksdb::{DB, DBOptions, Range, Writable};
 use tempdir::TempDir;
 
 
 #[test]
 fn test_compact_range() {
     let path = TempDir::new("_rust_rocksdb_test_compact_range").expect("");
-    let mut opts = Options::new();
+    let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     let samples = vec![(b"k1".to_vec(), b"value--------1".to_vec()),
