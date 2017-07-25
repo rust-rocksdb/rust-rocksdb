@@ -98,7 +98,6 @@ pub fn test_seek() {
     let db = setup_test_db("seek");
     db.put(b"k1", b"v1").unwrap();
     db.put(b"k2", b"v2").unwrap();
-    db.put(b"k3", b"v3").unwrap();
     db.put(b"k4", b"v4").unwrap();
 
     let mut iter = db.raw_iterator();
@@ -107,6 +106,13 @@ pub fn test_seek() {
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k2".to_vec()));
     assert_eq!(iter.value(), Some(b"v2".to_vec()));
+
+    // Check it gets the next key when the key doesn't exist
+    iter.seek(b"k3");
+
+    assert_eq!(iter.valid(), true);
+    assert_eq!(iter.key(), Some(b"k4".to_vec()));
+    assert_eq!(iter.value(), Some(b"v4".to_vec()));
 }
 
 
@@ -123,4 +129,26 @@ pub fn test_seek_to_nonexistant() {
     assert_eq!(iter.valid(), true);
     assert_eq!(iter.key(), Some(b"k3".to_vec()));
     assert_eq!(iter.value(), Some(b"v3".to_vec()));
+}
+
+#[test]
+pub fn test_seek_for_prev() {
+    let db = setup_test_db("seek_for_prev");
+    db.put(b"k1", b"v1").unwrap();
+    db.put(b"k2", b"v2").unwrap();
+    db.put(b"k4", b"v4").unwrap();
+
+    let mut iter = db.raw_iterator();
+    iter.seek(b"k2");
+
+    assert_eq!(iter.valid(), true);
+    assert_eq!(iter.key(), Some(b"k2".to_vec()));
+    assert_eq!(iter.value(), Some(b"v2".to_vec()));
+
+    // Check it gets the previous key when the key doesn't exist
+    iter.seek_for_prev(b"k3");
+
+    assert_eq!(iter.valid(), true);
+    assert_eq!(iter.key(), Some(b"k2".to_vec()));
+    assert_eq!(iter.value(), Some(b"v2".to_vec()));
 }
