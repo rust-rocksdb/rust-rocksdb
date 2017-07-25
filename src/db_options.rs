@@ -347,6 +347,28 @@ impl Options {
         }
     }
 
+    /// If true, allow multi-writers to update mem tables in parallel.
+    /// Only some memtable_factory-s support concurrent writes; currently it
+    /// is implemented only for SkipListFactory.  Concurrent memtable writes
+    /// are not compatible with inplace_update_support or filter_deletes.
+    /// It is strongly recommended to set enable_write_thread_adaptive_yield
+    /// if you are going to use this feature.
+    ///
+    /// Default: true
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_allow_concurrent_memtable_write(false);
+    /// ```
+    pub fn set_allow_concurrent_memtable_write(&mut self, allow: bool) {
+        unsafe { ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner,
+                                                                          allow as c_uchar) }
+    }
+
     pub fn set_disable_data_sync(&mut self, disable: bool) {
         unsafe { ffi::rocksdb_options_set_disable_data_sync(self.inner, disable as c_int) }
     }

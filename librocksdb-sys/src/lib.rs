@@ -659,6 +659,9 @@ extern "C" {
 
     pub fn rocksdb_options_set_bytes_per_sync(opt: *mut rocksdb_options_t, v: uint64_t);
 
+    pub fn rocksdb_options_set_allow_concurrent_memtable_write(opt: *mut rocksdb_options_t,
+                                                               v: c_uchar);
+
     pub fn rocksdb_options_set_verify_checksums_in_compaction(opt: *mut rocksdb_options_t,
                                                               v: c_uchar);
 
