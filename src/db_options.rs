@@ -388,33 +388,6 @@ impl Options {
     /// # Example
     ///
     /// ```
-    /// #[allow(deprecated)]
-    /// use rocksdb::Options;
-    ///
-    /// let mut opts = Options::default();
-    /// opts.set_use_direct_writes(true);
-    /// ```
-    #[deprecated(note = "replaced by `Options::set_use_direct_io_for_flush_and_compaction`")]
-    pub fn set_use_direct_writes(&mut self, enabled: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_use_direct_io_for_flush_and_compaction(self.inner,
-                                                                            enabled as c_uchar);
-        }
-    }
-
-    /// Enable direct I/O mode for writing
-    /// they may or may not improve performance depending on the use case
-    ///
-    /// Files will be opened in "direct I/O" mode
-    /// which means that data written to the disk will not be cached or
-    /// buffered. The hardware buffer of the devices may however still
-    /// be used. Memory mapped files are not impacted by these parameters.
-    ///
-    /// Default: false
-    ///
-    /// # Example
-    ///
-    /// ```
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
