@@ -294,6 +294,8 @@ extern "C" {
 
     pub fn rocksdb_iter_seek(iterator: *mut rocksdb_iterator_t, k: *const c_char, klen: size_t);
 
+    pub fn rocksdb_iter_seek_for_prev(iterator: *mut rocksdb_iterator_t, k: *const c_char, klen: size_t);
+
     pub fn rocksdb_iter_next(iterator: *mut rocksdb_iterator_t);
 
     pub fn rocksdb_iter_prev(iterator: *mut rocksdb_iterator_t);
@@ -633,7 +635,8 @@ extern "C" {
     pub fn rocksdb_options_set_purge_redundant_kvs_while_flush(opt: *mut rocksdb_options_t,
                                                                v: c_uchar);
 
-    pub fn rocksdb_options_set_allow_os_buffer(opt: *mut rocksdb_options_t, v: c_uchar);
+    pub fn rocksdb_options_set_use_direct_reads(opt: *mut rocksdb_options_t, v: c_uchar);
+    pub fn rocksdb_options_set_use_direct_writes(opt: *mut rocksdb_options_t, v: c_uchar);
 
     pub fn rocksdb_options_set_allow_mmap_reads(opt: *mut rocksdb_options_t, v: c_uchar);
 
