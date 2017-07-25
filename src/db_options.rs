@@ -375,13 +375,13 @@ impl Options {
         }
     }
 
-    /// Enable direct I/O mode for writing
-    /// they may or may not improve performance depending on the use case
+    /// Enable direct I/O mode for flush and compaction
     ///
     /// Files will be opened in "direct I/O" mode
     /// which means that data written to the disk will not be cached or
     /// buffered. The hardware buffer of the devices may however still
     /// be used. Memory mapped files are not impacted by these parameters.
+    /// they may or may not improve performance depending on the use case
     ///
     /// Default: false
     ///
