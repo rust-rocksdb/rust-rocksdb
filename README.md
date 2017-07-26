@@ -1,7 +1,7 @@
 rust-rocksdb
 ============
 
-This library has been tested against RocksDB 5.1.2 on Linux and macOS.
+This library has been tested against RocksDB 5.6.1 on Linux and macOS.
 
 ### status
   - [x] basic open/put/get/delete/close
@@ -22,6 +22,8 @@ This library has been tested against RocksDB 5.1.2 on Linux and macOS.
   - [x] recovery
   - [x] backup
   - [x] pause/continue background work
+  - [x] delete range
+  - [x] ingest external sst files
   - [ ] windows support
 
 Feedback and pull requests welcome! If a particular feature of RocksDB is important to you, please let us know by opening an issue, and we will prioritize it.
