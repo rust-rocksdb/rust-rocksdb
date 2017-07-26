@@ -1030,6 +1030,7 @@ fn ffi() {
                                                  rocksdb_slicetransform_create_fixed_prefix(3));
             rocksdb_options_set_hash_skip_list_rep(options, 5000, 4, 4);
             rocksdb_options_set_plain_table_factory(options, 4, 10, 0.75, 16);
+            rocksdb_options_set_allow_concurrent_memtable_write(options, 0);
 
             db = rocksdb_open(options, dbname, &mut err);
             CheckNoError!(err);
