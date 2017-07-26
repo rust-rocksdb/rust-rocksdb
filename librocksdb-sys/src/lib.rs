@@ -636,6 +636,7 @@ extern "C" {
                                                                v: c_uchar);
 
     pub fn rocksdb_options_set_use_direct_reads(opt: *mut rocksdb_options_t, v: c_uchar);
+
     pub fn rocksdb_options_set_use_direct_io_for_flush_and_compaction(opt: *mut rocksdb_options_t,
                                                                       v: c_uchar);
 
