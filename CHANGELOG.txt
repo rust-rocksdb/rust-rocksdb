@@ -1,12 +1,18 @@
 Changelog
 =========
 
-0.7 (in development)
+0.7 (2017-07-26)
 ~~~~~~~~~~~~~~~~~~~~
+
+**Breaking Changes**
+ * Bumped rocksdb to 5.4.6 (derekdreery)
+ * Remove `use_direct_writes` now that `use_direct_io_for_flush_and_compaction` exists (derekdreery)
 
 **New features**
  * ReadOptions is now public (rschmukler)
  * Implement Clone and AsRef<str> for Error (daboross)
+ * Support for `seek_for_prev` (kaedroho)
+ * Support for DirectIO (kaedroho)
 
 **Internal cleanups**
  * Fixed race condition in tests (debris)
