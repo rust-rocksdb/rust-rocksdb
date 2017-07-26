@@ -2111,17 +2111,8 @@ void crocksdb_options_set_max_write_buffer_number_to_maintain(
   opt->rep.max_write_buffer_number_to_maintain = n;
 }
 
-void crocksdb_options_set_max_background_compactions(crocksdb_options_t* opt, int n) {
-  opt->rep.max_background_compactions = n;
-}
-
-void crocksdb_options_set_base_background_compactions(crocksdb_options_t* opt,
-                                                     int n) {
-  opt->rep.base_background_compactions = n;
-}
-
-void crocksdb_options_set_max_background_flushes(crocksdb_options_t* opt, int n) {
-  opt->rep.max_background_flushes = n;
+void crocksdb_options_set_max_background_jobs(crocksdb_options_t* opt, int n) {
+  opt->rep.max_background_jobs = n;
 }
 
 void crocksdb_options_set_max_log_file_size(crocksdb_options_t* opt, size_t v) {

@@ -360,11 +360,11 @@ fn test_writable_file_max_buffer_size() {
 }
 
 #[test]
-fn test_set_base_background_compactions() {
-    let path = TempDir::new("_rust_rocksdb_base_background_compactions").expect("");
+fn test_set_max_background_jobs() {
+    let path = TempDir::new("_rust_rocksdb_max_background_jobs").expect("");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
-    opts.set_base_background_compactions(4);
+    opts.set_max_background_jobs(4);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
 }
 

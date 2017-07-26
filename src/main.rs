@@ -147,8 +147,7 @@ mod tests {
         cf_opts.set_level_zero_stop_writes_trigger(2000);
         cf_opts.set_level_zero_slowdown_writes_trigger(0);
         cf_opts.set_compaction_style(DBCompactionStyle::Universal);
-        opts.set_max_background_compactions(4);
-        opts.set_max_background_flushes(4);
+        opts.set_max_background_jobs(4);
         cf_opts.set_report_bg_io_stats(true);
         opts.set_wal_recovery_mode(DBRecoveryMode::PointInTime);
         opts.enable_statistics();

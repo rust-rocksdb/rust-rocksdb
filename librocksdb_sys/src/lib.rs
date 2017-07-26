@@ -327,12 +327,7 @@ extern "C" {
     pub fn crocksdb_options_get_compression_per_level(options: *mut Options,
                                                       level_values: *mut DBCompressionType);
     pub fn crocksdb_set_bottommost_compression(options: *mut Options, c: DBCompressionType);
-    pub fn crocksdb_options_set_base_background_compactions(optinos: *mut Options,
-                                                            base_bg_compactions: c_int);
-    pub fn crocksdb_options_set_max_background_compactions(options: *mut Options,
-                                                           max_bg_compactions: c_int);
-    pub fn crocksdb_options_set_max_background_flushes(options: *mut Options,
-                                                       max_bg_flushes: c_int);
+    pub fn crocksdb_options_set_max_background_jobs(options: *mut Options, max_bg_jobs: c_int);
     pub fn crocksdb_options_set_disable_auto_compactions(options: *mut Options, v: c_int);
     pub fn crocksdb_options_set_report_bg_io_stats(options: *mut Options, v: c_int);
     pub fn crocksdb_options_set_compaction_readahead_size(options: *mut Options, v: size_t);

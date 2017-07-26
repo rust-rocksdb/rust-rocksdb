@@ -788,11 +788,7 @@ crocksdb_options_set_min_write_buffer_number_to_merge(crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_write_buffer_number_to_maintain(crocksdb_options_t *,
                                                          int);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_background_compactions(
-    crocksdb_options_t*, int);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_base_background_compactions(
-    crocksdb_options_t*, int);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_background_flushes(
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_background_jobs(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_log_file_size(crocksdb_options_t *, size_t);

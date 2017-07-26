@@ -407,9 +407,9 @@ impl DBOptions {
         }
     }
 
-    pub fn set_max_background_flushes(&mut self, n: c_int) {
+    pub fn set_max_background_jobs(&mut self, n: c_int) {
         unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_background_flushes(self.inner, n);
+            crocksdb_ffi::crocksdb_options_set_max_background_jobs(self.inner, n);
         }
     }
 
@@ -422,19 +422,6 @@ impl DBOptions {
     pub fn set_wal_bytes_per_sync(&mut self, n: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_wal_bytes_per_sync(self.inner, n);
-        }
-    }
-
-
-    pub fn set_base_background_compactions(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_base_background_compactions(self.inner, n);
-        }
-    }
-
-    pub fn set_max_background_compactions(&mut self, n: c_int) {
-        unsafe {
-            crocksdb_ffi::crocksdb_options_set_max_background_compactions(self.inner, n);
         }
     }
 
