@@ -98,6 +98,7 @@ using rocksdb::TablePropertiesCollection;
 using rocksdb::TablePropertiesCollector;
 using rocksdb::TablePropertiesCollectorFactory;
 using rocksdb::KeyVersion;
+using rocksdb::DbPath;
 
 using std::shared_ptr;
 
@@ -1990,6 +1991,18 @@ void crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
 void crocksdb_options_set_use_fsync(
     crocksdb_options_t* opt, int use_fsync) {
   opt->rep.use_fsync = use_fsync;
+}
+
+void crocksdb_options_set_db_paths(crocksdb_options_t *opt,
+                                   const char *const *dbpath_list,
+                                   const size_t *path_lens,
+                                   const uint64_t *target_size, int num_paths) {
+  std::vector<DbPath> db_paths;
+  for (int i = 0; i < num_paths; ++i) {
+    db_paths.emplace_back(
+        DbPath(std::string(dbpath_list[i], path_lens[i]), target_size[i]));
+  }
+  opt->rep.db_paths = db_paths;
 }
 
 void crocksdb_options_set_db_log_dir(

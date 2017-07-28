@@ -822,6 +822,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_arena_block_size(
     crocksdb_options_t*, size_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_use_fsync(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_options_set_db_paths(crocksdb_options_t *, const char *const *,
+                              const size_t *, const uint64_t *, int);
+
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_db_log_dir(
     crocksdb_options_t*, const char*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_wal_dir(crocksdb_options_t*,

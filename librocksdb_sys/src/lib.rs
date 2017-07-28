@@ -385,6 +385,11 @@ extern "C" {
     pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut Options,
                                                                     v: u64);
     pub fn crocksdb_options_set_compaction_priority(options: *mut Options, v: CompactionPriority);
+    pub fn crocksdb_options_set_db_paths(options: *mut Options,
+                                         db_paths: *const *const c_char,
+                                         path_lens: *const usize,
+                                         target_size: *const u64,
+                                         num_paths: c_int);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(options: *mut Options,

@@ -27,6 +27,7 @@ use merge_operator::MergeFn;
 use slice_transform::{SliceTransform, new_slice_transform};
 use std::ffi::{CStr, CString};
 use std::mem;
+use std::path::Path;
 use table_properties_collector_factory::{TablePropertiesCollectorFactory,
                                          new_table_properties_collector_factory};
 
@@ -612,6 +613,28 @@ impl DBOptions {
     pub fn allow_concurrent_memtable_write(&self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_allow_concurrent_memtable_write(self.inner, v);
+        }
+    }
+
+    /// the second parameter is a slice which contains tuples (path, target_size).
+    pub fn set_db_paths<T: AsRef<Path>>(&self, val: &[(T, u64)]) {
+        let num_paths = val.len();
+        let mut cpaths = Vec::with_capacity(num_paths);
+        let mut cpath_lens = Vec::with_capacity(num_paths);
+        let mut sizes = Vec::with_capacity(num_paths);
+        for dbpath in val {
+            let dbpath_str = dbpath.0.as_ref().to_str();
+            cpaths.push(dbpath_str.unwrap().as_ptr() as _);
+            cpath_lens.push(dbpath_str.unwrap().len());
+            sizes.push(dbpath.1);
+        }
+
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_db_paths(self.inner,
+                                                        cpaths.as_ptr(),
+                                                        cpath_lens.as_ptr(),
+                                                        sizes.as_ptr(),
+                                                        num_paths as c_int);
         }
     }
 }

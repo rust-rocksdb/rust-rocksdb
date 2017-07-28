@@ -452,3 +452,13 @@ fn test_clone_options() {
     let cf_opts2 = cf_opts.clone();
     assert_eq!(cf_opts.get_compression(), cf_opts2.get_compression());
 }
+
+#[test]
+fn test_db_paths() {
+    let path = TempDir::new("_rust_rocksdb_db_paths").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    let tmp_path = TempDir::new("_rust_rocksdb_test_db_path").expect("");
+    opts.set_db_paths(&[(tmp_path.path(), 1073741824 as u64)]);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
