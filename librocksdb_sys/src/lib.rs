@@ -688,6 +688,21 @@ extern "C" {
                                          range_limit_key: *const *const u8,
                                          range_limit_key_len: *const size_t,
                                          sizes: *mut uint64_t);
+    pub fn crocksdb_approximate_memtable_stats(db: *const DBInstance,
+                                               range_start_key: *const u8,
+                                               range_start_key_len: size_t,
+                                               range_limit_key: *const u8,
+                                               range_limit_key_len: size_t,
+                                               count: *mut uint64_t,
+                                               size: *mut uint64_t);
+    pub fn crocksdb_approximate_memtable_stats_cf(db: *const DBInstance,
+                                                  cf: *const DBCFHandle,
+                                                  range_start_key: *const u8,
+                                                  range_start_key_len: size_t,
+                                                  range_limit_key: *const u8,
+                                                  range_limit_key_len: size_t,
+                                                  count: *mut uint64_t,
+                                                  size: *mut uint64_t);
     pub fn crocksdb_compactoptions_create() -> *mut DBCompactOptions;
     pub fn crocksdb_compactoptions_destroy(opt: *mut DBCompactOptions);
     pub fn crocksdb_compactoptions_set_exclusive_manual_compaction(opt: *mut DBCompactOptions,

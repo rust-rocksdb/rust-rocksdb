@@ -820,6 +820,37 @@ impl DB {
         sizes
     }
 
+    // Return the approximate number of records and size in the range of memtables.
+    pub fn get_approximate_memtable_stats(&self, range: &Range) -> (u64, u64) {
+        let (mut count, mut size) = (0, 0);
+        unsafe {
+            crocksdb_ffi::crocksdb_approximate_memtable_stats(self.inner,
+                                                              range.start_key.as_ptr(),
+                                                              range.start_key.len(),
+                                                              range.end_key.as_ptr(),
+                                                              range.end_key.len(),
+                                                              &mut count,
+                                                              &mut size);
+        }
+        (count, size)
+    }
+
+    // Return the approximate number of records and size in the range of memtables of the cf.
+    pub fn get_approximate_memtable_stats_cf(&self, cf: &CFHandle, range: &Range) -> (u64, u64) {
+        let (mut count, mut size) = (0, 0);
+        unsafe {
+            crocksdb_ffi::crocksdb_approximate_memtable_stats_cf(self.inner,
+                                                                 cf.inner,
+                                                                 range.start_key.as_ptr(),
+                                                                 range.start_key.len(),
+                                                                 range.end_key.as_ptr(),
+                                                                 range.end_key.len(),
+                                                                 &mut count,
+                                                                 &mut size);
+        }
+        (count, size)
+    }
+
     pub fn compact_range(&self, start_key: Option<&[u8]>, end_key: Option<&[u8]>) {
         unsafe {
             let (start, s_len) = start_key.map_or((ptr::null(), 0), |k| (k.as_ptr(), k.len()));
@@ -1926,5 +1957,33 @@ mod test {
         assert_eq!(key_versions[1].key, "key3");
         assert_eq!(key_versions[1].value, "value3");
         assert_eq!(key_versions[1].seq, 3);
+    }
+
+    #[test]
+    fn test_get_approximate_memtable_stats() {
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let path = TempDir::new("_rust_rocksdb_get_approximate_memtable_stats").expect("");
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+
+        let samples = [(b"key1", b"value1"),
+                       (b"key2", b"value2"),
+                       (b"key3", b"value3"),
+                       (b"key4", b"value4")];
+
+        for &(k, v) in &samples {
+            db.put(k, v).unwrap();
+        }
+
+        let range = Range::new(b"a", b"z");
+
+        let (count, size) = db.get_approximate_memtable_stats(&range);
+        assert!(count > 0);
+        assert!(size > 0);
+
+        let cf = db.cf_handle("default").unwrap();
+        let (count, size) = db.get_approximate_memtable_stats_cf(cf, &range);
+        assert!(count > 0);
+        assert!(size > 0);
     }
 }

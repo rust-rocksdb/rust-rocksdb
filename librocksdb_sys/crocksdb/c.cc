@@ -1010,6 +1010,28 @@ void crocksdb_approximate_sizes_cf(
   delete[] ranges;
 }
 
+void crocksdb_approximate_memtable_stats(
+    const crocksdb_t* db,
+    const char* range_start_key, size_t range_start_key_len,
+    const char* range_limit_key, size_t range_limit_key_len,
+    uint64_t* count, uint64_t* size) {
+  auto start = Slice(range_start_key, range_start_key_len);
+  auto limit = Slice(range_limit_key, range_limit_key_len);
+  Range range(start, limit);
+  db->rep->GetApproximateMemTableStats(range, count, size);
+}
+
+void crocksdb_approximate_memtable_stats_cf(
+    const crocksdb_t* db, const crocksdb_column_family_handle_t* cf,
+    const char* range_start_key, size_t range_start_key_len,
+    const char* range_limit_key, size_t range_limit_key_len,
+    uint64_t* count, uint64_t* size) {
+  auto start = Slice(range_start_key, range_start_key_len);
+  auto limit = Slice(range_limit_key, range_limit_key_len);
+  Range range(start, limit);
+  db->rep->GetApproximateMemTableStats(cf->rep, range, count, size);
+}
+
 void crocksdb_delete_file(
     crocksdb_t* db,
     const char* name) {
