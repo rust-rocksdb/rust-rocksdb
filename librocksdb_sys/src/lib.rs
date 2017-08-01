@@ -798,11 +798,6 @@ extern "C" {
                                             io_options: *const Options,
                                             cf: *mut DBCFHandle)
                                             -> *mut SstFileWriter;
-    pub fn crocksdb_sstfilewriter_create_with_comparator(env: *mut EnvOptions,
-                                                         io_options: *const Options,
-                                                         comparator: *const DBComparator,
-                                                         cf: *mut DBCFHandle)
-                                                         -> *mut SstFileWriter;
     pub fn crocksdb_sstfilewriter_open(writer: *mut SstFileWriter,
                                        name: *const c_char,
                                        err: *mut *mut c_char);
@@ -812,6 +807,22 @@ extern "C" {
                                       val: *const u8,
                                       val_len: size_t,
                                       err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_put(writer: *mut SstFileWriter,
+                                      key: *const u8,
+                                      key_len: size_t,
+                                      val: *const u8,
+                                      val_len: size_t,
+                                      err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_merge(writer: *mut SstFileWriter,
+                                        key: *const u8,
+                                        key_len: size_t,
+                                        val: *const u8,
+                                        val_len: size_t,
+                                        err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_delete(writer: *mut SstFileWriter,
+                                         key: *const u8,
+                                         key_len: size_t,
+                                         err: *mut *mut c_char);
     pub fn crocksdb_sstfilewriter_finish(writer: *mut SstFileWriter, err: *mut *mut c_char);
     pub fn crocksdb_sstfilewriter_destroy(writer: *mut SstFileWriter);
 
@@ -1219,9 +1230,9 @@ mod test {
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_add(writer, b"sstk1".as_ptr(), 5, b"v1".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_add(writer, b"sstk2".as_ptr(), 5, b"v2".as_ptr(), 2, &mut err);
+            crocksdb_sstfilewriter_put(writer, b"sstk2".as_ptr(), 5, b"v2".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_add(writer, b"sstk3".as_ptr(), 5, b"v3".as_ptr(), 2, &mut err);
+            crocksdb_sstfilewriter_put(writer, b"sstk3".as_ptr(), 5, b"v3".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_finish(writer, &mut err);
             assert!(err.is_null(), error_message(err));
@@ -1242,9 +1253,9 @@ mod test {
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_add(writer, "sstk2".as_ptr(), 5, "v4".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_add(writer, "sstk22".as_ptr(), 6, "v5".as_ptr(), 2, &mut err);
+            crocksdb_sstfilewriter_put(writer, "sstk22".as_ptr(), 6, "v5".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_add(writer, "sstk3".as_ptr(), 5, "v6".as_ptr(), 2, &mut err);
+            crocksdb_sstfilewriter_put(writer, "sstk3".as_ptr(), 5, "v6".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_finish(writer, &mut err);
             assert!(err.is_null(), error_message(err));

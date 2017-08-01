@@ -2800,8 +2800,7 @@ void crocksdb_envoptions_destroy(crocksdb_envoptions_t* opt) { delete opt; }
 crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create(
     const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options) {
   crocksdb_sstfilewriter_t* writer = new crocksdb_sstfilewriter_t;
-  writer->rep =
-      new SstFileWriter(env->rep, io_options->rep, io_options->rep.comparator);
+  writer->rep = new SstFileWriter(env->rep, io_options->rep);
   return writer;
 }
 
@@ -2810,17 +2809,7 @@ crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create_cf(
     crocksdb_column_family_handle_t* column_family) {
   crocksdb_sstfilewriter_t* writer = new crocksdb_sstfilewriter_t;
   writer->rep =
-      new SstFileWriter(env->rep, io_options->rep, io_options->rep.comparator, column_family->rep);
-  return writer;
-}
-
-crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create_with_comparator(
-    const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options,
-    const crocksdb_comparator_t* comparator,
-    crocksdb_column_family_handle_t* column_family) {
-  crocksdb_sstfilewriter_t* writer = new crocksdb_sstfilewriter_t;
-  writer->rep =
-      new SstFileWriter(env->rep, io_options->rep, comparator, column_family->rep);
+      new SstFileWriter(env->rep, io_options->rep, column_family->rep);
   return writer;
 }
 
@@ -2829,10 +2818,29 @@ void crocksdb_sstfilewriter_open(crocksdb_sstfilewriter_t* writer,
   SaveError(errptr, writer->rep->Open(std::string(name)));
 }
 
-void crocksdb_sstfilewriter_add(crocksdb_sstfilewriter_t* writer, const char* key,
-                               size_t keylen, const char* val, size_t vallen,
-                               char** errptr) {
+void crocksdb_sstfilewriter_add(crocksdb_sstfilewriter_t *writer,
+                                const char *key, size_t keylen, const char *val,
+                                size_t vallen, char **errptr) {
   SaveError(errptr, writer->rep->Add(Slice(key, keylen), Slice(val, vallen)));
+}
+
+void crocksdb_sstfilewriter_put(crocksdb_sstfilewriter_t *writer,
+                                const char *key, size_t keylen, const char *val,
+                                size_t vallen, char **errptr) {
+  SaveError(errptr, writer->rep->Put(Slice(key, keylen), Slice(val, vallen)));
+}
+
+void crocksdb_sstfilewriter_merge(crocksdb_sstfilewriter_t *writer,
+                                  const char *key, size_t keylen,
+                                  const char *val, size_t vallen,
+                                  char **errptr) {
+  SaveError(errptr, writer->rep->Merge(Slice(key, keylen), Slice(val, vallen)));
+}
+
+void crocksdb_sstfilewriter_delete(crocksdb_sstfilewriter_t *writer,
+                                   const char *key, size_t keylen,
+                                   char **errptr) {
+  SaveError(errptr, writer->rep->Delete(Slice(key, keylen)));
 }
 
 void crocksdb_sstfilewriter_finish(crocksdb_sstfilewriter_t* writer,

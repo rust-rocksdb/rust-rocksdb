@@ -1514,6 +1514,35 @@ impl SstFileWriter {
         }
     }
 
+    pub fn put(&mut self, key: &[u8], val: &[u8]) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_sstfilewriter_put(self.inner,
+                                                key.as_ptr(),
+                                                key.len(),
+                                                val.as_ptr(),
+                                                val.len()));
+            Ok(())
+        }
+    }
+
+    pub fn merge(&mut self, key: &[u8], val: &[u8]) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_sstfilewriter_merge(self.inner,
+                                                  key.as_ptr(),
+                                                  key.len(),
+                                                  val.as_ptr(),
+                                                  val.len()));
+            Ok(())
+        }
+    }
+
+    pub fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_sstfilewriter_delete(self.inner, key.as_ptr(), key.len()));
+            Ok(())
+        }
+    }
+
     /// Finalize writing to sst file and close file.
     pub fn finish(&mut self) -> Result<(), String> {
         unsafe {
