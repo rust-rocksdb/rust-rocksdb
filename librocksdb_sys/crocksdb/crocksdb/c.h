@@ -1081,12 +1081,25 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_read_tier(
     crocksdb_readoptions_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_tailing(
     crocksdb_readoptions_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_readoptions_set_managed(crocksdb_readoptions_t *, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_readahead_size(
     crocksdb_readoptions_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_readoptions_set_max_skippable_internal_keys(crocksdb_readoptions_t *,
+                                                     uint64_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_total_order_seek(
     crocksdb_readoptions_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_prefix_same_as_start(
     crocksdb_readoptions_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_readoptions_set_pin_data(crocksdb_readoptions_t *, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_readoptions_set_background_purge_on_iterator_cleanup(
+    crocksdb_readoptions_t *, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_readoptions_set_ignore_range_deletions(crocksdb_readoptions_t *,
+                                                unsigned char);
 
 /* Write options */
 
@@ -1098,6 +1111,13 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_set_sync(
     crocksdb_writeoptions_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writeoptions_disable_wal(
     crocksdb_writeoptions_t* opt, int disable);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_writeoptions_set_ignore_missing_column_families(
+    crocksdb_writeoptions_t *, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_writeoptions_set_no_slowdown(crocksdb_writeoptions_t *, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_writeoptions_set_low_pri(crocksdb_writeoptions_t *, unsigned char);
 
 /* Compact range options */
 

@@ -400,6 +400,10 @@ extern "C" {
     pub fn crocksdb_writeoptions_destroy(writeopts: *mut DBWriteOptions);
     pub fn crocksdb_writeoptions_set_sync(writeopts: *mut DBWriteOptions, v: bool);
     pub fn crocksdb_writeoptions_disable_wal(writeopts: *mut DBWriteOptions, v: c_int);
+    pub fn crocksdb_writeoptions_set_ignore_missing_column_families(writeopts: *mut DBWriteOptions,
+                                                                    v: bool);
+    pub fn crocksdb_writeoptions_set_no_slowdown(writeopts: *mut DBWriteOptions, v: bool);
+    pub fn crocksdb_writeoptions_set_low_pri(writeopts: *mut DBWriteOptions, v: bool);
     pub fn crocksdb_put(db: *mut DBInstance,
                         writeopts: *mut DBWriteOptions,
                         k: *const u8,
@@ -426,8 +430,16 @@ extern "C" {
                                                         kLen: size_t);
     pub fn crocksdb_readoptions_set_read_tier(readopts: *mut DBReadOptions, tier: c_int);
     pub fn crocksdb_readoptions_set_tailing(readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_managed(readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_readahead_size(readopts: *mut DBReadOptions, size: size_t);
+    pub fn crocksdb_readoptions_set_max_skippable_internal_keys(readopts: *mut DBReadOptions,
+                                                                n: uint64_t);
     pub fn crocksdb_readoptions_set_total_order_seek(readopts: *mut DBReadOptions, v: bool);
     pub fn crocksdb_readoptions_set_prefix_same_as_start(readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_pin_data(readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_background_purge_on_iterator_cleanup
+    (readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_ignore_range_deletions(readopts: *mut DBReadOptions, v: bool);
 
     pub fn crocksdb_get(db: *const DBInstance,
                         readopts: *const DBReadOptions,

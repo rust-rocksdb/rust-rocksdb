@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, ColumnFamilyOptions, DBOptions, BlockBasedOptions, WriteOptions, SliceTransform,
-              Writable, CompactOptions};
+use rocksdb::{DB, ColumnFamilyOptions, DBOptions, BlockBasedOptions, WriteOptions, ReadOptions,
+              SliceTransform, Writable, CompactOptions, SeekKey};
 use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType, DBInfoLogLevel as InfoLogLevel,
                             CompactionPriority, DBCompressionType};
@@ -461,4 +461,56 @@ fn test_db_paths() {
     let tmp_path = TempDir::new("_rust_rocksdb_test_db_path").expect("");
     opts.set_db_paths(&[(tmp_path.path(), 1073741824 as u64)]);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
+fn test_write_options() {
+    let path = TempDir::new("_rust_rocksdb_write_options").expect("");
+    let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+    let mut write_opts = WriteOptions::new();
+    write_opts.set_sync(true);
+    write_opts.disable_wal(true);
+    write_opts.set_ignore_missing_column_families(true);
+    write_opts.set_no_slowdown(true);
+    write_opts.set_low_pri(true);
+    db.put_opt(b"k1", b"a", &write_opts).unwrap();
+    db.put_opt(b"k2", b"b", &write_opts).unwrap();
+    db.put_opt(b"k3", b"c", &write_opts).unwrap();
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"a");
+    assert_eq!(db.get(b"k2").unwrap().unwrap(), b"b");
+    assert_eq!(db.get(b"k3").unwrap().unwrap(), b"c");
+}
+
+#[test]
+fn test_read_options() {
+    let path = TempDir::new("_rust_rocksdb_write_options").expect("");
+    let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+    let mut read_opts = ReadOptions::new();
+    read_opts.set_verify_checksums(true);
+    read_opts.fill_cache(true);
+    read_opts.set_tailing(true);
+    read_opts.set_managed(true);
+    read_opts.set_pin_data(true);
+    read_opts.set_background_purge_on_iterator_cleanup(true);
+    read_opts.set_ignore_range_deletions(true);
+    read_opts.set_max_skippable_internal_keys(0);
+    read_opts.set_readahead_size(0);
+    read_opts.set_read_tier(0);
+
+    db.put(b"k1", b"a").unwrap();
+    db.put(b"k2", b"b").unwrap();
+    db.put(b"k3", b"c").unwrap();
+
+    let keys = vec![b"k1", b"k2", b"k3"];
+    let mut iter = db.iter_opt(read_opts);
+    iter.seek(SeekKey::Key(b"k1"));
+    let mut key_count = 0;
+    while iter.valid() {
+        assert_eq!(keys[key_count], iter.key());
+        key_count = key_count + 1;
+        iter.next();
+    }
+    assert!(key_count == 3);
 }

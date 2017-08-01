@@ -2637,9 +2637,19 @@ void crocksdb_readoptions_set_tailing(
   opt->rep.tailing = v;
 }
 
+void crocksdb_readoptions_set_managed(crocksdb_readoptions_t *opt,
+                                      unsigned char v) {
+  opt->rep.managed = v;
+}
+
 void crocksdb_readoptions_set_readahead_size(
     crocksdb_readoptions_t* opt, size_t v) {
   opt->rep.readahead_size = v;
+}
+
+void crocksdb_readoptions_set_max_skippable_internal_keys(
+    crocksdb_readoptions_t *opt, uint64_t n) {
+  opt->rep.max_skippable_internal_keys = n;
 }
 
 void crocksdb_readoptions_set_total_order_seek(crocksdb_readoptions_t* opt,
@@ -2650,6 +2660,21 @@ void crocksdb_readoptions_set_total_order_seek(crocksdb_readoptions_t* opt,
 void crocksdb_readoptions_set_prefix_same_as_start(crocksdb_readoptions_t* opt,
     unsigned char v) {
   opt->rep.prefix_same_as_start = v;
+}
+
+void crocksdb_readoptions_set_pin_data(crocksdb_readoptions_t *opt,
+                                       unsigned char v) {
+  opt->rep.pin_data = v;
+}
+
+void crocksdb_readoptions_set_background_purge_on_iterator_cleanup(
+    crocksdb_readoptions_t *opt, unsigned char v) {
+  opt->rep.background_purge_on_iterator_cleanup = v;
+}
+
+void crocksdb_readoptions_set_ignore_range_deletions(
+    crocksdb_readoptions_t *opt, unsigned char v) {
+  opt->rep.ignore_range_deletions = v;
 }
 
 crocksdb_writeoptions_t* crocksdb_writeoptions_create() {
@@ -2667,6 +2692,21 @@ void crocksdb_writeoptions_set_sync(
 
 void crocksdb_writeoptions_disable_wal(crocksdb_writeoptions_t* opt, int disable) {
   opt->rep.disableWAL = disable;
+}
+
+void crocksdb_writeoptions_set_ignore_missing_column_families(
+    crocksdb_writeoptions_t *opt, unsigned char v) {
+  opt->rep.ignore_missing_column_families = v;
+}
+
+void crocksdb_writeoptions_set_no_slowdown(crocksdb_writeoptions_t *opt,
+                                           unsigned char v) {
+  opt->rep.no_slowdown = v;
+}
+
+void crocksdb_writeoptions_set_low_pri(crocksdb_writeoptions_t *opt,
+                                       unsigned char v) {
+  opt->rep.low_pri = v;
 }
 
 crocksdb_compactoptions_t* crocksdb_compactoptions_create() {
