@@ -1,6 +1,7 @@
 extern crate rocksdb;
 extern crate tempdir;
 extern crate byteorder;
+extern crate crc;
 
 mod test_iterator;
 mod test_multithreaded;
