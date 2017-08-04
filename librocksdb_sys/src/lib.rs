@@ -142,12 +142,21 @@ pub enum DBStatisticsTickerType {
     BlockCacheIndexHit = 5,
     BlockCacheFilterMiss = 9, // times cache miss when accessing filter block from block cache
     BlockCacheFilterHit = 10,
+    BlockCacheDataMiss = 14, // times cache miss when accessing data block from block cache
+    BlockCacheDataHit = 15, // times cache hit when accessing data block from block cache
+    BlockCacheByteRead = 18, // bytes read from cache
+    BlockCacheByteWrite = 19, // bytes written into cache
     BloomFilterUseful = 20, // times bloom filter has avoided file reads
     MemtableHit = 25,
     MemtableMiss = 26,
     GetHitL0 = 27, // Get() queries served by L0
     GetHitL1 = 28, // Get() queries served by L1
     GetHitL2AndUp = 29, // Get() queries served by L2 and up
+    CompactionKeyDropNewerEntry = 30, /* key was written with a newer value.
+                                       * Also includes keys dropped for range del. */
+    CompactionKeyDropObsolete = 31, // The key is obsolete.
+    CompactionKeyDropRangeDel = 32, // key was covered by a range tombstone.
+    CompactionRangeDelDropObsolete = 34, // all keys in range were deleted.
     NumberKeysWritten = 35, // number of keys written to the database via the Put and Write call's
     NumberKeysRead = 36, // number of keys read
     BytesWritten = 38, // the number of uncompressed bytes read from DB::Put, DB::Delete,
@@ -161,6 +170,9 @@ pub enum DBStatisticsTickerType {
     NumberDbPrevFound = 45,
     IterBytesRead = 46, // the number of uncompressed bytes read from an iterator, include size of
     // key and value
+    NoFileCloses = 47,
+    NoFileOpens = 48,
+    NoFileErrors = 49,
     StallMicros = 53, // writer has to wait for compaction or flush to finish
     NoIterators = 56, // number of iterators currently open
     BloomFilterPrefixChecked = 62, // number of times bloom was checked before creating iterator
@@ -172,6 +184,8 @@ pub enum DBStatisticsTickerType {
     CompactReadBytes = 76, // bytes read during compaction
     CompactWriteBytes = 77, // bytes written during compaction
     FlushWriteBytes = 78, // bytes written during flush
+    ReadAmpEstimateUsefulBytes = 90, // total bytes actually used
+    ReadAmpTotalReadBytes = 91, // total size of loaded data blocks
 }
 
 #[derive(Copy, Clone)]
