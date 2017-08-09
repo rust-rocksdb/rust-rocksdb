@@ -369,10 +369,6 @@ impl Options {
                                                                           allow as c_uchar) }
     }
 
-    pub fn set_disable_data_sync(&mut self, disable: bool) {
-        unsafe { ffi::rocksdb_options_set_disable_data_sync(self.inner, disable as c_int) }
-    }
-
     /// Enable direct I/O mode for reading
     /// they may or may not improve performance depending on the use case
     ///

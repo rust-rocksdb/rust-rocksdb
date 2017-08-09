@@ -9,6 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/benches" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/librocksdb-sys/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/librocksdb-sys/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/librocksdb-sys" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/librocksdb-sys/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

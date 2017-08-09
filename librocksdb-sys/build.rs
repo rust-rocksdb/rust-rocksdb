@@ -78,7 +78,7 @@ fn build_rocksdb() {
                     "port/port_posix.cc" |
                     "util/env_posix.cc" |
                     "env/env_posix.cc" |
-                    "util/io_posix.cc" => false,
+                    "env/io_posix.cc" => false,
                     _ => true,
                 }
             })
