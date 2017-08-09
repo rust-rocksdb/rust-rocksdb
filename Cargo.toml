@@ -19,4 +19,4 @@ valgrind = []
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.5.0" }
+librocksdb-sys = { path = "librocksdb-sys" }
