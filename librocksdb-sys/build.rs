@@ -89,7 +89,9 @@ fn build_rocksdb() {
         lib_sources.push("port/win/env_win.cc");
         lib_sources.push("port/win/env_default.cc");
         lib_sources.push("port/win/win_logger.cc");
+        lib_sources.push("port/win/win_thread.cc");
         lib_sources.push("port/win/io_win.cc");
+        lib_sources.push("port/win/xpress_win.cc");
     }
 
     if cfg!(target_env = "msvc") {
