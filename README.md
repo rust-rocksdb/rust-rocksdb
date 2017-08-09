@@ -1,6 +1,7 @@
 rust-rocksdb
 ============
-[![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb)
+[![Build Status](https://travis-ci.org/spacejam/rust-rocksdb.svg?branch=master)](https://travis-ci.org/spacejam/rust-rocksdb) 
+[![Build status](https://ci.appveyor.com/api/projects/status/hqfck32sw09eft0i?svg=true)](https://ci.appveyor.com/project/r8d8/rust-rocksdb)
 [![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 
 [documentation](https://docs.rs/rocksdb/0.6.0/rocksdb/)
