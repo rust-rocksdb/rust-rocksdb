@@ -17,6 +17,7 @@ addons:
       - g++-5
 
 script:
+  - export RUST_BACKTRACE=1
   - cargo test --manifest-path=librocksdb-sys/Cargo.toml
   - cargo test
 
