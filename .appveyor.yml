@@ -76,6 +76,7 @@ install:
   - for /f %%i in ('rustc --print sysroot') do set RUST_SRC_PATH=%%i\lib\rustlib\src\rust\src
   - cmd: set RUST_BACKTRACE=1
   - cmd: set RUSTFLAGS=-C target-feature=+crt-static
+  - git submodule update --init --recursive
 
 ## Build Script ##
 
