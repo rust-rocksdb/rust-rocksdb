@@ -1,10 +1,13 @@
 language: rust
-dist: trusty
+cache: cargo
 sudo: true
-
 rust:
-  - stable
-  - beta
+- stable
+- beta
+- nightly
+os:
+- linux
+- osx
 
 addons:
   apt:
