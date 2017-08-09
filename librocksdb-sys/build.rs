@@ -77,6 +77,7 @@ fn build_rocksdb() {
                 match *file {
                     "port/port_posix.cc" |
                     "util/env_posix.cc" |
+                    "env/env_posix.cc" |
                     "util/io_posix.cc" => false,
                     _ => true,
                 }
