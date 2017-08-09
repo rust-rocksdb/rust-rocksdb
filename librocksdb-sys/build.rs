@@ -68,6 +68,7 @@ fn build_rocksdb() {
     if cfg!(windows) {
         link("rpcrt4", false);
         config.define("OS_WIN", Some("1"));
+        config.define("NOMINMAX", Some("1"));
 
         // Remove POSIX-specific sources
         lib_sources = lib_sources.iter()
