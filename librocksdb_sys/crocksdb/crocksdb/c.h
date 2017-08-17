@@ -625,6 +625,10 @@ crocksdb_compactionjobinfo_output_file_at(const crocksdb_compactionjobinfo_t*,
 extern C_ROCKSDB_LIBRARY_API const crocksdb_table_properties_collection_t*
 crocksdb_compactionjobinfo_table_properties(
     const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_compactionjobinfo_elapsed_micros(const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_compactionjobinfo_num_corrupt_keys(const crocksdb_compactionjobinfo_t*);
 
 /* External file ingestion info */
 

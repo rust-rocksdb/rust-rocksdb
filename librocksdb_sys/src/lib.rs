@@ -1064,6 +1064,10 @@ extern "C" {
                                                      -> *const c_char;
     pub fn crocksdb_compactionjobinfo_table_properties(info: *const DBCompactionJobInfo)
                                                        -> *const DBTablePropertiesCollection;
+    pub fn crocksdb_compactionjobinfo_elapsed_micros(info: *const DBCompactionJobInfo)
+                                                     -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_num_corrupt_keys(info: *const DBCompactionJobInfo)
+                                                       -> uint64_t;
 
     pub fn crocksdb_externalfileingestioninfo_cf_name(info: *const DBIngestionInfo,
                                                       size: *mut size_t)

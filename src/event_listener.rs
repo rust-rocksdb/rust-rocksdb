@@ -80,6 +80,14 @@ impl CompactionJobInfo {
             TablePropertiesCollectionView::from_ptr(prop)
         }
     }
+
+    pub fn elapsed_micros(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_elapsed_micros(&self.0) }
+    }
+
+    pub fn num_corrupt_keys(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_num_corrupt_keys(&self.0) }
+    }
 }
 
 pub struct IngestionInfo(DBIngestionInfo);

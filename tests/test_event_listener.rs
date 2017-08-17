@@ -61,6 +61,9 @@ impl EventListener for EventCounter {
         let props = info.table_properties();
         assert_eq!(props.len(), output_file_count + input_file_count);
 
+        assert_ne!(info.elapsed_micros(), 0);
+        assert_eq!(info.num_corrupt_keys(), 0);
+
         self.compaction.fetch_add(1, Ordering::SeqCst);
     }
 
