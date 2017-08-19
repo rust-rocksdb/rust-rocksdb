@@ -190,9 +190,9 @@ impl Options {
     /// ```
     pub fn set_compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
-            let level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
+            let mut level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
             ffi::rocksdb_options_set_compression_per_level(self.inner,
-                                                           level_types.as_ptr(),
+                                                           level_types.as_mut_ptr(),
                                                            level_types.len() as size_t)
         }
     }
@@ -367,10 +367,6 @@ impl Options {
     pub fn set_allow_concurrent_memtable_write(&mut self, allow: bool) {
         unsafe { ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner,
                                                                           allow as c_uchar) }
-    }
-
-    pub fn set_disable_data_sync(&mut self, disable: bool) {
-        unsafe { ffi::rocksdb_options_set_disable_data_sync(self.inner, disable as c_int) }
     }
 
     /// Enable direct I/O mode for reading
@@ -603,9 +599,9 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
-    /// opts.set_max_bytes_for_level_multiplier(4);
+    /// opts.set_max_bytes_for_level_multiplier(4.0);
     /// ```
-    pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
+    pub fn set_max_bytes_for_level_multiplier(&mut self, mul: f64) {
         unsafe {
             ffi::rocksdb_options_set_max_bytes_for_level_multiplier(self.inner, mul);
         }

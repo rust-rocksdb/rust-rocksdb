@@ -55,10 +55,10 @@ pub enum DBCompactionStyle {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DBRecoveryMode {
-    TolerateCorruptedTailRecords = ffi::rocksdb_recovery_mode_tolerate_corrupted_tail_records as isize,
-    AbsoluteConsistency = ffi::rocksdb_recovery_mode_absolute_consistency as isize,
-    PointInTime = ffi::rocksdb_recovery_mode_point_in_time as isize,
-    SkipAnyCorruptedRecord = ffi::rocksdb_recovery_mode_skip_any_corrupted_record as isize,
+    TolerateCorruptedTailRecords = ffi::rocksdb_tolerate_corrupted_tail_records_recovery as isize,
+    AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
+    PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
+    SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
 }
 
 /// An atomic batch of write operations.
@@ -616,22 +616,22 @@ impl DB {
                 .map(|cf| CString::new(cf.as_bytes()).unwrap())
                 .collect();
 
-            let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
+            let mut cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
             // These handles will be populated by DB.
             let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
 
             // TODO(tyler) allow options to be passed in.
-            let cfopts: Vec<_> = cfs_v.iter()
+            let mut cfopts: Vec<_> = cfs_v.iter()
                 .map(|_| unsafe { ffi::rocksdb_options_create() as *const _ })
                 .collect();
 
             unsafe {
                 db = ffi_try!(ffi::rocksdb_open_column_families(opts.inner,
-                                                                cpath.as_ptr() as *const _,
+                                                                cpath.as_ptr(),
                                                                 cfs_v.len() as c_int,
-                                                                cfnames.as_ptr() as *const _,
-                                                                cfopts.as_ptr(),
+                                                                cfnames.as_mut_ptr(),
+                                                                cfopts.as_mut_ptr(),
                                                                 cfhandles.as_mut_ptr()));
             }
 

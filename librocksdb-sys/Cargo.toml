@@ -24,3 +24,4 @@ const-cstr = "0.2"
 [build-dependencies]
 gcc = { version = "0.3", features = ["parallel"] }
 make-cmd = "0.1"
+bindgen = "0.29"
