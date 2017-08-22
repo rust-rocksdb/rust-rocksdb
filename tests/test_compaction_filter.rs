@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{Writable, DB, CompactionFilter, DBOptions, ColumnFamilyOptions};
+use rocksdb::{ColumnFamilyOptions, CompactionFilter, DBOptions, Writable, DB};
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tempdir::TempDir;
@@ -44,22 +44,28 @@ fn test_compaction_filter() {
     let drop_called = Arc::new(AtomicBool::new(false));
     let filtered_kvs = Arc::new(RwLock::new(vec![]));
     // set ignore_snapshots to false
-    cf_opts.set_compaction_filter("test",
-                               false,
-                               Box::new(Filter {
-                                   drop_called: drop_called.clone(),
-                                   filtered_kvs: filtered_kvs.clone(),
-                               }))
+    cf_opts
+        .set_compaction_filter(
+            "test",
+            false,
+            Box::new(Filter {
+                drop_called: drop_called.clone(),
+                filtered_kvs: filtered_kvs.clone(),
+            }),
+        )
         .unwrap();
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
-    let samples = vec![(b"key1".to_vec(), b"value1".to_vec()),
-                       (b"key2".to_vec(), b"value2".to_vec())];
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
+    let samples = vec![
+        (b"key1".to_vec(), b"value1".to_vec()),
+        (b"key2".to_vec(), b"value2".to_vec()),
+    ];
     for &(ref k, ref v) in &samples {
         db.put(k, v).unwrap();
         assert_eq!(v.as_slice(), &*db.get(k).unwrap().unwrap());
@@ -79,21 +85,25 @@ fn test_compaction_filter() {
     // reregister with ignore_snapshots set to true
     let mut cf_opts = ColumnFamilyOptions::new();
     let opts = DBOptions::new();
-    cf_opts.set_compaction_filter("test",
-                               true,
-                               Box::new(Filter {
-                                   drop_called: drop_called.clone(),
-                                   filtered_kvs: filtered_kvs.clone(),
-                               }))
+    cf_opts
+        .set_compaction_filter(
+            "test",
+            true,
+            Box::new(Filter {
+                drop_called: drop_called.clone(),
+                filtered_kvs: filtered_kvs.clone(),
+            }),
+        )
         .unwrap();
     assert!(drop_called.load(Ordering::Relaxed));
     drop_called.store(false, Ordering::Relaxed);
     {
-        let db = DB::open_cf(opts,
-                             path.path().to_str().unwrap(),
-                             vec!["default"],
-                             vec![cf_opts])
-            .unwrap();
+        let db = DB::open_cf(
+            opts,
+            path.path().to_str().unwrap(),
+            vec!["default"],
+            vec![cf_opts],
+        ).unwrap();
         let _snap = db.snapshot();
         // Because ignore_snapshots is true, so all the keys will be compacted.
         db.compact_range(Some(b"key1"), Some(b"key3"));

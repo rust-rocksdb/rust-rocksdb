@@ -13,10 +13,10 @@
 
 
 use {TableProperties, TablePropertiesCollectionView};
-use crocksdb_ffi::{self, DBInstance, DBFlushJobInfo, DBCompactionJobInfo, DBIngestionInfo,
-                   DBEventListener};
+use crocksdb_ffi::{self, DBCompactionJobInfo, DBEventListener, DBFlushJobInfo, DBIngestionInfo,
+                   DBInstance};
 use libc::c_void;
-use std::{slice, mem, str};
+use std::{mem, slice, str};
 use std::path::Path;
 
 
@@ -98,8 +98,11 @@ impl IngestionInfo {
     }
 
     pub fn internal_file_path(&self) -> &Path {
-        let p =
-            unsafe { fetch_str!(crocksdb_externalfileingestioninfo_internal_file_path(&self.0)) };
+        let p = unsafe {
+            fetch_str!(crocksdb_externalfileingestioninfo_internal_file_path(
+                &self.0
+            ))
+        };
         Path::new(p)
     }
 
@@ -134,23 +137,29 @@ extern "C" fn destructor(ctx: *mut c_void) {
 
 // Maybe we should reuse db instance?
 // TODO: refactor DB implement so that we can convert DBInstance to DB.
-extern "C" fn on_flush_completed(ctx: *mut c_void,
-                                 _: *mut DBInstance,
-                                 info: *const DBFlushJobInfo) {
+extern "C" fn on_flush_completed(
+    ctx: *mut c_void,
+    _: *mut DBInstance,
+    info: *const DBFlushJobInfo,
+) {
     let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
     ctx.on_flush_completed(info);
 }
 
-extern "C" fn on_compaction_completed(ctx: *mut c_void,
-                                      _: *mut DBInstance,
-                                      info: *const DBCompactionJobInfo) {
+extern "C" fn on_compaction_completed(
+    ctx: *mut c_void,
+    _: *mut DBInstance,
+    info: *const DBCompactionJobInfo,
+) {
     let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
     ctx.on_compaction_completed(info);
 }
 
-extern "C" fn on_external_file_ingested(ctx: *mut c_void,
-                                        _: *mut DBInstance,
-                                        info: *const DBIngestionInfo) {
+extern "C" fn on_external_file_ingested(
+    ctx: *mut c_void,
+    _: *mut DBInstance,
+    info: *const DBIngestionInfo,
+) {
     let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
     ctx.on_external_file_ingested(info);
 }
@@ -158,10 +167,12 @@ extern "C" fn on_external_file_ingested(ctx: *mut c_void,
 pub fn new_event_listener<L: EventListener>(l: L) -> *mut DBEventListener {
     let p: Box<EventListener> = Box::new(l);
     unsafe {
-        crocksdb_ffi::crocksdb_eventlistener_create(Box::into_raw(Box::new(p)) as *mut c_void,
-                                                    destructor,
-                                                    on_flush_completed,
-                                                    on_compaction_completed,
-                                                    on_external_file_ingested)
+        crocksdb_ffi::crocksdb_eventlistener_create(
+            Box::into_raw(Box::new(p)) as *mut c_void,
+            destructor,
+            on_flush_completed,
+            on_compaction_completed,
+            on_external_file_ingested,
+        )
     }
 }

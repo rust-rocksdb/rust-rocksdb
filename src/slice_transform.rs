@@ -13,7 +13,7 @@
 
 
 use crocksdb_ffi::{self, DBSliceTransform};
-use libc::{c_void, c_char, size_t};
+use libc::{c_char, c_void, size_t};
 use std::ffi::CString;
 use std::slice;
 
@@ -54,11 +54,12 @@ extern "C" fn destructor(transform: *mut c_void) {
     }
 }
 
-extern "C" fn transform(transform: *mut c_void,
-                        key: *const u8,
-                        key_len: size_t,
-                        dest_len: *mut size_t)
-                        -> *const u8 {
+extern "C" fn transform(
+    transform: *mut c_void,
+    key: *const u8,
+    key_len: size_t,
+    dest_len: *mut size_t,
+) -> *const u8 {
     unsafe {
         let transform = &mut *(transform as *mut SliceTransformProxy);
         let key = slice::from_raw_parts(key, key_len);
@@ -85,18 +86,21 @@ extern "C" fn in_range(transform: *mut c_void, key: *const u8, key_len: size_t) 
 }
 
 
-pub unsafe fn new_slice_transform(c_name: CString,
-                                  f: Box<SliceTransform>)
-                                  -> Result<*mut DBSliceTransform, String> {
+pub unsafe fn new_slice_transform(
+    c_name: CString,
+    f: Box<SliceTransform>,
+) -> Result<*mut DBSliceTransform, String> {
     let proxy = Box::into_raw(Box::new(SliceTransformProxy {
         name: c_name,
         transform: f,
     }));
-    let transform = crocksdb_ffi::crocksdb_slicetransform_create(proxy as *mut c_void,
-                                                                 destructor,
-                                                                 transform,
-                                                                 in_domain,
-                                                                 in_range,
-                                                                 name);
+    let transform = crocksdb_ffi::crocksdb_slicetransform_create(
+        proxy as *mut c_void,
+        destructor,
+        transform,
+        in_domain,
+        in_range,
+        name,
+    );
     Ok(transform)
 }

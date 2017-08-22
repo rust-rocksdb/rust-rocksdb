@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, Writable};
+use rocksdb::{Writable, DB};
 use std::sync::Arc;
 use std::thread;
 use tempdir::TempDir;
@@ -40,11 +40,9 @@ pub fn test_multithreaded() {
     let db3 = db.clone();
     let j3 = thread::spawn(move || for _ in 1..N {
         match db3.get(b"key") {
-            Ok(Some(v)) => {
-                if &v[..] != b"value1" && &v[..] != b"value2" {
-                    assert!(false);
-                }
-            }
+            Ok(Some(v)) => if &v[..] != b"value1" && &v[..] != b"value2" {
+                assert!(false);
+            },
             _ => {
                 assert!(false);
             }

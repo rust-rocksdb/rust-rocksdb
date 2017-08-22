@@ -12,9 +12,9 @@
 // limitations under the License.
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use rocksdb::{DB, Range, ColumnFamilyOptions, DBOptions, Writable, DBEntryType,
-              TablePropertiesCollection, TablePropertiesCollector,
-              TablePropertiesCollectorFactory, UserCollectedProperties};
+use rocksdb::{ColumnFamilyOptions, DBEntryType, DBOptions, Range, TablePropertiesCollection,
+              TablePropertiesCollector, TablePropertiesCollectorFactory, UserCollectedProperties,
+              Writable, DB};
 use std::collections::HashMap;
 use std::fmt;
 use tempdir::TempDir;
@@ -82,7 +82,11 @@ impl ExampleCollector {
         for (k, v) in props {
             assert_eq!(v, props.get(k).unwrap());
         }
-        assert!(props.get(&[Props::NumKeys as u8, Props::NumPuts as u8]).is_none());
+        assert!(
+            props
+                .get(&[Props::NumKeys as u8, Props::NumPuts as u8])
+                .is_none()
+        );
         assert!(props.len() >= 4);
 
         c
@@ -91,12 +95,14 @@ impl ExampleCollector {
 
 impl fmt::Display for ExampleCollector {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "keys={}, puts={}, merges={}, deletes={}",
-               self.num_keys,
-               self.num_puts,
-               self.num_merges,
-               self.num_deletes)
+        write!(
+            f,
+            "keys={}, puts={}, merges={}, deletes={}",
+            self.num_keys,
+            self.num_puts,
+            self.num_merges,
+            self.num_deletes
+        )
     }
 }
 
@@ -110,8 +116,7 @@ impl TablePropertiesCollector for ExampleCollector {
         match entry_type {
             DBEntryType::Put => self.num_puts += 1,
             DBEntryType::Merge => self.num_merges += 1,
-            DBEntryType::Delete |
-            DBEntryType::SingleDelete => self.num_deletes += 1,
+            DBEntryType::Delete | DBEntryType::SingleDelete => self.num_deletes += 1,
             DBEntryType::Other => {}
         }
     }
@@ -135,12 +140,14 @@ impl TablePropertiesCollectorFactory for ExampleFactory {
     }
 }
 
-fn check_collection(collection: &TablePropertiesCollection,
-                    num_files: usize,
-                    num_keys: u32,
-                    num_puts: u32,
-                    num_merges: u32,
-                    num_deletes: u32) {
+fn check_collection(
+    collection: &TablePropertiesCollection,
+    num_files: usize,
+    num_keys: u32,
+    num_puts: u32,
+    num_merges: u32,
+    num_deletes: u32,
+) {
     let mut res = ExampleCollector::new();
     assert!(!collection.is_empty());
     let props: HashMap<_, _> = collection.iter().collect();
@@ -166,16 +173,19 @@ fn test_table_properties_collector_factory() {
     cf_opts.add_table_properties_collector_factory("example-collector", Box::new(f));
 
     let path = TempDir::new("_rust_rocksdb_collectortest").expect("");
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 
-    let samples = vec![(b"key1".to_vec(), b"value1".to_vec()),
-                       (b"key2".to_vec(), b"value2".to_vec()),
-                       (b"key3".to_vec(), b"value3".to_vec()),
-                       (b"key4".to_vec(), b"value4".to_vec())];
+    let samples = vec![
+        (b"key1".to_vec(), b"value1".to_vec()),
+        (b"key2".to_vec(), b"value2".to_vec()),
+        (b"key3".to_vec(), b"value3".to_vec()),
+        (b"key4".to_vec(), b"value4".to_vec()),
+    ];
 
     // Put 4 keys.
     for &(ref k, ref v) in &samples {

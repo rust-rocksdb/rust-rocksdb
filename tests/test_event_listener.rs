@@ -86,17 +86,19 @@ fn test_event_listener_basic() {
     opts.create_if_missing(true);
     let db = DB::open(opts, path_str).unwrap();
     for i in 1..8000 {
-        db.put(format!("{:04}", i).as_bytes(),
-                 format!("{:04}", i).as_bytes())
-            .unwrap();
+        db.put(
+            format!("{:04}", i).as_bytes(),
+            format!("{:04}", i).as_bytes(),
+        ).unwrap();
     }
     db.flush(true).unwrap();
     assert_ne!(counter.flush.load(Ordering::SeqCst), 0);
 
     for i in 1..8000 {
-        db.put(format!("{:04}", i).as_bytes(),
-                 format!("{:04}", i).as_bytes())
-            .unwrap();
+        db.put(
+            format!("{:04}", i).as_bytes(),
+            format!("{:04}", i).as_bytes(),
+        ).unwrap();
     }
     db.flush(true).unwrap();
     let flush_cnt = counter.flush.load(Ordering::SeqCst);
@@ -125,10 +127,12 @@ fn test_event_listener_ingestion() {
     let test_sstfile_str = test_sstfile.to_str().unwrap();
 
     let default_options = db.get_options();
-    gen_sst(default_options,
-            Some(db.cf_handle("default").unwrap()),
-            test_sstfile_str,
-            &[(b"k1", b"v1"), (b"k2", b"v2")]);
+    gen_sst(
+        default_options,
+        Some(db.cf_handle("default").unwrap()),
+        test_sstfile_str,
+        &[(b"k1", b"v1"), (b"k2", b"v2")],
+    );
 
     let ingest_opt = IngestExternalFileOptions::new();
     db.ingest_external_file(&ingest_opt, &[test_sstfile_str])

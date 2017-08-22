@@ -12,13 +12,8 @@ cache:
 
 os:
   - linux
-#  - osx
-
-before_script:
-- make -f travis-build/Makefile prepare-rustfmt
 
 script:
-- cargo fmt -- --write-mode diff || (echo please make format and run tests before creating a pr!; exit 1)
 - cargo build --features static-link
 - cargo test --all --features static-link
 
@@ -26,4 +21,3 @@ env:
   global:
   - RUST_TEST_THREADS=1
   - LD_LIBRARY_PATH: "/usr/local/lib"
-  - RUSTFMT_VERSION=v0.6.0

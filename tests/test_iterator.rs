@@ -79,8 +79,11 @@ pub fn test_iterator() {
     assert!(p.is_ok());
     let p = db.put(k3, v3);
     assert!(p.is_ok());
-    let expected =
-        vec![(k1.to_vec(), v1.to_vec()), (k2.to_vec(), v2.to_vec()), (k3.to_vec(), v3.to_vec())];
+    let expected = vec![
+        (k1.to_vec(), v1.to_vec()),
+        (k2.to_vec(), v2.to_vec()),
+        (k3.to_vec(), v3.to_vec()),
+    ];
 
     let mut iter = db.iter();
 
@@ -113,10 +116,12 @@ pub fn test_iterator() {
     old_iterator.seek(SeekKey::Start);
     let p = db.put(&*k4, &*v4);
     assert!(p.is_ok());
-    let expected2 = vec![(k1.to_vec(), v1.to_vec()),
-                         (k2.to_vec(), v2.to_vec()),
-                         (k3.to_vec(), v3.to_vec()),
-                         (k4.to_vec(), v4.to_vec())];
+    let expected2 = vec![
+        (k1.to_vec(), v1.to_vec()),
+        (k2.to_vec(), v2.to_vec()),
+        (k3.to_vec(), v3.to_vec()),
+        (k4.to_vec(), v4.to_vec()),
+    ];
     assert_eq!(old_iterator.collect::<Vec<_>>(), expected);
 
     iter = db.iter();
@@ -124,8 +129,11 @@ pub fn test_iterator() {
     assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
     iter.seek(SeekKey::Key(k2));
-    let expected =
-        vec![(k2.to_vec(), v2.to_vec()), (k3.to_vec(), v3.to_vec()), (k4.to_vec(), v4.to_vec())];
+    let expected = vec![
+        (k2.to_vec(), v2.to_vec()),
+        (k3.to_vec(), v3.to_vec()),
+        (k4.to_vec(), v4.to_vec()),
+    ];
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     iter.seek(SeekKey::Key(k2));
@@ -241,19 +249,32 @@ fn test_total_order_seek() {
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     cf_opts.set_block_based_table_factory(&bbto);
-    cf_opts.set_prefix_extractor("FixedPrefixTransform",
-                              Box::new(FixedPrefixTransform { prefix_len: 2 }))
+    cf_opts
+        .set_prefix_extractor(
+            "FixedPrefixTransform",
+            Box::new(FixedPrefixTransform { prefix_len: 2 }),
+        )
         .unwrap();
     // also create prefix bloom for memtable
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
 
-    let keys = vec![b"k1-1", b"k1-2", b"k1-3", b"k2-1", b"k2-2", b"k2-3", b"k3-1", b"k3-2",
-                    b"k3-3"];
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
+    let keys = vec![
+        b"k1-1",
+        b"k1-2",
+        b"k1-3",
+        b"k2-1",
+        b"k2-2",
+        b"k2-3",
+        b"k3-1",
+        b"k3-2",
+        b"k3-3",
+    ];
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
     let wopts = WriteOptions::new();
 
     // sst1
@@ -324,15 +345,19 @@ fn test_fixed_suffix_seek() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.set_block_based_table_factory(&bbto);
-    cf_opts.set_prefix_extractor("FixedSuffixTransform",
-                              Box::new(FixedSuffixTransform { suffix_len: 2 }))
+    cf_opts
+        .set_prefix_extractor(
+            "FixedSuffixTransform",
+            Box::new(FixedSuffixTransform { suffix_len: 2 }),
+        )
         .unwrap();
 
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
     db.put(b"k-eghe-5", b"a").unwrap();
     db.put(b"k-24yfae-6", b"a").unwrap();
     db.put(b"k-h1fwd-7", b"a").unwrap();

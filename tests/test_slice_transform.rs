@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{Writable, DB, SliceTransform, ColumnFamilyOptions, DBOptions, SeekKey,
-              BlockBasedOptions};
+use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, DBOptions, SeekKey, SliceTransform,
+              Writable, DB};
 use tempdir::TempDir;
 
 struct FixedPostfixTransform {
@@ -43,19 +43,23 @@ fn test_slice_transform() {
     cf_opts.set_block_based_table_factory(&block_opts);
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.25);
 
-    cf_opts.set_prefix_extractor("test", Box::new(FixedPostfixTransform { postfix_len: 2 }))
+    cf_opts
+        .set_prefix_extractor("test", Box::new(FixedPostfixTransform { postfix_len: 2 }))
         .unwrap();
     opts.create_if_missing(true);
 
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
-    let samples = vec![(b"key_01".to_vec(), b"1".to_vec()),
-                       (b"key_02".to_vec(), b"2".to_vec()),
-                       (b"key_0303".to_vec(), b"3".to_vec()),
-                       (b"key_0404".to_vec(), b"4".to_vec())];
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
+    let samples = vec![
+        (b"key_01".to_vec(), b"1".to_vec()),
+        (b"key_02".to_vec(), b"2".to_vec()),
+        (b"key_0303".to_vec(), b"3".to_vec()),
+        (b"key_0404".to_vec(), b"4".to_vec()),
+    ];
 
     for &(ref k, ref v) in &samples {
         db.put(k, v).unwrap();
@@ -64,17 +68,23 @@ fn test_slice_transform() {
 
     let mut it = db.iter();
 
-    let invalid_seeks =
-        vec![b"key_".to_vec(), b"key_0".to_vec(), b"key_030".to_vec(), b"key_03000".to_vec()];
+    let invalid_seeks = vec![
+        b"key_".to_vec(),
+        b"key_0".to_vec(),
+        b"key_030".to_vec(),
+        b"key_03000".to_vec(),
+    ];
 
     for key in invalid_seeks {
         it.seek(SeekKey::Key(&key));
         assert!(!it.valid());
     }
 
-    let valid_seeks = vec![(b"key_00".to_vec(), b"key_01".to_vec()),
-                           (b"key_03".to_vec(), b"key_0303".to_vec()),
-                           (b"key_0301".to_vec(), b"key_0303".to_vec())];
+    let valid_seeks = vec![
+        (b"key_00".to_vec(), b"key_01".to_vec()),
+        (b"key_03".to_vec(), b"key_0303".to_vec()),
+        (b"key_0301".to_vec(), b"key_0303".to_vec()),
+    ];
 
     for (key, expect_key) in valid_seeks {
         it.seek(SeekKey::Key(&key));

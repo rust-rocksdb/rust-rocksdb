@@ -8,14 +8,13 @@ machine:
     CPPFLAGS: "-I$HOME/.local/include"
     CXXFLAGS: "-I$HOME/.local/include"
     PKG_CONFIG_PATH: "$PKG_CONFIG_PATH:$HOME/.local/lib/pkgconfig"
-    RUSTC_DATE: "2017-03-28"
+    RUSTC_DATE: "2017-08-09"
     LOCAL_PREFIX: "$HOME/.local"
     # used by cargo
     LIBRARY_PATH: "$LIBRARY_PATH:$HOME/.local/lib"
     RUST_TEST_THREADS: 1
     RUST_BACKTRACE: 1
     RUSTFLAGS: "-Dwarnings"
-    RUSTFMT_VERSION: "v0.6.0"
   pre:
     - |
       sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y;

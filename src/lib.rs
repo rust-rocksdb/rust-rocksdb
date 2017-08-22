@@ -32,16 +32,16 @@ mod table_properties_collector_factory;
 mod event_listener;
 
 pub use compaction_filter::CompactionFilter;
-pub use event_listener::{EventListener, CompactionJobInfo, IngestionInfo, FlushJobInfo};
-pub use librocksdb_sys::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, DBInfoLogLevel,
-                         DBStatisticsTickerType, DBStatisticsHistogramType, new_bloom_filter,
-                         CompactionPriority, DBEntryType, self as crocksdb_ffi};
+pub use event_listener::{CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo};
+pub use librocksdb_sys::{self as crocksdb_ffi, new_bloom_filter, CompactionPriority,
+                         DBCompactionStyle, DBCompressionType, DBEntryType, DBInfoLogLevel,
+                         DBRecoveryMode, DBStatisticsHistogramType, DBStatisticsTickerType};
 pub use merge_operator::MergeOperands;
-pub use rocksdb::{DB, DBIterator, DBVector, Kv, SeekKey, Writable, WriteBatch, CFHandle, Range,
-                  BackupEngine, SstFileWriter};
-pub use rocksdb_options::{BlockBasedOptions, DBOptions, ColumnFamilyOptions, ReadOptions,
-                          WriteOptions, RestoreOptions, IngestExternalFileOptions, EnvOptions,
-                          HistogramData, CompactOptions};
+pub use rocksdb::{BackupEngine, CFHandle, DBIterator, DBVector, Kv, Range, SeekKey, SstFileWriter,
+                  Writable, WriteBatch, DB};
+pub use rocksdb_options::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions,
+                          EnvOptions, HistogramData, IngestExternalFileOptions, ReadOptions,
+                          RestoreOptions, WriteOptions};
 pub use slice_transform::SliceTransform;
 pub use table_properties::{TableProperties, TablePropertiesCollection,
                            TablePropertiesCollectionView, UserCollectedProperties};

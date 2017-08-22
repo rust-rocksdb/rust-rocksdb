@@ -1,5 +1,5 @@
 use crocksdb_ffi::{self, DBCompactionFilter};
-use libc::{c_void, c_char, c_int, size_t};
+use libc::{c_char, c_int, c_void, size_t};
 use std::ffi::CString;
 use std::slice;
 
@@ -34,16 +34,17 @@ extern "C" fn destructor(filter: *mut c_void) {
     }
 }
 
-extern "C" fn filter(filter: *mut c_void,
-                     level: c_int,
-                     key: *const u8,
-                     key_len: size_t,
-                     value: *const u8,
-                     value_len: size_t,
-                     _: *mut *mut u8,
-                     _: *mut size_t,
-                     value_changed: *mut bool)
-                     -> bool {
+extern "C" fn filter(
+    filter: *mut c_void,
+    level: c_int,
+    key: *const u8,
+    key_len: size_t,
+    value: *const u8,
+    value_len: size_t,
+    _: *mut *mut u8,
+    _: *mut size_t,
+    value_changed: *mut bool,
+) -> bool {
     unsafe {
         let filter = &mut *(filter as *mut CompactionFilterProxy);
         let key = slice::from_raw_parts(key, key_len);
@@ -65,18 +66,21 @@ impl Drop for CompactionFilterHandle {
     }
 }
 
-pub unsafe fn new_compaction_filter(c_name: CString,
-                                    ignore_snapshots: bool,
-                                    f: Box<CompactionFilter>)
-                                    -> Result<CompactionFilterHandle, String> {
+pub unsafe fn new_compaction_filter(
+    c_name: CString,
+    ignore_snapshots: bool,
+    f: Box<CompactionFilter>,
+) -> Result<CompactionFilterHandle, String> {
     let proxy = Box::into_raw(Box::new(CompactionFilterProxy {
         name: c_name,
         filter: f,
     }));
-    let filter = crocksdb_ffi::crocksdb_compactionfilter_create(proxy as *mut c_void,
-                                                                destructor,
-                                                                filter,
-                                                                name);
+    let filter = crocksdb_ffi::crocksdb_compactionfilter_create(
+        proxy as *mut c_void,
+        destructor,
+        filter,
+        name,
+    );
     crocksdb_ffi::crocksdb_compactionfilter_set_ignore_snapshots(filter, ignore_snapshots);
     Ok(CompactionFilterHandle { inner: filter })
 }

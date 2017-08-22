@@ -12,7 +12,7 @@
 // limitations under the License.
 
 use rocksdb::*;
-use rocksdb::{DBStatisticsTickerType as TickerType, DBStatisticsHistogramType as HistogramType};
+use rocksdb::{DBStatisticsHistogramType as HistogramType, DBStatisticsTickerType as TickerType};
 use tempdir::TempDir;
 
 #[test]
@@ -35,8 +35,12 @@ fn test_db_statistics() {
     assert!(db.get_statistics_ticker_count(TickerType::BlockCacheHit) > 0);
     assert!(db.get_and_reset_statistics_ticker_count(TickerType::BlockCacheHit) > 0);
     assert_eq!(db.get_statistics_ticker_count(TickerType::BlockCacheHit), 0);
-    assert!(db.get_statistics_histogram_string(HistogramType::GetMicros)
-        .is_some());
-    assert!(db.get_statistics_histogram(HistogramType::GetMicros)
-        .is_some());
+    assert!(
+        db.get_statistics_histogram_string(HistogramType::GetMicros)
+            .is_some()
+    );
+    assert!(
+        db.get_statistics_histogram(HistogramType::GetMicros)
+            .is_some()
+    );
 }

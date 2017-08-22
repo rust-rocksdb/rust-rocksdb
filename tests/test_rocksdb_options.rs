@@ -11,11 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DB, ColumnFamilyOptions, DBOptions, BlockBasedOptions, WriteOptions, ReadOptions,
-              SliceTransform, Writable, CompactOptions, SeekKey};
-use rocksdb::crocksdb_ffi::{DBStatisticsHistogramType as HistogramType,
-                            DBStatisticsTickerType as TickerType, DBInfoLogLevel as InfoLogLevel,
-                            CompactionPriority, DBCompressionType};
+use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions, ReadOptions,
+              SeekKey, SliceTransform, Writable, WriteOptions, DB};
+use rocksdb::crocksdb_ffi::{CompactionPriority, DBCompressionType, DBInfoLogLevel as InfoLogLevel,
+                            DBStatisticsHistogramType as HistogramType,
+                            DBStatisticsTickerType as TickerType};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -29,11 +29,12 @@ fn test_set_num_levels() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.set_num_levels(2);
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
     drop(db);
 }
 
@@ -71,14 +72,22 @@ fn test_enable_statistics() {
     opts.enable_statistics();
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
-    assert!(opts.get_statistics_histogram_string(HistogramType::SeekMicros)
-        .is_some());
-    assert_eq!(opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
-               0);
-    assert_eq!(opts.get_and_reset_statistics_ticker_count(TickerType::BlockCacheMiss),
-               0);
-    assert_eq!(opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
-               0);
+    assert!(
+        opts.get_statistics_histogram_string(HistogramType::SeekMicros)
+            .is_some()
+    );
+    assert_eq!(
+        opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
+        0
+    );
+    assert_eq!(
+        opts.get_and_reset_statistics_ticker_count(TickerType::BlockCacheMiss),
+        0
+    );
+    assert_eq!(
+        opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
+        0
+    );
 
     let opts = DBOptions::new();
     assert!(opts.get_statistics().is_none());
@@ -104,16 +113,18 @@ fn test_memtable_insert_hint_prefix_extractor() {
     let mut opts = DBOptions::new();
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
-    cf_opts.set_memtable_insert_hint_prefix_extractor("FixedPrefixTransform",
-                                                   Box::new(FixedPrefixTransform {
-                                                       prefix_len: 2,
-                                                   }))
+    cf_opts
+        .set_memtable_insert_hint_prefix_extractor(
+            "FixedPrefixTransform",
+            Box::new(FixedPrefixTransform { prefix_len: 2 }),
+        )
         .unwrap();
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
     let wopts = WriteOptions::new();
 
     db.put_opt(b"k0-1", b"a", &wopts).unwrap();
@@ -229,11 +240,12 @@ fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
     let mut block_opts = BlockBasedOptions::new();
     block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
     cf_opts.set_block_based_table_factory(&block_opts);
-    DB::open_cf(opts,
-                path.path().to_str().unwrap(),
-                vec!["default"],
-                vec![cf_opts])
-        .unwrap();
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 }
 #[test]
 fn test_pending_compaction_bytes_limit() {
@@ -243,11 +255,12 @@ fn test_pending_compaction_bytes_limit() {
     opts.create_if_missing(true);
     cf_opts.set_soft_pending_compaction_bytes_limit(64 * 1024 * 1024 * 1024);
     cf_opts.set_hard_pending_compaction_bytes_limit(256 * 1024 * 1024 * 1024);
-    DB::open_cf(opts,
-                path.path().to_str().unwrap(),
-                vec!["default"],
-                vec![cf_opts])
-        .unwrap();
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 }
 
 #[test]
@@ -276,11 +289,12 @@ fn test_set_optimize_filters_for_hits() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.set_optimize_filters_for_hits(true);
-    DB::open_cf(opts,
-                path.path().to_str().unwrap(),
-                vec!["default"],
-                vec![cf_opts])
-        .unwrap();
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 }
 
 #[test]
@@ -295,11 +309,12 @@ fn test_get_block_cache_usage() {
     let mut block_opts = BlockBasedOptions::new();
     block_opts.set_lru_cache(16 * 1024 * 1024);
     cf_opts.set_block_based_table_factory(&block_opts);
-    let db = DB::open_cf(opts,
-                         path.path().to_str().unwrap(),
-                         vec!["default"],
-                         vec![cf_opts])
-        .unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 
     for i in 0..200 {
         db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
@@ -319,11 +334,12 @@ fn test_set_level_compaction_dynamic_level_bytes() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.set_level_compaction_dynamic_level_bytes(true);
-    DB::open_cf(opts,
-                path.path().to_str().unwrap(),
-                vec!["default"],
-                vec![cf_opts])
-        .unwrap();
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 }
 
 #[test]
@@ -375,11 +391,12 @@ fn test_set_compaction_pri() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.compaction_priority(CompactionPriority::MinOverlappingRatio);
-    DB::open_cf(opts,
-                path.path().to_str().unwrap(),
-                vec!["default"],
-                vec![cf_opts])
-        .unwrap();
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 }
 
 #[test]
@@ -438,11 +455,12 @@ fn test_bottommost_compression() {
     let cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.bottommost_compression(DBCompressionType::No);
-    DB::open_cf(opts,
-                path.path().to_str().unwrap(),
-                vec!["default"],
-                vec![cf_opts])
-        .unwrap();
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec!["default"],
+        vec![cf_opts],
+    ).unwrap();
 }
 
 #[test]

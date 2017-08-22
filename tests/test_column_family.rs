@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use rocksdb::{DB, MergeOperands, DBOptions, ColumnFamilyOptions, Writable};
+use rocksdb::{ColumnFamilyOptions, DBOptions, MergeOperands, Writable, DB};
 use tempdir::TempDir;
 
 #[test]
@@ -43,15 +43,15 @@ pub fn test_column_family() {
         let mut cf_opts = ColumnFamilyOptions::new();
         cf_opts.add_merge_operator("test operator", test_provided_merge);
         match DB::open_cf(DBOptions::new(), path_str, vec!["default"], vec![cf_opts]) {
-            Ok(_) => {
-                panic!("should not have opened DB successfully without \
+            Ok(_) => panic!(
+                "should not have opened DB successfully without \
                         specifying column
-            families")
-            }
-            Err(e) => {
-                assert!(e.starts_with("Invalid argument: You have to open \
-                                       all column families."))
-            }
+            families"
+            ),
+            Err(e) => assert!(e.starts_with(
+                "Invalid argument: You have to open \
+                 all column families."
+            )),
         }
     }
 
@@ -77,11 +77,7 @@ pub fn test_column_family() {
         };
         let cf1 = db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1")
-                    .unwrap()
-                    .unwrap()
-                    .to_utf8()
-                    .unwrap() == "v1");
+        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         /*
@@ -117,11 +113,12 @@ pub fn test_column_family() {
     {}
     // should be able to drop a cf
     {
-        let mut db = DB::open_cf(DBOptions::new(),
-                                 path_str,
-                                 vec!["cf1"],
-                                 vec![ColumnFamilyOptions::new()])
-            .unwrap();
+        let mut db = DB::open_cf(
+            DBOptions::new(),
+            path_str,
+            vec!["cf1"],
+            vec![ColumnFamilyOptions::new()],
+        ).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -129,18 +126,17 @@ pub fn test_column_family() {
     }
 }
 
-fn test_provided_merge(_: &[u8],
-                       existing_val: Option<&[u8]>,
-                       operands: &mut MergeOperands)
-                       -> Vec<u8> {
+fn test_provided_merge(
+    _: &[u8],
+    existing_val: Option<&[u8]>,
+    operands: &mut MergeOperands,
+) -> Vec<u8> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e);
-            }
-        }
+        Some(v) => for e in v {
+            result.push(*e);
+        },
         None => (),
     }
     for op in operands {

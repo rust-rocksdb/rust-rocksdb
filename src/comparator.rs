@@ -36,12 +36,13 @@ pub extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
     }
 }
 
-pub extern "C" fn compare_callback(raw_cb: *mut c_void,
-                                   a_raw: *const c_char,
-                                   a_len: size_t,
-                                   b_raw: *const c_char,
-                                   b_len: size_t)
-                                   -> c_int {
+pub extern "C" fn compare_callback(
+    raw_cb: *mut c_void,
+    a_raw: *const c_char,
+    a_len: size_t,
+    b_raw: *const c_char,
+    b_len: size_t,
+) -> c_int {
     unsafe {
         let cb: &mut ComparatorCallback = &mut *(raw_cb as *mut ComparatorCallback);
         let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len as usize);

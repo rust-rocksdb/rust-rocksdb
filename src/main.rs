@@ -14,7 +14,7 @@
 //
 
 extern crate rocksdb;
-use rocksdb::{DB, MergeOperands, DBOptions, Writable, ColumnFamilyOptions};
+use rocksdb::{ColumnFamilyOptions, DBOptions, MergeOperands, Writable, DB};
 
 // fn snapshot_test() {
 //    let path = "_rust_rocksdb_iteratortest";
@@ -52,12 +52,10 @@ fn main() {
     let db = DB::open_default(path).unwrap();
     assert!(db.put(b"my key", b"my value").is_ok());
     match db.get(b"my key") {
-        Ok(Some(value)) => {
-            match value.to_utf8() {
-                Some(v) => println!("retrieved utf8 value: {}", v),
-                None => println!("did not read valid utf-8 out of the db"),
-            }
-        }
+        Ok(Some(value)) => match value.to_utf8() {
+            Some(v) => println!("retrieved utf8 value: {}", v),
+            None => println!("did not read valid utf-8 out of the db"),
+        },
         Ok(None) => panic!("value not present!"),
         Err(e) => println!("error retrieving value: {}", e),
     }
@@ -70,11 +68,9 @@ fn main() {
 fn concat_merge(_: &[u8], existing_val: Option<&[u8]>, operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e)
-            }
-        }
+        Some(v) => for e in v {
+            result.push(*e)
+        },
         None => (),
     }
     for op in operands {
@@ -100,12 +96,10 @@ fn custom_merge() {
         db.merge(b"k1", b"efg").unwrap();
         db.merge(b"k1", b"h").unwrap();
         match db.get(b"k1") {
-            Ok(Some(value)) => {
-                match value.to_utf8() {
-                    Some(v) => println!("retrieved utf8 value: {}", v),
-                    None => println!("did not read valid utf-8 out of the db"),
-                }
-            }
+            Ok(Some(value)) => match value.to_utf8() {
+                Some(v) => println!("retrieved utf8 value: {}", v),
+                None => println!("did not read valid utf-8 out of the db"),
+            },
             Ok(None) => panic!("value not present!"),
             Err(e) => println!("error retrieving value: {}", e),
         }
@@ -116,22 +110,25 @@ fn custom_merge() {
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, DB, DBCompressionType, ColumnFamilyOptions, DBOptions};
+    use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, DBCompressionType, DBOptions, DB};
     use rocksdb::DBCompactionStyle;
     use rocksdb::DBRecoveryMode;
 
     #[allow(dead_code)]
-    fn tuned_for_somebody_elses_disk(path: &str,
-                                     mut opts: DBOptions,
-                                     blockopts: &mut BlockBasedOptions)
-                                     -> DB {
-        let per_level_compression: [DBCompressionType; 7] = [DBCompressionType::No,
-                                                             DBCompressionType::No,
-                                                             DBCompressionType::No,
-                                                             DBCompressionType::Lz4,
-                                                             DBCompressionType::Lz4,
-                                                             DBCompressionType::Lz4,
-                                                             DBCompressionType::Lz4];
+    fn tuned_for_somebody_elses_disk(
+        path: &str,
+        mut opts: DBOptions,
+        blockopts: &mut BlockBasedOptions,
+    ) -> DB {
+        let per_level_compression: [DBCompressionType; 7] = [
+            DBCompressionType::No,
+            DBCompressionType::No,
+            DBCompressionType::No,
+            DBCompressionType::Lz4,
+            DBCompressionType::Lz4,
+            DBCompressionType::Lz4,
+            DBCompressionType::Lz4,
+        ];
         let mut cf_opts = ColumnFamilyOptions::new();
         opts.create_if_missing(true);
         opts.set_max_open_files(10000);

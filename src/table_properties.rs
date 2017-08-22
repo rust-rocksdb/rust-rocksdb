@@ -12,20 +12,21 @@
 // limitations under the License.
 
 
-use crocksdb_ffi::{self, DBTableProperties, DBTableProperty, DBUserCollectedPropertiesIterator,
-                   DBTablePropertiesCollection, DBTablePropertiesCollectionIterator,
-                   DBUserCollectedProperties};
+use crocksdb_ffi::{self, DBTableProperties, DBTablePropertiesCollection,
+                   DBTablePropertiesCollectionIterator, DBTableProperty,
+                   DBUserCollectedProperties, DBUserCollectedPropertiesIterator};
 use libc::size_t;
-use std::{slice, str, mem};
+use std::{mem, slice, str};
 use std::marker::PhantomData;
-use std::ops::{Index, Deref};
+use std::ops::{Deref, Index};
 
 
 pub struct TablePropertiesCollectionView(DBTablePropertiesCollection);
 
 impl TablePropertiesCollectionView {
-    pub unsafe fn from_ptr<'a>(collection: *const DBTablePropertiesCollection)
-                               -> &'a TablePropertiesCollectionView {
+    pub unsafe fn from_ptr<'a>(
+        collection: *const DBTablePropertiesCollection,
+    ) -> &'a TablePropertiesCollectionView {
         let c = &*collection;
         mem::transmute(c)
     }
@@ -86,8 +87,8 @@ impl<'a> Iterator for TablePropertiesCollectionIter<'a> {
             }
 
             let mut klen: size_t = 0;
-            let k = crocksdb_ffi::crocksdb_table_properties_collection_iter_key(self.inner,
-                                                                                &mut klen);
+            let k =
+                crocksdb_ffi::crocksdb_table_properties_collection_iter_key(self.inner, &mut klen);
             let bytes = slice::from_raw_parts(k, klen);
             let key = str::from_utf8(bytes).unwrap();
             let props = crocksdb_ffi::crocksdb_table_properties_collection_iter_value(self.inner);
@@ -237,10 +238,12 @@ impl UserCollectedProperties {
         let bytes = index.as_ref();
         let mut size = 0;
         unsafe {
-            let ptr = crocksdb_ffi::crocksdb_user_collected_properties_get(&self.inner,
-                                                                           bytes.as_ptr(),
-                                                                           bytes.len(),
-                                                                           &mut size);
+            let ptr = crocksdb_ffi::crocksdb_user_collected_properties_get(
+                &self.inner,
+                bytes.as_ptr(),
+                bytes.len(),
+                &mut size,
+            );
             if ptr.is_null() {
                 return None;
             }
@@ -262,7 +265,8 @@ impl<Q: AsRef<[u8]>> Index<Q> for UserCollectedProperties {
 
     fn index(&self, index: Q) -> &[u8] {
         let key = index.as_ref();
-        self.get(key).unwrap_or_else(|| panic!("no entry found for key {:?}", key))
+        self.get(key)
+            .unwrap_or_else(|| panic!("no entry found for key {:?}", key))
     }
 }
 
@@ -308,13 +312,13 @@ impl<'a> Iterator for UserCollectedPropertiesIter<'a> {
                 return None;
             }
             let mut klen: size_t = 0;
-            let k = crocksdb_ffi::crocksdb_user_collected_properties_iter_key(self.inner,
-                                                                              &mut klen);
+            let k =
+                crocksdb_ffi::crocksdb_user_collected_properties_iter_key(self.inner, &mut klen);
             let key = slice::from_raw_parts(k, klen);
 
             let mut vlen: size_t = 0;
-            let v = crocksdb_ffi::crocksdb_user_collected_properties_iter_value(self.inner,
-                                                                                &mut vlen);
+            let v =
+                crocksdb_ffi::crocksdb_user_collected_properties_iter_value(self.inner, &mut vlen);
             let val = slice::from_raw_parts(v, vlen);
 
             crocksdb_ffi::crocksdb_user_collected_properties_iter_next(self.inner);

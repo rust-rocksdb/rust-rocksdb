@@ -16,10 +16,12 @@ use rocksdb::*;
 use std::fs;
 use tempdir::TempDir;
 
-pub fn gen_sst(opt: ColumnFamilyOptions,
-               cf: Option<&CFHandle>,
-               path: &str,
-               data: &[(&[u8], &[u8])]) {
+pub fn gen_sst(
+    opt: ColumnFamilyOptions,
+    cf: Option<&CFHandle>,
+    path: &str,
+    data: &[(&[u8], &[u8])],
+) {
     let _ = fs::remove_file(path);
     let env_opt = EnvOptions::new();
     let mut writer = if cf.is_some() {
@@ -79,11 +81,9 @@ fn gen_sst_delete(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str) {
 fn concat_merge(_: &[u8], existing_val: Option<&[u8]>, operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e)
-            }
-        }
+        Some(v) => for e in v {
+            result.push(*e)
+        },
         None => (),
     }
     for op in operands {
@@ -106,10 +106,12 @@ fn test_ingest_external_file() {
     let test_sstfile_str = test_sstfile.to_str().unwrap();
     let default_options = db.get_options();
 
-    gen_sst(default_options,
-            Some(db.cf_handle("default").unwrap()),
-            test_sstfile_str,
-            &[(b"k1", b"v1"), (b"k2", b"v2")]);
+    gen_sst(
+        default_options,
+        Some(db.cf_handle("default").unwrap()),
+        test_sstfile_str,
+        &[(b"k1", b"v1"), (b"k2", b"v2")],
+    );
     let mut ingest_opt = IngestExternalFileOptions::new();
     db.ingest_external_file(&ingest_opt, &[test_sstfile_str])
         .unwrap();
@@ -117,20 +119,24 @@ fn test_ingest_external_file() {
     assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
     assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
 
-    gen_sst(ColumnFamilyOptions::new(),
-            None,
-            test_sstfile_str,
-            &[(b"k1", b"v3"), (b"k2", b"v4")]);
+    gen_sst(
+        ColumnFamilyOptions::new(),
+        None,
+        test_sstfile_str,
+        &[(b"k1", b"v3"), (b"k2", b"v4")],
+    );
     db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str])
         .unwrap();
     assert_eq!(db.get_cf(handle, b"k1").unwrap().unwrap(), b"v3");
     assert_eq!(db.get_cf(handle, b"k2").unwrap().unwrap(), b"v4");
     let snap = db.snapshot();
 
-    gen_sst(ColumnFamilyOptions::new(),
-            None,
-            test_sstfile_str,
-            &[(b"k2", b"v5"), (b"k3", b"v6")]);
+    gen_sst(
+        ColumnFamilyOptions::new(),
+        None,
+        test_sstfile_str,
+        &[(b"k2", b"v5"), (b"k3", b"v6")],
+    );
     ingest_opt.move_files(true);
     db.ingest_external_file_cf(handle, &ingest_opt, &[test_sstfile_str])
         .unwrap();
@@ -157,9 +163,11 @@ fn test_ingest_external_file_new() {
     let test_sstfile_str = test_sstfile.to_str().unwrap();
     let default_options = db.get_options();
 
-    gen_sst_put(default_options,
-                Some(db.cf_handle("default").unwrap()),
-                test_sstfile_str);
+    gen_sst_put(
+        default_options,
+        Some(db.cf_handle("default").unwrap()),
+        test_sstfile_str,
+    );
     let mut ingest_opt = IngestExternalFileOptions::new();
     db.ingest_external_file(&ingest_opt, &[test_sstfile_str])
         .unwrap();
@@ -171,9 +179,11 @@ fn test_ingest_external_file_new() {
 
     let snap = db.snapshot();
     let default_options = db.get_options();
-    gen_sst_merge(default_options,
-                  Some(db.cf_handle("default").unwrap()),
-                  test_sstfile_str);
+    gen_sst_merge(
+        default_options,
+        Some(db.cf_handle("default").unwrap()),
+        test_sstfile_str,
+    );
     db.ingest_external_file(&ingest_opt, &[test_sstfile_str])
         .unwrap();
 
@@ -182,9 +192,11 @@ fn test_ingest_external_file_new() {
     assert_eq!(db.get(b"k3").unwrap().unwrap(), b"cd");
 
     let default_options = db.get_options();
-    gen_sst_delete(default_options,
-                   Some(db.cf_handle("default").unwrap()),
-                   test_sstfile_str);
+    gen_sst_delete(
+        default_options,
+        Some(db.cf_handle("default").unwrap()),
+        test_sstfile_str,
+    );
     ingest_opt.move_files(true);
     db.ingest_external_file(&ingest_opt, &[test_sstfile_str])
         .unwrap();
@@ -300,10 +312,12 @@ fn test_ingest_simulate_real_world() {
     for cf in &ALL_CFS {
         let handle = db.cf_handle(cf).unwrap();
         let cf_opts = ColumnFamilyOptions::new();
-        put_delete_and_generate_sst_cf(cf_opts,
-                                       &db,
-                                       &handle,
-                                       gen_path.path().join(cf).to_str().unwrap());
+        put_delete_and_generate_sst_cf(
+            cf_opts,
+            &db,
+            &handle,
+            gen_path.path().join(cf).to_str().unwrap(),
+        );
     }
 
     let path2 = TempDir::new("_rust_rocksdb_ingest_real_world_2").expect("");
@@ -318,29 +332,47 @@ fn test_ingest_simulate_real_world() {
         let handle = db2.cf_handle(cf).unwrap();
         let mut ingest_opt = IngestExternalFileOptions::new();
         ingest_opt.move_files(true);
-        db2.ingest_external_file_cf(handle,
-                                     &ingest_opt,
-                                     &[gen_path.path().join(cf).to_str().unwrap()])
-            .unwrap();
-        check_kv(&db,
-                 db.cf_handle(cf),
-                 &[(b"k1", None), (b"k2", Some(b"v2")), (b"k3", None), (b"k4", Some(b"v4"))]);
+        db2.ingest_external_file_cf(
+            handle,
+            &ingest_opt,
+            &[gen_path.path().join(cf).to_str().unwrap()],
+        ).unwrap();
+        check_kv(
+            &db,
+            db.cf_handle(cf),
+            &[
+                (b"k1", None),
+                (b"k2", Some(b"v2")),
+                (b"k3", None),
+                (b"k4", Some(b"v4")),
+            ],
+        );
         let cf_opts = ColumnFamilyOptions::new();
-        gen_sst_from_cf(cf_opts,
-                        &db2,
-                        &handle,
-                        gen_path.path().join(cf).to_str().unwrap());
+        gen_sst_from_cf(
+            cf_opts,
+            &db2,
+            &handle,
+            gen_path.path().join(cf).to_str().unwrap(),
+        );
     }
 
     for cf in &ALL_CFS {
         let handle = db.cf_handle(cf).unwrap();
         let ingest_opt = IngestExternalFileOptions::new();
-        db.ingest_external_file_cf(handle,
-                                     &ingest_opt,
-                                     &[gen_path.path().join(cf).to_str().unwrap()])
-            .unwrap();
-        check_kv(&db,
-                 db.cf_handle(cf),
-                 &[(b"k1", None), (b"k2", Some(b"v2")), (b"k3", None), (b"k4", Some(b"v4"))]);
+        db.ingest_external_file_cf(
+            handle,
+            &ingest_opt,
+            &[gen_path.path().join(cf).to_str().unwrap()],
+        ).unwrap();
+        check_kv(
+            &db,
+            db.cf_handle(cf),
+            &[
+                (b"k1", None),
+                (b"k2", Some(b"v2")),
+                (b"k3", None),
+                (b"k4", Some(b"v4")),
+            ],
+        );
     }
 }

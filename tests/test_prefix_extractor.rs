@@ -31,8 +31,17 @@ impl SliceTransform for FixedPrefixTransform {
 #[test]
 fn test_prefix_extractor_compatibility() {
     let path = TempDir::new("_rust_rocksdb_prefix_extractor_compatibility").expect("");
-    let keys = vec![b"k1-0", b"k1-1", b"k1-2", b"k1-3", b"k1-4", b"k1-5", b"k1-6", b"k1-7",
-                    b"k1-8"];
+    let keys = vec![
+        b"k1-0",
+        b"k1-1",
+        b"k1-2",
+        b"k1-3",
+        b"k1-4",
+        b"k1-5",
+        b"k1-6",
+        b"k1-7",
+        b"k1-8",
+    ];
 
     // create db with no prefix extractor, and insert data
     {
@@ -57,16 +66,20 @@ fn test_prefix_extractor_compatibility() {
         let mut cf_opts = ColumnFamilyOptions::new();
         opts.create_if_missing(false);
         cf_opts.set_block_based_table_factory(&bbto);
-        cf_opts.set_prefix_extractor("FixedPrefixTransform",
-                                  Box::new(FixedPrefixTransform { prefix_len: 2 }))
+        cf_opts
+            .set_prefix_extractor(
+                "FixedPrefixTransform",
+                Box::new(FixedPrefixTransform { prefix_len: 2 }),
+            )
             .unwrap();
         // also create prefix bloom for memtable
         cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
-        let db = DB::open_cf(opts,
-                             path.path().to_str().unwrap(),
-                             vec!["default"],
-                             vec![cf_opts])
-            .unwrap();
+        let db = DB::open_cf(
+            opts,
+            path.path().to_str().unwrap(),
+            vec!["default"],
+            vec![cf_opts],
+        ).unwrap();
         let wopts = WriteOptions::new();
 
         // sst2 with prefix bloom.
