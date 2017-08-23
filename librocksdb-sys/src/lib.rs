@@ -671,8 +671,6 @@ extern "C" {
     pub fn rocksdb_options_set_max_sequential_skip_in_iterations(opt: *mut rocksdb_options_t,
                                                                  v: uint64_t);
 
-    pub fn rocksdb_options_set_disable_data_sync(opt: *mut rocksdb_options_t, v: c_int);
-
     pub fn rocksdb_options_set_disable_auto_compactions(opt: *mut rocksdb_options_t, v: c_int);
 
     pub fn rocksdb_options_set_delete_obsolete_files_period_micros(opt: *mut rocksdb_options_t,
