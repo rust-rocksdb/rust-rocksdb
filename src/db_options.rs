@@ -146,6 +146,25 @@ impl Options {
         }
     }
 
+    /// If true, any column families that didn't exist when opening the database
+    /// will be created.
+    ///
+    /// Default: `false`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.create_missing_column_families(true);
+    /// ```
+    pub fn create_missing_column_families(&mut self, create_missing_cfs: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_create_missing_column_families(self.inner, create_missing_cfs as c_uchar);
+        }
+    }
+
     /// Sets the compression algorithm that will be used for the bottommost level that
     /// contain files. If level-compaction is used, this option will only affect
     /// levels after base level.
