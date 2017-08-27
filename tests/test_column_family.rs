@@ -81,6 +81,25 @@ pub fn test_column_family() {
 }
 
 #[test]
+fn test_create_missing_column_family() {
+    let path = "_rust_rocksdb_missing_cftest";
+
+    // should be able to create new column families when opening a new database
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        match DB::open_cf(&opts, path, &["cf1"]) {
+            Ok(_) => println!("successfully created new column family"),
+            Err(e) => panic!("failed to create new column family: {}", e),
+        }
+    }
+
+    assert!(DB::destroy(&Options::default(), path).is_ok());
+}
+
+#[test]
 #[ignore]
 fn test_merge_operator() {
     let path = "_rust_rocksdb_cftest_merge";
