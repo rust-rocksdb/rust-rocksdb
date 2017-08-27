@@ -63,6 +63,11 @@ pub struct DB {
     path: PathBuf,
 }
 
+pub struct ColumnFamilyDescriptor {
+    name: String,
+    options: Options,
+}
+
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
 #[derive(Debug, Clone, PartialEq)]
