@@ -62,6 +62,17 @@ pub fn test_column_family() {
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
     }
+
+    // should be able to list a cf
+    {
+        let opts = Options::default();
+        let vec = DB::list_cf(&opts, path);
+        match vec {
+            Ok(vec) => println!("list cf: {:?}", vec),
+            Err(e) => panic!("failed to drop column family: {}", e),
+        }
+    }
+
     // TODO should be able to use writebatch ops with a cf
     {
     }
