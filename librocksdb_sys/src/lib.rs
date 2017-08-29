@@ -66,8 +66,8 @@ pub fn new_cache(capacity: size_t) -> *mut DBCache {
     unsafe { crocksdb_cache_create_lru(capacity) }
 }
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[repr(C)]
-#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum DBEntryType {
     Put = 0,
     Delete = 1,
@@ -91,6 +91,7 @@ pub enum DBCompressionType {
     Disable = 0xff,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub enum DBCompactionStyle {
     Level = 0,
@@ -98,13 +99,14 @@ pub enum DBCompactionStyle {
     Fifo = 2,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub enum DBUniversalCompactionStyle {
     SimilarSize = 0,
     TotalSize = 1,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(C)]
 pub enum DBRecoveryMode {
     TolerateCorruptedTailRecords = 0,
@@ -113,7 +115,7 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecords = 3,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(C)]
 pub enum CompactionPriority {
     // In Level-based compaction, it Determines which file from a level to be
@@ -133,7 +135,7 @@ pub enum CompactionPriority {
     MinOverlappingRatio = 3,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub enum DBStatisticsTickerType {
     BlockCacheMiss = 0,      // total block cache miss
@@ -188,7 +190,7 @@ pub enum DBStatisticsTickerType {
     ReadAmpTotalReadBytes = 91,      // total size of loaded data blocks
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub enum DBStatisticsHistogramType {
     GetMicros = 0,
@@ -224,7 +226,7 @@ pub enum DBStatisticsHistogramType {
     ReadNumMergeOperands = 30,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub enum DBInfoLogLevel {
     Debug = 0,
@@ -236,7 +238,7 @@ pub enum DBInfoLogLevel {
     NumInfoLog = 6,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(C)]
 pub enum DBTableProperty {
     DataSize = 1,
