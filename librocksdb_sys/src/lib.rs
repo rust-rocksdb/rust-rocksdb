@@ -183,6 +183,10 @@ pub enum DBStatisticsTickerType {
     // creating
     WalFileSynced = 70,              // number of times WAL sync is done
     WalFileBytes = 71,               // number of bytes written to WAL
+    WriteDoneBySelf = 72,            // number of writes processed by self
+    WriteDoneByOther = 73,           // number of writes processed by other
+    WriteTimeout = 74,               // number of writes ending up with timed-out
+    WriteWithWAL = 75,               // number of writes that request WAL
     CompactReadBytes = 76,           // bytes read during compaction
     CompactWriteBytes = 77,          // bytes written during compaction
     FlushWriteBytes = 78,            // bytes written during flush
