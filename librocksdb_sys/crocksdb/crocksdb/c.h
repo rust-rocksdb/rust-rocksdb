@@ -415,6 +415,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_flush_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
     const crocksdb_flushoptions_t* options, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_flush_wal(
+    crocksdb_t* db, unsigned char sync, char** errptr);
+
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sync_wal(
     crocksdb_t* db, char** errptr);
 
@@ -880,6 +883,8 @@ crocksdb_options_set_enable_pipelined_write(crocksdb_options_t *,
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_allow_concurrent_memtable_write(crocksdb_options_t *,
                                                      unsigned char);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_manual_wal_flush(
+    crocksdb_options_t *, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_enable_write_thread_adaptive_yield(crocksdb_options_t*,
                                                        unsigned char);

@@ -171,6 +171,19 @@ fn test_set_wal_opt() {
 
 #[cfg(not(windows))]
 #[test]
+fn test_flush_wal() {
+    let path = TempDir::new("_rust_rocksdb_test_flush_wal").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.manual_wal_flush(true);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    db.put(b"key", b"value").unwrap();
+    db.flush_wal(false).unwrap();
+    drop(db);
+}
+
+#[cfg(not(windows))]
+#[test]
 fn test_sync_wal() {
     let path = TempDir::new("_rust_rocksdb_test_sync_wal").expect("");
     let mut opts = DBOptions::new();
@@ -405,6 +418,18 @@ fn test_allow_concurrent_memtable_write() {
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     opts.allow_concurrent_memtable_write(false);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    for i in 0..200 {
+        db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
+    }
+}
+
+#[test]
+fn test_manual_wal_flush() {
+    let path = TempDir::new("_rust_rocksdb_manual_wal_flush").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.manual_wal_flush(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     for i in 0..200 {
         db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();

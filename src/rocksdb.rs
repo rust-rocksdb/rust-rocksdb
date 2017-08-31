@@ -810,6 +810,15 @@ impl DB {
         }
     }
 
+    /// Flush the WAL memory buffer to the file. If sync is true, it calls SyncWAL
+    /// afterwards.
+    pub fn flush_wal(&self, sync: bool) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_flush_wal(self.inner, sync));
+            Ok(())
+        }
+    }
+
     /// Sync the wal. Note that Write() followed by SyncWAL() is not exactly the
     /// same as Write() with sync=true: in the latter case the changes won't be
     /// visible until the sync is done.

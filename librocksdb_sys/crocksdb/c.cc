@@ -1109,6 +1109,13 @@ void crocksdb_flush_cf(
   SaveError(errptr, db->rep->Flush(options->rep, column_family->rep));
 }
 
+void crocksdb_flush_wal(
+    crocksdb_t* db,
+    unsigned char sync,
+    char** errptr) {
+  SaveError(errptr, db->rep->FlushWAL(sync));
+}
+
 void crocksdb_sync_wal(
     crocksdb_t* db,
     char** errptr) {
@@ -2131,6 +2138,10 @@ void crocksdb_options_set_enable_pipelined_write(crocksdb_options_t *opt,
 void crocksdb_options_set_allow_concurrent_memtable_write(crocksdb_options_t* opt,
                                                          unsigned char v) {
   opt->rep.allow_concurrent_memtable_write = v;
+}
+
+void crocksdb_options_set_manual_wal_flush(crocksdb_options_t* opt, unsigned char v) {
+  opt->rep.manual_wal_flush = v;
 }
 
 void crocksdb_options_set_enable_write_thread_adaptive_yield(

@@ -724,6 +724,12 @@ impl DBOptions {
         }
     }
 
+    pub fn manual_wal_flush(&self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_manual_wal_flush(self.inner, v);
+        }
+    }
+
     /// the second parameter is a slice which contains tuples (path, target_size).
     pub fn set_db_paths<T: AsRef<Path>>(&self, val: &[(T, u64)]) {
         let num_paths = val.len();
