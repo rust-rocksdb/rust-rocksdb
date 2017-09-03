@@ -586,10 +586,7 @@ impl DB {
     ///
     /// Column families opened using this function will be created with default `Options`.
     pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
-        let cfs_v = cfs.to_vec().iter().map(|name| ColumnFamilyDescriptor {
-            name: name.to_string(),
-            options: Options::default(),
-        }).collect();
+        let cfs_v = cfs.to_vec().iter().map(|name| ColumnFamilyDescriptor::new(*name, Options::default())).collect();
 
         DB::open_cf_descriptors(opts, path, cfs_v)
     }
