@@ -30,6 +30,21 @@
 //!  db.delete(b"my key").unwrap();
 //! ```
 //!
+//! Opening a database and a single column family with custom options:
+//!
+//! ```
+//! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//! let mut cf_opts = Options::default();
+//! cf_opts.set_max_write_buffer_number(16);
+//! let cf = ColumnFamilyDescriptor::new("cf1", cf_opts);
+//!
+//! let mut db_opts = Options::default();
+//! db_opts.create_missing_column_families(true);
+//! db_opts.create_if_missing(true);
+//!
+//! let db = DB::open_cf_descriptors(&db_opts, "path/for/rocksdb/storage_with_cfs", vec![cf]).unwrap();
+//! ```
+//!
 
 extern crate libc;
 extern crate librocksdb_sys as ffi;
@@ -63,6 +78,9 @@ pub struct DB {
     path: PathBuf,
 }
 
+/// A descriptor for a RocksDB column family.
+///
+/// A description of the column family, containing the name and `Options`.
 pub struct ColumnFamilyDescriptor {
     name: String,
     options: Options,
