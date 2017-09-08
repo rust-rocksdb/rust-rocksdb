@@ -68,7 +68,7 @@ pub fn test_column_family() {
         let opts = Options::default();
         let vec = DB::list_cf(&opts, path);
         match vec {
-            Ok(vec) => println!("list cf: {:?}", vec),
+            Ok(vec) => assert_eq!(vec, vec!["default", "cf1"]),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
     }

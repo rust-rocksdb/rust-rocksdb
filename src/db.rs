@@ -671,18 +671,17 @@ impl DB {
         };
 
         let mut length = 0;
-        let vec;
 
         unsafe {
             let ptr = ffi_try!(ffi::rocksdb_list_column_families(opts.inner,
                                                                  cpath.as_ptr() as *const _,
                                                                  &mut length));
 
-            vec = Vec::from_raw_parts(ptr, length, length).iter().map(|&ptr| {
+            let vec = Vec::from_raw_parts(ptr, length, length).iter().map(|&ptr| {
                 CString::from_raw(ptr).into_string().unwrap()
             }).collect();
+            Ok(vec)
         }
-        Ok(vec)
     }
 
 
