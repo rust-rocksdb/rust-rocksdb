@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.8.1 (2017-09-08)
+~~~~~~~~~~~~~~~~~~~~
+ * Added list_cf (jeizsm)
+
 0.8.0 (2017-09-02)
 ~~~~~~~~~~~~~~~~~~~~
  * Removed set_disable_data_sync (glittershark)
