@@ -1088,6 +1088,10 @@ impl ColumnFamilyOptions {
         }
     }
 
+    pub fn get_num_levels(&self) -> usize {
+        unsafe { crocksdb_ffi::crocksdb_options_get_num_levels(self.inner) as usize }
+    }
+
     pub fn set_prefix_extractor<S>(
         &mut self,
         name: S,

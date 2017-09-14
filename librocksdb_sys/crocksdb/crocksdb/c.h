@@ -755,6 +755,8 @@ crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
     crocksdb_options_t*, crocksdb_slicetransform_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_num_levels(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_num_levels(
+    crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level0_file_num_compaction_trigger(crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void

@@ -29,6 +29,7 @@ fn test_set_num_levels() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts.set_num_levels(2);
+    assert_eq!(2, cf_opts.get_num_levels());
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),

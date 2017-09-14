@@ -1943,6 +1943,10 @@ void crocksdb_options_set_num_levels(crocksdb_options_t* opt, int n) {
   opt->rep.num_levels = n;
 }
 
+int crocksdb_options_get_num_levels(crocksdb_options_t *opt) {
+  return opt->rep.num_levels;
+}
+
 void crocksdb_options_set_level0_file_num_compaction_trigger(
     crocksdb_options_t* opt, int n) {
   opt->rep.level0_file_num_compaction_trigger = n;
