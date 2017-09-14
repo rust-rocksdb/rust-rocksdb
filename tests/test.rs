@@ -16,3 +16,4 @@ mod test_statistics;
 mod test_table_properties;
 mod test_event_listener;
 mod test_delete_range;
+mod test_delete_files_in_range;
