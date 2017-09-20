@@ -140,12 +140,22 @@ pub enum CompactionPriority {
 pub enum DBStatisticsTickerType {
     BlockCacheMiss = 0,      // total block cache miss
     BlockCacheHit = 1,       // total block cache hit
+    BlockCacheAdd = 2,
+    BlockCacheAddFailures = 3,
     BlockCacheIndexMiss = 4, // times cache miss when accessing index block from block cache
     BlockCacheIndexHit = 5,
+    BlockCacheIndexAdd = 6,
+    BlockCacheIndexBytesInsert = 7,
+    BlockCacheIndexBytesEvict = 8,
     BlockCacheFilterMiss = 9, // times cache miss when accessing filter block from block cache
     BlockCacheFilterHit = 10,
+    BlockCacheFilterAdd = 11,
+    BLockCacheFilterBytesInsert = 12,
+    BlockCacheFilterBytesEvict = 13,
     BlockCacheDataMiss = 14, // times cache miss when accessing data block from block cache
     BlockCacheDataHit = 15,  // times cache hit when accessing data block from block cache
+    BlockCacheDataAdd = 16,
+    BlockCacheDataBytesInsert = 17,
     BlockCacheByteRead = 18, // bytes read from cache
     BlockCacheByteWrite = 19, // bytes written into cache
     BloomFilterUseful = 20,  // times bloom filter has avoided file reads
