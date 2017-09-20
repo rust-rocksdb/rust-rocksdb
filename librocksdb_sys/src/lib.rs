@@ -150,7 +150,7 @@ pub enum DBStatisticsTickerType {
     BlockCacheFilterMiss = 9, // times cache miss when accessing filter block from block cache
     BlockCacheFilterHit = 10,
     BlockCacheFilterAdd = 11,
-    BLockCacheFilterBytesInsert = 12,
+    BlockCacheFilterBytesInsert = 12,
     BlockCacheFilterBytesEvict = 13,
     BlockCacheDataMiss = 14, // times cache miss when accessing data block from block cache
     BlockCacheDataHit = 15,  // times cache hit when accessing data block from block cache
