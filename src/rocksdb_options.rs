@@ -38,6 +38,7 @@ pub struct HistogramData {
     pub percentile99: f64,
     pub average: f64,
     pub standard_deviation: f64,
+    pub max: f64,
 }
 
 pub struct BlockBasedOptions {
@@ -570,6 +571,7 @@ impl DBOptions {
                 &mut data.percentile99,
                 &mut data.average,
                 &mut data.standard_deviation,
+                &mut data.max,
             );
             if !ret {
                 return None;

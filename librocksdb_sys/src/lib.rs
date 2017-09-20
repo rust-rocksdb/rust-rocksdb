@@ -438,6 +438,7 @@ extern "C" {
         percentile99: *mut c_double,
         average: *mut c_double,
         standard_deviation: *mut c_double,
+        max: *mut c_double,
     ) -> bool;
     pub fn crocksdb_options_set_stats_dump_period_sec(options: *mut Options, v: usize);
     pub fn crocksdb_options_set_num_levels(options: *mut Options, v: c_int);

@@ -801,7 +801,8 @@ extern C_ROCKSDB_LIBRARY_API unsigned char crocksdb_options_statistics_get_histo
     double* percentile95,
     double* percentile99,
     double* average,
-    double* standard_deviation);
+    double* standard_deviation,
+    double* max);
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_write_buffer_number(
     crocksdb_options_t*, int);

@@ -2386,7 +2386,8 @@ unsigned char crocksdb_options_statistics_get_histogram(
     double* percentile95,
     double* percentile99,
     double* average,
-    double* standard_deviation) {
+    double* standard_deviation,
+    double* max) {
   rocksdb::Statistics* statistics = opt->rep.statistics.get();
   if (statistics) {
     crocksdb_histogramdata_t data;
@@ -2396,6 +2397,7 @@ unsigned char crocksdb_options_statistics_get_histogram(
     *percentile99 = data.rep.percentile99;
     *average = data.rep.average;
     *standard_deviation = data.rep.standard_deviation;
+    *max = data.rep.max;
     return 1;
   }
   return 0;
