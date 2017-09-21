@@ -119,6 +119,15 @@ impl BlockBasedOptions {
                 v as u8);
         }
     }
+
+    pub fn set_read_amp_bytes_per_bit(&mut self, v: u32) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_read_amp_bytes_per_bit(
+                self.inner,
+                v as c_int,
+            )
+        }
+    }
 }
 
 pub struct RateLimiter {

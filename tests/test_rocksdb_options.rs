@@ -562,3 +562,31 @@ fn test_read_options() {
     }
     assert!(key_count == 3);
 }
+
+#[test]
+fn test_block_based_options() {
+    let path = TempDir::new("_rust_rocksdb_block_based_options").expect("");
+    let path_str = path.path().to_str().unwrap();
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.enable_statistics();
+    opts.set_stats_dump_period_sec(60);
+    let mut bopts = BlockBasedOptions::new();
+    bopts.set_read_amp_bytes_per_bit(16);
+    let mut cfopts = ColumnFamilyOptions::new();
+    cfopts.set_block_based_table_factory(&bopts);
+
+    let db = DB::open_cf(opts.clone(), path_str, vec!["default"], vec![cfopts]).unwrap();
+    db.put(b"a", b"a").unwrap();
+    db.flush(true).unwrap();
+    db.get(b"a").unwrap();
+    assert_ne!(
+        opts.get_statistics_ticker_count(TickerType::ReadAmpTotalReadBytes),
+        0
+    );
+    assert_ne!(
+        opts.get_statistics_ticker_count(TickerType::ReadAmpEstimateUsefulBytes),
+        0
+    );
+}

@@ -138,8 +138,8 @@ pub enum CompactionPriority {
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub enum DBStatisticsTickerType {
-    BlockCacheMiss = 0,      // total block cache miss
-    BlockCacheHit = 1,       // total block cache hit
+    BlockCacheMiss = 0, // total block cache miss
+    BlockCacheHit = 1,  // total block cache hit
     BlockCacheAdd = 2,
     BlockCacheAddFailures = 3,
     BlockCacheIndexMiss = 4, // times cache miss when accessing index block from block cache
@@ -156,9 +156,9 @@ pub enum DBStatisticsTickerType {
     BlockCacheDataHit = 15,  // times cache hit when accessing data block from block cache
     BlockCacheDataAdd = 16,
     BlockCacheDataBytesInsert = 17,
-    BlockCacheByteRead = 18, // bytes read from cache
+    BlockCacheByteRead = 18,  // bytes read from cache
     BlockCacheByteWrite = 19, // bytes written into cache
-    BloomFilterUseful = 20,  // times bloom filter has avoided file reads
+    BloomFilterUseful = 20,   // times bloom filter has avoided file reads
     MemtableHit = 25,
     MemtableMiss = 26,
     GetHitL0 = 27,      // Get() queries served by L0
@@ -350,6 +350,10 @@ extern "C" {
     pub fn crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
         block_options: *mut DBBlockBasedTableOptions,
         v: c_uchar,
+    );
+    pub fn crocksdb_block_based_options_set_read_amp_bytes_per_bit(
+        block_options: *mut DBBlockBasedTableOptions,
+        v: c_int,
     );
     pub fn crocksdb_options_increase_parallelism(options: *mut Options, threads: c_int);
     pub fn crocksdb_options_optimize_level_style_compaction(

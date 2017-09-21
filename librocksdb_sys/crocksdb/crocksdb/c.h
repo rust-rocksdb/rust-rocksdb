@@ -594,6 +594,9 @@ crocksdb_block_based_options_set_cache_index_and_filter_blocks(
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
     crocksdb_block_based_table_options_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_block_based_options_set_read_amp_bytes_per_bit(
+    crocksdb_block_based_table_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_block_based_table_factory(
     crocksdb_options_t* opt, crocksdb_block_based_table_options_t* table_options);
 
