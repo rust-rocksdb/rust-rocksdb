@@ -573,12 +573,15 @@ fn test_block_based_options() {
     opts.enable_statistics();
     opts.set_stats_dump_period_sec(60);
     let mut bopts = BlockBasedOptions::new();
-    bopts.set_read_amp_bytes_per_bit(16);
+    bopts.set_read_amp_bytes_per_bit(4);
     let mut cfopts = ColumnFamilyOptions::new();
     cfopts.set_block_based_table_factory(&bopts);
 
     let db = DB::open_cf(opts.clone(), path_str, vec!["default"], vec![cfopts]).unwrap();
-    db.put(b"a", b"a").unwrap();
+    // RocksDB use randomness for the read amplification statistics,
+    // we should use a bigger enough value (> `bytes_per_bit`) to make
+    // sure the statistics will not be 0.
+    db.put(b"a", b"abcdef").unwrap();
     db.flush(true).unwrap();
     db.get(b"a").unwrap();
     assert_ne!(
