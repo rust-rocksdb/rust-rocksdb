@@ -77,8 +77,7 @@ fn test_prefix_extractor_compatibility() {
         let db = DB::open_cf(
             opts,
             path.path().to_str().unwrap(),
-            vec!["default"],
-            vec![cf_opts],
+            vec![("default", cf_opts)],
         ).unwrap();
         let wopts = WriteOptions::new();
 

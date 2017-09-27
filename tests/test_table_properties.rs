@@ -176,8 +176,7 @@ fn test_table_properties_collector_factory() {
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
-        vec!["default"],
-        vec![cf_opts],
+        vec![("default", cf_opts)],
     ).unwrap();
 
     let samples = vec![

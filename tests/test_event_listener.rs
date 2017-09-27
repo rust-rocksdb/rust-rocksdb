@@ -17,7 +17,6 @@ use rocksdb::*;
 use std::sync::Arc;
 use std::sync::atomic::*;
 use tempdir::TempDir;
-
 use test_ingest_external_file::gen_sst;
 
 #[derive(Default, Clone)]

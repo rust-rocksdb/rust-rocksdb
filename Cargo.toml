@@ -22,7 +22,6 @@ portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
 
 [[test]]
-
 name = "test"
 path = "tests/test.rs"
 

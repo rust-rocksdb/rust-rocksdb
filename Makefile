@@ -11,8 +11,8 @@ endef
 # $(call format-code-in,file-or-dir)
 define format-code-in
 	$(if $(filter %.rs, $1),  \
-    $(call do-format-with-cmd, rustfmt, $1), \
-    cd $1 && $(call do-format-with-cmd, cargo fmt --))
+	$(call do-format-with-cmd, rustfmt, $1), \
+	cd $1 && $(call do-format-with-cmd, cargo fmt --))
 endef
 
 all: format build test
@@ -32,4 +32,4 @@ format:
 
 clean:
 	@cargo clean
-	@cd librocksdb_sys && cargo clean 
+	@cd librocksdb_sys && cargo clean

@@ -15,7 +15,6 @@
 
 use compaction_filter::{new_compaction_filter, CompactionFilter, CompactionFilterHandle};
 use comparator::{self, compare_callback, ComparatorCallback};
-
 use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompressionType,
                    DBFlushOptions, DBInfoLogLevel, DBInstance, DBRateLimiter, DBReadOptions,
                    DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
@@ -1158,6 +1157,46 @@ impl ColumnFamilyOptions {
 
     pub fn get_block_cache_usage(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64 }
+    }
+}
+
+// ColumnFamilyDescriptor is a pair of column family's name and options.
+pub struct ColumnFamilyDescriptor<'a> {
+    pub name: &'a str,
+    pub options: ColumnFamilyOptions,
+}
+
+impl<'a> ColumnFamilyDescriptor<'a> {
+    const DEFAULT_COLUMN_FAMILY: &'static str = "default";
+
+    pub fn new(name: &'a str, options: ColumnFamilyOptions) -> Self {
+        ColumnFamilyDescriptor { name, options }
+    }
+
+    pub fn is_default(&self) -> bool {
+        self.name == Self::DEFAULT_COLUMN_FAMILY
+    }
+}
+
+impl Default for ColumnFamilyDescriptor<'static> {
+    fn default() -> Self {
+        let name = Self::DEFAULT_COLUMN_FAMILY;
+        let options = ColumnFamilyOptions::new();
+        ColumnFamilyDescriptor::new(name, options)
+    }
+}
+
+impl<'a> From<&'a str> for ColumnFamilyDescriptor<'a> {
+    fn from(name: &'a str) -> Self {
+        let options = ColumnFamilyOptions::new();
+        ColumnFamilyDescriptor::new(name, options)
+    }
+}
+
+impl<'a> From<(&'a str, ColumnFamilyOptions)> for ColumnFamilyDescriptor<'a> {
+    fn from(tuple: (&'a str, ColumnFamilyOptions)) -> Self {
+        let (name, options) = tuple;
+        ColumnFamilyDescriptor::new(name, options)
     }
 }
 

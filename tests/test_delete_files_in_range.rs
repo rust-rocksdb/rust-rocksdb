@@ -22,7 +22,7 @@ fn initial_data(path: &str) -> DB {
     // DeleteFilesInRange ignore sst files in level 0,
     // this will makes all sst files fall into level 1.
     cf_opts.set_level_zero_file_num_compaction_trigger(1);
-    let db = DB::open_cf(opts, path, vec!["default"], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path, vec![("default", cf_opts)]).unwrap();
     for i in 0..3 {
         let k = format!("key{}", i);
         let v = format!("value{}", i);

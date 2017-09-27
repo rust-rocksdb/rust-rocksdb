@@ -12,7 +12,6 @@
 // limitations under the License.
 
 use rocksdb::*;
-
 use std::fs;
 use tempdir::TempDir;
 
@@ -157,7 +156,7 @@ fn test_ingest_external_file_new() {
     opts.create_if_missing(true);
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.add_merge_operator("merge operator", concat_merge);
-    let db = DB::open_cf(opts, path_str, vec!["default"], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![("default", cf_opts)]).unwrap();
     let gen_path = TempDir::new("_rust_rocksdb_ingest_sst_gen_new").expect("");
     let test_sstfile = gen_path.path().join("test_sst_file_new");
     let test_sstfile_str = test_sstfile.to_str().unwrap();

@@ -27,7 +27,7 @@ pub fn test_column_family() {
         opts.create_if_missing(true);
         let mut cf_opts = ColumnFamilyOptions::new();
         cf_opts.add_merge_operator("test operator", test_provided_merge);
-        let mut db = DB::open_cf(opts, path_str, vec!["default"], vec![cf_opts]).unwrap();
+        let mut db = DB::open_cf(opts, path_str, vec![("default", cf_opts)]).unwrap();
         let cf_opts = ColumnFamilyOptions::new();
         match db.create_cf("cf1", cf_opts) {
             Ok(_) => println!("cf1 created successfully"),
@@ -42,7 +42,7 @@ pub fn test_column_family() {
     {
         let mut cf_opts = ColumnFamilyOptions::new();
         cf_opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open_cf(DBOptions::new(), path_str, vec!["default"], vec![cf_opts]) {
+        match DB::open_cf(DBOptions::new(), path_str, vec![("default", cf_opts)]) {
             Ok(_) => panic!(
                 "should not have opened DB successfully without \
                         specifying column
@@ -59,7 +59,7 @@ pub fn test_column_family() {
     {
         let mut cf_opts = ColumnFamilyOptions::new();
         cf_opts.add_merge_operator("test operator", test_provided_merge);
-        match DB::open_cf(DBOptions::new(), path_str, vec!["cf1"], vec![cf_opts]) {
+        match DB::open_cf(DBOptions::new(), path_str, vec![("cf1", cf_opts)]) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
@@ -68,7 +68,7 @@ pub fn test_column_family() {
     {
         let mut cf_opts = ColumnFamilyOptions::new();
         cf_opts.add_merge_operator("test operator", test_provided_merge);
-        let db = match DB::open_cf(DBOptions::new(), path_str, vec!["cf1"], vec![cf_opts]) {
+        let db = match DB::open_cf(DBOptions::new(), path_str, vec![("cf1", cf_opts)]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
@@ -116,8 +116,7 @@ pub fn test_column_family() {
         let mut db = DB::open_cf(
             DBOptions::new(),
             path_str,
-            vec!["cf1"],
-            vec![ColumnFamilyOptions::new()],
+            vec![("cf1", ColumnFamilyOptions::new())],
         ).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),

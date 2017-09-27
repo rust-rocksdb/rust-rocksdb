@@ -88,7 +88,7 @@ fn custom_merge() {
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.add_merge_operator("test operator", concat_merge);
     {
-        let db = DB::open_cf(opts, path, vec!["default"], vec![cf_opts]).unwrap();
+        let db = DB::open_cf(opts, path, vec![("default", cf_opts)]).unwrap();
         db.put(b"k1", b"a").unwrap();
         db.merge(b"k1", b"b").unwrap();
         db.merge(b"k1", b"c").unwrap();
@@ -160,7 +160,7 @@ mod tests {
         // let filter = new_bloom_filter(10);
         // opts.set_filter(filter);
 
-        DB::open_cf(opts, path, vec!["default"], vec![cf_opts]).unwrap()
+        DB::open_cf(opts, path, vec![("default", cf_opts)]).unwrap()
     }
 
     // TODO(tyler) unstable

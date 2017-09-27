@@ -59,8 +59,7 @@ fn test_compaction_filter() {
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
-        vec!["default"],
-        vec![cf_opts],
+        vec![("default", cf_opts)],
     ).unwrap();
     let samples = vec![
         (b"key1".to_vec(), b"value1".to_vec()),
@@ -101,8 +100,7 @@ fn test_compaction_filter() {
         let db = DB::open_cf(
             opts,
             path.path().to_str().unwrap(),
-            vec!["default"],
-            vec![cf_opts],
+            vec![("default", cf_opts)],
         ).unwrap();
         let _snap = db.snapshot();
         // Because ignore_snapshots is true, so all the keys will be compacted.

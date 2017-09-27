@@ -30,7 +30,6 @@ pub struct MergeOperatorCallback {
 pub extern "C" fn destructor_callback(raw_cb: *mut c_void) {
     // turn this back into a local variable so rust will reclaim it
     let _: Box<MergeOperatorCallback> = unsafe { mem::transmute(raw_cb) };
-
 }
 
 pub extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
@@ -190,8 +189,7 @@ mod test {
         let db = DB::open_cf(
             opts,
             path.path().to_str().unwrap(),
-            vec!["default"],
-            vec![cf_opts],
+            vec![("default", cf_opts)],
         ).unwrap();
         let p = db.put(b"k1", b"a");
         assert!(p.is_ok());

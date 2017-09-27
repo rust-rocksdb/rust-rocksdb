@@ -646,7 +646,7 @@ fn test_delete_range_prefix_bloom_case_1() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
 
     let samples_a = vec![
         (b"keya11111", b"value1"),
@@ -721,7 +721,7 @@ fn test_delete_range_prefix_bloom_case_2() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle = get_cf_handle(&db, cf).unwrap();
 
     let samples_a = vec![
@@ -777,7 +777,7 @@ fn test_delete_range_prefix_bloom_case_2() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db2 = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
 
     db2.ingest_external_file_cf(handle2, &ingest_opt, &[test_sstfile_str])
@@ -814,7 +814,7 @@ fn test_delete_range_prefix_bloom_case_3() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle = get_cf_handle(&db, cf).unwrap();
     let samples_a = vec![
         (b"keya11111", b"value1"),
@@ -859,7 +859,7 @@ fn test_delete_range_prefix_bloom_case_3() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db2 = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
     let samples_b = vec![(b"keyb22222", b"value2"), (b"keyc33333", b"value3")];
     for (k, v) in samples_b {
@@ -910,7 +910,7 @@ fn test_delete_range_prefix_bloom_case_4() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle = get_cf_handle(&db, cf).unwrap();
     let samples_a = vec![
         (b"keya11111", b"value1"),
@@ -955,7 +955,7 @@ fn test_delete_range_prefix_bloom_case_4() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db2 = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
 
 
@@ -1009,7 +1009,7 @@ fn test_delete_range_prefix_bloom_case_5() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle = get_cf_handle(&db, cf).unwrap();
     let samples_a = vec![
         (b"keya11111", b"value1"),
@@ -1051,7 +1051,7 @@ fn test_delete_range_prefix_bloom_case_5() {
         .unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
-    let db2 = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
 
     let samples_b = vec![(b"keyd44444", b"value4"), (b"keye55555", b"value5")];
@@ -1101,7 +1101,7 @@ fn test_delete_range_prefix_bloom_case_6() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle = get_cf_handle(&db, cf).unwrap();
     let samples_a = vec![
         (b"keya11111", b"value1"),
@@ -1145,7 +1145,7 @@ fn test_delete_range_prefix_bloom_case_6() {
         .unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
-    let db2 = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
 
     let samples_b = vec![
@@ -1219,7 +1219,7 @@ fn test_delete_range_prefix_bloom_compact_case() {
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
-    let db = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle = get_cf_handle(&db, cf).unwrap();
     let samples_a = vec![
         (b"keya11111", b"value1"),
@@ -1263,7 +1263,7 @@ fn test_delete_range_prefix_bloom_compact_case() {
         .unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
-    let db2 = DB::open_cf(opts, path_str, vec![cf], vec![cf_opts]).unwrap();
+    let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
 
     let samples_b = vec![
