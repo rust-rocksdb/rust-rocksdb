@@ -510,6 +510,12 @@ extern "C" {
         path: *const c_char,
         err: *mut *mut c_char,
     ) -> *mut DBInstance;
+    pub fn crocksdb_open_for_read_only(
+        options: *mut Options,
+        path: *const c_char,
+        error_if_log_file_exist: bool,
+        err: *mut *mut c_char,
+    ) -> *mut DBInstance;
     pub fn crocksdb_writeoptions_create() -> *mut DBWriteOptions;
     pub fn crocksdb_writeoptions_destroy(writeopts: *mut DBWriteOptions);
     pub fn crocksdb_writeoptions_set_sync(writeopts: *mut DBWriteOptions, v: bool);
@@ -826,6 +832,16 @@ extern "C" {
         column_family_names: *const *const c_char,
         column_family_options: *const *const Options,
         column_family_handles: *const *mut DBCFHandle,
+        err: *mut *mut c_char,
+    ) -> *mut DBInstance;
+    pub fn crocksdb_open_for_read_only_column_families(
+        options: *const Options,
+        path: *const c_char,
+        num_column_families: c_int,
+        column_family_names: *const *const c_char,
+        column_family_options: *const *const Options,
+        column_family_handles: *const *mut DBCFHandle,
+        error_if_log_file_exist: bool,
         err: *mut *mut c_char,
     ) -> *mut DBInstance;
     pub fn crocksdb_create_column_family(

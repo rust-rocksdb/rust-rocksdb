@@ -352,10 +352,38 @@ impl DB {
     where
         T: Into<ColumnFamilyDescriptor<'a>>,
     {
-        DB::open_cf_internal(opts, path, cfds)
+        DB::open_cf_internal(opts, path, cfds, None)
     }
 
-    fn open_cf_internal<'a, T>(opts: DBOptions, path: &str, cfds: Vec<T>) -> Result<DB, String>
+    pub fn open_for_read_only(
+        opts: DBOptions,
+        path: &str,
+        error_if_log_file_exist: bool,
+    ) -> Result<DB, String> {
+        let cfds: Vec<&str> = vec![];
+        DB::open_cf_for_read_only(opts, path, cfds, error_if_log_file_exist)
+    }
+
+    pub fn open_cf_for_read_only<'a, T>(
+        opts: DBOptions,
+        path: &str,
+        cfds: Vec<T>,
+        error_if_log_file_exist: bool,
+    ) -> Result<DB, String>
+    where
+        T: Into<ColumnFamilyDescriptor<'a>>,
+    {
+        DB::open_cf_internal(opts, path, cfds, Some(error_if_log_file_exist))
+    }
+
+    fn open_cf_internal<'a, T>(
+        opts: DBOptions,
+        path: &str,
+        cfds: Vec<T>,
+        // if none, open for read write mode.
+        // otherwise, open for read only.
+        error_if_log_file_exist: Option<bool>,
+    ) -> Result<DB, String>
     where
         T: Into<ColumnFamilyDescriptor<'a>>,
     {
@@ -393,15 +421,29 @@ impl DB {
             let db_cf_ptrs = cf_names.as_ptr();
             let db_cf_opts = cf_options.as_ptr();
             let db_cf_handles = cf_handles.as_ptr();
-            unsafe {
-                ffi_try!(crocksdb_open_column_families(
-                    db_options,
-                    db_path,
-                    db_cfs_count,
-                    db_cf_ptrs,
-                    db_cf_opts,
-                    db_cf_handles
-                ))
+            if let Some(flag) = error_if_log_file_exist {
+                unsafe {
+                    ffi_try!(crocksdb_open_for_read_only_column_families(
+                        db_options,
+                        db_path,
+                        db_cfs_count,
+                        db_cf_ptrs,
+                        db_cf_opts,
+                        db_cf_handles,
+                        flag
+                    ))
+                }
+            } else {
+                unsafe {
+                    ffi_try!(crocksdb_open_column_families(
+                        db_options,
+                        db_path,
+                        db_cfs_count,
+                        db_cf_ptrs,
+                        db_cf_opts,
+                        db_cf_handles
+                    ))
+                }
             }
         };
         if cf_handles.iter().any(|h| h.is_null()) {
