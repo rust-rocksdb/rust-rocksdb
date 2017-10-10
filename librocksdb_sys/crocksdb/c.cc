@@ -1558,6 +1558,11 @@ void crocksdb_block_based_options_set_cache_index_and_filter_blocks(
   options->rep.cache_index_and_filter_blocks = v;
 }
 
+void crocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority(
+    crocksdb_block_based_table_options_t* options, unsigned char v) {
+  options->rep.cache_index_and_filter_blocks_with_high_priority = v;
+}
+
 void crocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
     crocksdb_block_based_table_options_t* options, unsigned char v) {
   options->rep.pin_l0_filter_and_index_blocks_in_cache = v;
@@ -2765,9 +2770,10 @@ void crocksdb_flushoptions_set_wait(
   opt->rep.wait = v;
 }
 
-crocksdb_cache_t* crocksdb_cache_create_lru(size_t capacity) {
+crocksdb_cache_t* crocksdb_cache_create_lru(size_t capacity,
+  int num_shard_bits, unsigned char strict_capacity_limit, double high_pri_pool_ratio) {
   crocksdb_cache_t* c = new crocksdb_cache_t;
-  c->rep = NewLRUCache(capacity);
+  c->rep = NewLRUCache(capacity, num_shard_bits, strict_capacity_limit, high_pri_pool_ratio);
   return c;
 }
 

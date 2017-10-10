@@ -20,7 +20,7 @@ use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompressi
                    DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
                    DBStatisticsTickerType, DBWriteOptions, Options};
 use event_listener::{new_event_listener, EventListener};
-use libc::{self, c_int, c_void, size_t};
+use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
 use merge_operator::MergeFn;
 use slice_transform::{new_slice_transform, SliceTransform};
@@ -76,8 +76,18 @@ impl BlockBasedOptions {
         }
     }
 
-    pub fn set_lru_cache(&mut self, size: size_t) {
-        let cache = crocksdb_ffi::new_cache(size);
+    /// the recommanded shard_bits is 6, also you can set a larger value as long as it is
+    /// smaller than 20, also you can set shard_bits to -1, RocksDB will choose a value for you
+    /// the recommanded capacity_limit is 0(false) if your memory is sufficient
+    /// the recommanded pri_ratio should be 0.05 or 0.1
+    pub fn set_lru_cache(
+        &mut self,
+        size: size_t,
+        shard_bits: c_int,
+        capacity_limit: c_uchar,
+        pri_ratio: c_double,
+    ) {
+        let cache = crocksdb_ffi::new_cache(size, shard_bits, capacity_limit, pri_ratio);
         unsafe {
             crocksdb_ffi::crocksdb_block_based_options_set_block_cache(self.inner, cache);
             crocksdb_ffi::crocksdb_cache_destroy(cache);
@@ -99,6 +109,16 @@ impl BlockBasedOptions {
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_block_based_options_set_cache_index_and_filter_blocks(
+                self.inner,
+                v as u8,
+            );
+        }
+    }
+
+    pub fn set_cache_index_and_filter_blocks_with_high_priority(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::
+            crocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority(
                 self.inner,
                 v as u8,
             );

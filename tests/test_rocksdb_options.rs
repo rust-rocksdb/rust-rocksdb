@@ -262,6 +262,35 @@ fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
         vec![("default", cf_opts)],
     ).unwrap();
 }
+
+#[test]
+fn test_set_lru_cache() {
+    let path = TempDir::new("_rust_rocksdb_set_set_lru_cache").expect("");
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    let mut block_opts = BlockBasedOptions::new();
+    block_opts.set_lru_cache(8388608, -1, 0, 0.0);
+    cf_opts.set_block_based_table_factory(&block_opts);
+    DB::open_cf(opts, path.path().to_str().unwrap(), vec!["default"]).unwrap();
+}
+
+#[test]
+fn test_set_cache_index_and_filter_blocks_with_high_priority() {
+    let path = TempDir::new("_rust_rocksdb_set_cache_and_index_with_high_priority").expect("");
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    let mut block_opts = BlockBasedOptions::new();
+    block_opts.set_cache_index_and_filter_blocks_with_high_priority(true);
+    cf_opts.set_block_based_table_factory(&block_opts);
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    ).unwrap();
+}
+
 #[test]
 fn test_pending_compaction_bytes_limit() {
     let path = TempDir::new("_rust_rocksdb_pending_compaction_bytes_limit").expect("");
@@ -320,7 +349,7 @@ fn test_get_block_cache_usage() {
 
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
-    block_opts.set_lru_cache(16 * 1024 * 1024);
+    block_opts.set_lru_cache(16 * 1024 * 1024, -1, 0, 0.0);
     cf_opts.set_block_based_table_factory(&block_opts);
     let db = DB::open_cf(
         opts,
