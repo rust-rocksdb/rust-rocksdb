@@ -97,16 +97,14 @@ pub struct WriteBatch {
 
 unsafe impl Send for WriteBatch {}
 
-pub struct Snapshot<'a> {
-    db: &'a DB,
+pub struct Snapshot<D: Deref<Target = DB>> {
+    db: D,
     snap: UnsafeSnap,
 }
 
-// We need to find a better way to add a lifetime in here.
-#[allow(dead_code)]
-pub struct DBIterator<'a> {
-    db: &'a DB,
-    readopts: ReadOptions,
+pub struct DBIterator<D: Deref<Target = DB>> {
+    _db: D,
+    _readopts: ReadOptions,
     inner: *mut crocksdb_ffi::DBIterator,
 }
 
@@ -122,14 +120,14 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
     }
 }
 
-impl<'a> DBIterator<'a> {
-    pub fn new(db: &'a DB, readopts: ReadOptions) -> DBIterator<'a> {
+impl<D: Deref<Target = DB>> DBIterator<D> {
+    pub fn new(db: D, readopts: ReadOptions) -> DBIterator<D> {
         unsafe {
             let iterator = crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner());
 
             DBIterator {
-                db: db,
-                readopts: readopts,
+                _db: db,
+                _readopts: readopts,
                 inner: iterator,
             }
         }
@@ -209,7 +207,7 @@ impl<'a> DBIterator<'a> {
         unsafe { crocksdb_ffi::crocksdb_iter_valid(self.inner) }
     }
 
-    pub fn new_cf(db: &'a DB, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<'a> {
+    pub fn new_cf(db: D, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<D> {
         unsafe {
             let iterator = crocksdb_ffi::crocksdb_create_iterator_cf(
                 db.inner,
@@ -217,8 +215,8 @@ impl<'a> DBIterator<'a> {
                 cf_handle.inner,
             );
             DBIterator {
-                db: db,
-                readopts: readopts,
+                _db: db,
+                _readopts: readopts,
                 inner: iterator,
             }
         }
@@ -227,7 +225,7 @@ impl<'a> DBIterator<'a> {
 
 pub type Kv = (Vec<u8>, Vec<u8>);
 
-impl<'b, 'a> Iterator for &'b mut DBIterator<'a> {
+impl<'b, D: Deref<Target = DB>> Iterator for &'b mut DBIterator<D> {
     type Item = Kv;
 
     fn next(&mut self) -> Option<Kv> {
@@ -239,7 +237,7 @@ impl<'b, 'a> Iterator for &'b mut DBIterator<'a> {
     }
 }
 
-impl<'a> Drop for DBIterator<'a> {
+impl<D: Deref<Target = DB>> Drop for DBIterator<D> {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_iter_destroy(self.inner);
@@ -247,26 +245,44 @@ impl<'a> Drop for DBIterator<'a> {
     }
 }
 
-impl<'a> Snapshot<'a> {
-    pub fn new(db: &DB) -> Snapshot {
+unsafe impl<D: Deref<Target = DB> + Send> Send for DBIterator<D> {}
+
+unsafe impl<D: Deref<Target = DB> + Send + Sync> Send for Snapshot<D> {}
+unsafe impl<D: Deref<Target = DB> + Send + Sync> Sync for Snapshot<D> {}
+
+impl<D: Deref<Target = DB> + Clone> Snapshot<D> {
+    /// Create an iterator and clone the inner db.
+    ///
+    /// Please note that, the snapshot struct could be dropped before the iterator
+    /// if use improperly, which seems safe though.
+    pub fn iter_opt_clone(&self, mut opt: ReadOptions) -> DBIterator<D> {
+        unsafe {
+            opt.set_snapshot(&self.snap);
+        }
+        DBIterator::new(self.db.clone(), opt)
+    }
+}
+
+impl<D: Deref<Target = DB>> Snapshot<D> {
+    pub fn new(db: D) -> Snapshot<D> {
         unsafe {
             Snapshot {
-                db: db,
                 snap: db.unsafe_snap(),
+                db: db,
             }
         }
     }
 
-    pub fn iter(&self) -> DBIterator {
+    pub fn iter(&self) -> DBIterator<&DB> {
         let readopts = ReadOptions::new();
         self.iter_opt(readopts)
     }
 
-    pub fn iter_opt(&self, mut opt: ReadOptions) -> DBIterator {
+    pub fn iter_opt(&self, mut opt: ReadOptions) -> DBIterator<&DB> {
         unsafe {
             opt.set_snapshot(&self.snap);
         }
-        DBIterator::new(self.db, opt)
+        DBIterator::new(&self.db, opt)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
@@ -286,7 +302,7 @@ impl<'a> Snapshot<'a> {
     }
 }
 
-impl<'a> Drop for Snapshot<'a> {
+impl<D: Deref<Target = DB>> Drop for Snapshot<D> {
     fn drop(&mut self) {
         unsafe { self.db.release_snap(&self.snap) }
     }
@@ -653,25 +669,25 @@ impl DB {
         self.cfs.iter().map(|(k, _)| k.as_str()).collect()
     }
 
-    pub fn iter(&self) -> DBIterator {
+    pub fn iter(&self) -> DBIterator<&DB> {
         let opts = ReadOptions::new();
         self.iter_opt(opts)
     }
 
-    pub fn iter_opt(&self, opt: ReadOptions) -> DBIterator {
+    pub fn iter_opt(&self, opt: ReadOptions) -> DBIterator<&DB> {
         DBIterator::new(&self, opt)
     }
 
-    pub fn iter_cf(&self, cf_handle: &CFHandle) -> DBIterator {
+    pub fn iter_cf(&self, cf_handle: &CFHandle) -> DBIterator<&DB> {
         let opts = ReadOptions::new();
         DBIterator::new_cf(self, cf_handle, opts)
     }
 
-    pub fn iter_cf_opt(&self, cf_handle: &CFHandle, opts: ReadOptions) -> DBIterator {
+    pub fn iter_cf_opt(&self, cf_handle: &CFHandle, opts: ReadOptions) -> DBIterator<&DB> {
         DBIterator::new_cf(self, cf_handle, opts)
     }
 
-    pub fn snapshot(&self) -> Snapshot {
+    pub fn snapshot(&self) -> Snapshot<&DB> {
         Snapshot::new(self)
     }
 

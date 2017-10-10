@@ -12,6 +12,10 @@
 // limitations under the License.
 
 use rocksdb::*;
+use rocksdb::rocksdb::Snapshot;
+use std::ops::Deref;
+use std::sync::*;
+use std::thread;
 use tempdir::TempDir;
 
 struct FixedPrefixTransform {
@@ -42,7 +46,7 @@ impl SliceTransform for FixedSuffixTransform {
     }
 }
 
-fn prev_collect<'a>(iter: &mut DBIterator<'a>) -> Vec<Kv> {
+fn prev_collect<D: Deref<Target = DB>>(iter: &mut DBIterator<D>) -> Vec<Kv> {
     let mut buf = vec![];
     while iter.valid() {
         buf.push(iter.kv().unwrap());
@@ -51,7 +55,7 @@ fn prev_collect<'a>(iter: &mut DBIterator<'a>) -> Vec<Kv> {
     buf
 }
 
-fn next_collect<'a>(iter: &mut DBIterator<'a>) -> Vec<Kv> {
+fn next_collect<D: Deref<Target = DB>>(iter: &mut DBIterator<D>) -> Vec<Kv> {
     let mut buf = vec![];
     while iter.valid() {
         buf.push(iter.kv().unwrap());
@@ -168,6 +172,49 @@ pub fn test_iterator() {
     // Once iterator is invalid, it can't be reverted.
     iter.prev();
     assert!(!iter.valid());
+}
+
+#[test]
+fn test_send_iterator() {
+    let path = TempDir::new("_rust_rocksdb_iteratortest_send").expect("");
+
+    let db = Arc::new(DB::open_default(path.path().to_str().unwrap()).unwrap());
+    db.put(b"k1", b"v1").unwrap();
+
+    let opt = ReadOptions::new();
+    let iter = DBIterator::new(db.clone(), opt);
+
+    let make_checker = |mut iter: DBIterator<Arc<DB>>| {
+        let (tx, rx) = mpsc::channel();
+        let j = thread::spawn(move || {
+            rx.recv().unwrap();
+            iter.seek(SeekKey::Start);
+            assert_eq!(iter.key(), b"k1");
+            assert_eq!(iter.value(), b"v1");
+        });
+        (tx, j)
+    };
+
+    let (tx, handle) = make_checker(iter);
+    drop(db);
+    tx.send(()).unwrap();
+    handle.join().unwrap();
+
+    let db = Arc::new(DB::open_default(path.path().to_str().unwrap()).unwrap());
+    db.flush(true).unwrap();
+
+    let snap = Snapshot::new(db.clone());
+    let iter = snap.iter_opt_clone(ReadOptions::new());
+    db.put(b"k1", b"v2").unwrap();
+    db.flush(true).unwrap();
+    db.compact_range(None, None);
+
+    let (tx, handle) = make_checker(iter);
+    // iterator still holds the sst file, so it should be able to read the old value.
+    drop(snap);
+    drop(db);
+    tx.send(()).unwrap();
+    handle.join().unwrap();
 }
 
 #[test]
