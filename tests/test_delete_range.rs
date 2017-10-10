@@ -1460,8 +1460,7 @@ fn test_delete_range_ingest_file() {
         ],
     );
 
-    let cf_opts = ColumnFamilyOptions::new();
-    db.create_cf("cf1", cf_opts).unwrap();
+    db.create_cf("cf1").unwrap();
     let handle = db.cf_handle("cf1").unwrap();
     gen_sst(ColumnFamilyOptions::new(), None, test_sstfile_str);
 

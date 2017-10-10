@@ -1,4 +1,4 @@
-use rocksdb::{ColumnFamilyOptions, DBOptions, Writable, DB};
+use rocksdb::{DBOptions, Writable, DB};
 use tempdir::TempDir;
 
 macro_rules! check_kv {
@@ -53,9 +53,8 @@ fn test_open_cf_for_read_only() {
 
     {
         let mut rw = DB::open_default(path).unwrap();
-        let cf_opts = ColumnFamilyOptions::new();
-        let _ = rw.create_cf("cf1", cf_opts.clone()).unwrap();
-        let _ = rw.create_cf("cf2", cf_opts.clone()).unwrap();
+        let _ = rw.create_cf("cf1").unwrap();
+        let _ = rw.create_cf("cf2").unwrap();
     }
 
     {

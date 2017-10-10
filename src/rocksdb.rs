@@ -615,12 +615,12 @@ impl DB {
         self.get_cf_opt(cf, key, &ReadOptions::new())
     }
 
-    pub fn create_cf(
-        &mut self,
-        name: &str,
-        cf_opts: ColumnFamilyOptions,
-    ) -> Result<&CFHandle, String> {
-        let cname = match CString::new(name.as_bytes()) {
+    pub fn create_cf<'a, T>(&mut self, cfd: T) -> Result<&CFHandle, String>
+    where
+        T: Into<ColumnFamilyDescriptor<'a>>,
+    {
+        let cfd = cfd.into();
+        let cname = match CString::new(cfd.name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(
@@ -632,12 +632,12 @@ impl DB {
         unsafe {
             let cf_handler = ffi_try!(crocksdb_create_column_family(
                 self.inner,
-                cf_opts.inner,
+                cfd.options.inner,
                 cname_ptr
             ));
             let handle = CFHandle { inner: cf_handler };
-            self._cf_opts.push(cf_opts);
-            Ok(match self.cfs.entry(name.to_owned()) {
+            self._cf_opts.push(cfd.options);
+            Ok(match self.cfs.entry(cfd.name.to_owned()) {
                 Entry::Occupied(mut e) => {
                     e.insert(handle);
                     e.into_mut()
@@ -1972,7 +1972,7 @@ mod test {
                 if *cf == "default" {
                     continue;
                 }
-                db.create_cf(cf, cf_opts).unwrap();
+                db.create_cf((*cf, cf_opts)).unwrap();
             }
         }
         let opts_list_cfs = DBOptions::new();
@@ -2156,8 +2156,7 @@ mod test {
         let mut opts = DBOptions::new();
         opts.create_if_missing(true);
         let mut db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
-        let cf_opts = ColumnFamilyOptions::new();
-        db.create_cf("cf", cf_opts).unwrap();
+        db.create_cf("cf").unwrap();
 
         let cf_handle = db.cf_handle("cf").unwrap();
         for i in 0..200 {

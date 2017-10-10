@@ -97,8 +97,7 @@ fn concat_merge(_: &[u8], existing_val: Option<&[u8]>, operands: &mut MergeOpera
 fn test_ingest_external_file() {
     let path = TempDir::new("_rust_rocksdb_ingest_sst").expect("");
     let mut db = create_default_database(&path);
-    let cf_opts = ColumnFamilyOptions::new();
-    db.create_cf("cf1", cf_opts).unwrap();
+    db.create_cf("cf1").unwrap();
     let handle = db.cf_handle("cf1").unwrap();
     let gen_path = TempDir::new("_rust_rocksdb_ingest_sst_gen").expect("");
     let test_sstfile = gen_path.path().join("test_sst_file");
@@ -217,7 +216,7 @@ fn test_ingest_external_file_new_cf() {
     let test_sstfile_str = test_sstfile.to_str().unwrap();
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.add_merge_operator("merge operator", concat_merge);
-    db.create_cf("cf1", cf_opts).unwrap();
+    db.create_cf(("cf1", cf_opts)).unwrap();
     let handle = db.cf_handle("cf1").unwrap();
 
     let mut ingest_opt = IngestExternalFileOptions::new();
@@ -295,8 +294,7 @@ fn create_default_database(path: &TempDir) -> DB {
 fn create_cfs(db: &mut DB, cfs: &[&str]) {
     for cf in cfs {
         if *cf != "default" {
-            let cf_opts = ColumnFamilyOptions::new();
-            db.create_cf(cf, cf_opts).unwrap();
+            db.create_cf(*cf).unwrap();
         }
     }
 }
@@ -323,8 +321,7 @@ fn test_ingest_simulate_real_world() {
     let mut db2 = create_default_database(&path2);
     for cf in &ALL_CFS {
         if *cf != "default" {
-            let cf_opts = ColumnFamilyOptions::new();
-            db2.create_cf(cf, cf_opts).unwrap();
+            db2.create_cf(*cf).unwrap();
         }
     }
     for cf in &ALL_CFS {
