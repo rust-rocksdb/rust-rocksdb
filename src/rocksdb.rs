@@ -391,15 +391,16 @@ impl DB {
         const ERR_NULL_DB_ONINIT: &str = "Could not initialize database";
         const ERR_NULL_CF_HANDLE: &str = "Received null column family handle from DB";
 
-        let cpath = try!(CString::new(path.as_bytes()).map_err(|_| ERR_CONVERT_PATH.to_owned()));
-        try!(fs::create_dir_all(&Path::new(path)).map_err(|e| {
+        let cpath = CString::new(path.as_bytes())
+            .map_err(|_| ERR_CONVERT_PATH.to_owned())?;
+        fs::create_dir_all(&Path::new(path)).map_err(|e| {
             format!(
                 "Failed to create rocksdb directory: \
                  src/rocksdb.rs:                              \
                  {:?}",
                 e
             )
-        }));
+        })?;
 
         let mut descs = cfds.into_iter().map(|t| t.into()).collect();
         ensure_default_cf_exists(&mut descs);
@@ -606,7 +607,9 @@ impl DB {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err("Failed to convert path to CString when opening rocksdb".to_owned())
+                return Err(
+                    "Failed to convert path to CString when opening rocksdb".to_owned(),
+                )
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -1700,19 +1703,6 @@ impl SstFileWriter {
 
     /// Add key, value to currently opened file
     /// REQUIRES: key is after any previously added key according to comparator.
-    pub fn add(&mut self, key: &[u8], val: &[u8]) -> Result<(), String> {
-        unsafe {
-            ffi_try!(crocksdb_sstfilewriter_add(
-                self.inner,
-                key.as_ptr(),
-                key.len(),
-                val.as_ptr(),
-                val.len()
-            ));
-            Ok(())
-        }
-    }
-
     pub fn put(&mut self, key: &[u8], val: &[u8]) -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_sstfilewriter_put(

@@ -1,7 +1,7 @@
 
-extern crate gcc;
+extern crate cc;
 
-use gcc::Build;
+use cc::Build;
 use std::{env, fs, str};
 use std::path::PathBuf;
 use std::process::Command;

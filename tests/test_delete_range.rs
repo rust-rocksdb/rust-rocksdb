@@ -25,10 +25,10 @@ fn gen_sst(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str) {
         SstFileWriter::new(env_opt, opt)
     };
     writer.open(path).unwrap();
-    writer.add(b"key1", b"value1").unwrap();
-    writer.add(b"key2", b"value2").unwrap();
-    writer.add(b"key3", b"value3").unwrap();
-    writer.add(b"key4", b"value4").unwrap();
+    writer.put(b"key1", b"value1").unwrap();
+    writer.put(b"key2", b"value2").unwrap();
+    writer.put(b"key3", b"value3").unwrap();
+    writer.put(b"key4", b"value4").unwrap();
     writer.finish().unwrap();
 }
 
@@ -44,7 +44,7 @@ fn gen_sst_from_db(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str, 
     let mut iter = db.iter();
     iter.seek(SeekKey::Start);
     while iter.valid() {
-        writer.add(iter.key(), iter.value()).unwrap();
+        writer.put(iter.key(), iter.value()).unwrap();
         iter.next();
     }
     writer.finish().unwrap();

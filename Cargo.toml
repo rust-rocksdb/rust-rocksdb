@@ -1,5 +1,4 @@
 [package]
-
 name = "rocksdb"
 description = "A Rust wrapper for Facebook's RocksDB embeddable database."
 version = "0.3.0"

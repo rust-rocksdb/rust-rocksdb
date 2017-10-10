@@ -859,9 +859,7 @@ impl ColumnFamilyOptions {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            self.filter = Some(try!(
-                new_compaction_filter(c_name, ignore_snapshots, filter)
-            ));
+            self.filter = Some(new_compaction_filter(c_name, ignore_snapshots, filter)?);
             crocksdb_ffi::crocksdb_options_set_compaction_filter(
                 self.inner,
                 self.filter.as_ref().unwrap().inner,
@@ -1115,7 +1113,7 @@ impl ColumnFamilyOptions {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            let transform = try!(new_slice_transform(c_name, transform));
+            let transform = new_slice_transform(c_name, transform)?;
             crocksdb_ffi::crocksdb_options_set_prefix_extractor(self.inner, transform);
             Ok(())
         }
@@ -1140,7 +1138,7 @@ impl ColumnFamilyOptions {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            let transform = try!(new_slice_transform(c_name, transform));
+            let transform = new_slice_transform(c_name, transform)?;
             crocksdb_ffi::crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
                 self.inner,
                 transform,

@@ -1,1 +1,2 @@
 reorder_imports = true
+use_try_shorthand = true

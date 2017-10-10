@@ -30,7 +30,7 @@ pub fn gen_sst(
     };
     writer.open(path).unwrap();
     for &(k, v) in data {
-        writer.add(k, v).unwrap();
+        writer.put(k, v).unwrap();
     }
 
     writer.finish().unwrap();
@@ -279,7 +279,7 @@ fn gen_sst_from_cf(opt: ColumnFamilyOptions, db: &DB, cf: &CFHandle, path: &str)
     let mut iter = db.iter_cf(cf);
     iter.seek(SeekKey::Start);
     while iter.valid() {
-        writer.add(iter.key(), iter.value()).unwrap();
+        writer.put(iter.key(), iter.value()).unwrap();
         iter.next();
     }
     writer.finish().unwrap();
