@@ -44,6 +44,7 @@ pub enum DBSliceTransform {}
 pub enum DBRateLimiter {}
 pub enum DBLogger {}
 pub enum DBCompactOptions {}
+pub enum DBFifoCompactionOptions {}
 pub enum DBPinnableSlice {}
 pub enum DBUserCollectedProperties {}
 pub enum DBUserCollectedPropertiesIterator {}
@@ -421,6 +422,10 @@ extern "C" {
         a2: i32,
     );
     pub fn crocksdb_options_set_compaction_style(options: *mut Options, cs: DBCompactionStyle);
+    pub fn crocksdb_options_set_fifo_compaction_options(
+        options: *mut Options,
+        fifo_opts: *mut DBFifoCompactionOptions,
+    );
     pub fn crocksdb_options_set_compression(
         options: *mut Options,
         compression_style_no: DBCompressionType,
@@ -942,6 +947,17 @@ extern "C" {
         opt: *mut DBCompactOptions,
         v: bool,
     );
+
+    pub fn crocksdb_fifo_compaction_options_create() -> *mut DBFifoCompactionOptions;
+    pub fn crocksdb_fifo_compaction_options_set_max_table_files_size(
+        fifo_opts: *mut DBFifoCompactionOptions, size: uint64_t);
+    pub fn crocksdb_fifo_compaction_options_set_ttl(
+        fifo_opts: *mut DBFifoCompactionOptions, ttl: uint64_t);
+    pub fn crocksdb_fifo_compaction_options_set_allow_compaction(
+        fifo_opts: *mut DBFifoCompactionOptions, allow_compaction: bool);
+    pub fn crocksdb_fifo_compaction_options_destroy(
+        fifo_opts: *mut DBFifoCompactionOptions);
+
     pub fn crocksdb_compact_range(
         db: *mut DBInstance,
         start_key: *const u8,

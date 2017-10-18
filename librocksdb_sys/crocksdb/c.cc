@@ -3052,6 +3052,16 @@ void crocksdb_fifo_compaction_options_set_max_table_files_size(
   fifo_opts->rep.max_table_files_size = size;
 }
 
+void crocksdb_fifo_compaction_options_set_ttl(
+    crocksdb_fifo_compaction_options_t* fifo_opts, uint64_t ttl) {
+  fifo_opts->rep.ttl = ttl;
+}
+
+void crocksdb_fifo_compaction_options_set_allow_compaction(
+    crocksdb_fifo_compaction_options_t* fifo_opts, bool allow_compaction) {
+  fifo_opts->rep.allow_compaction = allow_compaction;
+}
+
 void crocksdb_fifo_compaction_options_destroy(
     crocksdb_fifo_compaction_options_t* fifo_opts) {
   delete fifo_opts;

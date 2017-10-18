@@ -1283,6 +1283,12 @@ crocksdb_fifo_compaction_options_create();
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_fifo_compaction_options_set_max_table_files_size(
     crocksdb_fifo_compaction_options_t* fifo_opts, uint64_t size);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_fifo_compaction_options_set_ttl(
+    crocksdb_fifo_compaction_options_t* fifo_opts, uint64_t ttl);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_fifo_compaction_options_set_allow_compaction(
+    crocksdb_fifo_compaction_options_t* fifo_opts, bool allow_compaction);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_fifo_compaction_options_destroy(
     crocksdb_fifo_compaction_options_t* fifo_opts);
 

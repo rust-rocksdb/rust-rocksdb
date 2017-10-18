@@ -18,7 +18,7 @@ use comparator::{self, compare_callback, ComparatorCallback};
 use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompressionType,
                    DBFlushOptions, DBInfoLogLevel, DBInstance, DBRateLimiter, DBReadOptions,
                    DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
-                   DBStatisticsTickerType, DBWriteOptions, Options};
+                   DBStatisticsTickerType, DBWriteOptions, DBFifoCompactionOptions, Options};
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
@@ -1176,6 +1176,12 @@ impl ColumnFamilyOptions {
     pub fn get_block_cache_usage(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64 }
     }
+
+    pub fn set_fifo_compaction_options(&mut self, fifo_opts: FifoCompactionOptions) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_fifo_compaction_options(self.inner, fifo_opts.inner);
+        }
+    }
 }
 
 // ColumnFamilyDescriptor is a pair of column family's name and options.
@@ -1362,6 +1368,48 @@ impl Drop for RestoreOptions {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_restore_options_destroy(self.inner);
+        }
+    }
+}
+
+pub struct FifoCompactionOptions {
+    pub inner: *mut DBFifoCompactionOptions,
+}
+
+impl FifoCompactionOptions {
+    pub fn new() -> FifoCompactionOptions {
+        unsafe {
+            FifoCompactionOptions {
+                inner: crocksdb_ffi::crocksdb_fifo_compaction_options_create(),
+            }
+        }
+    }
+
+    pub fn set_ttl(&mut self, ttl: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_fifo_compaction_options_set_ttl(self.inner, ttl);
+        }
+    }
+
+    pub fn set_max_table_files_size(&mut self, max_table_files_size: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_fifo_compaction_options_set_max_table_files_size(
+                self.inner, max_table_files_size);
+        }
+    }
+
+    pub fn set_allow_compaction(&mut self, allow_compaction: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_fifo_compaction_options_set_allow_compaction(
+                self.inner, allow_compaction);
+        }
+    }
+}
+
+impl Drop for FifoCompactionOptions {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_fifo_compaction_options_destroy(self.inner);
         }
     }
 }

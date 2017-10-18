@@ -12,7 +12,7 @@
 // limitations under the License.
 
 use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions, ReadOptions,
-              SeekKey, SliceTransform, Writable, WriteOptions, DB};
+              SeekKey, SliceTransform, Writable, WriteOptions, FifoCompactionOptions, DB};
 use rocksdb::crocksdb_ffi::{CompactionPriority, DBCompressionType, DBInfoLogLevel as InfoLogLevel,
                             DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType};
@@ -612,4 +612,19 @@ fn test_block_based_options() {
         opts.get_statistics_ticker_count(TickerType::ReadAmpEstimateUsefulBytes),
         0
     );
+}
+
+#[test]
+fn test_fifo_compaction_options() {
+    let path = TempDir::new("_rust_rocksdb_fifo_compaction_options").expect("");
+    let path_str = path.path().to_str().unwrap();
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    let mut fifo_opts = FifoCompactionOptions::new();
+    fifo_opts.set_allow_compaction(true);
+    fifo_opts.set_ttl(100000);
+    fifo_opts.set_max_table_files_size(100000);
+    cf_opts.set_fifo_compaction_options(fifo_opts);
+    DB::open_cf(opts, path_str, vec![("default", cf_opts)]).unwrap();
 }
