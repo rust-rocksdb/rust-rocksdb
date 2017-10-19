@@ -618,7 +618,7 @@ impl DB {
 
         if cfs.len() == 0 {
             unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
+                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _,));
             }
         } else {
             let mut cfs_v = cfs.to_vec();
@@ -652,8 +652,7 @@ impl DB {
                     cfs_v.len() as c_int,
                     cfnames.as_mut_ptr(),
                     cfopts.as_mut_ptr(),
-                    cfhandles.as_mut_ptr(),
-                ));
+                    cfhandles.as_mut_ptr(),));
             }
 
             for handle in &cfhandles {
@@ -716,7 +715,7 @@ impl DB {
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
-            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
+            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(),));
         }
         Ok(())
     }
@@ -724,7 +723,7 @@ impl DB {
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
-            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
+            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
         }
         Ok(())
     }
@@ -735,7 +734,7 @@ impl DB {
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
+            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner,));
         }
         Ok(())
     }

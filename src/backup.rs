@@ -52,7 +52,7 @@ impl BackupEngine {
         };
 
         let be: *mut ffi::rocksdb_backup_engine_t;
-        unsafe { be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) }
+        unsafe { be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr(),)) }
 
         if be.is_null() {
             return Err(Error::new("Could not initialize backup engine.".to_owned()));
