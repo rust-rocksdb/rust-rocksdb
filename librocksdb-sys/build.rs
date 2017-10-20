@@ -1,4 +1,4 @@
-extern crate gcc;
+extern crate cc;
 extern crate bindgen;
 
 use std::env;
@@ -45,7 +45,7 @@ fn build_rocksdb() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("unable to write rocksdb bindings");
 
-    let mut config = gcc::Build::new();
+    let mut config = cc::Build::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
@@ -130,7 +130,7 @@ fn build_rocksdb() {
 }
 
 fn build_snappy() {
-    let mut config = gcc::Build::new();
+    let mut config = cc::Build::new();
     config.include("snappy/");
     config.include(".");
 
