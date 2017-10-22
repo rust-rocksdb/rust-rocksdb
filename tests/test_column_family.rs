@@ -24,7 +24,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        opts.set_merge_operator("test operator", test_provided_merge);
+        opts.set_merge_operator("test operator", test_provided_merge, None);
         let mut db = DB::open(&opts, path).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
@@ -38,7 +38,7 @@ pub fn test_column_family() {
     // should fail to open db without specifying same column families
     {
         let mut opts = Options::default();
-        opts.set_merge_operator("test operator", test_provided_merge);
+        opts.set_merge_operator("test operator", test_provided_merge, None);
         match DB::open(&opts, path) {
             Ok(_) => {
                 panic!("should not have opened DB successfully without \
@@ -56,7 +56,7 @@ pub fn test_column_family() {
     // should properly open db when specyfing all column families
     {
         let mut opts = Options::default();
-        opts.set_merge_operator("test operator", test_provided_merge);
+        opts.set_merge_operator("test operator", test_provided_merge, None);
         match DB::open_cf(&opts, path, &["cf1"]) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
@@ -98,7 +98,7 @@ fn test_merge_operator() {
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
         let mut opts = Options::default();
-        opts.set_merge_operator("test operator", test_provided_merge);
+        opts.set_merge_operator("test operator", test_provided_merge, None);
         let db = match DB::open_cf(&opts, path, &["cf1"]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
@@ -140,7 +140,7 @@ fn test_merge_operator() {
 fn test_provided_merge(_: &[u8],
                        existing_val: Option<&[u8]>,
                        operands: &mut MergeOperands)
-                       -> Vec<u8> {
+                       -> Option<Vec<u8>> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     match existing_val {
@@ -156,5 +156,5 @@ fn test_provided_merge(_: &[u8],
             result.push(*e);
         }
     }
-    result
+    Some(result)
 }

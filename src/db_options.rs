@@ -200,10 +200,16 @@ impl Options {
         }
     }
 
-    pub fn set_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
+    pub fn set_merge_operator(&mut self, name: &str, full_merge_fn: MergeFn, partial_merge_fn: Option<MergeFn>) {
+		if partial_merge_fn.is_none() {
+			println!("partial_merge not supplied, defaulting partial merge to full");
+		} else {
+            println!("using supplied partial_merge function");
+        }
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            merge_fn: merge_fn,
+            full_merge_fn: full_merge_fn,
+            partial_merge_fn: partial_merge_fn.unwrap_or(full_merge_fn),
         });
 
         unsafe {
@@ -222,7 +228,7 @@ impl Options {
     #[deprecated(since = "0.5.0",
                  note = "add_merge_operator has been renamed to set_merge_operator")]
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
-        self.set_merge_operator(name, merge_fn);
+        self.set_merge_operator(name, merge_fn, None);
     }
 
     /// Sets a compaction filter used to determine if entries should be kept, changed,

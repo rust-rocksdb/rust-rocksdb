@@ -173,6 +173,7 @@ pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
+
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
 #[derive(Copy, Clone)]
