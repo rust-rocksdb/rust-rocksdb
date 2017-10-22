@@ -201,11 +201,6 @@ impl Options {
     }
 
     pub fn set_merge_operator(&mut self, name: &str, full_merge_fn: MergeFn, partial_merge_fn: Option<MergeFn>) {
-		if partial_merge_fn.is_none() {
-			println!("partial_merge not supplied, defaulting partial merge to full");
-		} else {
-            println!("using supplied partial_merge function");
-        }
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             full_merge_fn: full_merge_fn,

@@ -123,7 +123,6 @@ pub unsafe extern "C" fn partial_merge_callback(
 	success: *mut u8,
 	new_value_length: *mut size_t,
 	) -> *mut c_char {
-	println!("In partial_merge_callback");
 	let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
 	let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
 	let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
@@ -221,7 +220,6 @@ mod test {
 		Some(result)
 	}
 
-#[ignore]
 #[test]
 	fn mergetest() {
 		use {DB, Options};
@@ -295,7 +293,6 @@ mod test {
 		) -> Option<Vec<u8>> {
 		let nops = operands.size_hint().0;
 		let mut result: Vec<u8> = Vec::with_capacity(nops);
-		println!("Partial merge operands size hint {}", nops);
 		for op in operands {
 			for e in op {
 				result.push(*e);
@@ -311,13 +308,10 @@ mod test {
 		) -> Option<Vec<u8>> {
 
 		let nops = operands.size_hint().0;
-		println!("Full merge operands size hint {}", nops);
 		let mut counts : ValueCounts = 
 			if let Some(v) = existing_val {
-				println!("Full merge unpacking ValueCounts from {:?}", v);
 				from_slice::<ValueCounts>(v).unwrap().clone()
 			} else {
-				println!("Full merge creating new ValueCounts");
 				ValueCounts {
 					num_a: 0,
 					num_b: 0,
@@ -440,7 +434,7 @@ mod test {
 						None => panic!("Failed to get ValueCounts from db"),
 					}
 				}
-				Err(_) => println!("error reading value"),
+				Err(e) => panic!("error reading value {:?}", e),
 				_ => panic!("value not present"),
 			}
 			match db.get(b"k1") {
@@ -455,7 +449,7 @@ mod test {
 						None => panic!("Failed to get ValueCounts from db"),
 					}
 				}
-				Err(_) => println!("error reading value"),
+				Err(e) => panic!("error reading value {:?}", e),
 				_ => panic!("value not present"),
 			}
 		}
