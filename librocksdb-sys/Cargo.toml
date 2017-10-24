@@ -22,5 +22,5 @@ libc = "0.2"
 const-cstr = "0.2"
 
 [build-dependencies]
-gcc = { version = "0.3", features = ["parallel"] }
+cc = { version = "1.0", features = ["parallel"] }
 make-cmd = "0.1"
