@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate rocksdb;
+extern crate emerald_rocksdb;
 
-use rocksdb::{DB, MergeOperands, Options};
+use emerald_rocksdb::{DB, MergeOperands, Options};
 
 #[test]
 pub fn test_column_family() {

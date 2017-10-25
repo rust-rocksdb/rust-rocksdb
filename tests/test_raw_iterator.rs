@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate rocksdb;
+extern crate emerald_rocksdb;
 
-use rocksdb::DB;
+use emerald_rocksdb::DB;
 
 
 fn setup_test_db(name: &str) -> DB {
