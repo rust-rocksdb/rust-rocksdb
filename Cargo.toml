@@ -1,11 +1,11 @@
 [package]
-name = "rocksdb"
-description = "Rust wrapper for Facebook's RocksDB embeddable database"
-version = "0.7.0"
-authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
+name = "emerald-rocksdb"
+description = "Rust wrapper for Facebook's RocksDB embeddable database used in Emerald Project"
+version = "0.8.0"
+authors = ["Constantine r8d8@etcdev.io"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
-homepage = "https://github.com/spacejam/rust-rocksdb"
+homepage = "https://github.com/r8d8/rust-rocksdb"
 exclude = [
     ".gitignore",
     ".travis.yml",
@@ -19,4 +19,4 @@ valgrind = []
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys" }
+librocksdb-sys = { path = "librocksdb-sys"}
