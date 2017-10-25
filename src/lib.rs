@@ -18,7 +18,7 @@
 //! # Examples
 //!
 //! ```
-//!  use rocksdb::DB;
+//!  use emerald_rocksdb::DB;
 //!  // NB: db is automatically closed at end of lifetime
 //!  let db = DB::open_default("path/for/rocksdb/storage").unwrap();
 //!  db.put(b"my key", b"my value");
@@ -116,8 +116,8 @@ pub struct BlockBasedOptions {
 /// # Examples
 ///
 /// ```
-/// use rocksdb::{Options, DB};
-/// use rocksdb::DBCompactionStyle;
+/// use emerald_rocksdb::{Options, DB};
+/// use emerald_rocksdb::DBCompactionStyle;
 ///
 /// fn badly_tuned_for_somebody_elses_disk() -> DB {
 ///    let path = "path/for/rocksdb/storageX";
@@ -153,7 +153,7 @@ pub struct Options {
 /// Making an unsafe write of a batch:
 ///
 /// ```
-/// use rocksdb::{DB, WriteBatch, WriteOptions};
+/// use emerald_rocksdb::{DB, WriteBatch, WriteOptions};
 ///
 /// let db = DB::open_default("path/for/rocksdb/storageY").unwrap();
 ///

@@ -66,7 +66,7 @@ pub enum DBRecoveryMode {
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, WriteBatch};
+/// use emerald_rocksdb::{DB, WriteBatch};
 ///
 /// let db = DB::open_default("path/for/rocksdb/storage1").unwrap();
 /// {
@@ -88,7 +88,7 @@ pub struct ReadOptions {
 /// A consistent view of the database at the point of creation.
 ///
 /// ```
-/// use rocksdb::{DB, IteratorMode};
+/// use emerald_rocksdb::{DB, IteratorMode};
 ///
 /// let db = DB::open_default("path/for/rocksdb/storage3").unwrap();
 /// let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
@@ -109,7 +109,7 @@ pub struct Snapshot<'a> {
 /// widely recognised Rust idioms.
 ///
 /// ```
-/// use rocksdb::DB;
+/// use emerald_rocksdb::DB;
 ///
 /// let mut db = DB::open_default("path/for/rocksdb/storage4").unwrap();
 /// let mut iter = db.raw_iterator();
@@ -153,7 +153,7 @@ pub struct DBRawIterator {
 /// ranges and direction.
 ///
 /// ```
-/// use rocksdb::{DB, Direction, IteratorMode};
+/// use emerald_rocksdb::{DB, Direction, IteratorMode};
 ///
 /// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
 /// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
@@ -225,7 +225,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use emerald_rocksdb::DB;
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage5").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -259,7 +259,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use emerald_rocksdb::DB;
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage6").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -296,7 +296,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use emerald_rocksdb::DB;
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage7").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -324,7 +324,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use emerald_rocksdb::DB;
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage8").unwrap();
     /// let mut iter = db.raw_iterator();

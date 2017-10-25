@@ -16,7 +16,7 @@
 //! rustic merge operator
 //!
 //! ```
-//! use rocksdb::{Options, DB, MergeOperands};
+//! use emerald_rocksdb::{Options, DB, MergeOperands};
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
