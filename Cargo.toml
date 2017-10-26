@@ -1,7 +1,7 @@
 [package]
 name = "emerald-rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database used in Emerald Project"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Constantine r8d8@etcdev.io"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
