@@ -16,9 +16,9 @@
 use compaction_filter::{new_compaction_filter, CompactionFilter, CompactionFilterHandle};
 use comparator::{self, compare_callback, ComparatorCallback};
 use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompressionType,
-                   DBFlushOptions, DBInfoLogLevel, DBInstance, DBRateLimiter, DBReadOptions,
-                   DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
-                   DBStatisticsTickerType, DBWriteOptions, DBFifoCompactionOptions, Options};
+                   DBFifoCompactionOptions, DBFlushOptions, DBInfoLogLevel, DBInstance,
+                   DBRateLimiter, DBReadOptions, DBRecoveryMode, DBRestoreOptions, DBSnapshot,
+                   DBStatisticsHistogramType, DBStatisticsTickerType, DBWriteOptions, Options};
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
@@ -163,6 +163,34 @@ impl RateLimiter {
             )
         };
         RateLimiter { inner: limiter }
+    }
+
+    pub fn set_bytes_per_second(&mut self, bytes_per_sec: i64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_ratelimiter_set_bytes_per_second(self.inner, bytes_per_sec);
+        }
+    }
+
+    pub fn get_singleburst_bytes(&self) -> i64 {
+        unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_singleburst_bytes(self.inner) }
+    }
+
+    pub fn request(&mut self, bytes: i64, pri: c_uchar) {
+        unsafe {
+            crocksdb_ffi::crocksdb_ratelimiter_request(self.inner, bytes, pri);
+        }
+    }
+
+    pub fn get_total_bytes_through(&self, pri: c_uchar) -> i64 {
+        unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_total_bytes_through(self.inner, pri) }
+    }
+
+    pub fn get_bytes_per_second(&self) -> i64 {
+        unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_bytes_per_second(self.inner) }
+    }
+
+    pub fn get_total_requests(&self, pri: c_uchar) -> i64 {
+        unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_total_requests(self.inner, pri) }
     }
 }
 
@@ -1394,14 +1422,18 @@ impl FifoCompactionOptions {
     pub fn set_max_table_files_size(&mut self, max_table_files_size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_fifo_compaction_options_set_max_table_files_size(
-                self.inner, max_table_files_size);
+                self.inner,
+                max_table_files_size,
+            );
         }
     }
 
     pub fn set_allow_compaction(&mut self, allow_compaction: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_fifo_compaction_options_set_allow_compaction(
-                self.inner, allow_compaction);
+                self.inner,
+                allow_compaction,
+            );
         }
     }
 }

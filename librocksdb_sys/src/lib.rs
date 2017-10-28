@@ -512,6 +512,21 @@ extern "C" {
         fairness: i32,
     ) -> *mut DBRateLimiter;
     pub fn crocksdb_ratelimiter_destroy(limiter: *mut DBRateLimiter);
+    pub fn crocksdb_ratelimiter_set_bytes_per_second(
+        limiter: *mut DBRateLimiter,
+        bytes_per_sec: i64,
+    );
+    pub fn crocksdb_ratelimiter_get_singleburst_bytes(limiter: *mut DBRateLimiter) -> i64;
+    pub fn crocksdb_ratelimiter_request(limiter: *mut DBRateLimiter, bytes: i64, pri: c_uchar);
+    pub fn crocksdb_ratelimiter_get_total_bytes_through(
+        limiter: *mut DBRateLimiter,
+        pri: c_uchar,
+    ) -> i64;
+    pub fn crocksdb_ratelimiter_get_bytes_per_second(limiter: *mut DBRateLimiter) -> i64;
+    pub fn crocksdb_ratelimiter_get_total_requests(
+        limiter: *mut DBRateLimiter,
+        pri: c_uchar,
+    ) -> i64;
     pub fn crocksdb_options_set_soft_pending_compaction_bytes_limit(options: *mut Options, v: u64);
     pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut Options, v: u64);
     pub fn crocksdb_options_set_compaction_priority(options: *mut Options, v: CompactionPriority);
@@ -950,13 +965,18 @@ extern "C" {
 
     pub fn crocksdb_fifo_compaction_options_create() -> *mut DBFifoCompactionOptions;
     pub fn crocksdb_fifo_compaction_options_set_max_table_files_size(
-        fifo_opts: *mut DBFifoCompactionOptions, size: uint64_t);
+        fifo_opts: *mut DBFifoCompactionOptions,
+        size: uint64_t,
+    );
     pub fn crocksdb_fifo_compaction_options_set_ttl(
-        fifo_opts: *mut DBFifoCompactionOptions, ttl: uint64_t);
+        fifo_opts: *mut DBFifoCompactionOptions,
+        ttl: uint64_t,
+    );
     pub fn crocksdb_fifo_compaction_options_set_allow_compaction(
-        fifo_opts: *mut DBFifoCompactionOptions, allow_compaction: bool);
-    pub fn crocksdb_fifo_compaction_options_destroy(
-        fifo_opts: *mut DBFifoCompactionOptions);
+        fifo_opts: *mut DBFifoCompactionOptions,
+        allow_compaction: bool,
+    );
+    pub fn crocksdb_fifo_compaction_options_destroy(fifo_opts: *mut DBFifoCompactionOptions);
 
     pub fn crocksdb_compact_range(
         db: *mut DBInstance,

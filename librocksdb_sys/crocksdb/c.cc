@@ -2423,6 +2423,35 @@ void crocksdb_ratelimiter_destroy(crocksdb_ratelimiter_t *limiter) {
   delete limiter;
 }
 
+void crocksdb_ratelimiter_set_bytes_per_second(crocksdb_ratelimiter_t *limiter,
+    int64_t rate_bytes_per_sec) {
+  limiter->rep->SetBytesPerSecond(rate_bytes_per_sec);
+}
+
+int64_t crocksdb_ratelimiter_get_singleburst_bytes(crocksdb_ratelimiter_t *limiter) {
+  return limiter->rep->GetSingleBurstBytes();
+}
+
+void crocksdb_ratelimiter_request(crocksdb_ratelimiter_t *limiter,
+    int64_t bytes, unsigned char pri) {
+  limiter->rep->Request(bytes, static_cast<Env::IOPriority>(pri), nullptr);
+}
+
+int64_t crocksdb_ratelimiter_get_total_bytes_through(
+    crocksdb_ratelimiter_t *limiter, unsigned char pri) {
+  return limiter->rep->GetTotalBytesThrough(static_cast<Env::IOPriority>(pri));
+}
+
+int64_t crocksdb_ratelimiter_get_bytes_per_second(
+    crocksdb_ratelimiter_t *limiter) {
+  return limiter->rep->GetBytesPerSecond();
+}
+
+int64_t crocksdb_ratelimiter_get_total_requests(
+    crocksdb_ratelimiter_t *limiter, unsigned char pri) {
+  return limiter->rep->GetTotalRequests(static_cast<Env::IOPriority>(pri));
+}
+
 /*
 TODO:
 DB::OpenForReadOnly
