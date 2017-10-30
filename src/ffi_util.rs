@@ -34,7 +34,7 @@ pub fn opt_bytes_to_ptr(opt: Option<&[u8]>) -> *const c_char {
 }
 
 macro_rules! ffi_try {
-    ( $($function:ident)::*( $( $arg:expr ),* ) ) => ({
+    ( $($function:ident)::*( $( $arg:expr,)* ) ) => ({
         let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
         let result = $($function)::*($($arg),*, &mut err);
         if !err.is_null() {

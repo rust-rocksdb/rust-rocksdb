@@ -429,7 +429,7 @@ fn ffi() {
         rocksdb_options_set_block_based_table_factory(options, table_options);
 
         let no_compression = rocksdb_no_compression;
-        rocksdb_options_set_compression(options, no_compression);
+        rocksdb_options_set_compression(options, no_compression as i32);
         rocksdb_options_set_compression_options(options, -14, -1, 0, 0);
         let compression_levels = vec![
             no_compression,
@@ -892,15 +892,15 @@ fn ffi() {
 
             let mut cf_options = rocksdb_options_create();
 
-            let cf_names: [*const c_char; 2] = [cstrp!("default"), cstrp!("cf1")];
-            let cf_opts: [*const rocksdb_options_t; 2] = [cf_options, cf_options];
+            let mut cf_names: [*const c_char; 2] = [cstrp!("default"), cstrp!("cf1")];
+            let mut cf_opts: [*const rocksdb_options_t; 2] = [cf_options, cf_options];
             let mut handles: [*mut rocksdb_column_family_handle_t; 2] = [ptr::null_mut(),
                                                                          ptr::null_mut()];
             db = rocksdb_open_column_families(db_options,
                                               dbname,
                                               2,
-                                              cf_names.as_ptr(),
-                                              cf_opts.as_ptr(),
+                                              cf_names.as_mut_ptr(),
+                                              cf_opts.as_mut_ptr(),
                                               handles.as_mut_ptr(),
                                               &mut err);
             CheckNoError!(err);

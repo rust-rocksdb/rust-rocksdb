@@ -1,6 +1,9 @@
 extern crate cc;
+extern crate bindgen;
 
+use std::env;
 use std::fs;
+use std::path::PathBuf;
 
 fn link(name: &str, bundled: bool) {
     use std::env::var;
@@ -29,6 +32,18 @@ fn fail_on_empty_directory(name: &str) {
 fn build_rocksdb() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=rocksdb/");
+
+    let bindings = bindgen::Builder::default()
+        .header("rocksdb/include/rocksdb/c.h")
+        .hide_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
+        .ctypes_prefix("libc")
+        .generate()
+        .expect("unable to generate rocksdb bindings");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("unable to write rocksdb bindings");
 
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
