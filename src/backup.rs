@@ -35,21 +35,24 @@ pub struct RestoreOptions {
 
 impl BackupEngine {
     /// Open a backup engine with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &BackupEngineOptions,
-                                path: P)
-                                -> Result<BackupEngine, Error> {
+    pub fn open<P: AsRef<Path>>(
+        opts: &BackupEngineOptions,
+        path: P,
+    ) -> Result<BackupEngine, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err(Error::new("Failed to convert path to CString \
+                return Err(Error::new(
+                    "Failed to convert path to CString \
                                        when opening backup engine"
-                    .to_owned()))
+                        .to_owned(),
+                ))
             }
         };
 
         let be: *mut ffi::rocksdb_backup_engine_t;
-        unsafe { be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) }
+        unsafe { be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr(),)) }
 
         if be.is_null() {
             return Err(Error::new("Could not initialize backup engine.".to_owned()));
@@ -60,15 +63,20 @@ impl BackupEngine {
 
     pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_backup_engine_create_new_backup(self.inner, db.inner));
+            ffi_try!(ffi::rocksdb_backup_engine_create_new_backup(
+                self.inner,
+                db.inner,
+            ));
             Ok(())
         }
     }
 
     pub fn purge_old_backups(&mut self, num_backups_to_keep: usize) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_backup_engine_purge_old_backups(self.inner,
-                                                                  num_backups_to_keep as uint32_t));
+            ffi_try!(ffi::rocksdb_backup_engine_purge_old_backups(
+                self.inner,
+                num_backups_to_keep as uint32_t,
+            ));
             Ok(())
         }
     }
