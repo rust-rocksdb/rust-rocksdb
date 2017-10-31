@@ -43,4 +43,12 @@ fn test_db_statistics() {
         db.get_statistics_histogram(HistogramType::GetMicros)
             .is_some()
     );
+
+    let get_micros = db.get_statistics_histogram(HistogramType::GetMicros)
+        .unwrap();
+    assert!(get_micros.max > 0.0);
+    db.reset_statistics();
+    let get_micros = db.get_statistics_histogram(HistogramType::GetMicros)
+        .unwrap();
+    assert_eq!(get_micros.max, 0.0);
 }

@@ -1949,6 +1949,10 @@ void crocksdb_options_enable_statistics(crocksdb_options_t* opt) {
   opt->rep.statistics = rocksdb::CreateDBStatistics();
 }
 
+void crocksdb_options_reset_statistics(crocksdb_options_t* opt) {
+  opt->rep.statistics->Reset();
+}
+
 void crocksdb_options_set_num_levels(crocksdb_options_t* opt, int n) {
   opt->rep.num_levels = n;
 }

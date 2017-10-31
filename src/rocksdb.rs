@@ -1124,6 +1124,10 @@ impl DB {
         self.opts.get_statistics()
     }
 
+    pub fn reset_statistics(&self) {
+        self.opts.reset_statistics();
+    }
+
     pub fn get_statistics_ticker_count(&self, ticker_type: DBStatisticsTickerType) -> u64 {
         self.opts.get_statistics_ticker_count(ticker_type)
     }

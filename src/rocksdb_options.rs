@@ -672,6 +672,12 @@ impl DBOptions {
         }
     }
 
+    pub fn reset_statistics(&self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_reset_statistics(self.inner);
+        }
+    }
+
     pub fn set_stats_dump_period_sec(&mut self, period: usize) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_stats_dump_period_sec(self.inner, period);
