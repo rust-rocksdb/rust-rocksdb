@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::thread;
 use rocksdb::RateLimiter;
 
 #[test]
@@ -36,4 +37,15 @@ fn test_rate_limiter() {
     assert_eq!(rate_limiter.get_total_bytes_through(high), 2048 * 1024);
 
     assert_eq!(rate_limiter.get_total_bytes_through(total), 3072 * 1024);
+}
+
+#[test]
+fn test_rate_limiter_sendable() {
+    let mut rate_limiter = RateLimiter::new(10 * 1024 * 1024, 100 * 1000, 10);
+
+    let handle = thread::spawn(move || {
+        rate_limiter.request(1024, 0);
+    });
+
+    handle.join();
 }
