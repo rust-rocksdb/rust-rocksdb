@@ -16,7 +16,7 @@ use rocksdb::RateLimiter;
 
 #[test]
 fn test_rate_limiter() {
-    let mut rate_limiter = RateLimiter::new(10 * 1024 * 1024, 100 * 1000, 10);
+    let rate_limiter = RateLimiter::new(10 * 1024 * 1024, 100 * 1000, 10);
     assert_eq!(rate_limiter.get_singleburst_bytes(), 1 * 1024 * 1024);
 
     rate_limiter.set_bytes_per_second(20 * 1024 * 1024);
@@ -41,7 +41,7 @@ fn test_rate_limiter() {
 
 #[test]
 fn test_rate_limiter_sendable() {
-    let mut rate_limiter = RateLimiter::new(10 * 1024 * 1024, 100 * 1000, 10);
+    let rate_limiter = RateLimiter::new(10 * 1024 * 1024, 100 * 1000, 10);
 
     let handle = thread::spawn(move || {
         rate_limiter.request(1024, 0);

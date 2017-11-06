@@ -168,7 +168,7 @@ impl RateLimiter {
         RateLimiter { inner: limiter }
     }
 
-    pub fn set_bytes_per_second(&mut self, bytes_per_sec: i64) {
+    pub fn set_bytes_per_second(&self, bytes_per_sec: i64) {
         unsafe {
             crocksdb_ffi::crocksdb_ratelimiter_set_bytes_per_second(self.inner, bytes_per_sec);
         }
@@ -178,7 +178,7 @@ impl RateLimiter {
         unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_singleburst_bytes(self.inner) }
     }
 
-    pub fn request(&mut self, bytes: i64, pri: c_uchar) {
+    pub fn request(&self, bytes: i64, pri: c_uchar) {
         unsafe {
             crocksdb_ffi::crocksdb_ratelimiter_request(self.inner, bytes, pri);
         }
