@@ -33,6 +33,14 @@
 #include "rocksdb/write_batch.h"
 #include <stdlib.h>
 
+#if !defined(ROCKSDB_MAJOR) || !defined(ROCKSDB_MINOR) || !defined(ROCKSDB_PATCH)
+#error Only rocksdb 5.7.3+ is supported.
+#endif
+
+#if ROCKSDB_MAJOR * 10000 + ROCKSDB_MINOR * 100 + ROCKSDB_PATCH < 50703
+#error Only rocksdb 5.7.3+ is supported.
+#endif
+
 using rocksdb::Cache;
 using rocksdb::ColumnFamilyDescriptor;
 using rocksdb::ColumnFamilyHandle;
