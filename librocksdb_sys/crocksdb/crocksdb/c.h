@@ -1220,6 +1220,8 @@ crocksdb_sstfilewriter_delete(crocksdb_sstfilewriter_t *writer, const char *key,
                               size_t keylen, char **errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_finish(
     crocksdb_sstfilewriter_t* writer, char** errptr);
+extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_sstfilewriter_file_size(
+    crocksdb_sstfilewriter_t* writer);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_destroy(
     crocksdb_sstfilewriter_t* writer);
 

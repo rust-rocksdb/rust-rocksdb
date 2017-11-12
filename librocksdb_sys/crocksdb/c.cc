@@ -2909,6 +2909,10 @@ void crocksdb_sstfilewriter_finish(crocksdb_sstfilewriter_t* writer,
   SaveError(errptr, writer->rep->Finish(NULL));
 }
 
+uint64_t crocksdb_sstfilewriter_file_size(crocksdb_sstfilewriter_t* writer) {
+    return writer->rep->FileSize();
+}
+
 void crocksdb_sstfilewriter_destroy(crocksdb_sstfilewriter_t* writer) {
   delete writer->rep;
   delete writer;

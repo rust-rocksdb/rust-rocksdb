@@ -1119,6 +1119,7 @@ extern "C" {
         err: *mut *mut c_char,
     );
     pub fn crocksdb_sstfilewriter_finish(writer: *mut SstFileWriter, err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_file_size(writer: *mut SstFileWriter) -> uint64_t;
     pub fn crocksdb_sstfilewriter_destroy(writer: *mut SstFileWriter);
 
     pub fn crocksdb_ingest_external_file(
@@ -1583,6 +1584,7 @@ mod test {
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_finish(writer, &mut err);
             assert!(err.is_null(), error_message(err));
+            assert!(crocksdb_sstfilewriter_file_size(writer) > 0);
 
             let ing_opt = crocksdb_ingestexternalfileoptions_create();
             let file_list = &[c_sst_path_ptr];
@@ -1606,6 +1608,7 @@ mod test {
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_finish(writer, &mut err);
             assert!(err.is_null(), error_message(err));
+            assert!(crocksdb_sstfilewriter_file_size(writer) > 0);
 
             crocksdb_ingest_external_file(db, file_list.as_ptr(), 1, ing_opt, &mut err);
             assert!(err.is_null(), error_message(err));

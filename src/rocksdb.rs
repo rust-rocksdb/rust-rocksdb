@@ -1767,6 +1767,10 @@ impl SstFileWriter {
             Ok(())
         }
     }
+
+    pub fn file_size(&mut self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_sstfilewriter_file_size(self.inner) as u64 }
+    }
 }
 
 impl Drop for SstFileWriter {

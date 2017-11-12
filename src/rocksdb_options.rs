@@ -153,8 +153,8 @@ pub struct RateLimiter {
     inner: *mut DBRateLimiter,
 }
 
-unsafe impl Send for RateLimiter { }
-unsafe impl Sync for RateLimiter { }
+unsafe impl Send for RateLimiter {}
+unsafe impl Sync for RateLimiter {}
 
 impl RateLimiter {
     pub fn new(rate_bytes_per_sec: i64, refill_period_us: i64, fairness: i32) -> RateLimiter {
