@@ -281,7 +281,15 @@ fn gen_sst_from_cf(opt: ColumnFamilyOptions, db: &DB, cf: &CFHandle, path: &str)
         writer.put(iter.key(), iter.value()).unwrap();
         iter.next();
     }
-    writer.finish().unwrap();
+    let info = writer.finish().unwrap();
+    assert_eq!(info.file_path().to_str().unwrap(), path);
+    iter.seek(SeekKey::Start);
+    assert_eq!(info.smallest_key(), iter.key());
+    iter.seek(SeekKey::End);
+    assert_eq!(info.largest_key(), iter.key());
+    assert_eq!(info.sequence_number(), 0);
+    assert!(info.file_size() > 0);
+    assert!(info.num_entries() > 0);
 }
 
 fn create_default_database(path: &TempDir) -> DB {

@@ -26,7 +26,7 @@ use std::collections::btree_map::Entry;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use table_properties::TablePropertiesCollection;
 
@@ -1761,11 +1761,12 @@ impl SstFileWriter {
     }
 
     /// Finalize writing to sst file and close file.
-    pub fn finish(&mut self) -> Result<(), String> {
+    pub fn finish(&mut self) -> Result<ExternalSstFileInfo, String> {
+        let info = ExternalSstFileInfo::new();
         unsafe {
-            ffi_try!(crocksdb_sstfilewriter_finish(self.inner));
-            Ok(())
+            ffi_try!(crocksdb_sstfilewriter_finish(self.inner, info.inner));
         }
+        Ok(info)
     }
 
     pub fn file_size(&mut self) -> u64 {
@@ -1776,6 +1777,65 @@ impl SstFileWriter {
 impl Drop for SstFileWriter {
     fn drop(&mut self) {
         unsafe { crocksdb_ffi::crocksdb_sstfilewriter_destroy(self.inner) }
+    }
+}
+
+pub struct ExternalSstFileInfo {
+    inner: *mut crocksdb_ffi::ExternalSstFileInfo,
+}
+
+impl ExternalSstFileInfo {
+    pub fn new() -> ExternalSstFileInfo {
+        unsafe {
+            ExternalSstFileInfo {
+                inner: crocksdb_ffi::crocksdb_externalsstfileinfo_create(),
+            }
+        }
+    }
+
+    pub fn file_path(&self) -> PathBuf {
+        let mut len: size_t = 0;
+        unsafe {
+            let ptr = crocksdb_ffi::crocksdb_externalsstfileinfo_file_path(self.inner, &mut len);
+            let bytes = slice::from_raw_parts(ptr, len as usize);
+            PathBuf::from(String::from_utf8(bytes.to_owned()).unwrap())
+        }
+    }
+
+    pub fn smallest_key(&self) -> &[u8] {
+        let mut len: size_t = 0;
+        unsafe {
+            let ptr = crocksdb_ffi::crocksdb_externalsstfileinfo_smallest_key(self.inner, &mut len);
+            slice::from_raw_parts(ptr, len as usize)
+        }
+    }
+
+    pub fn largest_key(&self) -> &[u8] {
+        let mut len: size_t = 0;
+        unsafe {
+            let ptr = crocksdb_ffi::crocksdb_externalsstfileinfo_largest_key(self.inner, &mut len);
+            slice::from_raw_parts(ptr, len as usize)
+        }
+    }
+
+    pub fn sequence_number(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_externalsstfileinfo_sequence_number(self.inner) as u64 }
+    }
+
+    pub fn file_size(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_externalsstfileinfo_file_size(self.inner) as u64 }
+    }
+
+    pub fn num_entries(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_externalsstfileinfo_num_entries(self.inner) as u64 }
+    }
+}
+
+impl Drop for ExternalSstFileInfo {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_externalsstfileinfo_destroy(self.inner);
+        }
     }
 }
 

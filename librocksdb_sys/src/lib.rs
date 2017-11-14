@@ -37,6 +37,7 @@ pub enum DBFlushOptions {}
 pub enum DBCompactionFilter {}
 pub enum EnvOptions {}
 pub enum SstFileWriter {}
+pub enum ExternalSstFileInfo {}
 pub enum IngestExternalFileOptions {}
 pub enum DBBackupEngine {}
 pub enum DBRestoreOptions {}
@@ -1118,9 +1119,33 @@ extern "C" {
         key_len: size_t,
         err: *mut *mut c_char,
     );
-    pub fn crocksdb_sstfilewriter_finish(writer: *mut SstFileWriter, err: *mut *mut c_char);
+    pub fn crocksdb_sstfilewriter_finish(
+        writer: *mut SstFileWriter,
+        info: *mut ExternalSstFileInfo,
+        err: *mut *mut c_char,
+    );
     pub fn crocksdb_sstfilewriter_file_size(writer: *mut SstFileWriter) -> uint64_t;
     pub fn crocksdb_sstfilewriter_destroy(writer: *mut SstFileWriter);
+
+    // ExternalSstFileInfo
+    pub fn crocksdb_externalsstfileinfo_create() -> *mut ExternalSstFileInfo;
+    pub fn crocksdb_externalsstfileinfo_destroy(info: *mut ExternalSstFileInfo);
+    pub fn crocksdb_externalsstfileinfo_file_path(
+        info: *mut ExternalSstFileInfo,
+        size: *mut size_t,
+    ) -> *const uint8_t;
+    pub fn crocksdb_externalsstfileinfo_smallest_key(
+        info: *mut ExternalSstFileInfo,
+        size: *mut size_t,
+    ) -> *const uint8_t;
+    pub fn crocksdb_externalsstfileinfo_largest_key(
+        info: *mut ExternalSstFileInfo,
+        size: *mut size_t,
+    ) -> *const uint8_t;
+    pub fn crocksdb_externalsstfileinfo_sequence_number(info: *mut ExternalSstFileInfo)
+        -> uint64_t;
+    pub fn crocksdb_externalsstfileinfo_file_size(info: *mut ExternalSstFileInfo) -> uint64_t;
+    pub fn crocksdb_externalsstfileinfo_num_entries(info: *mut ExternalSstFileInfo) -> uint64_t;
 
     pub fn crocksdb_ingest_external_file(
         db: *mut DBInstance,

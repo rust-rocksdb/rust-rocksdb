@@ -82,6 +82,7 @@ using rocksdb::SliceParts;
 using rocksdb::SliceTransform;
 using rocksdb::Snapshot;
 using rocksdb::SstFileWriter;
+using rocksdb::ExternalSstFileInfo;
 using rocksdb::Status;
 using rocksdb::WritableFile;
 using rocksdb::WriteBatch;
@@ -145,6 +146,7 @@ struct crocksdb_column_family_handle_t  { ColumnFamilyHandle* rep; };
 struct crocksdb_envoptions_t      { EnvOptions        rep; };
 struct crocksdb_ingestexternalfileoptions_t  { IngestExternalFileOptions rep; };
 struct crocksdb_sstfilewriter_t   { SstFileWriter*    rep; };
+struct crocksdb_externalsstfileinfo_t   { ExternalSstFileInfo rep; };
 struct crocksdb_ratelimiter_t     { RateLimiter*      rep; };
 struct crocksdb_histogramdata_t   { HistogramData     rep; };
 struct crocksdb_pinnableslice_t   { PinnableSlice     rep; };
@@ -2905,8 +2907,9 @@ void crocksdb_sstfilewriter_delete(crocksdb_sstfilewriter_t *writer,
 }
 
 void crocksdb_sstfilewriter_finish(crocksdb_sstfilewriter_t* writer,
-                                  char** errptr) {
-  SaveError(errptr, writer->rep->Finish(NULL));
+                                   crocksdb_externalsstfileinfo_t* info,
+                                   char** errptr) {
+  SaveError(errptr, writer->rep->Finish(&info->rep));
 }
 
 uint64_t crocksdb_sstfilewriter_file_size(crocksdb_sstfilewriter_t* writer) {
@@ -2916,6 +2919,47 @@ uint64_t crocksdb_sstfilewriter_file_size(crocksdb_sstfilewriter_t* writer) {
 void crocksdb_sstfilewriter_destroy(crocksdb_sstfilewriter_t* writer) {
   delete writer->rep;
   delete writer;
+}
+
+crocksdb_externalsstfileinfo_t* crocksdb_externalsstfileinfo_create() {
+  return new crocksdb_externalsstfileinfo_t;
+};
+
+void crocksdb_externalsstfileinfo_destroy(crocksdb_externalsstfileinfo_t* info) {
+  delete info;
+}
+
+const char* crocksdb_externalsstfileinfo_file_path(
+    crocksdb_externalsstfileinfo_t* info, size_t* size) {
+  *size = info->rep.file_path.size();
+  return info->rep.file_path.c_str();
+}
+
+const char* crocksdb_externalsstfileinfo_smallest_key(
+    crocksdb_externalsstfileinfo_t* info, size_t* size) {
+  *size = info->rep.smallest_key.size();
+  return info->rep.smallest_key.c_str();
+}
+
+const char* crocksdb_externalsstfileinfo_largest_key(
+    crocksdb_externalsstfileinfo_t* info, size_t* size) {
+  *size = info->rep.largest_key.size();
+  return info->rep.largest_key.c_str();
+}
+
+uint64_t crocksdb_externalsstfileinfo_sequence_number(
+    crocksdb_externalsstfileinfo_t* info) {
+  return info->rep.sequence_number;
+}
+
+uint64_t crocksdb_externalsstfileinfo_file_size(
+    crocksdb_externalsstfileinfo_t* info) {
+  return info->rep.file_size;
+}
+
+uint64_t crocksdb_externalsstfileinfo_num_entries(
+    crocksdb_externalsstfileinfo_t* info) {
+  return info->rep.num_entries;
 }
 
 crocksdb_ingestexternalfileoptions_t*

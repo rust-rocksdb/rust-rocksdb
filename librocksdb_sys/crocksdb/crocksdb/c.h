@@ -109,6 +109,7 @@ typedef struct crocksdb_column_family_handle_t crocksdb_column_family_handle_t;
 typedef struct crocksdb_envoptions_t      crocksdb_envoptions_t;
 typedef struct crocksdb_ingestexternalfileoptions_t crocksdb_ingestexternalfileoptions_t;
 typedef struct crocksdb_sstfilewriter_t   crocksdb_sstfilewriter_t;
+typedef struct crocksdb_externalsstfileinfo_t   crocksdb_externalsstfileinfo_t;
 typedef struct crocksdb_ratelimiter_t     crocksdb_ratelimiter_t;
 typedef struct crocksdb_pinnableslice_t   crocksdb_pinnableslice_t;
 typedef struct crocksdb_user_collected_properties_t
@@ -1219,11 +1220,30 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_sstfilewriter_delete(crocksdb_sstfilewriter_t *writer, const char *key,
                               size_t keylen, char **errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_finish(
-    crocksdb_sstfilewriter_t* writer, char** errptr);
+    crocksdb_sstfilewriter_t* writer, crocksdb_externalsstfileinfo_t* info, char** errptr);
 extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_sstfilewriter_file_size(
     crocksdb_sstfilewriter_t* writer);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_destroy(
     crocksdb_sstfilewriter_t* writer);
+
+/* ExternalSstFileInfo */
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_externalsstfileinfo_t*
+crocksdb_externalsstfileinfo_create();
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_externalsstfileinfo_destroy(crocksdb_externalsstfileinfo_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_externalsstfileinfo_file_path(crocksdb_externalsstfileinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_externalsstfileinfo_smallest_key(crocksdb_externalsstfileinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_externalsstfileinfo_largest_key(crocksdb_externalsstfileinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_externalsstfileinfo_sequence_number(crocksdb_externalsstfileinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_externalsstfileinfo_file_size(crocksdb_externalsstfileinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_externalsstfileinfo_num_entries(crocksdb_externalsstfileinfo_t*);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_ingestexternalfileoptions_t*
 crocksdb_ingestexternalfileoptions_create();
