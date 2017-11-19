@@ -151,3 +151,35 @@ pub fn test_iterator() {
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
 }
+
+fn key(k: &[u8]) -> Box<[u8]> { k.to_vec().into_boxed_slice() }
+
+#[test]
+pub fn test_prefix_iterator() {
+    let path = "_rust_rocksdb_prefixiteratortest";
+    {
+        let a1: Box<[u8]> = key(b"aaa1");
+        let a2: Box<[u8]> = key(b"aaa2");
+        let b1: Box<[u8]> = key(b"bbb1");
+        let b2: Box<[u8]> = key(b"bbb2");
+
+        let db = DB::open_default(path).unwrap();
+
+        assert!(db.put(&*a1, &*a1).is_ok());
+        assert!(db.put(&*a2, &*a2).is_ok());
+        assert!(db.put(&*b1, &*b1).is_ok());
+        assert!(db.put(&*b2, &*b2).is_ok());
+
+        {
+            let expected = vec![(cba(&a1), cba(&a1)), (cba(&a2), cba(&a2))];
+            let a_iterator = db.prefix_iterator(b"aaa");
+            assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
+        }
+
+        {
+            let expected = vec![(cba(&b1), cba(&b1)), (cba(&b2), cba(&b2))];
+            let b_iterator = db.prefix_iterator(b"bbb");
+            assert_eq!(b_iterator.collect::<Vec<_>>(), expected)
+        }
+    }
+}
