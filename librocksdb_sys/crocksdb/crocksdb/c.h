@@ -107,6 +107,7 @@ typedef struct crocksdb_universal_compaction_options_t crocksdb_universal_compac
 typedef struct crocksdb_livefiles_t     crocksdb_livefiles_t;
 typedef struct crocksdb_column_family_handle_t crocksdb_column_family_handle_t;
 typedef struct crocksdb_envoptions_t      crocksdb_envoptions_t;
+typedef struct crocksdb_sequential_file_t crocksdb_sequential_file_t;
 typedef struct crocksdb_ingestexternalfileoptions_t crocksdb_ingestexternalfileoptions_t;
 typedef struct crocksdb_sstfilewriter_t   crocksdb_sstfilewriter_t;
 typedef struct crocksdb_externalsstfileinfo_t   crocksdb_externalsstfileinfo_t;
@@ -1196,6 +1197,16 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_env_destroy(crocksdb_env_t*);
 extern C_ROCKSDB_LIBRARY_API crocksdb_envoptions_t* crocksdb_envoptions_create();
 extern C_ROCKSDB_LIBRARY_API void crocksdb_envoptions_destroy(
     crocksdb_envoptions_t* opt);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_sequential_file_t*
+crocksdb_sequential_file_create(crocksdb_env_t* env, const char* path,
+                                const crocksdb_envoptions_t* opts, char** errptr);
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_sequential_file_read(
+    crocksdb_sequential_file_t*, size_t n, char* buf, char** errptr);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_sequential_file_skip(
+    crocksdb_sequential_file_t*, size_t n, char** errptr);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_sequential_file_destroy(
+    crocksdb_sequential_file_t*);
 
 /* SstFile */
 

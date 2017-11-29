@@ -144,6 +144,7 @@ struct crocksdb_cache_t           { shared_ptr<Cache>   rep; };
 struct crocksdb_livefiles_t       { std::vector<LiveFileMetaData> rep; };
 struct crocksdb_column_family_handle_t  { ColumnFamilyHandle* rep; };
 struct crocksdb_envoptions_t      { EnvOptions        rep; };
+struct crocksdb_sequential_file_t { SequentialFile*   rep; };
 struct crocksdb_ingestexternalfileoptions_t  { IngestExternalFileOptions rep; };
 struct crocksdb_sstfilewriter_t   { SstFileWriter*    rep; };
 struct crocksdb_externalsstfileinfo_t   { ExternalSstFileInfo rep; };
@@ -2865,6 +2866,37 @@ crocksdb_envoptions_t* crocksdb_envoptions_create() {
 }
 
 void crocksdb_envoptions_destroy(crocksdb_envoptions_t* opt) { delete opt; }
+
+crocksdb_sequential_file_t* crocksdb_sequential_file_create(
+    crocksdb_env_t* env, const char* path,
+    const crocksdb_envoptions_t* opts, char **errptr) {
+  std::unique_ptr<SequentialFile> result;
+  if (SaveError(errptr, env->rep->NewSequentialFile(path, &result, opts->rep))) {
+    return nullptr;
+  }
+  auto file = new crocksdb_sequential_file_t;
+  file->rep = result.release();
+  return file;
+}
+
+size_t crocksdb_sequential_file_read(crocksdb_sequential_file_t* file,
+    size_t n, char* buf, char** errptr) {
+  Slice result;
+  if (SaveError(errptr, file->rep->Read(n, &result, buf))) {
+      return 0;
+  }
+  return result.size();
+}
+
+void crocksdb_sequential_file_skip(crocksdb_sequential_file_t* file,
+    size_t n, char** errptr) {
+  SaveError(errptr, file->rep->Skip(n));
+}
+
+void crocksdb_sequential_file_destroy(crocksdb_sequential_file_t* file) {
+  delete file->rep;
+  delete file;
+}
 
 crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create(
     const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options) {

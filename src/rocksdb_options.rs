@@ -23,10 +23,12 @@ use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
 use merge_operator::MergeFn;
+use rocksdb::Env;
 use slice_transform::{new_slice_transform, SliceTransform};
 use std::ffi::{CStr, CString};
 use std::mem;
 use std::path::Path;
+use std::sync::Arc;
 use table_properties_collector_factory::{new_table_properties_collector_factory,
                                          TablePropertiesCollectorFactory};
 
@@ -824,6 +826,7 @@ impl DBOptions {
 
 pub struct ColumnFamilyOptions {
     pub inner: *mut Options,
+    env: Option<Arc<Env>>,
     filter: Option<CompactionFilterHandle>,
 }
 
@@ -845,6 +848,7 @@ impl Default for ColumnFamilyOptions {
             );
             ColumnFamilyOptions {
                 inner: opts,
+                env: None,
                 filter: None,
             }
         }
@@ -859,6 +863,7 @@ impl Clone for ColumnFamilyOptions {
             assert!(!opts.is_null());
             ColumnFamilyOptions {
                 inner: opts,
+                env: self.env.clone(),
                 filter: None,
             }
         }
@@ -877,6 +882,7 @@ impl ColumnFamilyOptions {
         );
         ColumnFamilyOptions {
             inner: inner,
+            env: None,
             filter: None,
         }
     }
@@ -887,6 +893,13 @@ impl ColumnFamilyOptions {
                 self.inner,
                 memtable_memory_budget,
             );
+        }
+    }
+
+    pub fn set_env(&mut self, env: Arc<Env>) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_env(self.inner, env.inner);
+            self.env = Some(env);
         }
     }
 

@@ -13,6 +13,8 @@
 
 use rocksdb::*;
 use std::fs;
+use std::io::{Read, Write};
+use std::sync::Arc;
 use tempdir::TempDir;
 
 pub fn gen_sst(
@@ -379,4 +381,50 @@ fn test_ingest_simulate_real_world() {
             ],
         );
     }
+}
+
+#[test]
+fn test_mem_sst_file_writer() {
+    let path = TempDir::new("_rust_mem_sst_file_writer").expect("");
+    let db = create_default_database(&path);
+
+    let env = Arc::new(Env::new_mem());
+    let mut opts = db.get_options().clone();
+    opts.set_env(env.clone());
+
+    let mem_sst_path = path.path().join("mem_sst");
+    let mem_sst_str = mem_sst_path.to_str().unwrap();
+    gen_sst(
+        opts,
+        None,
+        mem_sst_str,
+        &[(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")],
+    );
+    // Check that the file is not on disk.
+    assert!(!mem_sst_path.exists());
+
+    let mut buf = Vec::new();
+    let mut sst = env.new_sequential_file(mem_sst_str, EnvOptions::new())
+        .unwrap();
+    sst.read_to_end(&mut buf).unwrap();
+
+    // Write the data to a temp file.
+    let sst_path = path.path().join("temp_sst_path");
+    fs::File::create(&sst_path)
+        .unwrap()
+        .write_all(&buf)
+        .unwrap();
+    // Ingest the temp file to check the test kvs.
+    let ingest_opts = IngestExternalFileOptions::new();
+    db.ingest_external_file(&ingest_opts, &[sst_path.to_str().unwrap()])
+        .unwrap();
+    check_kv(
+        &db,
+        None,
+        &[
+            (b"k1", Some(b"v1")),
+            (b"k2", Some(b"v2")),
+            (b"k3", Some(b"v3")),
+        ],
+    );
 }

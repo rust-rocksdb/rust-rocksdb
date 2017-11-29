@@ -13,9 +13,9 @@
 // limitations under the License.
 //
 
-use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBInstance,
-                   DBPinnableSlice, DBStatisticsHistogramType, DBStatisticsTickerType,
-                   DBWriteBatch};
+use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance,
+                   DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType,
+                   DBStatisticsTickerType, DBWriteBatch};
 use libc::{self, c_int, c_void, size_t};
 use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions, DBOptions,
                       EnvOptions, FlushOptions, HistogramData, IngestExternalFileOptions,
@@ -25,6 +25,7 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
+use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
@@ -1847,6 +1848,100 @@ pub fn supported_compression() -> Vec<DBCompressionType> {
         crocksdb_ffi::crocksdb_get_supported_compression(pv, size as size_t);
         v.set_len(size);
         v
+    }
+}
+
+pub struct Env {
+    pub inner: *mut DBEnv,
+}
+
+impl Default for Env {
+    fn default() -> Env {
+        unsafe {
+            Env {
+                inner: crocksdb_ffi::crocksdb_create_default_env(),
+            }
+        }
+    }
+}
+
+impl Env {
+    pub fn new_mem() -> Env {
+        unsafe {
+            Env {
+                inner: crocksdb_ffi::crocksdb_create_mem_env(),
+            }
+        }
+    }
+
+    pub fn new_sequential_file(
+        &self,
+        path: &str,
+        opts: EnvOptions,
+    ) -> Result<SequentialFile, String> {
+        unsafe {
+            let file_path = CString::new(path).unwrap();
+            let file = ffi_try!(crocksdb_sequential_file_create(
+                self.inner,
+                file_path.as_ptr(),
+                opts.inner
+            ));
+            Ok(SequentialFile::new(file))
+        }
+    }
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_env_destroy(self.inner);
+        }
+    }
+}
+
+pub struct SequentialFile {
+    inner: *mut DBSequentialFile,
+}
+
+impl SequentialFile {
+    fn new(inner: *mut DBSequentialFile) -> SequentialFile {
+        SequentialFile { inner: inner }
+    }
+
+    pub fn skip(&mut self, n: usize) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_sequential_file_skip(self.inner, n as size_t));
+            Ok(())
+        }
+    }
+}
+
+impl io::Read for SequentialFile {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        unsafe {
+            let mut err = ptr::null_mut();
+            let size = crocksdb_ffi::crocksdb_sequential_file_read(
+                self.inner,
+                buf.len() as size_t,
+                buf.as_mut_ptr(),
+                &mut err,
+            );
+            if !err.is_null() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    crocksdb_ffi::error_message(err),
+                ));
+            }
+            Ok(size as usize)
+        }
+    }
+}
+
+impl Drop for SequentialFile {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_sequential_file_destroy(self.inner);
+        }
     }
 }
 
