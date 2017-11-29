@@ -33,3 +33,6 @@ format:
 clean:
 	@cargo clean
 	@cd librocksdb_sys && cargo clean
+
+update-rocksdb:
+	@git subtree pull -P librocksdb_sys/rocksdb https://github.com/pingcap/rocksdb.git release --squash
