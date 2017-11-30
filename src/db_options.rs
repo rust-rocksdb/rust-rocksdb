@@ -30,6 +30,8 @@ pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
 
+unsafe impl Send for Options {}
+
 impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
