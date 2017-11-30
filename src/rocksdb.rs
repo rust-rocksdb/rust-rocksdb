@@ -1855,6 +1855,9 @@ pub struct Env {
     pub inner: *mut DBEnv,
 }
 
+unsafe impl Send for Env {}
+unsafe impl Sync for Env {}
+
 impl Default for Env {
     fn default() -> Env {
         unsafe {
