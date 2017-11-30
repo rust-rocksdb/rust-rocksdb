@@ -3,6 +3,7 @@ name = "librocksdb_sys"
 version = "0.1.0"
 authors = ["Jay Lee <busyjaylee@gmail.com>"]
 build = "build.rs"
+links = "rocksdb"
 
 [dependencies]
 libc = "0.2.11"
@@ -10,11 +11,29 @@ tempdir = "0.3"
 
 [features]
 default = []
-static-link = []
 # portable doesn't require static link, though it's meaningless
 # when not using with static-link right now in this crate.
 portable = []
 sse = []
 
 [build-dependencies]
-cc = "1.0"
+cc = "1.0.3"
+cmake = "0.1"
+
+[dependencies.libz-sys]
+git = "https://github.com/busyjay/libz-sys.git"
+branch = "static-link"
+
+[dependencies.bzip2-sys]
+git = "https://github.com/alexcrichton/bzip2-rs.git"
+
+[dependencies.lz4-sys]
+git = "https://github.com/busyjay/lz4-rs.git"
+branch = "adjust-build"
+
+[dependencies.zstd-sys]
+git = "https://github.com/gyscos/zstd-rs.git"
+
+[dependencies.snappy-sys]
+git = "https://github.com/busyjay/rust-snappy.git"
+branch = "static-link"

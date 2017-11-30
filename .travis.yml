@@ -14,8 +14,8 @@ os:
   - linux
 
 script:
-- cargo build --features static-link
-- cargo test --all --features static-link
+- cargo build
+- cargo test --all
 
 env:
   global:

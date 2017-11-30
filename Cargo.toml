@@ -16,7 +16,6 @@ exclude = [
 [features]
 default = []
 valgrind = []
-static-link = ["librocksdb_sys/static-link"]
 portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
 
