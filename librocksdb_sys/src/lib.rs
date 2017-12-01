@@ -180,39 +180,41 @@ pub enum DBStatisticsTickerType {
     CompactionKeyDropObsolete = 31,      // The key is obsolete.
     CompactionKeyDropRangeDel = 32,      // key was covered by a range tombstone.
     CompactionRangeDelDropObsolete = 34, // all keys in range were deleted.
-    NumberKeysWritten = 35, // number of keys written to the database via the Put and Write call's
-    NumberKeysRead = 36,    // number of keys read
-    BytesWritten = 38,      // the number of uncompressed bytes read from DB::Put, DB::Delete,
+    CompactionOptimizedDelDropObsolete = 35, // Deletions obsoleted before bottom level due to file gap optimization.
+    NumberKeysWritten = 36, // number of keys written to the database via the Put and Write call's
+    NumberKeysRead = 37,    // number of keys read
+    NumberKeysUpdated = 38,
+    BytesWritten = 39,      // the number of uncompressed bytes read from DB::Put, DB::Delete,
     // DB::Merge and DB::Write
-    BytesRead = 39,    // the number of uncompressed bytes read from DB::Get()
-    NumberDbSeek = 40, // the number of calls to seek/next/prev
-    NumberDbNext = 41,
-    NumberDbPrev = 42,
-    NumberDbSeekFound = 43, // the number of calls to seek/next/prev that returned data
-    NumberDbNextFound = 44,
-    NumberDbPrevFound = 45,
-    IterBytesRead = 46, // the number of uncompressed bytes read from an iterator, include size of
+    BytesRead = 40,    // the number of uncompressed bytes read from DB::Get()
+    NumberDbSeek = 41, // the number of calls to seek/next/prev
+    NumberDbNext = 42,
+    NumberDbPrev = 43,
+    NumberDbSeekFound = 44, // the number of calls to seek/next/prev that returned data
+    NumberDbNextFound = 45,
+    NumberDbPrevFound = 46,
+    IterBytesRead = 47, // the number of uncompressed bytes read from an iterator, include size of
     // key and value
-    NoFileCloses = 47,
-    NoFileOpens = 48,
-    NoFileErrors = 49,
-    StallMicros = 53, // writer has to wait for compaction or flush to finish
-    NoIterators = 56, // number of iterators currently open
-    BloomFilterPrefixChecked = 62, // number of times bloom was checked before creating iterator
+    NoFileCloses = 48,
+    NoFileOpens = 49,
+    NoFileErrors = 50,
+    StallMicros = 54, // writer has to wait for compaction or flush to finish
+    NoIterators = 57, // number of iterators currently open
+    BloomFilterPrefixChecked = 63, // number of times bloom was checked before creating iterator
     // on a file
-    BloomFilterPrefixUseful = 63, // number of times the check was useful in avoiding iterator
+    BloomFilterPrefixUseful = 64, // number of times the check was useful in avoiding iterator
     // creating
-    WalFileSynced = 70,              // number of times WAL sync is done
-    WalFileBytes = 71,               // number of bytes written to WAL
-    WriteDoneBySelf = 72,            // number of writes processed by self
-    WriteDoneByOther = 73,           // number of writes processed by other
-    WriteTimeout = 74,               // number of writes ending up with timed-out
-    WriteWithWAL = 75,               // number of writes that request WAL
-    CompactReadBytes = 76,           // bytes read during compaction
-    CompactWriteBytes = 77,          // bytes written during compaction
-    FlushWriteBytes = 78,            // bytes written during flush
-    ReadAmpEstimateUsefulBytes = 90, // total bytes actually used
-    ReadAmpTotalReadBytes = 91,      // total size of loaded data blocks
+    WalFileSynced = 71,              // number of times WAL sync is done
+    WalFileBytes = 72,               // number of bytes written to WAL
+    WriteDoneBySelf = 73,            // number of writes processed by self
+    WriteDoneByOther = 74,           // number of writes processed by other
+    WriteTimeout = 75,               // number of writes ending up with timed-out
+    WriteWithWAL = 76,               // number of writes that request WAL
+    CompactReadBytes = 77,           // bytes read during compaction
+    CompactWriteBytes = 78,          // bytes written during compaction
+    FlushWriteBytes = 79,            // bytes written during flush
+    ReadAmpEstimateUsefulBytes = 91, // total bytes actually used
+    ReadAmpTotalReadBytes = 92,      // total size of loaded data blocks
 }
 
 #[derive(Copy, Clone, Debug)]

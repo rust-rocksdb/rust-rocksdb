@@ -42,13 +42,24 @@ SpecialEnv::SpecialEnv(Env* base)
   non_writable_count_ = 0;
   table_write_callback_ = nullptr;
 }
-
+#ifndef ROCKSDB_LITE
 ROT13BlockCipher rot13Cipher_(16);
+#endif  // ROCKSDB_LITE
 
 DBTestBase::DBTestBase(const std::string path)
     : mem_env_(!getenv("MEM_ENV") ? nullptr : new MockEnv(Env::Default())),
-      encrypted_env_(!getenv("ENCRYPTED_ENV") ? nullptr : NewEncryptedEnv(mem_env_ ? mem_env_ : Env::Default(), new CTREncryptionProvider(rot13Cipher_))),
-      env_(new SpecialEnv(encrypted_env_ ? encrypted_env_ : (mem_env_ ? mem_env_ : Env::Default()))),
+#ifndef ROCKSDB_LITE
+      encrypted_env_(
+          !getenv("ENCRYPTED_ENV")
+              ? nullptr
+              : NewEncryptedEnv(mem_env_ ? mem_env_ : Env::Default(),
+                                new CTREncryptionProvider(rot13Cipher_))),
+#else
+      encrypted_env_(nullptr),
+#endif  // ROCKSDB_LITE
+      env_(new SpecialEnv(encrypted_env_
+                              ? encrypted_env_
+                              : (mem_env_ ? mem_env_ : Env::Default()))),
       option_config_(kDefault) {
   env_->SetBackgroundThreads(1, Env::LOW);
   env_->SetBackgroundThreads(1, Env::HIGH);
@@ -684,6 +695,13 @@ std::string DBTestBase::Get(int cf, const std::string& k,
     result = s.ToString();
   }
   return result;
+}
+
+Status DBTestBase::Get(const std::string& k, PinnableSlice* v) {
+  ReadOptions options;
+  options.verify_checksums = true;
+  Status s = dbfull()->Get(options, dbfull()->DefaultColumnFamily(), k, v);
+  return s;
 }
 
 uint64_t DBTestBase::GetNumSnapshots() {

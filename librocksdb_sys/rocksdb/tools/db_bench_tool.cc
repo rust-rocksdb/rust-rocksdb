@@ -28,6 +28,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -57,6 +58,7 @@
 #include "rocksdb/utilities/transaction.h"
 #include "rocksdb/utilities/transaction_db.h"
 #include "rocksdb/write_batch.h"
+#include "util/cast_util.h"
 #include "util/compression.h"
 #include "util/crc32c.h"
 #include "util/mutexlock.h"
@@ -204,6 +206,15 @@ DEFINE_int32(
     "create new set of column families and insert to them. Only used "
     "when num_column_families > 1.");
 
+DEFINE_string(column_family_distribution, "",
+              "Comma-separated list of percentages, where the ith element "
+              "indicates the probability of an op using the ith column family. "
+              "The number of elements must be `num_hot_column_families` if "
+              "specified; otherwise, it must be `num_column_families`. The "
+              "sum of elements must be 100. E.g., if `num_column_families=4`, "
+              "and `num_hot_column_families=0`, a valid list could be "
+              "\"10,20,30,40\".");
+
 DEFINE_int64(reads, -1, "Number of read operations to do.  "
              "If negative, do FLAGS_num reads.");
 
@@ -315,6 +326,18 @@ DEFINE_int32(max_background_jobs,
              rocksdb::Options().max_background_jobs,
              "The maximum number of concurrent background jobs that can occur "
              "in parallel.");
+
+DEFINE_int32(num_bottom_pri_threads, 0,
+             "The number of threads in the bottom-priority thread pool (used "
+             "by universal compaction only).");
+
+DEFINE_int32(num_high_pri_threads, 0,
+             "The maximum number of concurrent background compactions"
+             " that can occur in parallel.");
+
+DEFINE_int32(num_low_pri_threads, 0,
+             "The maximum number of concurrent background compactions"
+             " that can occur in parallel.");
 
 DEFINE_int32(max_background_compactions,
              rocksdb::Options().max_background_compactions,
@@ -434,7 +457,7 @@ DEFINE_int32(file_opening_threads, rocksdb::Options().max_file_opening_threads,
              "If open_files is set to -1, this option set the number of "
              "threads that will be used to open files during DB::Open()");
 
-DEFINE_int32(new_table_reader_for_compaction_inputs, true,
+DEFINE_bool(new_table_reader_for_compaction_inputs, true,
              "If true, uses a separate file handle for compaction inputs");
 
 DEFINE_int32(compaction_readahead_size, 0, "Compaction readahead size");
@@ -1184,6 +1207,8 @@ struct DBWithColumnFamilies {
                    // After each CreateNewCf(), another num_hot number of new
                    // Column families will be created and used to be queried.
   port::Mutex create_cf_mutex;  // Only one thread can execute CreateNewCf()
+  std::vector<int> cfh_idx_to_prob;  // ith index holds probability of operating
+                                     // on cfh[i].
 
   DBWithColumnFamilies()
       : db(nullptr)
@@ -1203,7 +1228,9 @@ struct DBWithColumnFamilies {
         opt_txn_db(other.opt_txn_db),
 #endif  // ROCKSDB_LITE
         num_created(other.num_created.load()),
-        num_hot(other.num_hot) {}
+        num_hot(other.num_hot),
+        cfh_idx_to_prob(other.cfh_idx_to_prob) {
+  }
 
   void DeleteDBs() {
     std::for_each(cfh.begin(), cfh.end(),
@@ -1225,8 +1252,20 @@ struct DBWithColumnFamilies {
 
   ColumnFamilyHandle* GetCfh(int64_t rand_num) {
     assert(num_hot > 0);
+    size_t rand_offset = 0;
+    if (!cfh_idx_to_prob.empty()) {
+      assert(cfh_idx_to_prob.size() == num_hot);
+      int sum = 0;
+      while (sum + cfh_idx_to_prob[rand_offset] < rand_num % 100) {
+        sum += cfh_idx_to_prob[rand_offset];
+        ++rand_offset;
+      }
+      assert(rand_offset < cfh_idx_to_prob.size());
+    } else {
+      rand_offset = rand_num % num_hot;
+    }
     return cfh[num_created.load(std::memory_order_acquire) - num_hot +
-               rand_num % num_hot];
+               rand_offset];
   }
 
   // stage: assume CF from 0 to stage * num_hot has be created. Need to create
@@ -2551,7 +2590,9 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     }
     if (FLAGS_simcache_size >= 0) {
       fprintf(stdout, "SIMULATOR CACHE STATISTICS:\n%s\n",
-              std::dynamic_pointer_cast<SimCache>(cache_)->ToString().c_str());
+              static_cast_with_check<SimCache, Cache>(cache_.get())
+                  ->ToString()
+                  .c_str());
     }
   }
 
@@ -2852,7 +2893,6 @@ void VerifyDBFromDB(std::string& truth_db_name) {
 
     assert(db_.db == nullptr);
 
-    options.create_missing_column_families = FLAGS_num_column_families > 1;
     options.max_open_files = FLAGS_open_files;
     if (FLAGS_cost_write_buffer_to_cache || FLAGS_db_write_buffer_size != 0) {
       options.write_buffer_manager.reset(
@@ -3199,6 +3239,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
   void InitializeOptionsGeneral(Options* opts) {
     Options& options = *opts;
 
+    options.create_missing_column_families = FLAGS_num_column_families > 1;
     options.statistics = dbstats;
     options.wal_dir = FLAGS_wal_dir;
     options.create_if_missing = !FLAGS_use_existing_db;
@@ -3259,6 +3300,28 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         column_families.push_back(ColumnFamilyDescriptor(
               ColumnFamilyName(i), ColumnFamilyOptions(options)));
       }
+      std::vector<int> cfh_idx_to_prob;
+      if (!FLAGS_column_family_distribution.empty()) {
+        std::stringstream cf_prob_stream(FLAGS_column_family_distribution);
+        std::string cf_prob;
+        int sum = 0;
+        while (std::getline(cf_prob_stream, cf_prob, ',')) {
+          cfh_idx_to_prob.push_back(std::stoi(cf_prob));
+          sum += cfh_idx_to_prob.back();
+        }
+        if (sum != 100) {
+          fprintf(stderr, "column_family_distribution items must sum to 100\n");
+          exit(1);
+        }
+        if (cfh_idx_to_prob.size() != num_hot) {
+          fprintf(stderr,
+                  "got %" ROCKSDB_PRIszt
+                  " column_family_distribution items; expected "
+                  "%" ROCKSDB_PRIszt "\n",
+                  cfh_idx_to_prob.size(), num_hot);
+          exit(1);
+        }
+      }
 #ifndef ROCKSDB_LITE
       if (FLAGS_readonly) {
         s = DB::OpenForReadOnly(options, db_name, column_families,
@@ -3286,6 +3349,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       db->cfh.resize(FLAGS_num_column_families);
       db->num_created = num_hot;
       db->num_hot = num_hot;
+      db->cfh_idx_to_prob = std::move(cfh_idx_to_prob);
 #ifndef ROCKSDB_LITE
     } else if (FLAGS_readonly) {
       s = DB::OpenForReadOnly(options, db_name, &db->db);
@@ -3307,10 +3371,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     } else if (FLAGS_use_blob_db) {
       blob_db::BlobDBOptions blob_db_options;
       blob_db::BlobDB* ptr;
-      s = CreateLoggerFromOptions(db_name, options, &options.info_log);
-      if (s.ok()) {
-        s = blob_db::BlobDB::Open(options, blob_db_options, db_name, &ptr);
-      }
+      s = blob_db::BlobDB::Open(options, blob_db_options, db_name, &ptr);
       if (s.ok()) {
         db->db = ptr;
       }
@@ -5236,11 +5297,14 @@ int db_bench_tool(int argc, char** argv) {
 
   FLAGS_rep_factory = StringToRepFactory(FLAGS_memtablerep.c_str());
 
-  // The number of background threads should be at least as much the
-  // max number of concurrent compactions.
-  FLAGS_env->SetBackgroundThreads(FLAGS_max_background_compactions);
-  FLAGS_env->SetBackgroundThreads(FLAGS_max_background_flushes,
+  // Note options sanitization may increase thread pool sizes according to
+  // max_background_flushes/max_background_compactions/max_background_jobs
+  FLAGS_env->SetBackgroundThreads(FLAGS_num_high_pri_threads,
                                   rocksdb::Env::Priority::HIGH);
+  FLAGS_env->SetBackgroundThreads(FLAGS_num_bottom_pri_threads,
+                                  rocksdb::Env::Priority::BOTTOM);
+  FLAGS_env->SetBackgroundThreads(FLAGS_num_low_pri_threads,
+                                  rocksdb::Env::Priority::LOW);
 
   // Choose a location for the test database if none given with --db=<path>
   if (FLAGS_db.empty()) {

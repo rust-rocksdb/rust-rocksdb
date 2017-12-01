@@ -23,6 +23,7 @@
 #include <alloca.h>
 #endif
 
+#include "cache/lru_cache.h"
 #include "db/db_impl.h"
 #include "db/db_test_util.h"
 #include "db/dbformat.h"
@@ -2234,6 +2235,10 @@ class ModelDB : public DB {
     return Status::NotSupported("Not implemented.");
   }
 
+  virtual Status VerifyChecksum() override {
+    return Status::NotSupported("Not implemented.");
+  }
+
   using DB::GetPropertiesOfAllTables;
   virtual Status GetPropertiesOfAllTables(
       ColumnFamilyHandle* column_family,
@@ -2886,20 +2891,23 @@ TEST_F(DBTest, FIFOCompactionWithTTLAndVariousTableFormatsTest) {
   ASSERT_TRUE(TryReopen(options).IsNotSupported());
 }
 
-TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
+TEST_F(DBTest, FIFOCompactionWithTTLTest) {
   Options options;
   options.compaction_style = kCompactionStyleFIFO;
   options.write_buffer_size = 10 << 10;  // 10KB
   options.arena_block_size = 4096;
   options.compression = kNoCompression;
   options.create_if_missing = true;
+  env_->time_elapse_only_sleep_ = false;
+  options.env = env_;
 
   // Test to make sure that all files with expired ttl are deleted on next
   // manual compaction.
   {
+    env_->addon_time_.store(0);
     options.compaction_options_fifo.max_table_files_size = 150 << 10;  // 150KB
     options.compaction_options_fifo.allow_compaction = false;
-    options.compaction_options_fifo.ttl = 600;  // seconds
+    options.compaction_options_fifo.ttl = 1 * 60 * 60 ;  // 1 hour
     options = CurrentOptions(options);
     DestroyAndReopen(options);
 
@@ -2910,18 +2918,20 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 10);
 
-    // sleep for 5 seconds
-    env_->SleepForMicroseconds(5 * 1000 * 1000);
+    // Sleep for 2 hours -- which is much greater than TTL.
+    // Note: Couldn't use SleepForMicroseconds because it takes an int instead
+    // of uint64_t. Hence used addon_time_ directly.
+    // env_->SleepForMicroseconds(2 * 60 * 60 * 1000 * 1000);
+    env_->addon_time_.fetch_add(2 * 60 * 60);
+
+    // Since no flushes and compactions have run, the db should still be in
+    // the same state even after considerable time has passed.
     ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 10);
-
-    // change ttl to 1 sec. So all files should be deleted on next compaction.
-    options.compaction_options_fifo.ttl = 1;
-    Reopen(options);
 
     dbfull()->CompactRange(CompactRangeOptions(), nullptr, nullptr);
     ASSERT_EQ(NumTableFilesAtLevel(0), 0);
@@ -2932,7 +2942,7 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
   {
     options.compaction_options_fifo.max_table_files_size = 150 << 10;  // 150KB
     options.compaction_options_fifo.allow_compaction = false;
-    options.compaction_options_fifo.ttl = 5;  // seconds
+    options.compaction_options_fifo.ttl = 1 * 60 * 60;  // 1 hour
     options = CurrentOptions(options);
     DestroyAndReopen(options);
 
@@ -2943,11 +2953,13 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 10);
 
-    env_->SleepForMicroseconds(6 * 1000 * 1000);
+    // Sleep for 2 hours -- which is much greater than TTL.
+    env_->addon_time_.fetch_add(2 * 60 * 60);
+    // Just to make sure that we are in the same state even after sleeping.
     ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 10);
 
@@ -2969,10 +2981,10 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
   // Test that shows the fall back to size-based FIFO compaction if TTL-based
   // deletion doesn't move the total size to be less than max_table_files_size.
   {
-    options.write_buffer_size = 110 << 10;                             // 10KB
+    options.write_buffer_size = 10 << 10;                              // 10KB
     options.compaction_options_fifo.max_table_files_size = 150 << 10;  // 150KB
     options.compaction_options_fifo.allow_compaction = false;
-    options.compaction_options_fifo.ttl = 5;  // seconds
+    options.compaction_options_fifo.ttl =  1 * 60 * 60;  // 1 hour
     options = CurrentOptions(options);
     DestroyAndReopen(options);
 
@@ -2983,11 +2995,13 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 3);
 
-    env_->SleepForMicroseconds(6 * 1000 * 1000);
+    // Sleep for 2 hours -- which is much greater than TTL.
+    env_->addon_time_.fetch_add(2 * 60 * 60);
+    // Just to make sure that we are in the same state even after sleeping.
     ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 3);
 
@@ -2996,8 +3010,8 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     // Size limit is still guaranteed.
     ASSERT_LE(SizeAtLevel(0),
               options.compaction_options_fifo.max_table_files_size);
@@ -3007,7 +3021,7 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
   {
     options.compaction_options_fifo.max_table_files_size = 150 << 10;  // 150KB
     options.compaction_options_fifo.allow_compaction = true;
-    options.compaction_options_fifo.ttl = 5;  // seconds
+    options.compaction_options_fifo.ttl = 1 * 60 * 60;  // 1 hour
     options.level0_file_num_compaction_trigger = 6;
     options = CurrentOptions(options);
     DestroyAndReopen(options);
@@ -3019,15 +3033,16 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
     // With Intra-L0 compaction, out of 10 files, 6 files will be compacted to 1
     // (due to level0_file_num_compaction_trigger = 6).
     // So total files = 1 + remaining 4 = 5.
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 5);
 
-    // Sleep for a little over ttl time.
-    env_->SleepForMicroseconds(6 * 1000 * 1000);
+    // Sleep for 2 hours -- which is much greater than TTL.
+    env_->addon_time_.fetch_add(2 * 60 * 60);
+    // Just to make sure that we are in the same state even after sleeping.
     ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 5);
 
@@ -3037,8 +3052,8 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     ASSERT_EQ(NumTableFilesAtLevel(0), 5);
     ASSERT_LE(SizeAtLevel(0),
               options.compaction_options_fifo.max_table_files_size);
@@ -3050,7 +3065,7 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
     options.write_buffer_size = 20 << 10;                               // 20K
     options.compaction_options_fifo.max_table_files_size = 1500 << 10;  // 1.5MB
     options.compaction_options_fifo.allow_compaction = true;
-    options.compaction_options_fifo.ttl = 60 * 60;  // 1 hour
+    options.compaction_options_fifo.ttl = 1 * 60 * 60;  // 1 hour
     options.level0_file_num_compaction_trigger = 6;
     options = CurrentOptions(options);
     DestroyAndReopen(options);
@@ -3062,8 +3077,8 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
     // It should be compacted to 10 files.
     ASSERT_EQ(NumTableFilesAtLevel(0), 10);
 
@@ -3073,8 +3088,8 @@ TEST_F(DBTest, DISABLED_FIFOCompactionWithTTLTest) {
         ASSERT_OK(Put(ToString(i * 20 + j + 2000), RandomString(&rnd, 980)));
       }
       Flush();
+      ASSERT_OK(dbfull()->TEST_WaitForCompact());
     }
-    ASSERT_OK(dbfull()->TEST_WaitForCompact());
 
     // It should be compacted to no more than 20 files.
     ASSERT_GT(NumTableFilesAtLevel(0), 10);
@@ -3332,11 +3347,23 @@ TEST_F(DBTest, DynamicMemtableOptions) {
       {"write_buffer_size", "131072"},
   }));
 
-  // The existing memtable is still 64KB in size, after it becomes immutable,
-  // the next memtable will be 128KB in size. Write 256KB total, we should
-  // have a 64KB L0 file, a 128KB L0 file, and a memtable with 64KB data
-  gen_l0_kb(256);
-  ASSERT_EQ(NumTableFilesAtLevel(0), 2);  // (A)
+  // The existing memtable inflated 64KB->128KB when we invoked SetOptions().
+  // Write 192KB, we should have a 128KB L0 file and a memtable with 64KB data.
+  gen_l0_kb(192);
+  ASSERT_EQ(NumTableFilesAtLevel(0), 1);  // (A)
+  ASSERT_LT(SizeAtLevel(0), k128KB + 2 * k5KB);
+  ASSERT_GT(SizeAtLevel(0), k128KB - 4 * k5KB);
+
+  // Decrease buffer size below current usage
+  ASSERT_OK(dbfull()->SetOptions({
+      {"write_buffer_size", "65536"},
+  }));
+  // The existing memtable became eligible for flush when we reduced its
+  // capacity to 64KB. Two keys need to be added to trigger flush: first causes
+  // memtable to be marked full, second schedules the flush. Then we should have
+  // a 128KB L0 file, a 64KB L0 file, and a memtable with just one key.
+  gen_l0_kb(2);
+  ASSERT_EQ(NumTableFilesAtLevel(0), 2);
   ASSERT_LT(SizeAtLevel(0), k128KB + k64KB + 2 * k5KB);
   ASSERT_GT(SizeAtLevel(0), k128KB + k64KB - 4 * k5KB);
 
@@ -5360,6 +5387,36 @@ TEST_F(DBTest, RowCache) {
   ASSERT_EQ(TestGetTickerCount(options, ROW_CACHE_HIT), 1);
   ASSERT_EQ(TestGetTickerCount(options, ROW_CACHE_MISS), 1);
 }
+
+TEST_F(DBTest, PinnableSliceAndRowCache) {
+  Options options = CurrentOptions();
+  options.statistics = rocksdb::CreateDBStatistics();
+  options.row_cache = NewLRUCache(8192);
+  DestroyAndReopen(options);
+
+  ASSERT_OK(Put("foo", "bar"));
+  ASSERT_OK(Flush());
+
+  ASSERT_EQ(Get("foo"), "bar");
+  ASSERT_EQ(
+      reinterpret_cast<LRUCache*>(options.row_cache.get())->TEST_GetLRUSize(),
+      1);
+
+  {
+    PinnableSlice pin_slice;
+    ASSERT_EQ(Get("foo", &pin_slice), Status::OK());
+    ASSERT_EQ(pin_slice.ToString(), "bar");
+    // Entry is already in cache, lookup will remove the element from lru
+    ASSERT_EQ(
+        reinterpret_cast<LRUCache*>(options.row_cache.get())->TEST_GetLRUSize(),
+        0);
+  }
+  // After PinnableSlice destruction element is added back in LRU
+  ASSERT_EQ(
+      reinterpret_cast<LRUCache*>(options.row_cache.get())->TEST_GetLRUSize(),
+      1);
+}
+
 #endif  // ROCKSDB_LITE
 
 TEST_F(DBTest, DeletingOldWalAfterDrop) {

@@ -2236,6 +2236,7 @@ TEST_F(DBTest2, LowPriWrite) {
   ASSERT_EQ(1, rate_limit_count.load());
 }
 
+#ifndef ROCKSDB_LITE
 TEST_F(DBTest2, RateLimitedCompactionReads) {
   // compaction input has 512KB data
   const int kNumKeysPerFile = 128;
@@ -2281,12 +2282,15 @@ TEST_F(DBTest2, RateLimitedCompactionReads) {
     // chose 1MB as the upper bound on the total bytes read.
     size_t rate_limited_bytes =
         options.rate_limiter->GetTotalBytesThrough(Env::IO_LOW);
-    ASSERT_GE(
-        rate_limited_bytes,
-        static_cast<size_t>(kNumKeysPerFile * kBytesPerKey * kNumL0Files));
+    // Include the explict prefetch of the footer in direct I/O case.
+    size_t direct_io_extra = use_direct_io ? 512 * 1024 : 0;
+    ASSERT_GE(rate_limited_bytes,
+              static_cast<size_t>(kNumKeysPerFile * kBytesPerKey * kNumL0Files +
+                                  direct_io_extra));
     ASSERT_LT(
         rate_limited_bytes,
-        static_cast<size_t>(2 * kNumKeysPerFile * kBytesPerKey * kNumL0Files));
+        static_cast<size_t>(2 * kNumKeysPerFile * kBytesPerKey * kNumL0Files +
+                            direct_io_extra));
 
     Iterator* iter = db_->NewIterator(ReadOptions());
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
@@ -2299,7 +2303,34 @@ TEST_F(DBTest2, RateLimitedCompactionReads) {
                   options.rate_limiter->GetTotalBytesThrough(Env::IO_LOW)));
   }
 }
+#endif  // ROCKSDB_LITE
 
+// Make sure DB can be reopen with reduced number of levels, given no file
+// is on levels higher than the new num_levels.
+TEST_F(DBTest2, ReduceLevel) {
+  Options options;
+  options.disable_auto_compactions = true;
+  options.num_levels = 7;
+  Reopen(options);
+  Put("foo", "bar");
+  Flush();
+  MoveFilesToLevel(6);
+#ifndef ROCKSDB_LITE
+  ASSERT_EQ("0,0,0,0,0,0,1", FilesPerLevel());
+#endif  // !ROCKSDB_LITE
+  CompactRangeOptions compact_options;
+  compact_options.change_level = true;
+  compact_options.target_level = 1;
+  dbfull()->CompactRange(compact_options, nullptr, nullptr);
+#ifndef ROCKSDB_LITE
+  ASSERT_EQ("0,1", FilesPerLevel());
+#endif  // !ROCKSDB_LITE
+  options.num_levels = 3;
+  Reopen(options);
+#ifndef ROCKSDB_LITE
+  ASSERT_EQ("0,1", FilesPerLevel());
+#endif  // !ROCKSDB_LITE
+}
 }  // namespace rocksdb
 
 int main(int argc, char** argv) {

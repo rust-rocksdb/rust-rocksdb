@@ -43,7 +43,7 @@ struct Options;
 using std::unique_ptr;
 
 enum ChecksumType : char {
-  kNoChecksum = 0x0,  // not yet supported. Will fail
+  kNoChecksum = 0x0,
   kCRC32c = 0x1,
   kxxHash = 0x2,
 };
@@ -466,6 +466,12 @@ class TableFactory {
   // Return a string that contains printable format of table configurations.
   // RocksDB prints configurations at DB Open().
   virtual std::string GetPrintableTableOptions() const = 0;
+
+  virtual Status GetOptionString(std::string* opt_string,
+                                 const std::string& delimiter) const {
+    return Status::NotSupported(
+        "The table factory doesn't implement GetOptionString().");
+  }
 
   // Returns the raw pointer of the table options that is used by this
   // TableFactory, or nullptr if this function is not supported.

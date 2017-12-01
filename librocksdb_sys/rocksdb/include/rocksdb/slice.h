@@ -129,6 +129,10 @@ class PinnableSlice : public Slice, public Cleanable {
   PinnableSlice() { buf_ = &self_space_; }
   explicit PinnableSlice(std::string* buf) { buf_ = buf; }
 
+  // No copy constructor and copy assignment allowed.
+  PinnableSlice(PinnableSlice&) = delete;
+  PinnableSlice& operator=(PinnableSlice&) = delete;
+
   inline void PinSlice(const Slice& s, CleanupFunction f, void* arg1,
                        void* arg2) {
     assert(!pinned_);
@@ -214,6 +218,7 @@ inline bool operator!=(const Slice& x, const Slice& y) {
 }
 
 inline int Slice::compare(const Slice& b) const {
+  assert(data_ != nullptr && b.data_ != nullptr);
   const size_t min_len = (size_ < b.size_) ? size_ : b.size_;
   int r = memcmp(data_, b.data_, min_len);
   if (r == 0) {

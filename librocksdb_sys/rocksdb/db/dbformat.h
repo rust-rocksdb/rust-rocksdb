@@ -47,6 +47,8 @@ enum ValueType : unsigned char {
   kTypeNoop = 0xD,                        // WAL only.
   kTypeColumnFamilyRangeDeletion = 0xE,   // WAL only.
   kTypeRangeDeletion = 0xF,               // meta block
+  kTypeColumnFamilyBlobIndex = 0x10,      // Blob DB only
+  kTypeBlobIndex = 0x11,                  // Blob DB only
   kMaxValue = 0x7F                        // Not used for storing records.
 };
 
@@ -57,7 +59,7 @@ extern const ValueType kValueTypeForSeekForPrev;
 // Checks whether a type is an inline value type
 // (i.e. a type used in memtable skiplist and sst file datablock).
 inline bool IsValueType(ValueType t) {
-  return t <= kTypeMerge || t == kTypeSingleDeletion;
+  return t <= kTypeMerge || t == kTypeSingleDeletion || t == kTypeBlobIndex;
 }
 
 // Checks whether a type is from user operation
@@ -84,6 +86,12 @@ struct ParsedInternalKey {
   ParsedInternalKey(const Slice& u, const SequenceNumber& seq, ValueType t)
       : user_key(u), sequence(seq), type(t) { }
   std::string DebugString(bool hex = false) const;
+
+  void clear() {
+    user_key.clear();
+    sequence = 0;
+    type = kTypeDeletion;
+  }
 };
 
 // Return the length of the encoding of "key".
@@ -151,6 +159,9 @@ class InternalKeyComparator : public Comparator {
 
   int Compare(const InternalKey& a, const InternalKey& b) const;
   int Compare(const ParsedInternalKey& a, const ParsedInternalKey& b) const;
+  virtual const Comparator* GetRootComparator() const override {
+    return user_comparator_->GetRootComparator();
+  }
 };
 
 // Modules in this directory should keep internal keys wrapped inside

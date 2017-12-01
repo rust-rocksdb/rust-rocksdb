@@ -67,6 +67,7 @@
 #include "port/port.h"
 #include "rocksdb/cache.h"
 #include "rocksdb/compaction_filter.h"
+#include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/merge_operator.h"
@@ -80,6 +81,7 @@
 #include "table/merging_iterator.h"
 #include "table/table_builder.h"
 #include "table/two_level_iterator.h"
+#include "tools/sst_dump_tool_imp.h"
 #include "util/auto_roll_logger.h"
 #include "util/autovector.h"
 #include "util/build_version.h"
@@ -168,6 +170,7 @@ DBImpl::DBImpl(const DBOptions& options, const std::string& dbname)
       last_batch_group_size_(0),
       unscheduled_flushes_(0),
       unscheduled_compactions_(0),
+      bg_bottom_compaction_scheduled_(0),
       bg_compaction_scheduled_(0),
       num_running_compactions_(0),
       bg_flush_scheduled_(0),
@@ -242,7 +245,8 @@ void DBImpl::CancelAllBackgroundWork(bool wait) {
     return;
   }
   // Wait for background work to finish
-  while (bg_compaction_scheduled_ || bg_flush_scheduled_) {
+  while (bg_bottom_compaction_scheduled_ || bg_compaction_scheduled_ ||
+         bg_flush_scheduled_) {
     bg_cv_.Wait();
   }
 }
@@ -252,15 +256,18 @@ DBImpl::~DBImpl() {
   // marker. After this we do a variant of the waiting and unschedule work
   // (to consider: moving all the waiting into CancelAllBackgroundWork(true))
   CancelAllBackgroundWork(false);
+  int bottom_compactions_unscheduled =
+      env_->UnSchedule(this, Env::Priority::BOTTOM);
   int compactions_unscheduled = env_->UnSchedule(this, Env::Priority::LOW);
   int flushes_unscheduled = env_->UnSchedule(this, Env::Priority::HIGH);
   mutex_.Lock();
+  bg_bottom_compaction_scheduled_ -= bottom_compactions_unscheduled;
   bg_compaction_scheduled_ -= compactions_unscheduled;
   bg_flush_scheduled_ -= flushes_unscheduled;
 
   // Wait for background work to finish
-  while (bg_compaction_scheduled_ || bg_flush_scheduled_ ||
-         bg_purge_scheduled_) {
+  while (bg_bottom_compaction_scheduled_ || bg_compaction_scheduled_ ||
+         bg_flush_scheduled_ || bg_purge_scheduled_) {
     TEST_SYNC_POINT("DBImpl::~DBImpl:WaitJob");
     bg_cv_.Wait();
   }
@@ -902,7 +909,8 @@ Status DBImpl::Get(const ReadOptions& read_options,
 
 Status DBImpl::GetImpl(const ReadOptions& read_options,
                        ColumnFamilyHandle* column_family, const Slice& key,
-                       PinnableSlice* pinnable_val, bool* value_found) {
+                       PinnableSlice* pinnable_val, bool* value_found,
+                       bool* is_blob_index) {
   assert(pinnable_val != nullptr);
   StopWatch sw(env_, stats_, DB_GET);
   PERF_TIMER_GUARD(get_snapshot_time);
@@ -952,13 +960,13 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   bool done = false;
   if (!skip_memtable) {
     if (sv->mem->Get(lkey, pinnable_val->GetSelf(), &s, &merge_context,
-                     &range_del_agg, read_options)) {
+                     &range_del_agg, read_options, is_blob_index)) {
       done = true;
       pinnable_val->PinSelf();
       RecordTick(stats_, MEMTABLE_HIT);
     } else if ((s.ok() || s.IsMergeInProgress()) &&
                sv->imm->Get(lkey, pinnable_val->GetSelf(), &s, &merge_context,
-                            &range_del_agg, read_options)) {
+                            &range_del_agg, read_options, is_blob_index)) {
       done = true;
       pinnable_val->PinSelf();
       RecordTick(stats_, MEMTABLE_HIT);
@@ -970,7 +978,8 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
   if (!done) {
     PERF_TIMER_GUARD(get_from_output_files_time);
     sv->current->Get(read_options, lkey, pinnable_val, &s, &merge_context,
-                     &range_del_agg, value_found);
+                     &range_del_agg, value_found, nullptr, nullptr,
+                     is_blob_index);
     RecordTick(stats_, MEMTABLE_MISS);
   }
 
@@ -983,6 +992,7 @@ Status DBImpl::GetImpl(const ReadOptions& read_options,
     size_t size = pinnable_val->size();
     RecordTick(stats_, BYTES_READ, size);
     MeasureTime(stats_, BYTES_PER_READ, size);
+    PERF_COUNTER_ADD(get_read_bytes, size);
   }
   return s;
 }
@@ -1110,6 +1120,7 @@ std::vector<Status> DBImpl::MultiGet(
   RecordTick(stats_, NUMBER_MULTIGET_KEYS_READ, num_keys);
   RecordTick(stats_, NUMBER_MULTIGET_BYTES_READ, bytes_read);
   MeasureTime(stats_, BYTES_PER_MULTIGET, bytes_read);
+  PERF_COUNTER_ADD(multiget_read_bytes, bytes_read);
   PERF_TIMER_STOP(get_post_process_time);
 
   return stat_list;
@@ -1315,6 +1326,11 @@ Status DBImpl::DropColumnFamilyImpl(ColumnFamilyHandle* column_family) {
                                  &edit, &mutex_);
       write_thread_.ExitUnbatched(&w);
     }
+    if (s.ok()) {
+      auto* mutable_cf_options = cfd->GetLatestMutableCFOptions();
+      max_total_in_memory_state_ -= mutable_cf_options->write_buffer_size *
+                                    mutable_cf_options->max_write_buffer_number;
+    }
 
     if (!cf_support_snapshot) {
       // Dropped Column Family doesn't support snapshot. Need to recalculate
@@ -1336,9 +1352,6 @@ Status DBImpl::DropColumnFamilyImpl(ColumnFamilyHandle* column_family) {
     // later inside db_mutex.
     EraseThreadStatusCfInfo(cfd);
     assert(cfd->IsDropped());
-    auto* mutable_cf_options = cfd->GetLatestMutableCFOptions();
-    max_total_in_memory_state_ -= mutable_cf_options->write_buffer_size *
-                                  mutable_cf_options->max_write_buffer_number;
     ROCKS_LOG_INFO(immutable_db_options_.info_log,
                    "Dropped column family with id %u\n", cfd->GetID());
   } else {
@@ -1402,75 +1415,81 @@ Iterator* DBImpl::NewIterator(const ReadOptions& read_options,
     return NewDBIterator(
         env_, read_options, *cfd->ioptions(), cfd->user_comparator(), iter,
         kMaxSequenceNumber,
-        sv->mutable_cf_options.max_sequential_skip_in_iterations,
-        sv->version_number);
+        sv->mutable_cf_options.max_sequential_skip_in_iterations);
 #endif
   } else {
     SequenceNumber latest_snapshot = versions_->LastSequence();
-    SuperVersion* sv = cfd->GetReferencedSuperVersion(&mutex_);
-
     auto snapshot =
         read_options.snapshot != nullptr
-            ? reinterpret_cast<const SnapshotImpl*>(
-                read_options.snapshot)->number_
+            ? reinterpret_cast<const SnapshotImpl*>(read_options.snapshot)
+                  ->number_
             : latest_snapshot;
-
-    // Try to generate a DB iterator tree in continuous memory area to be
-    // cache friendly. Here is an example of result:
-    // +-------------------------------+
-    // |                               |
-    // | ArenaWrappedDBIter            |
-    // |  +                            |
-    // |  +---> Inner Iterator   ------------+
-    // |  |                            |     |
-    // |  |    +-- -- -- -- -- -- -- --+     |
-    // |  +--- | Arena                 |     |
-    // |       |                       |     |
-    // |          Allocated Memory:    |     |
-    // |       |   +-------------------+     |
-    // |       |   | DBIter            | <---+
-    // |           |  +                |
-    // |       |   |  +-> iter_  ------------+
-    // |       |   |                   |     |
-    // |       |   +-------------------+     |
-    // |       |   | MergingIterator   | <---+
-    // |           |  +                |
-    // |       |   |  +->child iter1  ------------+
-    // |       |   |  |                |          |
-    // |           |  +->child iter2  ----------+ |
-    // |       |   |  |                |        | |
-    // |       |   |  +->child iter3  --------+ | |
-    // |           |                   |      | | |
-    // |       |   +-------------------+      | | |
-    // |       |   | Iterator1         | <--------+
-    // |       |   +-------------------+      | |
-    // |       |   | Iterator2         | <------+
-    // |       |   +-------------------+      |
-    // |       |   | Iterator3         | <----+
-    // |       |   +-------------------+
-    // |       |                       |
-    // +-------+-----------------------+
-    //
-    // ArenaWrappedDBIter inlines an arena area where all the iterators in
-    // the iterator tree are allocated in the order of being accessed when
-    // querying.
-    // Laying out the iterators in the order of being accessed makes it more
-    // likely that any iterator pointer is close to the iterator it points to so
-    // that they are likely to be in the same cache line and/or page.
-    ArenaWrappedDBIter* db_iter = NewArenaWrappedDbIterator(
-        env_, read_options, *cfd->ioptions(), cfd->user_comparator(), snapshot,
-        sv->mutable_cf_options.max_sequential_skip_in_iterations,
-        sv->version_number);
-
-    InternalIterator* internal_iter =
-        NewInternalIterator(read_options, cfd, sv, db_iter->GetArena(),
-                            db_iter->GetRangeDelAggregator());
-    db_iter->SetIterUnderDBIter(internal_iter);
-
-    return db_iter;
+    return NewIteratorImpl(read_options, cfd, snapshot);
   }
   // To stop compiler from complaining
   return nullptr;
+}
+
+ArenaWrappedDBIter* DBImpl::NewIteratorImpl(const ReadOptions& read_options,
+                                            ColumnFamilyData* cfd,
+                                            SequenceNumber snapshot,
+                                            bool allow_blob) {
+  SuperVersion* sv = cfd->GetReferencedSuperVersion(&mutex_);
+
+  // Try to generate a DB iterator tree in continuous memory area to be
+  // cache friendly. Here is an example of result:
+  // +-------------------------------+
+  // |                               |
+  // | ArenaWrappedDBIter            |
+  // |  +                            |
+  // |  +---> Inner Iterator   ------------+
+  // |  |                            |     |
+  // |  |    +-- -- -- -- -- -- -- --+     |
+  // |  +--- | Arena                 |     |
+  // |       |                       |     |
+  // |          Allocated Memory:    |     |
+  // |       |   +-------------------+     |
+  // |       |   | DBIter            | <---+
+  // |           |  +                |
+  // |       |   |  +-> iter_  ------------+
+  // |       |   |                   |     |
+  // |       |   +-------------------+     |
+  // |       |   | MergingIterator   | <---+
+  // |           |  +                |
+  // |       |   |  +->child iter1  ------------+
+  // |       |   |  |                |          |
+  // |           |  +->child iter2  ----------+ |
+  // |       |   |  |                |        | |
+  // |       |   |  +->child iter3  --------+ | |
+  // |           |                   |      | | |
+  // |       |   +-------------------+      | | |
+  // |       |   | Iterator1         | <--------+
+  // |       |   +-------------------+      | |
+  // |       |   | Iterator2         | <------+
+  // |       |   +-------------------+      |
+  // |       |   | Iterator3         | <----+
+  // |       |   +-------------------+
+  // |       |                       |
+  // +-------+-----------------------+
+  //
+  // ArenaWrappedDBIter inlines an arena area where all the iterators in
+  // the iterator tree are allocated in the order of being accessed when
+  // querying.
+  // Laying out the iterators in the order of being accessed makes it more
+  // likely that any iterator pointer is close to the iterator it points to so
+  // that they are likely to be in the same cache line and/or page.
+  ArenaWrappedDBIter* db_iter = NewArenaWrappedDbIterator(
+      env_, read_options, *cfd->ioptions(), snapshot,
+      sv->mutable_cf_options.max_sequential_skip_in_iterations,
+      sv->version_number, ((read_options.snapshot != nullptr) ? nullptr : this),
+      cfd, allow_blob);
+
+  InternalIterator* internal_iter =
+      NewInternalIterator(read_options, cfd, sv, db_iter->GetArena(),
+                          db_iter->GetRangeDelAggregator());
+  db_iter->SetIterUnderDBIter(internal_iter);
+
+  return db_iter;
 }
 
 Status DBImpl::NewIterators(
@@ -1511,33 +1530,21 @@ Status DBImpl::NewIterators(
       iterators->push_back(NewDBIterator(
           env_, read_options, *cfd->ioptions(), cfd->user_comparator(), iter,
           kMaxSequenceNumber,
-          sv->mutable_cf_options.max_sequential_skip_in_iterations,
-          sv->version_number));
+          sv->mutable_cf_options.max_sequential_skip_in_iterations));
     }
 #endif
   } else {
     SequenceNumber latest_snapshot = versions_->LastSequence();
+    auto snapshot =
+        read_options.snapshot != nullptr
+            ? reinterpret_cast<const SnapshotImpl*>(read_options.snapshot)
+                  ->number_
+            : latest_snapshot;
 
     for (size_t i = 0; i < column_families.size(); ++i) {
       auto* cfd = reinterpret_cast<ColumnFamilyHandleImpl*>(
           column_families[i])->cfd();
-      SuperVersion* sv = cfd->GetReferencedSuperVersion(&mutex_);
-
-      auto snapshot =
-          read_options.snapshot != nullptr
-              ? reinterpret_cast<const SnapshotImpl*>(
-                  read_options.snapshot)->number_
-              : latest_snapshot;
-
-      ArenaWrappedDBIter* db_iter = NewArenaWrappedDbIterator(
-          env_, read_options, *cfd->ioptions(), cfd->user_comparator(),
-          snapshot, sv->mutable_cf_options.max_sequential_skip_in_iterations,
-          sv->version_number);
-      InternalIterator* internal_iter =
-          NewInternalIterator(read_options, cfd, sv, db_iter->GetArena(),
-                              db_iter->GetRangeDelAggregator());
-      db_iter->SetIterUnderDBIter(internal_iter);
-      iterators->push_back(db_iter);
+      iterators->push_back(NewIteratorImpl(read_options, cfd, snapshot));
     }
   }
 
@@ -1576,12 +1583,10 @@ void DBImpl::ReleaseSnapshot(const Snapshot* s) {
   delete casted_s;
 }
 
-bool DBImpl::HasActiveSnapshotLaterThanSN(SequenceNumber sn) {
+bool DBImpl::HasActiveSnapshotInRange(SequenceNumber lower_bound,
+                                      SequenceNumber upper_bound) {
   InstrumentedMutexLock l(&mutex_);
-  if (snapshots_.empty()) {
-    return false;
-  }
-  return (snapshots_.newest()->GetSequenceNumber() > sn);
+  return snapshots_.HasSnapshotInRange(lower_bound, upper_bound);
 }
 
 #ifndef ROCKSDB_LITE
@@ -2293,7 +2298,7 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
     // Delete log files in the WAL dir
     for (const auto& file : walDirFiles) {
       if (ParseFileName(file, &number, &type) && type == kLogFile) {
-        Status del = env->DeleteFile(soptions.wal_dir + "/" + file);
+        Status del = env->DeleteFile(LogFileName(soptions.wal_dir, number));
         if (result.ok() && !del.ok()) {
           result = del;
         }
@@ -2521,7 +2526,8 @@ SequenceNumber DBImpl::GetEarliestMemTableSequenceNumber(SuperVersion* sv,
 #ifndef ROCKSDB_LITE
 Status DBImpl::GetLatestSequenceForKey(SuperVersion* sv, const Slice& key,
                                        bool cache_only, SequenceNumber* seq,
-                                       bool* found_record_for_key) {
+                                       bool* found_record_for_key,
+                                       bool* is_blob_index) {
   Status s;
   MergeContext merge_context;
   RangeDelAggregator range_del_agg(sv->mem->GetInternalKeyComparator(),
@@ -2536,7 +2542,7 @@ Status DBImpl::GetLatestSequenceForKey(SuperVersion* sv, const Slice& key,
 
   // Check if there is a record for this key in the latest memtable
   sv->mem->Get(lkey, nullptr, &s, &merge_context, &range_del_agg, seq,
-               read_options);
+               read_options, is_blob_index);
 
   if (!(s.ok() || s.IsNotFound() || s.IsMergeInProgress())) {
     // unexpected error reading memtable.
@@ -2555,7 +2561,7 @@ Status DBImpl::GetLatestSequenceForKey(SuperVersion* sv, const Slice& key,
 
   // Check if there is a record for this key in the immutable memtables
   sv->imm->Get(lkey, nullptr, &s, &merge_context, &range_del_agg, seq,
-               read_options);
+               read_options, is_blob_index);
 
   if (!(s.ok() || s.IsNotFound() || s.IsMergeInProgress())) {
     // unexpected error reading memtable.
@@ -2574,7 +2580,7 @@ Status DBImpl::GetLatestSequenceForKey(SuperVersion* sv, const Slice& key,
 
   // Check if there is a record for this key in the immutable memtables
   sv->imm->GetFromHistory(lkey, nullptr, &s, &merge_context, &range_del_agg,
-                          seq, read_options);
+                          seq, read_options, is_blob_index);
 
   if (!(s.ok() || s.IsNotFound() || s.IsMergeInProgress())) {
     // unexpected error reading memtable.
@@ -2598,7 +2604,7 @@ Status DBImpl::GetLatestSequenceForKey(SuperVersion* sv, const Slice& key,
     // Check tables
     sv->current->Get(read_options, lkey, nullptr, &s, &merge_context,
                      &range_del_agg, nullptr /* value_found */,
-                     found_record_for_key, seq);
+                     found_record_for_key, seq, is_blob_index);
 
     if (!(s.ok() || s.IsNotFound() || s.IsMergeInProgress())) {
       // unexpected error reading SST files
@@ -2733,6 +2739,54 @@ Status DBImpl::IngestExternalFile(
   }
 
   return status;
+}
+
+Status DBImpl::VerifyChecksum() {
+  Status s;
+  Options options;
+  EnvOptions env_options;
+  std::vector<ColumnFamilyData*> cfd_list;
+  {
+    InstrumentedMutexLock l(&mutex_);
+    for (auto cfd : *versions_->GetColumnFamilySet()) {
+      if (!cfd->IsDropped() && cfd->initialized()) {
+        cfd->Ref();
+        cfd_list.push_back(cfd);
+      }
+    }
+  }
+  std::vector<SuperVersion*> sv_list;
+  for (auto cfd : cfd_list) {
+    sv_list.push_back(cfd->GetReferencedSuperVersion(&mutex_));
+  }
+  for (auto& sv : sv_list) {
+    VersionStorageInfo* vstorage = sv->current->storage_info();
+    for (int i = 0; i < vstorage->num_non_empty_levels() && s.ok(); i++) {
+      for (size_t j = 0; j < vstorage->LevelFilesBrief(i).num_files && s.ok();
+           j++) {
+        const auto& fd = vstorage->LevelFilesBrief(i).files[j].fd;
+        std::string fname = TableFileName(immutable_db_options_.db_paths,
+                                          fd.GetNumber(), fd.GetPathId());
+        s = rocksdb::VerifySstFileChecksum(options, env_options, fname);
+      }
+    }
+    if (!s.ok()) {
+      break;
+    }
+  }
+  {
+    InstrumentedMutexLock l(&mutex_);
+    for (auto sv : sv_list) {
+      if (sv && sv->Unref()) {
+        sv->Cleanup();
+        delete sv;
+      }
+    }
+    for (auto cfd : cfd_list) {
+        cfd->Unref();
+    }
+  }
+  return s;
 }
 
 void DBImpl::NotifyOnExternalFileIngested(

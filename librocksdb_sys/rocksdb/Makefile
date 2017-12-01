@@ -101,7 +101,19 @@ endif
 ifeq ($(DEBUG_LEVEL),0)
 OPT += -DNDEBUG
 DISABLE_WARNING_AS_ERROR=1
+
+ifneq ($(USE_RTTI), 1)
+	CXXFLAGS += -fno-rtti
 else
+	CXXFLAGS += -DROCKSDB_USE_RTTI
+endif
+else
+ifneq ($(USE_RTTI), 0)
+	CXXFLAGS += -DROCKSDB_USE_RTTI
+else
+	CXXFLAGS += -fno-rtti
+endif
+
 $(warning Warning: Compiling in debug mode. Don't use the resulting binary in production)
 endif
 
@@ -219,6 +231,10 @@ ifndef DISABLE_JEMALLOC
 	ifdef JEMALLOC
 		PLATFORM_CXXFLAGS += -DROCKSDB_JEMALLOC -DJEMALLOC_NO_DEMANGLE
 		PLATFORM_CCFLAGS  += -DROCKSDB_JEMALLOC -DJEMALLOC_NO_DEMANGLE
+	endif
+	ifdef WITH_JEMALLOC_FLAG
+		PLATFORM_LDFLAGS += -ljemalloc
+		JAVA_LDFLAGS += -ljemalloc
 	endif
 	EXEC_LDFLAGS := $(JEMALLOC_LIB) $(EXEC_LDFLAGS)
 	PLATFORM_CXXFLAGS += $(JEMALLOC_INCLUDE)
@@ -344,6 +360,7 @@ TESTS = \
 	db_wal_test \
 	db_block_cache_test \
 	db_test \
+	db_blob_index_test \
 	db_bloom_filter_test \
 	db_iter_test \
 	db_log_iter_test \
@@ -405,7 +422,7 @@ TESTS = \
 	write_buffer_manager_test \
 	stringappend_test \
 	cassandra_format_test \
-	cassandra_merge_test \
+	cassandra_functional_test \
 	cassandra_row_merge_test \
 	cassandra_serialize_test \
 	ttl_test \
@@ -574,6 +591,8 @@ endif  # PLATFORM_SHARED_EXT
 
 
 all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS)
+
+all_but_some_tests: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(SUBSET)
 
 static_lib: $(LIBRARY)
 
@@ -778,8 +797,8 @@ ldb_tests: ldb
 crash_test: whitebox_crash_test blackbox_crash_test
 
 blackbox_crash_test: db_stress
-	python -u tools/db_crashtest.py --simple blackbox
-	python -u tools/db_crashtest.py blackbox
+	python -u tools/db_crashtest.py --simple blackbox $(CRASH_TEST_EXT_ARGS)
+	python -u tools/db_crashtest.py blackbox $(CRASH_TEST_EXT_ARGS)
 
 ifeq ($(CRASH_TEST_KILL_ODD),)
   CRASH_TEST_KILL_ODD=888887
@@ -787,9 +806,9 @@ endif
 
 whitebox_crash_test: db_stress
 	python -u tools/db_crashtest.py --simple whitebox --random_kill_odd \
-      $(CRASH_TEST_KILL_ODD)
+      $(CRASH_TEST_KILL_ODD) $(CRASH_TEST_EXT_ARGS)
 	python -u tools/db_crashtest.py whitebox  --random_kill_odd \
-      $(CRASH_TEST_KILL_ODD)
+      $(CRASH_TEST_KILL_ODD) $(CRASH_TEST_EXT_ARGS)
 
 asan_check:
 	$(MAKE) clean
@@ -1000,16 +1019,16 @@ option_change_migration_test: utilities/option_change_migration/option_change_mi
 stringappend_test: utilities/merge_operators/string_append/stringappend_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
-cassandra_format_test: utilities/merge_operators/cassandra/cassandra_format_test.o $(LIBOBJECTS) $(TESTHARNESS)
+cassandra_format_test: utilities/cassandra/cassandra_format_test.o utilities/cassandra/test_utils.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
-cassandra_merge_test: utilities/merge_operators/cassandra/cassandra_merge_test.o utilities/merge_operators/cassandra/test_utils.o $(LIBOBJECTS) $(TESTHARNESS)
+cassandra_functional_test: utilities/cassandra/cassandra_functional_test.o utilities/cassandra/test_utils.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
-cassandra_row_merge_test: utilities/merge_operators/cassandra/cassandra_row_merge_test.o utilities/merge_operators/cassandra/test_utils.o $(LIBOBJECTS) $(TESTHARNESS)
+cassandra_row_merge_test: utilities/cassandra/cassandra_row_merge_test.o utilities/cassandra/test_utils.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
-cassandra_serialize_test: utilities/merge_operators/cassandra/cassandra_serialize_test.o $(LIBOBJECTS) $(TESTHARNESS)
+cassandra_serialize_test: utilities/cassandra/cassandra_serialize_test.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 redis_test: utilities/redis/redis_lists_test.o $(LIBOBJECTS) $(TESTHARNESS)
@@ -1043,6 +1062,9 @@ db_test: db/db_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 db_test2: db/db_test2.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(AM_LINK)
+
+db_blob_index_test: db/db_blob_index_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 db_block_cache_test: db/db_block_cache_test.o db/db_test_util.o $(LIBOBJECTS) $(TESTHARNESS)

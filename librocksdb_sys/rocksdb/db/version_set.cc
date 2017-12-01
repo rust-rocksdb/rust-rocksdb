@@ -328,10 +328,6 @@ Version::~Version() {
       assert(f->refs > 0);
       f->refs--;
       if (f->refs <= 0) {
-        if (f->table_reader_handle) {
-          cfd_->table_cache()->EraseHandle(f->fd, f->table_reader_handle);
-          f->table_reader_handle = nullptr;
-        }
         vset_->obsolete_files_.push_back(f);
       }
     }
@@ -969,7 +965,7 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
                   PinnableSlice* value, Status* status,
                   MergeContext* merge_context,
                   RangeDelAggregator* range_del_agg, bool* value_found,
-                  bool* key_exists, SequenceNumber* seq) {
+                  bool* key_exists, SequenceNumber* seq, bool* is_blob) {
   Slice ikey = k.internal_key();
   Slice user_key = k.user_key();
 
@@ -985,7 +981,7 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
       user_comparator(), merge_operator_, info_log_, db_statistics_,
       status->ok() ? GetContext::kNotFound : GetContext::kMerge, user_key,
       value, value_found, merge_context, range_del_agg, this->env_, seq,
-      merge_operator_ ? &pinned_iters_mgr : nullptr);
+      merge_operator_ ? &pinned_iters_mgr : nullptr, is_blob);
 
   // Pin blocks that we read to hold merge operands
   if (merge_operator_) {
@@ -1034,6 +1030,12 @@ void Version::Get(const ReadOptions& read_options, const LookupKey& k,
         return;
       case GetContext::kMerge:
         break;
+      case GetContext::kBlobIndex:
+        ROCKS_LOG_ERROR(info_log_, "Encounter unexpected blob index.");
+        *status = Status::NotSupported(
+            "Encounter unexpected blob index. Please open DB with "
+            "rocksdb::blob_db::BlobDB instead.");
+        return;
     }
     f = fp.GetNextFile();
   }
@@ -1229,6 +1231,14 @@ int VersionStorageInfo::MaxInputLevel() const {
     return num_levels() - 2;
   }
   return 0;
+}
+
+int VersionStorageInfo::MaxOutputLevel(bool allow_ingest_behind) const {
+  if (allow_ingest_behind) {
+    assert(num_levels() > 1);
+    return num_levels() - 2;
+  }
+  return num_levels() - 1;
 }
 
 void VersionStorageInfo::EstimateCompactionBytesNeeded(
@@ -2331,10 +2341,14 @@ void CloseTables(void* ptr, size_t) {
 VersionSet::~VersionSet() {
   // we need to delete column_family_set_ because its destructor depends on
   // VersionSet
-  column_family_set_->get_table_cache()->ApplyToAllCacheEntries(&CloseTables,
-                                                                false);
+  Cache* table_cache = column_family_set_->get_table_cache();
+  table_cache->ApplyToAllCacheEntries(&CloseTables, false /* thread_safe */);
   column_family_set_.reset();
   for (auto file : obsolete_files_) {
+    if (file->table_reader_handle) {
+      table_cache->Release(file->table_reader_handle);
+      TableCache::Evict(table_cache, file->fd.GetNumber());
+    }
     delete file;
   }
   obsolete_files_.clear();
@@ -2834,11 +2848,6 @@ Status VersionSet::Recover(
         cfd = column_family_set_->GetColumnFamily(edit.column_family_);
         // this should never happen since cf_in_builders is true
         assert(cfd != nullptr);
-        if (edit.max_level_ >= cfd->current()->storage_info()->num_levels()) {
-          s = Status::InvalidArgument(
-              "db has more levels than options.num_levels");
-          break;
-        }
 
         // if it is not column family add or column family drop,
         // then it's a file add/delete, which should be forwarded
@@ -2920,6 +2929,18 @@ Status VersionSet::Recover(
     s = Status::InvalidArgument(
         "You have to open all column families. Column families not opened: " +
         list_of_not_found);
+  }
+
+  if (s.ok()) {
+    for (auto cfd : *column_family_set_) {
+      assert(builders.count(cfd->GetID()) > 0);
+      auto* builder = builders[cfd->GetID()]->version_builder();
+      if (!builder->CheckConsistencyForNumLevels()) {
+        s = Status::InvalidArgument(
+            "db has more levels than options.num_levels");
+        break;
+      }
+    }
   }
 
   if (s.ok()) {

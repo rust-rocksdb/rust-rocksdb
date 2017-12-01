@@ -74,9 +74,11 @@ class SnapshotList {
     count_--;
   }
 
-  // retrieve all snapshot numbers. They are sorted in ascending order.
+  // retrieve all snapshot numbers up until max_seq. They are sorted in
+  // ascending order.
   std::vector<SequenceNumber> GetAll(
-      SequenceNumber* oldest_write_conflict_snapshot = nullptr) {
+      SequenceNumber* oldest_write_conflict_snapshot = nullptr,
+      const SequenceNumber& max_seq = kMaxSequenceNumber) const {
     std::vector<SequenceNumber> ret;
 
     if (oldest_write_conflict_snapshot != nullptr) {
@@ -86,8 +88,11 @@ class SnapshotList {
     if (empty()) {
       return ret;
     }
-    SnapshotImpl* s = &list_;
+    const SnapshotImpl* s = &list_;
     while (s->next_ != &list_) {
+      if (s->next_->number_ > max_seq) {
+        break;
+      }
       ret.push_back(s->next_->number_);
 
       if (oldest_write_conflict_snapshot != nullptr &&
@@ -101,6 +106,22 @@ class SnapshotList {
       s = s->next_;
     }
     return ret;
+  }
+
+  // Whether there is an active snapshot in range [lower_bound, upper_bound).
+  bool HasSnapshotInRange(SequenceNumber lower_bound,
+                          SequenceNumber upper_bound) {
+    if (empty()) {
+      return false;
+    }
+    const SnapshotImpl* s = &list_;
+    while (s->next_ != &list_) {
+      if (s->next_->number_ >= lower_bound) {
+        return s->next_->number_ < upper_bound;
+      }
+      s = s->next_;
+    }
+    return false;
   }
 
   // get the sequence number of the most recent snapshot

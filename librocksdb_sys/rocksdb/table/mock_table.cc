@@ -28,7 +28,6 @@ stl_wrappers::KVMap MakeMockFile(
 
 InternalIterator* MockTableReader::NewIterator(const ReadOptions&,
                                                Arena* arena,
-                                               const InternalKeyComparator*,
                                                bool skip_filters) {
   return new MockTableIterator(table_);
 }
@@ -135,7 +134,7 @@ void MockTableFactory::AssertLatestFile(
       ParseInternalKey(Slice(key), &ikey);
       std::cout << ikey.DebugString(false) << " -> " << value << std::endl;
     }
-    ASSERT_TRUE(false);
+    FAIL();
   }
 }
 

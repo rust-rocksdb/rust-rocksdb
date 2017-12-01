@@ -82,6 +82,7 @@ typedef struct rocksdb_compactionfiltercontext_t
 typedef struct rocksdb_compactionfilterfactory_t
     rocksdb_compactionfilterfactory_t;
 typedef struct rocksdb_comparator_t      rocksdb_comparator_t;
+typedef struct rocksdb_dbpath_t          rocksdb_dbpath_t;
 typedef struct rocksdb_env_t             rocksdb_env_t;
 typedef struct rocksdb_fifo_compaction_options_t rocksdb_fifo_compaction_options_t;
 typedef struct rocksdb_filelock_t        rocksdb_filelock_t;
@@ -116,6 +117,8 @@ typedef struct rocksdb_pinnableslice_t rocksdb_pinnableslice_t;
 typedef struct rocksdb_transactiondb_options_t rocksdb_transactiondb_options_t;
 typedef struct rocksdb_transactiondb_t rocksdb_transactiondb_t;
 typedef struct rocksdb_transaction_options_t rocksdb_transaction_options_t;
+typedef struct rocksdb_optimistictransactiondb_t rocksdb_optimistictransactiondb_t;
+typedef struct rocksdb_optimistictransaction_options_t rocksdb_optimistictransaction_options_t;
 typedef struct rocksdb_transaction_t rocksdb_transaction_t;
 typedef struct rocksdb_checkpoint_t rocksdb_checkpoint_t;
 
@@ -713,6 +716,9 @@ extern ROCKSDB_LIBRARY_API void rocksdb_options_set_error_if_exists(
     rocksdb_options_t*, unsigned char);
 extern ROCKSDB_LIBRARY_API void rocksdb_options_set_paranoid_checks(
     rocksdb_options_t*, unsigned char);
+extern ROCKSDB_LIBRARY_API void rocksdb_options_set_db_paths(rocksdb_options_t*,
+                                                             const rocksdb_dbpath_t** path_values, 
+                                                             size_t num_paths);
 extern ROCKSDB_LIBRARY_API void rocksdb_options_set_env(rocksdb_options_t*,
                                                         rocksdb_env_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_options_set_info_log(rocksdb_options_t*,
@@ -759,6 +765,8 @@ rocksdb_options_set_max_bytes_for_level_multiplier_additional(
     rocksdb_options_t*, int* level_values, size_t num_levels);
 extern ROCKSDB_LIBRARY_API void rocksdb_options_enable_statistics(
     rocksdb_options_t*);
+extern ROCKSDB_LIBRARY_API void rocksdb_options_set_skip_stats_update_on_db_open(
+    rocksdb_options_t* opt, unsigned char val);
 
 /* returns a pointer to a malloc()-ed, null terminated string */
 extern ROCKSDB_LIBRARY_API char* rocksdb_options_statistics_get_string(
@@ -1089,6 +1097,11 @@ rocksdb_cache_get_usage(rocksdb_cache_t* cache);
 extern ROCKSDB_LIBRARY_API size_t
 rocksdb_cache_get_pinned_usage(rocksdb_cache_t* cache);
 
+/* DBPath */
+
+extern ROCKSDB_LIBRARY_API rocksdb_dbpath_t* rocksdb_dbpath_create(const char* path, uint64_t target_size);
+extern ROCKSDB_LIBRARY_API void rocksdb_dbpath_destroy(rocksdb_dbpath_t*);
+
 /* Env */
 
 extern ROCKSDB_LIBRARY_API rocksdb_env_t* rocksdb_create_default_env();
@@ -1247,6 +1260,12 @@ extern ROCKSDB_LIBRARY_API void rocksdb_delete_file_in_range_cf(
 
 /* Transactions */
 
+extern ROCKSDB_LIBRARY_API rocksdb_column_family_handle_t*
+rocksdb_transactiondb_create_column_family(
+    rocksdb_transactiondb_t* txn_db,
+    const rocksdb_options_t* column_family_options,
+    const char* column_family_name, char** errptr);
+
 extern ROCKSDB_LIBRARY_API rocksdb_transactiondb_t* rocksdb_transactiondb_open(
     const rocksdb_options_t* options,
     const rocksdb_transactiondb_options_t* txn_db_options, const char* name,
@@ -1273,32 +1292,85 @@ extern ROCKSDB_LIBRARY_API void rocksdb_transaction_rollback(
 extern ROCKSDB_LIBRARY_API void rocksdb_transaction_destroy(
     rocksdb_transaction_t* txn);
 
+// This snapshot should be freed using rocksdb_free
+extern ROCKSDB_LIBRARY_API const rocksdb_snapshot_t*
+rocksdb_transaction_get_snapshot(rocksdb_transaction_t* txn);
+
 extern ROCKSDB_LIBRARY_API char* rocksdb_transaction_get(
     rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
     const char* key, size_t klen, size_t* vlen, char** errptr);
+
+extern ROCKSDB_LIBRARY_API char* rocksdb_transaction_get_cf(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
+    rocksdb_column_family_handle_t* column_family, const char* key, size_t klen,
+    size_t* vlen, char** errptr);
+
+extern ROCKSDB_LIBRARY_API char* rocksdb_transaction_get_for_update(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
+    const char* key, size_t klen, size_t* vlen, unsigned char exclusive,
+    char** errptr);
 
 extern ROCKSDB_LIBRARY_API char* rocksdb_transactiondb_get(
     rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options,
     const char* key, size_t klen, size_t* vlen, char** errptr);
 
+extern ROCKSDB_LIBRARY_API char* rocksdb_transactiondb_get_cf(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options,
+    rocksdb_column_family_handle_t* column_family, const char* key,
+    size_t keylen, size_t* vallen, char** errptr);
+
 extern ROCKSDB_LIBRARY_API void rocksdb_transaction_put(
     rocksdb_transaction_t* txn, const char* key, size_t klen, const char* val,
     size_t vlen, char** errptr);
 
+extern ROCKSDB_LIBRARY_API void rocksdb_transaction_put_cf(
+    rocksdb_transaction_t* txn, rocksdb_column_family_handle_t* column_family,
+    const char* key, size_t klen, const char* val, size_t vlen, char** errptr);
+
 extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_put(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_writeoptions_t* options,
+    const char* key, size_t klen, const char* val, size_t vlen, char** errptr);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_put_cf(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_writeoptions_t* options,
+    rocksdb_column_family_handle_t* column_family, const char* key,
+    size_t keylen, const char* val, size_t vallen, char** errptr);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_write(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_writeoptions_t* options,
+    rocksdb_writebatch_t *batch, char** errptr);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transaction_merge(
+    rocksdb_transaction_t* txn, const char* key, size_t klen, const char* val,
+    size_t vlen, char** errptr);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_merge(
     rocksdb_transactiondb_t* txn_db, const rocksdb_writeoptions_t* options,
     const char* key, size_t klen, const char* val, size_t vlen, char** errptr);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_transaction_delete(
     rocksdb_transaction_t* txn, const char* key, size_t klen, char** errptr);
 
+extern ROCKSDB_LIBRARY_API void rocksdb_transaction_delete_cf(
+    rocksdb_transaction_t* txn, rocksdb_column_family_handle_t* column_family,
+    const char* key, size_t klen, char** errptr);
+
 extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_delete(
     rocksdb_transactiondb_t* txn_db, const rocksdb_writeoptions_t* options,
     const char* key, size_t klen, char** errptr);
 
+extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_delete_cf(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_writeoptions_t* options,
+    rocksdb_column_family_handle_t* column_family, const char* key,
+    size_t keylen, char** errptr);
+
 extern ROCKSDB_LIBRARY_API rocksdb_iterator_t*
 rocksdb_transaction_create_iterator(rocksdb_transaction_t* txn,
                                     const rocksdb_readoptions_t* options);
+
+extern ROCKSDB_LIBRARY_API rocksdb_iterator_t*
+rocksdb_transactiondb_create_iterator(rocksdb_transactiondb_t* txn_db,
+                                      const rocksdb_readoptions_t* options);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_close(
     rocksdb_transactiondb_t* txn_db);
@@ -1306,6 +1378,20 @@ extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_close(
 extern ROCKSDB_LIBRARY_API rocksdb_checkpoint_t*
 rocksdb_transactiondb_checkpoint_object_create(rocksdb_transactiondb_t* txn_db,
                                                char** errptr);
+
+extern ROCKSDB_LIBRARY_API rocksdb_optimistictransactiondb_t*
+rocksdb_optimistictransactiondb_open(const rocksdb_options_t* options,
+                                     const char* name, char** errptr);
+
+extern ROCKSDB_LIBRARY_API rocksdb_transaction_t*
+rocksdb_optimistictransaction_begin(
+    rocksdb_optimistictransactiondb_t* otxn_db,
+    const rocksdb_writeoptions_t* write_options,
+    const rocksdb_optimistictransaction_options_t* otxn_options,
+    rocksdb_transaction_t* old_txn);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_optimistictransactiondb_close(
+    rocksdb_optimistictransactiondb_t* otxn_db);
 
 /* Transaction Options */
 
@@ -1354,6 +1440,17 @@ rocksdb_transaction_options_set_deadlock_detect_depth(
 extern ROCKSDB_LIBRARY_API void
 rocksdb_transaction_options_set_max_write_batch_size(
     rocksdb_transaction_options_t* opt, size_t size);
+
+
+extern ROCKSDB_LIBRARY_API rocksdb_optimistictransaction_options_t*
+rocksdb_optimistictransaction_options_create();
+
+extern ROCKSDB_LIBRARY_API void rocksdb_optimistictransaction_options_destroy(
+    rocksdb_optimistictransaction_options_t* opt);
+
+extern ROCKSDB_LIBRARY_API void
+rocksdb_optimistictransaction_options_set_set_snapshot(
+    rocksdb_optimistictransaction_options_t* opt, unsigned char v);
 
 // referring to convention (3), this should be used by client
 // to free memory that was malloc()ed

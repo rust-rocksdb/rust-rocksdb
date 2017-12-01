@@ -1,9 +1,7 @@
-// Copyright (c) 2017-present, Facebook, Inc.  All rights reserved.
+//  Copyright (c) 2017-present, Facebook, Inc.  All rights reserved.
 //  This source code is licensed under both the GPLv2 (found in the
 //  COPYING file in the root directory) and Apache 2.0 License
 //  (found in the LICENSE.Apache file in the root directory).
-// This source code is also licensed under the GPLv2 license found in the
-// COPYING file in the root directory of this source tree.
 
 #pragma once
 
@@ -18,6 +16,8 @@ namespace rocksdb {
 // store multiple versions of a same user key due to snapshots, compaction not
 // happening yet, etc.
 struct KeyVersion {
+  KeyVersion() : user_key(""), value(""), sequence(0), type(0) {}
+
   KeyVersion(const std::string& _user_key, const std::string& _value,
              SequenceNumber _sequence, int _type)
       : user_key(_user_key), value(_value), sequence(_sequence), type(_type) {}

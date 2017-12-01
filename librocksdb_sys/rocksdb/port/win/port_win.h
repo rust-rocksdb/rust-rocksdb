@@ -27,6 +27,7 @@
 #include <mutex>
 #include <limits>
 #include <condition_variable>
+#include <malloc.h>
 
 #include <stdint.h>
 
@@ -237,6 +238,41 @@ extern void InitOnce(OnceType* once, void (*initializer)());
 
 #ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE 64U
+#endif
+
+#ifdef ROCKSDB_JEMALLOC
+#include "jemalloc/jemalloc.h"
+// Separate inlines so they can be replaced if needed
+inline void* jemalloc_aligned_alloc( size_t size, size_t alignment) {
+  return je_aligned_alloc(alignment, size);
+}
+inline void jemalloc_aligned_free(void* p) {
+  je_free(p);
+}
+#endif
+
+inline void *cacheline_aligned_alloc(size_t size) {
+#ifdef ROCKSDB_JEMALLOC
+  return jemalloc_aligned_alloc(size, CACHE_LINE_SIZE);
+#else
+  return _aligned_malloc(size, CACHE_LINE_SIZE);
+#endif
+}
+
+inline void cacheline_aligned_free(void *memblock) {
+#ifdef ROCKSDB_JEMALLOC
+  jemalloc_aligned_free(memblock);
+#else
+  _aligned_free(memblock);
+#endif
+}
+
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52991 for MINGW32
+// could not be worked around with by -mno-ms-bitfields
+#ifndef __MINGW32__
+#define ALIGN_AS(n) __declspec(align(n))
+#else
+#define ALIGN_AS(n)
 #endif
 
 static inline void AsmVolatilePause() {

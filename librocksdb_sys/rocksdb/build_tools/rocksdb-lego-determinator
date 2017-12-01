@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script is executed by Sandcastle
 # to determine next steps to run
 
@@ -343,27 +343,7 @@ LITE_BUILD_COMMANDS="[
             $CLEANUP_ENV,
             {
                 'name':'Build RocksDB debug version',
-                'shell':'$LITE make J=1 static_lib || $CONTRUN_NAME=lite_static_lib $TASK_CREATION_TOOL',
-                'user':'root',
-                $PARSER
-            },
-        ],
-        $REPORT
-    }
-]"
-
-#
-# RocksDB lite tests
-#
-LITE_UNIT_TEST_COMMANDS="[
-    {
-        'name':'Rocksdb Lite Unit Test',
-        'oncall':'$ONCALL',
-        'steps': [
-            $CLEANUP_ENV,
-            {
-                'name':'Build RocksDB debug version',
-                'shell':'$SHM $LITE make J=1 check || $CONTRUN_NAME=lite_check $TASK_CREATION_TOOL',
+                'shell':'$LITE make J=1 all check || $CONTRUN_NAME=lite $TASK_CREATION_TOOL',
                 'user':'root',
                 $PARSER
             },
@@ -564,7 +544,7 @@ TSAN_CRASH_TEST_COMMANDS="[
             {
                 'name':'Compile and run',
                 'timeout': 86400,
-                'shell':'set -o pipefail && $SHM $DEBUG $TSAN CRASH_TEST_KILL_ODD=1887 make J=1 crash_test || $CONTRUN_NAME=tsan_crash_test $TASK_CREATION_TOOL',
+                'shell':'set -o pipefail && $SHM $DEBUG $TSAN CRASH_TEST_KILL_ODD=1887 CRASH_TEST_EXT_ARGS=--log2_keys_per_lock=22  make J=1 crash_test || $CONTRUN_NAME=tsan_crash_test $TASK_CREATION_TOOL',
                 'user':'root',
                 $PARSER
             },
@@ -583,39 +563,7 @@ run_format_compatible()
   rm -rf /dev/shm/rocksdb
   mkdir /dev/shm/rocksdb
 
-  echo '
-  if [ -e "build_tools/build_detect_platform" ]
-  then
-    sed "s/tcmalloc/nothingnothingnothing/g" build_tools/build_detect_platform > $TEST_TMPDIR/temp_build_file
-    rm -rf build_tools/build_detect_platform
-    cp $TEST_TMPDIR/temp_build_file build_tools/build_detect_platform
-    chmod +x build_tools/build_detect_platform
-  fi
-
-  if [ -e "build_detect_platform" ]
-  then
-    sed "s/tcmalloc/nothingnothingnothing/g" build_detect_platform > $TEST_TMPDIR/temp_build_file
-    rm -rf build_detect_platform
-    cp $TEST_TMPDIR/temp_build_file build_detect_platform
-    chmod +x build_detect_platform
-  fi
-
-  make ldb -j32
-
-  if [ -e "build_detect_platform" ]
-  then
-    git checkout -- build_detect_platform
-  fi
-
-  if [ -e "build_tools/build_detect_platform" ]
-  then
-    git checkout -- build_tools/build_detect_platform
-  fi
-  ' > temp_build_ldb.sh
-
-  sed "s/make ldb -j32/source temp_build_ldb.sh/g" tools/check_format_compatible.sh > tools/temp_check_format_compatible.sh
-  chmod +x tools/temp_check_format_compatible.sh
-  tools/temp_check_format_compatible.sh
+  tools/check_format_compatible.sh
 }
 
 FORMAT_COMPATIBLE_COMMANDS="[
@@ -779,9 +727,6 @@ case $1 in
     ;;
   lite)
     echo $LITE_BUILD_COMMANDS
-    ;;
-  lite_test)
-    echo $LITE_UNIT_TEST_COMMANDS
     ;;
   stress_crash)
     echo $STRESS_CRASH_TEST_COMMANDS

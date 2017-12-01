@@ -80,6 +80,15 @@ Status DBImpl::TEST_CompactRange(int level, const Slice* begin,
                              disallow_trivial_move);
 }
 
+Status DBImpl::TEST_SwitchMemtable(ColumnFamilyData* cfd) {
+  WriteContext write_context;
+  InstrumentedMutexLock l(&mutex_);
+  if (cfd == nullptr) {
+    cfd = default_cf_handle_->cfd();
+  }
+  return SwitchMemtable(cfd, &write_context);
+}
+
 Status DBImpl::TEST_FlushMemTable(bool wait, ColumnFamilyHandle* cfh) {
   FlushOptions fo;
   fo.wait = wait;
@@ -112,7 +121,9 @@ Status DBImpl::TEST_WaitForCompact() {
   // OR flush to finish.
 
   InstrumentedMutexLock l(&mutex_);
-  while ((bg_compaction_scheduled_ || bg_flush_scheduled_) && bg_error_.ok()) {
+  while ((bg_bottom_compaction_scheduled_ || bg_compaction_scheduled_ ||
+          bg_flush_scheduled_) &&
+         bg_error_.ok()) {
     bg_cv_.Wait();
   }
   return bg_error_;
