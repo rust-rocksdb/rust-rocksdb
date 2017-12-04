@@ -585,6 +585,28 @@ fn test_read_options() {
 }
 
 #[test]
+fn test_readoptions_lower_bound() {
+    let path = TempDir::new("_rust_rocksdb_readoptions_lower_bound").expect("");
+    let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
+
+    db.put(b"k1", b"b").unwrap();
+    db.put(b"k2", b"a").unwrap();
+    db.put(b"k3", b"a").unwrap();
+
+    let mut read_opts = ReadOptions::new();
+    let lower_bound = b"k2";
+    read_opts.set_iterate_lower_bound(lower_bound.as_ref());
+    let mut iter = db.iter_opt(read_opts);
+    iter.seek(SeekKey::Key(b"k3"));
+    let mut count = 0;
+    while iter.valid() {
+        count += 1;
+        iter.prev();
+    }
+    assert_eq!(count, 2);
+}
+
+#[test]
 fn test_block_based_options() {
     let path = TempDir::new("_rust_rocksdb_block_based_options").expect("");
     let path_str = path.path().to_str().unwrap();

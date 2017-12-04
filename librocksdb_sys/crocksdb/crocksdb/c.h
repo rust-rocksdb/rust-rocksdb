@@ -1107,6 +1107,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_fill_cache(
     crocksdb_readoptions_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_snapshot(
     crocksdb_readoptions_t*, const crocksdb_snapshot_t*);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_iterate_lower_bound(
+    crocksdb_readoptions_t*, const char* key, size_t keylen);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_iterate_upper_bound(
     crocksdb_readoptions_t*, const char* key, size_t keylen);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_read_tier(

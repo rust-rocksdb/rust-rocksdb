@@ -596,6 +596,11 @@ extern "C" {
         readopts: *mut DBReadOptions,
         snapshot: *const DBSnapshot,
     );
+    pub fn crocksdb_readoptions_set_iterate_lower_bound(
+        readopts: *mut DBReadOptions,
+        k: *const u8,
+        kLen: size_t,
+    );
     pub fn crocksdb_readoptions_set_iterate_upper_bound(
         readopts: *mut DBReadOptions,
         k: *const u8,

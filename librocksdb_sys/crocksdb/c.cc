@@ -127,6 +127,7 @@ struct crocksdb_fifo_compaction_options_t { CompactionOptionsFIFO rep; };
 struct crocksdb_readoptions_t {
    ReadOptions rep;
    Slice upper_bound; // stack variable to set pointer to in ReadOptions
+   Slice lower_bound;
 };
 struct crocksdb_writeoptions_t    { WriteOptions      rep; };
 struct crocksdb_options_t         { Options           rep; };
@@ -2683,13 +2684,24 @@ void crocksdb_readoptions_set_snapshot(
   opt->rep.snapshot = (snap ? snap->rep : nullptr);
 }
 
+void crocksdb_readoptions_set_iterate_lower_bound(
+  crocksdb_readoptions_t* opt,
+  const char* key, size_t keylen) {
+  if (key == nullptr) {
+    opt->lower_bound = Slice();
+    opt->rep.iterate_lower_bound = nullptr;
+  } else {
+    opt->lower_bound = Slice(key, keylen);
+    opt->rep.iterate_lower_bound = &opt->lower_bound;
+  }
+}
+
 void crocksdb_readoptions_set_iterate_upper_bound(
     crocksdb_readoptions_t* opt,
     const char* key, size_t keylen) {
   if (key == nullptr) {
     opt->upper_bound = Slice();
     opt->rep.iterate_upper_bound = nullptr;
-
   } else {
     opt->upper_bound = Slice(key, keylen);
     opt->rep.iterate_upper_bound = &opt->upper_bound;
