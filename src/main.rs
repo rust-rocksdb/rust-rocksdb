@@ -147,10 +147,11 @@ mod tests {
         opts.set_max_background_jobs(4);
         cf_opts.set_report_bg_io_stats(true);
         opts.set_wal_recovery_mode(DBRecoveryMode::PointInTime);
-        opts.enable_statistics();
+        opts.enable_statistics(true);
         opts.set_stats_dump_period_sec(60);
         cf_opts.compression_per_level(&per_level_compression);
         blockopts.set_block_size(524288);
+        blockopts.set_no_block_cache(true);
         blockopts.set_cache_index_and_filter_blocks(true);
         blockopts.set_bloom_filter(10, false);
         cf_opts.set_block_based_table_factory(blockopts);

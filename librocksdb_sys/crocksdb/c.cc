@@ -1957,8 +1957,12 @@ void crocksdb_options_set_max_bytes_for_level_multiplier_additional(
   }
 }
 
-void crocksdb_options_enable_statistics(crocksdb_options_t* opt) {
-  opt->rep.statistics = rocksdb::CreateDBStatistics();
+void crocksdb_options_enable_statistics(crocksdb_options_t* opt, unsigned char v) {
+  if (v) {
+    opt->rep.statistics = rocksdb::CreateDBStatistics();
+  } else {
+    opt->rep.statistics = nullptr;
+  }
 }
 
 void crocksdb_options_reset_statistics(crocksdb_options_t* opt) {

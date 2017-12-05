@@ -457,7 +457,7 @@ extern "C" {
     pub fn crocksdb_options_set_wal_recovery_mode(options: *mut Options, mode: DBRecoveryMode);
     pub fn crocksdb_options_set_max_subcompactions(options: *mut Options, v: u32);
     pub fn crocksdb_options_set_wal_bytes_per_sync(options: *mut Options, v: u64);
-    pub fn crocksdb_options_enable_statistics(options: *mut Options);
+    pub fn crocksdb_options_enable_statistics(options: *mut Options, v: bool);
     pub fn crocksdb_options_reset_statistics(options: *mut Options);
     pub fn crocksdb_options_statistics_get_string(options: *mut Options) -> *const c_char;
     pub fn crocksdb_options_statistics_get_ticker_count(

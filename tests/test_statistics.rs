@@ -20,7 +20,7 @@ fn test_db_statistics() {
     let path = TempDir::new("_rust_rocksdb_statistics").expect("");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
-    opts.enable_statistics();
+    opts.enable_statistics(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     let wopts = WriteOptions::new();
 
