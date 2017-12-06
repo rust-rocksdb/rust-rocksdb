@@ -52,3 +52,35 @@ fn test_db_statistics() {
         .unwrap();
     assert_eq!(get_micros.max, 0.0);
 }
+
+#[test]
+fn test_disable_db_statistics() {
+    let path = TempDir::new("_rust_rocksdb_statistics").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.enable_statistics(false);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let wopts = WriteOptions::new();
+
+    db.put_opt(b"k0", b"a", &wopts).unwrap();
+    db.put_opt(b"k1", b"b", &wopts).unwrap();
+    db.put_opt(b"k2", b"c", &wopts).unwrap();
+    db.flush(true /* sync */).unwrap(); // flush memtable to sst file.
+    assert_eq!(db.get(b"k0").unwrap().unwrap(), b"a");
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"b");
+    assert_eq!(db.get(b"k2").unwrap().unwrap(), b"c");
+
+    assert_eq!(db.get_statistics_ticker_count(TickerType::BlockCacheHit), 0);
+    assert_eq!(
+        db.get_and_reset_statistics_ticker_count(TickerType::BlockCacheHit),
+        0
+    );
+    assert!(
+        db.get_statistics_histogram_string(HistogramType::GetMicros)
+            .is_none()
+    );
+    assert!(
+        db.get_statistics_histogram(HistogramType::GetMicros)
+            .is_none()
+    );
+}

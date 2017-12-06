@@ -1607,7 +1607,10 @@ size_t crocksdb_options_get_block_cache_usage(crocksdb_options_t *opt) {
   if (opt && opt->rep.table_factory != nullptr) {
     void* table_opt = opt->rep.table_factory->GetOptions();
     if (table_opt && strcmp(opt->rep.table_factory->Name(), block_base_table_str) == 0) {
-      return static_cast<BlockBasedTableOptions*>(table_opt)->block_cache->GetUsage();
+      auto opts = static_cast<BlockBasedTableOptions*>(table_opt);
+      if (opts->block_cache) {
+        return opts->block_cache->GetUsage();
+      }
     }
   }
   return 0;
@@ -1966,7 +1969,10 @@ void crocksdb_options_enable_statistics(crocksdb_options_t* opt, unsigned char v
 }
 
 void crocksdb_options_reset_statistics(crocksdb_options_t* opt) {
-  opt->rep.statistics->Reset();
+  auto statistics = opt->rep.statistics.get();
+  if (statistics) {
+    statistics->Reset();
+  }
 }
 
 void crocksdb_options_set_num_levels(crocksdb_options_t* opt, int n) {
