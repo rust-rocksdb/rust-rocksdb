@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance,
                    DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType,
@@ -1961,6 +1960,24 @@ impl Drop for SequentialFile {
         unsafe {
             crocksdb_ffi::crocksdb_sequential_file_destroy(self.inner);
         }
+    }
+}
+
+pub fn set_external_sst_file_global_seq_no(
+    db: &DB,
+    cf: &CFHandle,
+    file: &str,
+    seq_no: u64,
+) -> Result<u64, String> {
+    let cfile = CString::new(file).unwrap();
+    unsafe {
+        let pre_seq_no = ffi_try!(crocksdb_set_external_sst_file_global_seq_no(
+            db.inner,
+            cf.inner,
+            cfile.as_ptr(),
+            seq_no
+        ));
+        Ok(pre_seq_no)
     }
 }
 

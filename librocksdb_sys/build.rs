@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 extern crate cc;
 extern crate cmake;
 
@@ -85,12 +84,15 @@ fn build_rocksdb() -> Build {
             _ => "Debug",
         };
         println!("cargo:rustc-link-search=native={}/{}", build_dir, profile);
+        build.define("OS_WIN", None);
     } else {
         println!("cargo:rustc-link-search=native={}", build_dir);
+        build.define("ROCKSDB_PLATFORM_POSIX", None);
     }
 
     let cur_dir = env::current_dir().unwrap();
     build.include(cur_dir.join("rocksdb").join("include"));
+    build.include(cur_dir.join("rocksdb"));
 
     println!("cargo:rustc-link-lib=static=rocksdb");
     println!("cargo:rustc-link-lib=static=z");

@@ -1561,6 +1561,15 @@ crocksdb_keyversions_seq(const crocksdb_keyversions_t *kvs, int index);
 extern C_ROCKSDB_LIBRARY_API int
 crocksdb_keyversions_type(const crocksdb_keyversions_t *kvs, int index);
 
+/* Modify Sst File Seq No */
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_set_external_sst_file_global_seq_no(
+  crocksdb_t *db,
+  crocksdb_column_family_handle_t *column_family,
+  const char *file,
+  uint64_t seq_no,
+  char **errptr);
+
 #ifdef __cplusplus
 }  /* end extern "C" */
 #endif

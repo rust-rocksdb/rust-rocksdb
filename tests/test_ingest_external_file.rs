@@ -432,3 +432,34 @@ fn test_mem_sst_file_writer() {
     assert!(env.delete_file(mem_sst_str).is_ok());
     assert!(env.file_exists(mem_sst_str).is_err());
 }
+
+#[test]
+fn test_set_external_sst_file_global_seq_no() {
+    let db_path = TempDir::new("_rust_rocksdb_set_external_sst_file_global_seq_no_db").expect("");
+    let db = create_default_database(&db_path);
+    let path = TempDir::new("_rust_rocksdb_set_external_sst_file_global_seq_no").expect("");
+    let file = path.path().join("sst_file");
+    let sstfile_str = file.to_str().unwrap();
+    gen_sst(
+        ColumnFamilyOptions::new(),
+        Some(db.cf_handle("default").unwrap()),
+        sstfile_str,
+        &[(b"k1", b"v1"), (b"k2", b"v2")],
+    );
+
+    let handle = db.cf_handle("default").unwrap();
+    let seq_no = 1;
+    // varify change seq_no
+    let r1 = set_external_sst_file_global_seq_no(&db, &handle, sstfile_str, seq_no);
+    assert!(r1.unwrap() != seq_no);
+    // varify that seq_no are equal
+    let r2 = set_external_sst_file_global_seq_no(&db, &handle, sstfile_str, seq_no);
+    assert!(r2.unwrap() == seq_no);
+
+    // change seq_no back to 0 so that it can be ingested
+    assert!(set_external_sst_file_global_seq_no(&db, &handle, sstfile_str, 0).is_ok());
+
+    db.ingest_external_file(&IngestExternalFileOptions::new(), &[sstfile_str])
+        .unwrap();
+    check_kv(&db, None, &[(b"k1", Some(b"v1")), (b"k2", Some(b"v2"))]);
+}
