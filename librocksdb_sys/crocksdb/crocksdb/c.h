@@ -1194,6 +1194,10 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_env_set_high_priority_background_threads(crocksdb_env_t* env, int n);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_env_join_all_threads(
     crocksdb_env_t* env);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_env_file_exists(
+    crocksdb_env_t* env, const char* path, char** errptr);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_env_delete_file(
+    crocksdb_env_t* env, const char* path, char** errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_env_destroy(crocksdb_env_t*);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_envoptions_t* crocksdb_envoptions_create();

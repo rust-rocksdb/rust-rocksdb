@@ -1892,6 +1892,22 @@ impl Env {
             Ok(SequentialFile::new(file))
         }
     }
+
+    pub fn file_exists(&self, path: &str) -> Result<(), String> {
+        unsafe {
+            let file_path = CString::new(path).unwrap();
+            ffi_try!(crocksdb_env_file_exists(self.inner, file_path.as_ptr()));
+            Ok(())
+        }
+    }
+
+    pub fn delete_file(&self, path: &str) -> Result<(), String> {
+        unsafe {
+            let file_path = CString::new(path).unwrap();
+            ffi_try!(crocksdb_env_delete_file(self.inner, file_path.as_ptr()));
+            Ok(())
+        }
+    }
 }
 
 impl Drop for Env {

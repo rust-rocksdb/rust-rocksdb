@@ -2877,6 +2877,14 @@ void crocksdb_env_join_all_threads(crocksdb_env_t* env) {
   env->rep->WaitForJoin();
 }
 
+void crocksdb_env_file_exists(crocksdb_env_t* env, const char* path, char** errptr) {
+  SaveError(errptr, env->rep->FileExists(path));
+}
+
+void crocksdb_env_delete_file(crocksdb_env_t* env, const char* path, char** errptr) {
+  SaveError(errptr, env->rep->DeleteFile(path));
+}
+
 void crocksdb_env_destroy(crocksdb_env_t* env) {
   if (!env->is_default) delete env->rep;
   delete env;

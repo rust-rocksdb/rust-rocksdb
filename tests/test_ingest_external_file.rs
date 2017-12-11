@@ -427,4 +427,8 @@ fn test_mem_sst_file_writer() {
             (b"k3", Some(b"v3")),
         ],
     );
+
+    assert!(env.file_exists(mem_sst_str).is_ok());
+    assert!(env.delete_file(mem_sst_str).is_ok());
+    assert!(env.file_exists(mem_sst_str).is_err());
 }
