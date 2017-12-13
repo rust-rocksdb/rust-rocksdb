@@ -1,4 +1,4 @@
-extern crate gcc;
+extern crate cc;
 
 pub fn link(name: &str, bundled: bool) {
     use std::env::var;
@@ -14,7 +14,7 @@ pub fn link(name: &str, bundled: bool) {
 }
 
 fn main() {
-	let mut config = gcc::Config::new();
+	let mut config = cc::Build::new();
 	config.include("rocksdb/include/");
 	config.include("rocksdb/");
 	config.include("snappy/");
@@ -228,6 +228,7 @@ fn main() {
 
 	config.cpp(true);
 	config.compile("librocksdb.a");
+
 	println!("cargo:rustc-link-lib=static=snappy");
 }
 
