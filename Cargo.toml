@@ -33,3 +33,4 @@ path = "librocksdb_sys"
 
 [dev-dependencies]
 byteorder = "1.0.0"
+rand = "0.3"
