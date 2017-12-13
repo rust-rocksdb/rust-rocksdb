@@ -17,6 +17,7 @@ static = []
 
 [dependencies]
 libc = "0.2"
+snappy-sys = { git = "https://github.com/paritytech/rust-snappy" }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
