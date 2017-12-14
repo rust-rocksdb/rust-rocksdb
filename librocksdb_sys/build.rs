@@ -89,6 +89,9 @@ fn build_rocksdb() -> Build {
         println!("cargo:rustc-link-search=native={}", build_dir);
         build.define("ROCKSDB_PLATFORM_POSIX", None);
     }
+    if cfg!(target_os = "macos") {
+        build.define("OS_MACOSX", None);
+    }
 
     let cur_dir = env::current_dir().unwrap();
     build.include(cur_dir.join("rocksdb").join("include"));

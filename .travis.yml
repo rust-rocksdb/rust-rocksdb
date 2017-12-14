@@ -13,6 +13,11 @@ cache:
 os:
   - linux
 
+matrix:
+  include:
+    - os: osx
+      rust: stable
+
 script:
 - cargo build
 - cargo test --all
