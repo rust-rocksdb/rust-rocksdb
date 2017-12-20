@@ -1968,6 +1968,10 @@ void crocksdb_options_set_max_bytes_for_level_multiplier(crocksdb_options_t* opt
   opt->rep.max_bytes_for_level_multiplier = n;
 }
 
+double crocksdb_options_get_max_bytes_for_level_multiplier(crocksdb_options_t* opt) {
+  return opt->rep.max_bytes_for_level_multiplier;
+}
+
 void crocksdb_options_set_max_compaction_bytes(crocksdb_options_t* opt,
                                               uint64_t n) {
   opt->rep.max_compaction_bytes = n;

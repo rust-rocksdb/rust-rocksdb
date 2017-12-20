@@ -661,3 +661,10 @@ fn test_fifo_compaction_options() {
     cf_opts.set_fifo_compaction_options(fifo_opts);
     DB::open_cf(opts, path_str, vec![("default", cf_opts)]).unwrap();
 }
+
+#[test]
+fn test_readoptions_max_bytes_for_level_multiplier() {
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_max_bytes_for_level_multiplier(8);
+    assert_eq!(cf_opts.get_max_bytes_for_level_multiplier(), 8);
+}

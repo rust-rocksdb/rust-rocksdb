@@ -784,6 +784,8 @@ crocksdb_options_set_level_compaction_dynamic_level_bytes(crocksdb_options_t*,
                                                          unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_bytes_for_level_multiplier(crocksdb_options_t*, double);
+extern C_ROCKSDB_LIBRARY_API double
+crocksdb_options_get_max_bytes_for_level_multiplier(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_bytes_for_level_multiplier_additional(
     crocksdb_options_t*, int* level_values, size_t num_levels);

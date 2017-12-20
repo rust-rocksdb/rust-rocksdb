@@ -416,7 +416,8 @@ extern "C" {
     pub fn crocksdb_options_set_target_file_size_base(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_set_target_file_size_multiplier(options: *mut Options, mul: c_int);
     pub fn crocksdb_options_set_max_bytes_for_level_base(options: *mut Options, bytes: u64);
-    pub fn crocksdb_options_set_max_bytes_for_level_multiplier(options: *mut Options, mul: c_int);
+    pub fn crocksdb_options_set_max_bytes_for_level_multiplier(options: *mut Options, mul: f64);
+    pub fn crocksdb_options_get_max_bytes_for_level_multiplier(options: *mut Options) -> f64;
     pub fn crocksdb_options_set_max_compaction_bytes(options: *mut Options, bytes: uint64_t);
     pub fn crocksdb_options_set_max_log_file_size(options: *mut Options, bytes: size_t);
     pub fn crocksdb_options_set_log_file_time_to_roll(options: *mut Options, bytes: size_t);
