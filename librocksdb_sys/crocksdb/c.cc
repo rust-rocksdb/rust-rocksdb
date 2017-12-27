@@ -2793,6 +2793,48 @@ void crocksdb_readoptions_set_ignore_range_deletions(
   opt->rep.ignore_range_deletions = v;
 }
 
+struct TableFilterCtx {
+  TableFilterCtx(void* ctx, void(*destroy)(void*))
+  : ctx_(ctx), destroy_(destroy) {}
+  ~TableFilterCtx() { destroy_(ctx_); }
+
+  void* ctx_;
+  void (*destroy_)(void*);
+};
+
+struct TableFilter {
+  // After passing TableFilter to ReadOptions, ReadOptions will be copyed
+  // several times, so we need use shared_ptr to control the ctx_ resource
+  // destroy ctx_ only when the last ReadOptions out of its life time.
+  TableFilter(void* ctx,
+    int (*table_filter)(void*, const crocksdb_table_properties_t*),
+    void (*destroy)(void*))
+    : ctx_(std::make_shared<TableFilterCtx>(ctx, destroy)),
+      table_filter_(table_filter) {}
+
+  TableFilter(const TableFilter& f)
+    : ctx_(f.ctx_),
+      table_filter_(f.table_filter_) {}
+
+  bool operator()(const TableProperties& prop) {
+    return table_filter_(ctx_->ctx_, reinterpret_cast<const crocksdb_table_properties_t*>(&prop));
+  }
+
+  shared_ptr<TableFilterCtx> ctx_;
+  int (*table_filter_)(void*, const crocksdb_table_properties_t*);
+
+private:
+  TableFilter() {}
+};
+
+void crocksdb_readoptions_set_table_filter(
+  crocksdb_readoptions_t *opt,
+  void* ctx,
+  int (*table_filter)(void*, const crocksdb_table_properties_t*),
+  void (*destroy)(void*)) {
+  opt->rep.table_filter = TableFilter(ctx, table_filter, destroy);
+}
+
 crocksdb_writeoptions_t* crocksdb_writeoptions_create() {
   return new crocksdb_writeoptions_t;
 }

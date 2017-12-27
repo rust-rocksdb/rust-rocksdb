@@ -623,6 +623,12 @@ extern "C" {
         v: bool,
     );
     pub fn crocksdb_readoptions_set_ignore_range_deletions(readopts: *mut DBReadOptions, v: bool);
+    pub fn crocksdb_readoptions_set_table_filter(
+        readopts: *mut DBReadOptions,
+        ctx: *mut c_void,
+        filter: extern "C" fn(*mut c_void, *const DBTableProperties) -> c_int,
+        destroy: extern "C" fn(*mut c_void),
+    );
 
     pub fn crocksdb_get(
         db: *const DBInstance,

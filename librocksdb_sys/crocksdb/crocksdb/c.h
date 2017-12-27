@@ -1136,6 +1136,12 @@ crocksdb_readoptions_set_background_purge_on_iterator_cleanup(
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_readoptions_set_ignore_range_deletions(crocksdb_readoptions_t *,
                                                 unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_readoptions_set_table_filter(
+    crocksdb_readoptions_t*,
+    void*,
+    int(*table_filter)(void*, const crocksdb_table_properties_t*),
+    void(*destory)(void*));
 
 /* Write options */
 

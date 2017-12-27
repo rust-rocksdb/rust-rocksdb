@@ -12,9 +12,9 @@
 // limitations under the License.
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use rocksdb::{ColumnFamilyOptions, DBEntryType, DBOptions, Range, TablePropertiesCollection,
-              TablePropertiesCollector, TablePropertiesCollectorFactory, UserCollectedProperties,
-              Writable, DB};
+use rocksdb::{ColumnFamilyOptions, DBEntryType, DBOptions, Range, ReadOptions, SeekKey,
+              TableFilter, TableProperties, TablePropertiesCollection, TablePropertiesCollector,
+              TablePropertiesCollectorFactory, UserCollectedProperties, Writable, DB};
 use std::collections::HashMap;
 use std::fmt;
 use tempdir::TempDir;
@@ -213,4 +213,77 @@ fn test_table_properties_collector_factory() {
     let range = Range::new(b"key3", b"key4");
     let collection = db.get_properties_of_tables_in_range(cf, &[range]).unwrap();
     check_collection(&collection, 1, 4, 4, 0, 0);
+}
+
+struct BigTableFilter {
+    max_entries: u64,
+}
+
+impl BigTableFilter {
+    pub fn new(max_entries: u64) -> BigTableFilter {
+        BigTableFilter {
+            max_entries: max_entries,
+        }
+    }
+}
+
+impl TableFilter for BigTableFilter {
+    fn table_filter(&self, props: &TableProperties) -> bool {
+        if props.num_entries() > self.max_entries {
+            // this sst will not be scanned
+            return false;
+        }
+        true
+    }
+}
+
+#[test]
+fn test_table_properties_with_table_filter() {
+    let f = ExampleFactory::new();
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    cf_opts.add_table_properties_collector_factory("example-collector", Box::new(f));
+
+    let path = TempDir::new("_rust_rocksdb_collector_with_table_filter").expect("");
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    ).unwrap();
+
+    // Generate a sst with 4 entries.
+    let samples = vec![
+        (b"key1".to_vec(), b"value1".to_vec()),
+        (b"key2".to_vec(), b"value2".to_vec()),
+        (b"key3".to_vec(), b"value3".to_vec()),
+        (b"key4".to_vec(), b"value4".to_vec()),
+    ];
+    for &(ref k, ref v) in &samples {
+        db.put(k, v).unwrap();
+        assert_eq!(v.as_slice(), &*db.get(k).unwrap().unwrap());
+    }
+    db.flush(true).unwrap();
+
+    // Generate a sst with 2 entries
+    let samples = vec![
+        (b"key5".to_vec(), b"value5".to_vec()),
+        (b"key6".to_vec(), b"value6".to_vec()),
+    ];
+    for &(ref k, ref v) in &samples {
+        db.put(k, v).unwrap();
+        assert_eq!(v.as_slice(), &*db.get(k).unwrap().unwrap());
+    }
+    db.flush(true).unwrap();
+
+    // Scan with table filter
+    let f = BigTableFilter::new(2);
+    let mut ropts = ReadOptions::new();
+    ropts.set_table_filter(Box::new(f));
+    let mut iter = db.iter_opt(ropts);
+    let key = b"key";
+    let key5 = b"key5";
+    assert!(iter.seek(SeekKey::from(key.as_ref())));
+    // First sst will be skipped
+    assert_eq!(iter.key(), key5.as_ref());
 }
