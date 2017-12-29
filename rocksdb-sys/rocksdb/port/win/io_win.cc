@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -9,15 +9,37 @@
 
 #include "port/win/io_win.h"
 
-#include "util/sync_point.h"
-#include "util/coding.h"
-#include "util/iostats_context_imp.h"
-#include "util/sync_point.h"
+#include "monitoring/iostats_context_imp.h"
 #include "util/aligned_buffer.h"
-
+#include "util/coding.h"
+#include "util/sync_point.h"
 
 namespace rocksdb {
 namespace port {
+
+/*
+* DirectIOHelper
+*/
+namespace {
+
+const size_t kSectorSize = 512;
+
+inline
+bool IsPowerOfTwo(const size_t alignment) {
+  return ((alignment) & (alignment - 1)) == 0;
+}
+
+inline
+bool IsSectorAligned(const size_t off) { 
+  return (off & (kSectorSize - 1)) == 0;
+}
+
+inline
+bool IsAligned(size_t alignment, const void* ptr) {
+  return ((uintptr_t(ptr)) & (alignment - 1)) == 0;
+}
+}
+
 
 std::string GetWindowsErrSz(DWORD err) {
   LPSTR lpMsgBuf;
@@ -136,6 +158,8 @@ size_t GetUniqueIdFromFile(HANDLE hFile, char* id, size_t max_size) {
     return 0;
   }
 
+  // This function has to be re-worked for cases when
+  // ReFS file system introduced on Windows Server 2012 is used
   BY_HANDLE_FILE_INFORMATION FileInfo;
 
   BOOL result = GetFileInformationByHandle(hFile, &FileInfo);
@@ -155,22 +179,24 @@ size_t GetUniqueIdFromFile(HANDLE hFile, char* id, size_t max_size) {
   return static_cast<size_t>(rid - id);
 }
 
-WinMmapReadableFile::WinMmapReadableFile(const std::string& fileName, HANDLE hFile, HANDLE hMap,
-  const void* mapped_region, size_t length)
-  : fileName_(fileName),
-  hFile_(hFile),
-  hMap_(hMap),
-  mapped_region_(mapped_region),
-  length_(length) {}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// WinMmapReadableFile
+
+WinMmapReadableFile::WinMmapReadableFile(const std::string& fileName,
+                                         HANDLE hFile, HANDLE hMap,
+                                         const void* mapped_region,
+                                         size_t length)
+    : WinFileData(fileName, hFile, false /* use_direct_io */),
+      hMap_(hMap),
+      mapped_region_(mapped_region),
+      length_(length) {}
 
 WinMmapReadableFile::~WinMmapReadableFile() {
   BOOL ret = ::UnmapViewOfFile(mapped_region_);
+  (void)ret;
   assert(ret);
 
   ret = ::CloseHandle(hMap_);
-  assert(ret);
-
-  ret = ::CloseHandle(hFile_);
   assert(ret);
 }
 
@@ -180,7 +206,7 @@ Status WinMmapReadableFile::Read(uint64_t offset, size_t n, Slice* result,
 
   if (offset > length_) {
     *result = Slice();
-    return IOError(fileName_, EINVAL);
+    return IOError(filename_, EINVAL);
   } else if (offset + n > length_) {
     n = length_ - offset;
   }
@@ -196,6 +222,10 @@ Status WinMmapReadableFile::InvalidateCache(size_t offset, size_t length) {
 size_t WinMmapReadableFile::GetUniqueId(char* id, size_t max_size) const {
   return GetUniqueIdFromFile(hFile_, id, max_size);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// WinMmapFile
+
 
 // Can only truncate or reserve to a sector size aligned if
 // used on files that are opened with Unbuffered I/O
@@ -302,8 +332,7 @@ Status WinMmapFile::PreallocateInternal(uint64_t spaceToReserve) {
 
 WinMmapFile::WinMmapFile(const std::string& fname, HANDLE hFile, size_t page_size,
   size_t allocation_granularity, const EnvOptions& options)
-  : filename_(fname),
-  hFile_(hFile),
+  : WinFileData(fname, hFile, false),
   hMap_(NULL),
   page_size_(page_size),
   allocation_granularity_(allocation_granularity),
@@ -515,19 +544,19 @@ size_t WinMmapFile::GetUniqueId(char* id, size_t max_size) const {
   return GetUniqueIdFromFile(hFile_, id, max_size);
 }
 
+//////////////////////////////////////////////////////////////////////////////////
+// WinSequentialFile
+
 WinSequentialFile::WinSequentialFile(const std::string& fname, HANDLE f,
-  const EnvOptions& options)
-  : filename_(fname),
-  file_(f),
-  use_os_buffer_(options.use_os_buffer)
-{}
+                                     const EnvOptions& options)
+    : WinFileData(fname, f, options.use_direct_reads) {}
 
 WinSequentialFile::~WinSequentialFile() {
-  assert(file_ != INVALID_HANDLE_VALUE);
-  CloseHandle(file_);
+  assert(hFile_ != INVALID_HANDLE_VALUE);
 }
 
 Status WinSequentialFile::Read(size_t n, Slice* result, char* scratch) {
+  assert(result != nullptr && !WinFileData::use_direct_io());
   Status s;
   size_t r = 0;
 
@@ -540,7 +569,7 @@ Status WinSequentialFile::Read(size_t n, Slice* result, char* scratch) {
 
   DWORD bytesToRead = static_cast<DWORD>(n); //cast is safe due to the check above
   DWORD bytesRead = 0;
-  BOOL ret = ReadFile(file_, scratch, bytesToRead, &bytesRead, NULL);
+  BOOL ret = ReadFile(hFile_, scratch, bytesToRead, &bytesRead, NULL);
   if (ret == TRUE) {
     r = bytesRead;
   } else {
@@ -552,6 +581,41 @@ Status WinSequentialFile::Read(size_t n, Slice* result, char* scratch) {
   return s;
 }
 
+SSIZE_T WinSequentialFile::PositionedReadInternal(char* src, size_t numBytes,
+  uint64_t offset) const {
+  return pread(GetFileHandle(), src, numBytes, offset);
+}
+
+Status WinSequentialFile::PositionedRead(uint64_t offset, size_t n, Slice* result,
+  char* scratch) {
+
+  Status s;
+
+  assert(WinFileData::use_direct_io());
+
+  // Windows ReadFile API accepts a DWORD.
+  // While it is possible to read in a loop if n is > UINT_MAX
+  // it is a highly unlikely case.
+  if (n > UINT_MAX) {
+    return IOErrorFromWindowsError(GetName(), ERROR_INVALID_PARAMETER);
+  }
+
+  auto r = PositionedReadInternal(scratch, n, offset);
+
+  if (r < 0) {
+    auto lastError = GetLastError();
+    // Posix impl wants to treat reads from beyond
+    // of the file as OK.
+    if (lastError != ERROR_HANDLE_EOF) {
+      s = IOErrorFromWindowsError(GetName(), lastError);
+    }
+  }
+
+  *result = Slice(scratch, (r < 0) ? 0 : size_t(r));
+  return s;
+}
+
+
 Status WinSequentialFile::Skip(uint64_t n) {
   // Can't handle more than signed max as SetFilePointerEx accepts a signed 64-bit
   // integer. As such it is a highly unlikley case to have n so large.
@@ -561,7 +625,7 @@ Status WinSequentialFile::Skip(uint64_t n) {
 
   LARGE_INTEGER li;
   li.QuadPart = static_cast<int64_t>(n); //cast is safe due to the check above
-  BOOL ret = SetFilePointerEx(file_, li, NULL, FILE_CURRENT);
+  BOOL ret = SetFilePointerEx(hFile_, li, NULL, FILE_CURRENT);
   if (ret == FALSE) {
     return IOErrorFromWindowsError(filename_, GetLastError());
   }
@@ -572,217 +636,79 @@ Status WinSequentialFile::InvalidateCache(size_t offset, size_t length) {
   return Status::OK();
 }
 
-SSIZE_T WinRandomAccessFile::ReadIntoBuffer(uint64_t user_offset, uint64_t first_page_start,
-  size_t bytes_to_read, size_t& left,
-  AlignedBuffer& buffer, char* dest) const {
-  assert(buffer.CurrentSize() == 0);
-  assert(buffer.Capacity() >= bytes_to_read);
+//////////////////////////////////////////////////////////////////////////////////////////////////
+/// WinRandomAccessBase
 
-  SSIZE_T read =
-    PositionedReadInternal(buffer.Destination(), bytes_to_read, first_page_start);
-
-  if (read > 0) {
-    buffer.Size(read);
-
-    // Let's figure out how much we read from the users standpoint
-    if ((first_page_start + buffer.CurrentSize()) > user_offset) {
-      assert(first_page_start <= user_offset);
-      size_t buffer_offset = user_offset - first_page_start;
-      read = buffer.Read(dest, buffer_offset, left);
-    } else {
-      read = 0;
-    }
-    left -= read;
-  }
-  return read;
-}
-
-SSIZE_T WinRandomAccessFile::ReadIntoOneShotBuffer(uint64_t user_offset, uint64_t first_page_start,
-  size_t bytes_to_read, size_t& left,
-  char* dest) const {
-  AlignedBuffer bigBuffer;
-  bigBuffer.Alignment(buffer_.Alignment());
-  bigBuffer.AllocateNewBuffer(bytes_to_read);
-
-  return ReadIntoBuffer(user_offset, first_page_start, bytes_to_read, left,
-    bigBuffer, dest);
-}
-
-SSIZE_T WinRandomAccessFile::ReadIntoInstanceBuffer(uint64_t user_offset,
-  uint64_t first_page_start,
-  size_t bytes_to_read, size_t& left,
-  char* dest) const {
-  SSIZE_T read = ReadIntoBuffer(user_offset, first_page_start, bytes_to_read,
-    left, buffer_, dest);
-
-  if (read > 0) {
-    buffered_start_ = first_page_start;
-  }
-
-  return read;
-}
-
-void WinRandomAccessFile::CalculateReadParameters(uint64_t offset, size_t bytes_requested,
-  size_t& actual_bytes_toread,
-  uint64_t& first_page_start) const {
-
-  const size_t alignment = buffer_.Alignment();
-
-  first_page_start = TruncateToPageBoundary(alignment, offset);
-  const uint64_t last_page_start =
-    TruncateToPageBoundary(alignment, offset + bytes_requested - 1);
-  actual_bytes_toread = (last_page_start - first_page_start) + alignment;
-}
-
-SSIZE_T WinRandomAccessFile::PositionedReadInternal(char* src, size_t numBytes,
+inline
+SSIZE_T WinRandomAccessImpl::PositionedReadInternal(char* src,
+  size_t numBytes,
   uint64_t offset) const {
-  return pread(hFile_, src, numBytes, offset);
+  return pread(file_base_->GetFileHandle(), src, numBytes, offset);
 }
 
-WinRandomAccessFile::WinRandomAccessFile(const std::string& fname, HANDLE hFile, size_t alignment,
-    const EnvOptions& options)
-    : filename_(fname),
-    hFile_(hFile),
-    use_os_buffer_(options.use_os_buffer),
-    read_ahead_(false),
-    compaction_readahead_size_(options.compaction_readahead_size),
-    random_access_max_buffer_size_(options.random_access_max_buffer_size),
-    buffer_(),
-    buffered_start_(0) {
+inline
+WinRandomAccessImpl::WinRandomAccessImpl(WinFileData* file_base,
+  size_t alignment,
+  const EnvOptions& options) :
+    file_base_(file_base),
+    alignment_(alignment) {
+
   assert(!options.use_mmap_reads);
-
-  // Unbuffered access, use internal buffer for reads
-  if (!use_os_buffer_) {
-    // Do not allocate the buffer either until the first request or
-    // until there is a call to allocate a read-ahead buffer
-    buffer_.Alignment(alignment);
-  }
 }
 
-WinRandomAccessFile::~WinRandomAccessFile() {
-  if (hFile_ != NULL && hFile_ != INVALID_HANDLE_VALUE) {
-    ::CloseHandle(hFile_);
-  }
-}
-
-void WinRandomAccessFile::EnableReadAhead() { this->Hint(SEQUENTIAL); }
-
-Status WinRandomAccessFile::Read(uint64_t offset, size_t n, Slice* result,
+inline
+Status WinRandomAccessImpl::ReadImpl(uint64_t offset, size_t n, Slice* result,
   char* scratch) const {
 
   Status s;
-  SSIZE_T r = -1;
-  size_t left = n;
-  char* dest = scratch;
+
+  // Check buffer alignment
+  if (file_base_->use_direct_io()) {
+    if (!IsAligned(alignment_, scratch)) {
+      return Status::InvalidArgument("WinRandomAccessImpl::ReadImpl: scratch is not properly aligned");
+    }
+  }
 
   if (n == 0) {
     *result = Slice(scratch, 0);
     return s;
   }
 
-  // When in unbuffered mode we need to do the following changes:
-  // - use our own aligned buffer
-  // - always read at the offset of that is a multiple of alignment
-  if (!use_os_buffer_) {
+  size_t left = n;
+  char* dest = scratch;
 
-    uint64_t first_page_start = 0;
-    size_t actual_bytes_toread = 0;
-    size_t bytes_requested = left;
-
-    if (!read_ahead_ && random_access_max_buffer_size_ == 0) {
-      CalculateReadParameters(offset, bytes_requested, actual_bytes_toread,
-        first_page_start);
-
-      assert(actual_bytes_toread > 0);
-
-      r = ReadIntoOneShotBuffer(offset, first_page_start,
-        actual_bytes_toread, left, dest);
-    } else {
-
-      std::unique_lock<std::mutex> lock(buffer_mut_);
-
-      // Let's see if at least some of the requested data is already
-      // in the buffer
-      if (offset >= buffered_start_ &&
-        offset < (buffered_start_ + buffer_.CurrentSize())) {
-        size_t buffer_offset = offset - buffered_start_;
-        r = buffer_.Read(dest, buffer_offset, left);
-        assert(r >= 0);
-
-        left -= size_t(r);
-        offset += r;
-        dest += r;
-      }
-
-      // Still some left or none was buffered
-      if (left > 0) {
-        // Figure out the start/end offset for reading and amount to read
-        bytes_requested = left;
-
-        if (read_ahead_ && bytes_requested < compaction_readahead_size_) {
-          bytes_requested = compaction_readahead_size_;
-        }
-
-        CalculateReadParameters(offset, bytes_requested, actual_bytes_toread,
-          first_page_start);
-
-        assert(actual_bytes_toread > 0);
-
-        if (buffer_.Capacity() < actual_bytes_toread) {
-          // If we are in read-ahead mode or the requested size
-          // exceeds max buffer size then use one-shot
-          // big buffer otherwise reallocate main buffer
-          if (read_ahead_ ||
-            (actual_bytes_toread > random_access_max_buffer_size_)) {
-            // Unlock the mutex since we are not using instance buffer
-            lock.unlock();
-            r = ReadIntoOneShotBuffer(offset, first_page_start,
-              actual_bytes_toread, left, dest);
-          } else {
-            buffer_.AllocateNewBuffer(actual_bytes_toread);
-            r = ReadIntoInstanceBuffer(offset, first_page_start,
-              actual_bytes_toread, left, dest);
-          }
-        } else {
-          buffer_.Clear();
-          r = ReadIntoInstanceBuffer(offset, first_page_start,
-            actual_bytes_toread, left, dest);
-        }
-      }
-    }
-  } else {
-    r = PositionedReadInternal(scratch, left, offset);
-    if (r > 0) {
-      left -= r;
+  SSIZE_T r = PositionedReadInternal(scratch, left, offset);
+  if (r > 0) {
+    left -= r;
+  } else if (r < 0) {
+    auto lastError = GetLastError();
+    // Posix impl wants to treat reads from beyond
+    // of the file as OK.
+    if(lastError != ERROR_HANDLE_EOF) {
+      s = IOErrorFromWindowsError(file_base_->GetName(), lastError);
     }
   }
 
   *result = Slice(scratch, (r < 0) ? 0 : n - left);
 
-  if (r < 0) {
-    s = IOErrorFromLastWindowsError(filename_);
-  }
   return s;
 }
 
-bool WinRandomAccessFile::ShouldForwardRawRequest() const {
-  return true;
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// WinRandomAccessFile
+
+WinRandomAccessFile::WinRandomAccessFile(const std::string& fname, HANDLE hFile,
+                                         size_t alignment,
+                                         const EnvOptions& options)
+    : WinFileData(fname, hFile, options.use_direct_reads),
+      WinRandomAccessImpl(this, alignment, options) {}
+
+WinRandomAccessFile::~WinRandomAccessFile() {
 }
 
-void WinRandomAccessFile::Hint(AccessPattern pattern) {
-  if (pattern == SEQUENTIAL && !use_os_buffer_ &&
-    compaction_readahead_size_ > 0) {
-    std::lock_guard<std::mutex> lg(buffer_mut_);
-    if (!read_ahead_) {
-      read_ahead_ = true;
-      // This would allocate read-ahead size + 2 alignments
-      // - one for memory alignment which added implicitly by AlignedBuffer
-      // - We add one more alignment because we will read one alignment more
-      // from disk
-      buffer_.AllocateNewBuffer(compaction_readahead_size_ +
-        buffer_.Alignment());
-    }
-  }
+Status WinRandomAccessFile::Read(uint64_t offset, size_t n, Slice* result,
+  char* scratch) const {
+  return ReadImpl(offset, n, result, scratch);
 }
 
 Status WinRandomAccessFile::InvalidateCache(size_t offset, size_t length) {
@@ -790,142 +716,181 @@ Status WinRandomAccessFile::InvalidateCache(size_t offset, size_t length) {
 }
 
 size_t WinRandomAccessFile::GetUniqueId(char* id, size_t max_size) const {
-  return GetUniqueIdFromFile(hFile_, id, max_size);
+  return GetUniqueIdFromFile(GetFileHandle(), id, max_size);
 }
 
-Status WinWritableFile::PreallocateInternal(uint64_t spaceToReserve) {
-  return fallocate(filename_, hFile_, spaceToReserve);
+size_t WinRandomAccessFile::GetRequiredBufferAlignment() const {
+  return GetAlignment();
 }
 
-WinWritableFile::WinWritableFile(const std::string& fname, HANDLE hFile, size_t alignment,
-    size_t capacity, const EnvOptions& options)
-    : filename_(fname),
-    hFile_(hFile),
-    use_os_buffer_(options.use_os_buffer),
-    alignment_(alignment),
-    filesize_(0),
-    reservedsize_(0) {
-  assert(!options.use_mmap_writes);
+/////////////////////////////////////////////////////////////////////////////
+// WinWritableImpl
+//
+
+inline
+Status WinWritableImpl::PreallocateInternal(uint64_t spaceToReserve) {
+  return fallocate(file_data_->GetName(), file_data_->GetFileHandle(), spaceToReserve);
 }
 
-WinWritableFile::~WinWritableFile() {
-  if (NULL != hFile_ && INVALID_HANDLE_VALUE != hFile_) {
-    WinWritableFile::Close();
+inline
+WinWritableImpl::WinWritableImpl(WinFileData* file_data, size_t alignment)
+  : file_data_(file_data),
+  alignment_(alignment),
+  next_write_offset_(0),
+  reservedsize_(0) {
+
+  // Query current position in case ReopenWritableFile is called
+  // This position is only important for buffered writes
+  // for unbuffered writes we explicitely specify the position.
+  LARGE_INTEGER zero_move;
+  zero_move.QuadPart = 0; // Do not move
+  LARGE_INTEGER pos;
+  pos.QuadPart = 0;
+  BOOL ret = SetFilePointerEx(file_data_->GetFileHandle(), zero_move, &pos,
+      FILE_CURRENT);
+  // Querying no supped to fail
+  if (ret) {
+    next_write_offset_ = pos.QuadPart;
+  } else {
+    assert(false);
   }
 }
 
-  // Indicates if the class makes use of unbuffered I/O
-bool WinWritableFile::UseOSBuffer() const {
-  return use_os_buffer_;
-}
-
-size_t WinWritableFile::GetRequiredBufferAlignment() const {
-  return alignment_;
-}
-
-Status WinWritableFile::Append(const Slice& data) {
-
-  // Used for buffered access ONLY
-  assert(use_os_buffer_);
-  assert(data.size() < std::numeric_limits<DWORD>::max());
+inline
+Status WinWritableImpl::AppendImpl(const Slice& data) {
 
   Status s;
 
-  DWORD bytesWritten = 0;
-  if (!WriteFile(hFile_, data.data(),
-    static_cast<DWORD>(data.size()), &bytesWritten, NULL)) {
-    auto lastError = GetLastError();
-    s = IOErrorFromWindowsError(
-      "Failed to WriteFile: " + filename_,
-      lastError);
+  assert(data.size() < std::numeric_limits<DWORD>::max());
+
+  uint64_t written = 0;
+  (void)written;
+
+  if (file_data_->use_direct_io()) {
+
+    // With no offset specified we are appending
+    // to the end of the file
+
+    assert(IsSectorAligned(next_write_offset_));
+    assert(IsSectorAligned(data.size()));
+    assert(IsAligned(GetAlignement(), data.data()));
+
+    SSIZE_T ret = pwrite(file_data_->GetFileHandle(), data.data(),
+     data.size(), next_write_offset_);
+
+    if (ret < 0) {
+      auto lastError = GetLastError();
+      s = IOErrorFromWindowsError(
+        "Failed to pwrite for: " + file_data_->GetName(), lastError);
+    }
+    else {
+      written = ret;
+    }
+
   } else {
-    assert(size_t(bytesWritten) == data.size());
-    filesize_ += data.size();
+
+    DWORD bytesWritten = 0;
+    if (!WriteFile(file_data_->GetFileHandle(), data.data(),
+      static_cast<DWORD>(data.size()), &bytesWritten, NULL)) {
+      auto lastError = GetLastError();
+      s = IOErrorFromWindowsError(
+        "Failed to WriteFile: " + file_data_->GetName(),
+        lastError);
+    }
+    else {
+      written = bytesWritten;
+    }
+  }
+
+  if(s.ok()) {
+    assert(written == data.size());
+    next_write_offset_ += data.size();
   }
 
   return s;
 }
 
-Status WinWritableFile::PositionedAppend(const Slice& data, uint64_t offset) {
+inline
+Status WinWritableImpl::PositionedAppendImpl(const Slice& data, uint64_t offset) {
+
+  if(file_data_->use_direct_io()) {
+    assert(IsSectorAligned(offset));
+    assert(IsSectorAligned(data.size()));
+    assert(IsAligned(GetAlignement(), data.data()));
+  }
+
   Status s;
 
-  SSIZE_T ret = pwrite(hFile_, data.data(), data.size(), offset);
+  SSIZE_T ret = pwrite(file_data_->GetFileHandle(), data.data(), data.size(), offset);
 
   // Error break
   if (ret < 0) {
     auto lastError = GetLastError();
     s = IOErrorFromWindowsError(
-      "Failed to pwrite for: " + filename_, lastError);
-  } else {
-    // With positional write it is not clear at all
-    // if this actually extends the filesize
+      "Failed to pwrite for: " + file_data_->GetName(), lastError);
+  }
+  else {
     assert(size_t(ret) == data.size());
-    filesize_ += data.size();
+    // For sequential write this would be simple
+    // size extension by data.size()
+    uint64_t write_end = offset + data.size();
+    if (write_end >= next_write_offset_) {
+      next_write_offset_ = write_end;
+    }
   }
   return s;
 }
 
-  // Need to implement this so the file is truncated correctly
-  // when buffered and unbuffered mode
-Status WinWritableFile::Truncate(uint64_t size) {
-  Status s = ftruncate(filename_, hFile_, size);
+// Need to implement this so the file is truncated correctly
+// when buffered and unbuffered mode
+inline
+Status WinWritableImpl::TruncateImpl(uint64_t size) {
+  Status s = ftruncate(file_data_->GetName(), file_data_->GetFileHandle(),
+    size);
   if (s.ok()) {
-    filesize_ = size;
+    next_write_offset_ = size;
   }
   return s;
 }
 
-Status WinWritableFile::Close() {
+inline
+Status WinWritableImpl::CloseImpl() {
 
   Status s;
 
-  assert(INVALID_HANDLE_VALUE != hFile_);
+  auto hFile = file_data_->GetFileHandle();
+  assert(INVALID_HANDLE_VALUE != hFile);
 
-  if (fsync(hFile_) < 0) {
+  if (fsync(hFile) < 0) {
     auto lastError = GetLastError();
-    s = IOErrorFromWindowsError("fsync failed at Close() for: " + filename_,
+    s = IOErrorFromWindowsError("fsync failed at Close() for: " +
+      file_data_->GetName(),
       lastError);
   }
 
-  if (FALSE == ::CloseHandle(hFile_)) {
+  if(!file_data_->CloseFile()) {
     auto lastError = GetLastError();
-    s = IOErrorFromWindowsError("CloseHandle failed for: " + filename_,
+    s = IOErrorFromWindowsError("CloseHandle failed for: " + file_data_->GetName(),
       lastError);
   }
-
-  hFile_ = INVALID_HANDLE_VALUE;
   return s;
 }
 
-  // write out the cached data to the OS cache
-  // This is now taken care of the WritableFileWriter
-Status WinWritableFile::Flush() {
-  return Status::OK();
-}
-
-Status WinWritableFile::Sync() {
+inline
+Status WinWritableImpl::SyncImpl() {
   Status s;
   // Calls flush buffers
-  if (fsync(hFile_) < 0) {
+  if (fsync(file_data_->GetFileHandle()) < 0) {
     auto lastError = GetLastError();
-    s = IOErrorFromWindowsError("fsync failed at Sync() for: " + filename_,
-      lastError);
+    s = IOErrorFromWindowsError(
+        "fsync failed at Sync() for: " + file_data_->GetName(), lastError);
   }
   return s;
 }
 
-Status WinWritableFile::Fsync() { return Sync(); }
 
-uint64_t WinWritableFile::GetFileSize() {
-  // Double accounting now here with WritableFileWriter
-  // and this size will be wrong when unbuffered access is used
-  // but tests implement their own writable files and do not use WritableFileWrapper
-  // so we need to squeeze a square peg through
-  // a round hole here.
-  return filesize_;
-}
-
-Status WinWritableFile::Allocate(uint64_t offset, uint64_t len) {
+inline
+Status WinWritableImpl::AllocateImpl(uint64_t offset, uint64_t len) {
   Status status;
   TEST_KILL_RANDOM("WinWritableFile::Allocate", rocksdb_kill_odds);
 
@@ -946,18 +911,119 @@ Status WinWritableFile::Allocate(uint64_t offset, uint64_t len) {
   return status;
 }
 
-size_t WinWritableFile::GetUniqueId(char* id, size_t max_size) const {
-  return GetUniqueIdFromFile(hFile_, id, max_size);
+
+////////////////////////////////////////////////////////////////////////////////
+/// WinWritableFile
+
+WinWritableFile::WinWritableFile(const std::string& fname, HANDLE hFile,
+                                 size_t alignment, size_t /* capacity */,
+                                 const EnvOptions& options)
+    : WinFileData(fname, hFile, options.use_direct_writes),
+      WinWritableImpl(this, alignment) {
+  assert(!options.use_mmap_writes);
 }
 
+WinWritableFile::~WinWritableFile() {
+}
+
+// Indicates if the class makes use of direct I/O
+bool WinWritableFile::use_direct_io() const { return WinFileData::use_direct_io(); }
+
+size_t WinWritableFile::GetRequiredBufferAlignment() const {
+  return GetAlignement();
+}
+
+Status WinWritableFile::Append(const Slice& data) {
+  return AppendImpl(data);
+}
+
+Status WinWritableFile::PositionedAppend(const Slice& data, uint64_t offset) {
+  return PositionedAppendImpl(data, offset);
+}
+
+// Need to implement this so the file is truncated correctly
+// when buffered and unbuffered mode
+Status WinWritableFile::Truncate(uint64_t size) {
+  return TruncateImpl(size);
+}
+
+Status WinWritableFile::Close() {
+  return CloseImpl();
+}
+
+  // write out the cached data to the OS cache
+  // This is now taken care of the WritableFileWriter
+Status WinWritableFile::Flush() {
+  return Status::OK();
+}
+
+Status WinWritableFile::Sync() {
+  return SyncImpl();
+}
+
+Status WinWritableFile::Fsync() { return SyncImpl(); }
+
+uint64_t WinWritableFile::GetFileSize() {
+  return GetFileNextWriteOffset();
+}
+
+Status WinWritableFile::Allocate(uint64_t offset, uint64_t len) {
+  return AllocateImpl(offset, len);
+}
+
+size_t WinWritableFile::GetUniqueId(char* id, size_t max_size) const {
+  return GetUniqueIdFromFile(GetFileHandle(), id, max_size);
+}
+
+/////////////////////////////////////////////////////////////////////////
+/// WinRandomRWFile
+
+WinRandomRWFile::WinRandomRWFile(const std::string& fname, HANDLE hFile,
+                                 size_t alignment, const EnvOptions& options)
+    : WinFileData(fname, hFile,
+                  options.use_direct_reads && options.use_direct_writes),
+      WinRandomAccessImpl(this, alignment, options),
+      WinWritableImpl(this, alignment) {}
+
+bool WinRandomRWFile::use_direct_io() const { return WinFileData::use_direct_io(); }
+
+size_t WinRandomRWFile::GetRequiredBufferAlignment() const {
+  return GetAlignement();
+}
+
+Status WinRandomRWFile::Write(uint64_t offset, const Slice & data) {
+  return PositionedAppendImpl(data, offset);
+}
+
+Status WinRandomRWFile::Read(uint64_t offset, size_t n, Slice* result,
+                             char* scratch) const {
+  return ReadImpl(offset, n, result, scratch);
+}
+
+Status WinRandomRWFile::Flush() {
+  return Status::OK();
+}
+
+Status WinRandomRWFile::Sync() {
+  return SyncImpl();
+}
+
+Status WinRandomRWFile::Close() {
+  return CloseImpl();
+}
+
+//////////////////////////////////////////////////////////////////////////
+/// WinDirectory
+
 Status WinDirectory::Fsync() { return Status::OK(); }
+
+//////////////////////////////////////////////////////////////////////////
+/// WinFileLock
 
 WinFileLock::~WinFileLock() {
   BOOL ret = ::CloseHandle(hFile_);
   assert(ret);
 }
 
-
 }
 }
-

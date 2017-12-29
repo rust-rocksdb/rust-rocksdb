@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #ifndef ROCKSDB_LITE
 
@@ -23,7 +23,7 @@ namespace rocksdb {
 // IMPORTANT NOTE: Secondary index column families should be very small and
 // generally fit in memory. Assume that accessing secondary index column
 // families is much faster than accessing primary index (data heap) column
-// family. Accessing a key (i.e. checking for existance) from a column family in
+// family. Accessing a key (i.e. checking for existence) from a column family in
 // RocksDB is not much faster than accessing both key and value since they are
 // kept together and loaded from storage together.
 
@@ -826,7 +826,7 @@ class DocumentDBImpl : public DocumentDB {
     // Lock now, since we're starting DB operations
     MutexLock l(&write_mutex_);
     // check if there is already a document with the same primary key
-    std::string value;
+    PinnableSlice value;
     Status s = DocumentDB::Get(ReadOptions(), primary_key_column_family_,
                                primary_key_slice, &value);
     if (!s.IsNotFound()) {
@@ -1037,9 +1037,10 @@ class DocumentDBImpl : public DocumentDB {
   }
 
   // RocksDB functions
+  using DB::Get;
   virtual Status Get(const ReadOptions& options,
                      ColumnFamilyHandle* column_family, const Slice& key,
-                     std::string* value) override {
+                     PinnableSlice* value) override {
     return Status::NotSupported("");
   }
   virtual Status Get(const ReadOptions& options, const Slice& key,

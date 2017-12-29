@@ -1020,8 +1020,8 @@ fn errors_do_stuff() {
     match DB::destroy(&opts, path) {
         Err(ref s) => {
             assert!(s ==
-                    "IO error: lock _rust_rocksdb_error/LOCK: No locks \
-                     available")
+                    "IO error: While lock file: _rust_rocksdb_error/LOCK: \
+					 No locks available")
         }
         Ok(_) => panic!("should fail"),
     }

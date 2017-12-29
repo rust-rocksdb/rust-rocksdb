@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #pragma once
 
@@ -24,8 +24,10 @@ struct TransactionKeyMapInfo {
   uint32_t num_writes;
   uint32_t num_reads;
 
+  bool exclusive;
+
   explicit TransactionKeyMapInfo(SequenceNumber seq_no)
-      : seq(seq_no), num_writes(0), num_reads(0) {}
+      : seq(seq_no), num_writes(0), num_reads(0), exclusive(false) {}
 };
 
 using TransactionKeyMap =

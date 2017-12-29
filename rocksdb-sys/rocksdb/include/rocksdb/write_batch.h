@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
@@ -39,65 +39,103 @@ class ColumnFamilyHandle;
 struct SavePoints;
 struct SliceParts;
 
+struct SavePoint {
+  size_t size;  // size of rep_
+  int count;    // count of elements in rep_
+  uint32_t content_flags;
+
+  SavePoint() : size(0), count(0), content_flags(0) {}
+
+  SavePoint(size_t _size, int _count, uint32_t _flags)
+      : size(_size), count(_count), content_flags(_flags) {}
+
+  void clear() {
+    size = 0;
+    count = 0;
+    content_flags = 0;
+  }
+
+  bool is_cleared() const { return (size | count | content_flags) == 0; }
+};
+
 class WriteBatch : public WriteBatchBase {
  public:
-  explicit WriteBatch(size_t reserved_bytes = 0);
-  ~WriteBatch();
+  explicit WriteBatch(size_t reserved_bytes = 0, size_t max_bytes = 0);
+  ~WriteBatch() override;
 
   using WriteBatchBase::Put;
   // Store the mapping "key->value" in the database.
-  void Put(ColumnFamilyHandle* column_family, const Slice& key,
-           const Slice& value) override;
-  void Put(const Slice& key, const Slice& value) override {
-    Put(nullptr, key, value);
+  Status Put(ColumnFamilyHandle* column_family, const Slice& key,
+             const Slice& value) override;
+  Status Put(const Slice& key, const Slice& value) override {
+    return Put(nullptr, key, value);
   }
 
   // Variant of Put() that gathers output like writev(2).  The key and value
-  // that will be written to the database are concatentations of arrays of
+  // that will be written to the database are concatenations of arrays of
   // slices.
-  void Put(ColumnFamilyHandle* column_family, const SliceParts& key,
-           const SliceParts& value) override;
-  void Put(const SliceParts& key, const SliceParts& value) override {
-    Put(nullptr, key, value);
+  Status Put(ColumnFamilyHandle* column_family, const SliceParts& key,
+             const SliceParts& value) override;
+  Status Put(const SliceParts& key, const SliceParts& value) override {
+    return Put(nullptr, key, value);
   }
 
   using WriteBatchBase::Delete;
   // If the database contains a mapping for "key", erase it.  Else do nothing.
-  void Delete(ColumnFamilyHandle* column_family, const Slice& key) override;
-  void Delete(const Slice& key) override { Delete(nullptr, key); }
+  Status Delete(ColumnFamilyHandle* column_family, const Slice& key) override;
+  Status Delete(const Slice& key) override { return Delete(nullptr, key); }
 
   // variant that takes SliceParts
-  void Delete(ColumnFamilyHandle* column_family,
-              const SliceParts& key) override;
-  void Delete(const SliceParts& key) override { Delete(nullptr, key); }
+  Status Delete(ColumnFamilyHandle* column_family,
+                const SliceParts& key) override;
+  Status Delete(const SliceParts& key) override { return Delete(nullptr, key); }
 
   using WriteBatchBase::SingleDelete;
   // WriteBatch implementation of DB::SingleDelete().  See db.h.
-  void SingleDelete(ColumnFamilyHandle* column_family,
-                    const Slice& key) override;
-  void SingleDelete(const Slice& key) override { SingleDelete(nullptr, key); }
+  Status SingleDelete(ColumnFamilyHandle* column_family,
+                      const Slice& key) override;
+  Status SingleDelete(const Slice& key) override {
+    return SingleDelete(nullptr, key);
+  }
 
   // variant that takes SliceParts
-  void SingleDelete(ColumnFamilyHandle* column_family,
-                    const SliceParts& key) override;
-  void SingleDelete(const SliceParts& key) override {
-    SingleDelete(nullptr, key);
+  Status SingleDelete(ColumnFamilyHandle* column_family,
+                      const SliceParts& key) override;
+  Status SingleDelete(const SliceParts& key) override {
+    return SingleDelete(nullptr, key);
+  }
+
+  using WriteBatchBase::DeleteRange;
+  // WriteBatch implementation of DB::DeleteRange().  See db.h.
+  Status DeleteRange(ColumnFamilyHandle* column_family, const Slice& begin_key,
+                     const Slice& end_key) override;
+  Status DeleteRange(const Slice& begin_key, const Slice& end_key) override {
+    return DeleteRange(nullptr, begin_key, end_key);
+  }
+
+  // variant that takes SliceParts
+  Status DeleteRange(ColumnFamilyHandle* column_family,
+                     const SliceParts& begin_key,
+                     const SliceParts& end_key) override;
+  Status DeleteRange(const SliceParts& begin_key,
+                     const SliceParts& end_key) override {
+    return DeleteRange(nullptr, begin_key, end_key);
   }
 
   using WriteBatchBase::Merge;
   // Merge "value" with the existing value of "key" in the database.
   // "key->merge(existing, value)"
-  void Merge(ColumnFamilyHandle* column_family, const Slice& key,
-             const Slice& value) override;
-  void Merge(const Slice& key, const Slice& value) override {
-    Merge(nullptr, key, value);
+  Status Merge(ColumnFamilyHandle* column_family, const Slice& key,
+               const Slice& value) override;
+  Status Merge(const Slice& key, const Slice& value) override {
+    return Merge(nullptr, key, value);
   }
 
   // variant that takes SliceParts
-  void Merge(ColumnFamilyHandle* column_family, const SliceParts& key,
-             const SliceParts& value) override;
-  void Merge(const SliceParts& key, const SliceParts& value) override {
-    Merge(nullptr, key, value);
+  Status Merge(ColumnFamilyHandle* column_family, const SliceParts& key,
+               const SliceParts& value) override;
+  Status Merge(const SliceParts& key, const SliceParts& value) override {
+    return Merge(nullptr, key, value);
   }
 
   using WriteBatchBase::PutLogData;
@@ -106,12 +144,12 @@ class WriteBatch : public WriteBatchBase {
   // it will not be persisted to the SST files. When iterating over this
   // WriteBatch, WriteBatch::Handler::LogData will be called with the contents
   // of the blob as it is encountered. Blobs, puts, deletes, and merges will be
-  // encountered in the same order in thich they were inserted. The blob will
+  // encountered in the same order in which they were inserted. The blob will
   // NOT consume sequence number(s) and will NOT increase the count of the batch
   //
   // Example application: add timestamps to the transaction log for use in
   // replication.
-  void PutLogData(const Slice& blob) override;
+  Status PutLogData(const Slice& blob) override;
 
   using WriteBatchBase::Clear;
   // Clear all updates buffered in this batch.
@@ -128,10 +166,20 @@ class WriteBatch : public WriteBatchBase {
   // Otherwise returns Status::OK().
   Status RollbackToSavePoint() override;
 
+  // Pop the most recent save point.
+  // If there is no previous call to SetSavePoint(), Status::NotFound()
+  // will be returned.
+  // Otherwise returns Status::OK().
+  Status PopSavePoint() override;
+
   // Support for iterating over the contents of a batch.
   class Handler {
    public:
     virtual ~Handler();
+    // All handler functions in this class provide default implementations so
+    // we won't break existing clients of Handler on a source code level when
+    // adding a new member function.
+
     // default implementation will just call Put without column family for
     // backwards compatibility. If the column family is not default,
     // the function is noop
@@ -169,9 +217,11 @@ class WriteBatch : public WriteBatchBase {
     }
     virtual void SingleDelete(const Slice& /*key*/) {}
 
-    // Merge and LogData are not pure virtual. Otherwise, we would break
-    // existing clients of Handler on a source code level. The default
-    // implementation of Merge does nothing.
+    virtual Status DeleteRangeCF(uint32_t column_family_id,
+                                 const Slice& begin_key, const Slice& end_key) {
+      return Status::InvalidArgument("DeleteRangeCF not implemented");
+    }
+
     virtual Status MergeCF(uint32_t column_family_id, const Slice& key,
                            const Slice& value) {
       if (column_family_id == 0) {
@@ -182,6 +232,12 @@ class WriteBatch : public WriteBatchBase {
           "non-default column family and MergeCF not implemented");
     }
     virtual void Merge(const Slice& /*key*/, const Slice& /*value*/) {}
+
+    virtual Status PutBlobIndexCF(uint32_t /*column_family_id*/,
+                                  const Slice& /*key*/,
+                                  const Slice& /*value*/) {
+      return Status::InvalidArgument("PutBlobIndexCF not implemented");
+    }
 
     // The default implementation of LogData does nothing.
     virtual void LogData(const Slice& blob);
@@ -228,7 +284,10 @@ class WriteBatch : public WriteBatchBase {
   // Returns true if SingleDeleteCF will be called during Iterate
   bool HasSingleDelete() const;
 
-  // Returns trie if MergeCF will be called during Iterate
+  // Returns true if DeleteRangeCF will be called during Iterate
+  bool HasDeleteRange() const;
+
+  // Returns true if MergeCF will be called during Iterate
   bool HasMerge() const;
 
   // Returns true if MarkBeginPrepare will be called during Iterate
@@ -254,15 +313,31 @@ class WriteBatch : public WriteBatchBase {
   WriteBatch& operator=(const WriteBatch& src);
   WriteBatch& operator=(WriteBatch&& src);
 
+  // marks this point in the WriteBatch as the last record to
+  // be inserted into the WAL, provided the WAL is enabled
+  void MarkWalTerminationPoint();
+  const SavePoint& GetWalTerminationPoint() const { return wal_term_point_; }
+
+  void SetMaxBytes(size_t max_bytes) override { max_bytes_ = max_bytes; }
+
  private:
   friend class WriteBatchInternal;
+  friend class LocalSavePoint;
   SavePoints* save_points_;
+
+  // When sending a WriteBatch through WriteImpl we might want to
+  // specify that only the first x records of the batch be written to
+  // the WAL.
+  SavePoint wal_term_point_;
 
   // For HasXYZ.  Mutable to allow lazy computation of results
   mutable std::atomic<uint32_t> content_flags_;
 
   // Performs deferred computation of content_flags if necessary
   uint32_t ComputeContentFlags() const;
+
+  // Maximum size of rep_.
+  size_t max_bytes_;
 
  protected:
   std::string rep_;  // See comment in write_batch.cc for the format of rep_

@@ -51,7 +51,7 @@ class DBWithTTLImpl : public DBWithTTL {
   using StackableDB::Get;
   virtual Status Get(const ReadOptions& options,
                      ColumnFamilyHandle* column_family, const Slice& key,
-                     std::string* value) override;
+                     PinnableSlice* value) override;
 
   using StackableDB::MultiGet;
   virtual std::vector<Status> MultiGet(
@@ -87,6 +87,8 @@ class DBWithTTLImpl : public DBWithTTL {
 
   static Status StripTS(std::string* str);
 
+  static Status StripTS(PinnableSlice* str);
+
   static const uint32_t kTSLength = sizeof(int32_t);  // size of timestamp
 
   static const int32_t kMinTimestamp = 1368146402;  // 05/09/2013:5:40PM GMT-8
@@ -108,6 +110,8 @@ class TtlIterator : public Iterator {
   void SeekToLast() override { iter_->SeekToLast(); }
 
   void Seek(const Slice& target) override { iter_->Seek(target); }
+
+  void SeekForPrev(const Slice& target) override { iter_->SeekForPrev(target); }
 
   void Next() override { iter_->Next(); }
 
@@ -229,8 +233,8 @@ class TtlMergeOperator : public MergeOperator {
                            MergeOperationOutput* merge_out) const override {
     const uint32_t ts_len = DBWithTTLImpl::kTSLength;
     if (merge_in.existing_value && merge_in.existing_value->size() < ts_len) {
-      Log(InfoLogLevel::ERROR_LEVEL, merge_in.logger,
-          "Error: Could not remove timestamp from existing value.");
+      ROCKS_LOG_ERROR(merge_in.logger,
+                      "Error: Could not remove timestamp from existing value.");
       return false;
     }
 
@@ -238,7 +242,8 @@ class TtlMergeOperator : public MergeOperator {
     std::vector<Slice> operands_without_ts;
     for (const auto& operand : merge_in.operand_list) {
       if (operand.size() < ts_len) {
-        Log(InfoLogLevel::ERROR_LEVEL, merge_in.logger,
+        ROCKS_LOG_ERROR(
+            merge_in.logger,
             "Error: Could not remove timestamp from operand value.");
         return false;
       }
@@ -278,7 +283,8 @@ class TtlMergeOperator : public MergeOperator {
     // Augment the *new_value with the ttl time-stamp
     int64_t curtime;
     if (!env_->GetCurrentTime(&curtime).ok()) {
-      Log(InfoLogLevel::ERROR_LEVEL, merge_in.logger,
+      ROCKS_LOG_ERROR(
+          merge_in.logger,
           "Error: Could not get current time to be attached internally "
           "to the new value.");
       return false;
@@ -299,8 +305,8 @@ class TtlMergeOperator : public MergeOperator {
 
     for (const auto& operand : operand_list) {
       if (operand.size() < ts_len) {
-        Log(InfoLogLevel::ERROR_LEVEL, logger,
-            "Error: Could not remove timestamp from value.");
+        ROCKS_LOG_ERROR(logger,
+                        "Error: Could not remove timestamp from value.");
         return false;
       }
 
@@ -318,7 +324,8 @@ class TtlMergeOperator : public MergeOperator {
     // Augment the *new_value with the ttl time-stamp
     int64_t curtime;
     if (!env_->GetCurrentTime(&curtime).ok()) {
-      Log(InfoLogLevel::ERROR_LEVEL, logger,
+      ROCKS_LOG_ERROR(
+          logger,
           "Error: Could not get current time to be attached internally "
           "to the new value.");
       return false;

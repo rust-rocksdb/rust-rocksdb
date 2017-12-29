@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #include "db/merge_helper.h"
 
@@ -9,27 +9,60 @@
 #include <string>
 
 #include "db/dbformat.h"
+#include "monitoring/perf_context_imp.h"
+#include "monitoring/statistics.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/db.h"
 #include "rocksdb/merge_operator.h"
 #include "table/internal_iterator.h"
-#include "util/perf_context_imp.h"
-#include "util/statistics.h"
 
 namespace rocksdb {
+
+MergeHelper::MergeHelper(Env* env, const Comparator* user_comparator,
+                         const MergeOperator* user_merge_operator,
+                         const CompactionFilter* compaction_filter,
+                         Logger* logger, bool assert_valid_internal_key,
+                         SequenceNumber latest_snapshot, int level,
+                         Statistics* stats,
+                         const std::atomic<bool>* shutting_down)
+    : env_(env),
+      user_comparator_(user_comparator),
+      user_merge_operator_(user_merge_operator),
+      compaction_filter_(compaction_filter),
+      shutting_down_(shutting_down),
+      logger_(logger),
+      assert_valid_internal_key_(assert_valid_internal_key),
+      allow_single_operand_(false),
+      latest_snapshot_(latest_snapshot),
+      level_(level),
+      keys_(),
+      filter_timer_(env_),
+      total_filter_time_(0U),
+      stats_(stats) {
+  assert(user_comparator_ != nullptr);
+  if (user_merge_operator_) {
+    allow_single_operand_ = user_merge_operator_->AllowSingleOperand();
+  }
+}
 
 Status MergeHelper::TimedFullMerge(const MergeOperator* merge_operator,
                                    const Slice& key, const Slice* value,
                                    const std::vector<Slice>& operands,
                                    std::string* result, Logger* logger,
                                    Statistics* statistics, Env* env,
-                                   Slice* result_operand) {
+                                   Slice* result_operand,
+                                   bool update_num_ops_stats) {
   assert(merge_operator != nullptr);
 
   if (operands.size() == 0) {
     assert(value != nullptr && result != nullptr);
     result->assign(value->data(), value->size());
     return Status::OK();
+  }
+
+  if (update_num_ops_stats) {
+    MeasureTime(statistics, READ_NUM_MERGE_OPERANDS,
+                static_cast<uint64_t>(operands.size()));
   }
 
   bool success;
@@ -75,6 +108,7 @@ Status MergeHelper::TimedFullMerge(const MergeOperator* merge_operator,
 //       operands_ stores the list of merge operands encountered while merging.
 //       keys_[i] corresponds to operands_[i] for each i.
 Status MergeHelper::MergeUntil(InternalIterator* iter,
+                               RangeDelAggregator* range_del_agg,
                                const SequenceNumber stop_before,
                                const bool at_bottom) {
   // Get a copy of the internal key, before it's invalidated by iter->Next()
@@ -82,6 +116,7 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
   assert(HasOperator());
   keys_.clear();
   merge_context_.Clear();
+  has_compaction_filter_skip_until_ = false;
   assert(user_merge_operator_);
   bool first_key = true;
 
@@ -102,6 +137,10 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
   Status s;
   bool hit_the_next_user_key = false;
   for (; iter->Valid(); iter->Next(), original_key_is_iter = false) {
+    if (IsShuttingDown()) {
+      return Status::ShutdownInProgress();
+    }
+
     ParsedInternalKey ikey;
     assert(keys_.size() == merge_context_.GetNumOperands());
 
@@ -128,17 +167,8 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
 
     assert(IsValueType(ikey.type));
     if (ikey.type != kTypeMerge) {
-      if (ikey.type != kTypeValue && ikey.type != kTypeDeletion) {
-        // Merges operands can only be used with puts and deletions, single
-        // deletions are not supported.
-        assert(false);
-        // release build doesn't have asserts, so we return error status
-        return Status::InvalidArgument(
-            " Merges operands can only be used with puts and deletions, single "
-            "deletions are not supported.");
-      }
 
-      // hit a put/delete
+      // hit a put/delete/single delete
       //   => merge the put value or a nullptr with operands_
       //   => store result in operands_.back() (and update keys_.back())
       //   => change the entry type to kTypeValue for keys_.back()
@@ -153,7 +183,8 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
 
       // TODO(noetzli) If the merge operator returns false, we are currently
       // (almost) silently dropping the put/delete. That's probably not what we
-      // want.
+      // want. Also if we're in compaction and it's a put, it would be nice to
+      // run compaction filter on it.
       const Slice val = iter->value();
       const Slice* val_ptr = (kTypeValue == ikey.type) ? &val : nullptr;
       std::string merge_result;
@@ -180,6 +211,7 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
     } else {
       // hit a merge
       //   => if there is a compaction filter, apply it.
+      //   => check for range tombstones covering the operand
       //   => merge the operand into the front of the operands_ list
       //      if not filtered
       //   => then continue because we haven't yet seen a Put/Delete.
@@ -192,8 +224,19 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
       // 1) it's included in one of the snapshots. in that case we *must* write
       // it out, no matter what compaction filter says
       // 2) it's not filtered by a compaction filter
-      if (ikey.sequence <= latest_snapshot_ ||
-          !FilterMerge(orig_ikey.user_key, value_slice)) {
+      CompactionFilter::Decision filter =
+          ikey.sequence <= latest_snapshot_
+              ? CompactionFilter::Decision::kKeep
+              : FilterMerge(orig_ikey.user_key, value_slice);
+      if (filter != CompactionFilter::Decision::kRemoveAndSkipUntil &&
+          range_del_agg != nullptr &&
+          range_del_agg->ShouldDelete(
+              iter->key(),
+              RangeDelAggregator::RangePositioningMode::kForwardTraversal)) {
+        filter = CompactionFilter::Decision::kRemove;
+      }
+      if (filter == CompactionFilter::Decision::kKeep ||
+          filter == CompactionFilter::Decision::kChangeValue) {
         if (original_key_is_iter) {
           // this is just an optimization that saves us one memcpy
           keys_.push_front(std::move(original_key));
@@ -205,8 +248,21 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
           // original_key before
           ParseInternalKey(keys_.back(), &orig_ikey);
         }
-        merge_context_.PushOperand(value_slice,
-                                   iter->IsValuePinned() /* operand_pinned */);
+        if (filter == CompactionFilter::Decision::kKeep) {
+          merge_context_.PushOperand(
+              value_slice, iter->IsValuePinned() /* operand_pinned */);
+        } else {  // kChangeValue
+          // Compaction filter asked us to change the operand from value_slice
+          // to compaction_filter_value_.
+          merge_context_.PushOperand(compaction_filter_value_, false);
+        }
+      } else if (filter == CompactionFilter::Decision::kRemoveAndSkipUntil) {
+        // Compaction filter asked us to remove this key altogether
+        // (not just this operand), along with some keys following it.
+        keys_.clear();
+        merge_context_.Clear();
+        has_compaction_filter_skip_until_ = true;
+        return Status::OK();
       }
     }
   }
@@ -258,13 +314,9 @@ Status MergeHelper::MergeUntil(InternalIterator* iter,
     // We haven't seen the beginning of the key nor a Put/Delete.
     // Attempt to use the user's associative merge function to
     // merge the stacked merge operands into a single operand.
-    //
-    // TODO(noetzli) The docblock of MergeUntil suggests that a successful
-    // partial merge returns Status::OK(). Should we change the status code
-    // after a successful partial merge?
     s = Status::MergeInProgress();
-    if (merge_context_.GetNumOperands() >= 2 &&
-        merge_context_.GetNumOperands() >= min_partial_merge_operands_) {
+    if (merge_context_.GetNumOperands() >= 2 ||
+        (allow_single_operand_ && merge_context_.GetNumOperands() == 1)) {
       bool merge_success = false;
       std::string merge_result;
       {
@@ -310,17 +362,32 @@ void MergeOutputIterator::Next() {
   ++it_values_;
 }
 
-bool MergeHelper::FilterMerge(const Slice& user_key, const Slice& value_slice) {
+CompactionFilter::Decision MergeHelper::FilterMerge(const Slice& user_key,
+                                                    const Slice& value_slice) {
   if (compaction_filter_ == nullptr) {
-    return false;
+    return CompactionFilter::Decision::kKeep;
   }
   if (stats_ != nullptr) {
     filter_timer_.Start();
   }
-  bool to_delete =
-      compaction_filter_->FilterMergeOperand(level_, user_key, value_slice);
+  compaction_filter_value_.clear();
+  compaction_filter_skip_until_.Clear();
+  auto ret = compaction_filter_->FilterV2(
+      level_, user_key, CompactionFilter::ValueType::kMergeOperand, value_slice,
+      &compaction_filter_value_, compaction_filter_skip_until_.rep());
+  if (ret == CompactionFilter::Decision::kRemoveAndSkipUntil) {
+    if (user_comparator_->Compare(*compaction_filter_skip_until_.rep(),
+                                  user_key) <= 0) {
+      // Invalid skip_until returned from compaction filter.
+      // Keep the key as per FilterV2 documentation.
+      ret = CompactionFilter::Decision::kKeep;
+    } else {
+      compaction_filter_skip_until_.ConvertFromUserKey(kMaxSequenceNumber,
+                                                       kValueTypeForSeek);
+    }
+  }
   total_filter_time_ += filter_timer_.ElapsedNanosSafe();
-  return to_delete;
+  return ret;
 }
 
 } // namespace rocksdb

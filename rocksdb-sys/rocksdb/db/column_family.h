@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -15,15 +15,15 @@
 #include <atomic>
 
 #include "db/memtable_list.h"
-#include "db/write_batch_internal.h"
-#include "db/write_controller.h"
 #include "db/table_cache.h"
 #include "db/table_properties_collector.h"
+#include "db/write_batch_internal.h"
+#include "db/write_controller.h"
+#include "options/cf_options.h"
 #include "rocksdb/compaction_job_stats.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
-#include "util/mutable_cf_options.h"
 #include "util/thread_local.h"
 
 namespace rocksdb {
@@ -42,7 +42,7 @@ class LogBuffer;
 class InstrumentedMutex;
 class InstrumentedMutexLock;
 
-extern const double kSlowdownRatio;
+extern const double kIncSlowdownRatio;
 
 // ColumnFamilyHandleImpl is the class that clients use to access different
 // column families. It has non-trivial destructor, which gets called when client
@@ -55,11 +55,11 @@ class ColumnFamilyHandleImpl : public ColumnFamilyHandle {
   // destroy without mutex
   virtual ~ColumnFamilyHandleImpl();
   virtual ColumnFamilyData* cfd() const { return cfd_; }
-  virtual const Comparator* user_comparator() const;
 
   virtual uint32_t GetID() const override;
   virtual const std::string& GetName() const override;
   virtual Status GetDescriptor(ColumnFamilyDescriptor* desc) override;
+  virtual const Comparator* GetComparator() const override;
 
  private:
   ColumnFamilyData* cfd_;
@@ -136,14 +136,13 @@ extern Status CheckCompressionSupported(const ColumnFamilyOptions& cf_options);
 extern Status CheckConcurrentWritesSupported(
     const ColumnFamilyOptions& cf_options);
 
-extern ColumnFamilyOptions SanitizeOptions(const DBOptions& db_options,
-                                           const InternalKeyComparator* icmp,
+extern ColumnFamilyOptions SanitizeOptions(const ImmutableDBOptions& db_options,
                                            const ColumnFamilyOptions& src);
 // Wrap user defined table proproties collector factories `from cf_options`
 // into internal ones in int_tbl_prop_collector_factories. Add a system internal
 // one too.
 extern void GetIntTblPropCollectorFactory(
-    const ColumnFamilyOptions& cf_options,
+    const ImmutableCFOptions& ioptions,
     std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
         int_tbl_prop_collector_factories);
 
@@ -201,9 +200,6 @@ class ColumnFamilyData {
   void SetLogNumber(uint64_t log_number) { log_number_ = log_number; }
   uint64_t GetLogNumber() const { return log_number_; }
 
-  // !!! To be deprecated! Please don't not use this function anymore!
-  const Options* options() const { return &options_; }
-
   // thread-safe
   const EnvOptions* soptions() const;
   const ImmutableCFOptions* ioptions() const { return &ioptions_; }
@@ -218,6 +214,14 @@ class ColumnFamilyData {
   const MutableCFOptions* GetLatestMutableCFOptions() const {
     return &mutable_cf_options_;
   }
+
+  // REQUIRES: DB mutex held
+  // Build ColumnFamiliesOptions with immutable options and latest mutable
+  // options.
+  ColumnFamilyOptions GetLatestCFOptions() const;
+
+  bool is_delete_range_supported() { return is_delete_range_supported_; }
+
 #ifndef ROCKSDB_LITE
   // REQUIRES: DB mutex held
   Status SetOptions(
@@ -235,6 +239,9 @@ class ColumnFamilyData {
   uint64_t GetTotalSstFilesSize() const;  // REQUIRE: DB mutex held
   void SetMemtable(MemTable* new_mem) { mem_ = new_mem; }
 
+  // calculate the oldest log needed for the durability of this column family
+  uint64_t OldestLogToKeep();
+
   // See Memtable constructor for explanation of earliest_seq param.
   MemTable* ConstructNewMemtable(const MutableCFOptions& mutable_cf_options,
                                  SequenceNumber earliest_seq);
@@ -249,6 +256,13 @@ class ColumnFamilyData {
   // REQUIRES: DB mutex held
   Compaction* PickCompaction(const MutableCFOptions& mutable_options,
                              LogBuffer* log_buffer);
+
+  // Check if the passed range overlap with any running compactions.
+  // REQUIRES: DB mutex held
+  bool RangeOverlapWithCompaction(const Slice& smallest_user_key,
+                                  const Slice& largest_user_key,
+                                  int level) const;
+
   // A flag to tell a manual compaction is to compact all levels together
   // instad of for specific level.
   static const int kCompactAllLevels;
@@ -319,13 +333,18 @@ class ColumnFamilyData {
   void RecalculateWriteStallConditions(
       const MutableCFOptions& mutable_cf_options);
 
+  void set_initialized() { initialized_.store(true); }
+
+  bool initialized() const { return initialized_.load(); }
+
  private:
   friend class ColumnFamilySet;
   ColumnFamilyData(uint32_t id, const std::string& name,
                    Version* dummy_versions, Cache* table_cache,
                    WriteBufferManager* write_buffer_manager,
                    const ColumnFamilyOptions& options,
-                   const DBOptions* db_options, const EnvOptions& env_options,
+                   const ImmutableDBOptions& db_options,
+                   const EnvOptions& env_options,
                    ColumnFamilySet* column_family_set);
 
   uint32_t id_;
@@ -334,15 +353,18 @@ class ColumnFamilyData {
   Version* current_;         // == dummy_versions->prev_
 
   std::atomic<int> refs_;      // outstanding references to ColumnFamilyData
+  std::atomic<bool> initialized_;
   bool dropped_;               // true if client dropped it
 
   const InternalKeyComparator internal_comparator_;
   std::vector<std::unique_ptr<IntTblPropCollectorFactory>>
       int_tbl_prop_collector_factories_;
 
-  const Options options_;
+  const ColumnFamilyOptions initial_cf_options_;
   const ImmutableCFOptions ioptions_;
   MutableCFOptions mutable_cf_options_;
+
+  const bool is_delete_range_supported_;
 
   std::unique_ptr<TableCache> table_cache_;
 
@@ -390,6 +412,9 @@ class ColumnFamilyData {
   bool pending_compaction_;
 
   uint64_t prev_compaction_needed_bytes_;
+
+  // if the database was opened with 2pc enabled
+  bool allow_2pc_;
 };
 
 // ColumnFamilySet has interesting thread-safety requirements
@@ -436,7 +461,8 @@ class ColumnFamilySet {
     ColumnFamilyData* current_;
   };
 
-  ColumnFamilySet(const std::string& dbname, const DBOptions* db_options,
+  ColumnFamilySet(const std::string& dbname,
+                  const ImmutableDBOptions* db_options,
                   const EnvOptions& env_options, Cache* table_cache,
                   WriteBufferManager* write_buffer_manager,
                   WriteController* write_controller);
@@ -493,7 +519,7 @@ class ColumnFamilySet {
   ColumnFamilyData* default_cfd_cache_;
 
   const std::string db_name_;
-  const DBOptions* const db_options_;
+  const ImmutableDBOptions* const db_options_;
   const EnvOptions env_options_;
   Cache* table_cache_;
   WriteBufferManager* write_buffer_manager_;

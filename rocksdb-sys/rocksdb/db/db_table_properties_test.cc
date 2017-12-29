@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -147,6 +147,7 @@ TEST_F(DBTablePropertiesTest, GetPropertiesOfTablesInRange) {
   options.max_bytes_for_level_multiplier = 4;
   options.hard_pending_compaction_bytes_limit = 16 * 1024;
   options.num_levels = 8;
+  options.env = env_;
 
   DestroyAndReopen(options);
 

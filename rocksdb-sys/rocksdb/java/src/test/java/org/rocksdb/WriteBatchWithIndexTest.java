@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -192,16 +192,16 @@ public class WriteBatchWithIndexTest {
       final ByteBuffer buffer = ByteBuffer.allocateDirect(zeroByteValue.length);
       buffer.put(zeroByteValue);
 
-      WBWIRocksIterator.WriteEntry[] expected = {
+      final WBWIRocksIterator.WriteEntry expected =
           new WBWIRocksIterator.WriteEntry(WBWIRocksIterator.WriteType.PUT,
               new DirectSlice(buffer, zeroByteValue.length),
-              new DirectSlice(buffer, zeroByteValue.length))
-      };
+              new DirectSlice(buffer, zeroByteValue.length));
 
       try (final WBWIRocksIterator it = wbwi.newIterator()) {
         it.seekToFirst();
-        assertThat(it.entry().equals(expected[0])).isTrue();
-        assertThat(it.entry().hashCode() == expected[0].hashCode()).isTrue();
+        final WBWIRocksIterator.WriteEntry actual = it.entry();
+        assertThat(actual.equals(expected)).isTrue();
+        assertThat(it.entry().hashCode() == expected.hashCode()).isTrue();
       }
     }
   }
@@ -307,9 +307,104 @@ public class WriteBatchWithIndexTest {
     }
   }
 
+  @Test
+  public void getFromBatch() throws RocksDBException {
+    final byte[] k1 = "k1".getBytes();
+    final byte[] k2 = "k2".getBytes();
+    final byte[] k3 = "k3".getBytes();
+    final byte[] k4 = "k4".getBytes();
+
+    final byte[] v1 = "v1".getBytes();
+    final byte[] v2 = "v2".getBytes();
+    final byte[] v3 = "v3".getBytes();
+
+    try (final WriteBatchWithIndex wbwi = new WriteBatchWithIndex(true);
+         final DBOptions dbOptions = new DBOptions()) {
+      wbwi.put(k1, v1);
+      wbwi.put(k2, v2);
+      wbwi.put(k3, v3);
+
+      assertThat(wbwi.getFromBatch(dbOptions, k1)).isEqualTo(v1);
+      assertThat(wbwi.getFromBatch(dbOptions, k2)).isEqualTo(v2);
+      assertThat(wbwi.getFromBatch(dbOptions, k3)).isEqualTo(v3);
+      assertThat(wbwi.getFromBatch(dbOptions, k4)).isNull();
+
+      wbwi.remove(k2);
+
+      assertThat(wbwi.getFromBatch(dbOptions, k2)).isNull();
+    }
+  }
+
+  @Test
+  public void getFromBatchAndDB() throws RocksDBException {
+    final byte[] k1 = "k1".getBytes();
+    final byte[] k2 = "k2".getBytes();
+    final byte[] k3 = "k3".getBytes();
+    final byte[] k4 = "k4".getBytes();
+
+    final byte[] v1 = "v1".getBytes();
+    final byte[] v2 = "v2".getBytes();
+    final byte[] v3 = "v3".getBytes();
+    final byte[] v4 = "v4".getBytes();
+
+    try (final Options options = new Options().setCreateIfMissing(true);
+         final RocksDB db = RocksDB.open(options,
+             dbFolder.getRoot().getAbsolutePath())) {
+
+      db.put(k1, v1);
+      db.put(k2, v2);
+      db.put(k4, v4);
+
+      try (final WriteBatchWithIndex wbwi = new WriteBatchWithIndex(true);
+           final DBOptions dbOptions = new DBOptions();
+           final ReadOptions readOptions = new ReadOptions()) {
+
+        assertThat(wbwi.getFromBatch(dbOptions, k1)).isNull();
+        assertThat(wbwi.getFromBatch(dbOptions, k2)).isNull();
+        assertThat(wbwi.getFromBatch(dbOptions, k4)).isNull();
+
+        wbwi.put(k3, v3);
+
+        assertThat(wbwi.getFromBatch(dbOptions, k3)).isEqualTo(v3);
+
+        assertThat(wbwi.getFromBatchAndDB(db, readOptions, k1)).isEqualTo(v1);
+        assertThat(wbwi.getFromBatchAndDB(db, readOptions, k2)).isEqualTo(v2);
+        assertThat(wbwi.getFromBatchAndDB(db, readOptions, k3)).isEqualTo(v3);
+        assertThat(wbwi.getFromBatchAndDB(db, readOptions, k4)).isEqualTo(v4);
+
+        wbwi.remove(k4);
+
+        assertThat(wbwi.getFromBatchAndDB(db, readOptions, k4)).isNull();
+      }
+    }
+  }
   private byte[] toArray(final ByteBuffer buf) {
     final byte[] ary = new byte[buf.remaining()];
     buf.get(ary);
     return ary;
+  }
+
+  @Test
+  public void deleteRange() throws RocksDBException {
+    try (final RocksDB db = RocksDB.open(dbFolder.getRoot().getAbsolutePath());
+         final WriteOptions wOpt = new WriteOptions()) {
+      db.put("key1".getBytes(), "value".getBytes());
+      db.put("key2".getBytes(), "12345678".getBytes());
+      db.put("key3".getBytes(), "abcdefg".getBytes());
+      db.put("key4".getBytes(), "xyz".getBytes());
+      assertThat(db.get("key1".getBytes())).isEqualTo("value".getBytes());
+      assertThat(db.get("key2".getBytes())).isEqualTo("12345678".getBytes());
+      assertThat(db.get("key3".getBytes())).isEqualTo("abcdefg".getBytes());
+      assertThat(db.get("key4".getBytes())).isEqualTo("xyz".getBytes());
+
+      WriteBatch batch = new WriteBatch();
+      batch.deleteRange("key2".getBytes(), "key4".getBytes());
+      db.write(new WriteOptions(), batch);
+
+      assertThat(db.get("key1".getBytes())).isEqualTo("value".getBytes());
+      assertThat(db.get("key2".getBytes())).isNull();
+      assertThat(db.get("key3".getBytes())).isNull();
+      assertThat(db.get("key4".getBytes())).isEqualTo("xyz".getBytes());
+    }
   }
 }

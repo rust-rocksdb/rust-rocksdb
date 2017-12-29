@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #ifndef ROCKSDB_LITE
 
@@ -57,6 +57,10 @@ Status ReadableWriteBatch::GetEntryFromDataOffset(size_t data_offset,
     case kTypeColumnFamilySingleDeletion:
     case kTypeSingleDeletion:
       *type = kSingleDeleteRecord;
+      break;
+    case kTypeColumnFamilyRangeDeletion:
+    case kTypeRangeDeletion:
+      *type = kDeleteRangeRecord;
       break;
     case kTypeColumnFamilyMerge:
     case kTypeMerge:
@@ -129,7 +133,7 @@ int WriteBatchEntryComparator::CompareKey(uint32_t column_family,
 }
 
 WriteBatchWithIndexInternal::Result WriteBatchWithIndexInternal::GetFromBatch(
-    const DBOptions& options, WriteBatchWithIndex* batch,
+    const ImmutableDBOptions& immuable_db_options, WriteBatchWithIndex* batch,
     ColumnFamilyHandle* column_family, const Slice& key,
     MergeContext* merge_context, WriteBatchEntryComparator* cmp,
     std::string* value, bool overwrite_key, Status* s) {
@@ -146,7 +150,7 @@ WriteBatchWithIndexInternal::Result WriteBatchWithIndexInternal::GetFromBatch(
   // TODO(agiardullo): consider adding support for reverse iteration
   iter->Seek(key);
   while (iter->Valid()) {
-    const WriteEntry& entry = iter->Entry();
+    const WriteEntry entry = iter->Entry();
     if (cmp->CompareKey(cf_id, entry.key, key) != 0) {
       break;
     }
@@ -165,9 +169,9 @@ WriteBatchWithIndexInternal::Result WriteBatchWithIndexInternal::GetFromBatch(
     iter->Prev();
   }
 
-  const Slice* entry_value = nullptr;
+  Slice entry_value;
   while (iter->Valid()) {
-    const WriteEntry& entry = iter->Entry();
+    const WriteEntry entry = iter->Entry();
     if (cmp->CompareKey(cf_id, entry.key, key) != 0) {
       // Unexpected error or we've reached a different next key
       break;
@@ -176,7 +180,7 @@ WriteBatchWithIndexInternal::Result WriteBatchWithIndexInternal::GetFromBatch(
     switch (entry.type) {
       case kPutRecord: {
         result = WriteBatchWithIndexInternal::Result::kFound;
-        entry_value = &entry.value;
+        entry_value = entry.value;
         break;
       }
       case kMergeRecord: {
@@ -233,12 +237,12 @@ WriteBatchWithIndexInternal::Result WriteBatchWithIndexInternal::GetFromBatch(
           result = WriteBatchWithIndexInternal::Result::kError;
           return result;
         }
-        Statistics* statistics = options.statistics.get();
-        Env* env = options.env;
-        Logger* logger = options.info_log.get();
+        Statistics* statistics = immuable_db_options.statistics.get();
+        Env* env = immuable_db_options.env;
+        Logger* logger = immuable_db_options.info_log.get();
 
         if (merge_operator) {
-          *s = MergeHelper::TimedFullMerge(merge_operator, key, entry_value,
+          *s = MergeHelper::TimedFullMerge(merge_operator, key, &entry_value,
                                            merge_context->GetOperands(), value,
                                            logger, statistics, env);
         } else {
@@ -251,7 +255,7 @@ WriteBatchWithIndexInternal::Result WriteBatchWithIndexInternal::GetFromBatch(
         }
       } else {  // nothing to merge
         if (result == WriteBatchWithIndexInternal::Result::kFound) {  // PUT
-          value->assign(entry_value->data(), entry_value->size());
+          value->assign(entry_value.data(), entry_value.size());
         }
       }
     }

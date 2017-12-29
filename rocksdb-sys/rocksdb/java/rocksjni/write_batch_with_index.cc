@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // This file implements the "bridge" between Java and C++ and enables
 // calling c++ rocksdb::WriteBatchWithIndex methods from Java side.
@@ -19,7 +19,7 @@
  */
 jlong Java_org_rocksdb_WriteBatchWithIndex_newWriteBatchWithIndex__(
     JNIEnv* env, jclass jcls) {
-  rocksdb::WriteBatchWithIndex* wbwi = new rocksdb::WriteBatchWithIndex();
+  auto* wbwi = new rocksdb::WriteBatchWithIndex();
   return reinterpret_cast<jlong>(wbwi);
 }
 
@@ -30,9 +30,9 @@ jlong Java_org_rocksdb_WriteBatchWithIndex_newWriteBatchWithIndex__(
  */
 jlong Java_org_rocksdb_WriteBatchWithIndex_newWriteBatchWithIndex__Z(
     JNIEnv* env, jclass jcls, jboolean joverwrite_key) {
-  rocksdb::WriteBatchWithIndex* wbwi =
+  auto* wbwi =
       new rocksdb::WriteBatchWithIndex(rocksdb::BytewiseComparator(), 0,
-      static_cast<bool>(joverwrite_key));
+          static_cast<bool>(joverwrite_key));
   return reinterpret_cast<jlong>(wbwi);
 }
 
@@ -44,10 +44,10 @@ jlong Java_org_rocksdb_WriteBatchWithIndex_newWriteBatchWithIndex__Z(
 jlong Java_org_rocksdb_WriteBatchWithIndex_newWriteBatchWithIndex__JIZ(
     JNIEnv* env, jclass jcls, jlong jfallback_index_comparator_handle,
     jint jreserved_bytes, jboolean joverwrite_key) {
-  rocksdb::WriteBatchWithIndex* wbwi =
+  auto* wbwi =
       new rocksdb::WriteBatchWithIndex(
-      reinterpret_cast<rocksdb::Comparator*>(jfallback_index_comparator_handle),
-      static_cast<size_t>(jreserved_bytes), static_cast<bool>(joverwrite_key));
+          reinterpret_cast<rocksdb::Comparator*>(jfallback_index_comparator_handle),
+          static_cast<size_t>(jreserved_bytes), static_cast<bool>(joverwrite_key));
   return reinterpret_cast<jlong>(wbwi);
 }
 
@@ -174,6 +174,44 @@ void Java_org_rocksdb_WriteBatchWithIndex_remove__J_3BIJ(
 
 /*
  * Class:     org_rocksdb_WriteBatchWithIndex
+ * Method:    deleteRange
+ * Signature: (J[BI[BI)V
+ */
+void Java_org_rocksdb_WriteBatchWithIndex_deleteRange__J_3BI_3BI(
+    JNIEnv* env, jobject jobj, jlong jwbwi_handle, jbyteArray jbegin_key,
+    jint jbegin_key_len, jbyteArray jend_key, jint jend_key_len) {
+  auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
+  assert(wbwi != nullptr);
+  auto deleteRange = [&wbwi](rocksdb::Slice beginKey, rocksdb::Slice endKey) {
+    wbwi->DeleteRange(beginKey, endKey);
+  };
+  rocksdb::JniUtil::kv_op(deleteRange, env, jobj, jbegin_key, jbegin_key_len,
+                          jend_key, jend_key_len);
+}
+
+/*
+ * Class:     org_rocksdb_WriteBatchWithIndex
+ * Method:    deleteRange
+ * Signature: (J[BI[BIJ)V
+ */
+void Java_org_rocksdb_WriteBatchWithIndex_deleteRange__J_3BI_3BIJ(
+    JNIEnv* env, jobject jobj, jlong jwbwi_handle, jbyteArray jbegin_key,
+    jint jbegin_key_len, jbyteArray jend_key, jint jend_key_len,
+    jlong jcf_handle) {
+  auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
+  assert(wbwi != nullptr);
+  auto* cf_handle = reinterpret_cast<rocksdb::ColumnFamilyHandle*>(jcf_handle);
+  assert(cf_handle != nullptr);
+  auto deleteRange = [&wbwi, &cf_handle](rocksdb::Slice beginKey,
+                                         rocksdb::Slice endKey) {
+    wbwi->DeleteRange(cf_handle, beginKey, endKey);
+  };
+  rocksdb::JniUtil::kv_op(deleteRange, env, jobj, jbegin_key, jbegin_key_len,
+                          jend_key, jend_key_len);
+}
+
+/*
+ * Class:     org_rocksdb_WriteBatchWithIndex
  * Method:    putLogData
  * Signature: (J[BI)V
  */
@@ -241,7 +279,7 @@ void Java_org_rocksdb_WriteBatchWithIndex_rollbackToSavePoint0(
 jlong Java_org_rocksdb_WriteBatchWithIndex_iterator0(
     JNIEnv* env, jobject jobj, jlong jwbwi_handle) {
   auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
-  rocksdb::WBWIIterator* wbwi_iterator = wbwi->NewIterator();
+  auto* wbwi_iterator = wbwi->NewIterator();
   return reinterpret_cast<jlong>(wbwi_iterator);
 }
 
@@ -254,7 +292,7 @@ jlong Java_org_rocksdb_WriteBatchWithIndex_iterator1(
     JNIEnv* env, jobject jobj, jlong jwbwi_handle, jlong jcf_handle) {
   auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
   auto* cf_handle = reinterpret_cast<rocksdb::ColumnFamilyHandle*>(jcf_handle);
-  rocksdb::WBWIIterator* wbwi_iterator = wbwi->NewIterator(cf_handle);
+  auto* wbwi_iterator = wbwi->NewIterator(cf_handle);
   return reinterpret_cast<jlong>(wbwi_iterator);
 }
 
@@ -275,12 +313,94 @@ jlong Java_org_rocksdb_WriteBatchWithIndex_iteratorWithBase(
 
 /*
  * Class:     org_rocksdb_WriteBatchWithIndex
+ * Method:    getFromBatch
+ * Signature: (JJ[BI)[B
+ */
+jbyteArray JNICALL Java_org_rocksdb_WriteBatchWithIndex_getFromBatch__JJ_3BI(
+    JNIEnv* env, jobject jobj, jlong jwbwi_handle, jlong jdbopt_handle,
+    jbyteArray jkey, jint jkey_len) {
+  auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
+  auto* dbopt = reinterpret_cast<rocksdb::DBOptions*>(jdbopt_handle);
+
+  auto getter = [&wbwi, &dbopt](const rocksdb::Slice& key, std::string* value) {
+    return wbwi->GetFromBatch(*dbopt, key, value);
+  };
+
+  return rocksdb::JniUtil::v_op(getter, env, jkey, jkey_len);
+}
+
+/*
+ * Class:     org_rocksdb_WriteBatchWithIndex
+ * Method:    getFromBatch
+ * Signature: (JJ[BIJ)[B
+ */
+jbyteArray Java_org_rocksdb_WriteBatchWithIndex_getFromBatch__JJ_3BIJ(
+    JNIEnv* env, jobject jobj, jlong jwbwi_handle, jlong jdbopt_handle,
+    jbyteArray jkey, jint jkey_len, jlong jcf_handle) {
+  auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
+  auto* dbopt = reinterpret_cast<rocksdb::DBOptions*>(jdbopt_handle);
+  auto* cf_handle = reinterpret_cast<rocksdb::ColumnFamilyHandle*>(jcf_handle);
+
+  auto getter =
+      [&wbwi, &cf_handle, &dbopt](const rocksdb::Slice& key,
+                                  std::string* value) {
+        return wbwi->GetFromBatch(cf_handle, *dbopt, key, value);
+      };
+
+  return rocksdb::JniUtil::v_op(getter, env, jkey, jkey_len);
+}
+
+/*
+ * Class:     org_rocksdb_WriteBatchWithIndex
+ * Method:    getFromBatchAndDB
+ * Signature: (JJJ[BI)[B
+ */
+jbyteArray Java_org_rocksdb_WriteBatchWithIndex_getFromBatchAndDB__JJJ_3BI(
+    JNIEnv* env, jobject jobj, jlong jwbwi_handle, jlong jdb_handle,
+    jlong jreadopt_handle, jbyteArray jkey, jint jkey_len) {
+  auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
+  auto* db = reinterpret_cast<rocksdb::DB*>(jdb_handle);
+  auto* readopt = reinterpret_cast<rocksdb::ReadOptions*>(jreadopt_handle);
+
+  auto getter =
+      [&wbwi, &db, &readopt](const rocksdb::Slice& key, std::string* value) {
+        return wbwi->GetFromBatchAndDB(db, *readopt, key, value);
+      };
+
+  return rocksdb::JniUtil::v_op(getter, env, jkey, jkey_len);
+}
+
+/*
+ * Class:     org_rocksdb_WriteBatchWithIndex
+ * Method:    getFromBatchAndDB
+ * Signature: (JJJ[BIJ)[B
+ */
+jbyteArray Java_org_rocksdb_WriteBatchWithIndex_getFromBatchAndDB__JJJ_3BIJ(
+    JNIEnv* env, jobject jobj, jlong jwbwi_handle, jlong jdb_handle,
+    jlong jreadopt_handle, jbyteArray jkey, jint jkey_len, jlong jcf_handle) {
+  auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(jwbwi_handle);
+  auto* db = reinterpret_cast<rocksdb::DB*>(jdb_handle);
+  auto* readopt = reinterpret_cast<rocksdb::ReadOptions*>(jreadopt_handle);
+  auto* cf_handle = reinterpret_cast<rocksdb::ColumnFamilyHandle*>(jcf_handle);
+
+  auto getter =
+      [&wbwi, &db, &cf_handle, &readopt](const rocksdb::Slice& key,
+                                         std::string* value) {
+        return wbwi->GetFromBatchAndDB(db, *readopt, cf_handle, key, value);
+      };
+
+  return rocksdb::JniUtil::v_op(getter, env, jkey, jkey_len);
+}
+
+/*
+ * Class:     org_rocksdb_WriteBatchWithIndex
  * Method:    disposeInternal
  * Signature: (J)V
  */
 void Java_org_rocksdb_WriteBatchWithIndex_disposeInternal(
     JNIEnv* env, jobject jobj, jlong handle) {
   auto* wbwi = reinterpret_cast<rocksdb::WriteBatchWithIndex*>(handle);
+  assert(wbwi != nullptr);
   delete wbwi;
 }
 
@@ -294,6 +414,7 @@ void Java_org_rocksdb_WriteBatchWithIndex_disposeInternal(
 void Java_org_rocksdb_WBWIRocksIterator_disposeInternal(
     JNIEnv* env, jobject jobj, jlong handle) {
   auto* it = reinterpret_cast<rocksdb::WBWIIterator*>(handle);
+  assert(it != nullptr);
   delete it;
 }
 
@@ -356,7 +477,12 @@ void Java_org_rocksdb_WBWIRocksIterator_seek0(
     JNIEnv* env, jobject jobj, jlong handle, jbyteArray jtarget,
     jint jtarget_len) {
   auto* it = reinterpret_cast<rocksdb::WBWIIterator*>(handle);
-  jbyte* target = env->GetByteArrayElements(jtarget, 0);
+  jbyte* target = env->GetByteArrayElements(jtarget, nullptr);
+  if(target == nullptr) {
+    // exception thrown: OutOfMemoryError
+    return;
+  }
+
   rocksdb::Slice target_slice(
       reinterpret_cast<char*>(target), jtarget_len);
 
@@ -416,26 +542,41 @@ jlongArray Java_org_rocksdb_WBWIRocksIterator_entry1(
       results[0] = 0x0;
   }
 
-  //TODO(AR) do we leak buf and value_buf?
+  // key_slice and value_slice will be freed by org.rocksdb.DirectSlice#close
 
-  //set the pointer to the key slice
-  char* buf = new char[we.key.size()];
-  memcpy(buf, we.key.data(), we.key.size());
-  auto* key_slice = new rocksdb::Slice(buf, we.key.size());
+  auto* key_slice = new rocksdb::Slice(we.key.data(), we.key.size());
   results[1] = reinterpret_cast<jlong>(key_slice);
-
-  //set the pointer to the value slice
-  if (we.type == rocksdb::kDeleteRecord || we.type == rocksdb::kLogDataRecord) {
+  if (we.type == rocksdb::kDeleteRecord
+      || we.type == rocksdb::kLogDataRecord) {
     // set native handle of value slice to null if no value available
     results[2] = 0;
   } else {
-    char* value_buf = new char[we.value.size()];
-    memcpy(value_buf, we.value.data(), we.value.size());
-    auto* value_slice = new rocksdb::Slice(value_buf, we.value.size());
+    auto* value_slice = new rocksdb::Slice(we.value.data(), we.value.size());
     results[2] = reinterpret_cast<jlong>(value_slice);
   }
 
   jlongArray jresults = env->NewLongArray(3);
+  if(jresults == nullptr) {
+    // exception thrown: OutOfMemoryError
+    if(results[2] != 0) {
+      auto* value_slice = reinterpret_cast<rocksdb::Slice*>(results[2]);
+      delete value_slice;
+    }
+    delete key_slice;
+    return nullptr;
+  }
+
   env->SetLongArrayRegion(jresults, 0, 3, results);
+  if(env->ExceptionCheck()) {
+    // exception thrown: ArrayIndexOutOfBoundsException
+    env->DeleteLocalRef(jresults);
+    if(results[2] != 0) {
+      auto* value_slice = reinterpret_cast<rocksdb::Slice*>(results[2]);
+      delete value_slice;
+    }
+    delete key_slice;
+    return nullptr;
+  }
+
   return jresults;
 }

@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -17,22 +17,21 @@
 #include <string>
 #include <memory>
 
-#include "port/port.h"
-
-#include "rocksdb/env.h"
-#include "rocksdb/options.h"
-#include "rocksdb/types.h"
-#include "rocksdb/transaction_log.h"
-#include "rocksdb/status.h"
-
 #include "db/version_set.h"
+#include "options/db_options.h"
+#include "port/port.h"
+#include "rocksdb/env.h"
+#include "rocksdb/status.h"
+#include "rocksdb/transaction_log.h"
+#include "rocksdb/types.h"
 
 namespace rocksdb {
 
 #ifndef ROCKSDB_LITE
 class WalManager {
  public:
-  WalManager(const DBOptions& db_options, const EnvOptions& env_options)
+  WalManager(const ImmutableDBOptions& db_options,
+             const EnvOptions& env_options)
       : db_options_(db_options),
         env_options_(env_options),
         env_(db_options.env),
@@ -75,7 +74,7 @@ class WalManager {
                        SequenceNumber* sequence);
 
   // ------- state from DBImpl ------
-  const DBOptions& db_options_;
+  const ImmutableDBOptions& db_options_;
   const EnvOptions& env_options_;
   Env* env_;
 

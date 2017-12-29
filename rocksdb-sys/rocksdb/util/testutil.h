@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -159,6 +159,16 @@ class VectorIterator : public InternalIterator {
                keys_.begin();
   }
 
+  virtual void SeekForPrev(const Slice& target) override {
+    current_ = std::upper_bound(keys_.begin(), keys_.end(), target.ToString()) -
+               keys_.begin();
+    if (!Valid()) {
+      SeekToLast();
+    } else {
+      Prev();
+    }
+  }
+
   virtual void Next() override { current_++; }
   virtual void Prev() override { current_--; }
 
@@ -228,6 +238,43 @@ class StringSink: public WritableFile {
  private:
   Slice* reader_contents_;
   size_t last_flush_;
+};
+
+// A wrapper around a StringSink to give it a RandomRWFile interface
+class RandomRWStringSink : public RandomRWFile {
+ public:
+  explicit RandomRWStringSink(StringSink* ss) : ss_(ss) {}
+
+  Status Write(uint64_t offset, const Slice& data) {
+    if (offset + data.size() > ss_->contents_.size()) {
+      ss_->contents_.resize(offset + data.size(), '\0');
+    }
+
+    char* pos = const_cast<char*>(ss_->contents_.data() + offset);
+    memcpy(pos, data.data(), data.size());
+    return Status::OK();
+  }
+
+  Status Read(uint64_t offset, size_t n, Slice* result, char* scratch) const {
+    *result = Slice(nullptr, 0);
+    if (offset < ss_->contents_.size()) {
+      size_t str_res_sz =
+          std::min(static_cast<size_t>(ss_->contents_.size() - offset), n);
+      *result = Slice(ss_->contents_.data() + offset, str_res_sz);
+    }
+    return Status::OK();
+  }
+
+  Status Flush() { return Status::OK(); }
+
+  Status Sync() { return Status::OK(); }
+
+  Status Close() { return Status::OK(); }
+
+  const std::string& contents() const { return ss_->contents(); }
+
+ private:
+  StringSink* ss_;
 };
 
 // Like StringSink, this writes into a string.  Unlink StringSink, it
@@ -690,6 +737,8 @@ const SliceTransform* RandomSliceTransform(Random* rnd, int pre_defined = -1);
 TableFactory* RandomTableFactory(Random* rnd, int pre_defined = -1);
 
 std::string RandomName(Random* rnd, const size_t len);
+
+Status DestroyDir(Env* env, const std::string& dir);
 
 }  // namespace test
 }  // namespace rocksdb

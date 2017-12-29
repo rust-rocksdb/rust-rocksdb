@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #include <map>
 #include <memory>
@@ -12,7 +12,7 @@
 #include "db/db_impl.h"
 #include "db/dbformat.h"
 #include "db/table_properties_collector.h"
-#include "rocksdb/immutable_options.h"
+#include "options/cf_options.h"
 #include "rocksdb/table.h"
 #include "table/block_based_table_factory.h"
 #include "table/meta_blocks.h"
@@ -46,11 +46,12 @@ void MakeBuilder(const Options& options, const ImmutableCFOptions& ioptions,
                  std::unique_ptr<TableBuilder>* builder) {
   unique_ptr<WritableFile> wf(new test::StringSink);
   writable->reset(new WritableFileWriter(std::move(wf), EnvOptions()));
-
+  int unknown_level = -1;
   builder->reset(NewTableBuilder(
       ioptions, internal_comparator, int_tbl_prop_collector_factories,
       kTestColumnFamilyId, kTestColumnFamilyName,
-      writable->get(), options.compression, options.compression_opts));
+      writable->get(), options.compression, options.compression_opts,
+      unknown_level));
 }
 }  // namespace
 
@@ -255,7 +256,7 @@ void TestCustomizedTablePropertiesCollector(
     int_tbl_prop_collector_factories.emplace_back(
         new RegularKeysStartWithAFactory(backward_mode));
   } else {
-    GetIntTblPropCollectorFactory(options, &int_tbl_prop_collector_factories);
+    GetIntTblPropCollectorFactory(ioptions, &int_tbl_prop_collector_factories);
   }
   MakeBuilder(options, ioptions, internal_comparator,
               &int_tbl_prop_collector_factories, &writer, &builder);
@@ -390,9 +391,9 @@ void TestInternalKeyPropertiesCollector(
     // SanitizeOptions().
     options.info_log = std::make_shared<test::NullLogger>();
     options = SanitizeOptions("db",            // just a place holder
-                              &pikc,
                               options);
-    GetIntTblPropCollectorFactory(options, &int_tbl_prop_collector_factories);
+    ImmutableCFOptions ioptions(options);
+    GetIntTblPropCollectorFactory(ioptions, &int_tbl_prop_collector_factories);
     options.comparator = comparator;
   } else {
     int_tbl_prop_collector_factories.emplace_back(

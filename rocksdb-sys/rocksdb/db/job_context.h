@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -54,6 +54,10 @@ struct JobContext {
 
   // a list of log files that we need to delete
   std::vector<uint64_t> log_delete_files;
+
+  // a list of log files that we need to preserve during full purge since they
+  // will be reused later
+  std::vector<uint64_t> log_recycle_files;
 
   // a list of manifest files that we need to delete
   std::vector<std::string> manifest_delete_files;

@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 package org.rocksdb;
 
 import org.junit.ClassRule;
@@ -12,6 +12,7 @@ import org.junit.rules.TemporaryFolder;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.fail;
 
 public class RocksDBTest {
 
@@ -43,6 +44,21 @@ public class RocksDBTest {
   }
 
   @Test
+  public void openWhenOpen() throws RocksDBException {
+    final String dbPath = dbFolder.getRoot().getAbsolutePath();
+
+    try (final RocksDB db1 = RocksDB.open(dbPath)) {
+      try (final RocksDB db2 = RocksDB.open(dbPath)) {
+        fail("Should have thrown an exception when opening the same db twice");
+      } catch (final RocksDBException e) {
+        assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.IOError);
+        assertThat(e.getStatus().getSubCode()).isEqualTo(Status.SubCode.None);
+        assertThat(e.getStatus().getState()).contains("lock ");
+      }
+    }
+  }
+
+  @Test
   public void put() throws RocksDBException {
     try (final RocksDB db = RocksDB.open(dbFolder.getRoot().getAbsolutePath());
          final WriteOptions opt = new WriteOptions()) {
@@ -57,8 +73,10 @@ public class RocksDBTest {
 
   @Test
   public void write() throws RocksDBException {
-    try (final Options options = new Options().setMergeOperator(
-        new StringAppendOperator()).setCreateIfMissing(true);
+    try (final StringAppendOperator stringAppendOperator = new StringAppendOperator();
+         final Options options = new Options()
+             .setMergeOperator(stringAppendOperator)
+             .setCreateIfMissing(true);
          final RocksDB db = RocksDB.open(options,
              dbFolder.getRoot().getAbsolutePath());
          final WriteOptions opts = new WriteOptions()) {
@@ -166,9 +184,10 @@ public class RocksDBTest {
 
   @Test
   public void merge() throws RocksDBException {
-    try (final Options opt = new Options()
-        .setCreateIfMissing(true)
-        .setMergeOperator(new StringAppendOperator());
+    try (final StringAppendOperator stringAppendOperator = new StringAppendOperator();
+         final Options opt = new Options()
+            .setCreateIfMissing(true)
+            .setMergeOperator(stringAppendOperator);
          final WriteOptions wOpt = new WriteOptions();
          final RocksDB db = RocksDB.open(opt,
              dbFolder.getRoot().getAbsolutePath())
@@ -192,7 +211,7 @@ public class RocksDBTest {
   }
 
   @Test
-  public void remove() throws RocksDBException {
+  public void delete() throws RocksDBException {
     try (final RocksDB db = RocksDB.open(dbFolder.getRoot().getAbsolutePath());
          final WriteOptions wOpt = new WriteOptions()) {
       db.put("key1".getBytes(), "value".getBytes());
@@ -201,10 +220,58 @@ public class RocksDBTest {
           "value".getBytes());
       assertThat(db.get("key2".getBytes())).isEqualTo(
           "12345678".getBytes());
-      db.remove("key1".getBytes());
-      db.remove(wOpt, "key2".getBytes());
+      db.delete("key1".getBytes());
+      db.delete(wOpt, "key2".getBytes());
       assertThat(db.get("key1".getBytes())).isNull();
       assertThat(db.get("key2".getBytes())).isNull();
+    }
+  }
+
+  @Test
+  public void singleDelete() throws RocksDBException {
+    try (final RocksDB db = RocksDB.open(dbFolder.getRoot().getAbsolutePath());
+         final WriteOptions wOpt = new WriteOptions()) {
+      db.put("key1".getBytes(), "value".getBytes());
+      db.put("key2".getBytes(), "12345678".getBytes());
+      assertThat(db.get("key1".getBytes())).isEqualTo(
+          "value".getBytes());
+      assertThat(db.get("key2".getBytes())).isEqualTo(
+          "12345678".getBytes());
+      db.singleDelete("key1".getBytes());
+      db.singleDelete(wOpt, "key2".getBytes());
+      assertThat(db.get("key1".getBytes())).isNull();
+      assertThat(db.get("key2".getBytes())).isNull();
+    }
+  }
+
+  @Test
+  public void singleDelete_nonExisting() throws RocksDBException {
+    try (final RocksDB db = RocksDB.open(dbFolder.getRoot().getAbsolutePath());
+         final WriteOptions wOpt = new WriteOptions()) {
+      db.singleDelete("key1".getBytes());
+      db.singleDelete(wOpt, "key2".getBytes());
+      assertThat(db.get("key1".getBytes())).isNull();
+      assertThat(db.get("key2".getBytes())).isNull();
+    }
+  }
+
+  @Test
+  public void deleteRange() throws RocksDBException {
+    try (final RocksDB db = RocksDB.open(dbFolder.getRoot().getAbsolutePath());
+         final WriteOptions wOpt = new WriteOptions()) {
+      db.put("key1".getBytes(), "value".getBytes());
+      db.put("key2".getBytes(), "12345678".getBytes());
+      db.put("key3".getBytes(), "abcdefg".getBytes());
+      db.put("key4".getBytes(), "xyz".getBytes());
+      assertThat(db.get("key1".getBytes())).isEqualTo("value".getBytes());
+      assertThat(db.get("key2".getBytes())).isEqualTo("12345678".getBytes());
+      assertThat(db.get("key3".getBytes())).isEqualTo("abcdefg".getBytes());
+      assertThat(db.get("key4".getBytes())).isEqualTo("xyz".getBytes());
+      db.deleteRange("key2".getBytes(), "key4".getBytes());
+      assertThat(db.get("key1".getBytes())).isEqualTo("value".getBytes());
+      assertThat(db.get("key2".getBytes())).isNull();
+      assertThat(db.get("key3".getBytes())).isNull();
+      assertThat(db.get("key4".getBytes())).isEqualTo("xyz".getBytes());
     }
   }
 
@@ -660,6 +727,40 @@ public class RocksDBTest {
       db.enableFileDeletions(false);
       db.disableFileDeletions();
       db.enableFileDeletions(true);
+    }
+  }
+
+  @Test
+  public void setOptions() throws RocksDBException {
+    try (final DBOptions options = new DBOptions()
+             .setCreateIfMissing(true)
+             .setCreateMissingColumnFamilies(true);
+         final ColumnFamilyOptions new_cf_opts = new ColumnFamilyOptions()
+             .setWriteBufferSize(4096)) {
+
+      final List<ColumnFamilyDescriptor> columnFamilyDescriptors =
+          Arrays.asList(
+              new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY),
+              new ColumnFamilyDescriptor("new_cf".getBytes(), new_cf_opts));
+
+      // open database
+      final List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
+      try (final RocksDB db = RocksDB.open(options,
+          dbFolder.getRoot().getAbsolutePath(), columnFamilyDescriptors, columnFamilyHandles)) {
+        try {
+          final MutableColumnFamilyOptions mutableOptions =
+              MutableColumnFamilyOptions.builder()
+                  .setWriteBufferSize(2048)
+                  .build();
+
+          db.setOptions(columnFamilyHandles.get(1), mutableOptions);
+
+        } finally {
+          for (final ColumnFamilyHandle handle : columnFamilyHandles) {
+            handle.close();
+          }
+        }
+      }
     }
   }
 }

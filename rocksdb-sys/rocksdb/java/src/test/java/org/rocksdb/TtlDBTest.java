@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 package org.rocksdb;
 
@@ -28,12 +28,8 @@ public class TtlDBTest {
 
   @Test
   public void ttlDBOpen() throws RocksDBException, InterruptedException {
-    try (final Options options = new Options()
-        .setCreateIfMissing(true)
-        .setMaxGrandparentOverlapFactor(0);
-         final TtlDB ttlDB = TtlDB.open(options,
-             dbFolder.getRoot().getAbsolutePath())
-    ) {
+    try (final Options options = new Options().setCreateIfMissing(true).setMaxCompactionBytes(0);
+         final TtlDB ttlDB = TtlDB.open(options, dbFolder.getRoot().getAbsolutePath())) {
       ttlDB.put("key".getBytes(), "value".getBytes());
       assertThat(ttlDB.get("key".getBytes())).
           isEqualTo("value".getBytes());
@@ -43,12 +39,8 @@ public class TtlDBTest {
 
   @Test
   public void ttlDBOpenWithTtl() throws RocksDBException, InterruptedException {
-    try (final Options options = new Options()
-        .setCreateIfMissing(true)
-        .setMaxGrandparentOverlapFactor(0);
-         final TtlDB ttlDB = TtlDB.open(options,
-             dbFolder.getRoot().getAbsolutePath(), 1, false);
-    ) {
+    try (final Options options = new Options().setCreateIfMissing(true).setMaxCompactionBytes(0);
+         final TtlDB ttlDB = TtlDB.open(options, dbFolder.getRoot().getAbsolutePath(), 1, false);) {
       ttlDB.put("key".getBytes(), "value".getBytes());
       assertThat(ttlDB.get("key".getBytes())).
           isEqualTo("value".getBytes());
