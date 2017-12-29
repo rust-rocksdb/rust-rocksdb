@@ -1270,6 +1270,12 @@ impl ColumnFamilyOptions {
             crocksdb_ffi::crocksdb_options_set_fifo_compaction_options(self.inner, fifo_opts.inner);
         }
     }
+
+    pub fn set_vector_memtable_factory(&mut self, reserved_bytes: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_vector_memtable_factory(self.inner, reserved_bytes);
+        }
+    }
 }
 
 // ColumnFamilyDescriptor is a pair of column family's name and options.

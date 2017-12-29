@@ -977,6 +977,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_fifo_compaction_options(
     crocksdb_options_t* opt, crocksdb_fifo_compaction_options_t* fifo);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_ratelimiter(
     crocksdb_options_t* opt, crocksdb_ratelimiter_t* limiter);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_vector_memtable_factory(
+    crocksdb_options_t* opt, uint64_t reserved_bytes);
 
 enum {
   compaction_by_compensated_size = 0,

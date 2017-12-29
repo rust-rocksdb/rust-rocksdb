@@ -668,3 +668,34 @@ fn test_readoptions_max_bytes_for_level_multiplier() {
     cf_opts.set_max_bytes_for_level_multiplier(8);
     assert_eq!(cf_opts.get_max_bytes_for_level_multiplier(), 8);
 }
+
+#[test]
+fn test_vector_memtable_factory_options() {
+    let path = TempDir::new("_rust_rocksdb_vector_memtable_factory_options").unwrap();
+    let path_str = path.path().to_str().unwrap();
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.allow_concurrent_memtable_write(false);
+
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_vector_memtable_factory(4096);
+
+    let db = DB::open_cf(opts.clone(), path_str, vec![("default", cf_opts)]).unwrap();
+    db.put(b"k1", b"v1").unwrap();
+    db.put(b"k2", b"v2").unwrap();
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+    assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
+    db.flush(true).unwrap();
+
+    let mut iter = db.iter();
+    iter.seek(SeekKey::Start);
+    assert!(iter.valid());
+    assert_eq!(iter.key(), b"k1");
+    assert_eq!(iter.value(), b"v1");
+    assert!(iter.next());
+    assert_eq!(iter.key(), b"k2");
+    assert_eq!(iter.value(), b"v2");
+    assert!(!iter.next());
+    assert!(!iter.valid());
+}

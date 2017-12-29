@@ -129,6 +129,7 @@ using rocksdb::ExternalSstFilePropertyNames;
 using rocksdb::DecodeFixed32;
 using rocksdb::DecodeFixed64;
 using rocksdb::PutFixed64;
+using rocksdb::VectorRepFactory;
 
 using std::shared_ptr;
 
@@ -2455,6 +2456,10 @@ unsigned char crocksdb_options_statistics_get_histogram(
 void crocksdb_options_set_ratelimiter(crocksdb_options_t *opt, crocksdb_ratelimiter_t *limiter) {
   opt->rep.rate_limiter.reset(limiter->rep);
   limiter->rep = nullptr;
+}
+
+void crocksdb_options_set_vector_memtable_factory(crocksdb_options_t* opt, uint64_t reserved_bytes) {
+  opt->rep.memtable_factory.reset(new VectorRepFactory(reserved_bytes));
 }
 
 crocksdb_ratelimiter_t* crocksdb_ratelimiter_create(
