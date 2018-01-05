@@ -1461,6 +1461,7 @@ extern "C" {
     pub fn crocksdb_compactionjobinfo_num_corrupt_keys(
         info: *const DBCompactionJobInfo,
     ) -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_output_level(info: *const DBCompactionJobInfo) -> c_int;
 
     pub fn crocksdb_externalfileingestioninfo_cf_name(
         info: *const DBIngestionInfo,

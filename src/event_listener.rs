@@ -88,6 +88,10 @@ impl CompactionJobInfo {
     pub fn num_corrupt_keys(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_num_corrupt_keys(&self.0) }
     }
+
+    pub fn output_level(&self) -> i32 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_output_level(&self.0) }
+    }
 }
 
 pub struct IngestionInfo(DBIngestionInfo);

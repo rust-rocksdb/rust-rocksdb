@@ -62,6 +62,7 @@ impl EventListener for EventCounter {
 
         assert_ne!(info.elapsed_micros(), 0);
         assert_eq!(info.num_corrupt_keys(), 0);
+        assert!(info.output_level() >= 0);
 
         self.compaction.fetch_add(1, Ordering::SeqCst);
     }
