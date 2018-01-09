@@ -251,19 +251,6 @@ impl Options {
         }
     }
 
-    pub fn set_disable_data_sync(&mut self, disable: bool) {
-        unsafe {
-            match disable {
-                true =>
-                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(
-                        self.inner, 1),
-                false =>
-                    rocksdb_ffi::rocksdb_options_set_disable_data_sync(
-                        self.inner, 0),
-            }
-        }
-    }
-
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
         unsafe {
             rocksdb_ffi::rocksdb_options_set_table_cache_numshardbits(self.inner,
