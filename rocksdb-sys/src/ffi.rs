@@ -151,8 +151,6 @@ extern "C" {
                                               files: c_int);
     pub fn rocksdb_options_set_use_fsync(options: DBOptions, v: c_int);
     pub fn rocksdb_options_set_bytes_per_sync(options: DBOptions, bytes: u64);
-    pub fn rocksdb_options_set_disable_data_sync(options: DBOptions,
-                                                 v: c_int);
     pub fn rocksdb_options_optimize_for_point_lookup(options: DBOptions,
                                                      block_cache_size_mb: u64);
     pub fn rocksdb_options_set_table_cache_numshardbits(options: DBOptions,
