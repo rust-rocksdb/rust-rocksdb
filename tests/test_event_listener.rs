@@ -25,6 +25,10 @@ struct EventCounter {
     compaction: Arc<AtomicUsize>,
     ingestion: Arc<AtomicUsize>,
     drop_count: Arc<AtomicUsize>,
+    input_records: Arc<AtomicUsize>,
+    output_records: Arc<AtomicUsize>,
+    input_bytes: Arc<AtomicUsize>,
+    output_bytes: Arc<AtomicUsize>,
 }
 
 impl Drop for EventCounter {
@@ -65,6 +69,14 @@ impl EventListener for EventCounter {
         assert!(info.output_level() >= 0);
 
         self.compaction.fetch_add(1, Ordering::SeqCst);
+        self.input_records
+            .fetch_add(info.input_records() as usize, Ordering::SeqCst);
+        self.output_records
+            .fetch_add(info.output_records() as usize, Ordering::SeqCst);
+        self.input_bytes
+            .fetch_add(info.total_input_bytes() as usize, Ordering::SeqCst);
+        self.output_bytes
+            .fetch_add(info.total_output_bytes() as usize, Ordering::SeqCst);
     }
 
     fn on_external_file_ingested(&self, info: &IngestionInfo) {
@@ -109,6 +121,13 @@ fn test_event_listener_basic() {
     assert_ne!(counter.compaction.load(Ordering::SeqCst), 0);
     drop(db);
     assert_eq!(counter.drop_count.load(Ordering::SeqCst), 1);
+    assert!(
+        counter.input_records.load(Ordering::SeqCst) >
+            counter.output_records.load(Ordering::SeqCst)
+    );
+    assert!(
+        counter.input_bytes.load(Ordering::SeqCst) > counter.output_bytes.load(Ordering::SeqCst)
+    );
 }
 
 #[test]

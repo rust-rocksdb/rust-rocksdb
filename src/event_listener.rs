@@ -92,6 +92,22 @@ impl CompactionJobInfo {
     pub fn output_level(&self) -> i32 {
         unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_output_level(&self.0) }
     }
+
+    pub fn input_records(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_input_records(&self.0) }
+    }
+
+    pub fn output_records(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_output_records(&self.0) }
+    }
+
+    pub fn total_input_bytes(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_total_input_bytes(&self.0) }
+    }
+
+    pub fn total_output_bytes(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_total_output_bytes(&self.0) }
+    }
 }
 
 pub struct IngestionInfo(DBIngestionInfo);

@@ -1462,6 +1462,10 @@ extern "C" {
         info: *const DBCompactionJobInfo,
     ) -> uint64_t;
     pub fn crocksdb_compactionjobinfo_output_level(info: *const DBCompactionJobInfo) -> c_int;
+    pub fn crocksdb_compactionjobinfo_input_records(info: *const DBCompactionJobInfo) -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_output_records(info: *const DBCompactionJobInfo) -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_total_input_bytes(info: *const DBCompactionJobInfo) -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_total_output_bytes(info: *const DBCompactionJobInfo) -> uint64_t;
 
     pub fn crocksdb_externalfileingestioninfo_cf_name(
         info: *const DBIngestionInfo,

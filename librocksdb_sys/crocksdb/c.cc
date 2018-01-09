@@ -1712,6 +1712,26 @@ int crocksdb_compactionjobinfo_output_level(
   return info->rep.output_level;
 }
 
+uint64_t crocksdb_compactionjobinfo_input_records(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.stats.num_input_records;
+}
+
+uint64_t crocksdb_compactionjobinfo_output_records(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.stats.num_output_records;
+}
+
+uint64_t crocksdb_compactionjobinfo_total_input_bytes(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.stats.total_input_bytes;
+}
+
+uint64_t crocksdb_compactionjobinfo_total_output_bytes(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.stats.total_output_bytes;
+}
+
 /* ExternalFileIngestionInfo */
 
 const char* crocksdb_externalfileingestioninfo_cf_name(

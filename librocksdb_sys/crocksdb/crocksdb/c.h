@@ -644,6 +644,18 @@ crocksdb_compactionjobinfo_num_corrupt_keys(
 extern C_ROCKSDB_LIBRARY_API int
 crocksdb_compactionjobinfo_output_level(
     const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_compactionjobinfo_input_records(
+    const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_compactionjobinfo_output_records(
+    const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_compactionjobinfo_total_input_bytes(
+    const crocksdb_compactionjobinfo_t* info);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_compactionjobinfo_total_output_bytes(
+    const crocksdb_compactionjobinfo_t* info);
 
 /* External file ingestion info */
 
