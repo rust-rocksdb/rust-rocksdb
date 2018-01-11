@@ -17,6 +17,7 @@ static = []
 
 [dependencies]
 libc = "0.2"
+local-encoding = "0.2.0"
 snappy-sys = { git = "https://github.com/paritytech/rust-snappy" }
 
 [build-dependencies]

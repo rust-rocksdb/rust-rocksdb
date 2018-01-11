@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate libc;
-use self::libc::{c_char, c_uchar, c_int, c_void, size_t};
+
 use std::ffi::CStr;
-use std::str::from_utf8;
 #[cfg(test)]
 use std::ffi::CString;
+
+use libc;
+use libc::{c_char, c_uchar, c_int, c_void, size_t};
+use local_encoding::{Encoding, Encoder};
 
 pub enum DBOptionsOpaque {}
 pub type DBOptions = *const DBOptionsOpaque;
@@ -97,8 +99,8 @@ pub enum DBUniversalCompactionStyle {
 
 pub fn error_message(ptr: *const i8) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
-    //TODO: use MultiByteToWideChar on windows
-    let s = from_utf8(c_str.to_bytes()).unwrap_or("Error converting string").to_owned();
+    let s = Encoding::ANSI.to_string(c_str.to_bytes())
+        .unwrap_or_else(|_| "Error converting string".to_owned());
     unsafe {
         libc::free(ptr as *mut libc::c_void);
     }
