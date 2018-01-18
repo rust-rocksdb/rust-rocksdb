@@ -1,7 +1,7 @@
 [package]
 name = "emerald-rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database used in Emerald Project"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Constantine r8d8@etcdev.io"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
@@ -19,4 +19,4 @@ valgrind = []
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "5.6.2" }
+librocksdb-emerald-sys = { path = "librocksdb-emerald-sys", version = "1.0.0" }

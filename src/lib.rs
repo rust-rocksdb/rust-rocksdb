@@ -32,7 +32,7 @@
 //!
 
 extern crate libc;
-extern crate librocksdb_sys as ffi;
+extern crate librocksdb_emerald_sys as ffi;
 
 #[macro_use]
 mod ffi_util;

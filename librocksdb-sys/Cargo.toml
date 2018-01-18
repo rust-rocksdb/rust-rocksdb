@@ -1,11 +1,11 @@
 [package]
-name = "librocksdb-sys"
-version = "5.6.2"
-authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
+name = "emerald_librocksdb-sys"
+version = "0.5.2"
+authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>", ""]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
 readme = "README.md"
-repository = "https://github.com/spacejam/rust-rocksdb.git"
+repository = "https://github.com/exonum/exonum_rocksdb.git"
 keywords = [ "ffi", "rocksdb" ]
 
 build = "build.rs"
@@ -17,10 +17,11 @@ static = []
 
 [dependencies]
 libc = "0.2"
+tempdir = "0.3.5"
 
 [dev-dependencies]
 const-cstr = "0.2"
 
 [build-dependencies]
-gcc = { version = "0.3", features = ["parallel"] }
+cc = { version = "1.0", features = ["parallel"] }
 make-cmd = "0.1"
