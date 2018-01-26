@@ -94,8 +94,8 @@ fn build_rocksdb() {
             .cloned()
             .filter(|file| match *file {
                 "port/port_posix.cc" |
-                "util/env_posix.cc" |
-                "util/io_posix.cc" => false,
+                "env/env_posix.cc" |
+                "env/io_posix.cc" => false,
                 _ => true,
             })
             .collect::<Vec<&'static str>>();
@@ -112,11 +112,10 @@ fn build_rocksdb() {
         config.flag("-EHsc");
     } else {
         config.flag("-std=c++11");
+        // this was breaking the build on travis due to
+        // > 4mb of warnings emitted.
+        config.flag("-Wno-unused-parameter");
     }
-
-    // this was breaking the build on travis due to
-    // > 4mb of warnings emitted.
-    config.flag("-Wno-unused-parameter");
 
     for file in lib_sources {
         let file = "rocksdb/".to_string() + file;

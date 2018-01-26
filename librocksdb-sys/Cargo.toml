@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "5.6.2"
+version = "5.7.1"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
