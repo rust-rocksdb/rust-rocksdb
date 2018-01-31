@@ -64,7 +64,7 @@ fn test_delete_files_in_range_with_iter() {
     let mut iter = db.iter();
 
     // delete sst2
-    db.delete_file_in_range(b"key2", b"key7").unwrap();
+    db.delete_files_in_range(b"key2", b"key7", false).unwrap();
 
     let mut count = 0;
     assert!(iter.seek(SeekKey::Start));
@@ -87,7 +87,7 @@ fn test_delete_files_in_range_with_snap() {
     let snap = db.snapshot();
 
     // delete sst2
-    db.delete_file_in_range(b"key2", b"key7").unwrap();
+    db.delete_files_in_range(b"key2", b"key7", false).unwrap();
 
     let mut iter = snap.iter();
     assert!(iter.seek(SeekKey::Start));
@@ -142,7 +142,7 @@ fn test_delete_files_in_range_with_delete_range() {
     // Before the fix, the file in the middle with keys 2 and 3 will be deleted,
     // which can be a problem when we compact later. After the fix, no file will
     // be deleted since they have an overlapped delete range [0, 6).
-    db.delete_file_in_range(b"1", b"4").unwrap();
+    db.delete_files_in_range(b"1", b"4", false).unwrap();
 
     // Flush a file with keys 4 and 5 to level 0.
     for i in 4..5 {
@@ -166,4 +166,40 @@ fn test_delete_files_in_range_with_delete_range() {
     assert!(it.next());
     assert_eq!(it.key(), b"5");
     assert!(!it.next());
+}
+
+#[test]
+fn test_delete_files_in_ranges() {
+    let path = TempDir::new("_rust_rocksdb_test_delete_files_in_multi_ranges").expect("");
+    let path_str = path.path().to_str().unwrap();
+    let db = initial_data(path_str);
+
+    // Delete files in multiple overlapped ranges.
+    // File ["key0", "key2"], ["key3", "key5"] should have been deleted,
+    // but file ["key6", "key8"] should not be deleted because "key8" is exclusive.
+    let mut ranges = Vec::new();
+    ranges.push(Range::new(b"key0", b"key4"));
+    ranges.push(Range::new(b"key2", b"key6"));
+    ranges.push(Range::new(b"key4", b"key8"));
+
+    let cf = db.cf_handle("default").unwrap();
+    db.delete_files_in_ranges_cf(cf, &ranges, false).unwrap();
+
+    // Check that ["key0", "key5"] have been deleted, but ["key6", "key8"] still exist.
+    let mut iter = db.iter();
+    iter.seek(SeekKey::Start);
+    for i in 6..9 {
+        assert!(iter.valid());
+        let k = format!("key{}", i);
+        assert_eq!(iter.key(), k.as_bytes());
+        iter.next();
+    }
+    assert!(!iter.valid());
+
+    // Delete the last file.
+    let ranges = vec![Range::new(b"key6", b"key8")];
+    db.delete_files_in_ranges_cf(cf, &ranges, true).unwrap();
+    let mut iter = db.iter();
+    iter.seek(SeekKey::Start);
+    assert!(!iter.valid());
 }

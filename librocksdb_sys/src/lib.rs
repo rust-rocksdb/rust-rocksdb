@@ -1024,22 +1024,35 @@ extern "C" {
         limit_key: *const u8,
         limit_key_len: size_t,
     );
-    pub fn crocksdb_delete_file_in_range(
+    pub fn crocksdb_delete_files_in_range(
         db: *mut DBInstance,
         range_start_key: *const u8,
         range_start_key_len: size_t,
         range_limit_key: *const u8,
         range_limit_key_len: size_t,
+        include_end: bool,
         err: *mut *mut c_char,
     );
-    pub fn crocksdb_delete_file_in_range_cf(
+    pub fn crocksdb_delete_files_in_range_cf(
         db: *mut DBInstance,
         cf: *mut DBCFHandle,
         range_start_key: *const u8,
         range_start_key_len: size_t,
         range_limit_key: *const u8,
         range_limit_key_len: size_t,
+        include_end: bool,
         err: *mut *mut c_char,
+    );
+    pub fn crocksdb_delete_files_in_ranges_cf(
+        db: *mut DBInstance,
+        cf: *mut DBCFHandle,
+        start_keys: *const *const uint8_t,
+        start_keys_lens: *const size_t,
+        limit_keys: *const *const uint8_t,
+        limit_keys_lens: *const size_t,
+        num_ranges: size_t,
+        include_end: bool,
+        errptr: *mut *mut c_char,
     );
     pub fn crocksdb_property_value(db: *mut DBInstance, propname: *const c_char) -> *mut c_char;
     pub fn crocksdb_property_value_cf(

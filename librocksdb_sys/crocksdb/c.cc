@@ -116,6 +116,7 @@ using rocksdb::TablePropertiesCollector;
 using rocksdb::TablePropertiesCollectorFactory;
 using rocksdb::KeyVersion;
 using rocksdb::DbPath;
+using rocksdb::RangePtr;
 
 using rocksdb::ColumnFamilyData;
 using rocksdb::ColumnFamilyHandleImpl;
@@ -3381,29 +3382,61 @@ void crocksdb_get_options_from_string(const crocksdb_options_t* base_options,
                                  &new_options->rep));
 }
 
-void crocksdb_delete_file_in_range(crocksdb_t* db, const char* start_key,
-                                  size_t start_key_len, const char* limit_key,
-                                  size_t limit_key_len, char** errptr) {
+void crocksdb_delete_files_in_range(
+    crocksdb_t* db,
+    const char* start_key, size_t start_key_len,
+    const char* limit_key, size_t limit_key_len,
+    bool include_end, char** errptr) {
   Slice a, b;
   SaveError(
       errptr,
       DeleteFilesInRange(
           db->rep, db->rep->DefaultColumnFamily(),
           (start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr),
-          (limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr)));
+          (limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr),
+          include_end));
 }
 
-void crocksdb_delete_file_in_range_cf(
+void crocksdb_delete_files_in_range_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
-    const char* start_key, size_t start_key_len, const char* limit_key,
-    size_t limit_key_len, char** errptr) {
+    const char* start_key, size_t start_key_len,
+    const char* limit_key, size_t limit_key_len,
+    bool include_end, char** errptr) {
   Slice a, b;
   SaveError(
       errptr,
       DeleteFilesInRange(
           db->rep, column_family->rep,
           (start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr),
-          (limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr)));
+          (limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr),
+          include_end));
+}
+
+void crocksdb_delete_files_in_ranges_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* cf,
+    const char* const* start_keys, const size_t* start_keys_lens,
+    const char* const* limit_keys, const size_t* limit_keys_lens,
+    size_t num_ranges, bool include_end, char** errptr) {
+  Slice starts[num_ranges];
+  Slice limits[num_ranges];
+  RangePtr ranges[num_ranges];
+  for (auto i = 0; i < num_ranges; i++) {
+    const Slice* start = nullptr;
+    if (start_keys[i]) {
+      starts[i] = Slice(start_keys[i], start_keys_lens[i]);
+      start = &starts[i];
+    }
+    const Slice* limit = nullptr;
+    if (limit_keys[i]) {
+      limits[i] = Slice(limit_keys[i], limit_keys_lens[i]);
+      limit = &limits[i];
+    }
+    ranges[i] = RangePtr(start, limit);
+  }
+  SaveError(
+      errptr,
+      DeleteFilesInRanges(
+          db->rep, cf->rep, ranges, num_ranges, include_end));
 }
 
 void crocksdb_free(void* ptr) { free(ptr); }
