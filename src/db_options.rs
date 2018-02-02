@@ -930,6 +930,17 @@ impl Options {
         }
     }
 
+    /// When set to true, reading SST files will opt out of the filesystem's
+    /// readahead. Setting this to false may improve sequential iteration
+    /// performance.
+    ///
+    /// Default: `true`
+    pub fn set_advise_random_on_open(&mut self, advise: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_advise_random_on_open(self.inner, advise as c_uchar)
+        }
+    }
+
     /// Sets the number of levels for this database.
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
