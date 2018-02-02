@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DBOptions, Range, Writable, DB};
+use rocksdb::{DBOptions, Range, Writable, DB, CompactOptions, ColumnFamilyOptions};
 use tempdir::TempDir;
 
 
@@ -44,4 +44,34 @@ fn test_compact_range() {
     db.compact_range(None, None);
     let new_size = db.get_approximate_sizes(&[Range::new(b"k0", b"k6")])[0];
     assert!(old_size > new_size);
+}
+
+#[test]
+fn test_compact_range_change_level() {
+    let path = TempDir::new("_rust_rocksdb_test_compact_range_change_level").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_level_zero_file_num_compaction_trigger(10);
+    let db = DB::open_cf(opts, path.path().to_str().unwrap(), vec![("default", cf_opts)]).unwrap();
+    let samples = vec![
+        (b"k1".to_vec(), b"value--------1".to_vec()),
+        (b"k2".to_vec(), b"value--------2".to_vec()),
+        (b"k3".to_vec(), b"value--------3".to_vec()),
+        (b"k4".to_vec(), b"value--------4".to_vec()),
+        (b"k5".to_vec(), b"value--------5".to_vec()),
+    ];
+    for &(ref k, ref v) in &samples {
+        db.put(k, v).unwrap();
+        db.flush(true).unwrap();
+    }
+
+    let compact_level = 1;
+    let mut compact_opts = CompactOptions::new();
+    compact_opts.set_change_level(true);
+    compact_opts.set_target_level(compact_level);
+    let handle = db.cf_handle("default").unwrap();
+    db.compact_range_cf_opt(handle, &compact_opts, None, None);
+    let name = format!("rocksdb.num-files-at-level{}", compact_level);
+    assert_eq!(db.get_property_int(&name).unwrap(), samples.len() as u64);
 }

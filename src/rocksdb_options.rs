@@ -471,6 +471,18 @@ impl CompactOptions {
             crocksdb_ffi::crocksdb_compactoptions_set_exclusive_manual_compaction(self.inner, v);
         }
     }
+
+    pub fn set_change_level(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compactoptions_set_change_level(self.inner, v);
+        }
+    }
+
+    pub fn set_target_level(&mut self, v: i32) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compactoptions_set_target_level(self.inner, v);
+        }
+    }
 }
 
 impl Drop for CompactOptions {
