@@ -1,7 +1,13 @@
 Changelog
 =========
 
-0.8.2 (2017-12-28
+0.8.3 (2018-02-10)
+~~~~~~~~~~~~~~~~~~~~
+ * Bump rocksdb to 5.10.2 (ongardie)
+ * Add Send marker to Options (iSynaptic)
+ * Expose advise_random_on_open option (ongardie)
+
+0.8.2 (2017-12-28)
 ~~~~~~~~~~~~~~~~~~~~
  * Bump rocksdb to 5.7.1 (jquesnelle)
 
