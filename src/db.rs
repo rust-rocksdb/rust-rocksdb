@@ -885,6 +885,12 @@ impl DB {
         DBIterator::new(self, &opts, mode)
     }
 
+    pub fn prefix_iterator<'a>(&self, prefix: &'a [u8]) -> DBIterator {
+        let mut opts = ReadOptions::default();
+        opts.set_prefix_same_as_start(true);
+        DBIterator::new(self, &opts, IteratorMode::From(prefix, Direction::Forward))
+    }
+
     pub fn iterator_cf(
         &self,
         cf_handle: ColumnFamily,
@@ -892,6 +898,16 @@ impl DB {
     ) -> Result<DBIterator, Error> {
         let opts = ReadOptions::default();
         DBIterator::new_cf(self, cf_handle, &opts, mode)
+    }
+
+    pub fn prefix_iterator_cf<'a>(
+        &self,
+        cf_handle: ColumnFamily,
+        prefix: &'a [u8]
+    ) -> Result<DBIterator, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_prefix_same_as_start(true);
+        DBIterator::new_cf(self, cf_handle, &opts, IteratorMode::From(prefix, Direction::Forward))
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
@@ -1213,6 +1229,12 @@ impl ReadOptions {
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
+        }
+    }
+
+    pub fn set_prefix_same_as_start(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar)
         }
     }
 }
