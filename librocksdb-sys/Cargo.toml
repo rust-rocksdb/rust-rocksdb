@@ -22,6 +22,6 @@ libc = "0.2"
 const-cstr = "0.2"
 
 [build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
+cc = { version = "^1.0", features = ["parallel"] }
 make-cmd = "0.1"
 bindgen = "0.29"
