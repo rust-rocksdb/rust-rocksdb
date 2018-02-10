@@ -1237,6 +1237,12 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar)
         }
     }
+
+    pub fn set_total_order_seek(&mut self, v:bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar)
+        }
+    }
 }
 
 impl Default for ReadOptions {

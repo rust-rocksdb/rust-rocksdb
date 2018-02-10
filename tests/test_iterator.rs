@@ -163,7 +163,13 @@ pub fn test_prefix_iterator() {
         let b1: Box<[u8]> = key(b"bbb1");
         let b2: Box<[u8]> = key(b"bbb2");
 
-        let db = DB::open_default(path).unwrap();
+        let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
+
+        let mut opts = Options::default();
+		opts.create_if_missing(true);
+        opts.set_prefix_extractor(prefix_extractor);
+
+        let db = DB::open(&opts, path).unwrap();
 
         assert!(db.put(&*a1, &*a1).is_ok());
         assert!(db.put(&*a2, &*a2).is_ok());
