@@ -288,7 +288,7 @@ mod test {
 
 	fn test_counting_partial_merge(
 		_new_key: &[u8],
-		existing_val: Option<&[u8]>,
+		_existing_val: Option<&[u8]>,
 		operands: &mut MergeOperands,
 		) -> Option<Vec<u8>> {
 		let nops = operands.size_hint().0;
@@ -307,7 +307,6 @@ mod test {
 		operands: &mut MergeOperands,
 		) -> Option<Vec<u8>> {
 
-		let nops = operands.size_hint().0;
 		let mut counts : ValueCounts = 
 			if let Some(v) = existing_val {
 				from_slice::<ValueCounts>(v).unwrap().clone()
@@ -337,7 +336,6 @@ mod test {
 #[test]
 	fn counting_mergetest() {
 		use std::thread;
-		use std::time::Duration;
 		use std::sync::Arc;
 		use {DB, Options, DBCompactionStyle};
 
@@ -403,7 +401,7 @@ mod test {
 				}
 				d2.compact_range(None, None);
 			});
-			h2.join();
+			h2.join().unwrap();
 			let h3 = thread::spawn(move || {
 				for i in 0..500 {
 					let _ = d3.merge(b"k2", b"a");
@@ -420,8 +418,8 @@ mod test {
 			});
 			let m = db.merge(b"k1", b"b");
 			assert!(m.is_ok());
-			h3.join();
-			h1.join();
+			h3.join().unwrap();
+			h1.join().unwrap();
 			match db.get(b"k2") {
 				Ok(Some(value)) => {
 					match from_slice::<ValueCounts>(&*value) {
