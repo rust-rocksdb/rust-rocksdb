@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.9.1 (2018-02-10)
+~~~~~~~~~~~~~~~~~~~~
+**New features**
+ * SliceTransform support (spacejam)
+
 0.9.0 (2018-02-10)
 ~~~~~~~~~~~~~~~~~~~~
 **New features**
