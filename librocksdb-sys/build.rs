@@ -117,6 +117,14 @@ fn build_rocksdb() {
         config.flag("-Wno-unused-parameter");
     }
 
+    if cfg!(target_arch = "x86_64" ) {
+        // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
+        // only available since Intel Nehalem (about 2010) and AMD Bulldozer
+        // (about 2011).
+        config.flag("-msse4.2");
+        config.define("HAVE_SSE42", Some("1"));
+    }
+
     for file in lib_sources {
         let file = "rocksdb/".to_string() + file;
         config.file(&file);
