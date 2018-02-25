@@ -182,6 +182,9 @@ pub struct DBIterator {
     just_seeked: bool,
 }
 
+unsafe impl Send for DBIterator {}
+unsafe impl Sync for DBIterator {}
+
 pub enum Direction {
     Forward,
     Reverse,
