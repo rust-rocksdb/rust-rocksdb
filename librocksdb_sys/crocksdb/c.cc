@@ -134,6 +134,7 @@ using rocksdb::VectorRepFactory;
 using rocksdb::ColumnFamilyMetaData;
 using rocksdb::LevelMetaData;
 using rocksdb::SstFileMetaData;
+using rocksdb::CompactionOptions;
 
 using std::shared_ptr;
 
@@ -204,6 +205,9 @@ struct crocksdb_level_meta_data_t {
 };
 struct crocksdb_sst_file_meta_data_t {
   SstFileMetaData rep;
+};
+struct crocksdb_compaction_options_t {
+  CompactionOptions rep;
 };
 
 struct crocksdb_compactionfilter_t : public CompactionFilter {
@@ -1986,6 +1990,11 @@ void crocksdb_options_set_max_total_wal_size(crocksdb_options_t* opt, uint64_t n
 void crocksdb_options_set_target_file_size_base(
     crocksdb_options_t* opt, uint64_t n) {
   opt->rep.target_file_size_base = n;
+}
+
+uint64_t crocksdb_options_get_target_file_size_base(
+    const crocksdb_options_t* opt) {
+  return opt->rep.target_file_size_base;
 }
 
 void crocksdb_options_set_target_file_size_multiplier(
@@ -4079,6 +4088,41 @@ size_t crocksdb_sst_file_meta_data_size(const crocksdb_sst_file_meta_data_t* met
 
 const char* crocksdb_sst_file_meta_data_name(const crocksdb_sst_file_meta_data_t* meta) {
   return meta->rep.name.data();
+}
+
+crocksdb_compaction_options_t* crocksdb_compaction_options_create() {
+  return new crocksdb_compaction_options_t();
+}
+
+void crocksdb_compaction_options_destroy(crocksdb_compaction_options_t* opts) {
+  delete opts;
+}
+
+void crocksdb_compaction_options_set_compression(
+    crocksdb_compaction_options_t* opts,
+    int compression) {
+  opts->rep.compression = static_cast<CompressionType>(compression);
+}
+
+void crocksdb_compaction_options_set_output_file_size_limit(
+    crocksdb_compaction_options_t* opts,
+    size_t size) {
+  opts->rep.output_file_size_limit = size;
+}
+
+void crocksdb_compact_files_cf(
+   crocksdb_t* db, crocksdb_column_family_handle_t* cf,
+   crocksdb_compaction_options_t* opts,
+   const char** input_file_names,
+   size_t input_file_count,
+   int output_level,
+   char** errptr) {
+  std::vector<std::string> input_files;
+  for (size_t i = 0; i < input_file_count; i++) {
+    input_files.push_back(input_file_names[i]);
+  }
+  auto s = db->rep->CompactFiles(opts->rep, cf->rep, input_files, output_level);
+  SaveError(errptr, s);
 }
 
 }  // end extern "C"

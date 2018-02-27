@@ -15,11 +15,12 @@
 use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance,
                    DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType,
                    DBStatisticsTickerType, DBWriteBatch};
-use libc::{self, c_int, c_void, size_t};
+use libc::{self, c_char, c_int, c_void, size_t};
 use metadata::ColumnFamilyMetaData;
-use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions, DBOptions,
-                      EnvOptions, FlushOptions, HistogramData, IngestExternalFileOptions,
-                      ReadOptions, RestoreOptions, UnsafeSnap, WriteOptions};
+use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,
+                      CompactionOptions, DBOptions, EnvOptions, FlushOptions, HistogramData,
+                      IngestExternalFileOptions, ReadOptions, RestoreOptions, UnsafeSnap,
+                      WriteOptions};
 use std::{fs, ptr, slice};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -1377,6 +1378,27 @@ impl DB {
             let inner = crocksdb_ffi::crocksdb_column_family_meta_data_create();
             crocksdb_ffi::crocksdb_get_column_family_meta_data(self.inner, cf.inner, inner);
             ColumnFamilyMetaData::from_ptr(inner)
+        }
+    }
+
+    pub fn compact_files_cf(
+        &self,
+        cf: &CFHandle,
+        opts: &CompactionOptions,
+        input_files: &[String],
+        output_level: i32,
+    ) -> Result<(), String> {
+        unsafe {
+            let input_file_names: Vec<_> = input_files.iter().map(|f| f.as_ptr()).collect();
+            ffi_try!(crocksdb_compact_files_cf(
+                self.inner,
+                cf.inner,
+                opts.inner,
+                input_file_names.as_ptr() as *const *const c_char,
+                input_file_names.len(),
+                output_level
+            ));
+            Ok(())
         }
     }
 }

@@ -43,10 +43,10 @@ pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
 pub use rocksdb::{set_external_sst_file_global_seq_no, BackupEngine, CFHandle, DBIterator,
                   DBVector, Env, ExternalSstFileInfo, Kv, Range, SeekKey, SequentialFile,
                   SstFileWriter, Writable, WriteBatch, DB};
-pub use rocksdb_options::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions,
-                          EnvOptions, FifoCompactionOptions, HistogramData,
-                          IngestExternalFileOptions, RateLimiter, ReadOptions, RestoreOptions,
-                          WriteOptions};
+pub use rocksdb_options::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions,
+                          CompactionOptions, DBOptions, EnvOptions, FifoCompactionOptions,
+                          HistogramData, IngestExternalFileOptions, RateLimiter, ReadOptions,
+                          RestoreOptions, WriteOptions};
 pub use slice_transform::SliceTransform;
 pub use table_filter::TableFilter;
 pub use table_properties::{TableProperties, TablePropertiesCollection,

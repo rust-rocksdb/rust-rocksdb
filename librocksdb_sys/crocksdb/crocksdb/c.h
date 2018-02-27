@@ -135,6 +135,7 @@ typedef struct crocksdb_keyversions_t crocksdb_keyversions_t;
 typedef struct crocksdb_column_family_meta_data_t crocksdb_column_family_meta_data_t;
 typedef struct crocksdb_level_meta_data_t crocksdb_level_meta_data_t;
 typedef struct crocksdb_sst_file_meta_data_t crocksdb_sst_file_meta_data_t;
+typedef struct crocksdb_compaction_options_t crocksdb_compaction_options_t;
 
 typedef enum crocksdb_table_property_t {
   kDataSize = 1,
@@ -791,6 +792,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_level0_stop_writes_trigge
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_target_file_size_base(
     crocksdb_options_t*, uint64_t);
+extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_options_get_target_file_size_base(
+    const crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_target_file_size_multiplier(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_bytes_for_level_base(
@@ -1629,6 +1632,24 @@ extern C_ROCKSDB_LIBRARY_API size_t
 crocksdb_sst_file_meta_data_size(const crocksdb_sst_file_meta_data_t*);
 extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_sst_file_meta_data_name(const crocksdb_sst_file_meta_data_t*);
+
+/* CompactFiles */
+extern C_ROCKSDB_LIBRARY_API crocksdb_compaction_options_t*
+crocksdb_compaction_options_create();
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compaction_options_destroy(crocksdb_compaction_options_t*);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compaction_options_set_compression(crocksdb_compaction_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compaction_options_set_output_file_size_limit(crocksdb_compaction_options_t*, size_t);
+
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compact_files_cf(crocksdb_t*, crocksdb_column_family_handle_t*,
+                          crocksdb_compaction_options_t*,
+                          const char** input_file_names,
+                          size_t input_file_count,
+                          int output_level,
+                          char** errptr);
 
 #ifdef __cplusplus
 }  /* end extern "C" */

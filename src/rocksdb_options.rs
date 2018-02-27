@@ -15,10 +15,11 @@
 
 use compaction_filter::{new_compaction_filter, CompactionFilter, CompactionFilterHandle};
 use comparator::{self, compare_callback, ComparatorCallback};
-use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompressionType,
-                   DBFifoCompactionOptions, DBFlushOptions, DBInfoLogLevel, DBInstance,
-                   DBRateLimiter, DBReadOptions, DBRecoveryMode, DBRestoreOptions, DBSnapshot,
-                   DBStatisticsHistogramType, DBStatisticsTickerType, DBWriteOptions, Options};
+use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompactionOptions,
+                   DBCompressionType, DBFifoCompactionOptions, DBFlushOptions, DBInfoLogLevel,
+                   DBInstance, DBRateLimiter, DBReadOptions, DBRecoveryMode, DBRestoreOptions,
+                   DBSnapshot, DBStatisticsHistogramType, DBStatisticsTickerType, DBWriteOptions,
+                   Options};
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
@@ -489,6 +490,40 @@ impl Drop for CompactOptions {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_compactoptions_destroy(self.inner);
+        }
+    }
+}
+
+pub struct CompactionOptions {
+    pub inner: *mut DBCompactionOptions,
+}
+
+impl CompactionOptions {
+    pub fn new() -> CompactionOptions {
+        unsafe {
+            CompactionOptions {
+                inner: crocksdb_ffi::crocksdb_compaction_options_create(),
+            }
+        }
+    }
+
+    pub fn set_compression(&mut self, compression: DBCompressionType) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compaction_options_set_compression(self.inner, compression);
+        }
+    }
+
+    pub fn set_output_file_size_limit(&mut self, size: usize) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compaction_options_set_output_file_size_limit(self.inner, size);
+        }
+    }
+}
+
+impl Drop for CompactionOptions {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compaction_options_destroy(self.inner);
         }
     }
 }
@@ -1143,6 +1178,10 @@ impl ColumnFamilyOptions {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_target_file_size_base(self.inner, size);
         }
+    }
+
+    pub fn get_target_file_size_base(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_target_file_size_base(self.inner) }
     }
 
     pub fn set_min_write_buffer_number_to_merge(&mut self, to_merge: c_int) {
