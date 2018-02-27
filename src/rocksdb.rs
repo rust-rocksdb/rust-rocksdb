@@ -16,6 +16,7 @@ use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, D
                    DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType,
                    DBStatisticsTickerType, DBWriteBatch};
 use libc::{self, c_int, c_void, size_t};
+use metadata::ColumnFamilyMetaData;
 use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions, DBOptions,
                       EnvOptions, FlushOptions, HistogramData, IngestExternalFileOptions,
                       ReadOptions, RestoreOptions, UnsafeSnap, WriteOptions};
@@ -1368,6 +1369,14 @@ impl DB {
             }
             crocksdb_ffi::crocksdb_keyversions_destroy(kvs);
             Ok(key_versions)
+        }
+    }
+
+    pub fn get_column_family_meta_data(&self, cf: &CFHandle) -> ColumnFamilyMetaData {
+        unsafe {
+            let inner = crocksdb_ffi::crocksdb_column_family_meta_data_create();
+            crocksdb_ffi::crocksdb_get_column_family_meta_data(self.inner, cf.inner, inner);
+            ColumnFamilyMetaData::from_ptr(inner)
         }
     }
 }

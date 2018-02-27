@@ -131,6 +131,9 @@ using rocksdb::DecodeFixed32;
 using rocksdb::DecodeFixed64;
 using rocksdb::PutFixed64;
 using rocksdb::VectorRepFactory;
+using rocksdb::ColumnFamilyMetaData;
+using rocksdb::LevelMetaData;
+using rocksdb::SstFileMetaData;
 
 using std::shared_ptr;
 
@@ -191,6 +194,16 @@ struct crocksdb_keyversions_t {
 
 struct crocksdb_compactionfiltercontext_t {
   CompactionFilter::Context rep;
+};
+
+struct crocksdb_column_family_meta_data_t {
+  ColumnFamilyMetaData rep;
+};
+struct crocksdb_level_meta_data_t {
+  LevelMetaData rep;
+};
+struct crocksdb_sst_file_meta_data_t {
+  SstFileMetaData rep;
 };
 
 struct crocksdb_compactionfilter_t : public CompactionFilter {
@@ -4022,6 +4035,50 @@ uint64_t crocksdb_set_external_sst_file_global_seq_no(
     SaveError(errptr, s);
   }
   return pre_seq_no;
+}
+
+void crocksdb_get_column_family_meta_data(
+    crocksdb_t* db,
+    crocksdb_column_family_handle_t* cf,
+    crocksdb_column_family_meta_data_t* meta) {
+  db->rep->GetColumnFamilyMetaData(cf->rep, &meta->rep);
+}
+
+crocksdb_column_family_meta_data_t* crocksdb_column_family_meta_data_create() {
+  return new crocksdb_column_family_meta_data_t();
+}
+
+void crocksdb_column_family_meta_data_destroy(
+    crocksdb_column_family_meta_data_t* meta) {
+  delete meta;
+}
+
+size_t crocksdb_column_family_meta_data_level_count(
+    const crocksdb_column_family_meta_data_t* meta) {
+  return meta->rep.levels.size();
+}
+
+const crocksdb_level_meta_data_t* crocksdb_column_family_meta_data_level_data(
+    const crocksdb_column_family_meta_data_t* meta, size_t n) {
+  return reinterpret_cast<const crocksdb_level_meta_data_t*>(&meta->rep.levels[n]);
+}
+
+size_t crocksdb_level_meta_data_file_count(
+    const crocksdb_level_meta_data_t* meta) {
+  return meta->rep.files.size();
+}
+
+const crocksdb_sst_file_meta_data_t* crocksdb_level_meta_data_file_data(
+    const crocksdb_level_meta_data_t* meta, size_t n) {
+  return reinterpret_cast<const crocksdb_sst_file_meta_data_t*>(&meta->rep.files[n]);
+}
+
+size_t crocksdb_sst_file_meta_data_size(const crocksdb_sst_file_meta_data_t* meta) {
+  return meta->rep.size;
+}
+
+const char* crocksdb_sst_file_meta_data_name(const crocksdb_sst_file_meta_data_t* meta) {
+  return meta->rep.name.data();
 }
 
 }  // end extern "C"

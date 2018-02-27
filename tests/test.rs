@@ -1,8 +1,8 @@
 extern crate byteorder;
 extern crate crc;
+extern crate rand;
 extern crate rocksdb;
 extern crate tempdir;
-extern crate rand;
 
 mod test_iterator;
 mod test_multithreaded;
@@ -20,3 +20,4 @@ mod test_delete_range;
 mod test_delete_files_in_range;
 mod test_read_only;
 mod test_rate_limiter;
+mod test_metadata;

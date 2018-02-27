@@ -62,6 +62,9 @@ pub enum DBEventListener {}
 pub enum DBKeyVersions {}
 pub enum DBEnv {}
 pub enum DBSequentialFile {}
+pub enum DBColumnFamilyMetaData {}
+pub enum DBLevelMetaData {}
+pub enum DBSstFileMetaData {}
 
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
@@ -1538,6 +1541,31 @@ extern "C" {
         seq_no: u64,
         err: *mut *mut c_char,
     ) -> u64;
+
+    pub fn crocksdb_get_column_family_meta_data(
+        db: *mut DBInstance,
+        cf: *mut DBCFHandle,
+        meta: *mut DBColumnFamilyMetaData,
+    );
+
+    pub fn crocksdb_column_family_meta_data_create() -> *mut DBColumnFamilyMetaData;
+    pub fn crocksdb_column_family_meta_data_destroy(meta: *mut DBColumnFamilyMetaData);
+    pub fn crocksdb_column_family_meta_data_level_count(
+        meta: *const DBColumnFamilyMetaData,
+    ) -> size_t;
+    pub fn crocksdb_column_family_meta_data_level_data(
+        meta: *const DBColumnFamilyMetaData,
+        n: size_t,
+    ) -> *const DBLevelMetaData;
+
+    pub fn crocksdb_level_meta_data_file_count(meta: *const DBLevelMetaData) -> size_t;
+    pub fn crocksdb_level_meta_data_file_data(
+        meta: *const DBLevelMetaData,
+        n: size_t,
+    ) -> *const DBSstFileMetaData;
+
+    pub fn crocksdb_sst_file_meta_data_size(meta: *const DBSstFileMetaData) -> size_t;
+    pub fn crocksdb_sst_file_meta_data_name(meta: *const DBSstFileMetaData) -> *const c_char;
 }
 
 #[cfg(test)]
