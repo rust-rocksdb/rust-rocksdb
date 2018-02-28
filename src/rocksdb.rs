@@ -1389,7 +1389,11 @@ impl DB {
         output_level: i32,
     ) -> Result<(), String> {
         unsafe {
-            let input_file_names: Vec<_> = input_files.iter().map(|f| f.as_ptr()).collect();
+            let input_file_cstrs: Vec<_> = input_files
+                .iter()
+                .map(|s| CString::new(s.as_bytes()).unwrap())
+                .collect();
+            let input_file_names: Vec<_> = input_file_cstrs.iter().map(|s| s.as_ptr()).collect();
             ffi_try!(crocksdb_compact_files_cf(
                 self.inner,
                 cf.inner,
