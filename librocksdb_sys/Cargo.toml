@@ -7,6 +7,8 @@ links = "rocksdb"
 
 [dependencies]
 libc = "0.2.11"
+
+[dev-dependencies]
 tempdir = "0.3"
 
 [features]
