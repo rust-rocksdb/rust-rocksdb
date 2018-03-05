@@ -3478,9 +3478,9 @@ void crocksdb_delete_files_in_ranges_cf(
     const char* const* start_keys, const size_t* start_keys_lens,
     const char* const* limit_keys, const size_t* limit_keys_lens,
     size_t num_ranges, bool include_end, char** errptr) {
-  Slice starts[num_ranges];
-  Slice limits[num_ranges];
-  RangePtr ranges[num_ranges];
+  std::vector<Slice> starts(num_ranges);
+  std::vector<Slice> limits(num_ranges);
+  std::vector<RangePtr> ranges(num_ranges);
   for (auto i = 0; i < num_ranges; i++) {
     const Slice* start = nullptr;
     if (start_keys[i]) {
@@ -3497,7 +3497,7 @@ void crocksdb_delete_files_in_ranges_cf(
   SaveError(
       errptr,
       DeleteFilesInRanges(
-          db->rep, cf->rep, ranges, num_ranges, include_end));
+          db->rep, cf->rep, &ranges[0], num_ranges, include_end));
 }
 
 void crocksdb_free(void* ptr) { free(ptr); }
