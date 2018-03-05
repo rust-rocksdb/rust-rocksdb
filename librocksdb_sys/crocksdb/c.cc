@@ -1187,12 +1187,43 @@ void crocksdb_enable_file_deletions(
   SaveError(errptr, db->rep->EnableFileDeletions(force));
 }
 
+crocksdb_options_t* crocksdb_get_db_options(crocksdb_t* db) {
+  auto opts = new crocksdb_options_t;
+  opts->rep = Options(db->rep->GetDBOptions(), ColumnFamilyOptions());
+  return opts;
+}
+
+void crocksdb_set_db_options(crocksdb_t* db,
+                             const char** names,
+                             const char** values,
+                             size_t num_options,
+                             char** errptr) {
+  std::unordered_map<std::string, std::string> options;
+  for (size_t i = 0; i < num_options; i++) {
+    options.emplace(names[i], values[i]);
+  }
+  SaveError(errptr, db->rep->SetDBOptions(options));
+}
+
 crocksdb_options_t* crocksdb_get_options_cf(
     const crocksdb_t* db,
     crocksdb_column_family_handle_t* column_family) {
   crocksdb_options_t* options = new crocksdb_options_t;
   options->rep = db->rep->GetOptions(column_family->rep);
   return options;
+}
+
+void crocksdb_set_options_cf(crocksdb_t* db,
+                             crocksdb_column_family_handle_t* cf,
+                             const char** names,
+                             const char** values,
+                             size_t num_options,
+                             char** errptr) {
+  std::unordered_map<std::string, std::string> options;
+  for (size_t i = 0; i < num_options; i++) {
+    options.emplace(names[i], values[i]);
+  }
+  SaveError(errptr, db->rep->SetOptions(cf->rep, options));
 }
 
 void crocksdb_destroy_db(
@@ -2278,6 +2309,10 @@ void crocksdb_options_set_max_background_jobs(crocksdb_options_t* opt, int n) {
   opt->rep.max_background_jobs = n;
 }
 
+int crocksdb_options_get_max_background_jobs(const crocksdb_options_t* opt) {
+  return opt->rep.max_background_jobs;
+}
+
 void crocksdb_options_set_max_log_file_size(crocksdb_options_t* opt, size_t v) {
   opt->rep.max_log_file_size = v;
 }
@@ -2338,6 +2373,10 @@ void crocksdb_options_set_arena_block_size(
 
 void crocksdb_options_set_disable_auto_compactions(crocksdb_options_t* opt, int disable) {
   opt->rep.disable_auto_compactions = disable;
+}
+
+int crocksdb_options_get_disable_auto_compactions(const crocksdb_options_t* opt) {
+  return opt->rep.disable_auto_compactions;
 }
 
 void crocksdb_options_set_delete_obsolete_files_period_micros(

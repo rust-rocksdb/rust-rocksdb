@@ -565,6 +565,10 @@ impl DBOptions {
         DBOptions::default()
     }
 
+    pub unsafe fn from_raw(inner: *mut Options) -> DBOptions {
+        DBOptions { inner: inner }
+    }
+
     pub fn increase_parallelism(&mut self, parallelism: i32) {
         unsafe {
             crocksdb_ffi::crocksdb_options_increase_parallelism(self.inner, parallelism);
@@ -647,6 +651,10 @@ impl DBOptions {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_background_jobs(self.inner, n);
         }
+    }
+
+    pub fn get_max_background_jobs(&self) -> i32 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_max_background_jobs(self.inner) as i32 }
     }
 
     pub fn set_max_subcompactions(&mut self, n: u32) {
@@ -743,7 +751,6 @@ impl DBOptions {
     pub fn get_statistics(&self) -> Option<String> {
         unsafe {
             let value = crocksdb_ffi::crocksdb_options_statistics_get_string(self.inner);
-
 
             if value.is_null() {
                 return None;
@@ -1028,7 +1035,6 @@ impl ColumnFamilyOptions {
         }
     }
 
-
     pub fn compression(&mut self, t: DBCompressionType) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compression(self.inner, t);
@@ -1100,7 +1106,6 @@ impl ColumnFamilyOptions {
             crocksdb_ffi::crocksdb_options_set_comparator(self.inner, cmp);
         }
     }
-
 
     pub fn set_block_cache_size_mb(&mut self, cache_size: u64) {
         unsafe {
@@ -1231,6 +1236,10 @@ impl ColumnFamilyOptions {
                 crocksdb_ffi::crocksdb_options_set_disable_auto_compactions(self.inner, 0)
             }
         }
+    }
+
+    pub fn get_disable_auto_compactions(&self) -> bool {
+        unsafe { crocksdb_ffi::crocksdb_options_get_disable_auto_compactions(self.inner) == 1 }
     }
 
     pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {

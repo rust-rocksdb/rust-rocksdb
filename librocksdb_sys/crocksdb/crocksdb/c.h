@@ -433,8 +433,26 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_disable_file_deletions(crocksdb_t* db
 extern C_ROCKSDB_LIBRARY_API void crocksdb_enable_file_deletions(
     crocksdb_t* db, unsigned char force, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API crocksdb_options_t*
+crocksdb_get_db_options(crocksdb_t* db);
+
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_set_db_options(crocksdb_t* db,
+                        const char** names,
+                        const char** values,
+                        size_t num_options,
+                        char** errptr);
+
 extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_get_options_cf(
     const crocksdb_t* db, crocksdb_column_family_handle_t* column_family);
+
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_set_options_cf(crocksdb_t* db,
+                        crocksdb_column_family_handle_t* cf,
+                        const char** names,
+                        const char** values,
+                        size_t num_options,
+                        char** errptr);
 
 /* Management operations */
 
@@ -844,6 +862,8 @@ crocksdb_options_set_max_write_buffer_number_to_maintain(crocksdb_options_t *,
                                                          int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_background_jobs(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_max_background_jobs(
+    const crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_log_file_size(crocksdb_options_t *, size_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_log_file_time_to_roll(
@@ -921,6 +941,8 @@ crocksdb_options_set_max_sequential_skip_in_iterations(crocksdb_options_t*,
                                                       uint64_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_disable_auto_compactions(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_disable_auto_compactions(
+    const crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_delete_obsolete_files_period_micros(crocksdb_options_t*,
                                                         uint64_t);

@@ -316,7 +316,23 @@ macro_rules! ffi_try {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 extern "C" {
+    pub fn crocksdb_get_db_options(db: *mut DBInstance) -> *mut Options;
+    pub fn crocksdb_set_db_options(
+        db: *mut DBInstance,
+        names: *const *const c_char,
+        values: *const *const c_char,
+        num_options: size_t,
+        errptr: *mut *mut c_char,
+    );
     pub fn crocksdb_get_options_cf(db: *mut DBInstance, cf: *mut DBCFHandle) -> *mut Options;
+    pub fn crocksdb_set_options_cf(
+        db: *mut DBInstance,
+        cf: *mut DBCFHandle,
+        names: *const *const c_char,
+        values: *const *const c_char,
+        num_options: size_t,
+        errptr: *mut *mut c_char,
+    );
     pub fn crocksdb_options_create() -> *mut Options;
     pub fn crocksdb_options_copy(opts: *const Options) -> *mut Options;
     pub fn crocksdb_options_destroy(opts: *mut Options);
@@ -457,7 +473,9 @@ extern "C" {
     );
     pub fn crocksdb_set_bottommost_compression(options: *mut Options, c: DBCompressionType);
     pub fn crocksdb_options_set_max_background_jobs(options: *mut Options, max_bg_jobs: c_int);
+    pub fn crocksdb_options_get_max_background_jobs(options: *const Options) -> c_int;
     pub fn crocksdb_options_set_disable_auto_compactions(options: *mut Options, v: c_int);
+    pub fn crocksdb_options_get_disable_auto_compactions(options: *const Options) -> c_int;
     pub fn crocksdb_options_set_report_bg_io_stats(options: *mut Options, v: c_int);
     pub fn crocksdb_options_set_compaction_readahead_size(options: *mut Options, v: size_t);
     pub fn crocksdb_options_set_wal_recovery_mode(options: *mut Options, mode: DBRecoveryMode);

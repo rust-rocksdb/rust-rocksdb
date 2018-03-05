@@ -494,7 +494,6 @@ impl DB {
         })
     }
 
-
     pub fn destroy(opts: &DBOptions, path: &str) -> Result<(), String> {
         let cpath = CString::new(path.as_bytes()).unwrap();
         unsafe {
@@ -1195,6 +1194,35 @@ impl DB {
         self.opts.get_statistics_histogram(hist_type)
     }
 
+    pub fn get_db_options(&self) -> DBOptions {
+        unsafe {
+            let inner = crocksdb_ffi::crocksdb_get_db_options(self.inner);
+            DBOptions::from_raw(inner)
+        }
+    }
+
+    pub fn set_db_options(&self, options: &[(&str, &str)]) -> Result<(), String> {
+        unsafe {
+            let name_strs: Vec<_> = options
+                .iter()
+                .map(|&(n, _)| CString::new(n.as_bytes()).unwrap())
+                .collect();
+            let name_ptrs: Vec<_> = name_strs.iter().map(|s| s.as_ptr()).collect();
+            let value_strs: Vec<_> = options
+                .iter()
+                .map(|&(_, v)| CString::new(v.as_bytes()).unwrap())
+                .collect();
+            let value_ptrs: Vec<_> = value_strs.iter().map(|s| s.as_ptr()).collect();
+            ffi_try!(crocksdb_set_db_options(
+                self.inner,
+                name_ptrs.as_ptr() as *const *const c_char,
+                value_ptrs.as_ptr() as *const *const c_char,
+                options.len() as size_t
+            ));
+            Ok(())
+        }
+    }
+
     pub fn get_options(&self) -> ColumnFamilyOptions {
         let cf = self.cf_handle("default").unwrap();
         unsafe {
@@ -1207,6 +1235,29 @@ impl DB {
         unsafe {
             let inner = crocksdb_ffi::crocksdb_get_options_cf(self.inner, cf.inner);
             ColumnFamilyOptions::from_raw(inner)
+        }
+    }
+
+    pub fn set_options_cf(&self, cf: &CFHandle, options: &[(&str, &str)]) -> Result<(), String> {
+        unsafe {
+            let name_strs: Vec<_> = options
+                .iter()
+                .map(|&(n, _)| CString::new(n.as_bytes()).unwrap())
+                .collect();
+            let name_ptrs: Vec<_> = name_strs.iter().map(|s| s.as_ptr()).collect();
+            let value_strs: Vec<_> = options
+                .iter()
+                .map(|&(_, v)| CString::new(v.as_bytes()).unwrap())
+                .collect();
+            let value_ptrs: Vec<_> = value_strs.iter().map(|s| s.as_ptr()).collect();
+            ffi_try!(crocksdb_set_options_cf(
+                self.inner,
+                cf.inner,
+                name_ptrs.as_ptr() as *const *const c_char,
+                value_ptrs.as_ptr() as *const *const c_char,
+                options.len() as size_t
+            ));
+            Ok(())
         }
     }
 
@@ -2520,5 +2571,28 @@ mod test {
         let (count, size) = db.get_approximate_memtable_stats_cf(cf, &range);
         assert!(count > 0);
         assert!(size > 0);
+    }
+
+    #[test]
+    fn test_set_options() {
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let path = TempDir::new("_rust_rocksdb_set_option").expect("");
+
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+        let cf = db.cf_handle("default").unwrap();
+
+        let db_opts = db.get_db_options();
+        assert_eq!(db_opts.get_max_background_jobs(), 2);
+        db.set_db_options(&[("max_background_jobs", "8")]).unwrap();
+        let db_opts = db.get_db_options();
+        assert_eq!(db_opts.get_max_background_jobs(), 8);
+
+        let cf_opts = db.get_options_cf(cf);
+        assert_eq!(cf_opts.get_disable_auto_compactions(), false);
+        db.set_options_cf(cf, &[("disable_auto_compactions", "true")])
+            .unwrap();
+        let cf_opts = db.get_options_cf(cf);
+        assert_eq!(cf_opts.get_disable_auto_compactions(), true);
     }
 }
