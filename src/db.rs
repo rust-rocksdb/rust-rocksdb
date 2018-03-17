@@ -466,10 +466,13 @@ impl DBIterator {
                 self.raw.seek_to_last();
                 self.direction = Direction::Reverse;
             }
-            IteratorMode::From(key, dir) => {
-                // TODO: Should use seek_for_prev when reversing
+            IteratorMode::From(key, Direction::Forward) => {
                 self.raw.seek(key);
-                self.direction = dir;
+                self.direction = Direction::Forward;
+            }
+            IteratorMode::From(key, Direction::Reverse) => {
+                self.raw.seek_for_prev(key);
+                self.direction = Direction::Reverse;
             }
         };
 

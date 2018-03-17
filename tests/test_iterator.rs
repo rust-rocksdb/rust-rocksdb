@@ -123,6 +123,11 @@ pub fn test_iterator() {
             assert_eq!(iterator1.collect::<Vec<_>>(), expected);
         }
         {
+            let iterator1 = db.iterator(IteratorMode::From(b"zz", Direction::Reverse));
+            let expected = vec![(cba(&k4), cba(&v4)), (cba(&k3), cba(&v3))];
+            assert_eq!(iterator1.take(2).collect::<Vec<_>>(), expected);
+        }
+        {
             let iterator1 = db.iterator(IteratorMode::From(b"k0", Direction::Forward));
             assert!(iterator1.valid());
             let iterator2 = db.iterator(IteratorMode::From(b"k1", Direction::Forward));
@@ -132,13 +137,13 @@ pub fn test_iterator() {
             let iterator4 = db.iterator(IteratorMode::From(b"k5", Direction::Forward));
             assert!(!iterator4.valid());
             let iterator5 = db.iterator(IteratorMode::From(b"k0", Direction::Reverse));
-            assert!(iterator5.valid());
+            assert!(!iterator5.valid());
             let iterator6 = db.iterator(IteratorMode::From(b"k1", Direction::Reverse));
             assert!(iterator6.valid());
             let iterator7 = db.iterator(IteratorMode::From(b"k11", Direction::Reverse));
             assert!(iterator7.valid());
             let iterator8 = db.iterator(IteratorMode::From(b"k5", Direction::Reverse));
-            assert!(!iterator8.valid());
+            assert!(iterator8.valid());
         }
         {
             let mut iterator1 = db.iterator(IteratorMode::From(b"k4", Direction::Forward));
