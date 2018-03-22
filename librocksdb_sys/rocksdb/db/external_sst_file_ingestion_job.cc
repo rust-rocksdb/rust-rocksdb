@@ -450,8 +450,9 @@ Status ExternalSstFileIngestionJob::AssignLevelAndSeqnoForIngestedFile(
 
     if (vstorage->NumLevelFiles(lvl) > 0) {
       bool overlap_with_level = false;
-      status = IngestedFileOverlapWithLevel(sv, file_to_ingest, lvl,
-        &overlap_with_level);
+      status = sv->current->OverlapWithLevelIterator(ro, env_options_,
+          file_to_ingest->smallest_user_key, file_to_ingest->largest_user_key,
+          lvl, &overlap_with_level);
       if (!status.ok()) {
         return status;
       }
