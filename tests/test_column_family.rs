@@ -57,7 +57,7 @@ pub fn test_column_family() {
     {
         let mut opts = Options::default();
         opts.set_merge_operator("test operator", test_provided_merge, None);
-        match DB::open_cf(&opts, path, &["cf1"]) {
+        match DB::open_cf(&opts, path, vec!["cf1"]) {
             Ok(_) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
@@ -81,7 +81,7 @@ pub fn test_column_family() {
     }
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::default(), path, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::default(), path, vec!["cf1"]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -101,7 +101,7 @@ fn test_create_missing_column_family() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        match DB::open_cf(&opts, path, &["cf1"]) {
+        match DB::open_cf(&opts, path, vec!["cf1"]) {
             Ok(_) => println!("successfully created new column family"),
             Err(e) => panic!("failed to create new column family: {}", e),
         }
@@ -118,7 +118,7 @@ fn test_merge_operator() {
     {
         let mut opts = Options::default();
         opts.set_merge_operator("test operator", test_provided_merge, None);
-        let db = match DB::open_cf(&opts, path, &["cf1"]) {
+        let db = match DB::open_cf(&opts, path, vec!["cf1"]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db

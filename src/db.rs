@@ -587,6 +587,15 @@ impl ColumnFamilyDescriptor {
 
 impl DB {
     /// Open a database with default options.
+    ///
+    /// # Examples
+    /// 
+    /// ```no_run
+    /// use rocksdb::DB;
+    ///
+    /// let path = "path/to/the/database";
+    /// let db = DB::open_default(path).unwrap();
+    /// ```
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -594,15 +603,43 @@ impl DB {
     }
 
     /// Open the database with the specified options.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use rocksdb::{DB, Options};
+    ///
+    /// let path = "path/to/the/database";
+    /// let options = Options::default();
+    /// let db = DB::open(&options, path);
+    /// ```
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, &[])
+        DB::open_cf::<_, Vec<String>>(opts, path, vec![])
     }
 
     /// Open a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
-        let cfs_v = cfs.to_vec().iter().map(|name| ColumnFamilyDescriptor::new(*name, Options::default())).collect();
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use rocksdb::{DB, Options};
+    ///
+    /// let path = "path/to/the/database";
+    /// let options = Options::default();
+    /// let cfs = DB::list_cf(&options, path).unwrap();
+    /// let db = DB::open_cf(&options, path, cfs).unwrap();
+    /// ```
+    pub fn open_cf<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+        where
+            P: AsRef<Path>,
+            I: IntoIterator,
+            I::Item: Into<String>,
+    {
+        let cfs_v: Vec<_> = cfs.into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name, Options::default()))
+            .collect();
 
         DB::open_cf_descriptors(opts, path, cfs_v)
     }
