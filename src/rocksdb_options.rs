@@ -1325,6 +1325,20 @@ impl ColumnFamilyOptions {
         unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_usage(self.inner) as u64 }
     }
 
+    pub fn set_block_cache_capacity(&self, capacity: u64) -> Result<(), String> {
+        unsafe {
+           ffi_try!(crocksdb_options_set_block_cache_capacity(
+                self.inner,
+                capacity as usize
+            ));
+            Ok(())
+        }
+    }
+
+    pub fn get_block_cache_capacity(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_block_cache_capacity(self.inner) as u64 }
+    }
+
     pub fn set_fifo_compaction_options(&mut self, fifo_opts: FifoCompactionOptions) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_fifo_compaction_options(self.inner, fifo_opts.inner);

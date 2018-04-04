@@ -629,6 +629,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_block_based_table_factory
 
 extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_block_cache_usage(
     crocksdb_options_t *opt);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_block_cache_capacity(
+  crocksdb_options_t* opt, size_t capacity, char **errptr);
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_block_cache_capacity(
+  crocksdb_options_t* opt);
 
 /* Flush job info */
 

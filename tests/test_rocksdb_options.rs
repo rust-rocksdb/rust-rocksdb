@@ -370,6 +370,36 @@ fn test_get_block_cache_usage() {
 }
 
 #[test]
+fn test_block_cache_capacity() {
+    let path = TempDir::new("_rust_rocksdb_set_and_get_block_cache_capacity").expect("");
+
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    let mut block_opts = BlockBasedOptions::new();
+    block_opts.set_lru_cache(16 * 1024 * 1024, -1, 0, 0.0);
+    cf_opts.set_block_based_table_factory(&block_opts);
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    ).unwrap();
+
+    assert_eq!(
+        db.get_options().get_block_cache_capacity(),
+        16 * 1024 * 1024
+    );
+
+    let opt = db.get_options();
+    opt.set_block_cache_capacity(32 * 1024 * 1024).unwrap();
+
+    assert_eq!(
+        db.get_options().get_block_cache_capacity(),
+        32 * 1024 * 1024
+    );
+}
+
+#[test]
 fn test_disable_block_cache() {
     let mut cf_opts = ColumnFamilyOptions::new();
     assert_eq!(cf_opts.get_block_cache_usage(), 0);

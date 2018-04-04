@@ -1674,15 +1674,39 @@ void crocksdb_options_set_wal_bytes_per_sync(crocksdb_options_t *opt, uint64_t v
   opt->rep.wal_bytes_per_sync = v;
 }
 
-size_t crocksdb_options_get_block_cache_usage(crocksdb_options_t *opt) {
+static BlockBasedTableOptions* get_block_based_table_options(crocksdb_options_t *opt) {
   if (opt && opt->rep.table_factory != nullptr) {
     void* table_opt = opt->rep.table_factory->GetOptions();
     if (table_opt && strcmp(opt->rep.table_factory->Name(), block_base_table_str) == 0) {
-      auto opts = static_cast<BlockBasedTableOptions*>(table_opt);
-      if (opts->block_cache) {
-        return opts->block_cache->GetUsage();
-      }
+      return static_cast<BlockBasedTableOptions*>(table_opt);
     }
+  }
+  return nullptr;
+}
+
+size_t crocksdb_options_get_block_cache_usage(crocksdb_options_t *opt) {
+  auto opts = get_block_based_table_options(opt);
+  if (opts && opts->block_cache) {
+    return opts->block_cache->GetUsage();
+  }
+  return 0;
+}
+
+void crocksdb_options_set_block_cache_capacity(crocksdb_options_t* opt, size_t capacity, char **errptr) {
+  Status s;
+  auto opts = get_block_based_table_options(opt);
+  if (opts && opts->block_cache) {
+    opts->block_cache->SetCapacity(capacity);
+  } else {
+    s = Status::InvalidArgument("failed to get block based table options");
+  }
+  SaveError(errptr, s);
+}
+
+size_t crocksdb_options_get_block_cache_capacity(crocksdb_options_t* opt) {
+  auto opts = get_block_based_table_options(opt);
+  if (opts && opts->block_cache) {
+    return opts->block_cache->GetCapacity();
   }
   return 0;
 }

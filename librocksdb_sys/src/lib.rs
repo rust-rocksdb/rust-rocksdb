@@ -539,6 +539,8 @@ extern "C" {
     pub fn crocksdb_options_set_ratelimiter(options: *mut Options, limiter: *mut DBRateLimiter);
     pub fn crocksdb_options_set_info_log(options: *mut Options, logger: *mut DBLogger);
     pub fn crocksdb_options_get_block_cache_usage(options: *const Options) -> usize;
+    pub fn crocksdb_options_set_block_cache_capacity(options: *const Options, capacity: usize, err: *mut *mut c_char);
+    pub fn crocksdb_options_get_block_cache_capacity(options: *const Options) -> usize;
     pub fn crocksdb_ratelimiter_create(
         rate_bytes_per_sec: i64,
         refill_period_us: i64,
