@@ -61,13 +61,10 @@ mod db_options;
 mod slice_transform;
 
 pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DBRecoveryMode,
-             DBVector, ReadOptions, Direction, IteratorMode, Snapshot, WriteBatch,
-             new_bloom_filter};
-
-pub use slice_transform::SliceTransform;
-
+pub use db::{new_bloom_filter, DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator,
+             DBRecoveryMode, DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch};
 pub use merge_operator::MergeOperands;
+pub use slice_transform::SliceTransform;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
@@ -198,7 +195,6 @@ pub struct Options {
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
 }
-
 
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others

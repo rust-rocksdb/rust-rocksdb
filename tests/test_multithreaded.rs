@@ -14,9 +14,9 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{DB, Options};
-use std::thread;
+use rocksdb::{Options, DB};
 use std::sync::Arc;
+use std::thread;
 
 const N: usize = 100_000;
 

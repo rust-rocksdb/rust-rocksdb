@@ -14,7 +14,7 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{DB, Options};
+use rocksdb::{Options, DB};
 
 #[test]
 fn test_set_num_levels() {

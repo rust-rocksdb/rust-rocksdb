@@ -13,11 +13,9 @@
 // limitations under the License.
 //
 
-
-use {DB, Error, Options, WriteOptions, ColumnFamily, ColumnFamilyDescriptor};
+use {ColumnFamily, ColumnFamilyDescriptor, Error, Options, WriteOptions, DB};
 use ffi;
 use ffi_util::opt_bytes_to_ptr;
-
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::CString;
@@ -148,7 +146,6 @@ pub struct DBRawIterator {
     inner: *mut ffi::rocksdb_iterator_t,
 }
 
-
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///
@@ -197,7 +194,11 @@ pub enum IteratorMode<'a> {
 
 impl DBRawIterator {
     fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
-        unsafe { DBRawIterator { inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner) } }
+        unsafe {
+            DBRawIterator {
+                inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
+            }
+        }
     }
 
     fn new_cf(
@@ -577,10 +578,13 @@ impl<'a> Drop for Snapshot<'a> {
 
 impl ColumnFamilyDescriptor {
     // Create a new column family descriptor with the specified name and options.
-    pub fn new<S>(name: S, options: Options) -> Self where S: Into<String> {
+    pub fn new<S>(name: S, options: Options) -> Self
+    where
+        S: Into<String>,
+    {
         ColumnFamilyDescriptor {
             name: name.into(),
-            options
+            options,
         }
     }
 }
@@ -602,20 +606,27 @@ impl DB {
     ///
     /// Column families opened using this function will be created with default `Options`.
     pub fn open_cf<P: AsRef<Path>>(opts: &Options, path: P, cfs: &[&str]) -> Result<DB, Error> {
-        let cfs_v = cfs.to_vec().iter().map(|name| ColumnFamilyDescriptor::new(*name, Options::default())).collect();
+        let cfs_v = cfs.to_vec()
+            .iter()
+            .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
+            .collect();
 
         DB::open_cf_descriptors(opts, path, cfs_v)
     }
 
     /// Open a database with the given database options and column family names/options.
-    pub fn open_cf_descriptors<P: AsRef<Path>>(opts: &Options, path: P, cfs: Vec<ColumnFamilyDescriptor>) -> Result<DB, Error> {
+    pub fn open_cf_descriptors<P: AsRef<Path>>(
+        opts: &Options,
+        path: P,
+        cfs: Vec<ColumnFamilyDescriptor>,
+    ) -> Result<DB, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
                     "Failed to convert path to CString \
-                                       when opening DB."
+                     when opening DB."
                         .to_owned(),
                 ))
             }
@@ -624,7 +635,7 @@ impl DB {
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
                 "Failed to create RocksDB\
-                                           directory: `{:?}`.",
+                 directory: `{:?}`.",
                 e
             )));
         }
@@ -642,7 +653,7 @@ impl DB {
             if !cfs_v.iter().any(|cf| cf.name == "default") {
                 cfs_v.push(ColumnFamilyDescriptor {
                     name: String::from("default"),
-                    options: Options::default()
+                    options: Options::default(),
                 });
             }
             // We need to store our CStrings in an intermediate vector
@@ -657,7 +668,8 @@ impl DB {
             // These handles will be populated by DB.
             let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
 
-            let mut cfopts: Vec<_> = cfs_v.iter()
+            let mut cfopts: Vec<_> = cfs_v
+                .iter()
                 .map(|cf| cf.options.inner as *const _)
                 .collect();
 
@@ -668,14 +680,15 @@ impl DB {
                     cfs_v.len() as c_int,
                     cfnames.as_mut_ptr(),
                     cfopts.as_mut_ptr(),
-                    cfhandles.as_mut_ptr(),));
+                    cfhandles.as_mut_ptr(),
+                ));
             }
 
             for handle in &cfhandles {
                 if handle.is_null() {
                     return Err(Error::new(
                         "Received null column family \
-                                           handle from DB."
+                         handle from DB."
                             .to_owned(),
                     ));
                 }
@@ -704,7 +717,7 @@ impl DB {
             Err(_) => {
                 return Err(Error::new(
                     "Failed to convert path to CString \
-                                       when opening DB."
+                     when opening DB."
                         .to_owned(),
                 ))
             }
@@ -726,7 +739,6 @@ impl DB {
             Ok(vec)
         }
     }
-
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
@@ -769,10 +781,10 @@ impl DB {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
-                                   This is a fairly trivial call, and its \
-                                   failure may be indicative of a \
-                                   mis-compiled or mis-loaded RocksDB \
-                                   library."
+                 This is a fairly trivial call, and its \
+                 failure may be indicative of a \
+                 mis-compiled or mis-loaded RocksDB \
+                 library."
                     .to_owned(),
             ));
         }
@@ -808,10 +820,10 @@ impl DB {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
-                                   This is a fairly trivial call, and its \
-                                   failure may be indicative of a \
-                                   mis-compiled or mis-loaded RocksDB \
-                                   library."
+                 This is a fairly trivial call, and its \
+                 failure may be indicative of a \
+                 mis-compiled or mis-loaded RocksDB \
+                 library."
                     .to_owned(),
             ));
         }
@@ -844,7 +856,7 @@ impl DB {
             Err(_) => {
                 return Err(Error::new(
                     "Failed to convert path to CString \
-                                       when opening rocksdb"
+                     when opening rocksdb"
                         .to_owned(),
                 ))
             }
@@ -906,11 +918,16 @@ impl DB {
     pub fn prefix_iterator_cf<'a>(
         &self,
         cf_handle: ColumnFamily,
-        prefix: &'a [u8]
+        prefix: &'a [u8],
     ) -> Result<DBIterator, Error> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
-        DBIterator::new_cf(self, cf_handle, &opts, IteratorMode::From(prefix, Direction::Forward))
+        DBIterator::new_cf(
+            self,
+            cf_handle,
+            &opts,
+            IteratorMode::From(prefix, Direction::Forward),
+        )
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
@@ -1175,7 +1192,9 @@ impl WriteBatch {
 
 impl Default for WriteBatch {
     fn default() -> WriteBatch {
-        WriteBatch { inner: unsafe { ffi::rocksdb_writebatch_create() } }
+        WriteBatch {
+            inner: unsafe { ffi::rocksdb_writebatch_create() },
+        }
     }
 }
 
@@ -1236,21 +1255,21 @@ impl ReadOptions {
     }
 
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
-        unsafe {
-            ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar)
-        }
+        unsafe { ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar) }
     }
 
-    pub fn set_total_order_seek(&mut self, v:bool) {
-        unsafe {
-            ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar)
-        }
+    pub fn set_total_order_seek(&mut self, v: bool) {
+        unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
     }
 }
 
 impl Default for ReadOptions {
     fn default() -> ReadOptions {
-        unsafe { ReadOptions { inner: ffi::rocksdb_readoptions_create() } }
+        unsafe {
+            ReadOptions {
+                inner: ffi::rocksdb_readoptions_create(),
+            }
+        }
     }
 }
 
@@ -1319,7 +1338,6 @@ fn test_db_vector() {
     let ctrl = [0u8, 0, 0, 0];
     assert_eq!(&*v, &ctrl[..]);
 }
-
 
 #[test]
 fn external() {

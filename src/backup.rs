@@ -13,10 +13,8 @@
 // limitations under the License.
 //
 
-
-use {DB, Error};
+use {Error, DB};
 use ffi;
-
 use libc::{c_int, uint32_t};
 use std::ffi::CString;
 use std::path::Path;
@@ -45,7 +43,7 @@ impl BackupEngine {
             Err(_) => {
                 return Err(Error::new(
                     "Failed to convert path to CString \
-                                       when opening backup engine"
+                     when opening backup engine"
                         .to_owned(),
                 ))
             }

@@ -32,7 +32,6 @@ pub enum Decision {
     Change(&'static [u8]),
 }
 
-
 /// Function to filter compaction with.
 ///
 /// This function takes the level of compaction, the key, and the existing value
@@ -117,7 +116,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
 
 #[test]
 fn compaction_filter_test() {
-    use {DB, Options};
+    use {Options, DB};
 
     let path = "_rust_rocksdb_filtertest";
     let mut opts = Options::default();
@@ -133,5 +132,4 @@ fn compaction_filter_test() {
         assert!(db.get(b"_k").unwrap().is_none());
         assert_eq!(&*db.get(b"%k").unwrap().unwrap(), b"secret");
     }
-
 }

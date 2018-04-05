@@ -16,7 +16,6 @@ extern crate rocksdb;
 
 use rocksdb::DB;
 
-
 fn setup_test_db(name: &str) -> DB {
     use std::fs::remove_dir_all;
 
@@ -24,12 +23,11 @@ fn setup_test_db(name: &str) -> DB {
 
     match remove_dir_all(&path) {
         Ok(_) => {}
-        Err(_) => {}  // Don't care if tis fails
+        Err(_) => {} // Don't care if tis fails
     }
 
     DB::open_default(path).unwrap()
 }
-
 
 #[test]
 pub fn test_forwards_iteration() {
@@ -52,15 +50,14 @@ pub fn test_forwards_iteration() {
     assert_eq!(iter.key(), Some(b"k2".to_vec()));
     assert_eq!(iter.value(), Some(b"v2".to_vec()));
 
-    iter.next();  // k3
-    iter.next();  // k4
-    iter.next();  // invalid!
+    iter.next(); // k3
+    iter.next(); // k4
+    iter.next(); // invalid!
 
     assert_eq!(iter.valid(), false);
     assert_eq!(iter.key(), None);
     assert_eq!(iter.value(), None);
 }
-
 
 #[test]
 pub fn test_seek_last() {
@@ -83,15 +80,14 @@ pub fn test_seek_last() {
     assert_eq!(iter.key(), Some(b"k3".to_vec()));
     assert_eq!(iter.value(), Some(b"v3".to_vec()));
 
-    iter.prev();  // k2
-    iter.prev();  // k1
-    iter.prev();  // invalid!
+    iter.prev(); // k2
+    iter.prev(); // k1
+    iter.prev(); // invalid!
 
     assert_eq!(iter.valid(), false);
     assert_eq!(iter.key(), None);
     assert_eq!(iter.value(), None);
 }
-
 
 #[test]
 pub fn test_seek() {
@@ -114,7 +110,6 @@ pub fn test_seek() {
     assert_eq!(iter.key(), Some(b"k4".to_vec()));
     assert_eq!(iter.value(), Some(b"v4".to_vec()));
 }
-
 
 #[test]
 pub fn test_seek_to_nonexistant() {
