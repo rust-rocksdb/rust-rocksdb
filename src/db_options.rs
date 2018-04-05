@@ -18,8 +18,8 @@ use std::mem;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
 use ffi;
-use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-	 Options, WriteOptions};
+use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, MemtableFactory,
+     Options, WriteOptions};
 use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use comparator::{self, ComparatorCallback, CompareFn};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
@@ -883,6 +883,47 @@ impl Options {
         unsafe { ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int) }
     }
 
+    /// Defines the underlying memtable implementation.
+    /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+    /// Defaults to using a skiplist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, MemtableFactory};
+    /// let mut opts = Options::default();
+    /// let factory = MemtableFactory::HashSkipList {
+    ///     bucket_count: 1_000_000,
+    ///     height: 4,
+    ///     branching_factor: 4,
+    /// };
+    ///
+    /// opts.set_allow_concurrent_memtable_write(false);
+    /// opts.set_memtable_factory(factory);
+    /// ```
+    pub fn set_memtable_factory(&mut self, factory: MemtableFactory) {
+        match factory {
+            MemtableFactory::Vector => unsafe {
+                ffi::rocksdb_options_set_memtable_vector_rep(self.inner);
+            },
+            MemtableFactory::HashSkipList {
+                bucket_count,
+                height,
+                branching_factor,
+            } => unsafe {
+                ffi::rocksdb_options_set_hash_skip_list_rep(
+                    self.inner,
+                    bucket_count,
+                    height,
+                    branching_factor,
+                );
+            },
+            MemtableFactory::HashLinkList { bucket_count } => unsafe {
+                ffi::rocksdb_options_set_hash_link_list_rep(self.inner, bucket_count);
+            },
+        };
+    }
+
     pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {
         unsafe {
             ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
@@ -1024,6 +1065,7 @@ impl Default for WriteOptions {
 
 #[cfg(test)]
 mod tests {
+    use MemtableFactory;
     use Options;
 
     #[test]
@@ -1035,5 +1077,17 @@ mod tests {
 
         let opts = Options::default();
         assert!(opts.get_statistics().is_none());
+    }
+
+    #[test]
+    fn test_set_memtable_factory() {
+        let mut opts = Options::default();
+        opts.set_memtable_factory(MemtableFactory::Vector);
+        opts.set_memtable_factory(MemtableFactory::HashLinkList { bucket_count: 100 });
+        opts.set_memtable_factory(MemtableFactory::HashSkipList {
+            bucket_count: 100,
+            height: 4,
+            branching_factor: 4,
+        });
     }
 }
