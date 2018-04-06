@@ -171,7 +171,7 @@ pub fn test_prefix_iterator() {
         let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
 
         let mut opts = Options::default();
-		opts.create_if_missing(true);
+        opts.create_if_missing(true);
         opts.set_prefix_extractor(prefix_extractor);
 
         let db = DB::open(&opts, path).unwrap();
@@ -193,6 +193,8 @@ pub fn test_prefix_iterator() {
             assert_eq!(b_iterator.collect::<Vec<_>>(), expected)
         }
     }
+    let opts = Options::default();
+    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 #[test]
