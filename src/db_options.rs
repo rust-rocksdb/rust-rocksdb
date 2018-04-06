@@ -18,8 +18,8 @@ use std::mem;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
 use ffi;
-use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-	 Options, WriteOptions};
+use {BlockBasedOptions, BlockBasedIndexType, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+     Options, WriteOptions};
 use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use comparator::{self, ComparatorCallback, CompareFn};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
@@ -87,6 +87,24 @@ impl BlockBasedOptions {
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner, v as u8);
+        }
+    }
+
+    /// Defines the index type to be used for SS-table lookups.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, BlockBasedIndexType, Options};
+    ///
+    /// let mut opts = Options::default();
+    /// let mut block_opts = BlockBasedOptions::default();
+    /// block_opts.set_index_type(BlockBasedIndexType::HashSearch);
+    /// ```
+    pub fn set_index_type(&mut self, index_type: BlockBasedIndexType) {
+        let index = index_type as i32;
+        unsafe {
+            ffi::rocksdb_block_based_options_set_index_type(self.inner, index);
         }
     }
 }
