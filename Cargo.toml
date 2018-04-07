@@ -16,6 +16,10 @@ exclude = [
 [features]
 default = []
 valgrind = []
+snappy = ["librocksdb-sys/snappy"]
+lz4 = ["librocksdb-sys/lz4"]
+bzip2 = ["librocksdb-sys/bzip2"]
+zlib = ["librocksdb-sys/zlib"]
 
 [dependencies]
 libc = "0.2"

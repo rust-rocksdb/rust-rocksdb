@@ -12,8 +12,12 @@ build = "build.rs"
 links = "rocksdb"
 
 [features]
-default = [ "static" ]
+default = ["static", "snappy"]
 static = []
+snappy = []
+lz4 = []
+bzip2 = []
+zlib = []
 
 [dependencies]
 libc = "0.2"

@@ -43,7 +43,7 @@ fn bindgen_rocksdb() {
         .expect("unable to write rocksdb bindings");
 }
 
-fn build_rocksdb() {
+fn build_rocksdb(compressors: Vec<&str>) {
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
@@ -52,7 +52,10 @@ fn build_rocksdb() {
     config.include(".");
 
     config.define("NDEBUG", Some("1"));
-    config.define("SNAPPY", Some("1"));
+
+    for compressor in compressors {
+        config.define(&compressor.to_uppercase(), Some("1"));
+    }
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
@@ -161,18 +164,38 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 }
 
 fn main() {
+    let snappy = cfg!(feature = "snappy");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=rocksdb/");
-    println!("cargo:rerun-if-changed=snappy/");
+
+    let mut compressors = vec![];
+    if cfg!(feature = "lz4") {
+        compressors.push("lz4");
+    }
+    if cfg!(feature = "bzip2") {
+        compressors.push("bz2");
+    }
+    if cfg!(feature = "zlib") {
+        compressors.push("z");
+    }
+
+    for compressor in compressors.iter() {
+        println!("cargo:rustc-link-lib={}", compressor);
+    }
+
+    if snappy {
+        compressors.push("snappy");
+        println!("cargo:rerun-if-changed=snappy/");
+        fail_on_empty_directory("snappy");
+    }
 
     fail_on_empty_directory("rocksdb");
-    fail_on_empty_directory("snappy");
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
-        build_rocksdb();
+        build_rocksdb(compressors);
     }
-    if !try_to_find_and_link_lib("SNAPPY") {
+    if snappy && !try_to_find_and_link_lib("SNAPPY") {
         build_snappy();
     }
 }
