@@ -91,6 +91,8 @@ fn build_rocksdb() -> Build {
     }
     if cfg!(target_os = "macos") {
         build.define("OS_MACOSX", None);
+    } else if cfg!(target_os = "freebsd") {
+        build.define("OS_FREEBSD", None);
     }
 
     let cur_dir = env::current_dir().unwrap();
