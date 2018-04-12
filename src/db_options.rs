@@ -72,6 +72,12 @@ impl BlockBasedOptions {
         }
     }
 
+    pub fn disable_cache(&mut self) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, true as c_uchar);
+        }
+    }
+
     pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
         unsafe {
             let bloom = if block_based {
