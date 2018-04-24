@@ -11,20 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
-
-use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Options,
-     WriteOptions};
-use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
-use comparator::{self, ComparatorCallback, CompareFn};
-use ffi;
-
-use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
-use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
-                     partial_merge_callback};
 use std::ffi::{CStr, CString};
 use std::mem;
+
+use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
+
+use ffi;
+use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+	 Options, WriteOptions};
+use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
+use comparator::{self, ComparatorCallback, CompareFn};
+use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
+                     partial_merge_callback};
+use slice_transform::SliceTransform;
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
@@ -149,6 +149,25 @@ impl Options {
         }
     }
 
+    /// If true, any column families that didn't exist when opening the database
+    /// will be created.
+    ///
+    /// Default: `false`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.create_missing_column_families(true);
+    /// ```
+    pub fn create_missing_column_families(&mut self, create_missing_cfs: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_create_missing_column_families(self.inner, create_missing_cfs as c_uchar);
+        }
+    }
+
     /// Sets the compression algorithm that will be used for the bottommost level that
     /// contain files. If level-compaction is used, this option will only affect
     /// levels after base level.
@@ -202,10 +221,14 @@ impl Options {
         }
     }
 
-    pub fn set_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
+    pub fn set_merge_operator(&mut self, name: &str,
+                              full_merge_fn: MergeFn,
+                              partial_merge_fn: Option<MergeFn>) {
+
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            merge_fn: merge_fn,
+            full_merge_fn: full_merge_fn,
+            partial_merge_fn: partial_merge_fn.unwrap_or(full_merge_fn),
         });
 
         unsafe {
@@ -224,7 +247,7 @@ impl Options {
     #[deprecated(since = "0.5.0",
                  note = "add_merge_operator has been renamed to set_merge_operator")]
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
-        self.set_merge_operator(name, merge_fn);
+        self.set_merge_operator(name, merge_fn, None);
     }
 
     /// Sets a compaction filter used to determine if entries should be kept, changed,
@@ -277,6 +300,14 @@ impl Options {
                 Some(comparator::name_callback),
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
+        }
+    }
+
+    pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
+        unsafe {
+            ffi::rocksdb_options_set_prefix_extractor(
+                self.inner, prefix_extractor.inner
+            )
         }
     }
 
@@ -929,6 +960,17 @@ impl Options {
     pub fn set_stats_dump_period_sec(&mut self, period: c_uint) {
         unsafe {
             ffi::rocksdb_options_set_stats_dump_period_sec(self.inner, period);
+        }
+    }
+
+    /// When set to true, reading SST files will opt out of the filesystem's
+    /// readahead. Setting this to false may improve sequential iteration
+    /// performance.
+    ///
+    /// Default: `true`
+    pub fn set_advise_random_on_open(&mut self, advise: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_advise_random_on_open(self.inner, advise as c_uchar)
         }
     }
 

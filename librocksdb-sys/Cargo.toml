@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "5.7.1"
+version = "5.11.3"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
@@ -22,6 +22,6 @@ libc = "0.2"
 const-cstr = "0.2"
 
 [build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
+cc = { version = "^1.0", features = ["parallel"] }
 make-cmd = "0.1"
 bindgen = "0.29"

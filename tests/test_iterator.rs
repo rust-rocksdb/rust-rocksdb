@@ -123,6 +123,11 @@ pub fn test_iterator() {
             assert_eq!(iterator1.collect::<Vec<_>>(), expected);
         }
         {
+            let iterator1 = db.iterator(IteratorMode::From(b"zz", Direction::Reverse));
+            let expected = vec![(cba(&k4), cba(&v4)), (cba(&k3), cba(&v3))];
+            assert_eq!(iterator1.take(2).collect::<Vec<_>>(), expected);
+        }
+        {
             let iterator1 = db.iterator(IteratorMode::From(b"k0", Direction::Forward));
             assert!(iterator1.valid());
             let iterator2 = db.iterator(IteratorMode::From(b"k1", Direction::Forward));
@@ -132,13 +137,13 @@ pub fn test_iterator() {
             let iterator4 = db.iterator(IteratorMode::From(b"k5", Direction::Forward));
             assert!(!iterator4.valid());
             let iterator5 = db.iterator(IteratorMode::From(b"k0", Direction::Reverse));
-            assert!(iterator5.valid());
+            assert!(!iterator5.valid());
             let iterator6 = db.iterator(IteratorMode::From(b"k1", Direction::Reverse));
             assert!(iterator6.valid());
             let iterator7 = db.iterator(IteratorMode::From(b"k11", Direction::Reverse));
             assert!(iterator7.valid());
             let iterator8 = db.iterator(IteratorMode::From(b"k5", Direction::Reverse));
-            assert!(!iterator8.valid());
+            assert!(iterator8.valid());
         }
         {
             let mut iterator1 = db.iterator(IteratorMode::From(b"k4", Direction::Forward));
@@ -150,4 +155,42 @@ pub fn test_iterator() {
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
+}
+
+fn key(k: &[u8]) -> Box<[u8]> { k.to_vec().into_boxed_slice() }
+
+#[test]
+pub fn test_prefix_iterator() {
+    let path = "_rust_rocksdb_prefixiteratortest";
+    {
+        let a1: Box<[u8]> = key(b"aaa1");
+        let a2: Box<[u8]> = key(b"aaa2");
+        let b1: Box<[u8]> = key(b"bbb1");
+        let b2: Box<[u8]> = key(b"bbb2");
+
+        let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
+
+        let mut opts = Options::default();
+		opts.create_if_missing(true);
+        opts.set_prefix_extractor(prefix_extractor);
+
+        let db = DB::open(&opts, path).unwrap();
+
+        assert!(db.put(&*a1, &*a1).is_ok());
+        assert!(db.put(&*a2, &*a2).is_ok());
+        assert!(db.put(&*b1, &*b1).is_ok());
+        assert!(db.put(&*b2, &*b2).is_ok());
+
+        {
+            let expected = vec![(cba(&a1), cba(&a1)), (cba(&a2), cba(&a2))];
+            let a_iterator = db.prefix_iterator(b"aaa");
+            assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
+        }
+
+        {
+            let expected = vec![(cba(&b1), cba(&b1)), (cba(&b2), cba(&b2))];
+            let b_iterator = db.prefix_iterator(b"bbb");
+            assert_eq!(b_iterator.collect::<Vec<_>>(), expected)
+        }
+    }
 }

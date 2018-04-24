@@ -1,7 +1,42 @@
 Changelog
 =========
 
-0.8.2 (2017-12-28
+0.10.0 (2018-03-17)
+~~~~~~~~~~~~~~~~~~~~
+ * Bump rocksdb to 5.11.3 (spacejam)
+
+ **New features**
+
+ * Link with system rocksdb and snappy libs through envvars (ozkriff)
+
+ **Breaking Changes**
+
+ * Fix reverse iteration from a given key (ongardie)
+
+0.9.1 (2018-02-10)
+~~~~~~~~~~~~~~~~~~~~
+ **New features**
+
+ * SliceTransform support (spacejam)
+
+0.9.0 (2018-02-10)
+~~~~~~~~~~~~~~~~~~~~
+ **New features**
+
+ * Allow creating iterators over prefixes (glittershark)
+
+ **Breaking Changes**
+
+ * Open cfs with options (garyttierney, rrichardson)
+ * Non-Associative merge ops (rrichardson)
+
+0.8.3 (2018-02-10)
+~~~~~~~~~~~~~~~~~~~~
+ * Bump rocksdb to 5.10.2 (ongardie)
+ * Add Send marker to Options (iSynaptic)
+ * Expose advise_random_on_open option (ongardie)
+
+0.8.2 (2017-12-28)
 ~~~~~~~~~~~~~~~~~~~~
  * Bump rocksdb to 5.7.1 (jquesnelle)
 
@@ -24,33 +59,39 @@ Changelog
 0.7 (2017-07-26)
 ~~~~~~~~~~~~~~~~~~~~
 
-**Breaking Changes**
+ **Breaking Changes**
+
  * Bumped rocksdb to 5.4.6 (derekdreery)
  * Remove `use_direct_writes` now that `use_direct_io_for_flush_and_compaction` exists (derekdreery)
 
-**New features**
+ **New features**
+
  * ReadOptions is now public (rschmukler)
  * Implement Clone and AsRef<str> for Error (daboross)
  * Support for `seek_for_prev` (kaedroho)
  * Support for DirectIO (kaedroho)
 
-**Internal cleanups**
+ **Internal cleanups**
+
  * Fixed race condition in tests (debris)
  * Move tests to the default `tests` directory (vmx)
 
 0.6.1 (2017-03-13)
 ~~~~~~~~~~~~~~~~~~
 
-**New features**
+ **New features**
+
  * Support for raw iterator access (kaedroho)
 
 0.6 (2016-12-18)
 ~~~~~~~~~~~~~~~~~~~~
 
  **Breaking changes**
+
  * Comparator function now returns an Ordering (alexreg)
 
  **New features**
+
  * Compaction filter (tmccombs)
  * Support for backups (alexreg)
 
@@ -64,9 +105,9 @@ Changelog
  * All errors changed to use a new `rocksdb::Error` type (kaedroho, alexreg)
  * Removed `Options.set_filter_deletes` as it was removed in RocksDB (kaedroho)
  * Renamed `add_merge_operator` to `set_merge_operator` and `add_comparator` to `set_comparator` (kaedroho)
- 
+
  **New features**
- 
+
  * Windows support (development by jsgf and arkpar. ported by kaedroho)
  * The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by jsgf and arkpar. ported by kaedroho)
  * Cleaned up and improved coverage and tests of the ffi module (alexreg)
