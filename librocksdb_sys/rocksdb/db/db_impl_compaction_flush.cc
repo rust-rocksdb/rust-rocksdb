@@ -311,7 +311,7 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
     }
     s = RunManualCompaction(cfd, ColumnFamilyData::kCompactAllLevels,
                             final_output_level, options.target_path_id,
-                            begin, end, exclusive);
+                            options.max_subcompactions, begin, end, exclusive);
   } else {
     for (int level = 0; level <= max_level_with_files; level++) {
       int output_level;
@@ -345,7 +345,7 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
         }
       }
       s = RunManualCompaction(cfd, level, output_level, options.target_path_id,
-                              begin, end, exclusive);
+                              options.max_subcompactions, begin, end, exclusive);
       if (!s.ok()) {
         break;
       }
@@ -799,6 +799,7 @@ Status DBImpl::Flush(const FlushOptions& flush_options,
 
 Status DBImpl::RunManualCompaction(ColumnFamilyData* cfd, int input_level,
                                    int output_level, uint32_t output_path_id,
+                                   uint32_t max_subcompactions,
                                    const Slice* begin, const Slice* end,
                                    bool exclusive, bool disallow_trivial_move) {
   assert(input_level == ColumnFamilyData::kCompactAllLevels ||
@@ -886,9 +887,10 @@ Status DBImpl::RunManualCompaction(ColumnFamilyData* cfd, int input_level,
         ((manual.manual_end = &manual.tmp_storage1) &&
          ((compaction = manual.cfd->CompactRange(
                *manual.cfd->GetLatestMutableCFOptions(), manual.input_level,
-               manual.output_level, manual.output_path_id, manual.begin,
-               manual.end, &manual.manual_end, &manual_conflict)) == nullptr) &&
-         manual_conflict)) {
+               manual.output_level, manual.output_path_id, max_subcompactions,
+               manual.begin, manual.end, &manual.manual_end,
+               &manual_conflict)) == nullptr &&
+          manual_conflict))) {
       // exclusive manual compactions should not see a conflict during
       // CompactRange
       assert(!exclusive || !manual_conflict);
