@@ -982,6 +982,26 @@ impl Options {
         }
     }
 
+    // See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+    //
+    // Defaults:
+    //  user_key_len: 0 (variable length)
+    //  bloom_bits_per_key: 10
+    //  has_table_ratio: 0.75
+    //  index_sparseness: 16
+    pub fn set_plain_table_factory(&mut self, user_key_len: u32, bloom_bits_per_key: i32,
+                                   hash_table_ratio: f64, index_sparseness: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_plain_table_factory(
+                self.inner,
+                user_key_len,
+                bloom_bits_per_key,
+                hash_table_ratio,
+                index_sparseness,
+            );
+        }
+    }
+
     /// Measure IO stats in compactions and flushes, if `true`.
     ///
     /// Default: `false`
