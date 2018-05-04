@@ -48,6 +48,8 @@ fn test_metadata() {
         for f in files {
             assert!(f.get_size() > 0);
             assert!(f.get_name().len() > 0);
+            assert!(f.get_smallestkey().len() > 0);
+            assert!(f.get_largestkey().len() > 0);
         }
     }
 }

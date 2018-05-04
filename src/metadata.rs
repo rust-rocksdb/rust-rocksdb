@@ -13,6 +13,9 @@
 
 use crocksdb_ffi::{self, DBColumnFamilyMetaData, DBLevelMetaData, DBSstFileMetaData};
 use std::ffi::CStr;
+use std::slice;
+
+use libc::size_t;
 
 pub struct ColumnFamilyMetaData {
     inner: *mut DBColumnFamilyMetaData,
@@ -75,6 +78,22 @@ impl SstFileMetaData {
         unsafe {
             let ptr = crocksdb_ffi::crocksdb_sst_file_meta_data_name(self.inner);
             CStr::from_ptr(ptr).to_string_lossy().into_owned()
+        }
+    }
+
+    pub fn get_smallestkey(&self) -> &[u8] {
+        let mut len: size_t = 0;
+        unsafe {
+            let ptr = crocksdb_ffi::crocksdb_sst_file_meta_data_smallestkey(self.inner, &mut len);
+            slice::from_raw_parts(ptr as *const u8, len)
+        }
+    }
+
+    pub fn get_largestkey(&self) -> &[u8] {
+        let mut len: size_t = 0;
+        unsafe {
+            let ptr = crocksdb_ffi::crocksdb_sst_file_meta_data_largestkey(self.inner, &mut len);
+            slice::from_raw_parts(ptr as *const u8, len)
         }
     }
 }

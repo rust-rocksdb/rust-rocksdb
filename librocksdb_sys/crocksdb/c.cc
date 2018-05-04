@@ -2122,9 +2122,19 @@ void crocksdb_options_set_level0_slowdown_writes_trigger(
   opt->rep.level0_slowdown_writes_trigger = n;
 }
 
+int crocksdb_options_get_level0_slowdown_writes_trigger(
+    crocksdb_options_t* opt) {
+  return opt->rep.level0_slowdown_writes_trigger;
+}
+
 void crocksdb_options_set_level0_stop_writes_trigger(
     crocksdb_options_t* opt, int n) {
   opt->rep.level0_stop_writes_trigger = n;
+}
+
+int crocksdb_options_get_level0_stop_writes_trigger(
+    crocksdb_options_t* opt) {
+  return opt->rep.level0_stop_writes_trigger;
 }
 
 void crocksdb_options_set_wal_recovery_mode(crocksdb_options_t* opt,int mode) {
@@ -2366,8 +2376,16 @@ void crocksdb_options_set_soft_pending_compaction_bytes_limit(crocksdb_options_t
   opt->rep.soft_pending_compaction_bytes_limit = v;
 }
 
+size_t crocksdb_options_get_soft_pending_compaction_bytes_limit(crocksdb_options_t* opt) {
+  return opt->rep.soft_pending_compaction_bytes_limit;
+}
+
 void crocksdb_options_set_hard_pending_compaction_bytes_limit(crocksdb_options_t* opt, size_t v) {
   opt->rep.hard_pending_compaction_bytes_limit = v;
+}
+
+size_t crocksdb_options_get_hard_pending_compaction_bytes_limit(crocksdb_options_t* opt) {
+  return opt->rep.hard_pending_compaction_bytes_limit;
 }
 
 void crocksdb_options_set_rate_limit_delay_max_milliseconds(
@@ -3004,6 +3022,12 @@ void crocksdb_compactoptions_set_change_level(crocksdb_compactoptions_t* opt,
 void crocksdb_compactoptions_set_target_level(crocksdb_compactoptions_t* opt,
                                              int n) {
   opt->rep.target_level = n;
+}
+
+void crocksdb_compactoptions_set_max_subcompactions(
+    crocksdb_compactoptions_t* opt,
+    int v) {
+  opt->rep.max_subcompactions = v;
 }
 
 crocksdb_flushoptions_t* crocksdb_flushoptions_create() {
@@ -4153,6 +4177,18 @@ const char* crocksdb_sst_file_meta_data_name(const crocksdb_sst_file_meta_data_t
   return meta->rep.name.data();
 }
 
+const char* crocksdb_sst_file_meta_data_smallestkey(
+    const crocksdb_sst_file_meta_data_t* meta, size_t* len) {
+  *len = meta->rep.smallestkey.size();
+  return meta->rep.smallestkey.data();
+}
+
+const char* crocksdb_sst_file_meta_data_largestkey(
+    const crocksdb_sst_file_meta_data_t* meta, size_t* len) {
+  *len = meta->rep.largestkey.size();
+  return meta->rep.largestkey.data();
+}
+
 crocksdb_compaction_options_t* crocksdb_compaction_options_create() {
   return new crocksdb_compaction_options_t();
 }
@@ -4171,6 +4207,12 @@ void crocksdb_compaction_options_set_output_file_size_limit(
     crocksdb_compaction_options_t* opts,
     size_t size) {
   opts->rep.output_file_size_limit = size;
+}
+
+void crocksdb_compaction_options_set_max_subcompactions(
+    crocksdb_compaction_options_t* opts,
+    int v) {
+  opts->rep.max_subcompactions = v;
 }
 
 void crocksdb_compact_files_cf(

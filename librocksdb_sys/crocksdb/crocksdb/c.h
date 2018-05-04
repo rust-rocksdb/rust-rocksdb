@@ -810,8 +810,12 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level0_file_num_compaction_trigger(crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level0_slowdown_writes_trigger(crocksdb_options_t*, int);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_level0_stop_writes_trigger(
-    crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int
+crocksdb_options_get_level0_slowdown_writes_trigger(crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_options_set_level0_stop_writes_trigger(crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int
+crocksdb_options_get_level0_stop_writes_trigger(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_target_file_size_base(
     crocksdb_options_t*, uint64_t);
 extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_options_get_target_file_size_base(
@@ -882,8 +886,12 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hard_rate_limit(
     crocksdb_options_t*, double);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_soft_pending_compaction_bytes_limit(
     crocksdb_options_t* opt, size_t v);
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_soft_pending_compaction_bytes_limit(
+    crocksdb_options_t* opt);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hard_pending_compaction_bytes_limit(
     crocksdb_options_t* opt, size_t v);
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_options_get_hard_pending_compaction_bytes_limit(
+    crocksdb_options_t* opt);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_rate_limit_delay_max_milliseconds(crocksdb_options_t*,
                                                       unsigned int);
@@ -1223,6 +1231,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_compactoptions_set_change_level(
     crocksdb_compactoptions_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_compactoptions_set_target_level(
     crocksdb_compactoptions_t*, int);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compactoptions_set_max_subcompactions(crocksdb_compactoptions_t*, int);
 
 /* Flush options */
 
@@ -1658,6 +1668,10 @@ extern C_ROCKSDB_LIBRARY_API size_t
 crocksdb_sst_file_meta_data_size(const crocksdb_sst_file_meta_data_t*);
 extern C_ROCKSDB_LIBRARY_API const char*
 crocksdb_sst_file_meta_data_name(const crocksdb_sst_file_meta_data_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_sst_file_meta_data_smallestkey(const crocksdb_sst_file_meta_data_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_sst_file_meta_data_largestkey(const crocksdb_sst_file_meta_data_t*, size_t*);
 
 /* CompactFiles */
 extern C_ROCKSDB_LIBRARY_API crocksdb_compaction_options_t*
@@ -1668,6 +1682,8 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_compaction_options_set_compression(crocksdb_compaction_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_compaction_options_set_output_file_size_limit(crocksdb_compaction_options_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compaction_options_set_max_subcompactions(crocksdb_compaction_options_t*, int);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_compact_files_cf(crocksdb_t*, crocksdb_column_family_handle_t*,

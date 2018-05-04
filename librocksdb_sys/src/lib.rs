@@ -431,7 +431,9 @@ extern "C" {
         no: c_int,
     );
     pub fn crocksdb_options_set_level0_slowdown_writes_trigger(options: *mut Options, no: c_int);
+    pub fn crocksdb_options_get_level0_slowdown_writes_trigger(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_level0_stop_writes_trigger(options: *mut Options, no: c_int);
+    pub fn crocksdb_options_get_level0_stop_writes_trigger(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_write_buffer_size(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_set_target_file_size_base(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_get_target_file_size_base(options: *const Options) -> u64;
@@ -563,7 +565,9 @@ extern "C" {
         pri: c_uchar,
     ) -> i64;
     pub fn crocksdb_options_set_soft_pending_compaction_bytes_limit(options: *mut Options, v: u64);
+    pub fn crocksdb_options_get_soft_pending_compaction_bytes_limit(options: *mut Options) -> u64;
     pub fn crocksdb_options_set_hard_pending_compaction_bytes_limit(options: *mut Options, v: u64);
+    pub fn crocksdb_options_get_hard_pending_compaction_bytes_limit(options: *mut Options) -> u64;
     pub fn crocksdb_options_set_compaction_priority(options: *mut Options, v: CompactionPriority);
     pub fn crocksdb_options_set_db_paths(
         options: *mut Options,
@@ -1009,14 +1013,9 @@ extern "C" {
         opt: *mut DBCompactOptions,
         v: bool,
     );
-    pub fn crocksdb_compactoptions_set_change_level(
-        opt: *mut DBCompactOptions,
-        v: bool,
-    );
-    pub fn crocksdb_compactoptions_set_target_level(
-        opt: *mut DBCompactOptions,
-        v: i32,
-    );
+    pub fn crocksdb_compactoptions_set_change_level(opt: *mut DBCompactOptions, v: bool);
+    pub fn crocksdb_compactoptions_set_target_level(opt: *mut DBCompactOptions, v: i32);
+    pub fn crocksdb_compactoptions_set_max_subcompactions(opt: *mut DBCompactOptions, v: i32);
 
     pub fn crocksdb_fifo_compaction_options_create() -> *mut DBFifoCompactionOptions;
     pub fn crocksdb_fifo_compaction_options_set_max_table_files_size(
@@ -1588,6 +1587,14 @@ extern "C" {
 
     pub fn crocksdb_sst_file_meta_data_size(meta: *const DBSstFileMetaData) -> size_t;
     pub fn crocksdb_sst_file_meta_data_name(meta: *const DBSstFileMetaData) -> *const c_char;
+    pub fn crocksdb_sst_file_meta_data_smallestkey(
+        meta: *const DBSstFileMetaData,
+        len: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_sst_file_meta_data_largestkey(
+        meta: *const DBSstFileMetaData,
+        len: *mut size_t,
+    ) -> *const c_char;
 
     pub fn crocksdb_compaction_options_create() -> *mut DBCompactionOptions;
     pub fn crocksdb_compaction_options_destroy(opts: *mut DBCompactionOptions);
@@ -1598,6 +1605,10 @@ extern "C" {
     pub fn crocksdb_compaction_options_set_output_file_size_limit(
         opts: *mut DBCompactionOptions,
         size: size_t,
+    );
+    pub fn crocksdb_compaction_options_set_max_subcompactions(
+        opts: *mut DBCompactionOptions,
+        v: i32,
     );
 
     pub fn crocksdb_compact_files_cf(

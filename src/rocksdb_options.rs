@@ -484,6 +484,12 @@ impl CompactOptions {
             crocksdb_ffi::crocksdb_compactoptions_set_target_level(self.inner, v);
         }
     }
+
+    pub fn set_max_subcompactions(&mut self, v: i32) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compactoptions_set_max_subcompactions(self.inner, v);
+        }
+    }
 }
 
 impl Drop for CompactOptions {
@@ -516,6 +522,12 @@ impl CompactionOptions {
     pub fn set_output_file_size_limit(&mut self, size: usize) {
         unsafe {
             crocksdb_ffi::crocksdb_compaction_options_set_output_file_size_limit(self.inner, size);
+        }
+    }
+
+    pub fn set_max_subcompactions(&mut self, v: i32) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compaction_options_set_max_subcompactions(self.inner, v);
         }
     }
 }
@@ -1170,12 +1182,24 @@ impl ColumnFamilyOptions {
         }
     }
 
+    pub fn get_soft_pending_compaction_bytes_limit(&self) -> u64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_get_soft_pending_compaction_bytes_limit(self.inner)
+        }
+    }
+
     pub fn set_hard_pending_compaction_bytes_limit(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_hard_pending_compaction_bytes_limit(
                 self.inner,
                 size,
             );
+        }
+    }
+
+    pub fn get_hard_pending_compaction_bytes_limit(&self) -> u64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_get_hard_pending_compaction_bytes_limit(self.inner)
         }
     }
 
@@ -1210,10 +1234,20 @@ impl ColumnFamilyOptions {
         }
     }
 
+    pub fn get_level_zero_slowdown_writes_trigger(&self) -> u32 {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_get_level0_slowdown_writes_trigger(self.inner) as u32
+        }
+    }
+
     pub fn set_level_zero_stop_writes_trigger(&mut self, n: c_int) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_level0_stop_writes_trigger(self.inner, n);
         }
+    }
+
+    pub fn get_level_zero_stop_writes_trigger(&self) -> u32 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_level0_stop_writes_trigger(self.inner) as u32 }
     }
 
     pub fn set_compaction_style(&mut self, style: crocksdb_ffi::DBCompactionStyle) {
