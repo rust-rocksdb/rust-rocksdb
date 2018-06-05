@@ -2,12 +2,12 @@ use rocksdb::{DBOptions, Writable, DB};
 use tempdir::TempDir;
 
 macro_rules! check_kv {
-    ( $db:expr, $key:expr, $val:expr ) => {
+    ($db:expr, $key:expr, $val:expr) => {
         assert_eq!($db.get($key).unwrap().unwrap(), $val);
     };
-    ( $db:expr, $cf:expr, $key:expr, $val:expr ) => {
+    ($db:expr, $cf:expr, $key:expr, $val:expr) => {
         assert_eq!($db.get_cf($cf, $key).unwrap().unwrap(), $val);
-    }
+    };
 }
 
 #[test]

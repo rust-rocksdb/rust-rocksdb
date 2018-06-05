@@ -12,8 +12,8 @@
 // limitations under the License.
 
 use rocksdb::{ColumnFamilyOptions, CompactionFilter, DBOptions, Writable, DB};
-use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use tempdir::TempDir;
 
 struct Filter {

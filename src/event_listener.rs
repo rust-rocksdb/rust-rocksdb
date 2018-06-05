@@ -11,14 +11,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use libc::c_void;
+use std::path::Path;
+use std::{mem, slice, str};
 
-use {TableProperties, TablePropertiesCollectionView};
 use crocksdb_ffi::{self, DBCompactionJobInfo, DBEventListener, DBFlushJobInfo, DBIngestionInfo,
                    DBInstance};
-use libc::c_void;
-use std::{mem, slice, str};
-use std::path::Path;
-
+use {TableProperties, TablePropertiesCollectionView};
 
 macro_rules! fetch_str {
     ($func:ident($($arg:expr),*)) => ({

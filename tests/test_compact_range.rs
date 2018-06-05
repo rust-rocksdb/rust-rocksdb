@@ -11,9 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{DBOptions, Range, Writable, DB, CompactOptions, ColumnFamilyOptions};
+use rocksdb::{ColumnFamilyOptions, CompactOptions, DBOptions, Range, Writable, DB};
 use tempdir::TempDir;
-
 
 #[test]
 fn test_compact_range() {
@@ -53,7 +52,11 @@ fn test_compact_range_change_level() {
     opts.create_if_missing(true);
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.set_level_zero_file_num_compaction_trigger(10);
-    let db = DB::open_cf(opts, path.path().to_str().unwrap(), vec![("default", cf_opts)]).unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    ).unwrap();
     let samples = vec![
         (b"k1".to_vec(), b"value--------1".to_vec()),
         (b"k2".to_vec(), b"value--------2".to_vec()),

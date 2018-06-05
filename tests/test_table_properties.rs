@@ -98,10 +98,7 @@ impl fmt::Display for ExampleCollector {
         write!(
             f,
             "keys={}, puts={}, merges={}, deletes={}",
-            self.num_keys,
-            self.num_puts,
-            self.num_merges,
-            self.num_deletes
+            self.num_keys, self.num_puts, self.num_merges, self.num_deletes
         )
     }
 }

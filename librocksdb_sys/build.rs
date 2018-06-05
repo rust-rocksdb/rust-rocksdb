@@ -14,10 +14,10 @@
 extern crate cc;
 extern crate cmake;
 
-use std::path::PathBuf;
 use cc::Build;
-use std::{env, str};
 use cmake::Config;
+use std::path::PathBuf;
+use std::{env, str};
 
 fn main() {
     let mut build = build_rocksdb();
@@ -40,7 +40,11 @@ fn link_cpp(build: &mut Build) {
         // Don't link to c++ statically on windows.
         return;
     };
-    let output = tool.to_command().arg("--print-file-name").arg(stdlib).output().unwrap();
+    let output = tool.to_command()
+        .arg("--print-file-name")
+        .arg(stdlib)
+        .output()
+        .unwrap();
     if !output.status.success() || output.stdout.is_empty() {
         // fallback to dynamically
         return;
@@ -53,8 +57,14 @@ fn link_cpp(build: &mut Build) {
         return;
     }
     // remove lib prefix and .a postfix.
-    println!("cargo:rustc-link-lib=static={}", &stdlib[3..stdlib.len() - 2]);
-    println!("cargo:rustc-link-search=native={}", path.parent().unwrap().display());
+    println!(
+        "cargo:rustc-link-lib=static={}",
+        &stdlib[3..stdlib.len() - 2]
+    );
+    println!(
+        "cargo:rustc-link-search=native={}",
+        path.parent().unwrap().display()
+    );
     build.cpp_link_stdlib(None);
 }
 
@@ -71,12 +81,18 @@ fn build_rocksdb() -> Build {
     if cfg!(feature = "sse") {
         cfg.define("FORCE_SSE42", "ON");
     }
-    let dst = cfg.register_dep("Z").define("WITH_ZLIB", "ON")
-        .register_dep("BZIP2").define("WITH_BZ2", "ON")
-        .register_dep("LZ4").define("WITH_LZ4", "ON")
-        .register_dep("ZSTD").define("WITH_ZSTD", "ON")
-        .register_dep("SNAPPY").define("WITH_SNAPPY", "ON")
-        .build_target("rocksdb").build();
+    let dst = cfg.register_dep("Z")
+        .define("WITH_ZLIB", "ON")
+        .register_dep("BZIP2")
+        .define("WITH_BZ2", "ON")
+        .register_dep("LZ4")
+        .define("WITH_LZ4", "ON")
+        .register_dep("ZSTD")
+        .define("WITH_ZSTD", "ON")
+        .register_dep("SNAPPY")
+        .define("WITH_SNAPPY", "ON")
+        .build_target("rocksdb")
+        .build();
     let build_dir = format!("{}/build", dst.display());
     if cfg!(target_os = "windows") {
         let profile = match &*env::var("PROFILE").unwrap_or("debug".to_owned()) {

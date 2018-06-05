@@ -512,7 +512,6 @@ fn test_delete_range_case_6() {
     assert_eq!(before, after);
 }
 
-
 #[test]
 fn test_delete_range_compact() {
     let path = TempDir::new("_rust_rocksdb_test_delete_range_case_6").expect("");
@@ -958,7 +957,6 @@ fn test_delete_range_prefix_bloom_case_4() {
     let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
     let handle2 = get_cf_handle(&db2, cf).unwrap();
 
-
     let samples_b = vec![(b"keyd44444", b"value4"), (b"keye55555", b"value5")];
     for (k, v) in samples_b {
         db2.put_cf(handle2, k, v).unwrap();
@@ -990,7 +988,6 @@ fn test_delete_range_prefix_bloom_case_4() {
     let after = gen_crc32_from_db(&db);
     assert_eq!(before, after);
 }
-
 
 #[test]
 fn test_delete_range_prefix_bloom_case_5() {
@@ -1417,7 +1414,6 @@ fn test_delete_range_sst_files() {
         ],
     );
 }
-
 
 #[test]
 fn test_delete_range_ingest_file() {

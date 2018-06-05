@@ -32,15 +32,7 @@ impl SliceTransform for FixedPrefixTransform {
 fn test_prefix_extractor_compatibility() {
     let path = TempDir::new("_rust_rocksdb_prefix_extractor_compatibility").expect("");
     let keys = vec![
-        b"k1-0",
-        b"k1-1",
-        b"k1-2",
-        b"k1-3",
-        b"k1-4",
-        b"k1-5",
-        b"k1-6",
-        b"k1-7",
-        b"k1-8",
+        b"k1-0", b"k1-1", b"k1-2", b"k1-3", b"k1-4", b"k1-5", b"k1-6", b"k1-7", b"k1-8",
     ];
 
     // create db with no prefix extractor, and insert data

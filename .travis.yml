@@ -15,8 +15,13 @@ os:
 
 matrix:
   include:
-    - os: osx
-      rust: stable
+  - os: osx
+    rust: stable
+  - rust: stable
+    install:
+      - rustup component add rustfmt-preview
+    before_script:
+      - cargo fmt --all -- --write-mode diff
 
 script:
 - cargo build

@@ -11,17 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions,
-              FifoCompactionOptions, ReadOptions, SeekKey, SliceTransform, Writable, WriteOptions,
-              DB};
 use rocksdb::crocksdb_ffi::{CompactionPriority, DBCompressionType, DBInfoLogLevel as InfoLogLevel,
                             DBStatisticsHistogramType as HistogramType,
                             DBStatisticsTickerType as TickerType};
+use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions,
+              FifoCompactionOptions, ReadOptions, SeekKey, SliceTransform, Writable, WriteOptions,
+              DB};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
 use tempdir::TempDir;
-
 
 #[test]
 fn test_set_num_levels() {

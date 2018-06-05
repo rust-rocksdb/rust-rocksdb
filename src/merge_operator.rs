@@ -19,7 +19,6 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-
 pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>;
 
 pub struct MergeOperatorCallback {
@@ -95,7 +94,6 @@ pub extern "C" fn partial_merge_callback(
         buf as *const c_char
     }
 }
-
 
 pub struct MergeOperands {
     operands_list: *const *const c_char,

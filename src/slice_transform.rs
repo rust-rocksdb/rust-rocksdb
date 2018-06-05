@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use crocksdb_ffi::{self, DBSliceTransform};
 use libc::{c_char, c_void, size_t};
 use std::ffi::CString;
@@ -84,7 +83,6 @@ extern "C" fn in_range(transform: *mut c_void, key: *const u8, key_len: size_t) 
         transform.transform.in_range(key) as u8
     }
 }
-
 
 pub unsafe fn new_slice_transform(
     c_name: CString,

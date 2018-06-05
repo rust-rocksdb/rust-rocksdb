@@ -20,18 +20,18 @@ extern crate tempdir;
 #[macro_use]
 pub extern crate librocksdb_sys;
 
+mod compaction_filter;
+pub mod comparator;
+mod event_listener;
+pub mod merge_operator;
+mod metadata;
 pub mod rocksdb;
 pub mod rocksdb_options;
-pub mod merge_operator;
-pub mod comparator;
-mod compaction_filter;
 mod slice_transform;
+mod table_filter;
 mod table_properties;
 mod table_properties_collector;
 mod table_properties_collector_factory;
-mod event_listener;
-mod table_filter;
-mod metadata;
 
 pub use compaction_filter::CompactionFilter;
 pub use event_listener::{CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo};

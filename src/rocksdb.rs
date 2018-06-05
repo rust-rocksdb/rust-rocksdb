@@ -21,15 +21,15 @@ use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOption
                       CompactionOptions, DBOptions, EnvOptions, FlushOptions, HistogramData,
                       IngestExternalFileOptions, ReadOptions, RestoreOptions, UnsafeSnap,
                       WriteOptions};
-use std::{fs, ptr, slice};
-use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
+use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
+use std::{fs, ptr, slice};
 use table_properties::TablePropertiesCollection;
 
 pub struct CFHandle {
@@ -410,8 +410,7 @@ impl DB {
         const ERR_NULL_DB_ONINIT: &str = "Could not initialize database";
         const ERR_NULL_CF_HANDLE: &str = "Received null column family handle from DB";
 
-        let cpath = CString::new(path.as_bytes())
-            .map_err(|_| ERR_CONVERT_PATH.to_owned())?;
+        let cpath = CString::new(path.as_bytes()).map_err(|_| ERR_CONVERT_PATH.to_owned())?;
         fs::create_dir_all(&Path::new(path)).map_err(|e| {
             format!(
                 "Failed to create rocksdb directory: \
@@ -514,11 +513,9 @@ impl DB {
         let cpath = match CString::new(path.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err(
-                    "Failed to convert path to CString when list \
-                     column families"
-                        .to_owned(),
-                )
+                return Err("Failed to convert path to CString when list \
+                            column families"
+                    .to_owned())
             }
         };
 
@@ -631,9 +628,7 @@ impl DB {
         let cname = match CString::new(cfd.name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err(
-                    "Failed to convert path to CString when opening rocksdb".to_owned(),
-                )
+                return Err("Failed to convert path to CString when opening rocksdb".to_owned())
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -1369,8 +1364,7 @@ impl DB {
     ) -> Result<TablePropertiesCollection, String> {
         unsafe {
             let props = ffi_try!(crocksdb_get_properties_of_all_tables_cf(
-                self.inner,
-                cf.inner
+                self.inner, cf.inner
             ));
             Ok(TablePropertiesCollection::from_raw(props))
         }
@@ -1845,9 +1839,10 @@ impl SstFileWriter {
             Ok(p) => p,
         };
         unsafe {
-            Ok(ffi_try!(
-                crocksdb_sstfilewriter_open(self.inner, path.as_ptr())
-            ))
+            Ok(ffi_try!(crocksdb_sstfilewriter_open(
+                self.inner,
+                path.as_ptr()
+            )))
         }
     }
 

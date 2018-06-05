@@ -181,14 +181,14 @@ pub enum DBStatisticsTickerType {
     GetHitL2AndUp = 29, // Get() queries served by L2 and up
     CompactionKeyDropNewerEntry = 30, /* key was written with a newer value.
                          * Also includes keys dropped for range del. */
-    CompactionKeyDropObsolete = 31,      // The key is obsolete.
-    CompactionKeyDropRangeDel = 32,      // key was covered by a range tombstone.
-    CompactionRangeDelDropObsolete = 34, // all keys in range were deleted.
+    CompactionKeyDropObsolete = 31,          // The key is obsolete.
+    CompactionKeyDropRangeDel = 32,          // key was covered by a range tombstone.
+    CompactionRangeDelDropObsolete = 34,     // all keys in range were deleted.
     CompactionOptimizedDelDropObsolete = 35, // Deletions obsoleted before bottom level due to file gap optimization.
     NumberKeysWritten = 36, // number of keys written to the database via the Put and Write call's
     NumberKeysRead = 37,    // number of keys read
     NumberKeysUpdated = 38,
-    BytesWritten = 39,      // the number of uncompressed bytes read from DB::Put, DB::Delete,
+    BytesWritten = 39, // the number of uncompressed bytes read from DB::Put, DB::Delete,
     // DB::Merge and DB::Write
     BytesRead = 40,    // the number of uncompressed bytes read from DB::Get()
     NumberDbSeek = 41, // the number of calls to seek/next/prev
@@ -541,7 +541,11 @@ extern "C" {
     pub fn crocksdb_options_set_ratelimiter(options: *mut Options, limiter: *mut DBRateLimiter);
     pub fn crocksdb_options_set_info_log(options: *mut Options, logger: *mut DBLogger);
     pub fn crocksdb_options_get_block_cache_usage(options: *const Options) -> usize;
-    pub fn crocksdb_options_set_block_cache_capacity(options: *const Options, capacity: usize, err: *mut *mut c_char);
+    pub fn crocksdb_options_set_block_cache_capacity(
+        options: *const Options,
+        capacity: usize,
+        err: *mut *mut c_char,
+    );
     pub fn crocksdb_options_get_block_cache_capacity(options: *const Options) -> usize;
     pub fn crocksdb_ratelimiter_create(
         rate_bytes_per_sec: i64,
@@ -1284,8 +1288,7 @@ extern "C" {
     pub fn crocksdb_slicetransform_create(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
-        transform: extern "C" fn(*mut c_void, *const u8, size_t, *mut size_t)
-            -> *const u8,
+        transform: extern "C" fn(*mut c_void, *const u8, size_t, *mut size_t) -> *const u8,
         in_domain: extern "C" fn(*mut c_void, *const u8, size_t) -> u8,
         in_range: extern "C" fn(*mut c_void, *const u8, size_t) -> u8,
         name: extern "C" fn(*mut c_void) -> *const c_char,
@@ -1509,8 +1512,12 @@ extern "C" {
     pub fn crocksdb_compactionjobinfo_output_level(info: *const DBCompactionJobInfo) -> c_int;
     pub fn crocksdb_compactionjobinfo_input_records(info: *const DBCompactionJobInfo) -> uint64_t;
     pub fn crocksdb_compactionjobinfo_output_records(info: *const DBCompactionJobInfo) -> uint64_t;
-    pub fn crocksdb_compactionjobinfo_total_input_bytes(info: *const DBCompactionJobInfo) -> uint64_t;
-    pub fn crocksdb_compactionjobinfo_total_output_bytes(info: *const DBCompactionJobInfo) -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_total_input_bytes(
+        info: *const DBCompactionJobInfo,
+    ) -> uint64_t;
+    pub fn crocksdb_compactionjobinfo_total_output_bytes(
+        info: *const DBCompactionJobInfo,
+    ) -> uint64_t;
 
     pub fn crocksdb_externalfileingestioninfo_cf_name(
         info: *const DBIngestionInfo,
@@ -1626,8 +1633,8 @@ extern "C" {
 mod test {
     use super::*;
     use libc::{self, c_void};
-    use std::{fs, ptr, slice};
     use std::ffi::{CStr, CString};
+    use std::{fs, ptr, slice};
     use tempdir::TempDir;
 
     #[test]

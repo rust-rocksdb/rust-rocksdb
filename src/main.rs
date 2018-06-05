@@ -110,9 +110,9 @@ fn custom_merge() {
 
 #[cfg(test)]
 mod tests {
-    use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, DBCompressionType, DBOptions, DB};
     use rocksdb::DBCompactionStyle;
     use rocksdb::DBRecoveryMode;
+    use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, DBCompressionType, DBOptions, DB};
 
     #[allow(dead_code)]
     fn tuned_for_somebody_elses_disk(

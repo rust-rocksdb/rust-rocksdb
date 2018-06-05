@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::*;
 use rocksdb::rocksdb::Snapshot;
+use rocksdb::*;
 use std::ops::Deref;
 use std::sync::*;
 use std::thread;
@@ -306,15 +306,7 @@ fn test_total_order_seek() {
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
 
     let keys = vec![
-        b"k1-1",
-        b"k1-2",
-        b"k1-3",
-        b"k2-1",
-        b"k2-2",
-        b"k2-3",
-        b"k3-1",
-        b"k3-2",
-        b"k3-3",
+        b"k1-1", b"k1-2", b"k1-3", b"k2-1", b"k2-2", b"k2-3", b"k3-1", b"k3-2", b"k3-3",
     ];
     let db = DB::open_cf(
         opts,
