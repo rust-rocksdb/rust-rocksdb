@@ -25,6 +25,7 @@ pub mod comparator;
 mod event_listener;
 pub mod merge_operator;
 mod metadata;
+mod perf_context;
 pub mod rocksdb;
 pub mod rocksdb_options;
 mod slice_transform;
@@ -40,6 +41,7 @@ pub use librocksdb_sys::{self as crocksdb_ffi, new_bloom_filter, CompactionPrior
                          DBRecoveryMode, DBStatisticsHistogramType, DBStatisticsTickerType};
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
+pub use perf_context::{get_perf_level, set_perf_level, PerfContext, PerfLevel};
 pub use rocksdb::{set_external_sst_file_global_seq_no, BackupEngine, CFHandle, DBIterator,
                   DBVector, Env, ExternalSstFileInfo, Kv, Range, SeekKey, SequentialFile,
                   SstFileWriter, Writable, WriteBatch, DB};

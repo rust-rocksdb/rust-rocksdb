@@ -31,6 +31,7 @@
 #include "rocksdb/utilities/backupable_db.h"
 #include "rocksdb/utilities/debug.h"
 #include "rocksdb/write_batch.h"
+#include "rocksdb/perf_context.h"
 
 #include "db/column_family.h"
 #include "table/sst_file_writer_collectors.h"
@@ -135,6 +136,8 @@ using rocksdb::ColumnFamilyMetaData;
 using rocksdb::LevelMetaData;
 using rocksdb::SstFileMetaData;
 using rocksdb::CompactionOptions;
+using rocksdb::PerfLevel;
+using rocksdb::PerfContext;
 
 using std::shared_ptr;
 
@@ -4228,6 +4231,292 @@ void crocksdb_compact_files_cf(
   }
   auto s = db->rep->CompactFiles(opts->rep, cf->rep, input_files, output_level);
   SaveError(errptr, s);
+}
+
+/* PerfContext */
+
+int crocksdb_get_perf_level(void) {
+  return static_cast<int>(rocksdb::GetPerfLevel());
+}
+
+void crocksdb_set_perf_level(int level) {
+  rocksdb::SetPerfLevel(static_cast<PerfLevel>(level));
+}
+
+struct crocksdb_perf_context_t {
+  PerfContext rep;
+};
+
+crocksdb_perf_context_t* crocksdb_get_perf_context(void) {
+  return reinterpret_cast<crocksdb_perf_context_t*>(rocksdb::get_perf_context());
+}
+
+void crocksdb_perf_context_reset(crocksdb_perf_context_t* ctx) {
+  ctx->rep.Reset();
+}
+
+uint64_t crocksdb_perf_context_user_key_comparison_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.user_key_comparison_count;
+}
+
+uint64_t crocksdb_perf_context_block_cache_hit_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_cache_hit_count;
+}
+
+uint64_t crocksdb_perf_context_block_read_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_read_count;
+}
+
+uint64_t crocksdb_perf_context_block_read_byte(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_read_byte;
+}
+
+uint64_t crocksdb_perf_context_block_read_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_read_time;
+}
+
+uint64_t crocksdb_perf_context_block_checksum_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_checksum_time;
+}
+
+uint64_t crocksdb_perf_context_block_decompress_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_decompress_time;
+}
+
+uint64_t crocksdb_perf_context_get_read_bytes(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.get_read_bytes;
+}
+
+uint64_t crocksdb_perf_context_multiget_read_bytes(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.multiget_read_bytes;
+}
+
+uint64_t crocksdb_perf_context_iter_read_bytes(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.iter_read_bytes;
+}
+
+uint64_t crocksdb_perf_context_internal_key_skipped_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.internal_key_skipped_count;
+}
+
+uint64_t crocksdb_perf_context_internal_delete_skipped_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.internal_delete_skipped_count;
+}
+
+uint64_t crocksdb_perf_context_internal_recent_skipped_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.internal_recent_skipped_count;
+}
+
+uint64_t crocksdb_perf_context_internal_merge_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.internal_merge_count;
+}
+
+uint64_t crocksdb_perf_context_get_snapshot_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.get_snapshot_time;
+}
+
+uint64_t crocksdb_perf_context_get_from_memtable_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.get_from_memtable_time;
+}
+
+uint64_t crocksdb_perf_context_get_from_memtable_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.get_from_memtable_count;
+}
+
+uint64_t crocksdb_perf_context_get_post_process_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.get_post_process_time;
+}
+
+uint64_t crocksdb_perf_context_get_from_output_files_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.get_from_output_files_time;
+}
+
+uint64_t crocksdb_perf_context_seek_on_memtable_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_on_memtable_time;
+}
+
+uint64_t crocksdb_perf_context_seek_on_memtable_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_on_memtable_count;
+}
+
+uint64_t crocksdb_perf_context_next_on_memtable_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.next_on_memtable_count;
+}
+
+uint64_t crocksdb_perf_context_prev_on_memtable_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.prev_on_memtable_count;
+}
+
+uint64_t crocksdb_perf_context_seek_child_seek_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_child_seek_time;
+}
+
+uint64_t crocksdb_perf_context_seek_child_seek_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_child_seek_count;
+}
+
+uint64_t crocksdb_perf_context_seek_min_heap_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_min_heap_time;
+}
+
+uint64_t crocksdb_perf_context_seek_max_heap_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_max_heap_time;
+}
+
+uint64_t crocksdb_perf_context_seek_internal_seek_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.seek_internal_seek_time;
+}
+
+uint64_t crocksdb_perf_context_find_next_user_entry_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.find_next_user_entry_time;
+}
+
+uint64_t crocksdb_perf_context_write_wal_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.write_wal_time;
+}
+
+uint64_t crocksdb_perf_context_write_memtable_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.write_memtable_time;
+}
+
+uint64_t crocksdb_perf_context_write_delay_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.write_delay_time;
+}
+
+uint64_t crocksdb_perf_context_write_pre_and_post_process_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.write_pre_and_post_process_time;
+}
+
+uint64_t crocksdb_perf_context_db_mutex_lock_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.db_mutex_lock_nanos;
+}
+
+uint64_t crocksdb_perf_context_db_condition_wait_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.db_condition_wait_nanos;
+}
+
+uint64_t crocksdb_perf_context_merge_operator_time_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.merge_operator_time_nanos;
+}
+
+uint64_t crocksdb_perf_context_read_index_block_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.read_index_block_nanos;
+}
+
+uint64_t crocksdb_perf_context_read_filter_block_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.read_filter_block_nanos;
+}
+
+uint64_t crocksdb_perf_context_new_table_block_iter_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.new_table_block_iter_nanos;
+}
+
+uint64_t crocksdb_perf_context_new_table_iterator_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.new_table_iterator_nanos;
+}
+
+uint64_t crocksdb_perf_context_block_seek_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.block_seek_nanos;
+}
+
+uint64_t crocksdb_perf_context_find_table_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.find_table_nanos;
+}
+
+uint64_t crocksdb_perf_context_bloom_memtable_hit_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.bloom_memtable_hit_count;
+}
+
+uint64_t crocksdb_perf_context_bloom_memtable_miss_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.bloom_memtable_miss_count;
+}
+
+uint64_t crocksdb_perf_context_bloom_sst_hit_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.bloom_sst_hit_count;
+}
+
+uint64_t crocksdb_perf_context_bloom_sst_miss_count(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.bloom_sst_miss_count;
+}
+
+uint64_t crocksdb_perf_context_env_new_sequential_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_new_sequential_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_new_random_access_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_new_random_access_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_new_writable_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_new_writable_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_reuse_writable_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_reuse_writable_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_new_random_rw_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_new_random_rw_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_new_directory_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_new_directory_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_file_exists_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_file_exists_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_get_children_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_get_children_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_get_children_file_attributes_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_get_children_file_attributes_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_delete_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_delete_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_create_dir_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_create_dir_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_create_dir_if_missing_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_create_dir_if_missing_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_delete_dir_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_delete_dir_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_get_file_size_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_get_file_size_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_get_file_modification_time_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_get_file_modification_time_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_rename_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_rename_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_link_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_link_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_lock_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_lock_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_unlock_file_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_unlock_file_nanos;
+}
+
+uint64_t crocksdb_perf_context_env_new_logger_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.env_new_logger_nanos;
 }
 
 }  // end extern "C"

@@ -136,6 +136,7 @@ typedef struct crocksdb_column_family_meta_data_t crocksdb_column_family_meta_da
 typedef struct crocksdb_level_meta_data_t crocksdb_level_meta_data_t;
 typedef struct crocksdb_sst_file_meta_data_t crocksdb_sst_file_meta_data_t;
 typedef struct crocksdb_compaction_options_t crocksdb_compaction_options_t;
+typedef struct crocksdb_perf_context_t crocksdb_perf_context_t;
 
 typedef enum crocksdb_table_property_t {
   kDataSize = 1,
@@ -1692,6 +1693,146 @@ crocksdb_compact_files_cf(crocksdb_t*, crocksdb_column_family_handle_t*,
                           size_t input_file_count,
                           int output_level,
                           char** errptr);
+
+/* PerfContext */
+extern C_ROCKSDB_LIBRARY_API int crocksdb_get_perf_level(void);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_set_perf_level(int level);
+extern C_ROCKSDB_LIBRARY_API crocksdb_perf_context_t*
+crocksdb_get_perf_context(void);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_perf_context_reset(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_user_key_comparison_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_cache_hit_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_read_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_read_byte(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_read_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_checksum_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_decompress_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_get_read_bytes(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_multiget_read_bytes(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_iter_read_bytes(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_internal_key_skipped_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_internal_delete_skipped_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_internal_recent_skipped_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_internal_merge_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_get_snapshot_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_get_from_memtable_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_get_from_memtable_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_get_post_process_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_get_from_output_files_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_on_memtable_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_on_memtable_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_next_on_memtable_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_prev_on_memtable_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_child_seek_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_child_seek_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_min_heap_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_max_heap_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_seek_internal_seek_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_find_next_user_entry_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_write_wal_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_write_memtable_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_write_delay_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_write_pre_and_post_process_time(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_db_mutex_lock_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_db_condition_wait_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_merge_operator_time_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_read_index_block_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_read_filter_block_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_new_table_block_iter_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_new_table_iterator_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_block_seek_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_find_table_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_bloom_memtable_hit_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_bloom_memtable_miss_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_bloom_sst_hit_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_bloom_sst_miss_count(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_new_sequential_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_new_random_access_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_new_writable_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_reuse_writable_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_new_random_rw_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_new_directory_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_file_exists_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_get_children_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_get_children_file_attributes_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_delete_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_create_dir_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_create_dir_if_missing_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_delete_dir_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_get_file_size_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_get_file_modification_time_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_rename_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_link_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_lock_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_unlock_file_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_perf_context_env_new_logger_nanos(crocksdb_perf_context_t*);
 
 #ifdef __cplusplus
 }  /* end extern "C" */
