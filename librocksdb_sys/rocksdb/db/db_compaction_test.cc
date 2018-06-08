@@ -2894,6 +2894,139 @@ TEST_F(DBCompactionTest, OptimizedDeletionObsoleting) {
             options.statistics->getTickerCount(COMPACTION_KEY_DROP_OBSOLETE));
 }
 
+TEST_F(DBCompactionTest, CompactFilesPendingL0Bug) {
+  // https://www.facebook.com/groups/rocksdb.dev/permalink/1389452781153232/
+  // CompactFiles() had a bug where it failed to pick a compaction when an L0
+  // compaction existed, but marked it as scheduled anyways. It'd never be
+  // unmarked as scheduled, so future compactions or DB close could hang.
+  const int kNumL0Files = 5;
+  Options options = CurrentOptions();
+  options.level0_file_num_compaction_trigger = kNumL0Files - 1;
+  options.max_background_compactions = 2;
+  DestroyAndReopen(options);
+
+  rocksdb::SyncPoint::GetInstance()->LoadDependency(
+      {{"LevelCompactionPicker::PickCompaction:Return",
+        "DBCompactionTest::CompactFilesPendingL0Bug:Picked"},
+       {"DBCompactionTest::CompactFilesPendingL0Bug:ManualCompacted",
+        "DBImpl::BackgroundCompaction:NonTrivial:AfterRun"}});
+  rocksdb::SyncPoint::GetInstance()->EnableProcessing();
+
+  auto schedule_multi_compaction_token =
+      dbfull()->TEST_write_controler().GetCompactionPressureToken();
+
+  // Files 0-3 will be included in an L0->L1 compaction.
+  //
+  // File 4 will be included in a call to CompactFiles() while the first
+  // compaction is running.
+  for (int i = 0; i < kNumL0Files - 1; ++i) {
+    ASSERT_OK(Put(Key(0), "val"));  // sentinel to prevent trivial move
+    ASSERT_OK(Put(Key(i + 1), "val"));
+    ASSERT_OK(Flush());
+  }
+  TEST_SYNC_POINT("DBCompactionTest::CompactFilesPendingL0Bug:Picked");
+  // file 4 flushed after 0-3 picked
+  ASSERT_OK(Put(Key(kNumL0Files), "val"));
+  ASSERT_OK(Flush());
+
+  // previously DB close would hang forever as this situation caused scheduled
+  // compactions count to never decrement to zero.
+  ColumnFamilyMetaData cf_meta;
+  dbfull()->GetColumnFamilyMetaData(dbfull()->DefaultColumnFamily(), &cf_meta);
+  ASSERT_EQ(kNumL0Files, cf_meta.levels[0].files.size());
+  std::vector<std::string> input_filenames;
+  input_filenames.push_back(cf_meta.levels[0].files.front().name);
+  ASSERT_OK(dbfull()
+                  ->CompactFiles(CompactionOptions(), input_filenames,
+                                 0 /* output_level */));
+  TEST_SYNC_POINT("DBCompactionTest::CompactFilesPendingL0Bug:ManualCompacted");
+  rocksdb::SyncPoint::GetInstance()->DisableProcessing();
+}
+
+TEST_F(DBCompactionTest, CompactFilesOverlapInL0Bug) {
+  // Regression test for bug of not pulling in L0 files that overlap the user-
+  // specified input files in time- and key-ranges.
+  Put(Key(0), "old_val");
+  Flush();
+  Put(Key(0), "new_val");
+  Flush();
+
+  ColumnFamilyMetaData cf_meta;
+  dbfull()->GetColumnFamilyMetaData(dbfull()->DefaultColumnFamily(), &cf_meta);
+  ASSERT_GE(cf_meta.levels.size(), 2);
+  ASSERT_EQ(2, cf_meta.levels[0].files.size());
+
+  // Compacting {new L0 file, L1 file} should pull in the old L0 file since it
+  // overlaps in key-range and time-range.
+  std::vector<std::string> input_filenames;
+  input_filenames.push_back(cf_meta.levels[0].files.front().name);
+  ASSERT_OK(dbfull()->CompactFiles(CompactionOptions(), input_filenames,
+                                   1 /* output_level */));
+  ASSERT_EQ("new_val", Get(Key(0)));
+}
+
+TEST_F(DBCompactionTest, CompactFilesOutputRangeConflict) {
+  // LSM setup:
+  // L1:      [ba bz]
+  // L2: [a b]       [c d]
+  // L3: [a b]       [c d]
+  //
+  // Thread 1:                        Thread 2:
+  // Begin compacting all L2->L3
+  //                                  Compact [ba bz] L1->L3
+  // End compacting all L2->L3
+  //
+  // The compaction operation in thread 2 should be disallowed because the range
+  // overlaps with the compaction in thread 1, which also covers that range in
+  // L3.
+  Options options = CurrentOptions();
+  FlushedFileCollector* collector = new FlushedFileCollector();
+  options.listeners.emplace_back(collector);
+  Reopen(options);
+
+  for (int level = 3; level >= 2; --level) {
+    ASSERT_OK(Put("a", "val"));
+    ASSERT_OK(Put("b", "val"));
+    ASSERT_OK(Flush());
+    ASSERT_OK(Put("c", "val"));
+    ASSERT_OK(Put("d", "val"));
+    ASSERT_OK(Flush());
+    MoveFilesToLevel(level);
+  }
+  ASSERT_OK(Put("ba", "val"));
+  ASSERT_OK(Put("bz", "val"));
+  ASSERT_OK(Flush());
+  MoveFilesToLevel(1);
+
+  SyncPoint::GetInstance()->LoadDependency({
+      {"CompactFilesImpl:0",
+       "DBCompactionTest::CompactFilesOutputRangeConflict:Thread2Begin"},
+      {"DBCompactionTest::CompactFilesOutputRangeConflict:Thread2End",
+       "CompactFilesImpl:1"},
+  });
+  SyncPoint::GetInstance()->EnableProcessing();
+
+  auto bg_thread = port::Thread([&]() {
+    // Thread 1
+    std::vector<std::string> filenames = collector->GetFlushedFiles();
+    filenames.pop_back();
+    ASSERT_OK(db_->CompactFiles(CompactionOptions(), filenames,
+                                3 /* output_level */));
+  });
+
+  // Thread 2
+  TEST_SYNC_POINT(
+      "DBCompactionTest::CompactFilesOutputRangeConflict:Thread2Begin");
+  std::string filename = collector->GetFlushedFiles().back();
+  ASSERT_FALSE(
+      db_->CompactFiles(CompactionOptions(), {filename}, 3 /* output_level */)
+          .ok());
+  TEST_SYNC_POINT(
+      "DBCompactionTest::CompactFilesOutputRangeConflict:Thread2End");
+
+  bg_thread.join();
+}
+
 INSTANTIATE_TEST_CASE_P(DBCompactionTestWithParam, DBCompactionTestWithParam,
                         ::testing::Values(std::make_tuple(1, true),
                                           std::make_tuple(1, false),

@@ -292,17 +292,11 @@ Compaction* CompactionPicker::CompactFiles(
     VersionStorageInfo* vstorage, const MutableCFOptions& mutable_cf_options,
     uint32_t output_path_id) {
   assert(input_files.size());
+  // This compaction output should not overlap with a running compaction as
+  // `SanitizeCompactionInputFiles` should've checked earlier and db mutex
+  // shouldn't have been released since.
+  assert(!FilesRangeOverlapWithCompaction(input_files, output_level));
 
-  // TODO(rven ): we might be able to run concurrent level 0 compaction
-  // if the key ranges of the two compactions do not overlap, but for now
-  // we do not allow it.
-  if ((input_files[0].level == 0) && !level0_compactions_in_progress_.empty()) {
-    return nullptr;
-  }
-  // This compaction output could overlap with a running compaction
-  if (FilesRangeOverlapWithCompaction(input_files, output_level)) {
-    return nullptr;
-  }
   auto c =
       new Compaction(vstorage, ioptions_, mutable_cf_options, input_files,
                      output_level, compact_options.output_file_size_limit,
@@ -731,10 +725,6 @@ Status CompactionPicker::SanitizeCompactionInputFilesForAllLevels(
   auto& levels = cf_meta.levels;
   auto comparator = icmp_->user_comparator();
 
-  // TODO(yhchiang): If there is any input files of L1 or up and there
-  // is at least one L0 files. All L0 files older than the L0 file needs
-  // to be included. Otherwise, it is a false conditoin
-
   // TODO(yhchiang): add is_adjustable to CompactionOptions
 
   // the smallest and largest key of the current compaction input
@@ -795,6 +785,8 @@ Status CompactionPicker::SanitizeCompactionInputFilesForAllLevels(
         }
         last_included++;
       }
+    } else if (output_level > 0) {
+      last_included = static_cast<int>(current_files.size() - 1);
     }
 
     // include all files between the first and the last compaction input files.
@@ -853,6 +845,11 @@ Status CompactionPicker::SanitizeCompactionInputFilesForAllLevels(
         }
       }
     }
+  }
+  if (RangeOverlapWithCompaction(smallestkey, largestkey, output_level)) {
+    return Status::Aborted(
+        "A running compaction is writing to the same output level in an "
+        "overlapping key range");
   }
   return Status::OK();
 }
