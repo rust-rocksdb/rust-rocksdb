@@ -93,6 +93,7 @@ fn main() {
 	config.file("rocksdb/db/internal_stats.cc");
 	config.file("rocksdb/db/log_reader.cc");
 	config.file("rocksdb/db/log_writer.cc");
+	config.file("rocksdb/db/logs_with_prep_tracker.cc");
 	config.file("rocksdb/db/malloc_stats.cc");
 	config.file("rocksdb/db/managed_iterator.cc");
 	config.file("rocksdb/db/memtable.cc");
@@ -157,6 +158,7 @@ fn main() {
 	config.file("rocksdb/table/block_builder.cc");
 	config.file("rocksdb/table/block_prefix_index.cc");
 	config.file("rocksdb/table/bloom_block.cc");
+	config.file("rocksdb/table/block_fetcher.cc");
 	config.file("rocksdb/table/cuckoo_table_builder.cc");
 	config.file("rocksdb/table/cuckoo_table_factory.cc");
 	config.file("rocksdb/table/cuckoo_table_reader.cc");
@@ -255,6 +257,7 @@ fn main() {
 	config.file("rocksdb/utilities/transactions/optimistic_transaction_db_impl.cc");
 	config.file("rocksdb/utilities/transactions/pessimistic_transaction.cc");
 	config.file("rocksdb/utilities/transactions/pessimistic_transaction_db.cc");
+	config.file("rocksdb/utilities/transactions/snapshot_checker.cc");
 	config.file("rocksdb/utilities/transactions/transaction_base.cc");
 	config.file("rocksdb/utilities/transactions/transaction_db_mutex_impl.cc");
 	config.file("rocksdb/utilities/transactions/transaction_lock_mgr.cc");
