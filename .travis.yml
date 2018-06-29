@@ -1,13 +1,58 @@
 language: rust
 
-rust:
-  - nightly
-  - 1.1.0
-  - 1.2.0
+matrix:
+  include:
+    - os: linux
+      env: TARGET=x86_64-unknown-linux-gnu
+      rust: stable
+    - os: linux
+      env: TARGET=i686-unknown-linux-gnu
+      rust: stable
+    - os: osx
+      env: TARGET=x86_64-apple-darwin
+      rust: stable
 
-os:
-  - linux
-  - osx
+    - os: linux
+      env: TARGET=x86_64-unknown-linux-gnu
+      rust: beta
+    - os: linux
+      env: TARGET=i686-unknown-linux-gnu
+      rust: beta
+    - os: osx
+      env: TARGET=x86_64-apple-darwin
+      rust: beta
+
+    - os: linux
+      env: TARGET=x86_64-unknown-linux-gnu
+      rust: nightly
+    - os: linux
+      env: TARGET=i686-unknown-linux-gnu
+      rust: nightly
+    - os: osx
+      env: TARGET=x86_64-apple-darwin
+      rust: nightly
+  exclude:
+    - rust: stable
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+env:
+  global:
+    - HOST=x86_64-unknown-linux-gnu
+
+install:
+  # prevent target re-add error from rustup
+  - if [[ $TRAVIS_OS_NAME == "linux" && $HOST != $TARGET ]]; then rustup target add $TARGET; fi
 
 script:
-  - rustc -Z parse-only src/lib.rs
+  - cargo test -vv --target=$TARGET
+  - cargo test -vv --release --target=$TARGET
+
+addons:
+  apt:
+    packages:
+      - gcc-multilib
+      - g++-multilib
+
+cache: cargo

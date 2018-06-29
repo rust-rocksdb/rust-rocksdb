@@ -12,8 +12,7 @@ build = "build.rs"
 links = "rocksdb"
 
 [features]
-default = [ "static" ]
-static = []
+default = []
 
 [dependencies]
 libc = "0.2"
