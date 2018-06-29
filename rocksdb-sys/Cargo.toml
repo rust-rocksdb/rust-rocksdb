@@ -5,8 +5,8 @@ authors = ["Arkadiy Paronyan arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD"
 description = "Native bindings to librocksdb"
 readme = "README.md"
-repository = "https://github.com/jsgf/rocksdb-sys.git"
-keywords = [ "ffi", "rocksdb" ]
+repository = "https://github.com/paritytech/rust-rocksdb.git"
+keywords = ["ffi", "rocksdb"]
 
 build = "build.rs"
 links = "rocksdb"
@@ -21,4 +21,4 @@ local-encoding = "0.2.0"
 snappy-sys = { git = "https://github.com/paritytech/rust-snappy" }
 
 [build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
+cmake = "0.1"
