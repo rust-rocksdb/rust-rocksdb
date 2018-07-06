@@ -23,8 +23,8 @@ use merge_operator::{self, MergeOperands, MergeOperatorCallback,
 use comparator::{self, ComparatorCallback, compare_callback};
 
 pub enum IndexType {
-	BinarySearch,
-	HashSearch,
+    BinarySearch,
+    HashSearch,
 }
 
 pub struct BlockBasedOptions {
@@ -87,10 +87,10 @@ impl BlockBasedOptions {
     }
 
     pub fn set_index_type(&mut self, index_type: IndexType) {
-		let it = match index_type {
-			IndexType::BinarySearch => rocksdb_ffi::BLOCK_BASED_INDEX_TYPE_BINARY_SEARCH,
-			IndexType::HashSearch => rocksdb_ffi::BLOCK_BASED_INDEX_TYPE_HASH_SEARCH,
-		};
+        let it = match index_type {
+            IndexType::BinarySearch => rocksdb_ffi::BLOCK_BASED_INDEX_TYPE_BINARY_SEARCH,
+            IndexType::HashSearch => rocksdb_ffi::BLOCK_BASED_INDEX_TYPE_HASH_SEARCH,
+        };
         unsafe {
             rocksdb_ffi::rocksdb_block_based_options_set_index_type(self.inner, it);
         }

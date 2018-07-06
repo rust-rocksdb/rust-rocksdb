@@ -273,11 +273,11 @@ impl DB {
     pub fn open_cf(opts: &Options,
                    path: &str,
                    cfs: &[&str],
-				   cf_opts: &[Options])
+                   cf_opts: &[Options])
                    -> Result<DB, String> {
-    	if cfs.len() != cf_opts.len() {
-			return Err(format!("Mismatching number of CF options"));
-		}
+        if cfs.len() != cf_opts.len() {
+            return Err(format!("Mismatching number of CF options"));
+        }
         let encoded_path = match Encoding::ANSI.to_bytes(path) {
             Ok(c) => c,
             Err(_) => {
@@ -348,9 +348,9 @@ impl DB {
                 cf_opts.iter()
                      .map(|o| o.inner)
                      .collect();
-			if cfopts.len() != c_cfs.len() {
-				cfopts.push(opts.inner);
-			}
+            if cfopts.len() != c_cfs.len() {
+                cfopts.push(opts.inner);
+            }
 
             // Prepare to ship to C.
             let copts: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
@@ -642,7 +642,7 @@ impl DB {
     pub fn iterator_cf_opt(&self,
                        cf_handle: Column,
                        mode: IteratorMode,
-					   opts: &ReadOptions)
+                       opts: &ReadOptions)
                        -> Result<DBIterator, String> {
         DBIterator::new_cf(&self, cf_handle, &opts, mode)
     }
@@ -1018,17 +1018,17 @@ fn errors_do_stuff() {
     let opts = Options::new();
     // The DB will still be open when we try to destroy and the lock should fail
     match DB::destroy(&opts, path) {
-		Err(ref s) => {
-			let msg = if cfg!(target_env = "msvc") {
-				"IO error: Failed to create lock file: _rust_rocksdb_error/LOCK: \
-				 The process cannot access the file because it is being used by another process."
-			} else {
-				"IO error: While lock file: _rust_rocksdb_error/LOCK: \
-				 No locks available"
-			};
+        Err(ref s) => {
+            let msg = if cfg!(target_env = "msvc") {
+                "IO error: Failed to create lock file: _rust_rocksdb_error/LOCK: \
+                 The process cannot access the file because it is being used by another process."
+            } else {
+                "IO error: While lock file: _rust_rocksdb_error/LOCK: \
+                 No locks available"
+            };
 
-			assert_eq!(s.trim(), msg)
-		}
+            assert_eq!(s.trim(), msg)
+        }
         Ok(_) => panic!("should fail"),
     }
 }

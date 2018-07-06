@@ -143,7 +143,7 @@ extern "C" {
         block_options: DBBlockBasedTableOptions);
     pub fn rocksdb_block_based_options_set_index_type(
         block_options: DBBlockBasedTableOptions,
-		index_type: c_int);
+        index_type: c_int);
     pub fn rocksdb_options_increase_parallelism(options: DBOptions,
                                                 threads: c_int);
     pub fn rocksdb_options_optimize_level_style_compaction(
@@ -425,7 +425,7 @@ extern "C" {
                                       err: *mut *const i8);
     pub fn rocksdb_column_family_handle_destroy(column_family_handle: DBCFHandle);
 
-	// Slice transformation
+    // Slice transformation
     pub fn rocksdb_slicetransform_create(state: *mut c_void,
                                          destructor: Option<extern "C" fn(arg1: *mut c_void) -> ()>,
                                          transform: Option<extern "C" fn(arg1: *mut c_void,
