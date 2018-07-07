@@ -11,11 +11,16 @@ fn main() {
         .define("WITH_SNAPPY", "ON")
         .build_target("rocksdb");
 
+    let snappy = env::var_os("DEP_SNAPPY_INCLUDE").expect("DEP_SNAPPY_INCLUDE is set in snappy.");
+
     if cfg!(target_env = "msvc") {
-        cfg.env("SNAPPY_INCLUDE", env::var_os("DEP_SNAPPY_INCLUDE").expect("DEP_SNAPPY_INCLUDE is set in snappy."));
+        cfg.env("SNAPPY_INCLUDE", snappy);
 
         println!("cargo:rustc-link-lib=dylib={}", "rpcrt4");
         println!("cargo:rustc-link-lib=dylib={}", "shlwapi");
+    } else {
+        cfg.define("SNAPPY_INCLUDE_DIR", snappy)
+            .define("SNAPPY_LIBRARIES", "/dev/null");
     }
 
     let out = cfg.build();
