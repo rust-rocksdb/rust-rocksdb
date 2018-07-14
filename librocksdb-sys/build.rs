@@ -32,7 +32,7 @@ fn fail_on_empty_directory(name: &str) {
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
         .header("rocksdb/include/rocksdb/c.h")
-        .hide_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
+        .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
         .generate()
         .expect("unable to generate rocksdb bindings");
