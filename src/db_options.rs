@@ -23,7 +23,6 @@ use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode, Me
      Options, WriteOptions};
 use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
 use comparator::{self, ComparatorCallback, CompareFn};
-use ffi;
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeFn,
                      MergeOperatorCallback};
