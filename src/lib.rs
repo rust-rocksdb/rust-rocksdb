@@ -133,6 +133,14 @@ pub struct BlockBasedOptions {
     inner: *mut ffi::rocksdb_block_based_table_options_t,
 }
 
+/// Defines the underlying memtable implementation.
+/// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+pub enum MemtableFactory {
+    Vector,
+    HashSkipList { bucket_count: usize, height: i32, branching_factor: i32 },
+    HashLinkList { bucket_count: usize }
+}
+
 /// Database-wide options around performance and behavior.
 ///
 /// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.

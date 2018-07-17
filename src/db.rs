@@ -900,6 +900,15 @@ impl DB {
         DBIterator::new(self, &opts, mode)
     }
 
+    /// Opens an interator with `set_total_order_seek` enabled.
+    /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
+    /// with a Hash-based implementation.
+    pub fn full_iterator(&self, mode: IteratorMode) -> DBIterator {
+        let mut opts = ReadOptions::default();
+        opts.set_total_order_seek(true);
+        DBIterator::new(self, &opts, mode)
+    }
+
     pub fn prefix_iterator<'a>(&self, prefix: &'a [u8]) -> DBIterator {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
@@ -912,6 +921,16 @@ impl DB {
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let opts = ReadOptions::default();
+        DBIterator::new_cf(self, cf_handle, &opts, mode)
+    }
+
+    pub fn full_iterator_cf(
+        &self,
+        cf_handle: ColumnFamily,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_total_order_seek(true);
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
