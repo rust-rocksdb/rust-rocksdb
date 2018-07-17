@@ -193,8 +193,6 @@ pub fn test_prefix_iterator() {
             assert_eq!(b_iterator.collect::<Vec<_>>(), expected)
         }
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 #[test]
