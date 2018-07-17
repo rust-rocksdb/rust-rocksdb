@@ -14,6 +14,7 @@
 
 use std::ffi::{CStr, CString};
 use std::mem;
+use std::path::Path;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
@@ -69,6 +70,12 @@ impl BlockBasedOptions {
             // Since cache is wrapped in shared_ptr, we don't need to
             // call rocksdb_cache_destroy explicitly.
             ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
+        }
+    }
+
+    pub fn disable_cache(&mut self) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, true as c_uchar);
         }
     }
 
@@ -218,6 +225,20 @@ impl Options {
                 level_types.as_mut_ptr(),
                 level_types.len() as size_t,
             )
+        }
+    }
+
+    /// If non-zero, we perform bigger reads when doing compaction. If you're
+    /// running RocksDB on spinning disks, you should set this to at least 2MB.
+    /// That way RocksDB's compaction is doing sequential instead of random reads.
+    ///
+    /// When non-zero, we also force new_table_reader_for_compaction_inputs to
+    /// true.
+    ///
+    /// Default: `0`
+    pub fn set_compaction_readahead_size(&mut self, compaction_readahead_size: usize) {
+        unsafe {
+            ffi::rocksdb_options_compaction_readahead_size(self.inner, compaction_readahead_size as usize);
         }
     }
 
@@ -986,10 +1007,6 @@ impl Options {
     /// `write_buffer_size * memtable_prefix_bloom_ratio` (capped at 0.25).
     ///
     /// Default: `0`
-    ///
-    /// # Example
-    ///
-    /// ```
     /// use rocksdb::{Options, SliceTransform};
     ///
     /// let mut opts = Options::default();
@@ -1000,6 +1017,26 @@ impl Options {
     pub fn set_memtable_prefix_bloom_ratio(&mut self, ratio: f64) {
         unsafe {
             ffi::rocksdb_options_set_memtable_prefix_bloom_size_ratio(self.inner, ratio);
+        }
+    }
+
+    /// Specifies the absolute path of the directory the
+    /// write-ahead log (WAL) should be written to.
+    ///
+    /// Default: same directory as the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_wal_dir("/path/to/dir");
+    /// ```
+    pub fn set_wal_dir<P: AsRef<Path>>(&mut self, path: P) {
+        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        unsafe {
+            ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
         }
     }
 }
