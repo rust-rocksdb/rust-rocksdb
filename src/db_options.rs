@@ -14,6 +14,7 @@
 
 use std::ffi::{CStr, CString};
 use std::mem;
+use std::path::Path;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
@@ -984,6 +985,26 @@ impl Options {
     pub fn set_num_levels(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
+        }
+    }
+
+    /// Specifies the absolute path of the directory the
+    /// write-ahead log (WAL) should be written to.
+    ///
+    /// Default: same directory as the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_wal_dir("/path/to/dir");
+    /// ```
+    pub fn set_wal_dir<P: AsRef<Path>>(&mut self, path: P) {
+        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        unsafe {
+            ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
         }
     }
 }
