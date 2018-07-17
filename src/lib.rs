@@ -136,6 +136,20 @@ pub struct BlockBasedOptions {
     inner: *mut ffi::rocksdb_block_based_table_options_t,
 }
 
+/// Used by BlockBasedOptions::set_index_type.
+pub enum BlockBasedIndexType {
+    /// A space efficient index block that is optimized for
+    /// binary-search-based index.
+    BinarySearch,
+
+    /// The hash index, if enabled, will perform a hash lookup if
+    /// a prefix extractor has been provided through Options::set_prefix_extractor.
+    HashSearch,
+
+    /// A two-level index implementation. Both levels are binary search indexes.
+    TwoLevelIndexSearch,
+}
+
 /// Defines the underlying memtable implementation.
 /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
 pub enum MemtableFactory {
