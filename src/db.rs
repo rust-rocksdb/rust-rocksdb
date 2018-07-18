@@ -838,8 +838,8 @@ impl DB {
         self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn get_cf_by_name<T: AsRef<str>>(&self, name: T, key: &[u8]) -> Option<Result<Option<DBVector>, Error>> {
-        Some(self.get_cf(self.cf_handle(name.as_ref())?, key))
+    pub fn get_cf_by_name<T: AsRef<str>>(&self, name: T, key: &[u8]) -> Result<Option<DBVector>, Error> {
+        self.get_cf(self.cf_handle(name.as_ref())?, key)
     }
 
     pub fn create_cf(&mut self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
