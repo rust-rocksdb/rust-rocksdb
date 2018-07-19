@@ -11,7 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{ColumnFamilyOptions, CompactOptions, DBOptions, Range, Writable, DB};
+use rocksdb::{ColumnFamilyOptions, CompactOptions, DBBottommostLevelCompaction, DBOptions, Range,
+              Writable, DB};
 use tempdir::TempDir;
 
 #[test]
@@ -77,4 +78,53 @@ fn test_compact_range_change_level() {
     db.compact_range_cf_opt(handle, &compact_opts, None, None);
     let name = format!("rocksdb.num-files-at-level{}", compact_level);
     assert_eq!(db.get_property_int(&name).unwrap(), samples.len() as u64);
+}
+
+#[test]
+fn test_compact_range_bottommost_level_compaction() {
+    let path = TempDir::new("test_compact_range_bottommost_level_compaction").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    db.put(&[0], &[0]).unwrap();
+    db.flush(true).unwrap();
+
+    // Compact to bottommost level
+    let cf_handle = db.cf_handle("default").unwrap();
+    let cf_opts = db.get_options_cf(cf_handle);
+    let bottommost_level = (cf_opts.get_num_levels() - 1) as i32;
+    let mut compact_opts = CompactOptions::new();
+    compact_opts.set_change_level(true);
+    compact_opts.set_target_level(bottommost_level);
+    db.compact_range_cf_opt(cf_handle, &compact_opts, None, None);
+
+    let bottommost_files = db.get_column_family_meta_data(cf_handle)
+        .get_levels()
+        .last()
+        .unwrap()
+        .get_files();
+    assert_eq!(bottommost_files.len(), 1);
+    let bottommost_filename = bottommost_files[0].get_name();
+
+    // Skip bottommost level compaction
+    compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Skip);
+    db.compact_range_cf_opt(cf_handle, &compact_opts, None, None);
+    let bottommost_files = db.get_column_family_meta_data(cf_handle)
+        .get_levels()
+        .last()
+        .unwrap()
+        .get_files();
+    assert_eq!(bottommost_files.len(), 1);
+    assert_eq!(bottommost_filename, bottommost_files[0].get_name());
+    // Force bottommost level compaction
+    compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Force);
+    db.compact_range_cf_opt(cf_handle, &compact_opts, None, None);
+    let bottommost_files = db.get_column_family_meta_data(cf_handle)
+        .get_levels()
+        .last()
+        .unwrap()
+        .get_files();
+    assert_eq!(bottommost_files.len(), 1);
+    assert_ne!(bottommost_filename, bottommost_files[0].get_name());
 }

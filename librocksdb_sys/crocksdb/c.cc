@@ -138,6 +138,7 @@ using rocksdb::SstFileMetaData;
 using rocksdb::CompactionOptions;
 using rocksdb::PerfLevel;
 using rocksdb::PerfContext;
+using rocksdb::BottommostLevelCompaction;
 
 using std::shared_ptr;
 
@@ -3031,6 +3032,12 @@ void crocksdb_compactoptions_set_max_subcompactions(
     crocksdb_compactoptions_t* opt,
     int v) {
   opt->rep.max_subcompactions = v;
+}
+
+void crocksdb_compactoptions_set_bottommost_level_compaction(
+    crocksdb_compactoptions_t* opt,
+    int v) {
+  opt->rep.bottommost_level_compaction = static_cast<BottommostLevelCompaction>(v);
 }
 
 crocksdb_flushoptions_t* crocksdb_flushoptions_create() {

@@ -292,6 +292,18 @@ pub enum DBTableProperty {
     CompressionName = 17,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum DBBottommostLevelCompaction {
+    // Skip bottommost level compaction
+    Skip = 0,
+    // Compact bottommost level if there is a compaction filter
+    // This is the default option
+    IfHaveCompactionFilter = 1,
+    // Force bottommost level compaction
+    Force = 2,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -1021,6 +1033,10 @@ extern "C" {
     pub fn crocksdb_compactoptions_set_change_level(opt: *mut DBCompactOptions, v: bool);
     pub fn crocksdb_compactoptions_set_target_level(opt: *mut DBCompactOptions, v: i32);
     pub fn crocksdb_compactoptions_set_max_subcompactions(opt: *mut DBCompactOptions, v: i32);
+    pub fn crocksdb_compactoptions_set_bottommost_level_compaction(
+        opt: *mut DBCompactOptions,
+        v: DBBottommostLevelCompaction,
+    );
 
     pub fn crocksdb_fifo_compaction_options_create() -> *mut DBFifoCompactionOptions;
     pub fn crocksdb_fifo_compaction_options_set_max_table_files_size(

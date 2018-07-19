@@ -37,8 +37,9 @@ mod table_properties_collector_factory;
 pub use compaction_filter::CompactionFilter;
 pub use event_listener::{CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo};
 pub use librocksdb_sys::{self as crocksdb_ffi, new_bloom_filter, CompactionPriority,
-                         DBCompactionStyle, DBCompressionType, DBEntryType, DBInfoLogLevel,
-                         DBRecoveryMode, DBStatisticsHistogramType, DBStatisticsTickerType};
+                         DBBottommostLevelCompaction, DBCompactionStyle, DBCompressionType,
+                         DBEntryType, DBInfoLogLevel, DBRecoveryMode, DBStatisticsHistogramType,
+                         DBStatisticsTickerType};
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
 pub use perf_context::{get_perf_level, set_perf_level, PerfContext, PerfLevel};

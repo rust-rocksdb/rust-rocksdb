@@ -15,11 +15,11 @@
 
 use compaction_filter::{new_compaction_filter, CompactionFilter, CompactionFilterHandle};
 use comparator::{self, compare_callback, ComparatorCallback};
-use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBCompactOptions, DBCompactionOptions,
-                   DBCompressionType, DBFifoCompactionOptions, DBFlushOptions, DBInfoLogLevel,
-                   DBInstance, DBRateLimiter, DBReadOptions, DBRecoveryMode, DBRestoreOptions,
-                   DBSnapshot, DBStatisticsHistogramType, DBStatisticsTickerType, DBWriteOptions,
-                   Options};
+use crocksdb_ffi::{self, DBBlockBasedTableOptions, DBBottommostLevelCompaction, DBCompactOptions,
+                   DBCompactionOptions, DBCompressionType, DBFifoCompactionOptions,
+                   DBFlushOptions, DBInfoLogLevel, DBInstance, DBRateLimiter, DBReadOptions,
+                   DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
+                   DBStatisticsTickerType, DBWriteOptions, Options};
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::MergeFn;
@@ -485,6 +485,12 @@ impl CompactOptions {
     pub fn set_max_subcompactions(&mut self, v: i32) {
         unsafe {
             crocksdb_ffi::crocksdb_compactoptions_set_max_subcompactions(self.inner, v);
+        }
+    }
+
+    pub fn set_bottommost_level_compaction(&mut self, v: DBBottommostLevelCompaction) {
+        unsafe {
+            crocksdb_ffi::crocksdb_compactoptions_set_bottommost_level_compaction(self.inner, v);
         }
     }
 }

@@ -1234,6 +1234,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_compactoptions_set_target_level(
     crocksdb_compactoptions_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_compactoptions_set_max_subcompactions(crocksdb_compactoptions_t*, int);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_compactoptions_set_bottommost_level_compaction(crocksdb_compactoptions_t*, int);
 
 /* Flush options */
 

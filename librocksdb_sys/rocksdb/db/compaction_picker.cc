@@ -677,7 +677,7 @@ Compaction* CompactionPicker::CompactRange(
       mutable_cf_options.max_compaction_bytes, output_path_id,
       GetCompressionType(ioptions_, vstorage, mutable_cf_options, output_level,
                          vstorage->base_level()),
-      /* max_subcompactions */ 0, std::move(grandparents),
+      max_subcompactions, std::move(grandparents),
       /* is manual compaction */ true);
 
   TEST_SYNC_POINT_CALLBACK("CompactionPicker::CompactRange:Return", compaction);
