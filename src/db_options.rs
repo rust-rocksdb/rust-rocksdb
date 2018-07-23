@@ -1113,6 +1113,13 @@ impl Options {
             ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, skip as c_uchar);
         }
     }
+
+    /// Specify the maximal number of info log files to be kept.
+    pub fn set_keep_log_file_num(&mut self, nfiles: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_keep_log_file_num(self.inner, nfiles);
+        }
+    }
 }
 
 impl Default for Options {
