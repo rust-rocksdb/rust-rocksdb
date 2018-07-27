@@ -85,6 +85,7 @@ fn build_rocksdb() {
 
     if cfg!(windows) {
         link("rpcrt4", false);
+        link("Shlwapi", false);
         config.define("OS_WIN", Some("1"));
 
         // Remove POSIX-specific sources
