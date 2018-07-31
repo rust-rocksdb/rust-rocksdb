@@ -1061,11 +1061,15 @@ impl Options {
         }
     }
 
-    /// When a `prefix_extractor` is defined through `opts.set_prefix_extractor` this creates a
-    /// prefix bloom filter for each memtable with the size of
+    /// When a `prefix_extractor` is defined through `opts.set_prefix_extractor` this
+    /// creates a prefix bloom filter for each memtable with the size of
     /// `write_buffer_size * memtable_prefix_bloom_ratio` (capped at 0.25).
     ///
     /// Default: `0`
+    ///
+    /// # Example
+    ///
+    /// ```
     /// use rocksdb::{Options, SliceTransform};
     ///
     /// let mut opts = Options::default();
