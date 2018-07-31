@@ -28,6 +28,7 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::sync::{Arc, RwLock};
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
@@ -630,7 +631,7 @@ impl DB {
         }
 
         let db: *mut ffi::rocksdb_t;
-        let mut cf_map = BTreeMap::new();
+        let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
 
         if cfs.len() == 0 {
             unsafe {
@@ -682,7 +683,7 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.insert(n.name.clone(), ColumnFamily { inner: h });
+                cf_map.write().unwrap().insert(n.name.clone(), ColumnFamily { inner: h });
             }
         }
 
@@ -838,7 +839,7 @@ impl DB {
         self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn create_cf(&mut self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
+    pub fn create_cf(&self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
         let cname = match CString::new(name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -856,31 +857,28 @@ impl DB {
                 cname.as_ptr(),
             ));
             let cf = ColumnFamily { inner: cf_handler };
-            self.cfs.insert(name.to_string(), cf);
+            self.cfs.write().unwrap().insert(name.to_string(), cf);
             cf
         };
         Ok(cf)
     }
 
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        let cf = self.cfs.get(name);
-        if cf.is_none() {
-            return Err(Error::new(
-                format!("Invalid column family: {}", name).to_owned(),
-            ));
+    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.write().unwrap().remove(name) {
+            unsafe {
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
+            }
+            Ok(())
+        } else {
+            Err(Error::new(
+                format!("Invalid column family: {}", name).to_owned()
+            ))
         }
-        unsafe {
-            ffi_try!(ffi::rocksdb_drop_column_family(
-                self.inner,
-                cf.unwrap().inner,
-            ));
-        }
-        Ok(())
     }
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.get(name).cloned()
+        self.cfs.read().unwrap().get(name).cloned()
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -1207,7 +1205,7 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for cf in self.cfs.values() {
+            for cf in self.cfs.read().unwrap().values() {
                 ffi::rocksdb_column_family_handle_destroy(cf.inner);
             }
             ffi::rocksdb_close(self.inner);

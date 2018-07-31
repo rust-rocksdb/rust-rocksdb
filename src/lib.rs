@@ -72,13 +72,14 @@ use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
 /// A RocksDB database.
 ///
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, ColumnFamily>,
+    cfs: Arc<RwLock<BTreeMap<String, ColumnFamily>>>,
     path: PathBuf,
 }
 
