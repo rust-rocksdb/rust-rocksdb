@@ -28,6 +28,7 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::ffi::CStr;
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
@@ -698,8 +699,7 @@ impl DB {
     }
 
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
+        let cpath = match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
@@ -719,10 +719,11 @@ impl DB {
                 &mut length,
             ));
 
-            let vec = Vec::from_raw_parts(ptr, length, length)
+            let vec = slice::from_raw_parts(ptr, length)
                 .iter()
-                .map(|&ptr| CString::from_raw(ptr).into_string().unwrap())
+                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
                 .collect();
+            ffi::rocksdb_list_column_families_destroy(ptr, length);
             Ok(vec)
         }
     }
