@@ -2,6 +2,10 @@ language: rust
 dist: trusty
 sudo: true
 
+os:
+- linux
+- osx
+
 rust:
   - stable
   - beta
