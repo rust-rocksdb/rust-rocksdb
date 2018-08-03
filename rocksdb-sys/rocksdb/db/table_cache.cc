@@ -30,7 +30,7 @@ namespace rocksdb {
 namespace {
 
 template <class T>
-static void DeleteEntry(const Slice& key, void* value) {
+static void DeleteEntry(const Slice& /*key*/, void* value) {
   T* typed_value = reinterpret_cast<T*>(value);
   delete typed_value;
 }
@@ -41,7 +41,7 @@ static void UnrefEntry(void* arg1, void* arg2) {
   cache->Release(h);
 }
 
-static void DeleteTableReader(void* arg1, void* arg2) {
+static void DeleteTableReader(void* arg1, void* /*arg2*/) {
   TableReader* table_reader = reinterpret_cast<TableReader*>(arg1);
   delete table_reader;
 }
@@ -92,13 +92,17 @@ Status TableCache::GetTableReader(
     bool skip_filters, int level, bool prefetch_index_and_filter_in_cache,
     bool for_compaction) {
   std::string fname =
-      TableFileName(ioptions_.db_paths, fd.GetNumber(), fd.GetPathId());
+      TableFileName(ioptions_.cf_paths, fd.GetNumber(), fd.GetPathId());
   unique_ptr<RandomAccessFile> file;
   Status s = ioptions_.env->NewRandomAccessFile(fname, &file, env_options);
 
   RecordTick(ioptions_.statistics, NO_FILE_OPENS);
   if (s.ok()) {
-    if (readahead > 0) {
+    if (readahead > 0 && !env_options.use_mmap_reads) {
+      // Not compatible with mmap files since ReadaheadRandomAccessFile requires
+      // its wrapped file's Read() to copy data into the provided scratch
+      // buffer, which mmap files don't use.
+      // TODO(ajkr): try madvise for mmap files in place of buffered readahead.
       file = NewReadaheadRandomAccessFile(std::move(file), readahead);
     }
     if (!sequential_mode && ioptions_.advise_random_on_open) {
@@ -180,52 +184,57 @@ InternalIterator* TableCache::NewIterator(
   bool create_new_table_reader = false;
   TableReader* table_reader = nullptr;
   Cache::Handle* handle = nullptr;
-  if (s.ok()) {
-    if (table_reader_ptr != nullptr) {
-      *table_reader_ptr = nullptr;
-    }
-    size_t readahead = 0;
-    if (for_compaction) {
+  if (table_reader_ptr != nullptr) {
+    *table_reader_ptr = nullptr;
+  }
+  size_t readahead = 0;
+  if (for_compaction) {
 #ifndef NDEBUG
-      bool use_direct_reads_for_compaction = env_options.use_direct_reads;
-      TEST_SYNC_POINT_CALLBACK("TableCache::NewIterator:for_compaction",
-                               &use_direct_reads_for_compaction);
+    bool use_direct_reads_for_compaction = env_options.use_direct_reads;
+    TEST_SYNC_POINT_CALLBACK("TableCache::NewIterator:for_compaction",
+                             &use_direct_reads_for_compaction);
 #endif  // !NDEBUG
-      if (ioptions_.new_table_reader_for_compaction_inputs) {
-        readahead = ioptions_.compaction_readahead_size;
-        create_new_table_reader = true;
-      }
-    } else {
-      readahead = options.readahead_size;
-      create_new_table_reader = readahead > 0;
+    if (ioptions_.new_table_reader_for_compaction_inputs) {
+      // get compaction_readahead_size from env_options allows us to set the
+      // value dynamically
+      readahead = env_options.compaction_readahead_size;
+      create_new_table_reader = true;
     }
+  } else {
+    readahead = options.readahead_size;
+    create_new_table_reader = readahead > 0;
+  }
 
-    if (create_new_table_reader) {
-      unique_ptr<TableReader> table_reader_unique_ptr;
-      s = GetTableReader(
-          env_options, icomparator, fd, true /* sequential_mode */, readahead,
-          !for_compaction /* record stats */, nullptr, &table_reader_unique_ptr,
-          false /* skip_filters */, level,
-          true /* prefetch_index_and_filter_in_cache */, for_compaction);
+  if (create_new_table_reader) {
+    unique_ptr<TableReader> table_reader_unique_ptr;
+    s = GetTableReader(
+        env_options, icomparator, fd, true /* sequential_mode */, readahead,
+        !for_compaction /* record stats */, nullptr, &table_reader_unique_ptr,
+        false /* skip_filters */, level,
+        true /* prefetch_index_and_filter_in_cache */, for_compaction);
+    if (s.ok()) {
+      table_reader = table_reader_unique_ptr.release();
+    }
+  } else {
+    table_reader = fd.table_reader;
+    if (table_reader == nullptr) {
+      s = FindTable(env_options, icomparator, fd, &handle,
+                    options.read_tier == kBlockCacheTier /* no_io */,
+                    !for_compaction /* record read_stats */, file_read_hist,
+                    skip_filters, level);
       if (s.ok()) {
-        table_reader = table_reader_unique_ptr.release();
-      }
-    } else {
-      table_reader = fd.table_reader;
-      if (table_reader == nullptr) {
-        s = FindTable(env_options, icomparator, fd, &handle,
-                      options.read_tier == kBlockCacheTier /* no_io */,
-                      !for_compaction /* record read_stats */, file_read_hist,
-                      skip_filters, level);
-        if (s.ok()) {
-          table_reader = GetTableReaderFromHandle(handle);
-        }
+        table_reader = GetTableReaderFromHandle(handle);
       }
     }
   }
   InternalIterator* result = nullptr;
   if (s.ok()) {
-    result = table_reader->NewIterator(options, arena, skip_filters);
+    if (options.table_filter &&
+        !options.table_filter(*table_reader->GetTableProperties())) {
+      result = NewEmptyInternalIterator(arena);
+    } else {
+      result = table_reader->NewIterator(options, arena, skip_filters);
+    }
     if (create_new_table_reader) {
       assert(handle == nullptr);
       result->RegisterCleanup(&DeleteTableReader, table_reader, nullptr);
@@ -242,13 +251,15 @@ InternalIterator* TableCache::NewIterator(
     }
   }
   if (s.ok() && range_del_agg != nullptr && !options.ignore_range_deletions) {
-    std::unique_ptr<InternalIterator> range_del_iter(
-        table_reader->NewRangeTombstoneIterator(options));
-    if (range_del_iter != nullptr) {
-      s = range_del_iter->status();
-    }
-    if (s.ok()) {
-      s = range_del_agg->AddTombstones(std::move(range_del_iter));
+    if (range_del_agg->AddFile(fd.GetNumber())) {
+      std::unique_ptr<InternalIterator> range_del_iter(
+          table_reader->NewRangeTombstoneIterator(options));
+      if (range_del_iter != nullptr) {
+        s = range_del_iter->status();
+      }
+      if (s.ok()) {
+        s = range_del_agg->AddTombstones(std::move(range_del_iter));
+      }
     }
   }
 
@@ -267,9 +278,8 @@ InternalIterator* TableCache::NewRangeTombstoneIterator(
     const InternalKeyComparator& icomparator, const FileDescriptor& fd,
     HistogramImpl* file_read_hist, bool skip_filters, int level) {
   Status s;
-  TableReader* table_reader = nullptr;
   Cache::Handle* handle = nullptr;
-  table_reader = fd.table_reader;
+  TableReader* table_reader = fd.table_reader;
   if (table_reader == nullptr) {
     s = FindTable(env_options, icomparator, fd, &handle,
                   options.read_tier == kBlockCacheTier /* no_io */,

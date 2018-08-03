@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <limits>
 #include <string>
+#include "db/db_impl.h"
 #include "db/memtable.h"
 #include "db/version_set.h"
 #include "monitoring/thread_status_util.h"
@@ -105,9 +106,9 @@ bool MemTableListVersion::Get(const LookupKey& key, std::string* value,
                               Status* s, MergeContext* merge_context,
                               RangeDelAggregator* range_del_agg,
                               SequenceNumber* seq, const ReadOptions& read_opts,
-                              bool* is_blob_index) {
+                              ReadCallback* callback, bool* is_blob_index) {
   return GetFromList(&memlist_, key, value, s, merge_context, range_del_agg,
-                     seq, read_opts, is_blob_index);
+                     seq, read_opts, callback, is_blob_index);
 }
 
 bool MemTableListVersion::GetFromHistory(
@@ -115,25 +116,30 @@ bool MemTableListVersion::GetFromHistory(
     MergeContext* merge_context, RangeDelAggregator* range_del_agg,
     SequenceNumber* seq, const ReadOptions& read_opts, bool* is_blob_index) {
   return GetFromList(&memlist_history_, key, value, s, merge_context,
-                     range_del_agg, seq, read_opts, is_blob_index);
+                     range_del_agg, seq, read_opts, nullptr /*read_callback*/,
+                     is_blob_index);
 }
 
 bool MemTableListVersion::GetFromList(
     std::list<MemTable*>* list, const LookupKey& key, std::string* value,
     Status* s, MergeContext* merge_context, RangeDelAggregator* range_del_agg,
-    SequenceNumber* seq, const ReadOptions& read_opts, bool* is_blob_index) {
+    SequenceNumber* seq, const ReadOptions& read_opts, ReadCallback* callback,
+    bool* is_blob_index) {
   *seq = kMaxSequenceNumber;
 
   for (auto& memtable : *list) {
     SequenceNumber current_seq = kMaxSequenceNumber;
 
     bool done = memtable->Get(key, value, s, merge_context, range_del_agg,
-                              &current_seq, read_opts, is_blob_index);
+                              &current_seq, read_opts, callback, is_blob_index);
     if (*seq == kMaxSequenceNumber) {
       // Store the most recent sequence number of any operation on this key.
       // Since we only care about the most recent change, we only need to
       // return the first operation found when searching memtables in
       // reverse-chronological order.
+      // current_seq would be equal to kMaxSequenceNumber if the value was to be
+      // skipped. This allows seq to be assigned again when the next value is
+      // read.
       *seq = current_seq;
     }
 
@@ -149,7 +155,7 @@ bool MemTableListVersion::GetFromList(
 }
 
 Status MemTableListVersion::AddRangeTombstoneIterators(
-    const ReadOptions& read_opts, Arena* arena,
+    const ReadOptions& read_opts, Arena* /*arena*/,
     RangeDelAggregator* range_del_agg) {
   assert(range_del_agg != nullptr);
   for (auto& m : memlist_) {
@@ -295,7 +301,7 @@ void MemTableList::PickMemtablesToFlush(autovector<MemTable*>* ret) {
 }
 
 void MemTableList::RollbackMemtableFlush(const autovector<MemTable*>& mems,
-                                         uint64_t file_number) {
+                                         uint64_t /*file_number*/) {
   AutoThreadOperationStageUpdater stage_updater(
       ThreadStatus::STAGE_MEMTABLE_ROLLBACK);
   assert(!mems.empty());
@@ -317,9 +323,10 @@ void MemTableList::RollbackMemtableFlush(const autovector<MemTable*>& mems,
 // Record a successful flush in the manifest file
 Status MemTableList::InstallMemtableFlushResults(
     ColumnFamilyData* cfd, const MutableCFOptions& mutable_cf_options,
-    const autovector<MemTable*>& mems, VersionSet* vset, InstrumentedMutex* mu,
-    uint64_t file_number, autovector<MemTable*>* to_delete,
-    Directory* db_directory, LogBuffer* log_buffer) {
+    const autovector<MemTable*>& mems, LogsWithPrepTracker* prep_tracker,
+    VersionSet* vset, InstrumentedMutex* mu, uint64_t file_number,
+    autovector<MemTable*>* to_delete, Directory* db_directory,
+    LogBuffer* log_buffer) {
   AutoThreadOperationStageUpdater stage_updater(
       ThreadStatus::STAGE_MEMTABLE_INSTALL_FLUSH_RESULTS);
   mu->AssertHeld();
@@ -356,6 +363,7 @@ Status MemTableList::InstallMemtableFlushResults(
     uint64_t batch_file_number = 0;
     size_t batch_count = 0;
     autovector<VersionEdit*> edit_list;
+    autovector<MemTable*> memtables_to_flush;
     // enumerate from the last (earliest) element to see how many batch finished
     for (auto it = memlist.rbegin(); it != memlist.rend(); ++it) {
       MemTable* m = *it;
@@ -368,11 +376,20 @@ Status MemTableList::InstallMemtableFlushResults(
                          "[%s] Level-0 commit table #%" PRIu64 " started",
                          cfd->GetName().c_str(), m->file_number_);
         edit_list.push_back(&m->edit_);
+        memtables_to_flush.push_back(m);
       }
       batch_count++;
     }
 
     if (batch_count > 0) {
+      if (vset->db_options()->allow_2pc) {
+        assert(edit_list.size() > 0);
+        // We piggyback the information of  earliest log file to keep in the
+        // manifest entry for the last file flushed.
+        edit_list.back()->SetMinLogNumberToKeep(PrecomputeMinLogNumberToKeep(
+            vset, *cfd, edit_list, memtables_to_flush, prep_tracker));
+      }
+
       // this can release and reacquire the mutex.
       s = vset->LogAndApply(cfd, mutable_cf_options, edit_list, mu,
                             db_directory);
@@ -463,13 +480,21 @@ void MemTableList::InstallNewVersion() {
   }
 }
 
-uint64_t MemTableList::GetMinLogContainingPrepSection() {
+uint64_t MemTableList::PrecomputeMinLogContainingPrepSection(
+    const autovector<MemTable*>& memtables_to_flush) {
   uint64_t min_log = 0;
 
   for (auto& m : current_->memlist_) {
-    // this mem has been flushed it no longer
-    // needs to hold on the its prep section
-    if (m->flush_completed_) {
+    // Assume the list is very short, we can live with O(m*n). We can optimize
+    // if the performance has some problem.
+    bool should_skip = false;
+    for (MemTable* m_to_flush : memtables_to_flush) {
+      if (m == m_to_flush) {
+        should_skip = true;
+        break;
+      }
+    }
+    if (should_skip) {
       continue;
     }
 

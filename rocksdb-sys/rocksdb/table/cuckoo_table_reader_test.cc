@@ -18,24 +18,24 @@ int main() {
 #endif
 
 #include <inttypes.h>
-#include <gflags/gflags.h>
 #include <vector>
 #include <string>
 #include <map>
 
-#include "table/meta_blocks.h"
 #include "table/cuckoo_table_builder.h"
-#include "table/cuckoo_table_reader.h"
 #include "table/cuckoo_table_factory.h"
+#include "table/cuckoo_table_reader.h"
 #include "table/get_context.h"
+#include "table/meta_blocks.h"
 #include "util/arena.h"
+#include "util/gflags_compat.h"
 #include "util/random.h"
 #include "util/string_util.h"
 #include "util/testharness.h"
 #include "util/testutil.h"
 
-using GFLAGS::ParseCommandLineFlags;
-using GFLAGS::SetUsageMessage;
+using GFLAGS_NAMESPACE::ParseCommandLineFlags;
+using GFLAGS_NAMESPACE::SetUsageMessage;
 
 DEFINE_string(file_dir, "", "Directory where the files will be created"
     " for benchmark. Added for using tmpfs.");
@@ -61,7 +61,7 @@ void AddHashLookups(const std::string& s, uint64_t bucket_id,
 }
 
 uint64_t GetSliceHash(const Slice& s, uint32_t index,
-    uint64_t max_num_buckets) {
+                      uint64_t /*max_num_buckets*/) {
   return hash_map[s.ToString()][index];
 }
 }  // namespace
@@ -560,7 +560,7 @@ int main(int argc, char** argv) {
 #else
 #include <stdio.h>
 
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   fprintf(stderr, "SKIPPED as Cuckoo table is not supported in ROCKSDB_LITE\n");
   return 0;
 }

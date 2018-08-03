@@ -163,7 +163,7 @@ class LogTest : public ::testing::TestWithParam<int> {
         source_holder_(
             test::GetSequentialFileReader(new StringSource(reader_contents_))),
         writer_(std::move(dest_holder_), 123, GetParam()),
-        reader_(NULL, std::move(source_holder_), &report_, true /*checksum*/,
+        reader_(nullptr, std::move(source_holder_), &report_, true /*checksum*/,
                 0 /*initial_offset*/, 123) {
     int header_size = GetParam() ? kRecyclableHeaderSize : kHeaderSize;
     initial_offset_last_record_offsets_[0] = 0;
@@ -195,7 +195,7 @@ class LogTest : public ::testing::TestWithParam<int> {
     }
   }
 
-  void IncrementByte(int offset, int delta) {
+  void IncrementByte(int offset, char delta) {
     dest_contents()[offset] += delta;
   }
 
@@ -271,7 +271,7 @@ class LogTest : public ::testing::TestWithParam<int> {
     unique_ptr<SequentialFileReader> file_reader(
         test::GetSequentialFileReader(new StringSource(reader_contents_)));
     unique_ptr<Reader> offset_reader(
-        new Reader(NULL, std::move(file_reader), &report_,
+        new Reader(nullptr, std::move(file_reader), &report_,
                    true /*checksum*/, WrittenBytes() + offset_past_end, 123));
     Slice record;
     std::string scratch;
@@ -284,7 +284,7 @@ class LogTest : public ::testing::TestWithParam<int> {
     unique_ptr<SequentialFileReader> file_reader(
         test::GetSequentialFileReader(new StringSource(reader_contents_)));
     unique_ptr<Reader> offset_reader(
-        new Reader(NULL, std::move(file_reader), &report_,
+        new Reader(nullptr, std::move(file_reader), &report_,
                    true /*checksum*/, initial_offset, 123));
     Slice record;
     std::string scratch;
@@ -487,7 +487,7 @@ TEST_P(LogTest, ChecksumMismatch) {
 
 TEST_P(LogTest, UnexpectedMiddleType) {
   Write("foo");
-  SetByte(6, GetParam() ? kRecyclableMiddleType : kMiddleType);
+  SetByte(6, static_cast<char>(GetParam() ? kRecyclableMiddleType : kMiddleType));
   FixChecksum(0, 3, !!GetParam());
   ASSERT_EQ("EOF", Read());
   ASSERT_EQ(3U, DroppedBytes());
@@ -496,7 +496,7 @@ TEST_P(LogTest, UnexpectedMiddleType) {
 
 TEST_P(LogTest, UnexpectedLastType) {
   Write("foo");
-  SetByte(6, GetParam() ? kRecyclableLastType : kLastType);
+  SetByte(6, static_cast<char>(GetParam() ? kRecyclableLastType : kLastType));
   FixChecksum(0, 3, !!GetParam());
   ASSERT_EQ("EOF", Read());
   ASSERT_EQ(3U, DroppedBytes());
@@ -506,7 +506,7 @@ TEST_P(LogTest, UnexpectedLastType) {
 TEST_P(LogTest, UnexpectedFullType) {
   Write("foo");
   Write("bar");
-  SetByte(6, GetParam() ? kRecyclableFirstType : kFirstType);
+  SetByte(6, static_cast<char>(GetParam() ? kRecyclableFirstType : kFirstType));
   FixChecksum(0, 3, !!GetParam());
   ASSERT_EQ("bar", Read());
   ASSERT_EQ("EOF", Read());
@@ -517,7 +517,7 @@ TEST_P(LogTest, UnexpectedFullType) {
 TEST_P(LogTest, UnexpectedFirstType) {
   Write("foo");
   Write(BigString("bar", 100000));
-  SetByte(6, GetParam() ? kRecyclableFirstType : kFirstType);
+  SetByte(6, static_cast<char>(GetParam() ? kRecyclableFirstType : kFirstType));
   FixChecksum(0, 3, !!GetParam());
   ASSERT_EQ(BigString("bar", 100000), Read());
   ASSERT_EQ("EOF", Read());

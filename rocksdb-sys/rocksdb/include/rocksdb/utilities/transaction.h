@@ -118,7 +118,7 @@ class Transaction {
   // longer be valid and should be discarded after a call to ClearSnapshot().
   virtual void ClearSnapshot() = 0;
 
-  // Prepare the current transation for 2PC
+  // Prepare the current transaction for 2PC
   virtual Status Prepare() = 0;
 
   // Write all batched keys to the db atomically.
@@ -169,8 +169,8 @@ class Transaction {
                      ColumnFamilyHandle* column_family, const Slice& key,
                      std::string* value) = 0;
 
-  // An overload of the the above method that receives a PinnableSlice
-  // For backward compatiblity a default implementation is provided
+  // An overload of the above method that receives a PinnableSlice
+  // For backward compatibility a default implementation is provided
   virtual Status Get(const ReadOptions& options,
                      ColumnFamilyHandle* column_family, const Slice& key,
                      PinnableSlice* pinnable_val) {
@@ -230,12 +230,12 @@ class Transaction {
                               const Slice& key, std::string* value,
                               bool exclusive = true) = 0;
 
-  // An overload of the the above method that receives a PinnableSlice
-  // For backward compatiblity a default implementation is provided
+  // An overload of the above method that receives a PinnableSlice
+  // For backward compatibility a default implementation is provided
   virtual Status GetForUpdate(const ReadOptions& options,
-                              ColumnFamilyHandle* column_family,
+                              ColumnFamilyHandle* /*column_family*/,
                               const Slice& key, PinnableSlice* pinnable_val,
-                              bool exclusive = true) {
+                              bool /*exclusive*/ = true) {
     if (pinnable_val == nullptr) {
       std::string* null_str = nullptr;
       return GetForUpdate(options, key, null_str);
@@ -321,9 +321,9 @@ class Transaction {
   // gets committed successfully.  But unlike Transaction::Put(),
   // no conflict checking will be done for this key.
   //
-  // If this Transaction was created on a TransactionDB, this function will
-  // still acquire locks necessary to make sure this write doesn't cause
-  // conflicts in other transactions and may return Status::Busy().
+  // If this Transaction was created on a PessimisticTransactionDB, this
+  // function will still acquire locks necessary to make sure this write doesn't
+  // cause conflicts in other transactions and may return Status::Busy().
   virtual Status PutUntracked(ColumnFamilyHandle* column_family,
                               const Slice& key, const Slice& value) = 0;
   virtual Status PutUntracked(const Slice& key, const Slice& value) = 0;
@@ -344,6 +344,10 @@ class Transaction {
   virtual Status DeleteUntracked(ColumnFamilyHandle* column_family,
                                  const SliceParts& key) = 0;
   virtual Status DeleteUntracked(const SliceParts& key) = 0;
+  virtual Status SingleDeleteUntracked(ColumnFamilyHandle* column_family,
+                                       const Slice& key) = 0;
+
+  virtual Status SingleDeleteUntracked(const Slice& key) = 0;
 
   // Similar to WriteBatch::PutLogData
   virtual void PutLogData(const Slice& blob) = 0;
@@ -364,7 +368,7 @@ class Transaction {
   virtual void EnableIndexing() = 0;
 
   // Returns the number of distinct Keys being tracked by this transaction.
-  // If this transaction was created by a TransactinDB, this is the number of
+  // If this transaction was created by a TransactionDB, this is the number of
   // keys that are currently locked by this transaction.
   // If this transaction was created by an OptimisticTransactionDB, this is the
   // number of keys that need to be checked for conflicts at commit time.
@@ -436,8 +440,8 @@ class Transaction {
 
   virtual bool IsDeadlockDetect() const { return false; }
 
-  virtual std::vector<TransactionID> GetWaitingTxns(uint32_t* column_family_id,
-                                                    std::string* key) const {
+  virtual std::vector<TransactionID> GetWaitingTxns(
+      uint32_t* /*column_family_id*/, std::string* /*key*/) const {
     assert(false);
     return std::vector<TransactionID>();
   }
@@ -456,9 +460,17 @@ class Transaction {
   TransactionState GetState() const { return txn_state_; }
   void SetState(TransactionState state) { txn_state_ = state; }
 
+  // NOTE: Experimental feature
+  // The globally unique id with which the transaction is identified. This id
+  // might or might not be set depending on the implementation. Similarly the
+  // implementation decides the point in lifetime of a transaction at which it
+  // assigns the id. Although currently it is the case, the id is not guaranteed
+  // to remain the same across restarts.
+  uint64_t GetId() { return id_; }
+
  protected:
-  explicit Transaction(const TransactionDB* db) {}
-  Transaction() {}
+  explicit Transaction(const TransactionDB* /*db*/) {}
+  Transaction() : log_number_(0), txn_state_(STARTED) {}
 
   // the log in which the prepared section for this txn resides
   // (for two phase commit)
@@ -468,7 +480,14 @@ class Transaction {
   // Execution status of the transaction.
   std::atomic<TransactionState> txn_state_;
 
+  uint64_t id_ = 0;
+  virtual void SetId(uint64_t id) {
+    assert(id_ == 0);
+    id_ = id;
+  }
+
  private:
+  friend class PessimisticTransactionDB;
   // No copying allowed
   Transaction(const Transaction&);
   void operator=(const Transaction&);

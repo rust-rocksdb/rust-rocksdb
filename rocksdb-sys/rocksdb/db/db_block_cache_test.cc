@@ -47,7 +47,7 @@ class DBBlockCacheTest : public DBTestBase {
     return options;
   }
 
-  void InitTable(const Options& options) {
+  void InitTable(const Options& /*options*/) {
     std::string value(kValueSize, 'a');
     for (size_t i = 0; i < kNumBlocks; i++) {
       ASSERT_OK(Put(ToString(i), value.c_str()));
@@ -110,6 +110,31 @@ class DBBlockCacheTest : public DBTestBase {
     compressed_failure_count_ = new_failure_count;
   }
 };
+
+TEST_F(DBBlockCacheTest, IteratorBlockCacheUsage) {
+  ReadOptions read_options;
+  read_options.fill_cache = false;
+  auto table_options = GetTableOptions();
+  auto options = GetOptions(table_options);
+  InitTable(options);
+
+  std::shared_ptr<Cache> cache = NewLRUCache(0, 0, false);
+  table_options.block_cache = cache;
+  options.table_factory.reset(new BlockBasedTableFactory(table_options));
+  Reopen(options);
+  RecordCacheCounters(options);
+
+  std::vector<std::unique_ptr<Iterator>> iterators(kNumBlocks - 1);
+  Iterator* iter = nullptr;
+
+  ASSERT_EQ(0, cache->GetUsage());
+  iter = db_->NewIterator(read_options);
+  iter->Seek(ToString(0));
+  ASSERT_LT(0, cache->GetUsage());
+  delete iter;
+  iter = nullptr;
+  ASSERT_EQ(0, cache->GetUsage());
+}
 
 TEST_F(DBBlockCacheTest, TestWithoutCompressedBlockCache) {
   ReadOptions read_options;
@@ -278,6 +303,41 @@ TEST_F(DBBlockCacheTest, IndexAndFilterBlocksOfNewTableAddedToCache) {
   ASSERT_EQ(1, TestGetTickerCount(options, BLOCK_CACHE_INDEX_MISS));
   ASSERT_EQ(index_block_hit + 2,
             TestGetTickerCount(options, BLOCK_CACHE_INDEX_HIT));
+}
+
+// With fill_cache = false, fills up the cache, then iterates over the entire
+// db, verify dummy entries inserted in `BlockBasedTable::NewDataBlockIterator`
+// does not cause heap-use-after-free errors in COMPILE_WITH_ASAN=1 runs
+TEST_F(DBBlockCacheTest, FillCacheAndIterateDB) {
+  ReadOptions read_options;
+  read_options.fill_cache = false;
+  auto table_options = GetTableOptions();
+  auto options = GetOptions(table_options);
+  InitTable(options);
+
+  std::shared_ptr<Cache> cache = NewLRUCache(10, 0, true);
+  table_options.block_cache = cache;
+  options.table_factory.reset(new BlockBasedTableFactory(table_options));
+  Reopen(options);
+  ASSERT_OK(Put("key1", "val1"));
+  ASSERT_OK(Put("key2", "val2"));
+  ASSERT_OK(Flush());
+  ASSERT_OK(Put("key3", "val3"));
+  ASSERT_OK(Put("key4", "val4"));
+  ASSERT_OK(Flush());
+  ASSERT_OK(Put("key5", "val5"));
+  ASSERT_OK(Put("key6", "val6"));
+  ASSERT_OK(Flush());
+
+  Iterator* iter = nullptr;
+
+  iter = db_->NewIterator(read_options);
+  iter->Seek(ToString(0));
+  while (iter->Valid()) {
+    iter->Next();
+  }
+  delete iter;
+  iter = nullptr;
 }
 
 TEST_F(DBBlockCacheTest, IndexAndFilterBlocksStats) {

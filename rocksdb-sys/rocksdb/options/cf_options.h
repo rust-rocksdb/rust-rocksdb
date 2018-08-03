@@ -30,9 +30,6 @@ struct ImmutableCFOptions {
 
   CompactionPri compaction_pri;
 
-  CompactionOptionsUniversal compaction_options_universal;
-  CompactionOptionsFIFO compaction_options_fifo;
-
   const SliceTransform* prefix_extractor;
 
   const Comparator* user_comparator;
@@ -102,8 +99,6 @@ struct ImmutableCFOptions {
 
   bool new_table_reader_for_compaction_inputs;
 
-  size_t compaction_readahead_size;
-
   int num_levels;
 
   bool optimize_filters_for_hits;
@@ -112,7 +107,9 @@ struct ImmutableCFOptions {
 
   bool allow_ingest_behind;
 
-  // A vector of EventListeners which call-back functions will be called
+  bool preserve_deletes;
+
+  // A vector of EventListeners which callback functions will be called
   // when specific RocksDB event happens.
   std::vector<std::shared_ptr<EventListener>> listeners;
 
@@ -121,6 +118,10 @@ struct ImmutableCFOptions {
   uint32_t max_subcompactions;
 
   const SliceTransform* memtable_insert_with_hint_prefix_extractor;
+
+  uint64_t ttl;
+
+  std::vector<DbPath> cf_paths;
 };
 
 struct MutableCFOptions {
@@ -149,6 +150,8 @@ struct MutableCFOptions {
         max_bytes_for_level_multiplier(options.max_bytes_for_level_multiplier),
         max_bytes_for_level_multiplier_additional(
             options.max_bytes_for_level_multiplier_additional),
+        compaction_options_fifo(options.compaction_options_fifo),
+        compaction_options_universal(options.compaction_options_universal),
         max_sequential_skip_in_iterations(
             options.max_sequential_skip_in_iterations),
         paranoid_file_checks(options.paranoid_file_checks),
@@ -176,6 +179,7 @@ struct MutableCFOptions {
         target_file_size_multiplier(0),
         max_bytes_for_level_base(0),
         max_bytes_for_level_multiplier(0),
+        compaction_options_fifo(),
         max_sequential_skip_in_iterations(0),
         paranoid_file_checks(false),
         report_bg_io_stats(false),
@@ -188,8 +192,6 @@ struct MutableCFOptions {
     RefreshDerivedOptions(ioptions.num_levels, ioptions.compaction_style);
   }
 
-  // Get the max file size in a given level.
-  uint64_t MaxFileSizeForLevel(int level) const;
   int MaxBytesMultiplerAdditional(int level) const {
     if (level >=
         static_cast<int>(max_bytes_for_level_multiplier_additional.size())) {
@@ -222,6 +224,8 @@ struct MutableCFOptions {
   uint64_t max_bytes_for_level_base;
   double max_bytes_for_level_multiplier;
   std::vector<int> max_bytes_for_level_multiplier_additional;
+  CompactionOptionsFIFO compaction_options_fifo;
+  CompactionOptionsUniversal compaction_options_universal;
 
   // Misc options
   uint64_t max_sequential_skip_in_iterations;
@@ -236,4 +240,8 @@ struct MutableCFOptions {
 
 uint64_t MultiplyCheckOverflow(uint64_t op1, double op2);
 
+// Get the max file size in a given level.
+uint64_t MaxFileSizeForLevel(const MutableCFOptions& cf_options,
+    int level, CompactionStyle compaction_style, int base_level = 1,
+    bool level_compaction_dynamic_level_bytes = false);
 }  // namespace rocksdb

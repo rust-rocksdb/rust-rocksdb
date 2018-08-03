@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "monitoring/perf_context_imp.h"
 #include "rocksdb/slice.h"
 #include "rocksdb/utilities/transaction_db_mutex.h"
 #include "util/cast_util.h"
@@ -320,11 +321,10 @@ Status TransactionLockMgr::AcquireWithTimeout(
     uint32_t column_family_id, const std::string& key, Env* env,
     int64_t timeout, const LockInfo& lock_info) {
   Status result;
-  uint64_t start_time = 0;
   uint64_t end_time = 0;
 
   if (timeout > 0) {
-    start_time = env->NowMicros();
+    uint64_t start_time = env->NowMicros();
     end_time = start_time + timeout;
   }
 
@@ -347,6 +347,8 @@ Status TransactionLockMgr::AcquireWithTimeout(
                          &expire_time_hint, &wait_ids);
 
   if (!result.ok() && timeout != 0) {
+    PERF_TIMER_GUARD(key_lock_wait_time);
+    PERF_COUNTER_ADD(key_lock_wait_count, 1);
     // If we weren't able to acquire the lock, we will keep retrying as long
     // as the timeout allows.
     bool timed_out = false;
@@ -528,9 +530,10 @@ Status TransactionLockMgr::AcquireLocked(LockMap* lock_map,
 
   Status result;
   // Check if this key is already locked
-  if (stripe->keys.find(key) != stripe->keys.end()) {
+  auto stripe_iter = stripe->keys.find(key);
+  if (stripe_iter != stripe->keys.end()) {
     // Lock already held
-    LockInfo& lock_info = stripe->keys.at(key);
+    LockInfo& lock_info = stripe_iter->second;
     assert(lock_info.txn_ids.size() == 1 || !lock_info.exclusive);
 
     if (lock_info.exclusive || txn_lock_info.exclusive) {
@@ -588,6 +591,9 @@ void TransactionLockMgr::UnLockKey(const PessimisticTransaction* txn,
                                    const std::string& key,
                                    LockMapStripe* stripe, LockMap* lock_map,
                                    Env* env) {
+#ifdef NDEBUG
+  (void)env;
+#endif
   TransactionID txn_id = txn->GetID();
 
   auto stripe_iter = stripe->keys.find(key);

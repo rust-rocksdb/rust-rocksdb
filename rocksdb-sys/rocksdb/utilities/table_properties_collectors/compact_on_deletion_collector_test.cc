@@ -20,7 +20,7 @@
 #include "util/random.h"
 #include "utilities/table_properties_collectors/compact_on_deletion_collector.h"
 
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   const int kWindowSizes[] =
       {1000, 10000, 10000, 127, 128, 129, 255, 256, 257, 2, 10000};
   const int kDeletionTriggers[] =
@@ -58,12 +58,12 @@ int main(int argc, char** argv) {
     const int kBias = (kNumDeletionTrigger + kBucketSize - 1) / kBucketSize;
     // Simple test
     {
-      std::unique_ptr<rocksdb::TablePropertiesCollector> collector;
       auto factory = rocksdb::NewCompactOnDeletionCollectorFactory(
           kWindowSize, kNumDeletionTrigger);
-      collector.reset(factory->CreateTablePropertiesCollector(context));
       const int kSample = 10;
       for (int delete_rate = 0; delete_rate <= kSample; ++delete_rate) {
+        std::unique_ptr<rocksdb::TablePropertiesCollector> collector(
+            factory->CreateTablePropertiesCollector(context));
         int deletions = 0;
         for (int i = 0; i < kPaddedWindowSize; ++i) {
           if (i % kSample < delete_rate) {
@@ -90,12 +90,12 @@ int main(int argc, char** argv) {
 
     // Only one section of a file satisfies the compaction trigger
     {
-      std::unique_ptr<rocksdb::TablePropertiesCollector> collector;
       auto factory = rocksdb::NewCompactOnDeletionCollectorFactory(
           kWindowSize, kNumDeletionTrigger);
-      collector.reset(factory->CreateTablePropertiesCollector(context));
       const int kSample = 10;
       for (int delete_rate = 0; delete_rate <= kSample; ++delete_rate) {
+        std::unique_ptr<rocksdb::TablePropertiesCollector> collector(
+            factory->CreateTablePropertiesCollector(context));
         int deletions = 0;
         for (int section = 0; section < 5; ++section) {
           int initial_entries = rnd.Uniform(kWindowSize) + kWindowSize;
@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
   fprintf(stderr, "PASSED\n");
 }
 #else
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   fprintf(stderr, "SKIPPED as RocksDBLite does not include utilities.\n");
   return 0;
 }

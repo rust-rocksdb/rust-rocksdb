@@ -11,6 +11,7 @@
 #include <functional>
 
 #include "db/db_test_util.h"
+#include "db/read_callback.h"
 #include "port/port.h"
 #include "port/stack_trace.h"
 #include "rocksdb/persistent_cache.h"
@@ -497,9 +498,9 @@ TEST_F(DBTest2, WalFilterTest) {
       apply_option_at_record_index_(apply_option_for_record_index),
       current_record_index_(0) {}
 
-    virtual WalProcessingOption LogRecord(const WriteBatch& batch,
-      WriteBatch* new_batch,
-      bool* batch_changed) const override {
+    virtual WalProcessingOption LogRecord(
+        const WriteBatch& /*batch*/, WriteBatch* /*new_batch*/,
+        bool* /*batch_changed*/) const override {
       WalFilter::WalProcessingOption option_to_return;
 
       if (current_record_index_ == apply_option_at_record_index_) {
@@ -873,11 +874,10 @@ TEST_F(DBTest2, WalFilterTestWithColumnFamilies) {
       cf_name_id_map_ = cf_name_id_map;
     }
 
-    virtual WalProcessingOption LogRecordFound(unsigned long long log_number,
-      const std::string& log_file_name,
-      const WriteBatch& batch,
-      WriteBatch* new_batch,
-      bool* batch_changed) override {
+    virtual WalProcessingOption LogRecordFound(
+        unsigned long long log_number, const std::string& /*log_file_name*/,
+        const WriteBatch& batch, WriteBatch* /*new_batch*/,
+        bool* /*batch_changed*/) override {
       class LogRecordBatchHandler : public WriteBatch::Handler {
       private:
         const std::map<uint32_t, uint64_t> & cf_log_number_map_;
@@ -1026,6 +1026,7 @@ TEST_F(DBTest2, PresetCompressionDict) {
   const size_t kL0FileBytes = 128 << 10;
   const size_t kApproxPerBlockOverheadBytes = 50;
   const int kNumL0Files = 5;
+  const int kZstdTrainFactor = 16;
 
   Options options;
   options.env = CurrentOptions().env; // Make sure to use any custom env that the test is configured with.
@@ -1058,17 +1059,34 @@ TEST_F(DBTest2, PresetCompressionDict) {
   for (auto compression_type : compression_types) {
     options.compression = compression_type;
     size_t prev_out_bytes;
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 3; ++i) {
       // First iteration: compress without preset dictionary
       // Second iteration: compress with preset dictionary
-      // To make sure the compression dictionary was actually used, we verify
-      // the compressed size is smaller in the second iteration. Also in the
-      // second iteration, verify the data we get out is the same data we put
-      // in.
-      if (i) {
-        options.compression_opts.max_dict_bytes = kBlockSizeBytes;
-      } else {
-        options.compression_opts.max_dict_bytes = 0;
+      // Third iteration (zstd only): compress with zstd-trained dictionary
+      //
+      // To make sure the compression dictionary has the intended effect, we
+      // verify the compressed size is smaller in successive iterations. Also in
+      // the non-first iterations, verify the data we get out is the same data
+      // we put in.
+      switch (i) {
+        case 0:
+          options.compression_opts.max_dict_bytes = 0;
+          options.compression_opts.zstd_max_train_bytes = 0;
+          break;
+        case 1:
+          options.compression_opts.max_dict_bytes = kBlockSizeBytes;
+          options.compression_opts.zstd_max_train_bytes = 0;
+          break;
+        case 2:
+          if (compression_type != kZSTD) {
+            continue;
+          }
+          options.compression_opts.max_dict_bytes = kBlockSizeBytes;
+          options.compression_opts.zstd_max_train_bytes =
+              kZstdTrainFactor * kBlockSizeBytes;
+          break;
+        default:
+          assert(false);
       }
 
       options.statistics = rocksdb::CreateDBStatistics();
@@ -1094,7 +1112,7 @@ TEST_F(DBTest2, PresetCompressionDict) {
 
       size_t out_bytes = 0;
       std::vector<std::string> files;
-      GetSstFiles(dbname_, &files);
+      GetSstFiles(env_, dbname_, &files);
       for (const auto& file : files) {
         uint64_t curr_bytes;
         env_->GetFileSize(dbname_ + "/" + file, &curr_bytes);
@@ -1133,7 +1151,7 @@ class CompactionCompressionListener : public EventListener {
     }
 
     if (db_options_->bottommost_compression != kDisableCompressionOption &&
-        ci.output_level == bottommost_level && ci.output_level >= 2) {
+        ci.output_level == bottommost_level) {
       ASSERT_EQ(ci.compression, db_options_->bottommost_compression);
     } else if (db_options_->compression_per_level.size() != 0) {
       ASSERT_EQ(ci.compression,
@@ -1212,7 +1230,7 @@ class CompactionStallTestListener : public EventListener {
  public:
   CompactionStallTestListener() : compacted_files_cnt_(0) {}
 
-  void OnCompactionCompleted(DB* db, const CompactionJobInfo& ci) override {
+  void OnCompactionCompleted(DB* /*db*/, const CompactionJobInfo& ci) override {
     ASSERT_EQ(ci.cf_name, "default");
     ASSERT_EQ(ci.base_input_level, 0);
     ASSERT_EQ(ci.compaction_reason, CompactionReason::kLevelL0FilesNum);
@@ -1673,7 +1691,7 @@ TEST_F(DBTest2, SyncPointMarker) {
   std::atomic<int> sync_point_called(0);
   rocksdb::SyncPoint::GetInstance()->SetCallBack(
       "DBTest2::MarkedPoint",
-      [&](void* arg) { sync_point_called.fetch_add(1); });
+      [&](void* /*arg*/) { sync_point_called.fetch_add(1); });
 
   // The first dependency enforces Marker can be loaded before MarkedPoint.
   // The second checks that thread 1's MarkedPoint should be disabled here.
@@ -1801,11 +1819,29 @@ TEST_F(DBTest2, ReadAmpBitmap) {
 
 #ifndef OS_SOLARIS // GetUniqueIdFromFile is not implemented
 TEST_F(DBTest2, ReadAmpBitmapLiveInCacheAfterDBClose) {
-  if (dbname_.find("dev/shm") != std::string::npos) {
-    // /dev/shm dont support getting a unique file id, this mean that
-    // running this test on /dev/shm will fail because lru_cache will load
-    // the blocks again regardless of them being already in the cache
-    return;
+  {
+    const int kIdBufLen = 100;
+    char id_buf[kIdBufLen];
+#ifndef OS_WIN
+    // You can't open a directory on windows using random access file
+    std::unique_ptr<RandomAccessFile> file;
+    ASSERT_OK(env_->NewRandomAccessFile(dbname_, &file, EnvOptions()));
+    if (file->GetUniqueId(id_buf, kIdBufLen) == 0) {
+      // fs holding db directory doesn't support getting a unique file id,
+      // this means that running this test will fail because lru_cache will load
+      // the blocks again regardless of them being already in the cache
+      return;
+    }
+#else
+    std::unique_ptr<Directory> dir;
+    ASSERT_OK(env_->NewDirectory(dbname_, &dir));
+    if (dir->GetUniqueId(id_buf, kIdBufLen) == 0) {
+      // fs holding db directory doesn't support getting a unique file id,
+      // this means that running this test will fail because lru_cache will load
+      // the blocks again regardless of them being already in the cache
+      return;
+    }
+#endif
   }
   uint32_t bytes_per_bit[2] = {1, 16};
   for (size_t k = 0; k < 2; k++) {
@@ -1918,19 +1954,19 @@ TEST_F(DBTest2, AutomaticCompactionOverlapManualCompaction) {
   ASSERT_OK(db_->CompactRange(cro, nullptr, nullptr));
 
   auto get_stat = [](std::string level_str, LevelStatType type,
-                     std::map<std::string, double> props) {
+                     std::map<std::string, std::string> props) {
     auto prop_str =
-        level_str + "." +
+        "compaction." + level_str + "." +
         InternalStats::compaction_level_stats.at(type).property_name.c_str();
     auto prop_item = props.find(prop_str);
-    return prop_item == props.end() ? 0 : prop_item->second;
+    return prop_item == props.end() ? 0 : std::stod(prop_item->second);
   };
 
   // Trivial move 2 files to L2
   ASSERT_EQ("0,0,2", FilesPerLevel());
   // Also test that the stats GetMapProperty API reporting the same result
   {
-    std::map<std::string, double> prop;
+    std::map<std::string, std::string> prop;
     ASSERT_TRUE(dbfull()->GetMapProperty("rocksdb.cfstats", &prop));
     ASSERT_EQ(0, get_stat("L0", LevelStatType::NUM_FILES, prop));
     ASSERT_EQ(0, get_stat("L1", LevelStatType::NUM_FILES, prop));
@@ -1942,7 +1978,7 @@ TEST_F(DBTest2, AutomaticCompactionOverlapManualCompaction) {
   // can fit in L2, these 2 files will be moved to L2 and overlap with
   // the running compaction and break the LSM consistency.
   rocksdb::SyncPoint::GetInstance()->SetCallBack(
-      "CompactionJob::Run():Start", [&](void* arg) {
+      "CompactionJob::Run():Start", [&](void* /*arg*/) {
         ASSERT_OK(
             dbfull()->SetOptions({{"level0_file_num_compaction_trigger", "2"},
                                   {"max_bytes_for_level_base", "1"}}));
@@ -1966,7 +2002,7 @@ TEST_F(DBTest2, AutomaticCompactionOverlapManualCompaction) {
 
   // Test that the stats GetMapProperty API reporting 1 file in L2
   {
-    std::map<std::string, double> prop;
+    std::map<std::string, std::string> prop;
     ASSERT_TRUE(dbfull()->GetMapProperty("rocksdb.cfstats", &prop));
     ASSERT_EQ(1, get_stat("L2", LevelStatType::NUM_FILES, prop));
   }
@@ -2008,7 +2044,7 @@ TEST_F(DBTest2, ManualCompactionOverlapManualCompaction) {
   // the running compaction and break the LSM consistency.
   std::atomic<bool> flag(false);
   rocksdb::SyncPoint::GetInstance()->SetCallBack(
-      "CompactionJob::Run():Start", [&](void* arg) {
+      "CompactionJob::Run():Start", [&](void* /*arg*/) {
         if (flag.exchange(true)) {
           // We want to make sure to call this callback only once
           return;
@@ -2260,7 +2296,8 @@ TEST_F(DBTest2, RateLimitedCompactionReads) {
                              kBytesPerKey) /* rate_bytes_per_sec */,
         10 * 1000 /* refill_period_us */, 10 /* fairness */,
         RateLimiter::Mode::kReadsOnly));
-    options.use_direct_io_for_flush_and_compaction = use_direct_io;
+    options.use_direct_reads = options.use_direct_io_for_flush_and_compaction =
+        use_direct_io;
     BlockBasedTableOptions bbto;
     bbto.block_size = 16384;
     bbto.no_block_cache = true;
@@ -2282,7 +2319,7 @@ TEST_F(DBTest2, RateLimitedCompactionReads) {
     // chose 1MB as the upper bound on the total bytes read.
     size_t rate_limited_bytes =
         options.rate_limiter->GetTotalBytesThrough(Env::IO_LOW);
-    // Include the explict prefetch of the footer in direct I/O case.
+    // Include the explicit prefetch of the footer in direct I/O case.
     size_t direct_io_extra = use_direct_io ? 512 * 1024 : 0;
     ASSERT_GE(rate_limited_bytes,
               static_cast<size_t>(kNumKeysPerFile * kBytesPerKey * kNumL0Files +
@@ -2331,6 +2368,140 @@ TEST_F(DBTest2, ReduceLevel) {
   ASSERT_EQ("0,1", FilesPerLevel());
 #endif  // !ROCKSDB_LITE
 }
+
+// Test that ReadCallback is actually used in both memtbale and sst tables
+TEST_F(DBTest2, ReadCallbackTest) {
+  Options options;
+  options.disable_auto_compactions = true;
+  options.num_levels = 7;
+  Reopen(options);
+  std::vector<const Snapshot*> snapshots;
+  // Try to create a db with multiple layers and a memtable
+  const std::string key = "foo";
+  const std::string value = "bar";
+  // This test assumes that the seq start with 1 and increased by 1 after each
+  // write batch of size 1. If that behavior changes, the test needs to be
+  // updated as well.
+  // TODO(myabandeh): update this test to use the seq number that is returned by
+  // the DB instead of assuming what seq the DB used.
+  int i = 1;
+  for (; i < 10; i++) {
+    Put(key, value + std::to_string(i));
+    // Take a snapshot to avoid the value being removed during compaction
+    auto snapshot = dbfull()->GetSnapshot();
+    snapshots.push_back(snapshot);
+  }
+  Flush();
+  for (; i < 20; i++) {
+    Put(key, value + std::to_string(i));
+    // Take a snapshot to avoid the value being removed during compaction
+    auto snapshot = dbfull()->GetSnapshot();
+    snapshots.push_back(snapshot);
+  }
+  Flush();
+  MoveFilesToLevel(6);
+#ifndef ROCKSDB_LITE
+  ASSERT_EQ("0,0,0,0,0,0,2", FilesPerLevel());
+#endif  // !ROCKSDB_LITE
+  for (; i < 30; i++) {
+    Put(key, value + std::to_string(i));
+    auto snapshot = dbfull()->GetSnapshot();
+    snapshots.push_back(snapshot);
+  }
+  Flush();
+#ifndef ROCKSDB_LITE
+  ASSERT_EQ("1,0,0,0,0,0,2", FilesPerLevel());
+#endif  // !ROCKSDB_LITE
+  // And also add some values to the memtable
+  for (; i < 40; i++) {
+    Put(key, value + std::to_string(i));
+    auto snapshot = dbfull()->GetSnapshot();
+    snapshots.push_back(snapshot);
+  }
+
+  class TestReadCallback : public ReadCallback {
+   public:
+    explicit TestReadCallback(SequenceNumber snapshot) : snapshot_(snapshot) {}
+    virtual bool IsCommitted(SequenceNumber seq) override {
+      return seq <= snapshot_;
+    }
+
+   private:
+    SequenceNumber snapshot_;
+  };
+
+  for (int seq = 1; seq < i; seq++) {
+    PinnableSlice pinnable_val;
+    ReadOptions roptions;
+    TestReadCallback callback(seq);
+    bool dont_care = true;
+    Status s = dbfull()->GetImpl(roptions, dbfull()->DefaultColumnFamily(), key,
+                                 &pinnable_val, &dont_care, &callback);
+    ASSERT_TRUE(s.ok());
+    // Assuming that after each Put the DB increased seq by one, the value and
+    // seq number must be equal since we also inc value by 1 after each Put.
+    ASSERT_EQ(value + std::to_string(seq), pinnable_val.ToString());
+  }
+
+  for (auto snapshot : snapshots) {
+    dbfull()->ReleaseSnapshot(snapshot);
+  }
+}
+
+#ifndef ROCKSDB_LITE
+
+TEST_F(DBTest2, LiveFilesOmitObsoleteFiles) {
+  // Regression test for race condition where an obsolete file is returned to
+  // user as a "live file" but then deleted, all while file deletions are
+  // disabled.
+  //
+  // It happened like this:
+  //
+  // 1. [flush thread] Log file "x.log" found by FindObsoleteFiles
+  // 2. [user thread] DisableFileDeletions, GetSortedWalFiles are called and the
+  //    latter returned "x.log"
+  // 3. [flush thread] PurgeObsoleteFiles deleted "x.log"
+  // 4. [user thread] Reading "x.log" failed
+  //
+  // Unfortunately the only regression test I can come up with involves sleep.
+  // We cannot set SyncPoints to repro since, once the fix is applied, the
+  // SyncPoints would cause a deadlock as the repro's sequence of events is now
+  // prohibited.
+  //
+  // Instead, if we sleep for a second between Find and Purge, and ensure the
+  // read attempt happens after purge, then the sequence of events will almost
+  // certainly happen on the old code.
+  rocksdb::SyncPoint::GetInstance()->LoadDependency({
+      {"DBImpl::BackgroundCallFlush:FilesFound",
+       "DBTest2::LiveFilesOmitObsoleteFiles:FlushTriggered"},
+      {"DBImpl::PurgeObsoleteFiles:End",
+       "DBTest2::LiveFilesOmitObsoleteFiles:LiveFilesCaptured"},
+  });
+  rocksdb::SyncPoint::GetInstance()->SetCallBack(
+      "DBImpl::PurgeObsoleteFiles:Begin",
+      [&](void* /*arg*/) { env_->SleepForMicroseconds(1000000); });
+  rocksdb::SyncPoint::GetInstance()->EnableProcessing();
+
+  Put("key", "val");
+  FlushOptions flush_opts;
+  flush_opts.wait = false;
+  db_->Flush(flush_opts);
+  TEST_SYNC_POINT("DBTest2::LiveFilesOmitObsoleteFiles:FlushTriggered");
+
+  db_->DisableFileDeletions();
+  VectorLogPtr log_files;
+  db_->GetSortedWalFiles(log_files);
+  TEST_SYNC_POINT("DBTest2::LiveFilesOmitObsoleteFiles:LiveFilesCaptured");
+  for (const auto& log_file : log_files) {
+    ASSERT_OK(env_->FileExists(LogFileName(dbname_, log_file->LogNumber())));
+  }
+
+  db_->EnableFileDeletions();
+  rocksdb::SyncPoint::GetInstance()->DisableProcessing();
+}
+
+#endif  // ROCKSDB_LITE
+
 }  // namespace rocksdb
 
 int main(int argc, char** argv) {

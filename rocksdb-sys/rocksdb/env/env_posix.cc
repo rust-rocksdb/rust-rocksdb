@@ -23,6 +23,7 @@
 #ifdef OS_LINUX
 #include <sys/statfs.h>
 #include <sys/syscall.h>
+#include <sys/sysmacros.h>
 #endif
 #include <sys/time.h>
 #include <sys/types.h>
@@ -71,6 +72,10 @@ namespace {
 
 ThreadStatusUpdater* CreateThreadStatusUpdater() {
   return new ThreadStatusUpdater();
+}
+
+inline mode_t GetDBFileMode(bool allow_non_owner_access) {
+  return allow_non_owner_access ? 0644 : 0600;
 }
 
 // list of pathnames that are locked
@@ -166,7 +171,7 @@ class PosixEnv : public Env {
 
     do {
       IOSTATS_TIMER_GUARD(open_nanos);
-      fd = open(fname.c_str(), flags, 0644);
+      fd = open(fname.c_str(), flags, GetDBFileMode(allow_non_owner_access_));
     } while (fd < 0 && errno == EINTR);
     if (fd < 0) {
       return IOError("While opening a file for sequentially reading", fname,
@@ -216,7 +221,7 @@ class PosixEnv : public Env {
 
     do {
       IOSTATS_TIMER_GUARD(open_nanos);
-      fd = open(fname.c_str(), flags, 0644);
+      fd = open(fname.c_str(), flags, GetDBFileMode(allow_non_owner_access_));
     } while (fd < 0 && errno == EINTR);
     if (fd < 0) {
       return IOError("While open a file for random read", fname, errno);
@@ -287,7 +292,7 @@ class PosixEnv : public Env {
 
     do {
       IOSTATS_TIMER_GUARD(open_nanos);
-      fd = open(fname.c_str(), flags, 0644);
+      fd = open(fname.c_str(), flags, GetDBFileMode(allow_non_owner_access_));
     } while (fd < 0 && errno == EINTR);
 
     if (fd < 0) {
@@ -375,7 +380,8 @@ class PosixEnv : public Env {
 
     do {
       IOSTATS_TIMER_GUARD(open_nanos);
-      fd = open(old_fname.c_str(), flags, 0644);
+      fd = open(old_fname.c_str(), flags,
+                GetDBFileMode(allow_non_owner_access_));
     } while (fd < 0 && errno == EINTR);
     if (fd < 0) {
       s = IOError("while reopen file for write", fname, errno);
@@ -427,8 +433,6 @@ class PosixEnv : public Env {
       result->reset(new PosixWritableFile(fname, fd, no_mmap_writes_options));
     }
     return s;
-
-    return s;
   }
 
   virtual Status NewRandomRWFile(const std::string& fname,
@@ -437,7 +441,7 @@ class PosixEnv : public Env {
     int fd = -1;
     while (fd < 0) {
       IOSTATS_TIMER_GUARD(open_nanos);
-      fd = open(fname.c_str(), O_CREAT | O_RDWR, 0644);
+      fd = open(fname.c_str(), O_RDWR, GetDBFileMode(allow_non_owner_access_));
       if (fd < 0) {
         // Error while opening the file
         if (errno == EINTR) {
@@ -450,6 +454,47 @@ class PosixEnv : public Env {
     SetFD_CLOEXEC(fd, &options);
     result->reset(new PosixRandomRWFile(fname, fd, options));
     return Status::OK();
+  }
+
+  virtual Status NewMemoryMappedFileBuffer(
+      const std::string& fname,
+      unique_ptr<MemoryMappedFileBuffer>* result) override {
+    int fd = -1;
+    Status status;
+    while (fd < 0) {
+      IOSTATS_TIMER_GUARD(open_nanos);
+      fd = open(fname.c_str(), O_RDWR, 0644);
+      if (fd < 0) {
+        // Error while opening the file
+        if (errno == EINTR) {
+          continue;
+        }
+        status =
+            IOError("While open file for raw mmap buffer access", fname, errno);
+        break;
+      }
+    }
+    uint64_t size;
+    if (status.ok()) {
+      status = GetFileSize(fname, &size);
+    }
+    void* base = nullptr;
+    if (status.ok()) {
+      base = mmap(nullptr, static_cast<size_t>(size), PROT_READ | PROT_WRITE,
+                  MAP_SHARED, fd, 0);
+      if (base == MAP_FAILED) {
+        status = IOError("while mmap file for read", fname, errno);
+      }
+    }
+    if (status.ok()) {
+      result->reset(
+          new PosixMemoryMappedFileBuffer(base, static_cast<size_t>(size)));
+    }
+    if (fd >= 0) {
+      // don't need to keep it open after mmap has been called
+      close(fd);
+    }
+    return status;
   }
 
   virtual Status NewDirectory(const std::string& name,
@@ -592,6 +637,26 @@ class PosixEnv : public Env {
     return result;
   }
 
+  virtual Status AreFilesSame(const std::string& first,
+                              const std::string& second, bool* res) override {
+    struct stat statbuf[2];
+    if (stat(first.c_str(), &statbuf[0]) != 0) {
+      return IOError("stat file", first, errno);
+    }
+    if (stat(second.c_str(), &statbuf[1]) != 0) {
+      return IOError("stat file", second, errno);
+    }
+
+    if (major(statbuf[0].st_dev) != major(statbuf[1].st_dev) ||
+        minor(statbuf[0].st_dev) != minor(statbuf[1].st_dev) ||
+        statbuf[0].st_ino != statbuf[1].st_ino) {
+      *res = false;
+    } else {
+      *res = true;
+    }
+    return Status::OK();
+  }
+
   virtual Status LockFile(const std::string& fname, FileLock** lock) override {
     *lock = nullptr;
     Status result;
@@ -628,7 +693,7 @@ class PosixEnv : public Env {
 
   virtual void Schedule(void (*function)(void* arg1), void* arg,
                         Priority pri = LOW, void* tag = nullptr,
-                        void (*unschedFunction)(void* arg) = 0) override;
+                        void (*unschedFunction)(void* arg) = nullptr) override;
 
   virtual int UnSchedule(void* arg, Priority pri) override;
 
@@ -744,7 +809,7 @@ class PosixEnv : public Env {
 
   virtual Status GetAbsolutePath(const std::string& db_path,
                                  std::string* output_path) override {
-    if (db_path.find('/') == 0) {
+    if (!db_path.empty() && db_path[0] == '/') {
       *output_path = db_path;
       return Status::OK();
     }
@@ -770,6 +835,11 @@ class PosixEnv : public Env {
     return thread_pools_[pri].GetBackgroundThreads();
   }
 
+  virtual Status SetAllowNonOwnerAccess(bool allow_non_owner_access) override {
+    allow_non_owner_access_ = allow_non_owner_access;
+    return Status::OK();
+  }
+
   // Allow increasing the number of worker threads.
   virtual void IncBackgroundThreadsIfNeeded(int num, Priority pri) override {
     assert(pri >= Priority::BOTTOM && pri <= Priority::HIGH);
@@ -780,6 +850,17 @@ class PosixEnv : public Env {
     assert(pool >= Priority::BOTTOM && pool <= Priority::HIGH);
 #ifdef OS_LINUX
     thread_pools_[pool].LowerIOPriority();
+#else
+    (void)pool;
+#endif
+  }
+
+  virtual void LowerThreadPoolCPUPriority(Priority pool = LOW) override {
+    assert(pool >= Priority::BOTTOM && pool <= Priority::HIGH);
+#ifdef OS_LINUX
+    thread_pools_[pool].LowerCPUPriority();
+#else
+    (void)pool;
 #endif
   }
 
@@ -813,6 +894,8 @@ class PosixEnv : public Env {
     // breaks TransactionLogIteratorStallAtLastRecord unit test. Fix the unit
     // test and make this false
     optimized.fallocate_with_keep_size = true;
+    optimized.writable_file_max_buffer_size =
+        db_options.writable_file_max_buffer_size;
     return optimized;
   }
 
@@ -855,6 +938,7 @@ class PosixEnv : public Env {
         return false;
     }
 #else
+    (void)path;
     return false;
 #endif
   }
@@ -864,13 +948,17 @@ class PosixEnv : public Env {
   std::vector<ThreadPoolImpl> thread_pools_;
   pthread_mutex_t mu_;
   std::vector<pthread_t> threads_to_join_;
+  // If true, allow non owner read access for db files. Otherwise, non-owner
+  //  has no access to db files.
+  bool allow_non_owner_access_;
 };
 
 PosixEnv::PosixEnv()
     : checkedDiskForMmap_(false),
       forceMmapOff_(false),
       page_size_(getpagesize()),
-      thread_pools_(Priority::TOTAL) {
+      thread_pools_(Priority::TOTAL),
+      allow_non_owner_access_(true) {
   ThreadPoolImpl::PthreadCall("mutex_init", pthread_mutex_init(&mu_, nullptr));
   for (int pool_id = 0; pool_id < Env::Priority::TOTAL; ++pool_id) {
     thread_pools_[pool_id].SetThreadPriority(

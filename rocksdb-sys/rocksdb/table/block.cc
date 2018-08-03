@@ -167,8 +167,7 @@ void BlockIter::SeekForPrev(const Slice& target) {
     return;
   }
   uint32_t index = 0;
-  bool ok = false;
-  ok = BinarySeek(target, 0, num_restarts_ - 1, &index);
+  bool ok = BinarySeek(target, 0, num_restarts_ - 1, &index);
 
   if (!ok) {
     return;
@@ -402,6 +401,7 @@ Block::Block(BlockContents&& contents, SequenceNumber _global_seqno,
     : contents_(std::move(contents)),
       data_(contents_.data.data()),
       size_(contents_.data.size()),
+      restart_offset_(0),
       global_seqno_(_global_seqno) {
   if (size_ < sizeof(uint32_t)) {
     size_ = 0;  // Error marker
@@ -420,36 +420,29 @@ Block::Block(BlockContents&& contents, SequenceNumber _global_seqno,
   }
 }
 
-InternalIterator* Block::NewIterator(const Comparator* cmp, BlockIter* iter,
-                                     bool total_order_seek, Statistics* stats) {
+BlockIter* Block::NewIterator(const Comparator* cmp, BlockIter* iter,
+                              bool total_order_seek, Statistics* stats) {
+  BlockIter* ret_iter;
+  if (iter != nullptr) {
+    ret_iter = iter;
+  } else {
+    ret_iter = new BlockIter;
+  }
   if (size_ < 2*sizeof(uint32_t)) {
-    if (iter != nullptr) {
-      iter->SetStatus(Status::Corruption("bad block contents"));
-      return iter;
-    } else {
-      return NewErrorInternalIterator(Status::Corruption("bad block contents"));
-    }
+    ret_iter->Invalidate(Status::Corruption("bad block contents"));
+    return ret_iter;
   }
   const uint32_t num_restarts = NumRestarts();
   if (num_restarts == 0) {
-    if (iter != nullptr) {
-      iter->SetStatus(Status::OK());
-      return iter;
-    } else {
-      return NewEmptyInternalIterator();
-    }
+    // Empty block.
+    ret_iter->Invalidate(Status::OK());
+    return ret_iter;
   } else {
     BlockPrefixIndex* prefix_index_ptr =
         total_order_seek ? nullptr : prefix_index_.get();
-
-    if (iter != nullptr) {
-      iter->Initialize(cmp, data_, restart_offset_, num_restarts,
-                       prefix_index_ptr, global_seqno_, read_amp_bitmap_.get());
-    } else {
-      iter = new BlockIter(cmp, data_, restart_offset_, num_restarts,
-                           prefix_index_ptr, global_seqno_,
-                           read_amp_bitmap_.get());
-    }
+    ret_iter->Initialize(cmp, data_, restart_offset_, num_restarts,
+                         prefix_index_ptr, global_seqno_,
+                         read_amp_bitmap_.get());
 
     if (read_amp_bitmap_) {
       if (read_amp_bitmap_->GetStatistics() != stats) {
@@ -459,7 +452,7 @@ InternalIterator* Block::NewIterator(const Comparator* cmp, BlockIter* iter,
     }
   }
 
-  return iter;
+  return ret_iter;
 }
 
 void Block::SetBlockPrefixIndex(BlockPrefixIndex* prefix_index) {

@@ -11,8 +11,6 @@ int main() {
 }
 #else
 
-#include <gflags/gflags.h>
-
 #include "db/db_impl.h"
 #include "db/dbformat.h"
 #include "monitoring/histogram.h"
@@ -25,11 +23,12 @@ int main() {
 #include "table/plain_table_factory.h"
 #include "table/table_builder.h"
 #include "util/file_reader_writer.h"
+#include "util/gflags_compat.h"
 #include "util/testharness.h"
 #include "util/testutil.h"
 
-using GFLAGS::ParseCommandLineFlags;
-using GFLAGS::SetUsageMessage;
+using GFLAGS_NAMESPACE::ParseCommandLineFlags;
+using GFLAGS_NAMESPACE::SetUsageMessage;
 
 namespace rocksdb {
 
@@ -71,7 +70,7 @@ uint64_t Now(Env* env, bool measured_by_nanosecond) {
 namespace {
 void TableReaderBenchmark(Options& opts, EnvOptions& env_options,
                           ReadOptions& read_options, int num_keys1,
-                          int num_keys2, int num_iter, int prefix_len,
+                          int num_keys2, int num_iter, int /*prefix_len*/,
                           bool if_query_empty_keys, bool for_iterator,
                           bool through_db, bool measured_by_nanosecond) {
   rocksdb::InternalKeyComparator ikc(opts.comparator);

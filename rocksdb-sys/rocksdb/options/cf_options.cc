@@ -27,8 +27,6 @@ ImmutableCFOptions::ImmutableCFOptions(const ImmutableDBOptions& db_options,
                                        const ColumnFamilyOptions& cf_options)
     : compaction_style(cf_options.compaction_style),
       compaction_pri(cf_options.compaction_pri),
-      compaction_options_universal(cf_options.compaction_options_universal),
-      compaction_options_fifo(cf_options.compaction_options_fifo),
       prefix_extractor(cf_options.prefix_extractor.get()),
       user_comparator(cf_options.comparator),
       internal_comparator(InternalKeyComparator(cf_options.comparator)),
@@ -44,6 +42,7 @@ ImmutableCFOptions::ImmutableCFOptions(const ImmutableDBOptions& db_options,
       info_log(db_options.info_log.get()),
       statistics(db_options.statistics.get()),
       rate_limiter(db_options.rate_limiter.get()),
+      info_log_level(db_options.info_log_level),
       env(db_options.env),
       allow_mmap_reads(db_options.allow_mmap_reads),
       allow_mmap_writes(db_options.allow_mmap_writes),
@@ -66,16 +65,18 @@ ImmutableCFOptions::ImmutableCFOptions(const ImmutableDBOptions& db_options,
           db_options.access_hint_on_compaction_start),
       new_table_reader_for_compaction_inputs(
           db_options.new_table_reader_for_compaction_inputs),
-      compaction_readahead_size(db_options.compaction_readahead_size),
       num_levels(cf_options.num_levels),
       optimize_filters_for_hits(cf_options.optimize_filters_for_hits),
       force_consistency_checks(cf_options.force_consistency_checks),
       allow_ingest_behind(db_options.allow_ingest_behind),
+      preserve_deletes(db_options.preserve_deletes),
       listeners(db_options.listeners),
       row_cache(db_options.row_cache),
       max_subcompactions(db_options.max_subcompactions),
       memtable_insert_with_hint_prefix_extractor(
-          cf_options.memtable_insert_with_hint_prefix_extractor.get()) {}
+          cf_options.memtable_insert_with_hint_prefix_extractor.get()),
+      ttl(cf_options.ttl),
+      cf_paths(cf_options.cf_paths) {}
 
 // Multiple two operands. If they overflow, return op1.
 uint64_t MultiplyCheckOverflow(uint64_t op1, double op2) {
@@ -86,6 +87,24 @@ uint64_t MultiplyCheckOverflow(uint64_t op1, double op2) {
     return op1;
   }
   return static_cast<uint64_t>(op1 * op2);
+}
+
+// when level_compaction_dynamic_level_bytes is true and leveled compaction
+// is used, the base level is not always L1, so precomupted max_file_size can
+// no longer be used. Recompute file_size_for_level from base level.
+uint64_t MaxFileSizeForLevel(const MutableCFOptions& cf_options,
+    int level, CompactionStyle compaction_style, int base_level,
+    bool level_compaction_dynamic_level_bytes) {
+  if (!level_compaction_dynamic_level_bytes || level < base_level ||
+      compaction_style != kCompactionStyleLevel) {
+    assert(level >= 0);
+    assert(level < (int)cf_options.max_file_size.size());
+    return cf_options.max_file_size[level];
+  } else {
+    assert(level >= 0 && base_level >= 0);
+    assert(level - base_level < (int)cf_options.max_file_size.size());
+    return cf_options.max_file_size[level - base_level];
+  }
 }
 
 void MutableCFOptions::RefreshDerivedOptions(int num_levels,
@@ -101,12 +120,6 @@ void MutableCFOptions::RefreshDerivedOptions(int num_levels,
       max_file_size[i] = target_file_size_base;
     }
   }
-}
-
-uint64_t MutableCFOptions::MaxFileSizeForLevel(int level) const {
-  assert(level >= 0);
-  assert(level < (int)max_file_size.size());
-  return max_file_size[level];
 }
 
 void MutableCFOptions::Dump(Logger* log) const {

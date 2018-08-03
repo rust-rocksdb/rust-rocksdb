@@ -168,10 +168,10 @@ class Block {
   // If total_order_seek is true, hash_index_ and prefix_index_ are ignored.
   // This option only applies for index block. For data block, hash_index_
   // and prefix_index_ are null, so this option does not matter.
-  InternalIterator* NewIterator(const Comparator* comparator,
-                                BlockIter* iter = nullptr,
-                                bool total_order_seek = true,
-                                Statistics* stats = nullptr);
+  BlockIter* NewIterator(const Comparator* comparator,
+                         BlockIter* iter = nullptr,
+                         bool total_order_seek = true,
+                         Statistics* stats = nullptr);
   void SetBlockPrefixIndex(BlockPrefixIndex* prefix_index);
 
   // Report an approximation of how much memory has been used.
@@ -191,12 +191,15 @@ class Block {
   const SequenceNumber global_seqno_;
 
   // No copying allowed
-  Block(const Block&);
-  void operator=(const Block&);
+  Block(const Block&) = delete;
+  void operator=(const Block&) = delete;
 };
 
-class BlockIter : public InternalIterator {
+class BlockIter final : public InternalIterator {
  public:
+  // Object created using this constructor will behave like an iterator
+  // against an empty block. The state after the creation: Valid()=false
+  // and status() is OK.
   BlockIter()
       : comparator_(nullptr),
         data_(nullptr),
@@ -238,8 +241,24 @@ class BlockIter : public InternalIterator {
     last_bitmap_offset_ = current_ + 1;
   }
 
-  void SetStatus(Status s) {
+  // Makes Valid() return false, status() return `s`, and Seek()/Prev()/etc do
+  // nothing. Calls cleanup functions.
+  void Invalidate(Status s) {
+    // Assert that the BlockIter is never deleted while Pinning is Enabled.
+    assert(!pinned_iters_mgr_ ||
+           (pinned_iters_mgr_ && !pinned_iters_mgr_->PinningEnabled()));
+
+    data_ = nullptr;
+    current_ = restarts_;
     status_ = s;
+
+    // Call cleanup callbacks.
+    Cleanable::Reset();
+
+    // Clear prev entries cache.
+    prev_entries_keys_buff_.clear();
+    prev_entries_.clear();
+    prev_entries_idx_ = -1;
   }
 
   virtual bool Valid() const override { return current_ < restarts_; }
