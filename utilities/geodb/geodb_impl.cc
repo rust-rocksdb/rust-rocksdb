@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 #ifndef ROCKSDB_LITE
 
@@ -11,14 +11,13 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#include <vector>
+#include <limits>
 #include <map>
 #include <string>
-#include <limits>
-#include "db/filename.h"
+#include <vector>
 #include "util/coding.h"
+#include "util/filename.h"
 #include "util/string_util.h"
-
 
 //
 // There are two types of keys. The first type of key-values
@@ -248,7 +247,7 @@ GeoIterator* GeoDBImpl::SearchRadial(const GeoPosition& pos,
       auto res = std::mismatch(qid.begin(), qid.end(), quadkey->begin());
       if (res.first == qid.end()) {
         GeoPosition obj_pos(atof(parts[3].c_str()), atof(parts[4].c_str()));
-        GeoObject obj(obj_pos, parts[4], iter->value().ToString());
+        GeoObject obj(obj_pos, parts[2], iter->value().ToString());
         values.push_back(obj);
         number_of_values--;
       } else {
@@ -285,10 +284,11 @@ std::string GeoDBImpl::MakeKey2(Slice id) {
 std::string GeoDBImpl::MakeKey1Prefix(std::string quadkey,
                                       Slice id) {
   std::string key = "p:";
-  key.reserve(3 + quadkey.size() + id.size());
+  key.reserve(4 + quadkey.size() + id.size());
   key.append(quadkey);
   key.append(":");
   key.append(id.ToString());
+  key.append(":");
   return key;
 }
 

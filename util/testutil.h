@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -72,6 +72,7 @@ class ErrorEnv : public EnvWrapper {
   }
 };
 
+#ifndef NDEBUG
 // An internal comparator that just forward comparing results from the
 // user comparator in it. Can be used to test entities that have no dependency
 // on internal key structure but consumes InternalKeyComparator, like
@@ -94,6 +95,7 @@ class PlainInternalKeyComparator : public InternalKeyComparator {
     user_comparator()->FindShortSuccessor(key);
   }
 };
+#endif
 
 // A test comparator which compare two strings in this way:
 // (1) first compare prefix of 8 bytes in alphabet order,
@@ -121,10 +123,10 @@ class SimpleSuffixReverseComparator : public Comparator {
       return -(suffix_a.compare(suffix_b));
     }
   }
-  virtual void FindShortestSeparator(std::string* start,
-                                     const Slice& limit) const override {}
+  virtual void FindShortestSeparator(std::string* /*start*/,
+                                     const Slice& /*limit*/) const override {}
 
-  virtual void FindShortSuccessor(std::string* key) const override {}
+  virtual void FindShortSuccessor(std::string* /*key*/) const override {}
 };
 
 // Returns a user key comparator that can be used for comparing two uint64_t
@@ -157,6 +159,16 @@ class VectorIterator : public InternalIterator {
   virtual void Seek(const Slice& target) override {
     current_ = std::lower_bound(keys_.begin(), keys_.end(), target.ToString()) -
                keys_.begin();
+  }
+
+  virtual void SeekForPrev(const Slice& target) override {
+    current_ = std::upper_bound(keys_.begin(), keys_.end(), target.ToString()) -
+               keys_.begin();
+    if (!Valid()) {
+      SeekToLast();
+    } else {
+      Prev();
+    }
   }
 
   virtual void Next() override { current_++; }
@@ -228,6 +240,44 @@ class StringSink: public WritableFile {
  private:
   Slice* reader_contents_;
   size_t last_flush_;
+};
+
+// A wrapper around a StringSink to give it a RandomRWFile interface
+class RandomRWStringSink : public RandomRWFile {
+ public:
+  explicit RandomRWStringSink(StringSink* ss) : ss_(ss) {}
+
+  Status Write(uint64_t offset, const Slice& data) {
+    if (offset + data.size() > ss_->contents_.size()) {
+      ss_->contents_.resize(offset + data.size(), '\0');
+    }
+
+    char* pos = const_cast<char*>(ss_->contents_.data() + offset);
+    memcpy(pos, data.data(), data.size());
+    return Status::OK();
+  }
+
+  Status Read(uint64_t offset, size_t n, Slice* result,
+              char* /*scratch*/) const {
+    *result = Slice(nullptr, 0);
+    if (offset < ss_->contents_.size()) {
+      size_t str_res_sz =
+          std::min(static_cast<size_t>(ss_->contents_.size() - offset), n);
+      *result = Slice(ss_->contents_.data() + offset, str_res_sz);
+    }
+    return Status::OK();
+  }
+
+  Status Flush() { return Status::OK(); }
+
+  Status Sync() { return Status::OK(); }
+
+  Status Close() { return Status::OK(); }
+
+  const std::string& contents() const { return ss_->contents(); }
+
+ private:
+  StringSink* ss_;
 };
 
 // Like StringSink, this writes into a string.  Unlink StringSink, it
@@ -329,7 +379,7 @@ class StringSource: public RandomAccessFile {
 class NullLogger : public Logger {
  public:
   using Logger::Logv;
-  virtual void Logv(const char* format, va_list ap) override {}
+  virtual void Logv(const char* /*format*/, va_list /*ap*/) override {}
   virtual size_t GetLogFileSize() const override { return 0; }
 };
 
@@ -410,15 +460,16 @@ class FilterNumber : public CompactionFilter {
 
   std::string last_merge_operand_key() { return last_merge_operand_key_; }
 
-  bool Filter(int level, const rocksdb::Slice& key, const rocksdb::Slice& value,
-              std::string* new_value, bool* value_changed) const override {
+  bool Filter(int /*level*/, const rocksdb::Slice& /*key*/,
+              const rocksdb::Slice& value, std::string* /*new_value*/,
+              bool* /*value_changed*/) const override {
     if (value.size() == sizeof(uint64_t)) {
       return num_ == DecodeFixed64(value.data());
     }
     return true;
   }
 
-  bool FilterMergeOperand(int level, const rocksdb::Slice& key,
+  bool FilterMergeOperand(int /*level*/, const rocksdb::Slice& key,
                           const rocksdb::Slice& value) const override {
     last_merge_operand_key_ = key.ToString();
     if (value.size() == sizeof(uint64_t)) {
@@ -516,7 +567,7 @@ class StringEnv : public EnvWrapper {
 
   // The following text is boilerplate that forwards all methods to target()
   Status NewSequentialFile(const std::string& f, unique_ptr<SequentialFile>* r,
-                           const EnvOptions& options) override {
+                           const EnvOptions& /*options*/) override {
     auto iter = files_.find(f);
     if (iter == files_.end()) {
       return Status::NotFound("The specified file does not exist", f);
@@ -524,13 +575,13 @@ class StringEnv : public EnvWrapper {
     r->reset(new SeqStringSource(iter->second));
     return Status::OK();
   }
-  Status NewRandomAccessFile(const std::string& f,
-                             unique_ptr<RandomAccessFile>* r,
-                             const EnvOptions& options) override {
+  Status NewRandomAccessFile(const std::string& /*f*/,
+                             unique_ptr<RandomAccessFile>* /*r*/,
+                             const EnvOptions& /*options*/) override {
     return Status::NotSupported();
   }
   Status NewWritableFile(const std::string& f, unique_ptr<WritableFile>* r,
-                         const EnvOptions& options) override {
+                         const EnvOptions& /*options*/) override {
     auto iter = files_.find(f);
     if (iter != files_.end()) {
       return Status::IOError("The specified file already exists", f);
@@ -538,8 +589,8 @@ class StringEnv : public EnvWrapper {
     r->reset(new StringSink(&files_[f]));
     return Status::OK();
   }
-  virtual Status NewDirectory(const std::string& name,
-                              unique_ptr<Directory>* result) override {
+  virtual Status NewDirectory(const std::string& /*name*/,
+                              unique_ptr<Directory>* /*result*/) override {
     return Status::NotSupported();
   }
   Status FileExists(const std::string& f) override {
@@ -548,21 +599,21 @@ class StringEnv : public EnvWrapper {
     }
     return Status::OK();
   }
-  Status GetChildren(const std::string& dir,
-                     std::vector<std::string>* r) override {
+  Status GetChildren(const std::string& /*dir*/,
+                     std::vector<std::string>* /*r*/) override {
     return Status::NotSupported();
   }
   Status DeleteFile(const std::string& f) override {
     files_.erase(f);
     return Status::OK();
   }
-  Status CreateDir(const std::string& d) override {
+  Status CreateDir(const std::string& /*d*/) override {
     return Status::NotSupported();
   }
-  Status CreateDirIfMissing(const std::string& d) override {
+  Status CreateDirIfMissing(const std::string& /*d*/) override {
     return Status::NotSupported();
   }
-  Status DeleteDir(const std::string& d) override {
+  Status DeleteDir(const std::string& /*d*/) override {
     return Status::NotSupported();
   }
   Status GetFileSize(const std::string& f, uint64_t* s) override {
@@ -574,24 +625,25 @@ class StringEnv : public EnvWrapper {
     return Status::OK();
   }
 
-  Status GetFileModificationTime(const std::string& fname,
-                                 uint64_t* file_mtime) override {
+  Status GetFileModificationTime(const std::string& /*fname*/,
+                                 uint64_t* /*file_mtime*/) override {
     return Status::NotSupported();
   }
 
-  Status RenameFile(const std::string& s, const std::string& t) override {
+  Status RenameFile(const std::string& /*s*/,
+                    const std::string& /*t*/) override {
     return Status::NotSupported();
   }
 
-  Status LinkFile(const std::string& s, const std::string& t) override {
+  Status LinkFile(const std::string& /*s*/, const std::string& /*t*/) override {
     return Status::NotSupported();
   }
 
-  Status LockFile(const std::string& f, FileLock** l) override {
+  Status LockFile(const std::string& /*f*/, FileLock** /*l*/) override {
     return Status::NotSupported();
   }
 
-  Status UnlockFile(FileLock* l) override { return Status::NotSupported(); }
+  Status UnlockFile(FileLock* /*l*/) override { return Status::NotSupported(); }
 
  protected:
   std::unordered_map<std::string, std::string> files_;
@@ -614,14 +666,14 @@ class ChanglingMergeOperator : public MergeOperator {
 
   void SetName(const std::string& name) { name_ = name; }
 
-  virtual bool FullMergeV2(const MergeOperationInput& merge_in,
-                           MergeOperationOutput* merge_out) const override {
+  virtual bool FullMergeV2(const MergeOperationInput& /*merge_in*/,
+                           MergeOperationOutput* /*merge_out*/) const override {
     return false;
   }
-  virtual bool PartialMergeMulti(const Slice& key,
-                                 const std::deque<Slice>& operand_list,
-                                 std::string* new_value,
-                                 Logger* logger) const override {
+  virtual bool PartialMergeMulti(const Slice& /*key*/,
+                                 const std::deque<Slice>& /*operand_list*/,
+                                 std::string* /*new_value*/,
+                                 Logger* /*logger*/) const override {
     return false;
   }
   virtual const char* Name() const override { return name_.c_str(); }
@@ -642,8 +694,9 @@ class ChanglingCompactionFilter : public CompactionFilter {
 
   void SetName(const std::string& name) { name_ = name; }
 
-  bool Filter(int level, const Slice& key, const Slice& existing_value,
-              std::string* new_value, bool* value_changed) const override {
+  bool Filter(int /*level*/, const Slice& /*key*/,
+              const Slice& /*existing_value*/, std::string* /*new_value*/,
+              bool* /*value_changed*/) const override {
     return false;
   }
 
@@ -666,7 +719,7 @@ class ChanglingCompactionFilterFactory : public CompactionFilterFactory {
   void SetName(const std::string& name) { name_ = name; }
 
   std::unique_ptr<CompactionFilter> CreateCompactionFilter(
-      const CompactionFilter::Context& context) override {
+      const CompactionFilter::Context& /*context*/) override {
     return std::unique_ptr<CompactionFilter>();
   }
 
@@ -690,6 +743,8 @@ const SliceTransform* RandomSliceTransform(Random* rnd, int pre_defined = -1);
 TableFactory* RandomTableFactory(Random* rnd, int pre_defined = -1);
 
 std::string RandomName(Random* rnd, const size_t len);
+
+Status DestroyDir(Env* env, const std::string& dir);
 
 }  // namespace test
 }  // namespace rocksdb

@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 package org.rocksdb;
 
@@ -29,12 +29,11 @@ public class WBWIRocksIterator
    */
   public WriteEntry entry() {
     assert(isOwningHandle());
-    assert(entry != null);
     final long ptrs[] = entry1(nativeHandle_);
 
     entry.type = WriteType.fromId((byte)ptrs[0]);
-    entry.key.setNativeHandle(ptrs[1], true);
-    entry.value.setNativeHandle(ptrs[2], ptrs[2] != 0);
+    entry.key.resetNativeHandle(ptrs[1], ptrs[1] != 0);
+    entry.value.resetNativeHandle(ptrs[2], ptrs[2] != 0);
 
     return entry;
   }
@@ -46,6 +45,7 @@ public class WBWIRocksIterator
   @Override final native void next0(long handle);
   @Override final native void prev0(long handle);
   @Override final native void seek0(long handle, byte[] target, int targetLen);
+  @Override final native void seekForPrev0(long handle, byte[] target, int targetLen);
   @Override final native void status0(long handle) throws RocksDBException;
 
   private native long[] entry1(final long handle);
@@ -55,10 +55,13 @@ public class WBWIRocksIterator
    * that created the record in the Write Batch
    */
   public enum WriteType {
-    PUT((byte)0x1),
-    MERGE((byte)0x2),
-    DELETE((byte)0x4),
-    LOG((byte)0x8);
+    PUT((byte)0x0),
+    MERGE((byte)0x1),
+    DELETE((byte)0x2),
+    SINGLE_DELETE((byte)0x3),
+    DELETE_RANGE((byte)0x4),
+    LOG((byte)0x5),
+    XID((byte)0x6);
 
     final byte id;
     WriteType(final byte id) {
@@ -75,6 +78,12 @@ public class WBWIRocksIterator
     }
   }
 
+  @Override
+  public void close() {
+    entry.close();
+    super.close();
+  }
+
   /**
    * Represents an entry returned by
    * {@link org.rocksdb.WBWIRocksIterator#entry()}
@@ -84,7 +93,7 @@ public class WBWIRocksIterator
    * or {@link org.rocksdb.WBWIRocksIterator.WriteType#LOG}
    * will not have a value.
    */
-  public static class WriteEntry {
+  public static class WriteEntry implements AutoCloseable {
     WriteType type = null;
     final DirectSlice key;
     final DirectSlice value;
@@ -101,7 +110,8 @@ public class WBWIRocksIterator
       value = new DirectSlice();
     }
 
-    public WriteEntry(WriteType type, DirectSlice key, DirectSlice value) {
+    public WriteEntry(final WriteType type, final DirectSlice key,
+        final DirectSlice value) {
       this.type = type;
       this.key = key;
       this.value = value;
@@ -154,7 +164,7 @@ public class WBWIRocksIterator
     }
 
     @Override
-    public boolean equals(Object other) {
+    public boolean equals(final Object other) {
       if(other == null) {
         return false;
       } else if (this == other) {
@@ -167,6 +177,12 @@ public class WBWIRocksIterator
       } else {
         return false;
       }
+    }
+
+    @Override
+    public void close() {
+      value.close();
+      key.close();
     }
   }
 }

@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 #ifndef ROCKSDB_LITE
 
@@ -26,7 +26,7 @@ TEST_F(LdbCmdTest, HexToString) {
     auto actual = rocksdb::LDBCommand::HexToString(inPair.first);
     auto expected = inPair.second;
     for (unsigned int i = 0; i < actual.length(); i++) {
-      EXPECT_EQ(expected[i], static_cast<int>(actual[i]));
+      EXPECT_EQ(expected[i], static_cast<int>((signed char) actual[i]));
     }
     auto reverse = rocksdb::LDBCommand::StringToHex(actual);
     EXPECT_STRCASEEQ(inPair.first.c_str(), reverse.c_str());
@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 #else
 #include <stdio.h>
 
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   fprintf(stderr, "SKIPPED as LDBCommand is not supported in ROCKSDB_LITE\n");
   return 0;
 }

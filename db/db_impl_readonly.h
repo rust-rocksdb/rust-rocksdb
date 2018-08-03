@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #pragma once
 
@@ -22,7 +22,7 @@ class DBImplReadOnly : public DBImpl {
   using DB::Get;
   virtual Status Get(const ReadOptions& options,
                      ColumnFamilyHandle* column_family, const Slice& key,
-                     std::string* value) override;
+                     PinnableSlice* value) override;
 
   // TODO: Implement ReadOnly MultiGet?
 
@@ -36,72 +36,81 @@ class DBImplReadOnly : public DBImpl {
       std::vector<Iterator*>* iterators) override;
 
   using DBImpl::Put;
-  virtual Status Put(const WriteOptions& options,
-                     ColumnFamilyHandle* column_family, const Slice& key,
-                     const Slice& value) override {
+  virtual Status Put(const WriteOptions& /*options*/,
+                     ColumnFamilyHandle* /*column_family*/,
+                     const Slice& /*key*/, const Slice& /*value*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
   using DBImpl::Merge;
-  virtual Status Merge(const WriteOptions& options,
-                       ColumnFamilyHandle* column_family, const Slice& key,
-                       const Slice& value) override {
+  virtual Status Merge(const WriteOptions& /*options*/,
+                       ColumnFamilyHandle* /*column_family*/,
+                       const Slice& /*key*/, const Slice& /*value*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
   using DBImpl::Delete;
-  virtual Status Delete(const WriteOptions& options,
-                        ColumnFamilyHandle* column_family,
-                        const Slice& key) override {
+  virtual Status Delete(const WriteOptions& /*options*/,
+                        ColumnFamilyHandle* /*column_family*/,
+                        const Slice& /*key*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
   using DBImpl::SingleDelete;
-  virtual Status SingleDelete(const WriteOptions& options,
-                              ColumnFamilyHandle* column_family,
-                              const Slice& key) override {
+  virtual Status SingleDelete(const WriteOptions& /*options*/,
+                              ColumnFamilyHandle* /*column_family*/,
+                              const Slice& /*key*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
-  virtual Status Write(const WriteOptions& options,
-                       WriteBatch* updates) override {
+  virtual Status Write(const WriteOptions& /*options*/,
+                       WriteBatch* /*updates*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
   using DBImpl::CompactRange;
-  virtual Status CompactRange(const CompactRangeOptions& options,
-                              ColumnFamilyHandle* column_family,
-                              const Slice* begin, const Slice* end) override {
+  virtual Status CompactRange(const CompactRangeOptions& /*options*/,
+                              ColumnFamilyHandle* /*column_family*/,
+                              const Slice* /*begin*/,
+                              const Slice* /*end*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
 
   using DBImpl::CompactFiles;
   virtual Status CompactFiles(
-      const CompactionOptions& compact_options,
-      ColumnFamilyHandle* column_family,
-      const std::vector<std::string>& input_file_names,
-      const int output_level, const int output_path_id = -1) override {
+      const CompactionOptions& /*compact_options*/,
+      ColumnFamilyHandle* /*column_family*/,
+      const std::vector<std::string>& /*input_file_names*/,
+      const int /*output_level*/, const int /*output_path_id*/ = -1,
+      std::vector<std::string>* const /*output_file_names*/ = nullptr
+      ) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
 
-#ifndef ROCKSDB_LITE
   virtual Status DisableFileDeletions() override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
 
-  virtual Status EnableFileDeletions(bool force) override {
+  virtual Status EnableFileDeletions(bool /*force*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
   virtual Status GetLiveFiles(std::vector<std::string>&,
-                              uint64_t* manifest_file_size,
-                              bool flush_memtable = true) override {
+                              uint64_t* /*manifest_file_size*/,
+                              bool /*flush_memtable*/ = true) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
-#endif  // ROCKSDB_LITE
 
   using DBImpl::Flush;
-  virtual Status Flush(const FlushOptions& options,
-                       ColumnFamilyHandle* column_family) override {
+  virtual Status Flush(const FlushOptions& /*options*/,
+                       ColumnFamilyHandle* /*column_family*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
 
   using DBImpl::SyncWAL;
   virtual Status SyncWAL() override {
+    return Status::NotSupported("Not supported operation in read only mode.");
+  }
+
+  using DB::IngestExternalFile;
+  virtual Status IngestExternalFile(
+      ColumnFamilyHandle* /*column_family*/,
+      const std::vector<std::string>& /*external_files*/,
+      const IngestExternalFileOptions& /*ingestion_options*/) override {
     return Status::NotSupported("Not supported operation in read only mode.");
   }
 

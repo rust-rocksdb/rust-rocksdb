@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -14,6 +14,7 @@
 
 #include "db/db_test_util.h"
 #include "port/stack_trace.h"
+#include "rocksdb/listener.h"
 #include "rocksdb/options.h"
 #include "rocksdb/perf_context.h"
 #include "rocksdb/perf_level.h"
@@ -34,6 +35,7 @@ TEST_F(DBPropertiesTest, Empty) {
     Options options;
     options.env = env_;
     options.write_buffer_size = 100000;  // Small write buffer
+    options.allow_concurrent_memtable_write = false;
     options = CurrentOptions(options);
     CreateAndReopenWithCF({"pikachu"}, options);
 
@@ -67,27 +69,27 @@ TEST_F(DBPropertiesTest, Empty) {
     ASSERT_OK(db_->DisableFileDeletions());
     ASSERT_TRUE(
         dbfull()->GetProperty("rocksdb.is-file-deletions-enabled", &num));
-    ASSERT_EQ("1", num);
+    ASSERT_EQ("0", num);
 
     ASSERT_OK(db_->DisableFileDeletions());
     ASSERT_TRUE(
         dbfull()->GetProperty("rocksdb.is-file-deletions-enabled", &num));
-    ASSERT_EQ("2", num);
+    ASSERT_EQ("0", num);
 
     ASSERT_OK(db_->DisableFileDeletions());
     ASSERT_TRUE(
         dbfull()->GetProperty("rocksdb.is-file-deletions-enabled", &num));
-    ASSERT_EQ("3", num);
+    ASSERT_EQ("0", num);
 
     ASSERT_OK(db_->EnableFileDeletions(false));
     ASSERT_TRUE(
         dbfull()->GetProperty("rocksdb.is-file-deletions-enabled", &num));
-    ASSERT_EQ("2", num);
+    ASSERT_EQ("0", num);
 
     ASSERT_OK(db_->EnableFileDeletions());
     ASSERT_TRUE(
         dbfull()->GetProperty("rocksdb.is-file-deletions-enabled", &num));
-    ASSERT_EQ("0", num);
+    ASSERT_EQ("1", num);
   } while (ChangeOptions());
 }
 
@@ -341,7 +343,7 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
   BlockBasedTableOptions table_options;
   table_options.no_block_cache = true;
 
-  DestroyAndReopen(options);
+  CreateAndReopenWithCF({"pikachu"}, options);
   int key_index = 0;
   Random rnd(301);
   for (int num = 0; num < 8; num++) {
@@ -358,25 +360,26 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
   for (int key = 0; key < key_index; key++) {
     Get(Key(key));
   }
-  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.dbstats", &prop));
+  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.cfstats", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_NE(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
   // Reopen and issue Get(). See thee latency tracked
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
   dbfull()->TEST_WaitForCompact();
   for (int key = 0; key < key_index; key++) {
     Get(Key(key));
   }
-  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.dbstats", &prop));
+  ASSERT_TRUE(dbfull()->GetProperty(dbfull()->DefaultColumnFamily(),
+                                    "rocksdb.cf-file-histogram", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_NE(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
   // Reopen and issue iterating. See thee latency tracked
-  Reopen(options);
-  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.dbstats", &prop));
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
+  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.cf-file-histogram", &prop));
   ASSERT_EQ(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
@@ -385,24 +388,50 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
     for (iter->Seek(Key(0)); iter->Valid(); iter->Next()) {
     }
   }
-  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.dbstats", &prop));
+  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.cf-file-histogram", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_NE(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
+  // CF 1 should show no histogram.
+  ASSERT_TRUE(
+      dbfull()->GetProperty(handles_[1], "rocksdb.cf-file-histogram", &prop));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 0 read latency histogram"));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
+  // put something and read it back , CF 1 should show histogram.
+  Put(1, "foo", "bar");
+  Flush(1);
+  dbfull()->TEST_WaitForCompact();
+  ASSERT_EQ("bar", Get(1, "foo"));
+
+  ASSERT_TRUE(
+      dbfull()->GetProperty(handles_[1], "rocksdb.cf-file-histogram", &prop));
+  ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
+
   // options.max_open_files preloads table readers.
   options.max_open_files = -1;
-  Reopen(options);
-  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.dbstats", &prop));
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
+  ASSERT_TRUE(dbfull()->GetProperty(dbfull()->DefaultColumnFamily(),
+                                    "rocksdb.cf-file-histogram", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_NE(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
   for (int key = 0; key < key_index; key++) {
     Get(Key(key));
   }
-  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.dbstats", &prop));
+  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.cfstats", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_NE(std::string::npos, prop.find("** Level 1 read latency histogram"));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
+
+  // Clear internal stats
+  dbfull()->ResetStats();
+  ASSERT_TRUE(dbfull()->GetProperty("rocksdb.cfstats", &prop));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 0 read latency histogram"));
+  ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 }
 
@@ -491,6 +520,7 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
 
     std::string big_value(1000000 * 2, 'x');
     std::string num;
+    uint64_t value;
     SetPerfLevel(kEnableTime);
     ASSERT_TRUE(GetPerfLevel() == kEnableTime);
 
@@ -504,9 +534,9 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
     ASSERT_TRUE(dbfull()->GetProperty(
         handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ(num, "1");
-    perf_context.Reset();
+    get_perf_context()->Reset();
     Get(1, "k1");
-    ASSERT_EQ(1, static_cast<int>(perf_context.get_from_memtable_count));
+    ASSERT_EQ(1, static_cast<int>(get_perf_context()->get_from_memtable_count));
 
     ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k2", big_value));
     ASSERT_TRUE(dbfull()->GetProperty(handles_[1],
@@ -519,12 +549,12 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
         handles_[1], "rocksdb.num-entries-imm-mem-tables", &num));
     ASSERT_EQ(num, "1");
 
-    perf_context.Reset();
+    get_perf_context()->Reset();
     Get(1, "k1");
-    ASSERT_EQ(2, static_cast<int>(perf_context.get_from_memtable_count));
-    perf_context.Reset();
+    ASSERT_EQ(2, static_cast<int>(get_perf_context()->get_from_memtable_count));
+    get_perf_context()->Reset();
     Get(1, "k2");
-    ASSERT_EQ(1, static_cast<int>(perf_context.get_from_memtable_count));
+    ASSERT_EQ(1, static_cast<int>(get_perf_context()->get_from_memtable_count));
 
     ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k3", big_value));
     ASSERT_TRUE(dbfull()->GetProperty(
@@ -538,15 +568,15 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
     ASSERT_TRUE(dbfull()->GetProperty(
         handles_[1], "rocksdb.num-entries-imm-mem-tables", &num));
     ASSERT_EQ(num, "2");
-    perf_context.Reset();
+    get_perf_context()->Reset();
     Get(1, "k2");
-    ASSERT_EQ(2, static_cast<int>(perf_context.get_from_memtable_count));
-    perf_context.Reset();
+    ASSERT_EQ(2, static_cast<int>(get_perf_context()->get_from_memtable_count));
+    get_perf_context()->Reset();
     Get(1, "k3");
-    ASSERT_EQ(1, static_cast<int>(perf_context.get_from_memtable_count));
-    perf_context.Reset();
+    ASSERT_EQ(1, static_cast<int>(get_perf_context()->get_from_memtable_count));
+    get_perf_context()->Reset();
     Get(1, "k1");
-    ASSERT_EQ(3, static_cast<int>(perf_context.get_from_memtable_count));
+    ASSERT_EQ(3, static_cast<int>(get_perf_context()->get_from_memtable_count));
 
     ASSERT_OK(Flush(1));
     ASSERT_TRUE(dbfull()->GetProperty(handles_[1],
@@ -555,11 +585,11 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
     ASSERT_TRUE(dbfull()->GetProperty(
         handles_[1], DB::Properties::kNumImmutableMemTableFlushed, &num));
     ASSERT_EQ(num, "3");
-    ASSERT_TRUE(dbfull()->GetProperty(
-        handles_[1], "rocksdb.cur-size-active-mem-table", &num));
-    // "192" is the size of the metadata of an empty skiplist, this would
+    ASSERT_TRUE(dbfull()->GetIntProperty(
+        handles_[1], "rocksdb.cur-size-active-mem-table", &value));
+    // "192" is the size of the metadata of two empty skiplists, this would
     // break if we change the default skiplist implementation
-    ASSERT_EQ(num, "192");
+    ASSERT_GE(value, 192);
 
     uint64_t int_num;
     uint64_t base_total_size;
@@ -594,7 +624,8 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DBPropertiesTest, GetProperty) {
+// TODO(techdept) : Disabled flaky test #12863555
+TEST_F(DBPropertiesTest, DISABLED_GetProperty) {
   // Set sizes to both background thread pool to be 1 and block them.
   env_->SetBackgroundThreads(1, Env::HIGH);
   env_->SetBackgroundThreads(1, Env::LOW);
@@ -640,7 +671,7 @@ TEST_F(DBPropertiesTest, GetProperty) {
   ASSERT_EQ(num, "0");
   ASSERT_TRUE(dbfull()->GetProperty("rocksdb.estimate-num-keys", &num));
   ASSERT_EQ(num, "1");
-  perf_context.Reset();
+  get_perf_context()->Reset();
 
   ASSERT_OK(dbfull()->Put(writeOpt, "k2", big_value));
   ASSERT_TRUE(dbfull()->GetProperty("rocksdb.num-immutable-mem-table", &num));
@@ -883,7 +914,7 @@ TEST_F(DBPropertiesTest, EstimatePendingCompBytes) {
   Flush();
   ASSERT_TRUE(dbfull()->GetIntProperty(
       "rocksdb.estimate-pending-compaction-bytes", &int_num));
-  ASSERT_EQ(int_num, 0U);
+  ASSERT_GT(int_num, 0U);
 
   ASSERT_OK(dbfull()->Put(writeOpt, "k3", big_value));
   Flush();
@@ -910,7 +941,6 @@ TEST_F(DBPropertiesTest, EstimateCompressionRatio) {
   Options options = CurrentOptions();
   options.compression_per_level = {kNoCompression, kSnappyCompression};
   options.disable_auto_compactions = true;
-  options.max_background_flushes = 0;
   options.num_levels = 2;
   Reopen(options);
 
@@ -956,8 +986,9 @@ class CountingUserTblPropCollector : public TablePropertiesCollector {
     return Status::OK();
   }
 
-  Status AddUserKey(const Slice& user_key, const Slice& value, EntryType type,
-                    SequenceNumber seq, uint64_t file_size) override {
+  Status AddUserKey(const Slice& /*user_key*/, const Slice& /*value*/,
+                    EntryType /*type*/, SequenceNumber /*seq*/,
+                    uint64_t /*file_size*/) override {
     ++count_;
     return Status::OK();
   }
@@ -998,8 +1029,9 @@ class CountingDeleteTabPropCollector : public TablePropertiesCollector {
  public:
   const char* Name() const override { return "CountingDeleteTabPropCollector"; }
 
-  Status AddUserKey(const Slice& user_key, const Slice& value, EntryType type,
-                    SequenceNumber seq, uint64_t file_size) override {
+  Status AddUserKey(const Slice& /*user_key*/, const Slice& /*value*/,
+                    EntryType type, SequenceNumber /*seq*/,
+                    uint64_t /*file_size*/) override {
     if (type == kEntryDelete) {
       num_deletes_++;
     }
@@ -1026,7 +1058,7 @@ class CountingDeleteTabPropCollectorFactory
     : public TablePropertiesCollectorFactory {
  public:
   virtual TablePropertiesCollector* CreateTablePropertiesCollector(
-      TablePropertiesCollectorFactory::Context context) override {
+      TablePropertiesCollectorFactory::Context /*context*/) override {
     return new CountingDeleteTabPropCollector();
   }
   const char* Name() const override {
@@ -1038,7 +1070,6 @@ class CountingDeleteTabPropCollectorFactory
 TEST_F(DBPropertiesTest, GetUserDefinedTableProperties) {
   Options options = CurrentOptions();
   options.level0_file_num_compaction_trigger = (1 << 30);
-  options.max_background_flushes = 0;
   options.table_properties_collector_factories.resize(1);
   std::shared_ptr<CountingUserTblPropCollectorFactory> collector_factory =
       std::make_shared<CountingUserTblPropCollectorFactory>(0);
@@ -1079,7 +1110,6 @@ TEST_F(DBPropertiesTest, GetUserDefinedTableProperties) {
 TEST_F(DBPropertiesTest, UserDefinedTablePropertiesContext) {
   Options options = CurrentOptions();
   options.level0_file_num_compaction_trigger = 3;
-  options.max_background_flushes = 0;
   options.table_properties_collector_factories.resize(1);
   std::shared_ptr<CountingUserTblPropCollectorFactory> collector_factory =
       std::make_shared<CountingUserTblPropCollectorFactory>(1);
@@ -1153,6 +1183,7 @@ TEST_F(DBPropertiesTest, TablePropertiesNeedCompactTest) {
   options.max_bytes_for_level_multiplier = 4;
   options.soft_pending_compaction_bytes_limit = 1024 * 1024;
   options.num_levels = 8;
+  options.env = env_;
 
   std::shared_ptr<TablePropertiesCollectorFactory> collector_factory =
       std::make_shared<CountingDeleteTabPropCollectorFactory>();
@@ -1200,7 +1231,7 @@ TEST_F(DBPropertiesTest, TablePropertiesNeedCompactTest) {
 
   {
     SetPerfLevel(kEnableCount);
-    perf_context.Reset();
+    get_perf_context()->Reset();
     int c = 0;
     std::unique_ptr<Iterator> iter(db_->NewIterator(ReadOptions()));
     iter->Seek(Key(kMaxKey - 100));
@@ -1208,8 +1239,8 @@ TEST_F(DBPropertiesTest, TablePropertiesNeedCompactTest) {
       iter->Next();
     }
     ASSERT_EQ(c, 0);
-    ASSERT_LT(perf_context.internal_delete_skipped_count, 30u);
-    ASSERT_LT(perf_context.internal_key_skipped_count, 30u);
+    ASSERT_LT(get_perf_context()->internal_delete_skipped_count, 30u);
+    ASSERT_LT(get_perf_context()->internal_key_skipped_count, 30u);
     SetPerfLevel(kDisable);
   }
 }
@@ -1224,6 +1255,7 @@ TEST_F(DBPropertiesTest, NeedCompactHintPersistentTest) {
   options.level0_slowdown_writes_trigger = 10;
   options.level0_stop_writes_trigger = 10;
   options.disable_auto_compactions = true;
+  options.env = env_;
 
   std::shared_ptr<TablePropertiesCollectorFactory> collector_factory =
       std::make_shared<CountingDeleteTabPropCollectorFactory>();
@@ -1255,19 +1287,256 @@ TEST_F(DBPropertiesTest, NeedCompactHintPersistentTest) {
   ASSERT_EQ(NumTableFilesAtLevel(0), 0);
   {
     SetPerfLevel(kEnableCount);
-    perf_context.Reset();
+    get_perf_context()->Reset();
     int c = 0;
     std::unique_ptr<Iterator> iter(db_->NewIterator(ReadOptions()));
     for (iter->Seek(Key(0)); iter->Valid(); iter->Next()) {
       c++;
     }
     ASSERT_EQ(c, 2);
-    ASSERT_EQ(perf_context.internal_delete_skipped_count, 0);
+    ASSERT_EQ(get_perf_context()->internal_delete_skipped_count, 0);
     // We iterate every key twice. Is it a bug?
-    ASSERT_LE(perf_context.internal_key_skipped_count, 2);
+    ASSERT_LE(get_perf_context()->internal_key_skipped_count, 2);
     SetPerfLevel(kDisable);
   }
 }
+
+TEST_F(DBPropertiesTest, EstimateNumKeysUnderflow) {
+  Options options;
+  Reopen(options);
+  Put("foo", "bar");
+  Delete("foo");
+  Delete("foo");
+  uint64_t num_keys = 0;
+  ASSERT_TRUE(dbfull()->GetIntProperty("rocksdb.estimate-num-keys", &num_keys));
+  ASSERT_EQ(0, num_keys);
+}
+
+TEST_F(DBPropertiesTest, EstimateOldestKeyTime) {
+  std::unique_ptr<MockTimeEnv> mock_env(new MockTimeEnv(Env::Default()));
+  uint64_t oldest_key_time = 0;
+  Options options;
+  options.env = mock_env.get();
+
+  // "rocksdb.estimate-oldest-key-time" only available to fifo compaction.
+  mock_env->set_current_time(100);
+  for (auto compaction : {kCompactionStyleLevel, kCompactionStyleUniversal,
+                          kCompactionStyleNone}) {
+    options.compaction_style = compaction;
+    options.create_if_missing = true;
+    DestroyAndReopen(options);
+    ASSERT_OK(Put("foo", "bar"));
+    ASSERT_FALSE(dbfull()->GetIntProperty(
+        DB::Properties::kEstimateOldestKeyTime, &oldest_key_time));
+  }
+
+  options.compaction_style = kCompactionStyleFIFO;
+  options.compaction_options_fifo.ttl = 300;
+  options.compaction_options_fifo.allow_compaction = false;
+  DestroyAndReopen(options);
+
+  mock_env->set_current_time(100);
+  ASSERT_OK(Put("k1", "v1"));
+  ASSERT_TRUE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                       &oldest_key_time));
+  ASSERT_EQ(100, oldest_key_time);
+  ASSERT_OK(Flush());
+  ASSERT_EQ("1", FilesPerLevel());
+  ASSERT_TRUE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                       &oldest_key_time));
+  ASSERT_EQ(100, oldest_key_time);
+
+  mock_env->set_current_time(200);
+  ASSERT_OK(Put("k2", "v2"));
+  ASSERT_OK(Flush());
+  ASSERT_EQ("2", FilesPerLevel());
+  ASSERT_TRUE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                       &oldest_key_time));
+  ASSERT_EQ(100, oldest_key_time);
+
+  mock_env->set_current_time(300);
+  ASSERT_OK(Put("k3", "v3"));
+  ASSERT_OK(Flush());
+  ASSERT_EQ("3", FilesPerLevel());
+  ASSERT_TRUE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                       &oldest_key_time));
+  ASSERT_EQ(100, oldest_key_time);
+
+  mock_env->set_current_time(450);
+  ASSERT_OK(dbfull()->CompactRange(CompactRangeOptions(), nullptr, nullptr));
+  ASSERT_EQ("2", FilesPerLevel());
+  ASSERT_TRUE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                       &oldest_key_time));
+  ASSERT_EQ(200, oldest_key_time);
+
+  mock_env->set_current_time(550);
+  ASSERT_OK(dbfull()->CompactRange(CompactRangeOptions(), nullptr, nullptr));
+  ASSERT_EQ("1", FilesPerLevel());
+  ASSERT_TRUE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                       &oldest_key_time));
+  ASSERT_EQ(300, oldest_key_time);
+
+  mock_env->set_current_time(650);
+  ASSERT_OK(dbfull()->CompactRange(CompactRangeOptions(), nullptr, nullptr));
+  ASSERT_EQ("", FilesPerLevel());
+  ASSERT_FALSE(dbfull()->GetIntProperty(DB::Properties::kEstimateOldestKeyTime,
+                                        &oldest_key_time));
+
+  // Close before mock_env destructs.
+  Close();
+}
+
+TEST_F(DBPropertiesTest, SstFilesSize) {
+  struct TestListener : public EventListener {
+    void OnCompactionCompleted(DB* db,
+                               const CompactionJobInfo& /*info*/) override {
+      assert(callback_triggered == false);
+      assert(size_before_compaction > 0);
+      callback_triggered = true;
+      uint64_t total_sst_size = 0;
+      uint64_t live_sst_size = 0;
+      bool ok = db->GetIntProperty(DB::Properties::kTotalSstFilesSize,
+                                   &total_sst_size);
+      ASSERT_TRUE(ok);
+      // total_sst_size include files before and after compaction.
+      ASSERT_GT(total_sst_size, size_before_compaction);
+      ok =
+          db->GetIntProperty(DB::Properties::kLiveSstFilesSize, &live_sst_size);
+      ASSERT_TRUE(ok);
+      // live_sst_size only include files after compaction.
+      ASSERT_GT(live_sst_size, 0);
+      ASSERT_LT(live_sst_size, size_before_compaction);
+    }
+
+    uint64_t size_before_compaction = 0;
+    bool callback_triggered = false;
+  };
+  std::shared_ptr<TestListener> listener = std::make_shared<TestListener>();
+
+  Options options;
+  options.disable_auto_compactions = true;
+  options.listeners.push_back(listener);
+  Reopen(options);
+
+  for (int i = 0; i < 10; i++) {
+    ASSERT_OK(Put("key" + ToString(i), std::string(1000, 'v')));
+  }
+  ASSERT_OK(Flush());
+  for (int i = 0; i < 5; i++) {
+    ASSERT_OK(Delete("key" + ToString(i)));
+  }
+  ASSERT_OK(Flush());
+  uint64_t sst_size;
+  bool ok = db_->GetIntProperty(DB::Properties::kTotalSstFilesSize, &sst_size);
+  ASSERT_TRUE(ok);
+  ASSERT_GT(sst_size, 0);
+  listener->size_before_compaction = sst_size;
+  // Compact to clean all keys and trigger listener.
+  ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
+  ASSERT_TRUE(listener->callback_triggered);
+}
+
+TEST_F(DBPropertiesTest, BlockCacheProperties) {
+  Options options;
+  uint64_t value;
+
+  // Block cache properties are not available for tables other than
+  // block-based table.
+  options.table_factory.reset(NewPlainTableFactory());
+  Reopen(options);
+  ASSERT_FALSE(
+      db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_FALSE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  ASSERT_FALSE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+
+  options.table_factory.reset(NewCuckooTableFactory());
+  Reopen(options);
+  ASSERT_FALSE(
+      db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_FALSE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  ASSERT_FALSE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+
+  // Block cache properties are not available if block cache is not used.
+  BlockBasedTableOptions table_options;
+  table_options.no_block_cache = true;
+  options.table_factory.reset(NewBlockBasedTableFactory(table_options));
+  Reopen(options);
+  ASSERT_FALSE(
+      db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_FALSE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  ASSERT_FALSE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+
+  // Test with empty block cache.
+  constexpr size_t kCapacity = 100;
+  auto block_cache = NewLRUCache(kCapacity, 0 /*num_shard_bits*/);
+  table_options.block_cache = block_cache;
+  table_options.no_block_cache = false;
+  options.table_factory.reset(NewBlockBasedTableFactory(table_options));
+  Reopen(options);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_EQ(kCapacity, value);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  ASSERT_EQ(0, value);
+  ASSERT_TRUE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+  ASSERT_EQ(0, value);
+
+  // Insert unpinned item to the cache and check size.
+  constexpr size_t kSize1 = 50;
+  block_cache->Insert("item1", nullptr /*value*/, kSize1, nullptr /*deleter*/);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_EQ(kCapacity, value);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  ASSERT_EQ(kSize1, value);
+  ASSERT_TRUE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+  ASSERT_EQ(0, value);
+
+  // Insert pinned item to the cache and check size.
+  constexpr size_t kSize2 = 30;
+  Cache::Handle* item2 = nullptr;
+  block_cache->Insert("item2", nullptr /*value*/, kSize2, nullptr /*deleter*/,
+                      &item2);
+  ASSERT_NE(nullptr, item2);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_EQ(kCapacity, value);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  ASSERT_EQ(kSize1 + kSize2, value);
+  ASSERT_TRUE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+  ASSERT_EQ(kSize2, value);
+
+  // Insert another pinned item to make the cache over-sized.
+  constexpr size_t kSize3 = 80;
+  Cache::Handle* item3 = nullptr;
+  block_cache->Insert("item3", nullptr /*value*/, kSize3, nullptr /*deleter*/,
+                      &item3);
+  ASSERT_NE(nullptr, item2);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_EQ(kCapacity, value);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  // Item 1 is evicted.
+  ASSERT_EQ(kSize2 + kSize3, value);
+  ASSERT_TRUE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+  ASSERT_EQ(kSize2 + kSize3, value);
+
+  // Check size after release.
+  block_cache->Release(item2);
+  block_cache->Release(item3);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheCapacity, &value));
+  ASSERT_EQ(kCapacity, value);
+  ASSERT_TRUE(db_->GetIntProperty(DB::Properties::kBlockCacheUsage, &value));
+  // item2 will be evicted, while item3 remain in cache after release.
+  ASSERT_EQ(kSize3, value);
+  ASSERT_TRUE(
+      db_->GetIntProperty(DB::Properties::kBlockCachePinnedUsage, &value));
+  ASSERT_EQ(0, value);
+}
+
 #endif  // ROCKSDB_LITE
 }  // namespace rocksdb
 

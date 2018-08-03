@@ -1,7 +1,7 @@
 //  Copyright (c) 2013, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 #pragma once
 
 #include <list>
@@ -61,9 +61,9 @@ class CacheWriteBuffer {
 //
 class CacheWriteBufferAllocator {
  public:
-  explicit CacheWriteBufferAllocator(const uint32_t buffer_size,
-                                     const uint32_t buffer_count)
-      : buffer_size_(buffer_size) {
+  explicit CacheWriteBufferAllocator(const size_t buffer_size,
+                                     const size_t buffer_count)
+      : cond_empty_(&lock_), buffer_size_(buffer_size) {
     MutexLock _(&lock_);
     buffer_size_ = buffer_size;
     for (uint32_t i = 0; i < buffer_count; i++) {
@@ -71,6 +71,7 @@ class CacheWriteBufferAllocator {
       assert(buf);
       if (buf) {
         bufs_.push_back(buf);
+        cond_empty_.Signal();
       }
     }
   }
@@ -93,7 +94,6 @@ class CacheWriteBufferAllocator {
     assert(!bufs_.empty());
     CacheWriteBuffer* const buf = bufs_.front();
     bufs_.pop_front();
-
     return buf;
   }
 
@@ -102,6 +102,15 @@ class CacheWriteBufferAllocator {
     MutexLock _(&lock_);
     buf->Reset();
     bufs_.push_back(buf);
+    cond_empty_.Signal();
+  }
+
+  void WaitUntilUsable() {
+    // We are asked to wait till we have buffers available
+    MutexLock _(&lock_);
+    while (bufs_.empty()) {
+      cond_empty_.Wait();
+    }
   }
 
   size_t Capacity() const { return bufs_.size() * buffer_size_; }
@@ -110,6 +119,7 @@ class CacheWriteBufferAllocator {
 
  private:
   port::Mutex lock_;                   // Sync lock
+  port::CondVar cond_empty_;           // Condition var for empty buffers
   size_t buffer_size_;                 // Size of each buffer
   std::list<CacheWriteBuffer*> bufs_;  // Buffer stash
 };

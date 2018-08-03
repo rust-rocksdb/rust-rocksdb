@@ -1,3 +1,4 @@
+# shellcheck disable=SC1113
 #/usr/bin/env bash
 
 set -e
@@ -28,12 +29,14 @@ function package() {
     if dpkg --get-selections | grep --quiet $1; then
       log "$1 is already installed. skipping."
     else
+      # shellcheck disable=SC2068
       apt-get install $@ -y
     fi
   elif [[ $OS = "centos" ]]; then
     if rpm -qa | grep --quiet $1; then
       log "$1 is already installed. skipping."
     else
+      # shellcheck disable=SC2068
       yum install $@ -y
     fi
   fi
@@ -52,6 +55,7 @@ function gem_install() {
   if gem list | grep --quiet $1; then
     log "$1 is already installed. skipping."
   else
+    # shellcheck disable=SC2068
     gem install $@
   fi
 }
@@ -65,8 +69,8 @@ function main() {
 
   if [[ -d /vagrant ]]; then
     if [[ $OS = "ubuntu" ]]; then
-      package g++-4.7
-      export CXX=g++-4.7
+      package g++-4.8
+      export CXX=g++-4.8
 
       # the deb would depend on libgflags2, but the static lib is the only thing
       # installed by make install
@@ -99,6 +103,18 @@ function main() {
 
   make static_lib
   make install INSTALL_PATH=package
+
+  cd package
+
+  LIB_DIR=lib
+  if [[ -z "$ARCH" ]]; then
+      ARCH=$(getconf LONG_BIT)
+  fi
+  if [[ ("$FPM_OUTPUT" = "rpm") && ($ARCH -eq 64) ]]; then
+      mv lib lib64
+      LIB_DIR=lib64
+  fi
+
   fpm \
     -s dir \
     -t $FPM_OUTPUT \
@@ -110,7 +126,8 @@ function main() {
     --license BSD \
     --vendor Facebook \
     --description "RocksDB is an embeddable persistent key-value store for fast storage." \
-    package
+    include $LIB_DIR
 }
 
+# shellcheck disable=SC2068
 main $@

@@ -1,14 +1,14 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 #include "table/full_filter_block.h"
 
-#include "rocksdb/filter_policy.h"
+#include "monitoring/perf_context_imp.h"
 #include "port/port.h"
+#include "rocksdb/filter_policy.h"
 #include "util/coding.h"
-#include "util/perf_context_imp.h"
 
 namespace rocksdb {
 
@@ -17,16 +17,32 @@ FullFilterBlockBuilder::FullFilterBlockBuilder(
     FilterBitsBuilder* filter_bits_builder)
     : prefix_extractor_(prefix_extractor),
       whole_key_filtering_(whole_key_filtering),
+      last_whole_key_recorded_(false),
+      last_prefix_recorded_(false),
       num_added_(0) {
   assert(filter_bits_builder != nullptr);
   filter_bits_builder_.reset(filter_bits_builder);
 }
 
 void FullFilterBlockBuilder::Add(const Slice& key) {
+  const bool add_prefix = prefix_extractor_ && prefix_extractor_->InDomain(key);
   if (whole_key_filtering_) {
-    AddKey(key);
+    if (!add_prefix) {
+      AddKey(key);
+    } else {
+      // if both whole_key and prefix are added to bloom then we will have whole
+      // key and prefix addition being interleaved and thus cannot rely on the
+      // bits builder to properly detect the duplicates by comparing with the
+      // last item.
+      Slice last_whole_key = Slice(last_whole_key_str_);
+      if (!last_whole_key_recorded_ || last_whole_key.compare(key) != 0) {
+        AddKey(key);
+        last_whole_key_recorded_ = true;
+        last_whole_key_str_.assign(key.data(), key.size());
+      }
+    }
   }
-  if (prefix_extractor_ && prefix_extractor_->InDomain(key)) {
+  if (add_prefix) {
     AddPrefix(key);
   }
 }
@@ -40,11 +56,32 @@ inline void FullFilterBlockBuilder::AddKey(const Slice& key) {
 // Add prefix to filter if needed
 inline void FullFilterBlockBuilder::AddPrefix(const Slice& key) {
   Slice prefix = prefix_extractor_->Transform(key);
-  filter_bits_builder_->AddKey(prefix);
-  num_added_++;
+  if (whole_key_filtering_) {
+    // if both whole_key and prefix are added to bloom then we will have whole
+    // key and prefix addition being interleaved and thus cannot rely on the
+    // bits builder to properly detect the duplicates by comparing with the last
+    // item.
+    Slice last_prefix = Slice(last_prefix_str_);
+    if (!last_prefix_recorded_ || last_prefix.compare(prefix) != 0) {
+      AddKey(prefix);
+      last_prefix_recorded_ = true;
+      last_prefix_str_.assign(prefix.data(), prefix.size());
+    }
+  } else {
+    AddKey(prefix);
+  }
 }
 
-Slice FullFilterBlockBuilder::Finish() {
+void FullFilterBlockBuilder::Reset() {
+  last_whole_key_recorded_ = false;
+  last_prefix_recorded_ = false;
+}
+
+Slice FullFilterBlockBuilder::Finish(const BlockHandle& /*tmp*/,
+                                     Status* status) {
+  Reset();
+  // In this impl we ignore BlockHandle
+  *status = Status::OK();
   if (num_added_ != 0) {
     num_added_ = 0;
     return filter_bits_builder_->Finish(&filter_data_);
@@ -72,8 +109,12 @@ FullFilterBlockReader::FullFilterBlockReader(
   block_contents_ = std::move(contents);
 }
 
-bool FullFilterBlockReader::KeyMayMatch(const Slice& key,
-    uint64_t block_offset) {
+bool FullFilterBlockReader::KeyMayMatch(const Slice& key, uint64_t block_offset,
+                                        const bool /*no_io*/,
+                                        const Slice* const /*const_ikey_ptr*/) {
+#ifdef NDEBUG
+  (void)block_offset;
+#endif
   assert(block_offset == kNotValid);
   if (!whole_key_filtering_) {
     return true;
@@ -81,8 +122,12 @@ bool FullFilterBlockReader::KeyMayMatch(const Slice& key,
   return MayMatch(key);
 }
 
-bool FullFilterBlockReader::PrefixMayMatch(const Slice& prefix,
-                                           uint64_t block_offset) {
+bool FullFilterBlockReader::PrefixMayMatch(
+    const Slice& prefix, uint64_t block_offset, const bool /*no_io*/,
+    const Slice* const /*const_ikey_ptr*/) {
+#ifdef NDEBUG
+  (void)block_offset;
+#endif
   assert(block_offset == kNotValid);
   if (!prefix_extractor_) {
     return true;

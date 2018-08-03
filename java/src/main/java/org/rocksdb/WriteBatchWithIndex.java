@@ -1,7 +1,7 @@
 // Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-// This source code is licensed under the BSD-style license found in the
-// LICENSE file in the root directory of this source tree. An additional grant
-// of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 
 package org.rocksdb;
 
@@ -60,8 +60,21 @@ public class WriteBatchWithIndex extends AbstractWriteBatch {
       final AbstractComparator<? extends AbstractSlice<?>>
           fallbackIndexComparator, final int reservedBytes,
       final boolean overwriteKey) {
-    super(newWriteBatchWithIndex(fallbackIndexComparator.getNativeHandle(),
-        reservedBytes, overwriteKey));
+    super(newWriteBatchWithIndex(fallbackIndexComparator.nativeHandle_,
+        fallbackIndexComparator.getComparatorType().getValue(), reservedBytes,
+        overwriteKey));
+  }
+
+  /**
+   * <p>Private WriteBatchWithIndex constructor which is used to construct
+   * WriteBatchWithIndex instances from C++ side. As the reference to this
+   * object is also managed from C++ side the handle will be disowned.</p>
+   *
+   * @param nativeHandle address of native instance.
+   */
+  WriteBatchWithIndex(final long nativeHandle) {
+    super(nativeHandle);
+    disOwnNativeHandle();
   }
 
   /**
@@ -136,6 +149,102 @@ public class WriteBatchWithIndex extends AbstractWriteBatch {
         baseIterator);
   }
 
+  /**
+   * Similar to {@link RocksDB#get(ColumnFamilyHandle, byte[])} but will only
+   * read the key from this batch.
+   *
+   * @param columnFamilyHandle The column family to retrieve the value from
+   * @param options The database options to use
+   * @param key The key to read the value for
+   *
+   * @return a byte array storing the value associated with the input key if
+   *     any. null if it does not find the specified key.
+   *
+   * @throws RocksDBException if the batch does not have enough data to resolve
+   * Merge operations, MergeInProgress status may be returned.
+   */
+  public byte[] getFromBatch(final ColumnFamilyHandle columnFamilyHandle,
+      final DBOptions options, final byte[] key) throws RocksDBException {
+    return getFromBatch(nativeHandle_, options.nativeHandle_,
+        key, key.length, columnFamilyHandle.nativeHandle_);
+  }
+
+  /**
+   * Similar to {@link RocksDB#get(byte[])} but will only
+   * read the key from this batch.
+   *
+   * @param options The database options to use
+   * @param key The key to read the value for
+   *
+   * @return a byte array storing the value associated with the input key if
+   *     any. null if it does not find the specified key.
+   *
+   * @throws RocksDBException if the batch does not have enough data to resolve
+   * Merge operations, MergeInProgress status may be returned.
+   */
+  public byte[] getFromBatch(final DBOptions options, final byte[] key)
+      throws RocksDBException {
+    return getFromBatch(nativeHandle_, options.nativeHandle_, key, key.length);
+  }
+
+  /**
+   * Similar to {@link RocksDB#get(ColumnFamilyHandle, byte[])} but will also
+   * read writes from this batch.
+   *
+   * This function will query both this batch and the DB and then merge
+   * the results using the DB's merge operator (if the batch contains any
+   * merge requests).
+   *
+   * Setting {@link ReadOptions#setSnapshot(long, long)} will affect what is
+   * read from the DB but will NOT change which keys are read from the batch
+   * (the keys in this batch do not yet belong to any snapshot and will be
+   * fetched regardless).
+   *
+   * @param db The Rocks database
+   * @param columnFamilyHandle The column family to retrieve the value from
+   * @param options The read options to use
+   * @param key The key to read the value for
+   *
+   * @return a byte array storing the value associated with the input key if
+   *     any. null if it does not find the specified key.
+   *
+   * @throws RocksDBException if the value for the key cannot be read
+   */
+  public byte[] getFromBatchAndDB(final RocksDB db, final ColumnFamilyHandle columnFamilyHandle,
+      final ReadOptions options, final byte[] key) throws RocksDBException {
+    return getFromBatchAndDB(nativeHandle_, db.nativeHandle_,
+        options.nativeHandle_, key, key.length,
+        columnFamilyHandle.nativeHandle_);
+  }
+
+  /**
+   * Similar to {@link RocksDB#get(byte[])} but will also
+   * read writes from this batch.
+   *
+   * This function will query both this batch and the DB and then merge
+   * the results using the DB's merge operator (if the batch contains any
+   * merge requests).
+   *
+   * Setting {@link ReadOptions#setSnapshot(long, long)} will affect what is
+   * read from the DB but will NOT change which keys are read from the batch
+   * (the keys in this batch do not yet belong to any snapshot and will be
+   * fetched regardless).
+   *
+   * @param db The Rocks database
+   * @param options The read options to use
+   * @param key The key to read the value for
+   *
+   * @return a byte array storing the value associated with the input key if
+   *     any. null if it does not find the specified key.
+   *
+   * @throws RocksDBException if the value for the key cannot be read
+   */
+  public byte[] getFromBatchAndDB(final RocksDB db, final ReadOptions options,
+      final byte[] key) throws RocksDBException {
+    return getFromBatchAndDB(nativeHandle_, db.nativeHandle_,
+        options.nativeHandle_, key, key.length);
+  }
+
   @Override protected final native void disposeInternal(final long handle);
   @Override final native int count0(final long handle);
   @Override final native void put(final long handle, final byte[] key,
@@ -148,23 +257,48 @@ public class WriteBatchWithIndex extends AbstractWriteBatch {
   @Override final native void merge(final long handle, final byte[] key,
       final int keyLen, final byte[] value, final int valueLen,
       final long cfHandle);
-  @Override final native void remove(final long handle, final byte[] key,
-      final int keyLen);
-  @Override final native void remove(final long handle, final byte[] key,
-      final int keyLen, final long cfHandle);
+  @Override final native void delete(final long handle, final byte[] key,
+      final int keyLen) throws RocksDBException;
+  @Override final native void delete(final long handle, final byte[] key,
+      final int keyLen, final long cfHandle) throws RocksDBException;
+  @Override final native void singleDelete(final long handle, final byte[] key,
+      final int keyLen) throws RocksDBException;
+  @Override final native void singleDelete(final long handle, final byte[] key,
+      final int keyLen, final long cfHandle) throws RocksDBException;
+  @Override
+  final native void deleteRange(final long handle, final byte[] beginKey, final int beginKeyLen,
+      final byte[] endKey, final int endKeyLen);
+  @Override
+  final native void deleteRange(final long handle, final byte[] beginKey, final int beginKeyLen,
+      final byte[] endKey, final int endKeyLen, final long cfHandle);
   @Override final native void putLogData(final long handle, final byte[] blob,
-      final int blobLen);
+      final int blobLen) throws RocksDBException;
   @Override final native void clear0(final long handle);
   @Override final native void setSavePoint0(final long handle);
   @Override final native void rollbackToSavePoint0(final long handle);
+  @Override final native void popSavePoint(final long handle) throws RocksDBException;
+  @Override final native void setMaxBytes(final long nativeHandle,
+      final long maxBytes);
+  @Override final native WriteBatch getWriteBatch(final long handle);
 
   private native static long newWriteBatchWithIndex();
   private native static long newWriteBatchWithIndex(final boolean overwriteKey);
   private native static long newWriteBatchWithIndex(
-      final long fallbackIndexComparatorHandle, final int reservedBytes,
+      final long fallbackIndexComparatorHandle,
+      final byte comparatorType, final int reservedBytes,
       final boolean overwriteKey);
   private native long iterator0(final long handle);
   private native long iterator1(final long handle, final long cfHandle);
   private native long iteratorWithBase(final long handle,
       final long baseIteratorHandle, final long cfHandle);
+  private native byte[] getFromBatch(final long handle, final long optHandle,
+      final byte[] key, final int keyLen);
+  private native byte[] getFromBatch(final long handle, final long optHandle,
+      final byte[] key, final int keyLen, final long cfHandle);
+  private native byte[] getFromBatchAndDB(final long handle,
+      final long dbHandle,  final long readOptHandle, final byte[] key,
+      final int keyLen);
+  private native byte[] getFromBatchAndDB(final long handle,
+      final long dbHandle, final long readOptHandle, final byte[] key,
+      final int keyLen, final long cfHandle);
 }

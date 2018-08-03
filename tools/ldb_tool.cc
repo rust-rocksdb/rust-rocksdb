@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 #ifndef ROCKSDB_LITE
 #include "rocksdb/ldb_tool.h"
@@ -12,10 +12,11 @@ namespace rocksdb {
 
 LDBOptions::LDBOptions() {}
 
-void LDBCommandRunner::PrintHelp(const char* exec_name) {
+void LDBCommandRunner::PrintHelp(const LDBOptions& ldb_options,
+                                 const char* /*exec_name*/) {
   std::string ret;
 
-  ret.append("ldb - LevelDB Tool");
+  ret.append(ldb_options.print_help_header);
   ret.append("\n\n");
   ret.append("commands MUST specify --" + LDBCommand::ARG_DB +
              "=<full_path_to_db_directory> when necessary\n");
@@ -29,24 +30,28 @@ void LDBCommandRunner::PrintHelp(const char* exec_name) {
              " : Values are input/output as hex\n");
   ret.append("  --" + LDBCommand::ARG_HEX +
              " : Both keys and values are input/output as hex\n");
-  ret.append(
-      "  --" + LDBCommand::ARG_CF_NAME +
-      " : name of the column family to operate on. default: default column "
-      "family\n");
   ret.append("\n");
 
   ret.append(
       "The following optional parameters control the database "
       "internals:\n");
+  ret.append(
+      "  --" + LDBCommand::ARG_CF_NAME +
+      "=<string> : name of the column family to operate on. default: default "
+      "column family\n");
   ret.append("  --" + LDBCommand::ARG_TTL +
              " with 'put','get','scan','dump','query','batchput'"
              " : DB supports ttl and value is internally timestamp-suffixed\n");
+  ret.append("  --" + LDBCommand::ARG_TRY_LOAD_OPTIONS +
+             " : Try to load option file from DB.\n");
+  ret.append("  --" + LDBCommand::ARG_IGNORE_UNKNOWN_OPTIONS +
+             " : Ignore unknown options when loading option file.\n");
   ret.append("  --" + LDBCommand::ARG_BLOOM_BITS + "=<int,e.g.:14>\n");
   ret.append("  --" + LDBCommand::ARG_FIX_PREFIX_LEN + "=<int,e.g.:14>\n");
   ret.append("  --" + LDBCommand::ARG_COMPRESSION_TYPE +
              "=<no|snappy|zlib|bzip2|lz4|lz4hc|xpress|zstd>\n");
   ret.append("  --" + LDBCommand::ARG_COMPRESSION_MAX_DICT_BYTES +
-             "=<int,e.g.:14>\n");
+             "=<int,e.g.:16384>\n");
   ret.append("  --" + LDBCommand::ARG_BLOCK_SIZE + "=<block_size_in_bytes>\n");
   ret.append("  --" + LDBCommand::ARG_AUTO_COMPACTION + "=<true|false>\n");
   ret.append("  --" + LDBCommand::ARG_DB_WRITE_BUFFER_SIZE +
@@ -62,6 +67,7 @@ void LDBCommandRunner::PrintHelp(const char* exec_name) {
   BatchPutCommand::Help(ret);
   ScanCommand::Help(ret);
   DeleteCommand::Help(ret);
+  DeleteRangeCommand::Help(ret);
   DBQuerierCommand::Help(ret);
   ApproxSizeCommand::Help(ret);
   CheckConsistencyCommand::Help(ret);
@@ -81,6 +87,7 @@ void LDBCommandRunner::PrintHelp(const char* exec_name) {
   RepairCommand::Help(ret);
   BackupCommand::Help(ret);
   RestoreCommand::Help(ret);
+  CheckPointCommand::Help(ret);
 
   fprintf(stderr, "%s\n", ret.c_str());
 }
@@ -89,7 +96,7 @@ void LDBCommandRunner::RunCommand(
     int argc, char** argv, Options options, const LDBOptions& ldb_options,
     const std::vector<ColumnFamilyDescriptor>* column_families) {
   if (argc <= 2) {
-    PrintHelp(argv[0]);
+    PrintHelp(ldb_options, argv[0]);
     exit(1);
   }
 
@@ -97,7 +104,7 @@ void LDBCommandRunner::RunCommand(
       argc, argv, options, ldb_options, column_families);
   if (cmdObj == nullptr) {
     fprintf(stderr, "Unknown command\n");
-    PrintHelp(argv[0]);
+    PrintHelp(ldb_options, argv[0]);
     exit(1);
   }
 

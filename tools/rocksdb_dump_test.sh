@@ -1,4 +1,5 @@
-TESTDIR=`mktemp -d /tmp/rocksdb-dump-test.XXXXX`
+# shellcheck disable=SC2148
+TESTDIR=`mktemp -d ${TMPDIR:-/tmp}/rocksdb-dump-test.XXXXX`
 DUMPFILE="tools/sample-dump.dmp"
 
 # Verify that the sample dump file is undumpable and then redumpable.

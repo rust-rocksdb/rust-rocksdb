@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2012 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -74,7 +74,7 @@ class CappedPrefixTransform : public SliceTransform {
     return Slice(src.data(), std::min(cap_len_, src.size()));
   }
 
-  virtual bool InDomain(const Slice& src) const override { return true; }
+  virtual bool InDomain(const Slice& /*src*/) const override { return true; }
 
   virtual bool InRange(const Slice& dst) const override {
     return (dst.size() <= cap_len_);
@@ -93,11 +93,11 @@ class NoopTransform : public SliceTransform {
 
   virtual Slice Transform(const Slice& src) const override { return src; }
 
-  virtual bool InDomain(const Slice& src) const override { return true; }
+  virtual bool InDomain(const Slice& /*src*/) const override { return true; }
 
-  virtual bool InRange(const Slice& dst) const override { return true; }
+  virtual bool InRange(const Slice& /*dst*/) const override { return true; }
 
-  virtual bool SameResultWhenAppended(const Slice& prefix) const override {
+  virtual bool SameResultWhenAppended(const Slice& /*prefix*/) const override {
     return false;
   }
 };
@@ -182,7 +182,7 @@ bool Slice::DecodeHex(std::string* result) const {
     if (h2 < 0) {
       return false;
     }
-    result->push_back((h1 << 4) | h2);
+    result->push_back(static_cast<char>((h1 << 4) | h2));
   }
   return true;
 }

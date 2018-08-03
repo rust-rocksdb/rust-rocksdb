@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 #include "util/file_util.h"
 
@@ -9,7 +9,6 @@
 #include <algorithm>
 
 #include "rocksdb/env.h"
-#include "rocksdb/options.h"
 #include "util/sst_file_manager_impl.h"
 #include "util/file_reader_writer.h"
 
@@ -17,7 +16,7 @@ namespace rocksdb {
 
 // Utility function to copy a file up to a specified length
 Status CopyFile(Env* env, const std::string& source,
-                const std::string& destination, uint64_t size) {
+                const std::string& destination, uint64_t size, bool use_fsync) {
   const EnvOptions soptions;
   Status s;
   unique_ptr<SequentialFileReader> src_reader;
@@ -25,45 +24,45 @@ Status CopyFile(Env* env, const std::string& source,
 
   {
     unique_ptr<SequentialFile> srcfile;
-  s = env->NewSequentialFile(source, &srcfile, soptions);
-  unique_ptr<WritableFile> destfile;
-  if (s.ok()) {
-    s = env->NewWritableFile(destination, &destfile, soptions);
-  } else {
-    return s;
-  }
-
-  if (size == 0) {
-    // default argument means copy everything
-    if (s.ok()) {
-      s = env->GetFileSize(source, &size);
-    } else {
+    s = env->NewSequentialFile(source, &srcfile, soptions);
+    if (!s.ok()) {
       return s;
     }
-  }
-  src_reader.reset(new SequentialFileReader(std::move(srcfile)));
-  dest_writer.reset(new WritableFileWriter(std::move(destfile), soptions));
+    unique_ptr<WritableFile> destfile;
+    s = env->NewWritableFile(destination, &destfile, soptions);
+    if (!s.ok()) {
+      return s;
+    }
+
+    if (size == 0) {
+      // default argument means copy everything
+      s = env->GetFileSize(source, &size);
+      if (!s.ok()) {
+        return s;
+      }
+    }
+    src_reader.reset(new SequentialFileReader(std::move(srcfile)));
+    dest_writer.reset(new WritableFileWriter(std::move(destfile), soptions));
   }
 
   char buffer[4096];
   Slice slice;
   while (size > 0) {
     size_t bytes_to_read = std::min(sizeof(buffer), static_cast<size_t>(size));
-    if (s.ok()) {
-      s = src_reader->Read(bytes_to_read, &slice, buffer);
+    s = src_reader->Read(bytes_to_read, &slice, buffer);
+    if (!s.ok()) {
+      return s;
     }
-    if (s.ok()) {
-      if (slice.size() == 0) {
-        return Status::Corruption("file too small");
-      }
-      s = dest_writer->Append(slice);
+    if (slice.size() == 0) {
+      return Status::Corruption("file too small");
     }
+    s = dest_writer->Append(slice);
     if (!s.ok()) {
       return s;
     }
     size -= slice.size();
   }
-  return Status::OK();
+  return dest_writer->Sync(use_fsync);
 }
 
 // Utility function to create a file with the provided contents
@@ -82,16 +81,21 @@ Status CreateFile(Env* env, const std::string& destination,
   return dest_writer->Append(Slice(contents));
 }
 
-Status DeleteSSTFile(const DBOptions* db_options, const std::string& fname,
-                     uint32_t path_id) {
-  // TODO(tec): support sst_file_manager for multiple path_ids
+Status DeleteSSTFile(const ImmutableDBOptions* db_options,
+                     const std::string& fname, const std::string& dir_to_sync) {
+#ifndef ROCKSDB_LITE
   auto sfm =
       static_cast<SstFileManagerImpl*>(db_options->sst_file_manager.get());
-  if (sfm && path_id == 0) {
-    return sfm->ScheduleFileDeletion(fname);
+  if (sfm) {
+    return sfm->ScheduleFileDeletion(fname, dir_to_sync);
   } else {
     return db_options->env->DeleteFile(fname);
   }
+#else
+  (void)dir_to_sync;
+  // SstFileManager is not supported in ROCKSDB_LITE
+  return db_options->env->DeleteFile(fname);
+#endif
 }
 
 }  // namespace rocksdb

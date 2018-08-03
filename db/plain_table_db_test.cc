@@ -1,9 +1,7 @@
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. See the AUTHORS file for names of contributors.
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -15,7 +13,6 @@
 #include <set>
 
 #include "db/db_impl.h"
-#include "db/filename.h"
 #include "db/version_set.h"
 #include "db/write_batch_internal.h"
 #include "rocksdb/cache.h"
@@ -25,12 +22,13 @@
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
-#include "table/meta_blocks.h"
 #include "table/bloom_block.h"
-#include "table/table_builder.h"
+#include "table/meta_blocks.h"
 #include "table/plain_table_factory.h"
 #include "table/plain_table_key_coding.h"
 #include "table/plain_table_reader.h"
+#include "table/table_builder.h"
+#include "util/filename.h"
 #include "util/hash.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
@@ -142,6 +140,7 @@ class PlainTableDBTest : public testing::Test,
 
     options.prefix_extractor.reset(NewFixedPrefixTransform(8));
     options.allow_mmap_reads = mmap_mode_;
+    options.allow_concurrent_memtable_write = false;
     return options;
   }
 
@@ -328,7 +327,7 @@ class TestPlainTableFactory : public PlainTableFactory {
       const TableReaderOptions& table_reader_options,
       unique_ptr<RandomAccessFileReader>&& file, uint64_t file_size,
       unique_ptr<TableReader>* table,
-      bool prefetch_index_and_filter_in_cache) const override {
+      bool /*prefetch_index_and_filter_in_cache*/) const override {
     TableProperties* props = nullptr;
     auto s =
         ReadTableProperties(file.get(), file_size, kPlainTableMagicNumber,
@@ -386,10 +385,6 @@ TEST_P(PlainTableDBTest, Flush) {
       for (int total_order = 0; total_order <= 1; total_order++) {
         for (int store_index_in_file = 0; store_index_in_file <= 1;
              ++store_index_in_file) {
-          if (!bloom_bits && store_index_in_file) {
-            continue;
-          }
-
           Options options = CurrentOptions();
           options.create_if_missing = true;
           // Set only one bucket to force bucket conflict.
@@ -1175,7 +1170,7 @@ int main(int argc, char** argv) {
 #else
 #include <stdio.h>
 
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   fprintf(stderr, "SKIPPED as plain table is not supported in ROCKSDB_LITE\n");
   return 0;
 }

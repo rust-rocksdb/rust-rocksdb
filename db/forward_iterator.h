@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 #pragma once
 
 #ifndef ROCKSDB_LITE
@@ -23,7 +23,7 @@ class DBImpl;
 class Env;
 struct SuperVersion;
 class ColumnFamilyData;
-class LevelIterator;
+class ForwardLevelIterator;
 class VersionStorageInfo;
 struct FileMetaData;
 
@@ -55,6 +55,10 @@ class ForwardIterator : public InternalIterator {
                   ColumnFamilyData* cfd, SuperVersion* current_sv = nullptr);
   virtual ~ForwardIterator();
 
+  void SeekForPrev(const Slice& /*target*/) override {
+    status_ = Status::NotSupported("ForwardIterator::SeekForPrev()");
+    valid_ = false;
+  }
   void SeekToLast() override {
     status_ = Status::NotSupported("ForwardIterator::SeekToLast()");
     valid_ = false;
@@ -72,12 +76,23 @@ class ForwardIterator : public InternalIterator {
   virtual Slice value() const override;
   virtual Status status() const override;
   virtual Status GetProperty(std::string prop_name, std::string* prop) override;
+  virtual void SetPinnedItersMgr(
+      PinnedIteratorsManager* pinned_iters_mgr) override;
+  virtual bool IsKeyPinned() const override;
+  virtual bool IsValuePinned() const override;
 
   bool TEST_CheckDeletedIters(int* deleted_iters, int* num_iters);
 
  private:
   void Cleanup(bool release_sv);
+  // Unreference and, if needed, clean up the current SuperVersion. This is
+  // either done immediately or deferred until this iterator is unpinned by
+  // PinnedIteratorsManager.
   void SVCleanup();
+  static void SVCleanup(
+    DBImpl* db, SuperVersion* sv, bool background_purge_on_iterator_cleanup);
+  static void DeferredSVCleanup(void* arg);
+
   void RebuildIterators(bool refresh_sv);
   void RenewIterators();
   void BuildLevelIterators(const VersionStorageInfo* vstorage);
@@ -92,6 +107,14 @@ class ForwardIterator : public InternalIterator {
 
   bool IsOverUpperBound(const Slice& internal_key) const;
 
+  // Set PinnedIteratorsManager for all children Iterators, this function should
+  // be called whenever we update children Iterators or pinned_iters_mgr_.
+  void UpdateChildrenPinnedItersMgr();
+
+  // A helper function that will release iter in the proper manner, or pass it
+  // to pinned_iters_mgr_ to release it later if pinning is enabled.
+  void DeleteIterator(InternalIterator* iter, bool is_arena = false);
+
   DBImpl* const db_;
   const ReadOptions read_options_;
   ColumnFamilyData* const cfd_;
@@ -103,7 +126,7 @@ class ForwardIterator : public InternalIterator {
   InternalIterator* mutable_iter_;
   std::vector<InternalIterator*> imm_iters_;
   std::vector<InternalIterator*> l0_iters_;
-  std::vector<LevelIterator*> level_iters_;
+  std::vector<ForwardLevelIterator*> level_iters_;
   InternalIterator* current_;
   bool valid_;
 
@@ -129,6 +152,7 @@ class ForwardIterator : public InternalIterator {
   bool is_prev_set_;
   bool is_prev_inclusive_;
 
+  PinnedIteratorsManager* pinned_iters_mgr_;
   Arena arena_;
 };
 

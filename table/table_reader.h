@@ -1,7 +1,7 @@
 //  Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under the BSD-style license found in the
-//  LICENSE file in the root directory of this source tree. An additional grant
-//  of patent rights can be found in the PATENTS file in the same directory.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
 //
 // Copyright (c) 2011 The LevelDB Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
@@ -9,6 +9,7 @@
 
 #pragma once
 #include <memory>
+#include "table/internal_iterator.h"
 
 namespace rocksdb {
 
@@ -41,6 +42,11 @@ class TableReader {
                                         Arena* arena = nullptr,
                                         bool skip_filters = false) = 0;
 
+  virtual InternalIterator* NewRangeTombstoneIterator(
+      const ReadOptions& /*read_options*/) {
+    return nullptr;
+  }
+
   // Given a key, return an approximate byte offset in the file where
   // the data for that key begins (or would begin if the key were
   // present in the file).  The returned value is in terms of file
@@ -56,7 +62,7 @@ class TableReader {
   virtual std::shared_ptr<const TableProperties> GetTableProperties() const = 0;
 
   // Prepare work that can be done before the real Get()
-  virtual void Prepare(const Slice& target) {}
+  virtual void Prepare(const Slice& /*target*/) {}
 
   // Report an approximation of how much memory has been used.
   virtual size_t ApproximateMemoryUsage() const = 0;
@@ -88,8 +94,13 @@ class TableReader {
   }
 
   // convert db file to a human readable form
-  virtual Status DumpTable(WritableFile* out_file) {
+  virtual Status DumpTable(WritableFile* /*out_file*/) {
     return Status::NotSupported("DumpTable() not supported");
+  }
+
+  // check whether there is corruption in this db file
+  virtual Status VerifyChecksum() {
+    return Status::NotSupported("VerifyChecksum() not supported");
   }
 
   virtual void Close() {}
