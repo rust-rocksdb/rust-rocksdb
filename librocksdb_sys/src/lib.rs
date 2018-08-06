@@ -22,6 +22,7 @@ use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t, uint32_t, uint64_t,
 use std::ffi::CStr;
 
 pub enum Options {}
+pub enum ColumnFamilyDescriptor {}
 pub enum DBInstance {}
 pub enum DBWriteOptions {}
 pub enum DBReadOptions {}
@@ -349,6 +350,13 @@ extern "C" {
     pub fn crocksdb_options_create() -> *mut Options;
     pub fn crocksdb_options_copy(opts: *const Options) -> *mut Options;
     pub fn crocksdb_options_destroy(opts: *mut Options);
+    pub fn crocksdb_column_family_descriptor_destroy(cf_desc: *mut ColumnFamilyDescriptor);
+    pub fn crocksdb_name_from_column_family_descriptor(
+        cf_descs: *const ColumnFamilyDescriptor,
+    ) -> *const c_char;
+    pub fn crocksdb_options_from_column_family_descriptor(
+        cf_descs: *const ColumnFamilyDescriptor,
+    ) -> *mut Options;
     pub fn crocksdb_cache_create_lru(
         capacity: size_t,
         shard_bits: c_int,
@@ -542,6 +550,9 @@ extern "C" {
         options: *mut Options,
         v: bool,
     );
+    pub fn crocksdb_options_get_level_compaction_dynamic_level_bytes(
+        options: *const Options,
+    ) -> bool;
     pub fn crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
         options: *mut Options,
         prefix_extractor: *mut DBSliceTransform,
@@ -560,6 +571,15 @@ extern "C" {
         err: *mut *mut c_char,
     );
     pub fn crocksdb_options_get_block_cache_capacity(options: *const Options) -> usize;
+    pub fn crocksdb_load_latest_options(
+        dbpath: *const c_char,
+        env: *mut DBEnv,
+        db_options: *const Options,
+        cf_descs: *const *mut *mut ColumnFamilyDescriptor,
+        cf_descs_len: *mut size_t,
+        ignore_unknown_options: bool,
+        errptr: *const *mut c_char,
+    ) -> bool;
     pub fn crocksdb_ratelimiter_create(
         rate_bytes_per_sec: i64,
         refill_period_us: i64,

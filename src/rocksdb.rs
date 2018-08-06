@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crocksdb_ffi::{self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance,
-                   DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType,
-                   DBStatisticsTickerType, DBWriteBatch};
+use crocksdb_ffi::{
+    self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance, DBPinnableSlice,
+    DBSequentialFile, DBStatisticsHistogramType, DBStatisticsTickerType, DBWriteBatch,
+};
 use libc::{self, c_char, c_int, c_void, size_t};
 use metadata::ColumnFamilyMetaData;
-use rocksdb_options::{ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,
-                      CompactionOptions, DBOptions, EnvOptions, FlushOptions, HistogramData,
-                      IngestExternalFileOptions, ReadOptions, RestoreOptions, UnsafeSnap,
-                      WriteOptions};
+use rocksdb_options::{
+    CColumnFamilyDescriptor, ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,
+    CompactionOptions, DBOptions, EnvOptions, FlushOptions, HistogramData,
+    IngestExternalFileOptions, ReadOptions, RestoreOptions, UnsafeSnap, WriteOptions,
+};
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
@@ -251,6 +253,7 @@ impl<D: Deref<Target = DB>> Drop for DBIterator<D> {
 unsafe impl<D: Deref<Target = DB> + Send> Send for DBIterator<D> {}
 
 unsafe impl<D: Deref<Target = DB> + Send + Sync> Send for Snapshot<D> {}
+
 unsafe impl<D: Deref<Target = DB> + Send + Sync> Sync for Snapshot<D> {}
 
 impl<D: Deref<Target = DB> + Clone> Snapshot<D> {
@@ -515,7 +518,7 @@ impl DB {
             Err(_) => {
                 return Err("Failed to convert path to CString when list \
                             column families"
-                    .to_owned())
+                    .to_owned());
             }
         };
 
@@ -628,7 +631,7 @@ impl DB {
         let cname = match CString::new(cfd.name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
-                return Err("Failed to convert path to CString when opening rocksdb".to_owned())
+                return Err("Failed to convert path to CString when opening rocksdb".to_owned());
             }
         };
         let cname_ptr = cname.as_ptr();
@@ -1317,7 +1320,7 @@ impl DB {
                 return Err(
                     "Failed to convert restore_db_path to CString when restoring rocksdb"
                         .to_owned(),
-                )
+                );
             }
         };
 
@@ -1327,7 +1330,7 @@ impl DB {
                 return Err(
                     "Failed to convert restore_wal_path to CString when restoring rocksdb"
                         .to_owned(),
-                )
+                );
             }
         };
 
@@ -1769,7 +1772,7 @@ impl BackupEngine {
                 return Err(
                     "Failed to convert path to CString when opening rocksdb backup engine"
                         .to_owned(),
-                )
+                );
             }
         };
 
@@ -1980,6 +1983,7 @@ pub struct Env {
 }
 
 unsafe impl Send for Env {}
+
 unsafe impl Sync for Env {}
 
 impl Default for Env {
@@ -2103,6 +2107,42 @@ pub fn set_external_sst_file_global_seq_no(
             seq_no
         ));
         Ok(pre_seq_no)
+    }
+}
+
+pub fn load_latest_options(
+    dbpath: &str,
+    env: &Env,
+    ignore_unknown_options: bool,
+) -> Result<Option<(DBOptions, Vec<CColumnFamilyDescriptor>)>, String> {
+    const ERR_CONVERT_PATH: &str = "Failed to convert path to CString when load latest options";
+
+    let dbpath = CString::new(dbpath.as_bytes()).map_err(|_| ERR_CONVERT_PATH.to_owned())?;
+    let db_options = DBOptions::new();
+    unsafe {
+        let mut raw_cf_descs: *mut *mut crocksdb_ffi::ColumnFamilyDescriptor = ptr::null_mut();
+        let mut cf_descs_len: size_t = 0;
+
+        let ok = ffi_try!(crocksdb_load_latest_options(
+            dbpath.as_ptr(),
+            env.inner,
+            db_options.inner,
+            &mut raw_cf_descs,
+            &mut cf_descs_len,
+            ignore_unknown_options
+        ));
+        if !ok {
+            return Ok(None);
+        }
+        let cf_descs_list = slice::from_raw_parts(raw_cf_descs, cf_descs_len);
+        let cf_descs = cf_descs_list
+            .into_iter()
+            .map(|raw_cf_desc| CColumnFamilyDescriptor::from_raw(*raw_cf_desc))
+            .collect();
+
+        libc::free(raw_cf_descs as *mut c_void);
+
+        Ok(Some((db_options, cf_descs)))
     }
 }
 
@@ -2489,9 +2529,9 @@ mod test {
         }
         db.flush_cf(cf_handle, true).unwrap();
 
-        let total_sst_files_size =
-            db.get_property_int_cf(cf_handle, "rocksdb.total-sst-files-size")
-                .unwrap();
+        let total_sst_files_size = db
+            .get_property_int_cf(cf_handle, "rocksdb.total-sst-files-size")
+            .unwrap();
         assert!(total_sst_files_size > 0);
     }
 
@@ -2589,5 +2629,42 @@ mod test {
             .unwrap();
         let cf_opts = db.get_options_cf(cf);
         assert_eq!(cf_opts.get_disable_auto_compactions(), true);
+    }
+
+    #[test]
+    fn test_load_latest_options() {
+        let path = TempDir::new("_rust_rocksdb_load_latest_option").expect("");
+        let dbpath = path.path().to_str().unwrap().clone();
+        let cf_name: &str = "cf_dynamic_level_bytes";
+
+        // test when options not exist
+        assert!(
+            load_latest_options(dbpath, &Env::default(), false)
+                .unwrap()
+                .is_none()
+        );
+
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let mut db = DB::open(opts, dbpath).unwrap();
+
+        let mut cf_opts = ColumnFamilyOptions::new();
+        cf_opts.set_level_compaction_dynamic_level_bytes(true);
+        db.create_cf((cf_name.clone(), cf_opts)).unwrap();
+        let cf_handle = db.cf_handle(cf_name.clone()).unwrap();
+        let cf_opts = db.get_options_cf(cf_handle);
+        assert!(cf_opts.get_level_compaction_dynamic_level_bytes());
+
+        let (_, cf_descs) = load_latest_options(dbpath, &Env::default(), false)
+            .unwrap()
+            .unwrap();
+
+        for cf_desc in cf_descs {
+            if cf_desc.name() == cf_name {
+                assert!(cf_desc.options().get_level_compaction_dynamic_level_bytes());
+            } else {
+                assert!(!cf_desc.options().get_level_compaction_dynamic_level_bytes());
+            }
+        }
     }
 }

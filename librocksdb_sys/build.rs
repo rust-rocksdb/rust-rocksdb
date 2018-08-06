@@ -40,7 +40,8 @@ fn link_cpp(build: &mut Build) {
         // Don't link to c++ statically on windows.
         return;
     };
-    let output = tool.to_command()
+    let output = tool
+        .to_command()
         .arg("--print-file-name")
         .arg(stdlib)
         .output()
@@ -81,7 +82,8 @@ fn build_rocksdb() -> Build {
     if cfg!(feature = "sse") {
         cfg.define("FORCE_SSE42", "ON");
     }
-    let dst = cfg.register_dep("Z")
+    let dst = cfg
+        .register_dep("Z")
         .define("WITH_ZLIB", "ON")
         .register_dep("BZIP2")
         .define("WITH_BZ2", "ON")

@@ -21,6 +21,7 @@
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/options.h"
+#include "rocksdb/perf_context.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/statistics.h"
@@ -30,8 +31,8 @@
 #include "rocksdb/universal_compaction.h"
 #include "rocksdb/utilities/backupable_db.h"
 #include "rocksdb/utilities/debug.h"
+#include "rocksdb/utilities/options_util.h"
 #include "rocksdb/write_batch.h"
-#include "rocksdb/perf_context.h"
 
 #include "db/column_family.h"
 #include "table/sst_file_writer_collectors.h"
@@ -162,6 +163,9 @@ struct crocksdb_readoptions_t {
 };
 struct crocksdb_writeoptions_t    { WriteOptions      rep; };
 struct crocksdb_options_t         { Options           rep; };
+struct crocksdb_column_family_descriptor {
+  ColumnFamilyDescriptor rep;
+};
 struct crocksdb_compactoptions_t {
   CompactRangeOptions rep;
 };
@@ -1944,6 +1948,23 @@ void crocksdb_options_destroy(crocksdb_options_t* options) {
   delete options;
 }
 
+void crocksdb_column_family_descriptor_destroy(
+    crocksdb_column_family_descriptor* cf_desc) {
+  delete cf_desc;
+}
+
+const char* crocksdb_name_from_column_family_descriptor(
+    const crocksdb_column_family_descriptor* cf_desc) {
+  return cf_desc->rep.name.c_str();
+}
+
+crocksdb_options_t* crocksdb_options_from_column_family_descriptor(
+    const crocksdb_column_family_descriptor* cf_desc) {
+  crocksdb_options_t* options = new crocksdb_options_t;
+  *static_cast<ColumnFamilyOptions*>(&options->rep) = cf_desc->rep.options;
+  return options;
+}
+
 void crocksdb_options_increase_parallelism(
     crocksdb_options_t* opt, int total_threads) {
   opt->rep.IncreaseParallelism(total_threads);
@@ -2069,6 +2090,11 @@ void crocksdb_options_set_max_bytes_for_level_base(
 void crocksdb_options_set_level_compaction_dynamic_level_bytes(
     crocksdb_options_t* opt, unsigned char v) {
   opt->rep.level_compaction_dynamic_level_bytes = v;
+}
+
+unsigned char crocksdb_options_get_level_compaction_dynamic_level_bytes(
+    const crocksdb_options_t* options) {
+  return options->rep.level_compaction_dynamic_level_bytes;
 }
 
 void crocksdb_options_set_max_bytes_for_level_multiplier(crocksdb_options_t* opt,
@@ -2593,6 +2619,30 @@ void crocksdb_options_set_ratelimiter(crocksdb_options_t *opt, crocksdb_ratelimi
 
 void crocksdb_options_set_vector_memtable_factory(crocksdb_options_t* opt, uint64_t reserved_bytes) {
   opt->rep.memtable_factory.reset(new VectorRepFactory(reserved_bytes));
+}
+
+bool crocksdb_load_latest_options(const char* dbpath, crocksdb_env_t* env,
+                                  crocksdb_options_t* db_options,
+                                  crocksdb_column_family_descriptor*** cf_descs,
+                                  size_t* cf_descs_len,
+                                  bool ignore_unknown_options, char** errptr) {
+  std::vector<ColumnFamilyDescriptor> tmp_cf_descs;
+  Status s = rocksdb::LoadLatestOptions(dbpath, env->rep, &db_options->rep,
+                                        &tmp_cf_descs, ignore_unknown_options);
+
+  *errptr = nullptr;
+  if (s.IsNotFound()) return false;
+  if (SaveError(errptr, s)) return false;
+
+  *cf_descs_len = tmp_cf_descs.size();
+  (*cf_descs) = (crocksdb_column_family_descriptor**)malloc(
+      sizeof(crocksdb_column_family_descriptor*) * (*cf_descs_len));
+  for (std::size_t i = 0; i < *cf_descs_len; ++i) {
+    (*cf_descs)[i] =
+        new crocksdb_column_family_descriptor{std::move(tmp_cf_descs[i])};
+  }
+
+  return true;
 }
 
 crocksdb_ratelimiter_t* crocksdb_ratelimiter_create(

@@ -21,7 +21,7 @@ matrix:
     install:
       - rustup component add rustfmt-preview
     before_script:
-      - cargo fmt --all -- --write-mode diff
+      - cargo fmt --all -- --check
 
 script:
 - cargo build

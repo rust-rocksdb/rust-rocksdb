@@ -90,6 +90,8 @@ typedef struct crocksdb_iterator_t        crocksdb_iterator_t;
 typedef struct crocksdb_logger_t          crocksdb_logger_t;
 typedef struct crocksdb_mergeoperator_t   crocksdb_mergeoperator_t;
 typedef struct crocksdb_options_t         crocksdb_options_t;
+typedef struct crocksdb_column_family_descriptor
+    crocksdb_column_family_descriptor;
 typedef struct crocksdb_compactoptions_t crocksdb_compactoptions_t;
 typedef struct crocksdb_block_based_table_options_t
     crocksdb_block_based_table_options_t;
@@ -741,6 +743,14 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_cuckoo_table_factory(
 extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_options_create();
 extern C_ROCKSDB_LIBRARY_API crocksdb_options_t* crocksdb_options_copy(const crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_destroy(crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_column_family_descriptor_destroy(
+    crocksdb_column_family_descriptor* cf_desc);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_name_from_column_family_descriptor(
+    const crocksdb_column_family_descriptor* cf_desc);
+extern C_ROCKSDB_LIBRARY_API crocksdb_options_t*
+crocksdb_options_from_column_family_descriptor(
+    const crocksdb_column_family_descriptor* cf_desc);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_increase_parallelism(
     crocksdb_options_t* opt, int total_threads);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_optimize_for_point_lookup(
@@ -830,6 +840,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_optimize_filters_for_hits
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level_compaction_dynamic_level_bytes(crocksdb_options_t*,
                                                          unsigned char);
+extern C_ROCKSDB_LIBRARY_API unsigned char
+crocksdb_options_get_level_compaction_dynamic_level_bytes(
+    const crocksdb_options_t* const options);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_bytes_for_level_multiplier(crocksdb_options_t*, double);
 extern C_ROCKSDB_LIBRARY_API double
@@ -841,6 +854,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_enable_statistics(
     crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_reset_statistics(
     crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API bool crocksdb_load_latest_options(
+    const char* dbpath, crocksdb_env_t* env, crocksdb_options_t* db_options,
+    crocksdb_column_family_descriptor*** cf_descs, size_t* cf_descs_len,
+    bool ignore_unknown_options, char** errptr);
 
 /* returns a pointer to a malloc()-ed, null terminated string */
 extern C_ROCKSDB_LIBRARY_API char* crocksdb_options_statistics_get_string(

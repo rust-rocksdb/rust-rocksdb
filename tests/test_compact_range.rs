@@ -11,8 +11,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{ColumnFamilyOptions, CompactOptions, DBBottommostLevelCompaction, DBOptions, Range,
-              Writable, DB};
+use rocksdb::{
+    ColumnFamilyOptions, CompactOptions, DBBottommostLevelCompaction, DBOptions, Range, Writable,
+    DB,
+};
 use tempdir::TempDir;
 
 #[test]
@@ -99,7 +101,8 @@ fn test_compact_range_bottommost_level_compaction() {
     compact_opts.set_target_level(bottommost_level);
     db.compact_range_cf_opt(cf_handle, &compact_opts, None, None);
 
-    let bottommost_files = db.get_column_family_meta_data(cf_handle)
+    let bottommost_files = db
+        .get_column_family_meta_data(cf_handle)
         .get_levels()
         .last()
         .unwrap()
@@ -110,7 +113,8 @@ fn test_compact_range_bottommost_level_compaction() {
     // Skip bottommost level compaction
     compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Skip);
     db.compact_range_cf_opt(cf_handle, &compact_opts, None, None);
-    let bottommost_files = db.get_column_family_meta_data(cf_handle)
+    let bottommost_files = db
+        .get_column_family_meta_data(cf_handle)
         .get_levels()
         .last()
         .unwrap()
@@ -120,7 +124,8 @@ fn test_compact_range_bottommost_level_compaction() {
     // Force bottommost level compaction
     compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Force);
     db.compact_range_cf_opt(cf_handle, &compact_opts, None, None);
-    let bottommost_files = db.get_column_family_meta_data(cf_handle)
+    let bottommost_files = db
+        .get_column_family_meta_data(cf_handle)
         .get_levels()
         .last()
         .unwrap()

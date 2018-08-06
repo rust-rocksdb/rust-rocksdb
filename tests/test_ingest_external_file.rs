@@ -404,7 +404,8 @@ fn test_mem_sst_file_writer() {
     assert!(!mem_sst_path.exists());
 
     let mut buf = Vec::new();
-    let mut sst = env.new_sequential_file(mem_sst_str, EnvOptions::new())
+    let mut sst = env
+        .new_sequential_file(mem_sst_str, EnvOptions::new())
         .unwrap();
     sst.read_to_end(&mut buf).unwrap();
 

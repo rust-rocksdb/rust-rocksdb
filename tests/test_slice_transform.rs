@@ -11,8 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{BlockBasedOptions, ColumnFamilyOptions, DBOptions, SeekKey, SliceTransform,
-              Writable, DB};
+use rocksdb::{
+    BlockBasedOptions, ColumnFamilyOptions, DBOptions, SeekKey, SliceTransform, Writable, DB,
+};
 use tempdir::TempDir;
 
 struct FixedPostfixTransform {

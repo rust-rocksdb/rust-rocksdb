@@ -11,8 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{CFHandle, ColumnFamilyOptions, CompactionOptions, DBCompressionType, DBOptions,
-              Writable, DB};
+use rocksdb::{
+    CFHandle, ColumnFamilyOptions, CompactionOptions, DBCompressionType, DBOptions, Writable, DB,
+};
 use tempdir::TempDir;
 
 #[test]

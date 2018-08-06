@@ -12,9 +12,11 @@
 // limitations under the License.
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use rocksdb::{ColumnFamilyOptions, DBEntryType, DBOptions, Range, ReadOptions, SeekKey,
-              TableFilter, TableProperties, TablePropertiesCollection, TablePropertiesCollector,
-              TablePropertiesCollectorFactory, UserCollectedProperties, Writable, DB};
+use rocksdb::{
+    ColumnFamilyOptions, DBEntryType, DBOptions, Range, ReadOptions, SeekKey, TableFilter,
+    TableProperties, TablePropertiesCollection, TablePropertiesCollector,
+    TablePropertiesCollectorFactory, UserCollectedProperties, Writable, DB,
+};
 use std::collections::HashMap;
 use std::fmt;
 use tempdir::TempDir;
