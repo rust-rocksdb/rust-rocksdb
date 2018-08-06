@@ -42,7 +42,7 @@ fn main() {
     // https://github.com/alexcrichton/cc-rs/blob/ca70fd32c10f8cea805700e944f3a8d1f97d96d4/src/lib.rs#L891
     if cfg!(any(target_os = "macos", target_os = "freebsd", target_os = "openbsd")) {
         println!("cargo:rustc-link-lib=c++");
-    } else if cfg!(not(target_env = "msvc")) {
+	} else if cfg!(not(any(target_env = "msvc", target_os = "android"))) {
         println!("cargo:rustc-link-lib=stdc++");
     }
 }
