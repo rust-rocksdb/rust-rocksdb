@@ -44,6 +44,7 @@ pub enum DBCompressionType {
     Bz2 = ffi::rocksdb_bz2_compression as isize,
     Lz4 = ffi::rocksdb_lz4_compression as isize,
     Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
+    Zstd = ffi::rocksdb_zstd_compression as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

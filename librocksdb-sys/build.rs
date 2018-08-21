@@ -1,5 +1,6 @@
 extern crate cc;
 extern crate bindgen;
+extern crate glob;
 
 use std::env;
 use std::fs;
@@ -50,11 +51,14 @@ fn build_rocksdb() {
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
     config.include("snappy/");
     config.include("lz4/lib/");
+    config.include("zstd/lib/");
+    config.include("zstd/lib/dictBuilder/");
     config.include(".");
 
     config.define("NDEBUG", Some("1"));
     config.define("SNAPPY", Some("1"));
     config.define("LZ4", Some("1"));
+    config.define("ZSTD", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
@@ -172,6 +176,34 @@ fn build_lz4() {
     compiler.compile("liblz4.a");
 }
 
+fn build_zstd() {
+    let mut compiler = cc::Build::new();
+    
+    compiler.include("zstd/lib/");
+    compiler.include("zstd/lib/common");
+    compiler.include("zstd/lib/legacy");
+
+    let globs = &[
+        "zstd/lib/common/*.c",
+        "zstd/lib/compress/*.c",
+        "zstd/lib/decompress/*.c",
+        "zstd/lib/dictBuilder/*.c",
+        "zstd/lib/legacy/*.c",
+    ];
+
+    for pattern in globs {
+        for path in glob::glob(pattern).unwrap() {
+            let path = path.unwrap();
+            compiler.file(path);
+        }
+    }
+
+    compiler.opt_level(3);
+
+    compiler.define("ZSTD_LIB_DEPRECATED", Some("0"));
+    compiler.compile("libzstd.a");
+}
+
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
@@ -190,10 +222,13 @@ fn main() {
     println!("cargo:rerun-if-changed=rocksdb/");
     println!("cargo:rerun-if-changed=snappy/");
     println!("cargo:rerun-if-changed=lz4/");
+    println!("cargo:rerun-if-changed=zstd/");
 
     fail_on_empty_directory("rocksdb");
     fail_on_empty_directory("snappy");
     fail_on_empty_directory("lz4");
+    fail_on_empty_directory("zstd");
+
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
@@ -204,5 +239,8 @@ fn main() {
     }
     if !try_to_find_and_link_lib("LZ4") {
         build_lz4();
+    }
+    if !try_to_find_and_link_lib("ZSTD") {
+        build_zstd();
     }
 }

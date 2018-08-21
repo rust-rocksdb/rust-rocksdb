@@ -7,3 +7,6 @@
 [submodule "librocksdb-sys/lz4"]
 	path = librocksdb-sys/lz4
 	url = https://github.com/lz4/lz4.git
+[submodule "librocksdb-sys/zstd"]
+	path = librocksdb-sys/zstd
+	url = https://github.com/facebook/zstd
