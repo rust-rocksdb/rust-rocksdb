@@ -49,10 +49,12 @@ fn build_rocksdb() {
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
     config.include("snappy/");
+    config.include("lz4/lib/");
     config.include(".");
 
     config.define("NDEBUG", Some("1"));
     config.define("SNAPPY", Some("1"));
+    config.define("LZ4", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
@@ -148,6 +150,28 @@ fn build_snappy() {
     config.compile("libsnappy.a");
 }
 
+fn build_lz4() {
+    let mut compiler = cc::Build::new();
+    
+    compiler
+        .file("lz4/lib/lz4.c")
+        .file("lz4/lib/lz4frame.c")
+        .file("lz4/lib/lz4hc.c")
+        .file("lz4/lib/xxhash.c");
+
+    compiler.opt_level(3);
+
+    match env::var("TARGET").unwrap().as_str()
+    {
+      "i686-pc-windows-gnu" => {
+        compiler.flag("-fno-tree-vectorize");
+      },
+      _ => {}
+    }
+
+    compiler.compile("liblz4.a");
+}
+
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
@@ -165,9 +189,11 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=rocksdb/");
     println!("cargo:rerun-if-changed=snappy/");
+    println!("cargo:rerun-if-changed=lz4/");
 
     fail_on_empty_directory("rocksdb");
     fail_on_empty_directory("snappy");
+    fail_on_empty_directory("lz4");
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
@@ -175,5 +201,8 @@ fn main() {
     }
     if !try_to_find_and_link_lib("SNAPPY") {
         build_snappy();
+    }
+    if !try_to_find_and_link_lib("LZ4") {
+        build_lz4();
     }
 }
