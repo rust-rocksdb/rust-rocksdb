@@ -1089,7 +1089,7 @@ fn iterator_test() {
 }
 
 #[test]
-fn non_unicode_path_test() {
+fn non_ascii_path_test() {
     let path = "ÇéæåÑëê/_rust_rocksdb_unicode_test";
     {
         let db = DB::open_default(path).unwrap();
