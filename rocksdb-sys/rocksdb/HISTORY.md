@@ -1,4 +1,11 @@
 # Rocksdb Change Log
+
+## 5.14.3 (8/21/2018)
+### Public API Change
+* The merge operands are passed to `MergeOperator::ShouldMerge` in the reversed order relative to how they were merged (passed to FullMerge or FullMergeV2) for performance reasons
+### Bug Fixes
+* Fixes DBImpl::FindObsoleteFiles() calling GetChildren() on the same path
+
 ## 5.14.2 (7/3/2018)
 ### Bug Fixes
 * Change default value of `bytes_max_delete_chunk` to 0 in NewSstFileManager() as it doesn't work well with checkpoints.
