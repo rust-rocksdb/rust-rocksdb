@@ -273,11 +273,11 @@ impl DB {
     pub fn open_cf(opts: &Options,
                    path: &str,
                    cfs: &[&str],
-				   cf_opts: &[Options])
+                   cf_opts: &[Options])
                    -> Result<DB, String> {
-    	if cfs.len() != cf_opts.len() {
-			return Err(format!("Mismatching number of CF options"));
-		}
+        if cfs.len() != cf_opts.len() {
+            return Err(format!("Mismatching number of CF options"));
+        }
         let encoded_path = match Encoding::ANSI.to_bytes(path) {
             Ok(c) => c,
             Err(_) => {
@@ -348,9 +348,9 @@ impl DB {
                 cf_opts.iter()
                      .map(|o| o.inner)
                      .collect();
-			if cfopts.len() != c_cfs.len() {
-				cfopts.push(opts.inner);
-			}
+            if cfopts.len() != c_cfs.len() {
+                cfopts.push(opts.inner);
+            }
 
             // Prepare to ship to C.
             let copts: *const rocksdb_ffi::DBOptions = cfopts.as_ptr();
@@ -642,7 +642,7 @@ impl DB {
     pub fn iterator_cf_opt(&self,
                        cf_handle: Column,
                        mode: IteratorMode,
-					   opts: &ReadOptions)
+                       opts: &ReadOptions)
                        -> Result<DBIterator, String> {
         DBIterator::new_cf(&self, cf_handle, &opts, mode)
     }
@@ -1014,17 +1014,27 @@ fn external() {
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let _db = DB::open_default(path).unwrap();
     let opts = Options::new();
-    // The DB will still be open when we try to destroy and the lock should fail
-    match DB::destroy(&opts, path) {
-        Err(ref s) => {
-            assert!(s ==
+    {
+        let _db = DB::open_default(path).unwrap();
+        // The DB will still be open when we try to destroy and the lock should fail
+        match DB::destroy(&opts, path) {
+            Err(ref s) => {
+                let msg = if cfg!(target_env = "msvc") {
+                    "IO error: Failed to create lock file: _rust_rocksdb_error/LOCK: \
+                     The process cannot access the file because it is being used by another process."
+                } else {
                     "IO error: While lock file: _rust_rocksdb_error/LOCK: \
-					 No locks available")
+                     No locks available"
+                };
+
+                assert_eq!(s.trim(), msg)
+            }
+            Ok(_) => panic!("should fail"),
         }
-        Ok(_) => panic!("should fail"),
     }
+    let result = DB::destroy(&opts, path);
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -1079,8 +1089,8 @@ fn iterator_test() {
 }
 
 #[test]
-fn non_unicode_path_test() {
-    let path = "путь_не_юникод/_rust_rocksdb_unicode_test";
+fn non_ascii_path_test() {
+    let path = "ÇéæåÑëê/_rust_rocksdb_unicode_test";
     {
         let db = DB::open_default(path).unwrap();
         assert!(db.put(b"my key", b"my value").is_ok());
@@ -1088,6 +1098,8 @@ fn non_unicode_path_test() {
     }
     let opts = Options::new();
     assert!(DB::destroy(&opts, path).is_ok());
+    // db::destroy will only remove the innermost directory
+    fs::remove_dir("ÇéæåÑëê").unwrap();
 }
 
 #[test]

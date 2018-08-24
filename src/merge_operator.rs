@@ -19,11 +19,6 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-#[cfg(test)]
-use rocksdb_options::Options;
-#[cfg(test)]
-use rocksdb::{DB, DBVector, Writable};
-
 pub struct MergeOperatorCallback {
     pub name: CString,
     pub merge_fn: fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Vec<u8>,
@@ -183,7 +178,6 @@ fn test_provided_merge(new_key: &[u8],
 
 #[allow(dead_code)]
 #[test]
-
 fn mergetest() {
     use rocksdb_options::Options;
     use rocksdb::{DB, DBVector, Writable};
@@ -209,7 +203,7 @@ fn mergetest() {
                     None => println!("did not read valid utf-8 out of the db"),
                 }
             }
-            Err(e) => println!("error reading value"),
+            Err(_) => println!("error reading value"),
             _ => panic!("value not present"),
         }
 

@@ -6,7 +6,7 @@ version = "0.4.5"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
-homepage = "https://github.com/spacejam/rust-rocksdb"
+homepage = "https://github.com/paritytech/rust-rocksdb"
 exclude = [
   ".gitignore",
   ".travis.yml",
