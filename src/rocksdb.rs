@@ -1014,23 +1014,27 @@ fn external() {
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let _db = DB::open_default(path).unwrap();
     let opts = Options::new();
-    // The DB will still be open when we try to destroy and the lock should fail
-    match DB::destroy(&opts, path) {
-        Err(ref s) => {
-            let msg = if cfg!(target_env = "msvc") {
-                "IO error: Failed to create lock file: _rust_rocksdb_error/LOCK: \
-                 The process cannot access the file because it is being used by another process."
-            } else {
-                "IO error: While lock file: _rust_rocksdb_error/LOCK: \
-                 No locks available"
-            };
+    {
+        let _db = DB::open_default(path).unwrap();
+        // The DB will still be open when we try to destroy and the lock should fail
+        match DB::destroy(&opts, path) {
+            Err(ref s) => {
+                let msg = if cfg!(target_env = "msvc") {
+                    "IO error: Failed to create lock file: _rust_rocksdb_error/LOCK: \
+                     The process cannot access the file because it is being used by another process."
+                } else {
+                    "IO error: While lock file: _rust_rocksdb_error/LOCK: \
+                     No locks available"
+                };
 
-            assert_eq!(s.trim(), msg)
+                assert_eq!(s.trim(), msg)
+            }
+            Ok(_) => panic!("should fail"),
         }
-        Ok(_) => panic!("should fail"),
     }
+    let result = DB::destroy(&opts, path);
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -1094,6 +1098,8 @@ fn non_unicode_path_test() {
     }
     let opts = Options::new();
     assert!(DB::destroy(&opts, path).is_ok());
+    // db::destroy will only remove the innermost directory
+    fs::remove_dir("ÇéæåÑëê").unwrap();
 }
 
 #[test]
