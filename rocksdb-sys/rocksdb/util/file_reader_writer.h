@@ -13,6 +13,7 @@
 #include "rocksdb/env.h"
 #include "rocksdb/rate_limiter.h"
 #include "util/aligned_buffer.h"
+#include "util/sync_point.h"
 
 namespace rocksdb {
 
@@ -151,6 +152,8 @@ class WritableFileWriter {
         bytes_per_sync_(options.bytes_per_sync),
         rate_limiter_(options.rate_limiter),
         stats_(stats) {
+    TEST_SYNC_POINT_CALLBACK("WritableFileWriter::WritableFileWriter:0",
+                             reinterpret_cast<void*>(max_buffer_size_));
     buf_.Alignment(writable_file_->GetRequiredBufferAlignment());
     buf_.AllocateNewBuffer(std::min((size_t)65536, max_buffer_size_));
   }
@@ -162,6 +165,8 @@ class WritableFileWriter {
   ~WritableFileWriter() { Close(); }
 
   Status Append(const Slice& data);
+
+  Status Pad(const size_t pad_bytes);
 
   Status Flush();
 
@@ -184,6 +189,8 @@ class WritableFileWriter {
 
   bool use_direct_io() { return writable_file_->use_direct_io(); }
 
+  bool TEST_BufferIsEmpty() { return buf_.CurrentSize() == 0; }
+
  private:
   // Used when os buffering is OFF and we are writing
   // DMA such as in Direct I/O mode
@@ -198,6 +205,7 @@ class WritableFileWriter {
 
 class FilePrefetchBuffer {
  public:
+  FilePrefetchBuffer() : buffer_offset_(0), buffer_len_(0) {}
   Status Prefetch(RandomAccessFileReader* reader, uint64_t offset, size_t n);
   bool TryReadFromCache(uint64_t offset, size_t n, Slice* result) const;
 

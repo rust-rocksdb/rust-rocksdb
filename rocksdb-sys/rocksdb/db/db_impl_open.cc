@@ -106,14 +106,14 @@ DBOptions SanitizeOptions(const std::string& dbname, const DBOptions& src) {
     result.db_paths.emplace_back(dbname, std::numeric_limits<uint64_t>::max());
   }
 
-  if (result.use_direct_io_for_flush_and_compaction &&
+  if (result.use_direct_reads &&
       result.compaction_readahead_size == 0) {
     TEST_SYNC_POINT_CALLBACK("SanitizeOptions:direct_io", nullptr);
     result.compaction_readahead_size = 1024 * 1024 * 2;
   }
 
   if (result.compaction_readahead_size > 0 ||
-      result.use_direct_io_for_flush_and_compaction) {
+      result.use_direct_reads) {
     result.new_table_reader_for_compaction_inputs = true;
   }
 
@@ -123,6 +123,17 @@ DBOptions SanitizeOptions(const std::string& dbname, const DBOptions& src) {
   if (result.allow_2pc) {
     result.avoid_flush_during_recovery = false;
   }
+
+#ifndef ROCKSDB_LITE
+  // When the DB is stopped, it's possible that there are some .trash files that
+  // were not deleted yet, when we open the DB we will find these .trash files
+  // and schedule them to be deleted (or delete immediately if SstFileManager
+  // was not used)
+  auto sfm = static_cast<SstFileManagerImpl*>(result.sst_file_manager.get());
+  for (size_t i = 0; i < result.db_paths.size(); i++) {
+    DeleteScheduler::CleanupDirectory(result.env, sfm, result.db_paths[i].path);
+  }
+#endif
 
   return result;
 }
@@ -152,28 +163,23 @@ static Status ValidateOptions(
     if (s.ok() && db_options.allow_concurrent_memtable_write) {
       s = CheckConcurrentWritesSupported(cfd.options);
     }
+    if (s.ok()) {
+      s = CheckCFPathsSupported(db_options, cfd.options);
+    }
     if (!s.ok()) {
       return s;
     }
-    if (db_options.db_paths.size() > 1) {
-      if ((cfd.options.compaction_style != kCompactionStyleUniversal) &&
-          (cfd.options.compaction_style != kCompactionStyleLevel)) {
-        return Status::NotSupported(
-            "More than one DB paths are only supported in "
-            "universal and level compaction styles. ");
-      }
-    }
-    if (cfd.options.compaction_options_fifo.ttl > 0) {
+
+    if (cfd.options.ttl > 0 || cfd.options.compaction_options_fifo.ttl > 0) {
       if (db_options.max_open_files != -1) {
         return Status::NotSupported(
-            "FIFO Compaction with TTL is only supported when files are always "
+            "TTL is only supported when files are always "
             "kept open (set max_open_files = -1). ");
       }
       if (cfd.options.table_factory->Name() !=
           BlockBasedTableFactory().Name()) {
         return Status::NotSupported(
-            "FIFO Compaction with TTL is only supported in "
-            "Block-Based Table format. ");
+            "TTL is only supported in Block-Based Table format. ");
       }
     }
   }
@@ -243,9 +249,9 @@ Status DBImpl::NewDB() {
   return s;
 }
 
-Status DBImpl::Directories::CreateAndNewDirectory(
+Status DBImpl::CreateAndNewDirectory(
     Env* env, const std::string& dirname,
-    std::unique_ptr<Directory>* directory) const {
+    std::unique_ptr<Directory>* directory) {
   // We call CreateDirIfMissing() as the directory may already exist (if we
   // are reopening a DB), when this happens we don't want creating the
   // directory to cause an error. However, we need to check if creating the
@@ -263,12 +269,12 @@ Status DBImpl::Directories::CreateAndNewDirectory(
 Status DBImpl::Directories::SetDirectories(
     Env* env, const std::string& dbname, const std::string& wal_dir,
     const std::vector<DbPath>& data_paths) {
-  Status s = CreateAndNewDirectory(env, dbname, &db_dir_);
+  Status s = DBImpl::CreateAndNewDirectory(env, dbname, &db_dir_);
   if (!s.ok()) {
     return s;
   }
   if (!wal_dir.empty() && dbname != wal_dir) {
-    s = CreateAndNewDirectory(env, wal_dir, &wal_dir_);
+    s = DBImpl::CreateAndNewDirectory(env, wal_dir, &wal_dir_);
     if (!s.ok()) {
       return s;
     }
@@ -281,7 +287,7 @@ Status DBImpl::Directories::SetDirectories(
       data_dirs_.emplace_back(nullptr);
     } else {
       std::unique_ptr<Directory> path_directory;
-      s = CreateAndNewDirectory(env, db_path, &path_directory);
+      s = DBImpl::CreateAndNewDirectory(env, db_path, &path_directory);
       if (!s.ok()) {
         return s;
       }
@@ -345,11 +351,42 @@ Status DBImpl::Recover(
       assert(s.IsIOError());
       return s;
     }
+    // Verify compatibility of env_options_ and filesystem
+    {
+      unique_ptr<RandomAccessFile> idfile;
+      EnvOptions customized_env(env_options_);
+      customized_env.use_direct_reads |=
+          immutable_db_options_.use_direct_io_for_flush_and_compaction;
+      s = env_->NewRandomAccessFile(IdentityFileName(dbname_), &idfile,
+                                    customized_env);
+      if (!s.ok()) {
+        const char* error_msg = s.ToString().c_str();
+        // Check if unsupported Direct I/O is the root cause
+        customized_env.use_direct_reads = false;
+        s = env_->NewRandomAccessFile(IdentityFileName(dbname_), &idfile,
+                                      customized_env);
+        if (s.ok()) {
+          return Status::InvalidArgument(
+              "Direct I/O is not supported by the specified DB.");
+        } else {
+          return Status::InvalidArgument(
+              "Found options incompatible with filesystem", error_msg);
+        }
+      }
+    }
   }
 
   Status s = versions_->Recover(column_families, read_only);
   if (immutable_db_options_.paranoid_checks && s.ok()) {
     s = CheckConsistency();
+  }
+  if (s.ok() && !read_only) {
+    for (auto cfd : *versions_->GetColumnFamilySet()) {
+      s = cfd->AddDirectories();
+      if (!s.ok()) {
+        return s;
+      }
+    }
   }
   if (s.ok()) {
     SequenceNumber next_sequence(kMaxSequenceNumber);
@@ -493,11 +530,19 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
   bool stop_replay_by_wal_filter = false;
   bool stop_replay_for_corruption = false;
   bool flushed = false;
+  uint64_t corrupted_log_number = kMaxSequenceNumber;
   for (auto log_number : log_numbers) {
+    if (log_number < versions_->min_log_number_to_keep_2pc()) {
+      ROCKS_LOG_INFO(immutable_db_options_.info_log,
+                     "Skipping log #%" PRIu64
+                     " since it is older than min log to keep #%" PRIu64,
+                     log_number, versions_->min_log_number_to_keep_2pc());
+      continue;
+    }
     // The previous incarnation may not have written any MANIFEST
     // records after allocating this log number.  So we manually
     // update the file number allocation counter in VersionSet.
-    versions_->MarkFileNumberUsedDuringRecovery(log_number);
+    versions_->MarkFileNumberUsed(log_number);
     // Open the log file
     std::string fname = LogFileName(immutable_db_options_.wal_dir, log_number);
 
@@ -674,7 +719,7 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
       status = WriteBatchInternal::InsertInto(
           &batch, column_family_memtables_.get(), &flush_scheduler_, true,
           log_number, this, false /* concurrent_memtable_writes */,
-          next_sequence, &has_valid_writes);
+          next_sequence, &has_valid_writes, seq_per_batch_);
       MaybeIgnoreError(&status);
       if (!status.ok()) {
         // We are treating this as a failure while reading since we read valid
@@ -711,6 +756,12 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
     }
 
     if (!status.ok()) {
+      if (status.IsNotSupported()) {
+        // We should not treat NotSupported as corruption. It is rather a clear
+        // sign that we are processing a WAL that is produced by an incompatible
+        // version of the code.
+        return status;
+      }
       if (immutable_db_options_.wal_recovery_mode ==
           WALRecoveryMode::kSkipAnyCorruptedRecords) {
         // We should ignore all errors unconditionally
@@ -720,6 +771,7 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
         // We should ignore the error but not continue replaying
         status = Status::OK();
         stop_replay_for_corruption = true;
+        corrupted_log_number = log_number;
         ROCKS_LOG_INFO(immutable_db_options_.info_log,
                        "Point in time recovered to log #%" PRIu64
                        " seq #%" PRIu64,
@@ -737,8 +789,28 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
     auto last_sequence = *next_sequence - 1;
     if ((*next_sequence != kMaxSequenceNumber) &&
         (versions_->LastSequence() <= last_sequence)) {
-      versions_->SetLastToBeWrittenSequence(last_sequence);
+      versions_->SetLastAllocatedSequence(last_sequence);
+      versions_->SetLastPublishedSequence(last_sequence);
       versions_->SetLastSequence(last_sequence);
+    }
+  }
+  // Compare the corrupted log number to all columnfamily's current log number.
+  // Abort Open() if any column family's log number is greater than
+  // the corrupted log number, which means CF contains data beyond the point of
+  // corruption. This could during PIT recovery when the WAL is corrupted and
+  // some (but not all) CFs are flushed
+  if (stop_replay_for_corruption == true &&
+      (immutable_db_options_.wal_recovery_mode ==
+           WALRecoveryMode::kPointInTimeRecovery ||
+       immutable_db_options_.wal_recovery_mode ==
+           WALRecoveryMode::kTolerateCorruptedTailRecords)) {
+    for (auto cfd : *versions_->GetColumnFamilySet()) {
+      if (cfd->GetLogNumber() > corrupted_log_number) {
+        ROCKS_LOG_ERROR(immutable_db_options_.info_log,
+                        "Column family inconsistency: SST file contains data"
+                        " beyond the point of corruption.");
+        return Status::Corruption("SST file is ahead of WALs");
+      }
     }
   }
 
@@ -796,7 +868,7 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
       // not actually used. that is because VersionSet assumes
       // VersionSet::next_file_number_ always to be strictly greater than any
       // log number
-      versions_->MarkFileNumberUsedDuringRecovery(max_log_number + 1);
+      versions_->MarkFileNumberUsed(max_log_number + 1);
       status = versions_->LogAndApply(
           cfd, *cfd->GetLatestMutableCFOptions(), edit, &mutex_);
       if (!status.ok()) {
@@ -809,13 +881,13 @@ Status DBImpl::RecoverLogFiles(const std::vector<uint64_t>& log_numbers,
   if (data_seen && !flushed) {
     // Mark these as alive so they'll be considered for deletion later by
     // FindObsoleteFiles()
-    if (concurrent_prepare_) {
+    if (two_write_queues_) {
       log_write_mutex_.Lock();
     }
     for (auto log_number : log_numbers) {
       alive_log_files_.push_back(LogFileNumberSize(log_number));
     }
-    if (concurrent_prepare_) {
+    if (two_write_queues_) {
       log_write_mutex_.Unlock();
     }
   }
@@ -857,26 +929,28 @@ Status DBImpl::WriteLevel0TableForRecovery(int job_id, ColumnFamilyData* cfd,
     const uint64_t current_time = static_cast<uint64_t>(_current_time);
 
     {
+      auto write_hint = cfd->CalculateSSTWriteHint(0);
       mutex_.Unlock();
 
       SequenceNumber earliest_write_conflict_snapshot;
       std::vector<SequenceNumber> snapshot_seqs =
           snapshots_.GetAll(&earliest_write_conflict_snapshot);
-
-      EnvOptions optimized_env_options =
-          env_->OptimizeForCompactionTableWrite(env_options_, immutable_db_options_);
+      auto snapshot_checker = snapshot_checker_.get();
+      if (use_custom_gc_ && snapshot_checker == nullptr) {
+        snapshot_checker = DisableGCSnapshotChecker::Instance();
+      }
       s = BuildTable(
           dbname_, env_, *cfd->ioptions(), mutable_cf_options,
-          optimized_env_options, cfd->table_cache(), iter.get(),
+          env_options_for_compaction_, cfd->table_cache(), iter.get(),
           std::unique_ptr<InternalIterator>(mem->NewRangeTombstoneIterator(ro)),
           &meta, cfd->internal_comparator(),
           cfd->int_tbl_prop_collector_factories(), cfd->GetID(), cfd->GetName(),
-          snapshot_seqs, earliest_write_conflict_snapshot,
+          snapshot_seqs, earliest_write_conflict_snapshot, snapshot_checker,
           GetCompressionFlush(*cfd->ioptions(), mutable_cf_options),
           cfd->ioptions()->compression_opts, paranoid_file_checks,
           cfd->internal_stats(), TableFileCreationReason::kRecovery,
           &event_logger_, job_id, Env::IO_HIGH, nullptr /* table_properties */,
-          -1 /* level */, current_time);
+          -1 /* level */, current_time, write_hint);
       LogFlush(immutable_db_options_.info_log);
       ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
                       "[%s] [WriteLevel0TableForRecovery]"
@@ -898,7 +972,7 @@ Status DBImpl::WriteLevel0TableForRecovery(int job_id, ColumnFamilyData* cfd,
                   meta.marked_for_compaction);
   }
 
-  InternalStats::CompactionStats stats(1);
+  InternalStats::CompactionStats stats(CompactionReason::kFlush, 1);
   stats.micros = env_->NowMicros() - start_micros;
   stats.bytes_written = meta.fd.GetFileSize();
   stats.num_output_files = 1;
@@ -929,6 +1003,15 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
 Status DB::Open(const DBOptions& db_options, const std::string& dbname,
                 const std::vector<ColumnFamilyDescriptor>& column_families,
                 std::vector<ColumnFamilyHandle*>* handles, DB** dbptr) {
+  const bool seq_per_batch = true;
+  return DBImpl::Open(db_options, dbname, column_families, handles, dbptr,
+                      !seq_per_batch);
+}
+
+Status DBImpl::Open(const DBOptions& db_options, const std::string& dbname,
+                    const std::vector<ColumnFamilyDescriptor>& column_families,
+                    std::vector<ColumnFamilyHandle*>* handles, DB** dbptr,
+                    const bool seq_per_batch) {
   Status s = SanitizeOptionsByTable(db_options, column_families);
   if (!s.ok()) {
     return s;
@@ -948,11 +1031,20 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
         std::max(max_write_buffer_size, cf.options.write_buffer_size);
   }
 
-  DBImpl* impl = new DBImpl(db_options, dbname);
+  DBImpl* impl = new DBImpl(db_options, dbname, seq_per_batch);
   s = impl->env_->CreateDirIfMissing(impl->immutable_db_options_.wal_dir);
   if (s.ok()) {
-    for (auto db_path : impl->immutable_db_options_.db_paths) {
-      s = impl->env_->CreateDirIfMissing(db_path.path);
+    std::vector<std::string> paths;
+    for (auto& db_path : impl->immutable_db_options_.db_paths) {
+      paths.emplace_back(db_path.path);
+    }
+    for (auto& cf : column_families) {
+      for (auto& cf_path : cf.options.cf_paths) {
+        paths.emplace_back(cf_path.path);
+      }
+    }
+    for (auto& path : paths) {
+      s = impl->env_->CreateDirIfMissing(path);
       if (!s.ok()) {
         break;
       }
@@ -970,6 +1062,7 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
     return s;
   }
   impl->mutex_.Lock();
+  auto write_hint = impl->CalculateWALWriteHint();
   // Handles create_if_missing, error_if_exists
   s = impl->Recover(column_families);
   if (s.ok()) {
@@ -985,6 +1078,7 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
         LogFileName(impl->immutable_db_options_.wal_dir, new_log_number),
         &lfile, opt_env_options);
     if (s.ok()) {
+      lfile->SetWriteLifeTimeHint(write_hint);
       lfile->SetPreallocationBlockSize(
           impl->GetWalPreallocateBlockSize(max_write_buffer_size));
       {
@@ -996,7 +1090,8 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
             new_log_number,
             new log::Writer(
                 std::move(file_writer), new_log_number,
-                impl->immutable_db_options_.recycle_log_file_num > 0));
+                impl->immutable_db_options_.recycle_log_file_num > 0,
+                impl->immutable_db_options_.manual_wal_flush));
       }
 
       // set column family handles
@@ -1027,16 +1122,18 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
       }
     }
     if (s.ok()) {
+      SuperVersionContext sv_context(/* create_superversion */ true);
       for (auto cfd : *impl->versions_->GetColumnFamilySet()) {
-        delete impl->InstallSuperVersionAndScheduleWork(
-            cfd, nullptr, *cfd->GetLatestMutableCFOptions());
+        impl->InstallSuperVersionAndScheduleWork(
+            cfd, &sv_context, *cfd->GetLatestMutableCFOptions());
       }
-      if (impl->concurrent_prepare_) {
+      sv_context.Clean();
+      if (impl->two_write_queues_) {
         impl->log_write_mutex_.Lock();
       }
       impl->alive_log_files_.push_back(
           DBImpl::LogFileNumberSize(impl->logfile_number_));
-      if (impl->concurrent_prepare_) {
+      if (impl->two_write_queues_) {
         impl->log_write_mutex_.Unlock();
       }
       impl->DeleteObsoleteFiles();
@@ -1091,17 +1188,28 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
       impl->immutable_db_options_.sst_file_manager.get());
   if (s.ok() && sfm) {
     // Notify SstFileManager about all sst files that already exist in
-    // db_paths[0] when the DB is opened.
-    auto& db_path = impl->immutable_db_options_.db_paths[0];
-    std::vector<std::string> existing_files;
-    impl->immutable_db_options_.env->GetChildren(db_path.path, &existing_files);
-    for (auto& file_name : existing_files) {
-      uint64_t file_number;
-      FileType file_type;
-      std::string file_path = db_path.path + "/" + file_name;
-      if (ParseFileName(file_name, &file_number, &file_type) &&
-          file_type == kTableFile) {
-        sfm->OnAddFile(file_path);
+    // db_paths[0] and cf_paths[0] when the DB is opened.
+    std::vector<std::string> paths;
+    paths.emplace_back(impl->immutable_db_options_.db_paths[0].path);
+    for (auto& cf : column_families) {
+      if (!cf.options.cf_paths.empty()) {
+        paths.emplace_back(cf.options.cf_paths[0].path);
+      }
+    }
+    // Remove duplicate paths.
+    std::sort(paths.begin(), paths.end());
+    paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+    for (auto& path : paths) {
+      std::vector<std::string> existing_files;
+      impl->immutable_db_options_.env->GetChildren(path, &existing_files);
+      for (auto& file_name : existing_files) {
+        uint64_t file_number;
+        FileType file_type;
+        std::string file_path = path + "/" + file_name;
+        if (ParseFileName(file_name, &file_number, &file_type) &&
+            file_type == kTableFile) {
+          sfm->OnAddFile(file_path);
+        }
       }
     }
   }
@@ -1110,6 +1218,9 @@ Status DB::Open(const DBOptions& db_options, const std::string& dbname,
   if (s.ok()) {
     ROCKS_LOG_INFO(impl->immutable_db_options_.info_log, "DB pointer %p", impl);
     LogFlush(impl->immutable_db_options_.info_log);
+    assert(impl->TEST_WALBufferIsEmpty());
+    // If the assert above fails then we need to FlushWAL before returning
+    // control back to the user.
     if (!persist_options_status.ok()) {
       s = Status::IOError(
           "DB::Open() failed --- Unable to persist Options file",

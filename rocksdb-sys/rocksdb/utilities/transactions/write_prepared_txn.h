@@ -34,8 +34,8 @@ namespace rocksdb {
 
 class WritePreparedTxnDB;
 
-// This impl could write to DB also uncomitted data and then later tell apart
-// committed data from uncomitted data. Uncommitted data could be after the
+// This impl could write to DB also uncommitted data and then later tell apart
+// committed data from uncommitted data. Uncommitted data could be after the
 // Prepare phase in 2PC (WritePreparedTxn) or before that
 // (WriteUnpreparedTxnImpl).
 class WritePreparedTxn : public PessimisticTransaction {
@@ -45,30 +45,62 @@ class WritePreparedTxn : public PessimisticTransaction {
 
   virtual ~WritePreparedTxn() {}
 
-  Status CommitBatch(WriteBatch* batch) override;
+  // To make WAL commit markers visible, the snapshot will be based on the last
+  // seq in the WAL that is also published, LastPublishedSequence, as opposed to
+  // the last seq in the memtable.
+  using Transaction::Get;
+  virtual Status Get(const ReadOptions& options,
+                     ColumnFamilyHandle* column_family, const Slice& key,
+                     PinnableSlice* value) override;
 
-  Status Rollback() override;
+  // To make WAL commit markers visible, the snapshot will be based on the last
+  // seq in the WAL that is also published, LastPublishedSequence, as opposed to
+  // the last seq in the memtable.
+  using Transaction::GetIterator;
+  virtual Iterator* GetIterator(const ReadOptions& options) override;
+  virtual Iterator* GetIterator(const ReadOptions& options,
+                                ColumnFamilyHandle* column_family) override;
+
+  virtual void SetSnapshot() override;
+
+ protected:
+  // Override the protected SetId to make it visible to the friend class
+  // WritePreparedTxnDB
+  inline void SetId(uint64_t id) override { Transaction::SetId(id); }
 
  private:
+  friend class WritePreparedTransactionTest_BasicRecoveryTest_Test;
+  friend class WritePreparedTxnDB;
+
   Status PrepareInternal() override;
 
   Status CommitWithoutPrepareInternal() override;
 
+  Status CommitBatchInternal(WriteBatch* batch, size_t batch_cnt) override;
+
+  // Since the data is already written to memtables at the Prepare phase, the
+  // commit entails writing only a commit marker in the WAL. The sequence number
+  // of the commit marker is then the commit timestamp of the transaction. To
+  // make WAL commit markers visible, the snapshot will be based on the last seq
+  // in the WAL that is also published, LastPublishedSequence, as opposed to the
+  // last seq in the memtable.
   Status CommitInternal() override;
 
-  // TODO(myabandeh): verify that the current impl work with values being
-  // written with prepare sequence number too.
-  // Status ValidateSnapshot(ColumnFamilyHandle* column_family, const Slice&
-  // key,
-  //                        SequenceNumber prev_seqno, SequenceNumber*
-  //                        new_seqno);
+  Status RollbackInternal() override;
+
+  virtual Status ValidateSnapshot(ColumnFamilyHandle* column_family,
+                                  const Slice& key,
+                                  SequenceNumber* tracked_at_seq) override;
+
+  virtual Status RebuildFromWriteBatch(WriteBatch* src_batch) override;
 
   // No copying allowed
   WritePreparedTxn(const WritePreparedTxn&);
   void operator=(const WritePreparedTxn&);
 
   WritePreparedTxnDB* wpt_db_;
-  uint64_t prepare_seq_;
+  // Number of sub-batches in prepare
+  size_t prepare_batch_cnt_ = 0;
 };
 
 }  // namespace rocksdb

@@ -11,6 +11,7 @@
 
 #include "port/port.h"
 
+#include "db/compaction.h"
 #include "rocksdb/sst_file_manager.h"
 #include "util/delete_scheduler.h"
 
@@ -25,8 +26,9 @@ class Logger;
 class SstFileManagerImpl : public SstFileManager {
  public:
   explicit SstFileManagerImpl(Env* env, std::shared_ptr<Logger> logger,
-                              const std::string& trash_dir,
-                              int64_t rate_bytes_per_sec);
+                              int64_t rate_bytes_per_sec,
+                              double max_trash_db_ratio,
+                              uint64_t bytes_max_delete_chunk);
 
   ~SstFileManagerImpl();
 
@@ -50,11 +52,28 @@ class SstFileManagerImpl : public SstFileManager {
   // thread-safe.
   void SetMaxAllowedSpaceUsage(uint64_t max_allowed_space) override;
 
+  void SetCompactionBufferSize(uint64_t compaction_buffer_size) override;
+
   // Return true if the total size of SST files exceeded the maximum allowed
   // space usage.
   //
   // thread-safe.
   bool IsMaxAllowedSpaceReached() override;
+
+  bool IsMaxAllowedSpaceReachedIncludingCompactions() override;
+
+  // Returns true is there is enough (approximate) space for the specified
+  // compaction. Space is approximate because this function conservatively
+  // estimates how much space is currently being used by compactions (i.e.
+  // if a compaction has started, this function bumps the used space by
+  // the full compaction size).
+  bool EnoughRoomForCompaction(const std::vector<CompactionInputFiles>& inputs);
+
+  // Bookkeeping so total_file_sizes_ goes back to normal after compaction
+  // finishes
+  void OnCompactionCompletion(Compaction* c);
+
+  uint64_t GetCompactionsReservedSize();
 
   // Return the total size of all tracked files.
   uint64_t GetTotalSize() override;
@@ -68,8 +87,15 @@ class SstFileManagerImpl : public SstFileManager {
   // Update the delete rate limit in bytes per second.
   virtual void SetDeleteRateBytesPerSecond(int64_t delete_rate) override;
 
-  // Move file to trash directory and schedule it's deletion.
-  virtual Status ScheduleFileDeletion(const std::string& file_path);
+  // Return trash/DB size ratio where new files will be deleted immediately
+  virtual double GetMaxTrashDBRatio() override;
+
+  // Update trash/DB size ratio where new files will be deleted immediately
+  virtual void SetMaxTrashDBRatio(double ratio) override;
+
+  // Mark file as trash and schedule it's deletion.
+  virtual Status ScheduleFileDeletion(const std::string& file_path,
+                                      const std::string& dir_to_sync);
 
   // Wait for all files being deleteing in the background to finish or for
   // destructor to be called.
@@ -89,14 +115,17 @@ class SstFileManagerImpl : public SstFileManager {
   port::Mutex mu_;
   // The summation of the sizes of all files in tracked_files_ map
   uint64_t total_files_size_;
+  // Compactions should only execute if they can leave at least
+  // this amount of buffer space for logs and flushes
+  uint64_t compaction_buffer_size_;
+  // Estimated size of the current ongoing compactions
+  uint64_t cur_compactions_reserved_size_;
   // A map containing all tracked files and there sizes
   //  file_path => file_size
   std::unordered_map<std::string, uint64_t> tracked_files_;
   // The maximum allowed space (in bytes) for sst files.
   uint64_t max_allowed_space_;
-  // DeleteScheduler used to throttle file deletition, if SstFileManagerImpl was
-  // created with rate_bytes_per_sec == 0 or trash_dir == "", delete_scheduler_
-  // rate limiting will be disabled and will simply delete the files.
+  // DeleteScheduler used to throttle file deletition.
   DeleteScheduler delete_scheduler_;
 };
 

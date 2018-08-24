@@ -7,7 +7,6 @@
 
 #include "rocksdb/utilities/write_batch_with_index.h"
 
-#include <limits>
 #include <memory>
 
 #include "db/column_family.h"
@@ -19,6 +18,8 @@
 #include "rocksdb/comparator.h"
 #include "rocksdb/iterator.h"
 #include "util/arena.h"
+#include "util/cast_util.h"
+#include "util/string_util.h"
 #include "utilities/write_batch_with_index/write_batch_with_index_internal.h"
 
 namespace rocksdb {
@@ -78,6 +79,7 @@ class BaseDeltaIterator : public Iterator {
   void Next() override {
     if (!Valid()) {
       status_ = Status::NotSupported("Next() on invalid iterator");
+      return;
     }
 
     if (!forward_) {
@@ -113,6 +115,7 @@ class BaseDeltaIterator : public Iterator {
   void Prev() override {
     if (!Valid()) {
       status_ = Status::NotSupported("Prev() on invalid iterator");
+      return;
     }
 
     if (forward_) {
@@ -169,6 +172,21 @@ class BaseDeltaIterator : public Iterator {
  private:
   void AssertInvariants() {
 #ifndef NDEBUG
+    bool not_ok = false;
+    if (!base_iterator_->status().ok()) {
+      assert(!base_iterator_->Valid());
+      not_ok = true;
+    }
+    if (!delta_iterator_->status().ok()) {
+      assert(!delta_iterator_->Valid());
+      not_ok = true;
+    }
+    if (not_ok) {
+      assert(!Valid());
+      assert(!status().ok());
+      return;
+    }
+
     if (!Valid()) {
       return;
     }
@@ -237,13 +255,25 @@ class BaseDeltaIterator : public Iterator {
   void UpdateCurrent() {
 // Suppress false positive clang analyzer warnings.
 #ifndef __clang_analyzer__
+    status_ = Status::OK();
     while (true) {
       WriteEntry delta_entry;
       if (DeltaValid()) {
+        assert(delta_iterator_->status().ok());
         delta_entry = delta_iterator_->Entry();
+      } else if (!delta_iterator_->status().ok()) {
+        // Expose the error status and stop.
+        current_at_base_ = false;
+        return;
       }
       equal_keys_ = false;
       if (!BaseValid()) {
+        if (!base_iterator_->status().ok()) {
+          // Expose the error status and stop.
+          current_at_base_ = true;
+          return;
+        }
+
         // Base has finished.
         if (!DeltaValid()) {
           // Finished
@@ -391,13 +421,21 @@ struct WriteBatchWithIndex::Rep {
         comparator(index_comparator, &write_batch),
         skip_list(comparator, &arena),
         overwrite_key(_overwrite_key),
-        last_entry_offset(0) {}
+        last_entry_offset(0),
+        last_sub_batch_offset(0),
+        sub_batch_cnt(1) {}
   ReadableWriteBatch write_batch;
   WriteBatchEntryComparator comparator;
   Arena arena;
   WriteBatchEntrySkipList skip_list;
   bool overwrite_key;
   size_t last_entry_offset;
+  // The starting offset of the last sub-batch. A sub-batch starts right before
+  // inserting a key that is a duplicate of a key in the last sub-batch. Zero,
+  // the default, means that no duplicate key is detected so far.
+  size_t last_sub_batch_offset;
+  // Total number of sub-batches in the write batch. Default is 1.
+  size_t sub_batch_cnt;
 
   // Remember current offset of internal write batch, which is used as
   // the starting offset of the next record.
@@ -449,6 +487,10 @@ bool WriteBatchWithIndex::Rep::UpdateExistingEntryWithCfId(
   }
   WriteBatchIndexEntry* non_const_entry =
       const_cast<WriteBatchIndexEntry*>(iter.GetRawEntry());
+  if (LIKELY(last_sub_batch_offset <= non_const_entry->offset)) {
+    last_sub_batch_offset = last_entry_offset;
+    sub_batch_cnt++;
+  }
   non_const_entry->offset = last_entry_offset;
   return true;
 }
@@ -477,106 +519,113 @@ void WriteBatchWithIndex::Rep::AddNewEntry(uint32_t column_family_id) {
                           wb_data.size() - last_entry_offset);
   // Extract key
   Slice key;
-  bool success __attribute__((__unused__)) =
+  bool success __attribute__((__unused__));
+  success =
       ReadKeyFromWriteBatchEntry(&entry_ptr, &key, column_family_id != 0);
   assert(success);
 
-    auto* mem = arena.Allocate(sizeof(WriteBatchIndexEntry));
-    auto* index_entry =
-        new (mem) WriteBatchIndexEntry(last_entry_offset, column_family_id,
-                                       key.data() - wb_data.data(), key.size());
-    skip_list.Insert(index_entry);
-  }
+  auto* mem = arena.Allocate(sizeof(WriteBatchIndexEntry));
+  auto* index_entry =
+      new (mem) WriteBatchIndexEntry(last_entry_offset, column_family_id,
+                                      key.data() - wb_data.data(), key.size());
+  skip_list.Insert(index_entry);
+}
 
-  void WriteBatchWithIndex::Rep::Clear() {
-    write_batch.Clear();
-    ClearIndex();
-  }
+void WriteBatchWithIndex::Rep::Clear() {
+  write_batch.Clear();
+  ClearIndex();
+}
 
-  void WriteBatchWithIndex::Rep::ClearIndex() {
-    skip_list.~WriteBatchEntrySkipList();
-    arena.~Arena();
-    new (&arena) Arena();
-    new (&skip_list) WriteBatchEntrySkipList(comparator, &arena);
-    last_entry_offset = 0;
-  }
+void WriteBatchWithIndex::Rep::ClearIndex() {
+  skip_list.~WriteBatchEntrySkipList();
+  arena.~Arena();
+  new (&arena) Arena();
+  new (&skip_list) WriteBatchEntrySkipList(comparator, &arena);
+  last_entry_offset = 0;
+  last_sub_batch_offset = 0;
+  sub_batch_cnt = 1;
+}
 
-  Status WriteBatchWithIndex::Rep::ReBuildIndex() {
-    Status s;
+Status WriteBatchWithIndex::Rep::ReBuildIndex() {
+  Status s;
 
-    ClearIndex();
+  ClearIndex();
 
-    if (write_batch.Count() == 0) {
-      // Nothing to re-index
-      return s;
-    }
-
-    size_t offset = WriteBatchInternal::GetFirstOffset(&write_batch);
-
-    Slice input(write_batch.Data());
-    input.remove_prefix(offset);
-
-    // Loop through all entries in Rep and add each one to the index
-    int found = 0;
-    while (s.ok() && !input.empty()) {
-      Slice key, value, blob, xid;
-      uint32_t column_family_id = 0;  // default
-      char tag = 0;
-
-      // set offset of current entry for call to AddNewEntry()
-      last_entry_offset = input.data() - write_batch.Data().data();
-
-      s = ReadRecordFromWriteBatch(&input, &tag, &column_family_id, &key,
-                                   &value, &blob, &xid);
-      if (!s.ok()) {
-        break;
-      }
-
-      switch (tag) {
-        case kTypeColumnFamilyValue:
-        case kTypeValue:
-        case kTypeColumnFamilyDeletion:
-        case kTypeDeletion:
-        case kTypeColumnFamilySingleDeletion:
-        case kTypeSingleDeletion:
-        case kTypeColumnFamilyMerge:
-        case kTypeMerge:
-          found++;
-          if (!UpdateExistingEntryWithCfId(column_family_id, key)) {
-            AddNewEntry(column_family_id);
-          }
-          break;
-        case kTypeLogData:
-        case kTypeBeginPrepareXID:
-        case kTypeEndPrepareXID:
-        case kTypeCommitXID:
-        case kTypeRollbackXID:
-        case kTypeNoop:
-          break;
-        default:
-          return Status::Corruption("unknown WriteBatch tag");
-      }
-    }
-
-    if (s.ok() && found != write_batch.Count()) {
-      s = Status::Corruption("WriteBatch has wrong count");
-    }
-
+  if (write_batch.Count() == 0) {
+    // Nothing to re-index
     return s;
   }
 
-  WriteBatchWithIndex::WriteBatchWithIndex(
-      const Comparator* default_index_comparator, size_t reserved_bytes,
-      bool overwrite_key, size_t max_bytes)
-      : rep(new Rep(default_index_comparator, reserved_bytes, max_bytes,
-                    overwrite_key)) {}
+  size_t offset = WriteBatchInternal::GetFirstOffset(&write_batch);
 
-  WriteBatchWithIndex::~WriteBatchWithIndex() {}
+  Slice input(write_batch.Data());
+  input.remove_prefix(offset);
 
-  WriteBatch* WriteBatchWithIndex::GetWriteBatch() { return &rep->write_batch; }
+  // Loop through all entries in Rep and add each one to the index
+  int found = 0;
+  while (s.ok() && !input.empty()) {
+    Slice key, value, blob, xid;
+    uint32_t column_family_id = 0;  // default
+    char tag = 0;
 
-  WBWIIterator* WriteBatchWithIndex::NewIterator() {
-    return new WBWIIteratorImpl(0, &(rep->skip_list), &rep->write_batch);
+    // set offset of current entry for call to AddNewEntry()
+    last_entry_offset = input.data() - write_batch.Data().data();
+
+    s = ReadRecordFromWriteBatch(&input, &tag, &column_family_id, &key,
+                                  &value, &blob, &xid);
+    if (!s.ok()) {
+      break;
+    }
+
+    switch (tag) {
+      case kTypeColumnFamilyValue:
+      case kTypeValue:
+      case kTypeColumnFamilyDeletion:
+      case kTypeDeletion:
+      case kTypeColumnFamilySingleDeletion:
+      case kTypeSingleDeletion:
+      case kTypeColumnFamilyMerge:
+      case kTypeMerge:
+        found++;
+        if (!UpdateExistingEntryWithCfId(column_family_id, key)) {
+          AddNewEntry(column_family_id);
+        }
+        break;
+      case kTypeLogData:
+      case kTypeBeginPrepareXID:
+      case kTypeBeginPersistedPrepareXID:
+      case kTypeEndPrepareXID:
+      case kTypeCommitXID:
+      case kTypeRollbackXID:
+      case kTypeNoop:
+        break;
+      default:
+        return Status::Corruption("unknown WriteBatch tag in ReBuildIndex",
+                                  ToString(static_cast<unsigned int>(tag)));
+    }
+  }
+
+  if (s.ok() && found != write_batch.Count()) {
+    s = Status::Corruption("WriteBatch has wrong count");
+  }
+
+  return s;
+}
+
+WriteBatchWithIndex::WriteBatchWithIndex(
+    const Comparator* default_index_comparator, size_t reserved_bytes,
+    bool overwrite_key, size_t max_bytes)
+    : rep(new Rep(default_index_comparator, reserved_bytes, max_bytes,
+                  overwrite_key)) {}
+
+WriteBatchWithIndex::~WriteBatchWithIndex() {}
+
+WriteBatch* WriteBatchWithIndex::GetWriteBatch() { return &rep->write_batch; }
+
+size_t WriteBatchWithIndex::SubBatchCnt() { return rep->sub_batch_cnt; }
+
+WBWIIterator* WriteBatchWithIndex::NewIterator() {
+  return new WBWIIteratorImpl(0, &(rep->skip_list), &rep->write_batch);
 }
 
 WBWIIterator* WriteBatchWithIndex::NewIterator(
@@ -783,10 +832,18 @@ Status WriteBatchWithIndex::GetFromBatchAndDB(DB* db,
                                               ColumnFamilyHandle* column_family,
                                               const Slice& key,
                                               PinnableSlice* pinnable_val) {
+  return GetFromBatchAndDB(db, read_options, column_family, key, pinnable_val,
+                           nullptr);
+}
+
+Status WriteBatchWithIndex::GetFromBatchAndDB(
+    DB* db, const ReadOptions& read_options, ColumnFamilyHandle* column_family,
+    const Slice& key, PinnableSlice* pinnable_val, ReadCallback* callback) {
   Status s;
   MergeContext merge_context;
   const ImmutableDBOptions& immuable_db_options =
-      reinterpret_cast<DBImpl*>(db)->immutable_db_options();
+      static_cast_with_check<DBImpl, DB>(db->GetRootDB())
+          ->immutable_db_options();
 
   // Since the lifetime of the WriteBatch is the same as that of the transaction
   // we cannot pin it as otherwise the returned value will not be available
@@ -819,7 +876,13 @@ Status WriteBatchWithIndex::GetFromBatchAndDB(DB* db,
          result == WriteBatchWithIndexInternal::Result::kNotFound);
 
   // Did not find key in batch OR could not resolve Merges.  Try DB.
-  s = db->Get(read_options, column_family, key, pinnable_val);
+  if (!callback) {
+    s = db->Get(read_options, column_family, key, pinnable_val);
+  } else {
+    s = static_cast_with_check<DBImpl, DB>(db->GetRootDB())
+            ->GetImpl(read_options, column_family, key, pinnable_val, nullptr,
+                      callback);
+  }
 
   if (s.ok() || s.IsNotFound()) {  // DB Get Succeeded
     if (result == WriteBatchWithIndexInternal::Result::kMergeInProgress) {
@@ -858,6 +921,8 @@ Status WriteBatchWithIndex::RollbackToSavePoint() {
   Status s = rep->write_batch.RollbackToSavePoint();
 
   if (s.ok()) {
+    rep->sub_batch_cnt = 1;
+    rep->last_sub_batch_offset = 0;
     s = rep->ReBuildIndex();
   }
 

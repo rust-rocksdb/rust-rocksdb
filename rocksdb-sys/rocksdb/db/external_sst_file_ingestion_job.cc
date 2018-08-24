@@ -94,7 +94,8 @@ Status ExternalSstFileIngestionJob::Prepare(
 
     const std::string path_outside_db = f.external_file_path;
     const std::string path_inside_db =
-        TableFileName(db_options_.db_paths, f.fd.GetNumber(), f.fd.GetPathId());
+        TableFileName(cfd_->ioptions()->cf_paths, f.fd.GetNumber(),
+                      f.fd.GetPathId());
 
     if (ingestion_options_.move_files) {
       status = env_->LinkFile(path_outside_db, path_inside_db);
@@ -102,12 +103,16 @@ Status ExternalSstFileIngestionJob::Prepare(
         // Original file is on a different FS, use copy instead of hard linking
         status = CopyFile(env_, path_outside_db, path_inside_db, 0,
                           db_options_.use_fsync);
+        f.copy_file = true;
+      } else {
+        f.copy_file = false;
       }
     } else {
       status = CopyFile(env_, path_outside_db, path_inside_db, 0,
                         db_options_.use_fsync);
+      f.copy_file = true;
     }
-    TEST_SYNC_POINT("DBImpl::AddFile:FileCopied");
+    TEST_SYNC_POINT("ExternalSstFileIngestionJob::Prepare:FileAdded");
     if (!status.ok()) {
       break;
     }
@@ -117,7 +122,7 @@ Status ExternalSstFileIngestionJob::Prepare(
   if (!status.ok()) {
     // We failed, remove all files that we copied into the db
     for (IngestedFileInfo& f : files_to_ingest_) {
-      if (f.internal_file_path == "") {
+      if (f.internal_file_path.empty()) {
         break;
       }
       Status s = env_->DeleteFile(f.internal_file_path);
@@ -132,11 +137,15 @@ Status ExternalSstFileIngestionJob::Prepare(
   return status;
 }
 
-Status ExternalSstFileIngestionJob::NeedsFlush(bool* flush_needed) {
-  SuperVersion* super_version = cfd_->GetSuperVersion();
+Status ExternalSstFileIngestionJob::NeedsFlush(bool* flush_needed,
+                                               SuperVersion* super_version) {
+  autovector<Range> ranges;
+  for (const IngestedFileInfo& file_to_ingest : files_to_ingest_) {
+    ranges.emplace_back(file_to_ingest.smallest_user_key,
+                        file_to_ingest.largest_user_key);
+  }
   Status status =
-      IngestedFilesOverlapWithMemtables(super_version, flush_needed);
-
+      cfd_->RangesOverlapWithMemtables(ranges, super_version, flush_needed);
   if (status.ok() && *flush_needed &&
       !ingestion_options_.allow_blocking_flush) {
     status = Status::InvalidArgument("External file requires flush");
@@ -148,11 +157,12 @@ Status ExternalSstFileIngestionJob::NeedsFlush(bool* flush_needed) {
 // nonmem_write_thread_
 Status ExternalSstFileIngestionJob::Run() {
   Status status;
+  SuperVersion* super_version = cfd_->GetSuperVersion();
 #ifndef NDEBUG
   // We should never run the job with a memtable that is overlapping
   // with the files we are ingesting
   bool need_flush = false;
-  status = NeedsFlush(&need_flush);
+  status = NeedsFlush(&need_flush, super_version);
   assert(status.ok() && need_flush == false);
 #endif
 
@@ -164,10 +174,9 @@ Status ExternalSstFileIngestionJob::Run() {
     // if the dont overlap with any ranges since we have snapshots
     force_global_seqno = true;
   }
-  // It is safe to use this instead of LastToBeWrittenSequence since we are
+  // It is safe to use this instead of LastAllocatedSequence since we are
   // the only active writer, and hence they are equal
   const SequenceNumber last_seqno = versions_->LastSequence();
-  SuperVersion* super_version = cfd_->GetSuperVersion();
   edit_.SetColumnFamily(cfd_->GetID());
   // The levels that the files will be ingested into
 
@@ -199,7 +208,8 @@ Status ExternalSstFileIngestionJob::Run() {
   }
 
   if (consumed_seqno) {
-    versions_->SetLastToBeWrittenSequence(last_seqno + 1);
+    versions_->SetLastAllocatedSequence(last_seqno + 1);
+    versions_->SetLastPublishedSequence(last_seqno + 1);
     versions_->SetLastSequence(last_seqno + 1);
   }
 
@@ -212,9 +222,17 @@ void ExternalSstFileIngestionJob::UpdateStats() {
   uint64_t total_l0_files = 0;
   uint64_t total_time = env_->NowMicros() - job_start_time_;
   for (IngestedFileInfo& f : files_to_ingest_) {
-    InternalStats::CompactionStats stats(1);
+    InternalStats::CompactionStats stats(CompactionReason::kExternalSstIngestion, 1);
     stats.micros = total_time;
-    stats.bytes_written = f.fd.GetFileSize();
+    // If actual copy occured for this file, then we need to count the file
+    // size as the actual bytes written. If the file was linked, then we ignore
+    // the bytes written for file metadata.
+    // TODO (yanqin) maybe account for file metadata bytes for exact accuracy?
+    if (f.copy_file) {
+      stats.bytes_written = f.fd.GetFileSize();
+    } else {
+      stats.bytes_moved = f.fd.GetFileSize();
+    }
     stats.num_output_files = 1;
     cfd_->internal_stats()->AddCompactionStats(f.picked_level, stats);
     cfd_->internal_stats()->AddCFStats(InternalStats::BYTES_INGESTED_ADD_FILE,
@@ -374,46 +392,6 @@ Status ExternalSstFileIngestionJob::GetIngestedFileInfo(
   return status;
 }
 
-Status ExternalSstFileIngestionJob::IngestedFilesOverlapWithMemtables(
-    SuperVersion* sv, bool* overlap) {
-  // Create an InternalIterator over all memtables
-  Arena arena;
-  ReadOptions ro;
-  ro.total_order_seek = true;
-  MergeIteratorBuilder merge_iter_builder(&cfd_->internal_comparator(), &arena);
-  merge_iter_builder.AddIterator(sv->mem->NewIterator(ro, &arena));
-  sv->imm->AddIterators(ro, &merge_iter_builder);
-  ScopedArenaIterator memtable_iter(merge_iter_builder.Finish());
-
-  std::vector<InternalIterator*> memtable_range_del_iters;
-  auto* active_range_del_iter = sv->mem->NewRangeTombstoneIterator(ro);
-  if (active_range_del_iter != nullptr) {
-    memtable_range_del_iters.push_back(active_range_del_iter);
-  }
-  sv->imm->AddRangeTombstoneIterators(ro, &memtable_range_del_iters);
-  std::unique_ptr<InternalIterator> memtable_range_del_iter(NewMergingIterator(
-      &cfd_->internal_comparator(),
-      memtable_range_del_iters.empty() ? nullptr : &memtable_range_del_iters[0],
-      static_cast<int>(memtable_range_del_iters.size())));
-
-  Status status;
-  *overlap = false;
-  for (IngestedFileInfo& f : files_to_ingest_) {
-    status =
-        IngestedFileOverlapWithIteratorRange(&f, memtable_iter.get(), overlap);
-    if (!status.ok() || *overlap == true) {
-      break;
-    }
-    status = IngestedFileOverlapWithRangeDeletions(
-        &f, memtable_range_del_iter.get(), overlap);
-    if (!status.ok() || *overlap == true) {
-      break;
-    }
-  }
-
-  return status;
-}
-
 Status ExternalSstFileIngestionJob::AssignLevelAndSeqnoForIngestedFile(
     SuperVersion* sv, bool force_global_seqno, CompactionStyle compaction_style,
     IngestedFileInfo* file_to_ingest, SequenceNumber* assigned_seqno) {
@@ -442,8 +420,9 @@ Status ExternalSstFileIngestionJob::AssignLevelAndSeqnoForIngestedFile(
 
     if (vstorage->NumLevelFiles(lvl) > 0) {
       bool overlap_with_level = false;
-      status = IngestedFileOverlapWithLevel(sv, file_to_ingest, lvl,
-        &overlap_with_level);
+      status = sv->current->OverlapWithLevelIterator(ro, env_options_,
+          file_to_ingest->smallest_user_key, file_to_ingest->largest_user_key,
+          lvl, &overlap_with_level);
       if (!status.ok()) {
         return status;
       }
@@ -464,7 +443,10 @@ Status ExternalSstFileIngestionJob::AssignLevelAndSeqnoForIngestedFile(
                             return f1->largest_seqno < f2->largest_seqno;
                           }))
                 ->largest_seqno;
-        if (level_largest_seqno != 0) {
+        // should only assign seqno to current level's largest seqno when
+        // the file fits
+        if (level_largest_seqno != 0 &&
+            IngestedFileFitInLevel(file_to_ingest, lvl)) {
           *assigned_seqno = level_largest_seqno;
         } else {
           continue;
@@ -542,65 +524,12 @@ Status ExternalSstFileIngestionJob::AssignGlobalSeqnoForIngestedFile(
   PutFixed64(&seqno_val, seqno);
   status = rwfile->Write(file_to_ingest->global_seqno_offset, seqno_val);
   if (status.ok()) {
+    status = rwfile->Fsync();
+  }
+  if (status.ok()) {
     file_to_ingest->assigned_seqno = seqno;
   }
   return status;
-}
-
-Status ExternalSstFileIngestionJob::IngestedFileOverlapWithIteratorRange(
-    const IngestedFileInfo* file_to_ingest, InternalIterator* iter,
-    bool* overlap) {
-  auto* vstorage = cfd_->current()->storage_info();
-  auto* ucmp = vstorage->InternalComparator()->user_comparator();
-  InternalKey range_start(file_to_ingest->smallest_user_key, kMaxSequenceNumber,
-                          kValueTypeForSeek);
-  iter->Seek(range_start.Encode());
-  if (!iter->status().ok()) {
-    return iter->status();
-  }
-
-  *overlap = false;
-  if (iter->Valid()) {
-    ParsedInternalKey seek_result;
-    if (!ParseInternalKey(iter->key(), &seek_result)) {
-      return Status::Corruption("DB have corrupted keys");
-    }
-
-    if (ucmp->Compare(seek_result.user_key, file_to_ingest->largest_user_key) <=
-        0) {
-      *overlap = true;
-    }
-  }
-
-  return iter->status();
-}
-
-Status ExternalSstFileIngestionJob::IngestedFileOverlapWithRangeDeletions(
-    const IngestedFileInfo* file_to_ingest, InternalIterator* range_del_iter,
-    bool* overlap) {
-  auto* vstorage = cfd_->current()->storage_info();
-  auto* ucmp = vstorage->InternalComparator()->user_comparator();
-
-  *overlap = false;
-  if (range_del_iter != nullptr) {
-    for (range_del_iter->SeekToFirst(); range_del_iter->Valid();
-         range_del_iter->Next()) {
-      ParsedInternalKey parsed_key;
-      if (!ParseInternalKey(range_del_iter->key(), &parsed_key)) {
-        return Status::Corruption("corrupted range deletion key: " +
-                                  range_del_iter->key().ToString());
-      }
-      RangeTombstone range_del(parsed_key, range_del_iter->value());
-      if (ucmp->Compare(range_del.start_key_,
-                        file_to_ingest->largest_user_key) <= 0 &&
-          ucmp->Compare(file_to_ingest->smallest_user_key,
-                        range_del.end_key_) <= 0) {
-        *overlap = true;
-        break;
-      }
-    }
-  }
-  return Status::OK();
 }
 
 bool ExternalSstFileIngestionJob::IngestedFileFitInLevel(
@@ -629,35 +558,6 @@ bool ExternalSstFileIngestionJob::IngestedFileFitInLevel(
 
   // File did not overlap with level files, our compaction output
   return true;
-}
-
-Status ExternalSstFileIngestionJob::IngestedFileOverlapWithLevel(
-    SuperVersion* sv, IngestedFileInfo* file_to_ingest, int lvl,
-    bool* overlap_with_level) {
-  Arena arena;
-  ReadOptions ro;
-  ro.total_order_seek = true;
-  MergeIteratorBuilder merge_iter_builder(&cfd_->internal_comparator(),
-                                          &arena);
-  sv->current->AddIteratorsForLevel(ro, env_options_, &merge_iter_builder, lvl,
-                                    nullptr /* range_del_agg */);
-  ScopedArenaIterator level_iter(merge_iter_builder.Finish());
-
-  std::vector<InternalIterator*> level_range_del_iters;
-  sv->current->AddRangeDelIteratorsForLevel(ro, env_options_, lvl,
-                                            &level_range_del_iters);
-  std::unique_ptr<InternalIterator> level_range_del_iter(NewMergingIterator(
-      &cfd_->internal_comparator(),
-      level_range_del_iters.empty() ? nullptr : &level_range_del_iters[0],
-      static_cast<int>(level_range_del_iters.size())));
-
-  Status status = IngestedFileOverlapWithIteratorRange(
-      file_to_ingest, level_iter.get(), overlap_with_level);
-  if (status.ok() && *overlap_with_level == false) {
-    status = IngestedFileOverlapWithRangeDeletions(
-        file_to_ingest, level_range_del_iter.get(), overlap_with_level);
-  }
-  return status;
 }
 
 }  // namespace rocksdb

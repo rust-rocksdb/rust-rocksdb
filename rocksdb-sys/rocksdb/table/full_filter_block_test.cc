@@ -6,6 +6,7 @@
 #include "table/full_filter_block.h"
 
 #include "rocksdb/filter_policy.h"
+#include "table/full_filter_bits_builder.h"
 #include "util/coding.h"
 #include "util/hash.h"
 #include "util/string_util.h"
@@ -160,14 +161,49 @@ TEST_F(FullFilterBlockTest, EmptyBuilder) {
   ASSERT_TRUE(reader.KeyMayMatch("foo"));
 }
 
+TEST_F(FullFilterBlockTest, DuplicateEntries) {
+  {  // empty prefixes
+    std::unique_ptr<const SliceTransform> prefix_extractor(
+        NewFixedPrefixTransform(0));
+    auto bits_builder = dynamic_cast<FullFilterBitsBuilder*>(
+        table_options_.filter_policy->GetFilterBitsBuilder());
+    const bool WHOLE_KEY = true;
+    FullFilterBlockBuilder builder(prefix_extractor.get(), WHOLE_KEY,
+                                   bits_builder);
+    ASSERT_EQ(0, builder.NumAdded());
+    builder.Add("key");  // test with empty prefix
+    ASSERT_EQ(2, bits_builder->hash_entries_.size());
+  }
+
+  // mix of empty and non-empty
+  std::unique_ptr<const SliceTransform> prefix_extractor(
+      NewFixedPrefixTransform(7));
+  auto bits_builder = dynamic_cast<FullFilterBitsBuilder*>(
+      table_options_.filter_policy->GetFilterBitsBuilder());
+  const bool WHOLE_KEY = true;
+  FullFilterBlockBuilder builder(prefix_extractor.get(), WHOLE_KEY,
+                                 bits_builder);
+  ASSERT_EQ(0, builder.NumAdded());
+  builder.Add("");  // test with empty key too
+  builder.Add("prefix1key1");
+  builder.Add("prefix1key1");
+  builder.Add("prefix1key2");
+  builder.Add("prefix1key3");
+  builder.Add("prefix2key4");
+  // two prefix adn 4 keys
+  ASSERT_EQ(1 + 2 + 4, bits_builder->hash_entries_.size());
+}
+
 TEST_F(FullFilterBlockTest, SingleChunk) {
   FullFilterBlockBuilder builder(
       nullptr, true, table_options_.filter_policy->GetFilterBitsBuilder());
+  ASSERT_EQ(0, builder.NumAdded());
   builder.Add("foo");
   builder.Add("bar");
   builder.Add("box");
   builder.Add("box");
   builder.Add("hello");
+  ASSERT_EQ(5, builder.NumAdded());
   Slice block = builder.Finish();
   FullFilterBlockReader reader(
       nullptr, true, block,

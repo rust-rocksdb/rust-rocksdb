@@ -24,8 +24,7 @@ DBImplReadOnly::DBImplReadOnly(const DBOptions& db_options,
   LogFlush(immutable_db_options_.info_log);
 }
 
-DBImplReadOnly::~DBImplReadOnly() {
-}
+DBImplReadOnly::~DBImplReadOnly() {}
 
 // Implementations of the DB interface
 Status DBImplReadOnly::Get(const ReadOptions& read_options,
@@ -57,6 +56,7 @@ Iterator* DBImplReadOnly::NewIterator(const ReadOptions& read_options,
   auto cfd = cfh->cfd();
   SuperVersion* super_version = cfd->GetSuperVersion()->Ref();
   SequenceNumber latest_snapshot = versions_->LastSequence();
+  ReadCallback* read_callback = nullptr;  // No read callback provided.
   auto db_iter = NewArenaWrappedDbIterator(
       env_, read_options, *cfd->ioptions(),
       (read_options.snapshot != nullptr
@@ -64,7 +64,7 @@ Iterator* DBImplReadOnly::NewIterator(const ReadOptions& read_options,
                  ->number_
            : latest_snapshot),
       super_version->mutable_cf_options.max_sequential_skip_in_iterations,
-      super_version->version_number);
+      super_version->version_number, read_callback);
   auto internal_iter =
       NewInternalIterator(read_options, cfd, super_version, db_iter->GetArena(),
                           db_iter->GetRangeDelAggregator());
@@ -76,6 +76,7 @@ Status DBImplReadOnly::NewIterators(
     const ReadOptions& read_options,
     const std::vector<ColumnFamilyHandle*>& column_families,
     std::vector<Iterator*>* iterators) {
+  ReadCallback* read_callback = nullptr;  // No read callback provided.
   if (iterators == nullptr) {
     return Status::InvalidArgument("iterators not allowed to be nullptr");
   }
@@ -93,7 +94,7 @@ Status DBImplReadOnly::NewIterators(
                    ->number_
              : latest_snapshot),
         sv->mutable_cf_options.max_sequential_skip_in_iterations,
-        sv->version_number);
+        sv->version_number, read_callback);
     auto* internal_iter =
         NewInternalIterator(read_options, cfd, sv, db_iter->GetArena(),
                             db_iter->GetRangeDelAggregator());
@@ -105,7 +106,7 @@ Status DBImplReadOnly::NewIterators(
 }
 
 Status DB::OpenForReadOnly(const Options& options, const std::string& dbname,
-                           DB** dbptr, bool error_if_log_file_exist) {
+                           DB** dbptr, bool /*error_if_log_file_exist*/) {
   *dbptr = nullptr;
 
   // Try to first open DB as fully compacted DB
@@ -140,6 +141,7 @@ Status DB::OpenForReadOnly(
   *dbptr = nullptr;
   handles->clear();
 
+  SuperVersionContext sv_context(/* create_superversion */ true);
   DBImplReadOnly* impl = new DBImplReadOnly(db_options, dbname);
   impl->mutex_.Lock();
   Status s = impl->Recover(column_families, true /* read only */,
@@ -158,10 +160,12 @@ Status DB::OpenForReadOnly(
   }
   if (s.ok()) {
     for (auto cfd : *impl->versions_->GetColumnFamilySet()) {
-      delete cfd->InstallSuperVersion(new SuperVersion(), &impl->mutex_);
+      sv_context.NewSuperVersion();
+      cfd->InstallSuperVersion(&sv_context, &impl->mutex_);
     }
   }
   impl->mutex_.Unlock();
+  sv_context.Clean();
   if (s.ok()) {
     *dbptr = impl;
     for (auto* h : *handles) {
@@ -178,20 +182,21 @@ Status DB::OpenForReadOnly(
   return s;
 }
 
-#else  // !ROCKSDB_LITE
+#else   // !ROCKSDB_LITE
 
-Status DB::OpenForReadOnly(const Options& options, const std::string& dbname,
-                           DB** dbptr, bool error_if_log_file_exist) {
+Status DB::OpenForReadOnly(const Options& /*options*/,
+                           const std::string& /*dbname*/, DB** /*dbptr*/,
+                           bool /*error_if_log_file_exist*/) {
   return Status::NotSupported("Not supported in ROCKSDB_LITE.");
 }
 
 Status DB::OpenForReadOnly(
-    const DBOptions& db_options, const std::string& dbname,
-    const std::vector<ColumnFamilyDescriptor>& column_families,
-    std::vector<ColumnFamilyHandle*>* handles, DB** dbptr,
-    bool error_if_log_file_exist) {
+    const DBOptions& /*db_options*/, const std::string& /*dbname*/,
+    const std::vector<ColumnFamilyDescriptor>& /*column_families*/,
+    std::vector<ColumnFamilyHandle*>* /*handles*/, DB** /*dbptr*/,
+    bool /*error_if_log_file_exist*/) {
   return Status::NotSupported("Not supported in ROCKSDB_LITE.");
 }
 #endif  // !ROCKSDB_LITE
 
-}   // namespace rocksdb
+}  // namespace rocksdb

@@ -27,6 +27,18 @@ public class OptionsTest {
       getPlatformSpecificRandomFactory();
 
   @Test
+  public void copyConstructor() {
+    Options origOpts = new Options();
+    origOpts.setNumLevels(rand.nextInt(8));
+    origOpts.setTargetFileSizeMultiplier(rand.nextInt(100));
+    origOpts.setLevel0StopWritesTrigger(rand.nextInt(50));
+    Options copyOpts = new Options(origOpts);
+    assertThat(origOpts.numLevels()).isEqualTo(copyOpts.numLevels());
+    assertThat(origOpts.targetFileSizeMultiplier()).isEqualTo(copyOpts.targetFileSizeMultiplier());
+    assertThat(origOpts.level0StopWritesTrigger()).isEqualTo(copyOpts.level0StopWritesTrigger());
+  }
+
+  @Test
   public void setIncreaseParallelism() {
     try (final Options opt = new Options()) {
       final int threads = Runtime.getRuntime().availableProcessors() * 2;
@@ -455,6 +467,15 @@ public class OptionsTest {
       opt.setMaxBackgroundFlushes(intValue);
       assertThat(opt.maxBackgroundFlushes()).
           isEqualTo(intValue);
+    }
+  }
+
+  @Test
+  public void maxBackgroundJobs() {
+    try (final Options opt = new Options()) {
+      final int intValue = rand.nextInt();
+      opt.setMaxBackgroundJobs(intValue);
+      assertThat(opt.maxBackgroundJobs()).isEqualTo(intValue);
     }
   }
 
@@ -975,6 +996,15 @@ public class OptionsTest {
       // Test with parameter initialization
       anotherOptions.setRateLimiter(
           new RateLimiter(1000));
+    }
+  }
+
+  @Test
+  public void sstFileManager() throws RocksDBException {
+    try (final Options options = new Options();
+         final SstFileManager sstFileManager =
+             new SstFileManager(Env.getDefault())) {
+      options.setSstFileManager(sstFileManager);
     }
   }
 

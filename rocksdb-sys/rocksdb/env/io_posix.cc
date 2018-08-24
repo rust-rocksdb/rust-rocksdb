@@ -35,6 +35,11 @@
 #include "util/string_util.h"
 #include "util/sync_point.h"
 
+#if defined(OS_LINUX) && !defined(F_SET_RW_HINT)
+#define F_LINUX_SPECIFIC_BASE 1024
+#define F_SET_RW_HINT         (F_LINUX_SPECIFIC_BASE + 12)
+#endif
+
 namespace rocksdb {
 
 // A wrapper for fadvise, if the platform doesn't support fadvise,
@@ -43,6 +48,10 @@ int Fadvise(int fd, off_t offset, size_t len, int advice) {
 #ifdef OS_LINUX
   return posix_fadvise(fd, offset, len, advice);
 #else
+  (void)fd;
+  (void)offset;
+  (void)len;
+  (void)advice;
   return 0;  // simply do nothing.
 #endif
 }
@@ -222,6 +231,8 @@ Status PosixSequentialFile::Skip(uint64_t n) {
 
 Status PosixSequentialFile::InvalidateCache(size_t offset, size_t length) {
 #ifndef OS_LINUX
+  (void)offset;
+  (void)length;
   return Status::OK();
 #else
   if (!use_direct_io()) {
@@ -405,6 +416,8 @@ Status PosixRandomAccessFile::InvalidateCache(size_t offset, size_t length) {
     return Status::OK();
   }
 #ifndef OS_LINUX
+  (void)offset;
+  (void)length;
   return Status::OK();
 #else
   // free OS pages
@@ -429,6 +442,9 @@ PosixMmapReadableFile::PosixMmapReadableFile(const int fd,
                                              void* base, size_t length,
                                              const EnvOptions& options)
     : fd_(fd), filename_(fname), mmapped_region_(base), length_(length) {
+#ifdef NDEBUG
+  (void)options;
+#endif
   fd_ = fd_ + 0;  // suppress the warning for used variables
   assert(options.use_mmap_reads);
   assert(!options.use_direct_reads);
@@ -443,7 +459,7 @@ PosixMmapReadableFile::~PosixMmapReadableFile() {
 }
 
 Status PosixMmapReadableFile::Read(uint64_t offset, size_t n, Slice* result,
-                                   char* scratch) const {
+                                   char* /*scratch*/) const {
   Status s;
   if (offset > length_) {
     *result = Slice();
@@ -459,6 +475,8 @@ Status PosixMmapReadableFile::Read(uint64_t offset, size_t n, Slice* result,
 
 Status PosixMmapReadableFile::InvalidateCache(size_t offset, size_t length) {
 #ifndef OS_LINUX
+  (void)offset;
+  (void)length;
   return Status::OK();
 #else
   // free OS pages
@@ -567,6 +585,8 @@ PosixMmapFile::PosixMmapFile(const std::string& fname, int fd, size_t page_size,
 #ifdef ROCKSDB_FALLOCATE_PRESENT
   allow_fallocate_ = options.allow_fallocate;
   fallocate_with_keep_size_ = options.fallocate_with_keep_size;
+#else
+  (void)options;
 #endif
   assert((page_size & (page_size - 1)) == 0);
   assert(options.use_mmap_writes);
@@ -667,6 +687,8 @@ uint64_t PosixMmapFile::GetFileSize() {
 
 Status PosixMmapFile::InvalidateCache(size_t offset, size_t length) {
 #ifndef OS_LINUX
+  (void)offset;
+  (void)length;
   return Status::OK();
 #else
   // free OS pages
@@ -794,7 +816,7 @@ Status PosixWritableFile::Close() {
     // trim the extra space preallocated at the end of the file
     // NOTE(ljin): we probably don't want to surface failure as an IOError,
     // but it will be nice to log these errors.
-    int dummy __attribute__((unused));
+    int dummy __attribute__((__unused__));
     dummy = ftruncate(fd_, filesize_);
 #if defined(ROCKSDB_FALLOCATE_PRESENT) && !defined(TRAVIS)
     // in some file systems, ftruncate only trims trailing space if the
@@ -858,11 +880,31 @@ bool PosixWritableFile::IsSyncThreadSafe() const { return true; }
 
 uint64_t PosixWritableFile::GetFileSize() { return filesize_; }
 
+void PosixWritableFile::SetWriteLifeTimeHint(Env::WriteLifeTimeHint hint) {
+#ifdef OS_LINUX
+// Suppress Valgrind "Unimplemented functionality" error.
+#ifndef ROCKSDB_VALGRIND_RUN
+  if (hint == write_hint_) {
+    return;
+  }
+  if (fcntl(fd_, F_SET_RW_HINT, &hint) == 0) {
+    write_hint_ = hint;
+  }
+#else
+  (void)hint;
+#endif // ROCKSDB_VALGRIND_RUN
+#else
+  (void)hint;
+#endif // OS_LINUX
+}
+
 Status PosixWritableFile::InvalidateCache(size_t offset, size_t length) {
   if (use_direct_io()) {
     return Status::OK();
   }
 #ifndef OS_LINUX
+  (void)offset;
+  (void)length;
   return Status::OK();
 #else
   // free OS pages
@@ -922,7 +964,7 @@ size_t PosixWritableFile::GetUniqueId(char* id, size_t max_size) const {
  */
 
 PosixRandomRWFile::PosixRandomRWFile(const std::string& fname, int fd,
-                                     const EnvOptions& options)
+                                     const EnvOptions& /*options*/)
     : filename_(fname), fd_(fd) {}
 
 PosixRandomRWFile::~PosixRandomRWFile() {
@@ -1008,6 +1050,11 @@ Status PosixRandomRWFile::Close() {
   }
   fd_ = -1;
   return Status::OK();
+}
+
+PosixMemoryMappedFileBuffer::~PosixMemoryMappedFileBuffer() {
+  // TODO should have error handling though not much we can do...
+  munmap(this->base, length);
 }
 
 /*
