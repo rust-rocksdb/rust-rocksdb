@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-extern crate rocksdb_sys;
+extern crate parity_rocksdb_sys as rocksdb_sys;
 extern crate local_encoding;
 
 pub use rocksdb_sys::rocksdb_ffi as rocksdb_ffi;

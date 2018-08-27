@@ -1,4 +1,4 @@
-use rocksdb::{DB, Options, Writable};
+use parity_rocksdb::{DB, Options, Writable};
 use std::thread;
 use std::sync::Arc;
 

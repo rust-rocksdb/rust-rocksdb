@@ -1,4 +1,4 @@
-use rocksdb::{DB, Direction, IteratorMode, Options, Writable};
+use parity_rocksdb::{DB, Direction, IteratorMode, Options, Writable};
 
 fn cba(input: &Box<[u8]>) -> Box<[u8]> {
     input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()

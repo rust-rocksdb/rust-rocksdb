@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-use rocksdb::{DB, MergeOperands, Options, Writable};
+use parity_rocksdb::{DB, MergeOperands, Options, Writable};
 
 #[test]
 pub fn test_column_family() {
