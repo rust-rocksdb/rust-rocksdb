@@ -1,9 +1,8 @@
 [package]
-
 name = "parity-rocksdb"
 description = "A Rust wrapper for Facebook's RocksDB embeddable database."
 version = "0.5.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>", "Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
 homepage = "https://github.com/paritytech/rust-rocksdb"
