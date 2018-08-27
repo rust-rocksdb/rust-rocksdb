@@ -1,16 +1,16 @@
 [package]
 
-name = "rocksdb"
+name = "parity-rocksdb"
 description = "A Rust wrapper for Facebook's RocksDB embeddable database."
-version = "0.4.5"
-authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
+version = "0.5.0"
+authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
 homepage = "https://github.com/paritytech/rust-rocksdb"
 exclude = [
+  ".appveyor.yml",
   ".gitignore",
   ".travis.yml",
-  "deploy.sh",
   "test/**/*",
 ]
 
@@ -25,5 +25,5 @@ path = "test/test.rs"
 
 [dependencies]
 libc = "0.2"
-rocksdb-sys = { path = "rocksdb-sys", version = "0.3.0" }
+parity-rocksdb-sys = { path = "rocksdb-sys", version = "0.5.0" }
 local-encoding = "0.2.0"
