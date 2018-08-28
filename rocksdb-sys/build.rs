@@ -18,6 +18,11 @@ fn main() {
 
         println!("cargo:rustc-link-lib=dylib={}", "rpcrt4");
         println!("cargo:rustc-link-lib=dylib={}", "shlwapi");
+
+        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+        if features.contains("crt-static") {
+            cfg.define("WITH_MD_LIBRARY", "OFF");
+        }
     } else {
         cfg.define("SNAPPY_INCLUDE_DIR", snappy)
             .define("SNAPPY_LIBRARIES", "/dev/null");
