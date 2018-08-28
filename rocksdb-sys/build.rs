@@ -19,13 +19,19 @@ fn main() {
         println!("cargo:rustc-link-lib=dylib={}", "rpcrt4");
         println!("cargo:rustc-link-lib=dylib={}", "shlwapi");
 
-        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
         if features.contains("crt-static") {
             cfg.define("WITH_MD_LIBRARY", "OFF");
         }
     } else {
         cfg.define("SNAPPY_INCLUDE_DIR", snappy)
             .define("SNAPPY_LIBRARIES", "/dev/null");
+    }
+
+    // NOTE: the cfg! macro doesn't work when cross-compiling, it would return values for the host
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    if target_arch == "arm" || target_arch == "aarch64" {
+        cfg.define("PORTABLE", "ON");
     }
 
     let out = cfg.build();
