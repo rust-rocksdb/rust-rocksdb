@@ -9,6 +9,7 @@ fn main() {
     cfg.define("CMAKE_VERBOSE_MAKEFILE", "ON")
         .register_dep("SNAPPY")
         .define("WITH_SNAPPY", "ON")
+        .define("FAIL_ON_WARNINGS", "OFF")
         .build_target("rocksdb");
 
     let snappy = env::var_os("DEP_SNAPPY_INCLUDE").expect("DEP_SNAPPY_INCLUDE is set in snappy.");
