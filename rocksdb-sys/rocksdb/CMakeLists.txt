@@ -210,7 +210,7 @@ else()
 endif()
 
 include(CheckCXXSourceCompiles)
-if(NOT MSVC)
+if(NOT MSVC AND NOT PORTABLE)
   set(CMAKE_REQUIRED_FLAGS "-msse4.2 -mpclmul")
 endif()
 
