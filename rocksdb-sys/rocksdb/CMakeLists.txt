@@ -210,10 +210,12 @@ else()
 endif()
 
 include(CheckCXXSourceCompiles)
-if(NOT MSVC)
+if(NOT MSVC AND NOT PORTABLE)
   set(CMAKE_REQUIRED_FLAGS "-msse4.2 -mpclmul")
 endif()
-CHECK_CXX_SOURCE_COMPILES("
+
+if(NOT PORTABLE)
+  CHECK_CXX_SOURCE_COMPILES("
 #include <cstdint>
 #include <nmmintrin.h>
 #include <wmmintrin.h>
@@ -225,15 +227,15 @@ int main() {
   auto d = _mm_cvtsi128_si64(c);
 }
 " HAVE_SSE42)
-unset(CMAKE_REQUIRED_FLAGS)
-if(HAVE_SSE42)
-  add_definitions(-DHAVE_SSE42)
-  add_definitions(-DHAVE_PCLMUL)
-elseif(FORCE_SSE42)
-  message(FATAL_ERROR "FORCE_SSE42=ON but unable to compile with SSE4.2 enabled")
-endif()
+  unset(CMAKE_REQUIRED_FLAGS)
+  if(HAVE_SSE42)
+    add_definitions(-DHAVE_SSE42)
+    add_definitions(-DHAVE_PCLMUL)
+  elseif(FORCE_SSE42)
+    message(FATAL_ERROR "FORCE_SSE42=ON but unable to compile with SSE4.2 enabled")
+  endif()
 
-CHECK_CXX_SOURCE_COMPILES("
+  CHECK_CXX_SOURCE_COMPILES("
 #if defined(_MSC_VER) && !defined(__thread)
 #define __thread __declspec(thread)
 #endif
@@ -241,8 +243,9 @@ int main() {
   static __thread int tls;
 }
 " HAVE_THREAD_LOCAL)
-if(HAVE_THREAD_LOCAL)
-  add_definitions(-DROCKSDB_SUPPORT_THREAD_LOCAL)
+  if(HAVE_THREAD_LOCAL)
+    add_definitions(-DROCKSDB_SUPPORT_THREAD_LOCAL)
+  endif()
 endif()
 
 option(FAIL_ON_WARNINGS "Treat compile warnings as errors" ON)
@@ -390,8 +393,9 @@ if(NOT WIN32)
 endif()
 
 option(WITH_FALLOCATE "build with fallocate" ON)
-if(WITH_FALLOCATE)
-  CHECK_CXX_SOURCE_COMPILES("
+if(NOT PORTABLE)
+  if(WITH_FALLOCATE)
+    CHECK_CXX_SOURCE_COMPILES("
 #include <fcntl.h>
 #include <linux/falloc.h>
 int main() {
@@ -399,30 +403,31 @@ int main() {
  fallocate(fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE, 0, 1024);
 }
 " HAVE_FALLOCATE)
-  if(HAVE_FALLOCATE)
-    add_definitions(-DROCKSDB_FALLOCATE_PRESENT)
+    if(HAVE_FALLOCATE)
+      add_definitions(-DROCKSDB_FALLOCATE_PRESENT)
+    endif()
   endif()
-endif()
 
-CHECK_CXX_SOURCE_COMPILES("
+  CHECK_CXX_SOURCE_COMPILES("
 #include <fcntl.h>
 int main() {
   int fd = open(\"/dev/null\", 0);
   sync_file_range(fd, 0, 1024, SYNC_FILE_RANGE_WRITE);
 }
 " HAVE_SYNC_FILE_RANGE_WRITE)
-if(HAVE_SYNC_FILE_RANGE_WRITE)
-  add_definitions(-DROCKSDB_RANGESYNC_PRESENT)
-endif()
+  if(HAVE_SYNC_FILE_RANGE_WRITE)
+    add_definitions(-DROCKSDB_RANGESYNC_PRESENT)
+  endif()
 
-CHECK_CXX_SOURCE_COMPILES("
+  CHECK_CXX_SOURCE_COMPILES("
 #include <pthread.h>
 int main() {
   (void) PTHREAD_MUTEX_ADAPTIVE_NP;
 }
 " HAVE_PTHREAD_MUTEX_ADAPTIVE_NP)
-if(HAVE_PTHREAD_MUTEX_ADAPTIVE_NP)
-  add_definitions(-DROCKSDB_PTHREAD_ADAPTIVE_MUTEX)
+  if(HAVE_PTHREAD_MUTEX_ADAPTIVE_NP)
+    add_definitions(-DROCKSDB_PTHREAD_ADAPTIVE_MUTEX)
+  endif()
 endif()
 
 include(CheckCXXSymbolExists)

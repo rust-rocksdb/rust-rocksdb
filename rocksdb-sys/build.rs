@@ -9,17 +9,29 @@ fn main() {
     cfg.define("CMAKE_VERBOSE_MAKEFILE", "ON")
         .register_dep("SNAPPY")
         .define("WITH_SNAPPY", "ON")
+        .define("FAIL_ON_WARNINGS", "OFF")
         .build_target("rocksdb");
 
     let snappy = env::var_os("DEP_SNAPPY_INCLUDE").expect("DEP_SNAPPY_INCLUDE is set in snappy.");
 
-    if cfg!(target_env = "msvc") {
+    // NOTE: the cfg! macro doesn't work when cross-compiling, it would return values for the host
+    let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS is set by cargo.");
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").expect("CARGO_CFG_TARGET_ENV is set by cargo.");
+
+    if target_os.contains("android") {
+        // when cross-compiling CMAKE_SYSTEM_NAME is set to the host OS
+        cfg.define("CMAKE_SYSTEM_NAME", "Android");
+    }
+
+    if target_env.contains("msvc") {
         cfg.env("SNAPPY_INCLUDE", snappy);
 
         println!("cargo:rustc-link-lib=dylib={}", "rpcrt4");
         println!("cargo:rustc-link-lib=dylib={}", "shlwapi");
 
-        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+        let features = env::var("CARGO_CFG_TARGET_FEATURE")
+            .expect("CARGO_CFG_TARGET_FEATURE is set by cargo.");
+
         if features.contains("crt-static") {
             cfg.define("WITH_MD_LIBRARY", "OFF");
         }
@@ -28,8 +40,9 @@ fn main() {
             .define("SNAPPY_LIBRARIES", "/dev/null");
     }
 
-    // NOTE: the cfg! macro doesn't work when cross-compiling, it would return values for the host
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH")
+        .expect("CARGO_CFG_TARGET_ARCH is set by cargo.");
+
     if target_arch == "arm" || target_arch == "aarch64" {
         cfg.define("PORTABLE", "ON");
     }
@@ -38,7 +51,7 @@ fn main() {
 
     let mut build = out.join("build");
 
-    if cfg!(target_os = "windows") {
+    if target_os.contains("windows") {
         let profile = match &*env::var("PROFILE").unwrap_or("debug".to_owned()) {
             "bench" | "release" => "Release",
             _ => "Debug",
@@ -51,9 +64,9 @@ fn main() {
     println!("cargo:rustc-link-lib=static=snappy");
 
     // https://github.com/alexcrichton/cc-rs/blob/ca70fd32c10f8cea805700e944f3a8d1f97d96d4/src/lib.rs#L891
-    if cfg!(any(target_os = "macos", target_os = "freebsd", target_os = "openbsd")) {
+    if target_os.contains("macos") || target_os.contains("freebsd") || target_os.contains("openbsd") {
         println!("cargo:rustc-link-lib=c++");
-	} else if cfg!(not(any(target_env = "msvc", target_os = "android"))) {
+    } else if !target_env.contains("msvc") && !target_os.contains("android") {
         println!("cargo:rustc-link-lib=stdc++");
     }
 }
