@@ -16,7 +16,7 @@ fn main() {
 
     // NOTE: the cfg! macro doesn't work when cross-compiling, it would return values for the host
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS is set by cargo.");
-	let target_env = env::var("CARGO_CFG_TARGET_ENV").expect("CARGO_CFG_TARGET_ENV is set by cargo.");
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").expect("CARGO_CFG_TARGET_ENV is set by cargo.");
 
     if target_os.contains("android") {
         // when cross-compiling CMAKE_SYSTEM_NAME is set to the host OS
@@ -64,9 +64,9 @@ fn main() {
     println!("cargo:rustc-link-lib=static=snappy");
 
     // https://github.com/alexcrichton/cc-rs/blob/ca70fd32c10f8cea805700e944f3a8d1f97d96d4/src/lib.rs#L891
-	if target_os.contains("macos") || target_os.contains("freebsd") || target_os.contains("openbsd") {
-		println!("cargo:rustc-link-lib=c++");
-	} else if !target_env.contains("msvc") && !target_os.contains("android") {
-		println!("cargo:rustc-link-lib=stdc++");
-	}
+    if target_os.contains("macos") || target_os.contains("freebsd") || target_os.contains("openbsd") {
+        println!("cargo:rustc-link-lib=c++");
+    } else if !target_env.contains("msvc") && !target_os.contains("android") {
+        println!("cargo:rustc-link-lib=stdc++");
+    }
 }
