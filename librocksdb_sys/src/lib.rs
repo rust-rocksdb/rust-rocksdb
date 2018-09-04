@@ -69,6 +69,9 @@ pub enum DBSstFileMetaData {}
 pub enum DBCompactionOptions {}
 pub enum DBPerfContext {}
 
+mod generated;
+pub use generated::*;
+
 pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
 }
@@ -150,113 +153,6 @@ pub enum CompactionPriority {
     // and its size is the smallest. It in many cases can optimize write
     // amplification.
     MinOverlappingRatio = 3,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
-pub enum DBStatisticsTickerType {
-    BlockCacheMiss = 0, // total block cache miss
-    BlockCacheHit = 1,  // total block cache hit
-    BlockCacheAdd = 2,
-    BlockCacheAddFailures = 3,
-    BlockCacheIndexMiss = 4, // times cache miss when accessing index block from block cache
-    BlockCacheIndexHit = 5,
-    BlockCacheIndexAdd = 6,
-    BlockCacheIndexBytesInsert = 7,
-    BlockCacheIndexBytesEvict = 8,
-    BlockCacheFilterMiss = 9, // times cache miss when accessing filter block from block cache
-    BlockCacheFilterHit = 10,
-    BlockCacheFilterAdd = 11,
-    BlockCacheFilterBytesInsert = 12,
-    BlockCacheFilterBytesEvict = 13,
-    BlockCacheDataMiss = 14, // times cache miss when accessing data block from block cache
-    BlockCacheDataHit = 15,  // times cache hit when accessing data block from block cache
-    BlockCacheDataAdd = 16,
-    BlockCacheDataBytesInsert = 17,
-    BlockCacheByteRead = 18,  // bytes read from cache
-    BlockCacheByteWrite = 19, // bytes written into cache
-    BloomFilterUseful = 20,   // times bloom filter has avoided file reads
-    MemtableHit = 25,
-    MemtableMiss = 26,
-    GetHitL0 = 27,      // Get() queries served by L0
-    GetHitL1 = 28,      // Get() queries served by L1
-    GetHitL2AndUp = 29, // Get() queries served by L2 and up
-    CompactionKeyDropNewerEntry = 30, /* key was written with a newer value.
-                         * Also includes keys dropped for range del. */
-    CompactionKeyDropObsolete = 31,          // The key is obsolete.
-    CompactionKeyDropRangeDel = 32,          // key was covered by a range tombstone.
-    CompactionRangeDelDropObsolete = 34,     // all keys in range were deleted.
-    CompactionOptimizedDelDropObsolete = 35, // Deletions obsoleted before bottom level due to file gap optimization.
-    NumberKeysWritten = 36, // number of keys written to the database via the Put and Write call's
-    NumberKeysRead = 37,    // number of keys read
-    NumberKeysUpdated = 38,
-    BytesWritten = 39, // the number of uncompressed bytes read from DB::Put, DB::Delete,
-    // DB::Merge and DB::Write
-    BytesRead = 40,    // the number of uncompressed bytes read from DB::Get()
-    NumberDbSeek = 41, // the number of calls to seek/next/prev
-    NumberDbNext = 42,
-    NumberDbPrev = 43,
-    NumberDbSeekFound = 44, // the number of calls to seek/next/prev that returned data
-    NumberDbNextFound = 45,
-    NumberDbPrevFound = 46,
-    IterBytesRead = 47, // the number of uncompressed bytes read from an iterator, include size of
-    // key and value
-    NoFileCloses = 48,
-    NoFileOpens = 49,
-    NoFileErrors = 50,
-    StallMicros = 54, // writer has to wait for compaction or flush to finish
-    NoIterators = 57, // number of iterators currently open
-    BloomFilterPrefixChecked = 63, // number of times bloom was checked before creating iterator
-    // on a file
-    BloomFilterPrefixUseful = 64, // number of times the check was useful in avoiding iterator
-    // creating
-    WalFileSynced = 71,              // number of times WAL sync is done
-    WalFileBytes = 72,               // number of bytes written to WAL
-    WriteDoneBySelf = 73,            // number of writes processed by self
-    WriteDoneByOther = 74,           // number of writes processed by other
-    WriteTimeout = 75,               // number of writes ending up with timed-out
-    WriteWithWAL = 76,               // number of writes that request WAL
-    CompactReadBytes = 77,           // bytes read during compaction
-    CompactWriteBytes = 78,          // bytes written during compaction
-    FlushWriteBytes = 79,            // bytes written during flush
-    ReadAmpEstimateUsefulBytes = 91, // total bytes actually used
-    ReadAmpTotalReadBytes = 92,      // total size of loaded data blocks
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
-pub enum DBStatisticsHistogramType {
-    GetMicros = 0,
-    WriteMicros = 1,
-    CompactionTime = 2,
-    SubcompactionSetupTime = 3,
-    TableSyncMicros = 4,
-    CompactionOutfileSyncMicros = 5,
-    WalFileSyncMicros = 6,
-    ManifestFileSyncMicros = 7,
-    TableOpenIOMicros = 8,
-    MultiGetMicros = 9,
-    ReadBlockCompactionMicros = 10,
-    ReadBlockGetMicros = 11,
-    WriteRawBlockMicros = 12,
-    StallL0SlowdownCount = 13,
-    StallMemtableCompactionCount = 14,
-    StallL0NumFilesCount = 15,
-    HardRateLimitDelayCount = 16,
-    SoftRateLimitDelayCount = 17,
-    NumFilesInSingleCompaction = 18,
-    SeekMicros = 19,
-    WriteStall = 20,
-    SSTReadMicros = 21,
-    NumSubcompactionsScheduled = 22,
-    BytesPerRead = 23,
-    BytesPerWrite = 24,
-    BytesPerMultiget = 25,
-    BytesCompressed = 26,
-    BytesDecompressed = 27,
-    CompressionTimesNanos = 28,
-    DecompressionTimesNanos = 29,
-    ReadNumMergeOperands = 30,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

@@ -75,11 +75,11 @@ fn test_enable_statistics() {
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
     assert!(
-        opts.get_statistics_histogram(HistogramType::SeekMicros)
+        opts.get_statistics_histogram(HistogramType::DbSeek)
             .is_some()
     );
     assert!(
-        opts.get_statistics_histogram_string(HistogramType::SeekMicros)
+        opts.get_statistics_histogram_string(HistogramType::DbSeek)
             .is_some()
     );
     assert_eq!(
