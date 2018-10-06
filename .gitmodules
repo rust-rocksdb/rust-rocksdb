@@ -10,3 +10,6 @@
 [submodule "librocksdb-sys/zstd"]
 	path = librocksdb-sys/zstd
 	url = https://github.com/facebook/zstd
+[submodule "librocksdb-sys/zlib"]
+	path = librocksdb-sys/zlib
+	url = https://github.com/madler/zlib.git

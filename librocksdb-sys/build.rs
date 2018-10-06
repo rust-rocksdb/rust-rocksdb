@@ -53,12 +53,16 @@ fn build_rocksdb() {
     config.include("lz4/lib/");
     config.include("zstd/lib/");
     config.include("zstd/lib/dictBuilder/");
+    config.include("zlib/");
+    config.include("bzip2/");
     config.include(".");
 
     config.define("NDEBUG", Some("1"));
     config.define("SNAPPY", Some("1"));
     config.define("LZ4", Some("1"));
     config.define("ZSTD", Some("1"));
+    config.define("ZLIB", Some("1"));
+    config.define("BZIP2", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
@@ -91,6 +95,7 @@ fn build_rocksdb() {
 
     if cfg!(windows) {
         link("rpcrt4", false);
+        link("shlwapi", false);
         config.define("OS_WIN", Some("1"));
 
         // Remove POSIX-specific sources
@@ -204,6 +209,44 @@ fn build_zstd() {
     compiler.compile("libzstd.a");
 }
 
+fn build_zlib() {
+    let mut compiler = cc::Build::new();
+    
+    let globs = &[
+        "zlib/*.c"
+    ];
+
+    for pattern in globs {
+        for path in glob::glob(pattern).unwrap() {
+            let path = path.unwrap();
+            compiler.file(path);
+        }
+    }
+
+    compiler.opt_level(3);
+    compiler.compile("libz.a");
+}
+
+fn build_bzip2() {
+    let mut compiler = cc::Build::new();
+    
+    compiler
+        .file("bzip2/blocksort.c")
+        .file("bzip2/bzlib.c")
+        .file("bzip2/compress.c")
+        .file("bzip2/crctable.c")
+        .file("bzip2/decompress.c")
+        .file("bzip2/huffman.c")
+        .file("bzip2/randtable.c");
+
+    compiler
+        .define("_FILE_OFFSET_BITS", Some("64"))
+        .define("BZ_NO_STDIO", None);
+
+    compiler.opt_level(3);
+    compiler.compile("libbz2.a");
+}
+
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
@@ -223,11 +266,15 @@ fn main() {
     println!("cargo:rerun-if-changed=snappy/");
     println!("cargo:rerun-if-changed=lz4/");
     println!("cargo:rerun-if-changed=zstd/");
+    println!("cargo:rerun-if-changed=zlib/");
+    println!("cargo:rerun-if-changed=bzip2/");
 
     fail_on_empty_directory("rocksdb");
     fail_on_empty_directory("snappy");
     fail_on_empty_directory("lz4");
     fail_on_empty_directory("zstd");
+    fail_on_empty_directory("zlib");
+    fail_on_empty_directory("bzip2");
 
     bindgen_rocksdb();
 
@@ -242,5 +289,11 @@ fn main() {
     }
     if !try_to_find_and_link_lib("ZSTD") {
         build_zstd();
+    }
+    if !try_to_find_and_link_lib("ZLIB") {
+        build_zlib();
+    }
+    if !try_to_find_and_link_lib("BZIP2") {
+        build_bzip2();
     }
 }
