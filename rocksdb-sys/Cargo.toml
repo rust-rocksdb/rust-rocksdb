@@ -1,6 +1,6 @@
 [package]
 name = "parity-rocksdb-sys"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>", "Parity Technologies <admin@parity.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"

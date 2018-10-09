@@ -43,7 +43,13 @@ fn main() {
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH")
         .expect("CARGO_CFG_TARGET_ARCH is set by cargo.");
 
-    if target_arch == "arm" || target_arch == "aarch64" {
+    // Added to support old CPUs
+    // see https://github.com/paritytech/parity-ethereum/issues/9684
+    let portable = match &*env::var("PORTABLE").unwrap_or("ON".to_owned()) {
+        "OFF" => false,
+        _ => true,
+    };
+    if portable {
         cfg.define("PORTABLE", "ON");
     }
 
