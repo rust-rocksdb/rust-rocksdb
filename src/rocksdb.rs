@@ -2454,8 +2454,7 @@ mod test {
                 db1.put(b"k2", b"v2").unwrap();
                 db1.flush(true).unwrap();
                 db1.compact_range(None, None);
-            })
-            .unwrap();
+            }).unwrap();
         // Wait until all currently running background processes finish.
         db.pause_bg_work();
         assert_eq!(

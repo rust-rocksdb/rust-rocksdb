@@ -32,7 +32,7 @@ impl ColumnFamilyMetaData {
             let n = crocksdb_ffi::crocksdb_column_family_meta_data_level_count(self.inner);
             for i in 0..n {
                 let data = crocksdb_ffi::crocksdb_column_family_meta_data_level_data(self.inner, i);
-                levels.push(LevelMetaData { inner: data });
+                levels.push(LevelMetaData::from_ptr(data, self));
             }
         }
         levels
@@ -47,29 +47,45 @@ impl Drop for ColumnFamilyMetaData {
     }
 }
 
-pub struct LevelMetaData {
+pub struct LevelMetaData<'a> {
     inner: *const DBLevelMetaData,
+    _mark: &'a ColumnFamilyMetaData,
 }
 
-impl LevelMetaData {
-    pub fn get_files(&self) -> Vec<SstFileMetaData> {
+impl<'a> LevelMetaData<'a> {
+    pub fn from_ptr(
+        inner: *const DBLevelMetaData,
+        _mark: &'a ColumnFamilyMetaData,
+    ) -> LevelMetaData {
+        LevelMetaData { inner, _mark }
+    }
+
+    pub fn get_files(&self) -> Vec<SstFileMetaData<'a>> {
         let mut files = Vec::new();
         unsafe {
             let n = crocksdb_ffi::crocksdb_level_meta_data_file_count(self.inner);
             for i in 0..n {
                 let data = crocksdb_ffi::crocksdb_level_meta_data_file_data(self.inner, i);
-                files.push(SstFileMetaData { inner: data });
+                files.push(SstFileMetaData::from_ptr(data, self._mark));
             }
         }
         files
     }
 }
 
-pub struct SstFileMetaData {
+pub struct SstFileMetaData<'a> {
     inner: *const DBSstFileMetaData,
+    _mark: &'a ColumnFamilyMetaData,
 }
 
-impl SstFileMetaData {
+impl<'a> SstFileMetaData<'a> {
+    pub fn from_ptr(
+        inner: *const DBSstFileMetaData,
+        _mark: &'a ColumnFamilyMetaData,
+    ) -> SstFileMetaData {
+        SstFileMetaData { inner, _mark }
+    }
+
     pub fn get_size(&self) -> usize {
         unsafe { crocksdb_ffi::crocksdb_sst_file_meta_data_size(self.inner) }
     }

@@ -300,8 +300,7 @@ fn test_total_order_seek() {
         .set_prefix_extractor(
             "FixedPrefixTransform",
             Box::new(FixedPrefixTransform { prefix_len: 2 }),
-        )
-        .unwrap();
+        ).unwrap();
     // also create prefix bloom for memtable
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
 
@@ -387,8 +386,7 @@ fn test_fixed_suffix_seek() {
         .set_prefix_extractor(
             "FixedSuffixTransform",
             Box::new(FixedSuffixTransform { suffix_len: 2 }),
-        )
-        .unwrap();
+        ).unwrap();
 
     let db = DB::open_cf(
         opts,

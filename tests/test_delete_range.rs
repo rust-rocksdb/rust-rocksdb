@@ -640,8 +640,7 @@ fn test_delete_range_prefix_bloom_case_1() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -715,8 +714,7 @@ fn test_delete_range_prefix_bloom_case_2() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -771,8 +769,7 @@ fn test_delete_range_prefix_bloom_case_2() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -808,8 +805,7 @@ fn test_delete_range_prefix_bloom_case_3() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -853,8 +849,7 @@ fn test_delete_range_prefix_bloom_case_3() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -904,8 +899,7 @@ fn test_delete_range_prefix_bloom_case_4() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -949,8 +943,7 @@ fn test_delete_range_prefix_bloom_case_4() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -1001,8 +994,7 @@ fn test_delete_range_prefix_bloom_case_5() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -1044,8 +1036,7 @@ fn test_delete_range_prefix_bloom_case_5() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
@@ -1093,8 +1084,7 @@ fn test_delete_range_prefix_bloom_case_6() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -1138,8 +1128,7 @@ fn test_delete_range_prefix_bloom_case_6() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();
@@ -1211,8 +1200,7 @@ fn test_delete_range_prefix_bloom_compact_case() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let cf = "default";
@@ -1256,8 +1244,7 @@ fn test_delete_range_prefix_bloom_compact_case() {
         .set_prefix_extractor(
             "FixedSuffixSliceTransform",
             Box::new(FixedSuffixSliceTransform::new(3)),
-        )
-        .unwrap_or_else(|err| panic!(format!("{:?}", err)));
+        ).unwrap_or_else(|err| panic!(format!("{:?}", err)));
     // Create prefix bloom filter for memtable.
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
     let db2 = DB::open_cf(opts, path_str, vec![(cf, cf_opts)]).unwrap();

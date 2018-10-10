@@ -123,8 +123,7 @@ fn test_memtable_insert_hint_prefix_extractor() {
         .set_memtable_insert_hint_prefix_extractor(
             "FixedPrefixTransform",
             Box::new(FixedPrefixTransform { prefix_len: 2 }),
-        )
-        .unwrap();
+        ).unwrap();
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
