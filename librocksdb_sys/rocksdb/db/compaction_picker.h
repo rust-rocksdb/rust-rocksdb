@@ -175,6 +175,15 @@ class CompactionPicker {
                        const CompactionInputFiles& output_level_inputs,
                        std::vector<FileMetaData*>* grandparents);
 
+  void PickFilesMarkedForCompaction(const std::string& cf_name,
+                                    VersionStorageInfo* vstorage,
+                                    int* start_level, int* output_level,
+                                    CompactionInputFiles* start_level_inputs);
+
+  bool GetOverlappingL0Files(VersionStorageInfo* vstorage,
+                             CompactionInputFiles* start_level_inputs,
+                             int output_level, int* parent_index);
+
   // Register this compaction in the set of running compactions
   void RegisterCompaction(Compaction* c);
 
@@ -269,10 +278,10 @@ class NullCompactionPicker : public CompactionPicker {
   virtual ~NullCompactionPicker() {}
 
   // Always return "nullptr"
-  Compaction* PickCompaction(const std::string& cf_name,
-                             const MutableCFOptions& mutable_cf_options,
-                             VersionStorageInfo* vstorage,
-                             LogBuffer* log_buffer) override {
+  Compaction* PickCompaction(const std::string& /*cf_name*/,
+                             const MutableCFOptions& /*mutable_cf_options*/,
+                             VersionStorageInfo* /*vstorage*/,
+                             LogBuffer* /*log_buffer*/) override {
     return nullptr;
   }
 
@@ -292,7 +301,7 @@ class NullCompactionPicker : public CompactionPicker {
 
   // Always returns false.
   virtual bool NeedsCompaction(
-      const VersionStorageInfo* vstorage) const override {
+      const VersionStorageInfo* /*vstorage*/) const override {
     return false;
   }
 };
@@ -303,5 +312,10 @@ CompressionType GetCompressionType(const ImmutableCFOptions& ioptions,
                                    const MutableCFOptions& mutable_cf_options,
                                    int level, int base_level,
                                    const bool enable_compression = true);
+
+CompressionOptions GetCompressionOptions(const ImmutableCFOptions& ioptions,
+                                         const VersionStorageInfo* vstorage,
+                                         int level,
+                                         const bool enable_compression = true);
 
 }  // namespace rocksdb

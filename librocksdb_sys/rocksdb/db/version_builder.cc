@@ -66,6 +66,8 @@ class VersionBuilder::Rep {
     enum SortMethod { kLevel0 = 0, kLevelNon0 = 1, } sort_method;
     const InternalKeyComparator* internal_comparator;
 
+    FileComparator() : internal_comparator(nullptr) {}
+
     bool operator()(FileMetaData* f1, FileMetaData* f2) const {
       switch (sort_method) {
         case kLevel0:
@@ -197,7 +199,7 @@ class VersionBuilder::Rep {
     }
   }
 
-  void CheckConsistencyForDeletes(VersionEdit* edit, uint64_t number,
+  void CheckConsistencyForDeletes(VersionEdit* /*edit*/, uint64_t number,
                                   int level) {
 #ifdef NDEBUG
     if (!base_vstorage_->force_consistency_checks()) {
@@ -274,11 +276,12 @@ class VersionBuilder::Rep {
         auto exising = levels_[level].added_files.find(number);
         if (exising != levels_[level].added_files.end()) {
           UnrefFile(exising->second);
-          levels_[level].added_files.erase(number);
+          levels_[level].added_files.erase(exising);
         }
       } else {
-        if (invalid_levels_[level].count(number) > 0) {
-          invalid_levels_[level].erase(number);
+        auto exising = invalid_levels_[level].find(number);
+        if (exising != invalid_levels_[level].end()) {
+          invalid_levels_[level].erase(exising);
         } else {
           // Deleting an non-existing file on invalid level.
           has_invalid_levels_ = true;
@@ -365,7 +368,8 @@ class VersionBuilder::Rep {
   }
 
   void LoadTableHandlers(InternalStats* internal_stats, int max_threads,
-                         bool prefetch_index_and_filter_in_cache) {
+                         bool prefetch_index_and_filter_in_cache,
+                         const SliceTransform* prefix_extractor) {
     assert(table_cache_ != nullptr);
     // <file metadata, level>
     std::vector<std::pair<FileMetaData*, int>> files_meta;
@@ -387,12 +391,12 @@ class VersionBuilder::Rep {
 
         auto* file_meta = files_meta[file_idx].first;
         int level = files_meta[file_idx].second;
-        table_cache_->FindTable(env_options_,
-                                *(base_vstorage_->InternalComparator()),
-                                file_meta->fd, &file_meta->table_reader_handle,
-                                false /*no_io */, true /* record_read_stats */,
-                                internal_stats->GetFileReadHist(level), false,
-                                level, prefetch_index_and_filter_in_cache);
+        table_cache_->FindTable(
+            env_options_, *(base_vstorage_->InternalComparator()),
+            file_meta->fd, &file_meta->table_reader_handle, prefix_extractor,
+            false /*no_io */, true /* record_read_stats */,
+            internal_stats->GetFileReadHist(level), false, level,
+            prefetch_index_and_filter_in_cache);
         if (file_meta->table_reader_handle != nullptr) {
           // Load table_reader
           file_meta->fd.table_reader = table_cache_->GetTableReaderFromHandle(
@@ -401,23 +405,19 @@ class VersionBuilder::Rep {
       }
     };
 
-    if (max_threads <= 1) {
-      load_handlers_func();
-    } else {
-      std::vector<port::Thread> threads;
-      for (int i = 0; i < max_threads; i++) {
-        threads.emplace_back(load_handlers_func);
-      }
-
-      for (auto& t : threads) {
-        t.join();
-      }
+    std::vector<port::Thread> threads;
+    for (int i = 1; i < max_threads; i++) {
+      threads.emplace_back(load_handlers_func);
+    }
+    load_handlers_func();
+    for (auto& t : threads) {
+      t.join();
     }
   }
 
   void MaybeAddFile(VersionStorageInfo* vstorage, int level, FileMetaData* f) {
     if (levels_[level].deleted_files.count(f->fd.GetNumber()) > 0) {
-      // f is to-be-delected table file
+      // f is to-be-deleted table file
       vstorage->RemoveCurrentStats(f);
     } else {
       vstorage->AddFile(level, f, info_log_);
@@ -452,11 +452,12 @@ void VersionBuilder::SaveTo(VersionStorageInfo* vstorage) {
   rep_->SaveTo(vstorage);
 }
 
-void VersionBuilder::LoadTableHandlers(
-    InternalStats* internal_stats, int max_threads,
-    bool prefetch_index_and_filter_in_cache) {
+void VersionBuilder::LoadTableHandlers(InternalStats* internal_stats,
+                                       int max_threads,
+                                       bool prefetch_index_and_filter_in_cache,
+                                       const SliceTransform* prefix_extractor) {
   rep_->LoadTableHandlers(internal_stats, max_threads,
-                          prefetch_index_and_filter_in_cache);
+                          prefetch_index_and_filter_in_cache, prefix_extractor);
 }
 
 void VersionBuilder::MaybeAddFile(VersionStorageInfo* vstorage, int level,

@@ -73,6 +73,11 @@ class UniversalCompactionPicker : public CompactionPicker {
       VersionStorageInfo* vstorage, double score,
       const std::vector<SortedRun>& sorted_runs, LogBuffer* log_buffer);
 
+  Compaction* PickDeleteTriggeredCompaction(
+      const std::string& cf_name, const MutableCFOptions& mutable_cf_options,
+      VersionStorageInfo* vstorage, double score,
+      const std::vector<SortedRun>& sorted_runs, LogBuffer* log_buffer);
+
   // Used in universal compaction when the enabled_trivial_move
   // option is set. Checks whether there are any overlapping files
   // in the input. Returns true if the input files are non
@@ -80,11 +85,13 @@ class UniversalCompactionPicker : public CompactionPicker {
   bool IsInputFilesNonOverlapping(Compaction* c);
 
   static std::vector<SortedRun> CalculateSortedRuns(
-      const VersionStorageInfo& vstorage, const ImmutableCFOptions& ioptions);
+      const VersionStorageInfo& vstorage, const ImmutableCFOptions& ioptions,
+      const MutableCFOptions& mutable_cf_options);
 
   // Pick a path ID to place a newly generated file, with its estimated file
   // size.
   static uint32_t GetPathId(const ImmutableCFOptions& ioptions,
+                            const MutableCFOptions& mutable_cf_options,
                             uint64_t file_size);
 };
 }  // namespace rocksdb

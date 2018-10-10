@@ -19,8 +19,6 @@ int main() {
 }
 #else
 
-#include <gflags/gflags.h>
-
 #include <atomic>
 #include <iostream>
 #include <memory>
@@ -38,13 +36,14 @@ int main() {
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/write_buffer_manager.h"
 #include "util/arena.h"
+#include "util/gflags_compat.h"
 #include "util/mutexlock.h"
 #include "util/stop_watch.h"
 #include "util/testutil.h"
 
-using GFLAGS::ParseCommandLineFlags;
-using GFLAGS::RegisterFlagValidator;
-using GFLAGS::SetUsageMessage;
+using GFLAGS_NAMESPACE::ParseCommandLineFlags;
+using GFLAGS_NAMESPACE::RegisterFlagValidator;
+using GFLAGS_NAMESPACE::SetUsageMessage;
 
 DEFINE_string(benchmarks, "fillrandom",
               "Comma-separated list of benchmarks to run. Options:\n"
@@ -480,8 +479,8 @@ class FillBenchmark : public Benchmark {
     num_write_ops_per_thread_ = FLAGS_num_operations;
   }
 
-  void RunThreads(std::vector<port::Thread>* threads, uint64_t* bytes_written,
-                  uint64_t* bytes_read, bool write,
+  void RunThreads(std::vector<port::Thread>* /*threads*/, uint64_t* bytes_written,
+                  uint64_t* bytes_read, bool /*write*/,
                   uint64_t* read_hits) override {
     FillBenchmarkThread(table_, key_gen_, bytes_written, bytes_read, sequence_,
                         num_write_ops_per_thread_, read_hits)();
@@ -497,7 +496,7 @@ class ReadBenchmark : public Benchmark {
   }
 
   void RunThreads(std::vector<port::Thread>* threads, uint64_t* bytes_written,
-                  uint64_t* bytes_read, bool write,
+                  uint64_t* bytes_read, bool /*write*/,
                   uint64_t* read_hits) override {
     for (int i = 0; i < FLAGS_num_threads; ++i) {
       threads->emplace_back(
@@ -521,7 +520,7 @@ class SeqReadBenchmark : public Benchmark {
   }
 
   void RunThreads(std::vector<port::Thread>* threads, uint64_t* bytes_written,
-                  uint64_t* bytes_read, bool write,
+                  uint64_t* bytes_read, bool /*write*/,
                   uint64_t* read_hits) override {
     for (int i = 0; i < FLAGS_num_threads; ++i) {
       threads->emplace_back(SeqReadBenchmarkThread(
@@ -548,7 +547,7 @@ class ReadWriteBenchmark : public Benchmark {
   }
 
   void RunThreads(std::vector<port::Thread>* threads, uint64_t* bytes_written,
-                  uint64_t* bytes_read, bool write,
+                  uint64_t* bytes_read, bool /*write*/,
                   uint64_t* read_hits) override {
     std::atomic_int threads_done;
     threads_done.store(0);

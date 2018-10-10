@@ -431,6 +431,10 @@ class SimpleSortedIndex : public Index {
     return direction;
   }
   // REQUIRES: UsefulIndex(filter) == true
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4702) // Unreachable code
+#endif
   virtual bool ShouldContinueLooking(
       const Filter& filter, const Slice& secondary_key,
       Index::Direction direction) const override {
@@ -483,7 +487,9 @@ class SimpleSortedIndex : public Index {
     // this is here just so compiler doesn't complain
     return false;
   }
-
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
  private:
   std::string field_;
   std::string name_;
@@ -916,7 +922,7 @@ class DocumentDBImpl : public DocumentDB {
       for (const auto& update : updates.Items()) {
         if (update.first == "$set") {
           JSONDocumentBuilder builder;
-          bool res __attribute__((unused)) = builder.WriteStartObject();
+          bool res __attribute__((__unused__)) = builder.WriteStartObject();
           assert(res);
           for (const auto& itr : update.second.Items()) {
             if (itr.first == kPrimaryKey) {
@@ -1038,28 +1044,33 @@ class DocumentDBImpl : public DocumentDB {
 
   // RocksDB functions
   using DB::Get;
-  virtual Status Get(const ReadOptions& options,
-                     ColumnFamilyHandle* column_family, const Slice& key,
-                     PinnableSlice* value) override {
+  virtual Status Get(const ReadOptions& /*options*/,
+                     ColumnFamilyHandle* /*column_family*/,
+                     const Slice& /*key*/, PinnableSlice* /*value*/) override {
     return Status::NotSupported("");
   }
-  virtual Status Get(const ReadOptions& options, const Slice& key,
-                     std::string* value) override {
+  virtual Status Get(const ReadOptions& /*options*/, const Slice& /*key*/,
+                     std::string* /*value*/) override {
     return Status::NotSupported("");
   }
-  virtual Status Write(const WriteOptions& options,
-                       WriteBatch* updates) override {
+  virtual Status Write(const WriteOptions& /*options*/,
+                       WriteBatch* /*updates*/) override {
     return Status::NotSupported("");
   }
-  virtual Iterator* NewIterator(const ReadOptions& options,
-                                ColumnFamilyHandle* column_family) override {
+  virtual Iterator* NewIterator(
+      const ReadOptions& /*options*/,
+      ColumnFamilyHandle* /*column_family*/) override {
     return nullptr;
   }
-  virtual Iterator* NewIterator(const ReadOptions& options) override {
+  virtual Iterator* NewIterator(const ReadOptions& /*options*/) override {
     return nullptr;
   }
 
  private:
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4702) // unreachable code
+#endif
   Cursor* ConstructFilterCursor(ReadOptions read_options, Cursor* cursor,
                                 const JSONDocument& query) {
     std::unique_ptr<const Filter> filter(Filter::ParseFilter(query));
@@ -1113,6 +1124,9 @@ class DocumentDBImpl : public DocumentDB {
     assert(false);
     return nullptr;
   }
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
   // currently, we lock and serialize all writes to rocksdb. reads are not
   // locked and always get consistent view of the database. we should optimize

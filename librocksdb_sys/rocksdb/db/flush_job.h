@@ -22,6 +22,7 @@
 #include "db/internal_stats.h"
 #include "db/job_context.h"
 #include "db/log_writer.h"
+#include "db/logs_with_prep_tracker.h"
 #include "db/memtable_list.h"
 #include "db/snapshot_impl.h"
 #include "db/version_edit.h"
@@ -42,7 +43,9 @@
 
 namespace rocksdb {
 
+class DBImpl;
 class MemTable;
+class SnapshotChecker;
 class TableCache;
 class Version;
 class VersionEdit;
@@ -56,21 +59,22 @@ class FlushJob {
   FlushJob(const std::string& dbname, ColumnFamilyData* cfd,
            const ImmutableDBOptions& db_options,
            const MutableCFOptions& mutable_cf_options,
-           const EnvOptions& env_options, VersionSet* versions,
+           const EnvOptions env_options, VersionSet* versions,
            InstrumentedMutex* db_mutex, std::atomic<bool>* shutting_down,
            std::vector<SequenceNumber> existing_snapshots,
            SequenceNumber earliest_write_conflict_snapshot,
-           JobContext* job_context, LogBuffer* log_buffer,
-           Directory* db_directory, Directory* output_file_directory,
-           CompressionType output_compression, Statistics* stats,
-           EventLogger* event_logger, bool measure_io_stats);
+           SnapshotChecker* snapshot_checker, JobContext* job_context,
+           LogBuffer* log_buffer, Directory* db_directory,
+           Directory* output_file_directory, CompressionType output_compression,
+           Statistics* stats, EventLogger* event_logger, bool measure_io_stats);
 
   ~FlushJob();
 
   // Require db_mutex held.
   // Once PickMemTable() is called, either Run() or Cancel() has to be called.
   void PickMemTable();
-  Status Run(FileMetaData* file_meta = nullptr);
+  Status Run(LogsWithPrepTracker* prep_tracker = nullptr,
+             FileMetaData* file_meta = nullptr);
   void Cancel();
   TableProperties GetTableProperties() const { return table_properties_; }
 
@@ -83,12 +87,13 @@ class FlushJob {
   ColumnFamilyData* cfd_;
   const ImmutableDBOptions& db_options_;
   const MutableCFOptions& mutable_cf_options_;
-  const EnvOptions& env_options_;
+  const EnvOptions env_options_;
   VersionSet* versions_;
   InstrumentedMutex* db_mutex_;
   std::atomic<bool>* shutting_down_;
   std::vector<SequenceNumber> existing_snapshots_;
   SequenceNumber earliest_write_conflict_snapshot_;
+  SnapshotChecker* snapshot_checker_;
   JobContext* job_context_;
   LogBuffer* log_buffer_;
   Directory* db_directory_;

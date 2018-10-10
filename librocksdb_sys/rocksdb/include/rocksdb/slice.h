@@ -43,7 +43,9 @@ class Slice {
 
   // Create a slice that refers to s[0,strlen(s)-1]
   /* implicit */
-  Slice(const char* s) : data_(s), size_(strlen(s)) { }
+  Slice(const char* s) : data_(s) {
+    size_ = (s == nullptr) ? 0 : strlen(s);
+  }
 
   // Create a single slice from SliceParts using buf as storage.
   // buf must exist as long as the returned Slice exists.
@@ -121,7 +123,7 @@ class Slice {
 /**
  * A Slice that can be pinned with some cleanup tasks, which will be run upon
  * ::Reset() or object destruction, whichever is invoked first. This can be used
- * to avoid memcpy by having the PinnsableSlice object referring to the data
+ * to avoid memcpy by having the PinnableSlice object referring to the data
  * that is locked in the memory and release them after the data is consumed.
  */
 class PinnableSlice : public Slice, public Cleanable {
@@ -177,7 +179,7 @@ class PinnableSlice : public Slice, public Cleanable {
     }
   }
 
-  void remove_prefix(size_t n) {
+  void remove_prefix(size_t /*n*/) {
     assert(0);  // Not implemented
   }
 

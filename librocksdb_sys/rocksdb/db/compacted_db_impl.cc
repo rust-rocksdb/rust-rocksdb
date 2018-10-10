@@ -17,7 +17,8 @@ extern bool SaveValue(void* arg, const ParsedInternalKey& parsed_key,
 
 CompactedDBImpl::CompactedDBImpl(
   const DBOptions& options, const std::string& dbname)
-  : DBImpl(options, dbname) {
+  : DBImpl(options, dbname), cfd_(nullptr), version_(nullptr),
+    user_comparator_(nullptr) {
 }
 
 CompactedDBImpl::~CompactedDBImpl() {
@@ -48,8 +49,8 @@ Status CompactedDBImpl::Get(const ReadOptions& options, ColumnFamilyHandle*,
                          GetContext::kNotFound, key, value, nullptr, nullptr,
                          nullptr, nullptr);
   LookupKey lkey(key, kMaxSequenceNumber);
-  files_.files[FindFile(key)].fd.table_reader->Get(
-      options, lkey.internal_key(), &get_context);
+  files_.files[FindFile(key)].fd.table_reader->Get(options, lkey.internal_key(),
+                                                   &get_context, nullptr);
   if (get_context.State() == GetContext::kFound) {
     return Status::OK();
   }
@@ -81,7 +82,7 @@ std::vector<Status> CompactedDBImpl::MultiGet(const ReadOptions& options,
                              GetContext::kNotFound, keys[idx], &pinnable_val,
                              nullptr, nullptr, nullptr, nullptr);
       LookupKey lkey(keys[idx], kMaxSequenceNumber);
-      r->Get(options, lkey.internal_key(), &get_context);
+      r->Get(options, lkey.internal_key(), &get_context, nullptr);
       value.assign(pinnable_val.data(), pinnable_val.size());
       if (get_context.State() == GetContext::kFound) {
         statuses[idx] = Status::OK();
@@ -93,6 +94,7 @@ std::vector<Status> CompactedDBImpl::MultiGet(const ReadOptions& options,
 }
 
 Status CompactedDBImpl::Init(const Options& options) {
+  SuperVersionContext sv_context(/* create_superversion */ true);
   mutex_.Lock();
   ColumnFamilyDescriptor cf(kDefaultColumnFamilyName,
                             ColumnFamilyOptions(options));
@@ -100,9 +102,10 @@ Status CompactedDBImpl::Init(const Options& options) {
   if (s.ok()) {
     cfd_ = reinterpret_cast<ColumnFamilyHandleImpl*>(
               DefaultColumnFamily())->cfd();
-    delete cfd_->InstallSuperVersion(new SuperVersion(), &mutex_);
+    cfd_->InstallSuperVersion(&sv_context, &mutex_);
   }
   mutex_.Unlock();
+  sv_context.Clean();
   if (!s.ok()) {
     return s;
   }

@@ -131,6 +131,21 @@ struct FileMetaData {
     smallest_seqno = std::min(smallest_seqno, seqno);
     largest_seqno = std::max(largest_seqno, seqno);
   }
+
+  // Unlike UpdateBoundaries, ranges do not need to be presented in any
+  // particular order.
+  void UpdateBoundariesForRange(const InternalKey& start,
+                                const InternalKey& end, SequenceNumber seqno,
+                                const InternalKeyComparator& icmp) {
+    if (smallest.size() == 0 || icmp.Compare(start, smallest) < 0) {
+      smallest = start;
+    }
+    if (largest.size() == 0 || icmp.Compare(largest, end) < 0) {
+      largest = end;
+    }
+    smallest_seqno = std::min(smallest_seqno, seqno);
+    largest_seqno = std::max(largest_seqno, seqno);
+  }
 };
 
 // A compressed copy of file meta data that just contain minimum data needed
@@ -144,6 +159,7 @@ struct FdWithKeyRange {
 
   FdWithKeyRange()
       : fd(),
+        file_metadata(nullptr),
         smallest_key(),
         largest_key() {
   }
@@ -198,6 +214,14 @@ class VersionEdit {
     has_max_column_family_ = true;
     max_column_family_ = max_column_family;
   }
+  void SetMinLogNumberToKeep(uint64_t num) {
+    has_min_log_number_to_keep_ = true;
+    min_log_number_to_keep_ = num;
+  }
+
+  bool has_log_number() { return has_log_number_; }
+
+  uint64_t log_number() { return log_number_; }
 
   // Add the specified file at the specified number.
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
@@ -284,6 +308,8 @@ class VersionEdit {
   uint64_t prev_log_number_;
   uint64_t next_file_number_;
   uint32_t max_column_family_;
+  // The most recent WAL log number that is deleted
+  uint64_t min_log_number_to_keep_;
   SequenceNumber last_sequence_;
   bool has_comparator_;
   bool has_log_number_;
@@ -291,6 +317,7 @@ class VersionEdit {
   bool has_next_file_number_;
   bool has_last_sequence_;
   bool has_max_column_family_;
+  bool has_min_log_number_to_keep_;
 
   DeletedFileSet deleted_files_;
   std::vector<std::pair<int, FileMetaData>> new_files_;

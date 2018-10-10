@@ -27,6 +27,7 @@ namespace rocksdb {
 class ColumnFamilyHandle;
 class Comparator;
 class DB;
+class ReadCallback;
 struct ReadOptions;
 struct DBOptions;
 
@@ -154,6 +155,12 @@ class WriteBatchWithIndex : public WriteBatchBase {
   // The returned iterator should be deleted by the caller.
   // The base_iterator is now 'owned' by the returned iterator. Deleting the
   // returned iterator will also delete the base_iterator.
+  //
+  // Updating write batch with the current key of the iterator is not safe.
+  // We strongly recommand users not to do it. It will invalidate the current
+  // key() and value() of the iterator. This invalidation happens even before
+  // the write batch update finishes. The state may recover after Next() is
+  // called.
   Iterator* NewIteratorWithBase(ColumnFamilyHandle* column_family,
                                 Iterator* base_iterator);
   // default column family
@@ -187,7 +194,7 @@ class WriteBatchWithIndex : public WriteBatchBase {
   Status GetFromBatchAndDB(DB* db, const ReadOptions& read_options,
                            const Slice& key, std::string* value);
 
-  // An overload of the the above method that receives a PinnableSlice
+  // An overload of the above method that receives a PinnableSlice
   Status GetFromBatchAndDB(DB* db, const ReadOptions& read_options,
                            const Slice& key, PinnableSlice* value);
 
@@ -195,7 +202,7 @@ class WriteBatchWithIndex : public WriteBatchBase {
                            ColumnFamilyHandle* column_family, const Slice& key,
                            std::string* value);
 
-  // An overload of the the above method that receives a PinnableSlice
+  // An overload of the above method that receives a PinnableSlice
   Status GetFromBatchAndDB(DB* db, const ReadOptions& read_options,
                            ColumnFamilyHandle* column_family, const Slice& key,
                            PinnableSlice* value);
@@ -226,6 +233,18 @@ class WriteBatchWithIndex : public WriteBatchBase {
   void SetMaxBytes(size_t max_bytes) override;
 
  private:
+  friend class PessimisticTransactionDB;
+  friend class WritePreparedTxn;
+  friend class WriteUnpreparedTxn;
+  friend class WriteBatchWithIndex_SubBatchCnt_Test;
+  // Returns the number of sub-batches inside the write batch. A sub-batch
+  // starts right before inserting a key that is a duplicate of a key in the
+  // last sub-batch.
+  size_t SubBatchCnt();
+
+  Status GetFromBatchAndDB(DB* db, const ReadOptions& read_options,
+                           ColumnFamilyHandle* column_family, const Slice& key,
+                           PinnableSlice* value, ReadCallback* callback);
   struct Rep;
   std::unique_ptr<Rep> rep;
 };

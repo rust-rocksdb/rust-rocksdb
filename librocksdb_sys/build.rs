@@ -25,6 +25,7 @@ fn main() {
     build.cpp(true).file("crocksdb/c.cc");
     if !cfg!(target_os = "windows") {
         build.flag("-std=c++11");
+        build.flag("-fno-rtti");
     }
     link_cpp(&mut build);
     build.warnings(false).compile("libcrocksdb.a");

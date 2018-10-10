@@ -19,10 +19,13 @@
 namespace rocksdb {
 namespace test {
 
+const uint32_t kDefaultFormatVersion = BlockBasedTableOptions().format_version;
+const uint32_t kLatestFormatVersion = 3u;
+
 Slice RandomString(Random* rnd, int len, std::string* dst) {
   dst->resize(len);
   for (int i = 0; i < len; i++) {
-    (*dst)[i] = static_cast<char>(' ' + rnd->Uniform(95));   // ' ' .. '~'
+    (*dst)[i] = static_cast<char>(' ' + rnd->Uniform(95));  // ' ' .. '~'
   }
   return Slice(*dst);
 }
@@ -39,9 +42,8 @@ extern std::string RandomHumanReadableString(Random* rnd, int len) {
 std::string RandomKey(Random* rnd, int len, RandomKeyType type) {
   // Make sure to generate a wide variety of characters so we
   // test the boundary conditions for short-key optimizations.
-  static const char kTestChars[] = {
-    '\0', '\1', 'a', 'b', 'c', 'd', 'e', '\xfd', '\xfe', '\xff'
-  };
+  static const char kTestChars[] = {'\0', '\1', 'a',    'b',    'c',
+                                    'd',  'e',  '\xfd', '\xfe', '\xff'};
   std::string result;
   for (int i = 0; i < len; i++) {
     std::size_t indx = 0;
@@ -64,7 +66,6 @@ std::string RandomKey(Random* rnd, int len, RandomKeyType type) {
   return result;
 }
 
-
 extern Slice CompressibleString(Random* rnd, double compressed_fraction,
                                 int len, std::string* dst) {
   int raw = static_cast<int>(len * compressed_fraction);
@@ -84,7 +85,7 @@ extern Slice CompressibleString(Random* rnd, double compressed_fraction,
 namespace {
 class Uint64ComparatorImpl : public Comparator {
  public:
-  Uint64ComparatorImpl() { }
+  Uint64ComparatorImpl() {}
 
   virtual const char* Name() const override {
     return "rocksdb.Uint64Comparator";
@@ -107,27 +108,20 @@ class Uint64ComparatorImpl : public Comparator {
     }
   }
 
-  virtual void FindShortestSeparator(std::string* start,
-      const Slice& limit) const override {
+  virtual void FindShortestSeparator(std::string* /*start*/,
+                                     const Slice& /*limit*/) const override {
     return;
   }
 
-  virtual void FindShortSuccessor(std::string* key) const override {
+  virtual void FindShortSuccessor(std::string* /*key*/) const override {
     return;
   }
 };
 }  // namespace
 
-static port::OnceType once;
-static const Comparator* uint64comp;
-
-static void InitModule() {
-  uint64comp = new Uint64ComparatorImpl;
-}
-
 const Comparator* Uint64Comparator() {
-  port::InitOnce(&once, InitModule);
-  return uint64comp;
+  static Uint64ComparatorImpl uint64comp;
+  return &uint64comp;
 }
 
 WritableFileWriter* GetWritableFileWriter(WritableFile* wf) {
@@ -141,9 +135,10 @@ RandomAccessFileReader* GetRandomAccessFileReader(RandomAccessFile* raf) {
                                     "[test RandomAccessFileReader]");
 }
 
-SequentialFileReader* GetSequentialFileReader(SequentialFile* se) {
+SequentialFileReader* GetSequentialFileReader(SequentialFile* se,
+                                              const std::string& fname) {
   unique_ptr<SequentialFile> file(se);
-  return new SequentialFileReader(std::move(file));
+  return new SequentialFileReader(std::move(file), fname);
 }
 
 void CorruptKeyType(InternalKey* ikey) {
@@ -200,6 +195,7 @@ BlockBasedTableOptions RandomBlockBasedTableOptions(Random* rnd) {
   BlockBasedTableOptions opt;
   opt.cache_index_and_filter_blocks = rnd->Uniform(2);
   opt.pin_l0_filter_and_index_blocks_in_cache = rnd->Uniform(2);
+  opt.pin_top_level_index_and_filter = rnd->Uniform(2);
   opt.index_type = rnd->Uniform(2) ? BlockBasedTableOptions::kBinarySearch
                                    : BlockBasedTableOptions::kHashSearch;
   opt.hash_index_allow_collision = rnd->Uniform(2);
@@ -225,6 +221,8 @@ TableFactory* RandomTableFactory(Random* rnd, int pre_defined) {
       return NewBlockBasedTableFactory();
   }
 #else
+  (void)rnd;
+  (void)pre_defined;
   return NewBlockBasedTableFactory();
 #endif  // !ROCKSDB_LITE
 }
@@ -310,6 +308,7 @@ void RandomInitCFOptions(ColumnFamilyOptions* cf_opt, Random* rnd) {
   cf_opt->paranoid_file_checks = rnd->Uniform(2);
   cf_opt->purge_redundant_kvs_while_flush = rnd->Uniform(2);
   cf_opt->force_consistency_checks = rnd->Uniform(2);
+  cf_opt->compaction_options_fifo.allow_compaction = rnd->Uniform(2);
 
   // double options
   cf_opt->hard_rate_limit = static_cast<double>(rnd->Uniform(10000)) / 13;
@@ -348,10 +347,14 @@ void RandomInitCFOptions(ColumnFamilyOptions* cf_opt, Random* rnd) {
 
   // uint64_t options
   static const uint64_t uint_max = static_cast<uint64_t>(UINT_MAX);
+  cf_opt->ttl = uint_max + rnd->Uniform(10000);
   cf_opt->max_sequential_skip_in_iterations = uint_max + rnd->Uniform(10000);
   cf_opt->target_file_size_base = uint_max + rnd->Uniform(10000);
   cf_opt->max_compaction_bytes =
       cf_opt->target_file_size_base * rnd->Uniform(100);
+  cf_opt->compaction_options_fifo.max_table_files_size =
+      uint_max + rnd->Uniform(10000);
+  cf_opt->compaction_options_fifo.ttl = uint_max + rnd->Uniform(10000);
 
   // unsigned int options
   cf_opt->rate_limit_delay_max_milliseconds = rnd->Uniform(10000);

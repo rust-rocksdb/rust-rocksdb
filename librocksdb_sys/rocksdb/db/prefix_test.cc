@@ -17,7 +17,6 @@ int main() {
 #include <iostream>
 #include <vector>
 
-#include <gflags/gflags.h>
 #include "db/db_impl.h"
 #include "monitoring/histogram.h"
 #include "rocksdb/comparator.h"
@@ -27,14 +26,15 @@ int main() {
 #include "rocksdb/perf_context.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
+#include "util/coding.h"
+#include "util/gflags_compat.h"
 #include "util/random.h"
 #include "util/stop_watch.h"
 #include "util/string_util.h"
 #include "util/testharness.h"
 #include "utilities/merge_operators.h"
-#include "util/coding.h"
 
-using GFLAGS::ParseCommandLineFlags;
+using GFLAGS_NAMESPACE::ParseCommandLineFlags;
 
 DEFINE_bool(trigger_deadlock, false,
             "issue delete in range scan to trigger PrefixHashMap deadlock");
@@ -53,7 +53,7 @@ DEFINE_int32(value_size, 40, "");
 DEFINE_bool(enable_print, false, "Print options generated to console.");
 
 // Path to the database on file system
-const std::string kDbName = rocksdb::test::TmpDir() + "/prefix_test";
+const std::string kDbName = rocksdb::test::PerThreadDBPath("prefix_test");
 
 namespace rocksdb {
 
@@ -126,10 +126,10 @@ class TestKeyComparator : public Comparator {
     return "TestKeyComparator";
   }
 
-  virtual void FindShortestSeparator(std::string* start,
-                                     const Slice& limit) const override {}
+  virtual void FindShortestSeparator(std::string* /*start*/,
+                                     const Slice& /*limit*/) const override {}
 
-  virtual void FindShortSuccessor(std::string* key) const override {}
+  virtual void FindShortSuccessor(std::string* /*key*/) const override {}
 };
 
 namespace {
@@ -211,6 +211,10 @@ class SamePrefixTransform : public SliceTransform {
 
   virtual bool InRange(const Slice& dst) const override {
     return dst == prefix_;
+  }
+
+  virtual bool FullLengthEnabled(size_t* /*len*/) const override {
+    return false;
   }
 };
 
@@ -879,8 +883,6 @@ TEST_F(PrefixTest, PrefixSeekModePrev3) {
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   ParseCommandLineFlags(&argc, &argv, true);
-  std::cout << kDbName << "\n";
-
   return RUN_ALL_TESTS();
 }
 
@@ -889,7 +891,7 @@ int main(int argc, char** argv) {
 #else
 #include <stdio.h>
 
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   fprintf(stderr,
           "SKIPPED as HashSkipList and HashLinkList are not supported in "
           "ROCKSDB_LITE\n");

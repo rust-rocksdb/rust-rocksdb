@@ -4087,8 +4087,9 @@ int crocksdb_keyversions_type(const crocksdb_keyversions_t *kvs, int index) {
 }
 
 struct ExternalSstFileModifier {
-  ExternalSstFileModifier(Env *env, ColumnFamilyData *cfd, DBOptions &db_options)
-  :env_(env), cfd_(cfd), env_options_(db_options), table_reader_(nullptr) { }
+  ExternalSstFileModifier(Env *env, const EnvOptions& env_options,
+                          ColumnFamilyHandle* handle)
+      : env_(env), env_options_(env_options), handle_(handle) {}
 
   Status Open(std::string file) {
     file_ = file;
@@ -4109,9 +4110,14 @@ struct ExternalSstFileModifier {
     sst_file_reader.reset(new RandomAccessFileReader(std::move(sst_file), file_));
 
     // Get Table Reader
-    status = cfd_->ioptions()->table_factory->NewTableReader(
-        TableReaderOptions(*cfd_->ioptions(), env_options_,
-                           cfd_->internal_comparator()),
+    ColumnFamilyDescriptor desc;
+    handle_->GetDescriptor(&desc);
+    auto cfd = reinterpret_cast<ColumnFamilyHandleImpl*>(handle_)->cfd();
+    auto ioptions = *cfd->ioptions();
+    status = ioptions.table_factory->NewTableReader(
+        TableReaderOptions(ioptions,
+                           desc.options.prefix_extractor.get(),
+                           env_options_, cfd->internal_comparator()),
         std::move(sst_file_reader), file_size, &table_reader_);
     return status;
   }
@@ -4162,10 +4168,10 @@ struct ExternalSstFileModifier {
   }
 
   private:
-    Env              *env_;
-    ColumnFamilyData *cfd_;
-    EnvOptions        env_options_;
-    std::string       file_;
+    Env *env_;
+    EnvOptions env_options_;
+    ColumnFamilyHandle* handle_;
+    std::string file_;
     std::unique_ptr<TableReader> table_reader_;
 };
 
@@ -4177,9 +4183,9 @@ uint64_t crocksdb_set_external_sst_file_global_seq_no(
     const char *file,
     uint64_t seq_no,
     char **errptr) {
-  auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family->rep);
-  auto db_options = db->rep->GetDBOptions();
-  ExternalSstFileModifier modifier(db->rep->GetEnv(), cfh->cfd(), db_options);
+  auto env = db->rep->GetEnv();
+  EnvOptions env_options(db->rep->GetDBOptions());
+  ExternalSstFileModifier modifier(env, env_options, column_family->rep);
   auto s = modifier.Open(std::string(file));
   uint64_t pre_seq_no = 0;
   if (!s.ok()) {

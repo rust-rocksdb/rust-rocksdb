@@ -23,7 +23,7 @@ struct ColDeclaration;
 class ColBufDecoder {
  public:
   virtual ~ColBufDecoder() = 0;
-  virtual size_t Init(const char* src) { return 0; }
+  virtual size_t Init(const char* /*src*/) { return 0; }
   virtual size_t Decode(const char* src, char** dest) = 0;
   static ColBufDecoder* NewColBufDecoder(const ColDeclaration& col_declaration);
 
@@ -43,7 +43,10 @@ class FixedLengthColBufDecoder : public ColBufDecoder {
       : size_(size),
         col_compression_type_(col_compression_type),
         nullable_(nullable),
-        big_endian_(big_endian) {}
+        big_endian_(big_endian),
+        remain_runs_(0),
+        run_val_(0),
+        last_val_(0) {}
 
   size_t Init(const char* src) override;
   size_t Decode(const char* src, char** dest) override;

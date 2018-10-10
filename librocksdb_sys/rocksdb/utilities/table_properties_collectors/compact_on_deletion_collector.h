@@ -60,8 +60,8 @@ class CompactOnDeletionCollector : public TablePropertiesCollector {
   // for writing the properties block.
   // @params properties  User will add their collected statistics to
   // `properties`.
-  virtual Status Finish(UserCollectedProperties* properties) override {
-    Reset();
+  virtual Status Finish(UserCollectedProperties* /*properties*/) override {
+    finished_ = true;
     return Status::OK();
   }
 
@@ -98,6 +98,7 @@ class CompactOnDeletionCollector : public TablePropertiesCollector {
   size_t deletion_trigger_;
   // true if the current SST file needs to be compacted.
   bool need_compaction_;
+  bool finished_;
 };
 }  // namespace rocksdb
 #endif  // !ROCKSDB_LITE

@@ -21,7 +21,7 @@ namespace spatial {
 class SpatialDBTest : public testing::Test {
  public:
   SpatialDBTest() {
-    dbname_ = test::TmpDir() + "/spatial_db_test";
+    dbname_ = test::PerThreadDBPath("spatial_db_test");
     DestroyDB(dbname_, Options());
   }
 
@@ -224,7 +224,7 @@ namespace {
 std::string RandomStr(Random* rnd) {
   std::string r;
   for (int k = 0; k < 10; ++k) {
-    r.push_back(rnd->Uniform(26) + 'a');
+    r.push_back(static_cast<char>(rnd->Uniform(26)) + 'a');
   }
   return r;
 }
@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
 #else
 #include <stdio.h>
 
-int main(int argc, char** argv) {
+int main(int /*argc*/, char** /*argv*/) {
   fprintf(stderr, "SKIPPED as SpatialDB is not supported in ROCKSDB_LITE\n");
   return 0;
 }

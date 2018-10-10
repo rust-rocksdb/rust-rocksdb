@@ -68,6 +68,13 @@ class TestWritableFile : public WritableFile {
   virtual Status Flush() override;
   virtual Status Sync() override;
   virtual bool IsSyncThreadSafe() const override { return true; }
+  virtual Status PositionedAppend(const Slice& data,
+                                  uint64_t offset) override {
+    return target_->PositionedAppend(data, offset);
+  }
+  virtual bool use_direct_io() const override {
+    return target_->use_direct_io();
+  };
 
  private:
   FileState state_;
@@ -138,12 +145,20 @@ class FaultInjectionTestEnv : public EnvWrapper {
     MutexLock l(&mutex_);
     return filesystem_active_;
   }
-  void SetFilesystemActiveNoLock(bool active) { filesystem_active_ = active; }
-  void SetFilesystemActive(bool active) {
+  void SetFilesystemActiveNoLock(bool active,
+      Status error = Status::Corruption("Not active")) {
+    filesystem_active_ = active;
+    if (!active) {
+      error_ = error;
+    }
+  }
+  void SetFilesystemActive(bool active,
+      Status error = Status::Corruption("Not active")) {
     MutexLock l(&mutex_);
-    SetFilesystemActiveNoLock(active);
+    SetFilesystemActiveNoLock(active, error);
   }
   void AssertNoOpenFile() { assert(open_files_.empty()); }
+  Status GetError() { return error_; }
 
  private:
   port::Mutex mutex_;
@@ -152,6 +167,7 @@ class FaultInjectionTestEnv : public EnvWrapper {
   std::unordered_map<std::string, std::set<std::string>>
       dir_to_new_files_since_last_sync_;
   bool filesystem_active_;  // Record flushes, syncs, writes
+  Status error_;
 };
 
 }  // namespace rocksdb

@@ -89,6 +89,7 @@ class CacheActivityLogger {
     log_line += key.ToString(true);
     log_line += " - ";
     AppendNumberTo(&log_line, size);
+  // @lint-ignore TXT2 T25377293 Grandfathered in
 		log_line += "\n";
 
     // line format: "ADD - <KEY> - <KEY-SIZE>"
@@ -155,7 +156,8 @@ class SimCacheImpl : public SimCache {
       : cache_(cache),
         key_only_cache_(NewLRUCache(sim_capacity, num_shard_bits)),
         miss_times_(0),
-        hit_times_(0) {}
+        hit_times_(0),
+        stats_(nullptr) {}
 
   virtual ~SimCacheImpl() {}
   virtual void SetCapacity(size_t capacity) override {
@@ -177,7 +179,7 @@ class SimCacheImpl : public SimCache {
     Handle* h = key_only_cache_->Lookup(key);
     if (h == nullptr) {
       key_only_cache_->Insert(key, nullptr, charge,
-                              [](const Slice& k, void* v) {}, nullptr,
+                              [](const Slice& /*k*/, void* /*v*/) {}, nullptr,
                               priority);
     } else {
       key_only_cache_->Release(h);

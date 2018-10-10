@@ -38,6 +38,18 @@ CuckooTableReader::CuckooTableReader(
     const Comparator* comparator,
     uint64_t (*get_slice_hash)(const Slice&, uint32_t, uint64_t))
     : file_(std::move(file)),
+      is_last_level_(false),
+      identity_as_first_hash_(false),
+      use_module_hash_(false),
+      num_hash_func_(0),
+      unused_key_(""),
+      key_length_(0),
+      user_key_length_(0),
+      value_length_(0),
+      bucket_length_(0),
+      cuckoo_block_size_(0),
+      cuckoo_block_bytes_minus_one_(0),
+      table_size_(0),
       ucomp_(comparator),
       get_slice_hash_(get_slice_hash) {
   if (!ioptions.allow_mmap_reads) {
@@ -45,7 +57,7 @@ CuckooTableReader::CuckooTableReader(
   }
   TableProperties* props = nullptr;
   status_ = ReadTableProperties(file_.get(), file_size, kCuckooTableMagicNumber,
-      ioptions, &props);
+      ioptions, &props, true /* compression_type_missing */);
   if (!status_.ok()) {
     return;
   }
@@ -127,8 +139,10 @@ CuckooTableReader::CuckooTableReader(
   status_ = file_->Read(0, file_size, &file_data_, nullptr);
 }
 
-Status CuckooTableReader::Get(const ReadOptions& readOptions, const Slice& key,
-                              GetContext* get_context, bool skip_filters) {
+Status CuckooTableReader::Get(const ReadOptions& /*readOptions*/,
+                              const Slice& key, GetContext* get_context,
+                              const SliceTransform* /* prefix_extractor */,
+                              bool /*skip_filters*/) {
   assert(key.size() == key_length_ + (is_last_level_ ? 8 : 0));
   Slice user_key = ExtractUserKey(key);
   for (uint32_t hash_cnt = 0; hash_cnt < num_hash_func_; ++hash_cnt) {
@@ -157,7 +171,8 @@ Status CuckooTableReader::Get(const ReadOptions& readOptions, const Slice& key,
           Slice full_key(bucket, key_length_);
           ParsedInternalKey found_ikey;
           ParseInternalKey(full_key, &found_ikey);
-          get_context->SaveValue(found_ikey, value);
+          bool dont_care __attribute__((__unused__));
+          get_context->SaveValue(found_ikey, value, &dont_care);
         }
         // We don't support merge operations. So, we return here.
         return Status::OK();
@@ -192,7 +207,7 @@ class CuckooTableIterator : public InternalIterator {
   void Prev() override;
   Slice key() const override;
   Slice value() const override;
-  Status status() const override { return status_; }
+  Status status() const override { return Status::OK(); }
   void InitIfNeeded();
 
  private:
@@ -227,7 +242,6 @@ class CuckooTableIterator : public InternalIterator {
   void PrepareKVAtCurrIdx();
   CuckooTableReader* reader_;
   bool initialized_;
-  Status status_;
   // Contains a map of keys to bucket_id sorted in key order.
   std::vector<uint32_t> sorted_bucket_ids_;
   // We assume that the number of items can be stored in uint32 (4 Billion).
@@ -299,7 +313,7 @@ void CuckooTableIterator::Seek(const Slice& target) {
   PrepareKVAtCurrIdx();
 }
 
-void CuckooTableIterator::SeekForPrev(const Slice& target) {
+void CuckooTableIterator::SeekForPrev(const Slice& /*target*/) {
   // Not supported
   assert(false);
 }
@@ -364,7 +378,9 @@ extern InternalIterator* NewErrorInternalIterator(const Status& status,
                                                   Arena* arena);
 
 InternalIterator* CuckooTableReader::NewIterator(
-    const ReadOptions& read_options, Arena* arena, bool skip_filters) {
+    const ReadOptions& /*read_options*/,
+    const SliceTransform* /* prefix_extractor */, Arena* arena,
+    bool /*skip_filters*/, bool /*for_compaction*/) {
   if (!status().ok()) {
     return NewErrorInternalIterator(
         Status::Corruption("CuckooTableReader status is not okay."), arena);
