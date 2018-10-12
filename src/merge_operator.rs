@@ -88,7 +88,7 @@ pub extern "C" fn partial_merge_callback(
         // TODO(tan) investigate zero-copy techniques to improve performance
         let buf = libc::malloc(result.len() as size_t);
         assert!(!buf.is_null());
-        *new_value_length = 1 as size_t;
+        *new_value_length = result.len() as size_t;
         *success = 1 as u8;
         ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
         buf as *const c_char
@@ -184,32 +184,72 @@ mod test {
         opts.create_if_missing(true);
         let mut cf_opts = ColumnFamilyOptions::new();
         cf_opts.add_merge_operator("test operator", test_provided_merge);
-        let db = DB::open_cf(
-            opts,
-            path.path().to_str().unwrap(),
-            vec![("default", cf_opts)],
-        ).unwrap();
-        let p = db.put(b"k1", b"a");
-        assert!(p.is_ok());
-        let _ = db.merge(b"k1", b"b");
-        let _ = db.merge(b"k1", b"c");
-        let _ = db.merge(b"k1", b"d");
-        let _ = db.merge(b"k1", b"efg");
-        let m = db.merge(b"k1", b"h");
-        assert!(m.is_ok());
-        match db.get(b"k1") {
-            Ok(Some(value)) => match value.to_utf8() {
-                Some(v) => println!("retrieved utf8 value: {}", v),
-                None => println!("did not read valid utf-8 out of the db"),
-            },
-            Err(e) => println!("error reading value {:?}", e),
-            _ => panic!("value not present"),
+
+        {
+            let db = DB::open_cf(
+                opts.clone(),
+                path.path().to_str().unwrap(),
+                vec![("default", cf_opts.clone())],
+            ).unwrap();
+            let p = db.put(b"k1", b"a");
+            assert!(p.is_ok());
+            let _ = db.merge(b"k1", b"b");
+            let _ = db.merge(b"k1", b"c");
+            let _ = db.merge(b"k1", b"d");
+            let _ = db.merge(b"k1", b"efg");
+            let m = db.merge(b"k1", b"h");
+            assert!(m.is_ok());
+            match db.get(b"k1") {
+                Ok(Some(value)) => match value.to_utf8() {
+                    Some(v) => println!("retrieved utf8 value: {}", v),
+                    None => println!("did not read valid utf-8 out of the db"),
+                },
+                Err(e) => println!("error reading value {:?}", e),
+                _ => panic!("value not present"),
+            }
+
+            let r: Result<Option<DBVector>, String> = db.get(b"k1");
+            assert_eq!(r.unwrap().unwrap(), b"abcdefgh");
+
+            let _ = db.merge(b"k2", b"he");
+            let _ = db.merge(b"k2", b"l");
+            let _ = db.merge(b"k2", b"l");
+            let _ = db.merge(b"k2", b"o wor");
+            let m = db.merge(b"k2", b"ld");
+            assert!(m.is_ok());
+
+            let r: Result<Option<DBVector>, String> = db.get(b"k2");
+            assert_eq!(r.unwrap().unwrap(), b"hello world");
         }
 
-        assert!(m.is_ok());
-        let r: Result<Option<DBVector>, String> = db.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
-        assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").unwrap().is_none());
+        {
+            // Reopen
+            let db = DB::open_cf(
+                opts.clone(),
+                path.path().to_str().unwrap(),
+                vec![("default", cf_opts.clone())],
+            ).unwrap();
+
+            let r: Result<Option<DBVector>, String> = db.get(b"k1");
+            assert_eq!(r.unwrap().unwrap(), b"abcdefgh");
+            let r: Result<Option<DBVector>, String> = db.get(b"k2");
+            assert_eq!(r.unwrap().unwrap(), b"hello world");
+
+            assert!(db.delete(b"k1").is_ok());
+            assert!(db.get(b"k1").unwrap().is_none());
+        }
+
+        {
+            // Reopen
+            let db = DB::open_cf(
+                opts.clone(),
+                path.path().to_str().unwrap(),
+                vec![("default", cf_opts)],
+            ).unwrap();
+
+            assert!(db.get(b"k1").unwrap().is_none());
+            let r: Result<Option<DBVector>, String> = db.get(b"k2");
+            assert_eq!(r.unwrap().unwrap(), b"hello world");
+        }
     }
 }
