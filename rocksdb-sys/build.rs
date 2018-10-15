@@ -40,9 +40,6 @@ fn main() {
             .define("SNAPPY_LIBRARIES", "/dev/null");
     }
 
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH")
-        .expect("CARGO_CFG_TARGET_ARCH is set by cargo.");
-
     // Added to support old CPUs
     // see https://github.com/paritytech/parity-ethereum/issues/9684
     let portable = match &*env::var("PORTABLE").unwrap_or("ON".to_owned()) {
