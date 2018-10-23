@@ -49,20 +49,35 @@ fn build_rocksdb() {
     config.include("rocksdb/include/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
-    config.include("snappy/");
-    config.include("lz4/lib/");
-    config.include("zstd/lib/");
-    config.include("zstd/lib/dictBuilder/");
-    config.include("zlib/");
-    config.include("bzip2/");
-    config.include(".");
+    
+    if cfg!(feature = "snappy") {
+        config.define("SNAPPY", Some("1"));
+        config.include("snappy/");
+    }
 
+    if cfg!(feature = "lz4") {
+        config.define("LZ4", Some("1"));
+        config.include("lz4/lib/");
+    }
+
+    if cfg!(feature = "zstd") {
+        config.define("ZSTD", Some("1"));
+        config.include("zstd/lib/");
+        config.include("zstd/lib/dictBuilder/");
+    }
+
+    if cfg!(feature = "zlib") {
+        config.define("ZLIB", Some("1"));
+        config.include("zlib/");
+    }
+    
+    if cfg!(feature = "bzip2") {
+        config.define("BZIP2", Some("1"));
+        config.include("bzip2/");
+    }
+
+    config.include(".");
     config.define("NDEBUG", Some("1"));
-    config.define("SNAPPY", Some("1"));
-    config.define("LZ4", Some("1"));
-    config.define("ZSTD", Some("1"));
-    config.define("ZLIB", Some("1"));
-    config.define("BZIP2", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
@@ -281,19 +296,19 @@ fn main() {
     if !try_to_find_and_link_lib("ROCKSDB") {
         build_rocksdb();
     }
-    if !try_to_find_and_link_lib("SNAPPY") {
+    if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
         build_snappy();
     }
-    if !try_to_find_and_link_lib("LZ4") {
+    if cfg!(feature = "lz4") && !try_to_find_and_link_lib("LZ4") {
         build_lz4();
     }
-    if !try_to_find_and_link_lib("ZSTD") {
+    if cfg!(feature = "zstd") && !try_to_find_and_link_lib("ZSTD") {
         build_zstd();
     }
-    if !try_to_find_and_link_lib("ZLIB") {
+    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("ZLIB") {
         build_zlib();
     }
-    if !try_to_find_and_link_lib("BZIP2") {
+    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZIP2") {
         build_bzip2();
     }
 }
