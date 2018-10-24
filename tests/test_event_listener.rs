@@ -85,6 +85,79 @@ impl EventListener for EventCounter {
     }
 }
 
+#[derive(Default, Clone)]
+struct StallEventCounter {
+    flush: Arc<AtomicUsize>,
+    stall_conditions_changed_num: Arc<AtomicUsize>,
+    triggered_writes_slowdown: Arc<AtomicUsize>,
+    triggered_writes_stop: Arc<AtomicUsize>,
+    stall_change_from_normal_to_other: Arc<AtomicUsize>,
+}
+
+impl EventListener for StallEventCounter {
+    fn on_flush_completed(&self, info: &FlushJobInfo) {
+        assert!(!info.cf_name().is_empty());
+        self.flush.fetch_add(1, Ordering::SeqCst);
+        self.triggered_writes_slowdown
+            .fetch_add(info.triggered_writes_slowdown() as usize, Ordering::SeqCst);
+        self.triggered_writes_stop
+            .fetch_add(info.triggered_writes_stop() as usize, Ordering::SeqCst);
+    }
+
+    fn on_stall_conditions_changed(&self, info: &WriteStallInfo) {
+        assert!(info.cf_name() == "test_cf");
+        self.stall_conditions_changed_num
+            .fetch_add(1, Ordering::SeqCst);
+        if info.prev() == WriteStallCondition::Normal && info.cur() != WriteStallCondition::Normal {
+            self.stall_change_from_normal_to_other
+                .fetch_add(1, Ordering::SeqCst);
+        }
+    }
+}
+
+#[test]
+fn test_event_listener_stall_conditions_changed() {
+    let path = TempDir::new("_rust_rocksdb_event_listener_stall_conditions").expect("");
+    let path_str = path.path().to_str().unwrap();
+
+    let mut opts = DBOptions::new();
+    let counter = StallEventCounter::default();
+    opts.add_event_listener(counter.clone());
+    opts.create_if_missing(true);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_level_zero_slowdown_writes_trigger(1);
+    cf_opts.set_level_zero_stop_writes_trigger(1);
+    cf_opts.set_level_zero_file_num_compaction_trigger(1);
+    let mut db = DB::open_cf(
+        opts,
+        path_str,
+        vec![("default", ColumnFamilyOptions::new())],
+    ).unwrap();
+    db.create_cf(("test_cf", cf_opts)).unwrap();
+
+    let test_cf = db.cf_handle("test_cf").unwrap();
+    for i in 1..5 {
+        db.put_cf(
+            test_cf,
+            format!("{:04}", i).as_bytes(),
+            format!("{:04}", i).as_bytes(),
+        ).unwrap();
+        db.flush_cf(test_cf, true).unwrap();
+    }
+    let flush_cnt = counter.flush.load(Ordering::SeqCst);
+    assert_ne!(flush_cnt, 0);
+    let stall_conditions_changed_num = counter.stall_conditions_changed_num.load(Ordering::SeqCst);
+    let triggered_writes_slowdown = counter.triggered_writes_slowdown.load(Ordering::SeqCst);
+    let triggered_writes_stop = counter.triggered_writes_stop.load(Ordering::SeqCst);
+    let stall_change_from_normal_to_other = counter
+        .stall_change_from_normal_to_other
+        .load(Ordering::SeqCst);
+    assert_ne!(stall_conditions_changed_num, 0);
+    assert_ne!(triggered_writes_slowdown, 0);
+    assert_ne!(triggered_writes_stop, 0);
+    assert_ne!(stall_change_from_normal_to_other, 0);
+}
+
 #[test]
 fn test_event_listener_basic() {
     let path = TempDir::new("_rust_rocksdb_event_listener_flush").expect("");

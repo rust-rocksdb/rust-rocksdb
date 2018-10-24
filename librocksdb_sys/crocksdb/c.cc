@@ -76,6 +76,8 @@ using rocksdb::InfoLogLevel;
 using rocksdb::FileLock;
 using rocksdb::FilterPolicy;
 using rocksdb::FlushJobInfo;
+using rocksdb::WriteStallInfo;
+using rocksdb::WriteStallCondition;
 using rocksdb::FlushOptions;
 using rocksdb::IngestExternalFileOptions;
 using rocksdb::Iterator;
@@ -192,6 +194,12 @@ struct crocksdb_histogramdata_t   { HistogramData     rep; };
 struct crocksdb_pinnableslice_t   { PinnableSlice     rep; };
 struct crocksdb_flushjobinfo_t {
   FlushJobInfo rep;
+};
+struct crocksdb_writestallcondition_t {
+  WriteStallCondition rep;
+};
+struct crocksdb_writestallinfo_t {
+  WriteStallInfo rep;
 };
 struct crocksdb_compactionjobinfo_t {
   CompactionJobInfo rep;
@@ -1792,6 +1800,14 @@ const crocksdb_table_properties_t* crocksdb_flushjobinfo_table_properties(
       &info->rep.table_properties);
 }
 
+bool crocksdb_flushjobinfo_triggered_writes_slowdown(const crocksdb_flushjobinfo_t* info) {
+  return info->rep.triggered_writes_slowdown;
+}
+
+bool crocksdb_flushjobinfo_triggered_writes_stop(const crocksdb_flushjobinfo_t* info) {
+  return info->rep.triggered_writes_stop;
+}
+
 /* CompactionJobInfo */
 
 const char* crocksdb_compactionjobinfo_cf_name(
@@ -1887,6 +1903,26 @@ crocksdb_externalfileingestioninfo_table_properties(
       &info->rep.table_properties);
 }
 
+/* External write stall info */
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_writestallinfo_cf_name(
+    const crocksdb_writestallinfo_t* info, size_t* size) {
+  *size = info->rep.cf_name.size();
+  return info->rep.cf_name.data();
+}
+
+const crocksdb_writestallcondition_t* crocksdb_writestallinfo_cur(
+    const crocksdb_writestallinfo_t* info) {
+  return reinterpret_cast<const crocksdb_writestallcondition_t*>(
+      &info->rep.condition.cur);
+}
+
+const crocksdb_writestallcondition_t* crocksdb_writestallinfo_prev(
+    const crocksdb_writestallinfo_t* info) {
+  return reinterpret_cast<const crocksdb_writestallcondition_t*>(
+      &info->rep.condition.prev);
+}
+
 /* event listener */
 
 struct crocksdb_eventlistener_t : public EventListener {
@@ -1898,6 +1934,7 @@ struct crocksdb_eventlistener_t : public EventListener {
                                   const crocksdb_compactionjobinfo_t*);
   void (*on_external_file_ingested)(
       void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
+  void (*on_stall_conditions_changed)(void*, const crocksdb_writestallinfo_t*);
 
   virtual void OnFlushCompleted(DB* db, const FlushJobInfo& info) {
     crocksdb_t c_db = {db};
@@ -1920,6 +1957,12 @@ struct crocksdb_eventlistener_t : public EventListener {
         reinterpret_cast<const crocksdb_externalfileingestioninfo_t*>(&info));
   }
 
+  virtual void OnStallConditionsChanged(const WriteStallInfo& info) {
+    on_stall_conditions_changed(
+        state_,
+        reinterpret_cast<const crocksdb_writestallinfo_t*>(&info));
+  }
+
   virtual ~crocksdb_eventlistener_t() { destructor_(state_); }
 };
 
@@ -1927,13 +1970,15 @@ crocksdb_eventlistener_t* crocksdb_eventlistener_create(
     void* state_, void (*destructor_)(void*),
     on_flush_completed_cb on_flush_completed,
     on_compaction_completed_cb on_compaction_completed,
-    on_external_file_ingested_cb on_external_file_ingested) {
+    on_external_file_ingested_cb on_external_file_ingested,
+    on_stall_conditions_changed_cb on_stall_conditions_changed) {
   crocksdb_eventlistener_t* et = new crocksdb_eventlistener_t;
   et->state_ = state_;
   et->destructor_ = destructor_;
   et->on_flush_completed = on_flush_completed;
   et->on_compaction_completed = on_compaction_completed;
   et->on_external_file_ingested = on_external_file_ingested;
+  et->on_stall_conditions_changed = on_stall_conditions_changed;
   return et;
 }
 

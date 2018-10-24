@@ -13,6 +13,7 @@
 
 use crocksdb_ffi::{
     self, DBCompactionJobInfo, DBEventListener, DBFlushJobInfo, DBIngestionInfo, DBInstance,
+    DBWriteStallInfo, WriteStallCondition,
 };
 use libc::c_void;
 use std::path::Path;
@@ -45,6 +46,14 @@ impl FlushJobInfo {
             let prop = crocksdb_ffi::crocksdb_flushjobinfo_table_properties(&self.0);
             TableProperties::from_ptr(prop)
         }
+    }
+
+    pub fn triggered_writes_slowdown(&self) -> bool {
+        unsafe { crocksdb_ffi::crocksdb_flushjobinfo_triggered_writes_slowdown(&self.0) }
+    }
+
+    pub fn triggered_writes_stop(&self) -> bool {
+        unsafe { crocksdb_ffi::crocksdb_flushjobinfo_triggered_writes_stop(&self.0) }
     }
 }
 
@@ -133,6 +142,20 @@ impl IngestionInfo {
     }
 }
 
+pub struct WriteStallInfo(DBWriteStallInfo);
+
+impl WriteStallInfo {
+    pub fn cf_name(&self) -> &str {
+        unsafe { fetch_str!(crocksdb_writestallinfo_cf_name(&self.0)) }
+    }
+    pub fn cur(&self) -> WriteStallCondition {
+        unsafe { *crocksdb_ffi::crocksdb_writestallinfo_cur(&self.0) }
+    }
+    pub fn prev(&self) -> WriteStallCondition {
+        unsafe { *crocksdb_ffi::crocksdb_writestallinfo_prev(&self.0) }
+    }
+}
+
 /// EventListener trait contains a set of call-back functions that will
 /// be called when specific RocksDB event happens such as flush.  It can
 /// be used as a building block for developing custom features such as
@@ -146,6 +169,7 @@ pub trait EventListener: Send + Sync {
     fn on_flush_completed(&self, _: &FlushJobInfo) {}
     fn on_compaction_completed(&self, _: &CompactionJobInfo) {}
     fn on_external_file_ingested(&self, _: &IngestionInfo) {}
+    fn on_stall_conditions_changed(&self, _: &WriteStallInfo) {}
 }
 
 extern "C" fn destructor(ctx: *mut c_void) {
@@ -183,6 +207,11 @@ extern "C" fn on_external_file_ingested(
     ctx.on_external_file_ingested(info);
 }
 
+extern "C" fn on_stall_conditions_changed(ctx: *mut c_void, info: *const DBWriteStallInfo) {
+    let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
+    ctx.on_stall_conditions_changed(info);
+}
+
 pub fn new_event_listener<L: EventListener>(l: L) -> *mut DBEventListener {
     let p: Box<EventListener> = Box::new(l);
     unsafe {
@@ -192,6 +221,7 @@ pub fn new_event_listener<L: EventListener>(l: L) -> *mut DBEventListener {
             on_flush_completed,
             on_compaction_completed,
             on_external_file_ingested,
+            on_stall_conditions_changed,
         )
     }
 }

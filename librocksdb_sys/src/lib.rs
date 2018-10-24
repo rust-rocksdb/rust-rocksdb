@@ -68,6 +68,15 @@ pub enum DBLevelMetaData {}
 pub enum DBSstFileMetaData {}
 pub enum DBCompactionOptions {}
 pub enum DBPerfContext {}
+pub enum DBWriteStallInfo {}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum WriteStallCondition {
+    Normal = 0,
+    Delayed = 1,
+    Stopped = 2,
+}
 
 mod generated;
 pub use generated::*;
@@ -1432,6 +1441,8 @@ extern "C" {
     pub fn crocksdb_flushjobinfo_table_properties(
         info: *const DBFlushJobInfo,
     ) -> *const DBTableProperties;
+    pub fn crocksdb_flushjobinfo_triggered_writes_slowdown(info: *const DBFlushJobInfo) -> bool;
+    pub fn crocksdb_flushjobinfo_triggered_writes_stop(info: *const DBFlushJobInfo) -> bool;
 
     pub fn crocksdb_compactionjobinfo_cf_name(
         info: *const DBCompactionJobInfo,
@@ -1481,12 +1492,23 @@ extern "C" {
         info: *const DBIngestionInfo,
     ) -> *const DBTableProperties;
 
+    pub fn crocksdb_writestallinfo_cf_name(
+        info: *const DBWriteStallInfo,
+        size: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_writestallinfo_prev(
+        info: *const DBWriteStallInfo,
+    ) -> *const WriteStallCondition;
+    pub fn crocksdb_writestallinfo_cur(info: *const DBWriteStallInfo)
+        -> *const WriteStallCondition;
+
     pub fn crocksdb_eventlistener_create(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
         flush: extern "C" fn(*mut c_void, *mut DBInstance, *const DBFlushJobInfo),
         compact: extern "C" fn(*mut c_void, *mut DBInstance, *const DBCompactionJobInfo),
         ingest: extern "C" fn(*mut c_void, *mut DBInstance, *const DBIngestionInfo),
+        stall_conditions: extern "C" fn(*mut c_void, *const DBWriteStallInfo),
     ) -> *mut DBEventListener;
     pub fn crocksdb_eventlistener_destroy(et: *mut DBEventListener);
     pub fn crocksdb_options_add_eventlistener(opt: *mut Options, et: *mut DBEventListener);

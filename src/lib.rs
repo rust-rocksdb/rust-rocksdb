@@ -21,11 +21,13 @@ pub extern crate librocksdb_sys;
 extern crate tempdir;
 
 pub use compaction_filter::CompactionFilter;
-pub use event_listener::{CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo};
+pub use event_listener::{
+    CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, WriteStallInfo,
+};
 pub use librocksdb_sys::{
     self as crocksdb_ffi, new_bloom_filter, CompactionPriority, DBBottommostLevelCompaction,
     DBCompactionStyle, DBCompressionType, DBEntryType, DBInfoLogLevel, DBRecoveryMode,
-    DBStatisticsHistogramType, DBStatisticsTickerType,
+    DBStatisticsHistogramType, DBStatisticsTickerType, WriteStallCondition,
 };
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
