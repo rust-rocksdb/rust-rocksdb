@@ -21,3 +21,4 @@ mod test_rocksdb_options;
 mod test_slice_transform;
 mod test_statistics;
 mod test_table_properties;
+mod test_ttl;

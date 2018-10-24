@@ -165,6 +165,9 @@ typedef enum crocksdb_table_property_t {
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open(
     const crocksdb_options_t* options, const char* name, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_with_ttl(
+    const crocksdb_options_t* options, const char* name, int ttl, char** errptr);
+
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_for_read_only(
     const crocksdb_options_t* options, const char* name,
     unsigned char error_if_log_file_exist, char** errptr);
@@ -222,6 +225,14 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_column_families(
     const char** column_family_names,
     const crocksdb_options_t** column_family_options,
     crocksdb_column_family_handle_t** column_family_handles, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_column_families_with_ttl(
+    const crocksdb_options_t* options, const char* name, int num_column_families,
+    const char** column_family_names,
+    const crocksdb_options_t** column_family_options,
+    const int32_t* ttl_array, bool read_only,
+    crocksdb_column_family_handle_t** column_family_handles,
+    char** errptr);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_t*
 crocksdb_open_for_read_only_column_families(

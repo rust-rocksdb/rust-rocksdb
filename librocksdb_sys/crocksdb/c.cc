@@ -32,7 +32,9 @@
 #include "rocksdb/utilities/backupable_db.h"
 #include "rocksdb/utilities/debug.h"
 #include "rocksdb/utilities/options_util.h"
+#include "rocksdb/utilities/db_ttl.h"
 #include "rocksdb/write_batch.h"
+
 
 #include "db/column_family.h"
 #include "table/sst_file_writer_collectors.h"
@@ -64,6 +66,7 @@ using rocksdb::Comparator;
 using rocksdb::CompressionType;
 using rocksdb::WALRecoveryMode;
 using rocksdb::DB;
+using rocksdb::DBWithTTL;
 using rocksdb::DBOptions;
 using rocksdb::Env;
 using rocksdb::EnvOptions;
@@ -522,6 +525,20 @@ crocksdb_t* crocksdb_open(
   return result;
 }
 
+crocksdb_t* crocksdb_open_with_ttl(
+    const crocksdb_options_t* options,
+    const char* name,
+    int ttl,
+    char** errptr) {
+  DBWithTTL* db;
+  if (SaveError(errptr, DBWithTTL::Open(options->rep, std::string(name), &db, ttl))) {
+    return nullptr;
+  }
+  crocksdb_t* result = new crocksdb_t;
+  result->rep = db;
+  return result;
+}
+
 crocksdb_t* crocksdb_open_for_read_only(
     const crocksdb_options_t* options,
     const char* name,
@@ -653,6 +670,42 @@ crocksdb_t* crocksdb_open_column_families(
   std::vector<ColumnFamilyHandle*> handles;
   if (SaveError(errptr, DB::Open(DBOptions(db_options->rep),
           std::string(name), column_families, &handles, &db))) {
+    return nullptr;
+  }
+
+  for (size_t i = 0; i < handles.size(); i++) {
+    crocksdb_column_family_handle_t* c_handle = new crocksdb_column_family_handle_t;
+    c_handle->rep = handles[i];
+    column_family_handles[i] = c_handle;
+  }
+  crocksdb_t* result = new crocksdb_t;
+  result->rep = db;
+  return result;
+}
+
+crocksdb_t* crocksdb_open_column_families_with_ttl(
+    const crocksdb_options_t* db_options,
+    const char* name,
+    int num_column_families,
+    const char** column_family_names,
+    const crocksdb_options_t** column_family_options,
+    const int32_t* ttl_array,
+    bool read_only,
+    crocksdb_column_family_handle_t** column_family_handles,
+    char** errptr) {
+  std::vector<ColumnFamilyDescriptor> column_families;
+  std::vector<int32_t> ttls;
+  for (int i = 0; i < num_column_families; i++) {
+    column_families.push_back(ColumnFamilyDescriptor(
+        std::string(column_family_names[i]),
+        ColumnFamilyOptions(column_family_options[i]->rep)));
+    ttls.push_back(ttl_array[i]);
+  }
+
+  DBWithTTL* db;
+  std::vector<ColumnFamilyHandle*> handles;
+  if (SaveError(errptr, DBWithTTL::Open(DBOptions(db_options->rep),
+          std::string(name), column_families, &handles, &db, ttls, read_only))) {
     return nullptr;
   }
 
