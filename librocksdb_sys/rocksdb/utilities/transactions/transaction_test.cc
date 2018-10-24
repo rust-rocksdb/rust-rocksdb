@@ -1717,7 +1717,7 @@ TEST_P(TransactionTest, TwoPhaseLogRollingTest) {
   }
 
   // flush only cfa memtable
-  s = db_impl->TEST_FlushMemTable(true, cfa);
+  s = db_impl->TEST_FlushMemTable(true, false, cfa);
   ASSERT_OK(s);
 
   switch (txn_db_options.write_policy) {
@@ -1736,7 +1736,7 @@ TEST_P(TransactionTest, TwoPhaseLogRollingTest) {
   }
 
   // flush only cfb memtable
-  s = db_impl->TEST_FlushMemTable(true, cfb);
+  s = db_impl->TEST_FlushMemTable(true, false, cfb);
   ASSERT_OK(s);
 
   // should show not dependency on logs
@@ -5434,7 +5434,7 @@ TEST_P(TransactionTest, DuplicateKeys) {
     db->FlushWAL(true);
     // Flush only cf 1
     reinterpret_cast<DBImpl*>(db->GetRootDB())
-        ->TEST_FlushMemTable(true, handles[1]);
+        ->TEST_FlushMemTable(true, false, handles[1]);
     reinterpret_cast<PessimisticTransactionDB*>(db)->TEST_Crash();
     ASSERT_OK(ReOpenNoDelete(cfds, &handles));
     txn0 = db->GetTransactionByName("xid");
@@ -5472,7 +5472,7 @@ TEST_P(TransactionTest, DuplicateKeys) {
     ASSERT_OK(db->FlushWAL(true));
     // Flush only cf 1
     reinterpret_cast<DBImpl*>(db->GetRootDB())
-        ->TEST_FlushMemTable(true, handles[1]);
+        ->TEST_FlushMemTable(true, false, handles[1]);
     reinterpret_cast<PessimisticTransactionDB*>(db)->TEST_Crash();
     ASSERT_OK(ReOpenNoDelete(cfds, &handles));
     txn0 = db->GetTransactionByName("xid");
@@ -5505,7 +5505,7 @@ TEST_P(TransactionTest, DuplicateKeys) {
     ASSERT_OK(db->FlushWAL(true));
     // Flush only cf 1
     reinterpret_cast<DBImpl*>(db->GetRootDB())
-        ->TEST_FlushMemTable(true, handles[1]);
+        ->TEST_FlushMemTable(true, false, handles[1]);
     reinterpret_cast<PessimisticTransactionDB*>(db)->TEST_Crash();
     ASSERT_OK(ReOpenNoDelete(cfds, &handles));
     txn0 = db->GetTransactionByName("xid");
@@ -5532,7 +5532,7 @@ TEST_P(TransactionTest, DuplicateKeys) {
     ASSERT_OK(db->FlushWAL(true));
     // Flush only cf 1
     reinterpret_cast<DBImpl*>(db->GetRootDB())
-        ->TEST_FlushMemTable(true, handles[1]);
+        ->TEST_FlushMemTable(true, false, handles[1]);
     reinterpret_cast<PessimisticTransactionDB*>(db)->TEST_Crash();
     ASSERT_OK(ReOpenNoDelete(cfds, &handles));
     txn0 = db->GetTransactionByName("xid");
@@ -5559,7 +5559,7 @@ TEST_P(TransactionTest, DuplicateKeys) {
     ASSERT_OK(db->FlushWAL(true));
     // Flush only cf 1
     reinterpret_cast<DBImpl*>(db->GetRootDB())
-        ->TEST_FlushMemTable(true, handles[1]);
+        ->TEST_FlushMemTable(true, false, handles[1]);
     reinterpret_cast<PessimisticTransactionDB*>(db)->TEST_Crash();
     ASSERT_OK(ReOpenNoDelete(cfds, &handles));
     txn0 = db->GetTransactionByName("xid");
