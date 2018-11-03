@@ -30,6 +30,7 @@ If any maintainer thinks an issue is major, it is major.
 
 #### Releasing, Publishing
 
+* Releases adhere to [semver](https://semver.org/)
 * To cut a release, an issue should be opened for it and reach the required approval based on the above `Categories of Work` section above
 * When progress is possible, the issue may be closed and the proposer may publish to crates.io. This is controlled by those in the [crate publishers organization-level team](https://github.com/orgs/rust-rocksdb/teams/crate-publishers).
 * Releases should have an associated tag pushed to this repo. I recommend doing this after the publish to crates.io succeeds to prevent any mishaps around pushing a tag for something that can't actually be published.
