@@ -20,7 +20,7 @@ use ffi_util::opt_bytes_to_ptr;
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
 use std::ops::Deref;
@@ -699,8 +699,7 @@ impl DB {
     }
 
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
+        let cpath = match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
@@ -720,10 +719,11 @@ impl DB {
                 &mut length,
             ));
 
-            let vec = Vec::from_raw_parts(ptr, length, length)
+            let vec = slice::from_raw_parts(ptr, length)
                 .iter()
-                .map(|&ptr| CString::from_raw(ptr).into_string().unwrap())
+                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
                 .collect();
+            ffi::rocksdb_list_column_families_destroy(ptr, length);
             Ok(vec)
         }
     }
