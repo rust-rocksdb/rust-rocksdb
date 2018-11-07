@@ -83,8 +83,9 @@ fn build_rocksdb() {
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
     }
 
-    if cfg!(windows) {
+    if cfg!(target_os = "windows") {
         link("rpcrt4", false);
+        link("shlwapi", false);
         config.define("OS_WIN", Some("1"));
 
         // Remove POSIX-specific sources
