@@ -1102,6 +1102,17 @@ impl Options {
             ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
         }
     }
+
+    /// If true, then DB::Open() will not update the statistics used to optimize
+    /// compaction decision by loading table properties from many files.
+    /// Turning off this feature will improve DBOpen time especially in disk environment.
+    ///
+    /// Default: false
+    pub fn set_skip_stats_update_on_db_open(&mut self, skip: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, skip as c_uchar);
+        }
+    }
 }
 
 impl Default for Options {
