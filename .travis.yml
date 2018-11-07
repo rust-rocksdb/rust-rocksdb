@@ -1,4 +1,5 @@
 language: rust
+cache: false
 dist: trusty
 sudo: true
 
