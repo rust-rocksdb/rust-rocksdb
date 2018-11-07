@@ -1,5 +1,6 @@
 extern crate cc;
 extern crate bindgen;
+extern crate glob;
 
 use std::env;
 use std::fs;
@@ -48,11 +49,35 @@ fn build_rocksdb() {
     config.include("rocksdb/include/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
-    config.include("snappy/");
-    config.include(".");
+    
+    if cfg!(feature = "snappy") {
+        config.define("SNAPPY", Some("1"));
+        config.include("snappy/");
+    }
 
+    if cfg!(feature = "lz4") {
+        config.define("LZ4", Some("1"));
+        config.include("lz4/lib/");
+    }
+
+    if cfg!(feature = "zstd") {
+        config.define("ZSTD", Some("1"));
+        config.include("zstd/lib/");
+        config.include("zstd/lib/dictBuilder/");
+    }
+
+    if cfg!(feature = "zlib") {
+        config.define("ZLIB", Some("1"));
+        config.include("zlib/");
+    }
+    
+    if cfg!(feature = "bzip2") {
+        config.define("BZIP2", Some("1"));
+        config.include("bzip2/");
+    }
+
+    config.include(".");
     config.define("NDEBUG", Some("1"));
-    config.define("SNAPPY", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split(" ")
@@ -149,6 +174,94 @@ fn build_snappy() {
     config.compile("libsnappy.a");
 }
 
+fn build_lz4() {
+    let mut compiler = cc::Build::new();
+    
+    compiler
+        .file("lz4/lib/lz4.c")
+        .file("lz4/lib/lz4frame.c")
+        .file("lz4/lib/lz4hc.c")
+        .file("lz4/lib/xxhash.c");
+
+    compiler.opt_level(3);
+
+    match env::var("TARGET").unwrap().as_str()
+    {
+      "i686-pc-windows-gnu" => {
+        compiler.flag("-fno-tree-vectorize");
+      },
+      _ => {}
+    }
+
+    compiler.compile("liblz4.a");
+}
+
+fn build_zstd() {
+    let mut compiler = cc::Build::new();
+    
+    compiler.include("zstd/lib/");
+    compiler.include("zstd/lib/common");
+    compiler.include("zstd/lib/legacy");
+
+    let globs = &[
+        "zstd/lib/common/*.c",
+        "zstd/lib/compress/*.c",
+        "zstd/lib/decompress/*.c",
+        "zstd/lib/dictBuilder/*.c",
+        "zstd/lib/legacy/*.c",
+    ];
+
+    for pattern in globs {
+        for path in glob::glob(pattern).unwrap() {
+            let path = path.unwrap();
+            compiler.file(path);
+        }
+    }
+
+    compiler.opt_level(3);
+
+    compiler.define("ZSTD_LIB_DEPRECATED", Some("0"));
+    compiler.compile("libzstd.a");
+}
+
+fn build_zlib() {
+    let mut compiler = cc::Build::new();
+    
+    let globs = &[
+        "zlib/*.c"
+    ];
+
+    for pattern in globs {
+        for path in glob::glob(pattern).unwrap() {
+            let path = path.unwrap();
+            compiler.file(path);
+        }
+    }
+
+    compiler.opt_level(3);
+    compiler.compile("libz.a");
+}
+
+fn build_bzip2() {
+    let mut compiler = cc::Build::new();
+    
+    compiler
+        .file("bzip2/blocksort.c")
+        .file("bzip2/bzlib.c")
+        .file("bzip2/compress.c")
+        .file("bzip2/crctable.c")
+        .file("bzip2/decompress.c")
+        .file("bzip2/huffman.c")
+        .file("bzip2/randtable.c");
+
+    compiler
+        .define("_FILE_OFFSET_BITS", Some("64"))
+        .define("BZ_NO_STDIO", None);
+
+    compiler.opt_level(3);
+    compiler.compile("libbz2.a");
+}
+
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
@@ -166,15 +279,36 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=rocksdb/");
     println!("cargo:rerun-if-changed=snappy/");
+    println!("cargo:rerun-if-changed=lz4/");
+    println!("cargo:rerun-if-changed=zstd/");
+    println!("cargo:rerun-if-changed=zlib/");
+    println!("cargo:rerun-if-changed=bzip2/");
 
     fail_on_empty_directory("rocksdb");
     fail_on_empty_directory("snappy");
+    fail_on_empty_directory("lz4");
+    fail_on_empty_directory("zstd");
+    fail_on_empty_directory("zlib");
+    fail_on_empty_directory("bzip2");
+
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
         build_rocksdb();
     }
-    if !try_to_find_and_link_lib("SNAPPY") {
+    if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
         build_snappy();
+    }
+    if cfg!(feature = "lz4") && !try_to_find_and_link_lib("LZ4") {
+        build_lz4();
+    }
+    if cfg!(feature = "zstd") && !try_to_find_and_link_lib("ZSTD") {
+        build_zstd();
+    }
+    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("ZLIB") {
+        build_zlib();
+    }
+    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZIP2") {
+        build_bzip2();
     }
 }
