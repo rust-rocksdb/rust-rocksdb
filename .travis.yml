@@ -1,5 +1,4 @@
 language: rust
-cache: false
 dist: trusty
 sudo: true
 
@@ -26,5 +25,3 @@ addons:
 script:
   - cargo test --manifest-path=librocksdb-sys/Cargo.toml
   - cargo test
-
-cache: cargo
