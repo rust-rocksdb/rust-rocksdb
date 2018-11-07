@@ -25,3 +25,12 @@ addons:
 script:
   - cargo test --manifest-path=librocksdb-sys/Cargo.toml
   - cargo test
+
+cache: cargo
+before_cache:
+  - rm -rfv target/debug/incremental/{rocksdb,librocksdb_sys,build_script_build}-*
+  - rm -rfv target/debug/.fingerprint/{rocksdb,librocksdb_sys}-*
+  - rm -rfv target/debug/build/{rocksdb,librocksdb_sys}-*
+  - rm -rfv target/debug/deps/{rocksdb,librocksdb,librocksdb_sys}-*
+  - rm -rfv target/debug/{rocksdb,librocksdb,librocksdb_sys}.d
+  - cargo clean -p rocksdb
