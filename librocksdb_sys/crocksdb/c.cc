@@ -17,6 +17,7 @@
 #include "rocksdb/env.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/iterator.h"
+#include "rocksdb/ldb_tool.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
@@ -145,6 +146,7 @@ using rocksdb::CompactionOptions;
 using rocksdb::PerfLevel;
 using rocksdb::PerfContext;
 using rocksdb::BottommostLevelCompaction;
+using rocksdb::LDBTool;
 
 using std::shared_ptr;
 
@@ -4678,6 +4680,10 @@ uint64_t crocksdb_perf_context_env_unlock_file_nanos(crocksdb_perf_context_t* ct
 
 uint64_t crocksdb_perf_context_env_new_logger_nanos(crocksdb_perf_context_t* ctx) {
   return ctx->rep.env_new_logger_nanos;
+}
+
+void crocksdb_run_ldb_tool(int argc, char** argv) {
+  LDBTool().Run(argc, argv);
 }
 
 }  // end extern "C"

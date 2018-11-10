@@ -2204,6 +2204,20 @@ pub fn load_latest_options(
     }
 }
 
+pub fn run_ldb_tool(ldb_args: &Vec<String>) {
+    unsafe {
+        let ldb_args_cstrs: Vec<_> = ldb_args
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect();
+        let args: Vec<_> = ldb_args_cstrs.iter().map(|s| s.as_ptr()).collect();
+        crocksdb_ffi::crocksdb_run_ldb_tool(
+            args.len() as i32,
+            args.as_ptr() as *const *const c_char,
+        );
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

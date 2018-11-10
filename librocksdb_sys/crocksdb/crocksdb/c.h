@@ -1882,6 +1882,8 @@ extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_perf_context_env_unlock_file_nanos(crocksdb_perf_context_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_perf_context_env_new_logger_nanos(crocksdb_perf_context_t*);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_run_ldb_tool(int argc, char** argv);
 
 #ifdef __cplusplus
 }  /* end extern "C" */
