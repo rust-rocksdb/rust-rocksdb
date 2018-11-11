@@ -433,7 +433,7 @@ impl Drop for DBRawIterator {
 }
 
 impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+    pub fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
         let mut rv = DBIterator {
             raw: DBRawIterator::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
@@ -443,7 +443,7 @@ impl DBIterator {
         rv
     }
 
-    fn new_cf(
+    pub fn new_cf(
         db: &DB,
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
