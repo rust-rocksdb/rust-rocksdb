@@ -1355,6 +1355,30 @@ impl DB {
         Ok(())
     }
 
+    /// An optimized version of `ingest_external_file_cf`. It will
+    /// first try to ingest files without blocking and fallback to a
+    /// blocking ingestion if the optimization fails.
+    /// Returns true if a memtable is flushed without blocking.
+    pub fn ingest_external_file_optimized(
+        &self,
+        cf: &CFHandle,
+        opt: &IngestExternalFileOptions,
+        files: &[&str],
+    ) -> Result<bool, String> {
+        let c_files = build_cstring_list(files);
+        let c_files_ptrs: Vec<*const _> = c_files.iter().map(|s| s.as_ptr()).collect();
+        let has_flush = unsafe {
+            ffi_try!(crocksdb_ingest_external_file_optimized(
+                self.inner,
+                cf.inner,
+                c_files_ptrs.as_ptr(),
+                c_files_ptrs.len(),
+                opt.inner
+            ))
+        };
+        Ok(has_flush)
+    }
+
     pub fn backup_at(&self, path: &str) -> Result<BackupEngine, String> {
         let backup_engine = BackupEngine::open(DBOptions::new(), path).unwrap();
         unsafe {

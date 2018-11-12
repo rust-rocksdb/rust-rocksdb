@@ -913,6 +913,7 @@ extern "C" {
     pub fn crocksdb_flushoptions_create() -> *mut DBFlushOptions;
     pub fn crocksdb_flushoptions_destroy(opt: *mut DBFlushOptions);
     pub fn crocksdb_flushoptions_set_wait(opt: *mut DBFlushOptions, whether_wait: bool);
+    pub fn crocksdb_flushoptions_set_allow_write_stall(opt: *mut DBFlushOptions, allow: bool);
 
     pub fn crocksdb_flush(
         db: *mut DBInstance,
@@ -1217,6 +1218,14 @@ extern "C" {
         opt: *const IngestExternalFileOptions,
         err: *mut *mut c_char,
     );
+    pub fn crocksdb_ingest_external_file_optimized(
+        db: *mut DBInstance,
+        handle: *const DBCFHandle,
+        file_list: *const *const c_char,
+        list_len: size_t,
+        opt: *const IngestExternalFileOptions,
+        err: *mut *mut c_char,
+    ) -> bool;
 
     // Restore Option
     pub fn crocksdb_restore_options_create() -> *mut DBRestoreOptions;

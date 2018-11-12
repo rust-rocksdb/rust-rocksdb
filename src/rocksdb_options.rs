@@ -1490,6 +1490,12 @@ impl FlushOptions {
             crocksdb_ffi::crocksdb_flushoptions_set_wait(self.inner, wait);
         }
     }
+
+    pub fn set_allow_write_stall(&mut self, allow: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_flushoptions_set_allow_write_stall(self.inner, allow);
+        }
+    }
 }
 
 impl Drop for FlushOptions {

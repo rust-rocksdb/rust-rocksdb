@@ -3203,6 +3203,11 @@ void crocksdb_flushoptions_set_wait(
   opt->rep.wait = v;
 }
 
+void crocksdb_flushoptions_set_allow_write_stall(
+    crocksdb_flushoptions_t* opt, unsigned char v) {
+  opt->rep.allow_write_stall = v;
+}
+
 crocksdb_cache_t* crocksdb_cache_create_lru(size_t capacity,
   int num_shard_bits, unsigned char strict_capacity_limit, double high_pri_pool_ratio) {
   crocksdb_cache_t* c = new crocksdb_cache_t;
@@ -3453,6 +3458,44 @@ void crocksdb_ingest_external_file_cf(
     files[i] = std::string(file_list[i]);
   }
   SaveError(errptr, db->rep->IngestExternalFile(handle->rep, files, opt->rep));
+}
+
+bool crocksdb_ingest_external_file_optimized(
+    crocksdb_t* db, crocksdb_column_family_handle_t* handle,
+    const char* const* file_list, const size_t list_len,
+    const crocksdb_ingestexternalfileoptions_t* opt, char** errptr) {
+  std::vector<std::string> files(list_len);
+  for (size_t i = 0; i < list_len; ++i) {
+    files[i] = std::string(file_list[i]);
+  }
+  bool has_flush = false;
+  // If the file being ingested is overlapped with the memtable, it
+  // will block writes and wait for flushing, which can cause high
+  // write latency. So we set `allow_blocking_flush = false`.
+  auto ingest_opts = opt->rep;
+  ingest_opts.allow_blocking_flush = false;
+  auto s = db->rep->IngestExternalFile(handle->rep, files, ingest_opts);
+  if (s.IsInvalidArgument() &&
+      s.ToString().find("External file requires flush") != std::string::npos) {
+    // When `allow_blocking_flush = false` and the file being ingested
+    // is overlapped with the memtable, `IngestExternalFile` returns
+    // an invalid argument error. It is tricky to search for the
+    // specific error message here but don't worry, the unit test
+    // ensures that we get this right. Then we can try to flush the
+    // memtable outside without blocking writes. We also set
+    // `allow_write_stall = false` to prevent the flush from
+    // triggering write stall.
+    has_flush = true;
+    FlushOptions flush_opts;
+    flush_opts.wait = true;
+    flush_opts.allow_write_stall = false;
+    // We don't check the status of this flush because we will
+    // fallback to a blocking ingestion anyway.
+    db->rep->Flush(flush_opts, handle->rep);
+    s = db->rep->IngestExternalFile(handle->rep, files, opt->rep);
+  }
+  SaveError(errptr, s);
+  return has_flush;
 }
 
 crocksdb_slicetransform_t* crocksdb_slicetransform_create(

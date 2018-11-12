@@ -464,3 +464,40 @@ fn test_set_external_sst_file_global_seq_no() {
         .unwrap();
     check_kv(&db, None, &[(b"k1", Some(b"v1")), (b"k2", Some(b"v2"))]);
 }
+
+#[test]
+fn test_ingest_external_file_optimized() {
+    let path = TempDir::new("_rust_rocksdb_ingest_sst_optimized").expect("");
+    let db = create_default_database(&path);
+    let gen_path = TempDir::new("_rust_rocksdb_ingest_sst_gen_new_cf").expect("");
+    let test_sstfile = gen_path.path().join("test_sst_file_optimized");
+    let test_sstfile_str = test_sstfile.to_str().unwrap();
+    let handle = db.cf_handle("default").unwrap();
+
+    let ingest_opt = IngestExternalFileOptions::new();
+    gen_sst_put(ColumnFamilyOptions::new(), None, test_sstfile_str);
+
+    db.put_cf(handle, b"k0", b"k0").unwrap();
+
+    // No overlap with the memtable.
+    let has_flush = db
+        .ingest_external_file_optimized(handle, &ingest_opt, &[test_sstfile_str])
+        .unwrap();
+    assert!(!has_flush);
+    assert!(test_sstfile.exists());
+    assert_eq!(db.get_cf(handle, b"k1").unwrap().unwrap(), b"a");
+    assert_eq!(db.get_cf(handle, b"k2").unwrap().unwrap(), b"b");
+    assert_eq!(db.get_cf(handle, b"k3").unwrap().unwrap(), b"c");
+
+    db.put_cf(handle, b"k1", b"k1").unwrap();
+
+    // Overlap with the memtable.
+    let has_flush = db
+        .ingest_external_file_optimized(handle, &ingest_opt, &[test_sstfile_str])
+        .unwrap();
+    assert!(has_flush);
+    assert!(test_sstfile.exists());
+    assert_eq!(db.get_cf(handle, b"k1").unwrap().unwrap(), b"a");
+    assert_eq!(db.get_cf(handle, b"k2").unwrap().unwrap(), b"b");
+    assert_eq!(db.get_cf(handle, b"k3").unwrap().unwrap(), b"c");
+}

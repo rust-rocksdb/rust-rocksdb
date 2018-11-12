@@ -1292,6 +1292,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_flushoptions_destroy(
     crocksdb_flushoptions_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_flushoptions_set_wait(
     crocksdb_flushoptions_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_flushoptions_set_allow_write_stall(
+    crocksdb_flushoptions_t*, unsigned char);
 
 /* Cache */
 
@@ -1406,6 +1408,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_ingest_external_file(
     crocksdb_t* db, const char* const* file_list, const size_t list_len,
     const crocksdb_ingestexternalfileoptions_t* opt, char** errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_ingest_external_file_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* handle,
+    const char* const* file_list, const size_t list_len,
+    const crocksdb_ingestexternalfileoptions_t* opt, char** errptr);
+extern C_ROCKSDB_LIBRARY_API bool crocksdb_ingest_external_file_optimized(
     crocksdb_t* db, crocksdb_column_family_handle_t* handle,
     const char* const* file_list, const size_t list_len,
     const crocksdb_ingestexternalfileoptions_t* opt, char** errptr);
