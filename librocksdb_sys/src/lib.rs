@@ -1144,14 +1144,6 @@ extern "C" {
         name: *const c_char,
         err: *mut *mut c_char,
     );
-    pub fn crocksdb_sstfilewriter_add(
-        writer: *mut SstFileWriter,
-        key: *const u8,
-        key_len: size_t,
-        val: *const u8,
-        val_len: size_t,
-        err: *mut *mut c_char,
-    );
     pub fn crocksdb_sstfilewriter_put(
         writer: *mut SstFileWriter,
         key: *const u8,
@@ -1172,6 +1164,14 @@ extern "C" {
         writer: *mut SstFileWriter,
         key: *const u8,
         key_len: size_t,
+        err: *mut *mut c_char,
+    );
+    pub fn crocksdb_sstfilewriter_delete_range(
+        writer: *mut SstFileWriter,
+        begin_key: *const u8,
+        begin_key_len: size_t,
+        end_key: *const u8,
+        end_key_len: size_t,
         err: *mut *mut c_char,
     );
     pub fn crocksdb_sstfilewriter_finish(
@@ -1740,12 +1740,13 @@ mod test {
             assert_eq!(sizes.len(), 1);
             assert!(sizes[0] > 0);
 
-            crocksdb_delete_file_in_range(
+            crocksdb_delete_files_in_range(
                 db,
                 b"\x00\x00".as_ptr(),
                 2,
                 b"\xff\x00".as_ptr(),
                 2,
+                true,
                 &mut err,
             );
             assert!(err.is_null(), error_message(err));
@@ -1819,13 +1820,13 @@ mod test {
 
             crocksdb_sstfilewriter_open(writer, c_sst_path_ptr, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_add(writer, b"sstk1".as_ptr(), 5, b"v1".as_ptr(), 2, &mut err);
+            crocksdb_sstfilewriter_put(writer, b"sstk1".as_ptr(), 5, b"v1".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_put(writer, b"sstk2".as_ptr(), 5, b"v2".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_put(writer, b"sstk3".as_ptr(), 5, b"v3".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_finish(writer, &mut err);
+            crocksdb_sstfilewriter_finish(writer, ptr::null_mut(), &mut err);
             assert!(err.is_null(), error_message(err));
             assert!(crocksdb_sstfilewriter_file_size(writer) > 0);
 
@@ -1843,13 +1844,13 @@ mod test {
             fs::remove_file(sst_path).unwrap();
             crocksdb_sstfilewriter_open(writer, c_sst_path_ptr, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_add(writer, "sstk2".as_ptr(), 5, "v4".as_ptr(), 2, &mut err);
+            crocksdb_sstfilewriter_put(writer, "sstk2".as_ptr(), 5, "v4".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_put(writer, "sstk22".as_ptr(), 6, "v5".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
             crocksdb_sstfilewriter_put(writer, "sstk3".as_ptr(), 5, "v6".as_ptr(), 2, &mut err);
             assert!(err.is_null(), error_message(err));
-            crocksdb_sstfilewriter_finish(writer, &mut err);
+            crocksdb_sstfilewriter_finish(writer, ptr::null_mut(), &mut err);
             assert!(err.is_null(), error_message(err));
             assert!(crocksdb_sstfilewriter_file_size(writer) > 0);
 

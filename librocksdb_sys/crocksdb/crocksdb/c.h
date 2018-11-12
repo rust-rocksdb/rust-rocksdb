@@ -1353,6 +1353,10 @@ crocksdb_sstfilewriter_merge(crocksdb_sstfilewriter_t *writer, const char *key,
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_sstfilewriter_delete(crocksdb_sstfilewriter_t *writer, const char *key,
                               size_t keylen, char **errptr);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_sstfilewriter_delete_range(crocksdb_sstfilewriter_t *writer, const char *begin_key,
+                                    size_t begin_keylen, const char *end_key, size_t end_keylen,
+                                    char **errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sstfilewriter_finish(
     crocksdb_sstfilewriter_t* writer, crocksdb_externalsstfileinfo_t* info, char** errptr);
 extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_sstfilewriter_file_size(

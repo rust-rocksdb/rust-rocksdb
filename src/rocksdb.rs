@@ -1946,6 +1946,19 @@ impl SstFileWriter {
         }
     }
 
+    pub fn delete_range(&mut self, begin_key: &[u8], end_key: &[u8]) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_sstfilewriter_delete_range(
+                self.inner,
+                begin_key.as_ptr(),
+                begin_key.len(),
+                end_key.as_ptr(),
+                end_key.len()
+            ));
+            Ok(())
+        }
+    }
+
     /// Finalize writing to sst file and close file.
     pub fn finish(&mut self) -> Result<ExternalSstFileInfo, String> {
         let info = ExternalSstFileInfo::new();

@@ -3335,6 +3335,14 @@ void crocksdb_sstfilewriter_delete(crocksdb_sstfilewriter_t *writer,
   SaveError(errptr, writer->rep->Delete(Slice(key, keylen)));
 }
 
+void crocksdb_sstfilewriter_delete_range(crocksdb_sstfilewriter_t *writer,
+                                         const char *begin_key, size_t begin_keylen,
+                                         const char *end_key, size_t end_keylen,
+                                         char **errptr) {
+  SaveError(errptr, writer->rep->DeleteRange(Slice(begin_key, begin_keylen),
+                                             Slice(end_key, end_keylen)));
+}
+
 void crocksdb_sstfilewriter_finish(crocksdb_sstfilewriter_t* writer,
                                    crocksdb_externalsstfileinfo_t* info,
                                    char** errptr) {
