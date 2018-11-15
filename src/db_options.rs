@@ -14,12 +14,13 @@
 
 use std::ffi::{CStr, CString};
 use std::mem;
+use std::path::Path;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
 use ffi;
-use {BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-	 Options, WriteOptions};
+use {BlockBasedOptions, BlockBasedIndexType, DBCompactionStyle, DBCompressionType, DBRecoveryMode, MemtableFactory,
+     Options, WriteOptions};
 use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
 use comparator::{self, ComparatorCallback, CompareFn};
 use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
@@ -72,6 +73,12 @@ impl BlockBasedOptions {
         }
     }
 
+    pub fn disable_cache(&mut self) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, true as c_uchar);
+        }
+    }
+
     pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
         unsafe {
             let bloom = if block_based {
@@ -87,6 +94,24 @@ impl BlockBasedOptions {
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner, v as u8);
+        }
+    }
+
+    /// Defines the index type to be used for SS-table lookups.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, BlockBasedIndexType, Options};
+    ///
+    /// let mut opts = Options::default();
+    /// let mut block_opts = BlockBasedOptions::default();
+    /// block_opts.set_index_type(BlockBasedIndexType::HashSearch);
+    /// ```
+    pub fn set_index_type(&mut self, index_type: BlockBasedIndexType) {
+        let index = index_type as i32;
+        unsafe {
+            ffi::rocksdb_block_based_options_set_index_type(self.inner, index);
         }
     }
 }
@@ -218,6 +243,20 @@ impl Options {
                 level_types.as_mut_ptr(),
                 level_types.len() as size_t,
             )
+        }
+    }
+
+    /// If non-zero, we perform bigger reads when doing compaction. If you're
+    /// running RocksDB on spinning disks, you should set this to at least 2MB.
+    /// That way RocksDB's compaction is doing sequential instead of random reads.
+    ///
+    /// When non-zero, we also force new_table_reader_for_compaction_inputs to
+    /// true.
+    ///
+    /// Default: `0`
+    pub fn set_compaction_readahead_size(&mut self, compaction_readahead_size: usize) {
+        unsafe {
+            ffi::rocksdb_options_compaction_readahead_size(self.inner, compaction_readahead_size as usize);
         }
     }
 
@@ -883,6 +922,47 @@ impl Options {
         unsafe { ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int) }
     }
 
+    /// Defines the underlying memtable implementation.
+    /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+    /// Defaults to using a skiplist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, MemtableFactory};
+    /// let mut opts = Options::default();
+    /// let factory = MemtableFactory::HashSkipList {
+    ///     bucket_count: 1_000_000,
+    ///     height: 4,
+    ///     branching_factor: 4,
+    /// };
+    ///
+    /// opts.set_allow_concurrent_memtable_write(false);
+    /// opts.set_memtable_factory(factory);
+    /// ```
+    pub fn set_memtable_factory(&mut self, factory: MemtableFactory) {
+        match factory {
+            MemtableFactory::Vector => unsafe {
+                ffi::rocksdb_options_set_memtable_vector_rep(self.inner);
+            },
+            MemtableFactory::HashSkipList {
+                bucket_count,
+                height,
+                branching_factor,
+            } => unsafe {
+                ffi::rocksdb_options_set_hash_skip_list_rep(
+                    self.inner,
+                    bucket_count,
+                    height,
+                    branching_factor,
+                );
+            },
+            MemtableFactory::HashLinkList { bucket_count } => unsafe {
+                ffi::rocksdb_options_set_hash_link_list_rep(self.inner, bucket_count);
+            },
+        };
+    }
+
     pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {
         unsafe {
             ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
@@ -980,6 +1060,59 @@ impl Options {
             ffi::rocksdb_options_set_num_levels(self.inner, n);
         }
     }
+
+    /// When a `prefix_extractor` is defined through `opts.set_prefix_extractor` this
+    /// creates a prefix bloom filter for each memtable with the size of
+    /// `write_buffer_size * memtable_prefix_bloom_ratio` (capped at 0.25).
+    ///
+    /// Default: `0`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{Options, SliceTransform};
+    ///
+    /// let mut opts = Options::default();
+    /// let transform = SliceTransform::create_fixed_prefix(10);
+    /// opts.set_prefix_extractor(transform);
+    /// opts.set_memtable_prefix_bloom_ratio(0.2);
+    /// ```
+    pub fn set_memtable_prefix_bloom_ratio(&mut self, ratio: f64) {
+        unsafe {
+            ffi::rocksdb_options_set_memtable_prefix_bloom_size_ratio(self.inner, ratio);
+        }
+    }
+
+    /// Specifies the absolute path of the directory the
+    /// write-ahead log (WAL) should be written to.
+    ///
+    /// Default: same directory as the database
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_wal_dir("/path/to/dir");
+    /// ```
+    pub fn set_wal_dir<P: AsRef<Path>>(&mut self, path: P) {
+        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        unsafe {
+            ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
+        }
+    }
+
+    /// If true, then DB::Open() will not update the statistics used to optimize
+    /// compaction decision by loading table properties from many files.
+    /// Turning off this feature will improve DBOpen time especially in disk environment.
+    ///
+    /// Default: false
+    pub fn set_skip_stats_update_on_db_open(&mut self, skip: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, skip as c_uchar);
+        }
+    }
 }
 
 impl Default for Options {
@@ -1024,6 +1157,7 @@ impl Default for WriteOptions {
 
 #[cfg(test)]
 mod tests {
+    use MemtableFactory;
     use Options;
 
     #[test]
@@ -1035,5 +1169,17 @@ mod tests {
 
         let opts = Options::default();
         assert!(opts.get_statistics().is_none());
+    }
+
+    #[test]
+    fn test_set_memtable_factory() {
+        let mut opts = Options::default();
+        opts.set_memtable_factory(MemtableFactory::Vector);
+        opts.set_memtable_factory(MemtableFactory::HashLinkList { bucket_count: 100 });
+        opts.set_memtable_factory(MemtableFactory::HashSkipList {
+            bucket_count: 100,
+            height: 4,
+            branching_factor: 4,
+        });
     }
 }

@@ -2,6 +2,11 @@ language: rust
 dist: trusty
 sudo: true
 
+os:
+- linux
+- osx
+- windows
+
 rust:
   - stable
   - beta
@@ -22,3 +27,6 @@ script:
   - cargo test
 
 cache: cargo
+before_cache:
+  - rm -rfv target/
+  

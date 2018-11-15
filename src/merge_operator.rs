@@ -278,7 +278,7 @@ mod test {
 
 #[repr(packed)]
 
-	#[derive(Clone, Debug)]
+	#[derive(Copy, Clone, Debug)]
 	struct ValueCounts {
 		num_a: u32,
 		num_b: u32,
@@ -423,7 +423,7 @@ mod test {
 			match db.get(b"k2") {
 				Ok(Some(value)) => {
 					match from_slice::<ValueCounts>(&*value) {
-						Some(v) => {
+						Some(v) => unsafe {
 							assert_eq!(v.num_a, 1000);
 							assert_eq!(v.num_b, 500);
 							assert_eq!(v.num_c, 2000);
@@ -438,7 +438,7 @@ mod test {
 			match db.get(b"k1") {
 				Ok(Some(value)) => {
 					match from_slice::<ValueCounts>(&*value) {
-						Some(v) => {
+						Some(v) => unsafe {
 							assert_eq!(v.num_a, 3);
 							assert_eq!(v.num_b, 2);
 							assert_eq!(v.num_c, 0);

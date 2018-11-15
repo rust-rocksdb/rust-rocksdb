@@ -1,17 +1,48 @@
 Changelog
 =========
 
+Unreleased (Future Date)
+~~~~~~~~~~~~~~~~~~~~
+ * add LZ4, ZSTD, ZLIB, and BZIP2 compression support (iSynaptic)
+
+0.10.1 (2018-07-17)
+~~~~~~~~~~~~~~~~~~~~
+ * bump bindgen to 0.37 (ekmartin)
+ * bump rocksdb to 5.14.2 (ekmartin)
+ * add disable_cache to block-based options (ekmartin)
+ * add set_wal_dir (ekmartin)
+ * add set_memtable_prefix_bloom_ratio (ekmartin)
+ * add MemtableFactory support (ekmartin)
+ * add full_iterator (ekmartin)
+ * allow index type specification on block options (ekmartin)
+ * fix windows build (iSynaptic)
+
+0.10.0 (2018-03-17)
+~~~~~~~~~~~~~~~~~~~~
+ * Bump rocksdb to 5.11.3 (spacejam)
+
+ **New features**
+
+ * Link with system rocksdb and snappy libs through envvars (ozkriff)
+
+ **Breaking Changes**
+
+ * Fix reverse iteration from a given key (ongardie)
+
 0.9.1 (2018-02-10)
 ~~~~~~~~~~~~~~~~~~~~
-**New features**
+ **New features**
+
  * SliceTransform support (spacejam)
 
 0.9.0 (2018-02-10)
 ~~~~~~~~~~~~~~~~~~~~
-**New features**
+ **New features**
+
  * Allow creating iterators over prefixes (glittershark)
 
-**Breaking Changes**
+ **Breaking Changes**
+
  * Open cfs with options (garyttierney, rrichardson)
  * Non-Associative merge ops (rrichardson)
 
@@ -44,33 +75,39 @@ Changelog
 0.7 (2017-07-26)
 ~~~~~~~~~~~~~~~~~~~~
 
-**Breaking Changes**
+ **Breaking Changes**
+
  * Bumped rocksdb to 5.4.6 (derekdreery)
  * Remove `use_direct_writes` now that `use_direct_io_for_flush_and_compaction` exists (derekdreery)
 
-**New features**
+ **New features**
+
  * ReadOptions is now public (rschmukler)
  * Implement Clone and AsRef<str> for Error (daboross)
  * Support for `seek_for_prev` (kaedroho)
  * Support for DirectIO (kaedroho)
 
-**Internal cleanups**
+ **Internal cleanups**
+
  * Fixed race condition in tests (debris)
  * Move tests to the default `tests` directory (vmx)
 
 0.6.1 (2017-03-13)
 ~~~~~~~~~~~~~~~~~~
 
-**New features**
+ **New features**
+
  * Support for raw iterator access (kaedroho)
 
 0.6 (2016-12-18)
 ~~~~~~~~~~~~~~~~~~~~
 
  **Breaking changes**
+
  * Comparator function now returns an Ordering (alexreg)
 
  **New features**
+
  * Compaction filter (tmccombs)
  * Support for backups (alexreg)
 
