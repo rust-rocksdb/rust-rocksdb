@@ -3,6 +3,7 @@ rust-rocksdb
 [![Build Status](https://travis-ci.org/rust-rocksdb/rust-rocksdb.svg?branch=master)](https://travis-ci.org/rust-rocksdb/rust-rocksdb)
 [![crates.io](http://meritbadge.herokuapp.com/rocksdb)](https://crates.io/crates/rocksdb)
 [![documentation](https://docs.rs/rocksdb/badge.svg)](https://docs.rs/rocksdb)
+[![Gitter chat](https://badges.gitter.im/rust-rocksdb/gitter.png)](https://gitter.im/rust-rocksdb/lobby)
 
 Feedback and pull requests welcome!  If a particular feature of RocksDB is 
 important to you, please let me know by opening an issue, and I'll 
