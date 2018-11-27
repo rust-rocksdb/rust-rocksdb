@@ -1,6 +1,22 @@
 Changelog
 =========
 
+Unreleased (Future Date)
+~~~~~~~~~~~~~~~~~~~~
+ * add LZ4, ZSTD, ZLIB, and BZIP2 compression support (iSynaptic)
+
+0.10.1 (2018-07-17)
+~~~~~~~~~~~~~~~~~~~~
+ * bump bindgen to 0.37 (ekmartin)
+ * bump rocksdb to 5.14.2 (ekmartin)
+ * add disable_cache to block-based options (ekmartin)
+ * add set_wal_dir (ekmartin)
+ * add set_memtable_prefix_bloom_ratio (ekmartin)
+ * add MemtableFactory support (ekmartin)
+ * add full_iterator (ekmartin)
+ * allow index type specification on block options (ekmartin)
+ * fix windows build (iSynaptic)
+
 0.10.0 (2018-03-17)
 ~~~~~~~~~~~~~~~~~~~~
  * Bump rocksdb to 5.11.3 (spacejam)

@@ -21,6 +21,7 @@
 extern crate const_cstr;
 extern crate libc;
 extern crate librocksdb_sys as ffi;
+extern crate uuid;
 
 use ::ffi::*;
 use ::libc::*;
@@ -33,6 +34,7 @@ use ::std::path::PathBuf;
 use ::std::ptr;
 use ::std::slice;
 use ::std::str;
+use ::uuid::Uuid;
 
 macro_rules! err_println {
     ($($arg:tt)*) => (writeln!(&mut ::std::io::stderr(), $($arg)*).expect("failed printing to stderr"));
@@ -392,15 +394,17 @@ fn ffi() {
         let mut err: *mut c_char = ptr::null_mut();
         let run: c_int = -1;
 
+        let test_uuid = Uuid::new_v4().to_simple();
+
         let dbname = {
             let mut dir = GetTempDir();
-            dir.push(format!("rocksdb_c_test-{}", geteuid()));
+            dir.push(format!("rocksdb_c_test-{}", test_uuid));
             let path = dir.to_str().unwrap();
             CString::new(path).unwrap()
         };
         let dbbackupname = {
             let mut dir = GetTempDir();
-            dir.push(format!("rocksdb_c_test-{}-backup", geteuid()));
+            dir.push(format!("rocksdb_c_test-{}-backup", test_uuid));
             let path = dir.to_str().unwrap();
             CString::new(path).unwrap()
         };

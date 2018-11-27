@@ -28,6 +28,7 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::ffi::CStr;
 
 pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
     unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
@@ -44,6 +45,7 @@ pub enum DBCompressionType {
     Bz2 = ffi::rocksdb_bz2_compression as isize,
     Lz4 = ffi::rocksdb_lz4_compression as isize,
     Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
+    Zstd = ffi::rocksdb_zstd_compression as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -181,6 +183,8 @@ pub struct DBIterator {
     direction: Direction,
     just_seeked: bool,
 }
+
+unsafe impl Send for DBIterator {}
 
 pub enum Direction {
     Forward,
@@ -698,8 +702,7 @@ impl DB {
     }
 
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
+        let cpath = match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
@@ -719,10 +722,11 @@ impl DB {
                 &mut length,
             ));
 
-            let vec = Vec::from_raw_parts(ptr, length, length)
+            let vec = slice::from_raw_parts(ptr, length)
                 .iter()
-                .map(|&ptr| CString::from_raw(ptr).into_string().unwrap())
+                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
                 .collect();
+            ffi::rocksdb_list_column_families_destroy(ptr, length);
             Ok(vec)
         }
     }
@@ -1106,6 +1110,15 @@ impl WriteBatch {
         unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
     }
 
+    /// Return WriteBatch serialized size (in bytes).
+    pub fn size_in_bytes(&self) -> usize {
+        unsafe {
+            let mut batch_size: size_t = 0;
+            ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
+            batch_size as usize
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -1402,6 +1415,14 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
+        }
+        {
+            // test size_in_bytes
+            let mut batch = WriteBatch::default();
+            let before = batch.size_in_bytes();
+            let _ = batch.put(b"k1", b"v1234567890");
+            let after = batch.size_in_bytes();
+            assert!(before + 10 <= after);
         }
     }
     let opts = Options::default();
