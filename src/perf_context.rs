@@ -338,6 +338,8 @@ impl PerfContext {
 
 #[cfg(test)]
 mod test {
+    use std::{sync::mpsc, thread};
+
     use super::*;
 
     use tempdir::TempDir;
@@ -388,5 +390,36 @@ mod test {
         assert_eq!(ctx.internal_key_skipped_count(), n + n / 2);
         assert_eq!(ctx.internal_delete_skipped_count(), n / 2);
         assert_ne!(ctx.seek_internal_seek_time(), 0);
+    }
+
+    // We hope perf_context is thread local.
+    #[test]
+    fn test_perf_context_thread_local() {
+        let temp_dir = TempDir::new("test_perf_context").unwrap();
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let db = DB::open(opts, temp_dir.path().to_str().unwrap()).unwrap();
+        set_perf_level(PerfLevel::EnableTimeExceptForMutex);
+
+        let (tx, rx) = mpsc::sync_channel(1);
+        let t = thread::spawn(move || {
+            rx.recv().unwrap();
+            let ctx = PerfContext::get();
+            assert_eq!(ctx.write_memtable_time(), 0);
+            assert_eq!(ctx.write_wal_time(), 0);
+        });
+
+        for i in 0..10000 {
+            let k = &[i as u8];
+            db.put(k, k).unwrap();
+            if i % 2 == 0 {
+                db.delete(k).unwrap();
+            }
+        }
+        let ctx = PerfContext::get();
+        assert!(ctx.write_memtable_time() > 0);
+        assert!(ctx.write_wal_time() > 0);
+        tx.send(1).unwrap();
+        t.join().unwrap();
     }
 }

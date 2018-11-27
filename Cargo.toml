@@ -34,3 +34,6 @@ path = "librocksdb_sys"
 byteorder = "1.0.0"
 rand = "0.3"
 tempdir = "0.3"
+
+[[bench]]
+name = "benches"
