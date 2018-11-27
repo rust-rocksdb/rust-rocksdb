@@ -16,7 +16,7 @@ extern crate rocksdb;
 mod util;
 
 use rocksdb::{DB, Direction, IteratorMode, MemtableFactory, Options};
-use util::DBName;
+use util::DBPath;
 
 fn cba(input: &Box<[u8]>) -> Box<[u8]> {
     input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
@@ -24,7 +24,7 @@ fn cba(input: &Box<[u8]>) -> Box<[u8]> {
 
 #[test]
 pub fn test_iterator() {
-    let n = DBName::new("_rust_rocksdb_iteratortest");
+    let n = DBPath::new("_rust_rocksdb_iteratortest");
     {
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -34,7 +34,7 @@ pub fn test_iterator() {
         let v2: Box<[u8]> = b"v2222".to_vec().into_boxed_slice();
         let v3: Box<[u8]> = b"v3333".to_vec().into_boxed_slice();
         let v4: Box<[u8]> = b"v4444".to_vec().into_boxed_slice();
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         let p = db.put(&*k1, &*v1);
         assert!(p.is_ok());
         let p = db.put(&*k2, &*v2);
@@ -161,7 +161,7 @@ fn key(k: &[u8]) -> Box<[u8]> { k.to_vec().into_boxed_slice() }
 
 #[test]
 pub fn test_prefix_iterator() {
-    let n = DBName::new("_rust_rocksdb_prefixiteratortest");
+    let n = DBPath::new("_rust_rocksdb_prefixiteratortest");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
@@ -174,7 +174,7 @@ pub fn test_prefix_iterator() {
         opts.create_if_missing(true);
         opts.set_prefix_extractor(prefix_extractor);
 
-        let db = DB::open(&opts, &n.name).unwrap();
+        let db = DB::open(&opts, &n).unwrap();
 
         assert!(db.put(&*a1, &*a1).is_ok());
         assert!(db.put(&*a2, &*a2).is_ok());

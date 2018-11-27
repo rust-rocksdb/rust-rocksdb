@@ -1,34 +1,41 @@
 extern crate rocksdb;
 
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::path::{PathBuf, Path};
 
 use rocksdb::{DB, Options};
 
-// Ensures that DB::Destroy is called for this database when DBName is dropped.
-pub struct DBName {
-    pub name: String,
+// Ensures that DB::Destroy is called for this database when DBPath is dropped.
+pub struct DBPath {
+    path: PathBuf
 }
 
-impl DBName {
+impl DBPath {
     // Suffixes the given `prefix` with a timestamp to ensure that subsequent test runs don't reuse
     // an old database in case of panics prior to Drop being called.
-    pub fn new(prefix: &str) -> DBName {
+    pub fn new(prefix: &str) -> DBPath {
         let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let name = format!(
+        let path = format!(
             "{}.{}.{}",
             prefix,
             current_time.as_secs(),
             current_time.subsec_nanos()
         );
 
-        DBName { name }
+        DBPath { path: PathBuf::from(path) }
     }
 }
 
-impl Drop for DBName {
+impl Drop for DBPath {
     fn drop(&mut self) {
         let opts = Options::default();
-        DB::destroy(&opts, &self.name).unwrap();
+        DB::destroy(&opts, &self.path).unwrap();
+    }
+}
+
+impl AsRef<Path> for DBPath {
+    fn as_ref(&self) -> &Path {
+        &self.path
     }
 }
 

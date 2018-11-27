@@ -16,15 +16,15 @@ extern crate rocksdb;
 mod util;
 
 use rocksdb::{DB, Options};
-use util::DBName;
+use util::DBPath;
 
 #[test]
 fn test_set_num_levels() {
-    let n = DBName::new("_rust_rocksdb_test_set_num_levels");
+    let n = DBPath::new("_rust_rocksdb_test_set_num_levels");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_num_levels(2);
-        let _db = DB::open(&opts, &n.name).unwrap();
+        let _db = DB::open(&opts, n).unwrap();
     }
 }

@@ -18,16 +18,16 @@ mod util;
 use rocksdb::DB;
 use std::thread;
 use std::sync::Arc;
-use util::DBName;
+use util::DBPath;
 
 
 const N: usize = 100_000;
 
 #[test]
 pub fn test_multithreaded() {
-    let n = DBName::new("_rust_rocksdb_multithreadtest");
+    let n = DBPath::new("_rust_rocksdb_multithreadtest");
     {
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         let db = Arc::new(db);
 
         db.put(b"key", b"value1").unwrap();

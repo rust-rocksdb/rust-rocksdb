@@ -16,13 +16,13 @@ extern crate rocksdb;
 mod util;
 
 use rocksdb::DB;
-use util::DBName;
+use util::DBPath;
 
 #[test]
 pub fn test_forwards_iteration() {
-    let n = DBName::new("forwards_iteration");
+    let n = DBPath::new("forwards_iteration");
     {
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
         db.put(b"k3", b"v3").unwrap();
@@ -54,9 +54,9 @@ pub fn test_forwards_iteration() {
 
 #[test]
 pub fn test_seek_last() {
-    let n = DBName::new("backwards_iteration");
+    let n = DBPath::new("backwards_iteration");
     {
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
         db.put(b"k3", b"v3").unwrap();
@@ -88,9 +88,9 @@ pub fn test_seek_last() {
 
 #[test]
 pub fn test_seek() {
-    let n = DBName::new("seek");
+    let n = DBPath::new("seek");
     {
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
         db.put(b"k4", b"v4").unwrap();
@@ -114,9 +114,9 @@ pub fn test_seek() {
 
 #[test]
 pub fn test_seek_to_nonexistant() {
-    let n = DBName::new("seek_to_nonexistant");
+    let n = DBPath::new("seek_to_nonexistant");
     {
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k3", b"v3").unwrap();
         db.put(b"k4", b"v4").unwrap();
@@ -132,9 +132,9 @@ pub fn test_seek_to_nonexistant() {
 
 #[test]
 pub fn test_seek_for_prev() {
-    let n = DBName::new("seek_for_prev");
+    let n = DBPath::new("seek_for_prev");
     {
-        let db = DB::open_default(&n.name).unwrap();
+        let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
         db.put(b"k4", b"v4").unwrap();
