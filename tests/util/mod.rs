@@ -1,13 +1,13 @@
 extern crate rocksdb;
 
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::path::{PathBuf, Path};
 
-use rocksdb::{DB, Options};
+use rocksdb::{Options, DB};
 
 /// Ensures that DB::Destroy is called for this database when DBPath is dropped.
 pub struct DBPath {
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl DBPath {
@@ -22,7 +22,9 @@ impl DBPath {
             current_time.subsec_nanos()
         );
 
-        DBPath { path: PathBuf::from(path) }
+        DBPath {
+            path: PathBuf::from(path),
+        }
     }
 }
 
@@ -38,4 +40,3 @@ impl AsRef<Path> for DBPath {
         &self.path
     }
 }
-

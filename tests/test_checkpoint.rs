@@ -14,7 +14,7 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{checkpoint::Checkpoint, DB, Options};
+use rocksdb::{checkpoint::Checkpoint, Options, DB};
 use std::fs::remove_dir_all;
 
 #[test]
