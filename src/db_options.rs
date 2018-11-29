@@ -18,14 +18,17 @@ use std::path::Path;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
-use ffi;
-use {BlockBasedOptions, BlockBasedIndexType, DBCompactionStyle, DBCompressionType, DBRecoveryMode, MemtableFactory,
-     Options, WriteOptions};
-use compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn, filter_callback};
+use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
 use comparator::{self, ComparatorCallback, CompareFn};
-use merge_operator::{self, MergeFn, MergeOperatorCallback, full_merge_callback,
-                     partial_merge_callback};
+use ffi;
+use merge_operator::{
+    self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
+};
 use slice_transform::SliceTransform;
+use {
+    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+    MemtableFactory, Options, WriteOptions,
+};
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
@@ -189,7 +192,10 @@ impl Options {
     /// ```
     pub fn create_missing_column_families(&mut self, create_missing_cfs: bool) {
         unsafe {
-            ffi::rocksdb_options_set_create_missing_column_families(self.inner, create_missing_cfs as c_uchar);
+            ffi::rocksdb_options_set_create_missing_column_families(
+                self.inner,
+                create_missing_cfs as c_uchar,
+            );
         }
     }
 
@@ -256,14 +262,19 @@ impl Options {
     /// Default: `0`
     pub fn set_compaction_readahead_size(&mut self, compaction_readahead_size: usize) {
         unsafe {
-            ffi::rocksdb_options_compaction_readahead_size(self.inner, compaction_readahead_size as usize);
+            ffi::rocksdb_options_compaction_readahead_size(
+                self.inner,
+                compaction_readahead_size as usize,
+            );
         }
     }
 
-    pub fn set_merge_operator(&mut self, name: &str,
-                              full_merge_fn: MergeFn,
-                              partial_merge_fn: Option<MergeFn>) {
-
+    pub fn set_merge_operator(
+        &mut self,
+        name: &str,
+        full_merge_fn: MergeFn,
+        partial_merge_fn: Option<MergeFn>,
+    ) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             full_merge_fn: full_merge_fn,
@@ -283,8 +294,10 @@ impl Options {
         }
     }
 
-    #[deprecated(since = "0.5.0",
-                 note = "add_merge_operator has been renamed to set_merge_operator")]
+    #[deprecated(
+        since = "0.5.0",
+        note = "add_merge_operator has been renamed to set_merge_operator"
+    )]
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         self.set_merge_operator(name, merge_fn, None);
     }
@@ -343,14 +356,13 @@ impl Options {
     }
 
     pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
-        unsafe {
-            ffi::rocksdb_options_set_prefix_extractor(
-                self.inner, prefix_extractor.inner
-            )
-        }
+        unsafe { ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner) }
     }
 
-    #[deprecated(since = "0.5.0", note = "add_comparator has been renamed to set_comparator")]
+    #[deprecated(
+        since = "0.5.0",
+        note = "add_comparator has been renamed to set_comparator"
+    )]
     pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         self.set_comparator(name, compare_fn);
     }
@@ -532,8 +544,10 @@ impl Options {
     /// let mut opts = Options::default();
     /// opts.set_allow_os_buffer(false);
     /// ```
-    #[deprecated(since = "0.7.0",
-                 note = "replaced with set_use_direct_reads/set_use_direct_io_for_flush_and_compaction methods")]
+    #[deprecated(
+        since = "0.7.0",
+        note = "replaced with set_use_direct_reads/set_use_direct_io_for_flush_and_compaction methods"
+    )]
     pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
         self.set_use_direct_reads(!is_allow);
         self.set_use_direct_io_for_flush_and_compaction(!is_allow);
@@ -844,7 +858,6 @@ impl Options {
         }
     }
 
-
     /// Sets the maximum number of concurrent background compaction jobs, submitted to
     /// the default LOW priority thread pool.
     /// We first try to schedule compactions based on
@@ -1049,9 +1062,7 @@ impl Options {
     ///
     /// Default: `true`
     pub fn set_advise_random_on_open(&mut self, advise: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_advise_random_on_open(self.inner, advise as c_uchar)
-        }
+        unsafe { ffi::rocksdb_options_set_advise_random_on_open(self.inner, advise as c_uchar) }
     }
 
     /// Sets the number of levels for this database.

@@ -33,14 +33,14 @@ pub struct SliceTransform {
 // through to rocksdb_slicetransform_destroy because
 // this is currently only used (to my knowledge)
 // by people passing it as a prefix extractor when
-// opening a DB. 
+// opening a DB.
 
 impl SliceTransform {
     pub fn create(
         name: &str,
         transform_fn: TransformFn,
         in_domain_fn: Option<InDomainFn>,
-    ) -> SliceTransform{
+    ) -> SliceTransform {
         let cb = Box::new(TransformCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             transform_fn: transform_fn,
@@ -48,11 +48,10 @@ impl SliceTransform {
         });
 
         let st = unsafe {
-             ffi::rocksdb_slicetransform_create(
+            ffi::rocksdb_slicetransform_create(
                 mem::transmute(cb),
                 Some(slice_transform_destructor_callback),
                 Some(transform_callback),
-
                 // this is ugly, but I can't get the compiler
                 // not to barf with "expected fn pointer, found fn item"
                 // without this. sorry.
@@ -61,31 +60,24 @@ impl SliceTransform {
                 } else {
                     None
                 },
-
                 // this None points to the deprecated InRange callback
                 None,
                 Some(slice_transform_name_callback),
             )
         };
 
-        SliceTransform {
-            inner: st
-        }
+        SliceTransform { inner: st }
     }
 
     pub fn create_fixed_prefix(len: size_t) -> SliceTransform {
         SliceTransform {
-            inner: unsafe {
-                ffi::rocksdb_slicetransform_create_fixed_prefix(len)
-            },
+            inner: unsafe { ffi::rocksdb_slicetransform_create_fixed_prefix(len) },
         }
     }
 
     pub fn create_noop() -> SliceTransform {
         SliceTransform {
-            inner: unsafe {
-                ffi::rocksdb_slicetransform_create_noop()
-            },
+            inner: unsafe { ffi::rocksdb_slicetransform_create_noop() },
         }
     }
 }
@@ -94,34 +86,30 @@ pub type TransformFn = fn(&[u8]) -> Vec<u8>;
 pub type InDomainFn = fn(&[u8]) -> bool;
 
 pub struct TransformCallback {
-	pub name: CString,
-	pub transform_fn: TransformFn,
-	pub in_domain_fn: Option<InDomainFn>,
+    pub name: CString,
+    pub transform_fn: TransformFn,
+    pub in_domain_fn: Option<InDomainFn>,
 }
 
-pub unsafe extern "C" fn slice_transform_destructor_callback(
-    raw_cb: *mut c_void
-) {
-	let transform: Box<TransformCallback> = mem::transmute(raw_cb);
-	drop(transform);
+pub unsafe extern "C" fn slice_transform_destructor_callback(raw_cb: *mut c_void) {
+    let transform: Box<TransformCallback> = mem::transmute(raw_cb);
+    drop(transform);
 }
 
-pub unsafe extern "C" fn slice_transform_name_callback(
-    raw_cb: *mut c_void
-) -> *const c_char {
-	let cb = &mut *(raw_cb as *mut TransformCallback);
-	cb.name.as_ptr()
+pub unsafe extern "C" fn slice_transform_name_callback(raw_cb: *mut c_void) -> *const c_char {
+    let cb = &mut *(raw_cb as *mut TransformCallback);
+    cb.name.as_ptr()
 }
 
 pub unsafe extern "C" fn transform_callback(
-	raw_cb: *mut c_void,
-	raw_key: *const c_char,
-	key_len: size_t,
-	dst_length: *mut size_t,
+    raw_cb: *mut c_void,
+    raw_key: *const c_char,
+    key_len: size_t,
+    dst_length: *mut size_t,
 ) -> *mut c_char {
-	let cb = &mut *(raw_cb as *mut TransformCallback);
-	let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-	let mut result = (cb.transform_fn)(key);
+    let cb = &mut *(raw_cb as *mut TransformCallback);
+    let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+    let mut result = (cb.transform_fn)(key);
     result.shrink_to_fit();
 
     // copy the result into a C++ destroyable buffer
@@ -135,11 +123,11 @@ pub unsafe extern "C" fn transform_callback(
 
 pub unsafe extern "C" fn in_domain_callback(
     raw_cb: *mut c_void,
-	raw_key: *const c_char,
-	key_len: size_t,
+    raw_key: *const c_char,
+    key_len: size_t,
 ) -> u8 {
-	let cb = &mut *(raw_cb as *mut TransformCallback);
-	let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+    let cb = &mut *(raw_cb as *mut TransformCallback);
+    let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
 
     if (cb.in_domain_fn.unwrap())(key) {
         1
