@@ -1,9 +1,8 @@
-rust-rocksdb
-============
+# rust-rocksdb
 
 This library has been tested against RocksDB 5.15 on Linux and macOS.
 
-### status
+## Status
   - [x] basic open/put/get/delete/close
   - [x] rustic merge operator
   - [x] write batch (thanks @dgrnbrg!)
@@ -28,25 +27,24 @@ This library has been tested against RocksDB 5.15 on Linux and macOS.
 
 Feedback and pull requests welcome! If a particular feature of RocksDB is important to you, please let us know by opening an issue, and we will prioritize it.
 
-###### Prerequisite: RocksDB
+## Build
 
-First, use your system's package manager to install snappy.  This is optional, but lets rocksdb take advantage of better compression, and some code may require it.
-
-To install rocksdb, please refer to it's installation guide. For Windows users, please make sure you configure rocksdb with `CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS` enabled.
-
-Or enable feature `static-link`, the crate will download and complie RocksDB automatically, including its dependencies.
-
-```bash
-cargo build --features static-link
+```
+$ git submodule update --init --recursive # if you just cloned the repository
+$ cargo build
 ```
 
-### Running
+## Running
+
 ###### Cargo.toml
+
 ```rust
 [dependencies.rocksdb]
 git = "https://github.com/pingcap/rust-rocksdb.git"
 ```
+
 ###### Code
+
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, Writable};
@@ -65,6 +63,7 @@ fn main() {
 ```
 
 ###### Doing an atomic commit of several writes
+
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, WriteBatch, Writable};
@@ -83,6 +82,7 @@ fn main() {
 ```
 
 ###### Getting an Iterator
+
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, Direction, IteratorMode};
@@ -112,6 +112,7 @@ fn main() {
 ```
 
 ###### Getting an Iterator from a Snapshot
+
 ```rust
 extern crate rocksdb;
 use rocksdb::{DB, Direction};
@@ -125,6 +126,7 @@ fn main() {
 ```
 
 ###### Rustic Merge Operator
+
 ```rust
 extern crate rocksdb;
 use rocksdb::{Options, DB, MergeOperands, Writable};
@@ -162,7 +164,9 @@ fn main() {
 ```
 
 ###### Apply Some Tunings
+
 Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
+
 ```rust
 use rocksdb::{Options, DB};
 use rocksdb::DBCompactionStyle::DBUniversalCompaction;

@@ -19,10 +19,6 @@ valgrind = []
 portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
 
-[[test]]
-name = "test"
-path = "tests/test.rs"
-
 [dependencies]
 libc = "0.2.11"
 crc = "1.2"
