@@ -25,9 +25,9 @@ pub use event_listener::{
     CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, WriteStallInfo,
 };
 pub use librocksdb_sys::{
-    self as crocksdb_ffi, new_bloom_filter, CompactionPriority, DBBottommostLevelCompaction,
-    DBCompactionStyle, DBCompressionType, DBEntryType, DBInfoLogLevel, DBRecoveryMode,
-    DBStatisticsHistogramType, DBStatisticsTickerType, WriteStallCondition,
+    self as crocksdb_ffi, new_bloom_filter, CompactionPriority, CompactionReason,
+    DBBottommostLevelCompaction, DBCompactionStyle, DBCompressionType, DBEntryType, DBInfoLogLevel,
+    DBRecoveryMode, DBStatisticsHistogramType, DBStatisticsTickerType, WriteStallCondition,
 };
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};

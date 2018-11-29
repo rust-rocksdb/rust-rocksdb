@@ -27,6 +27,7 @@ struct EventCounter {
     output_records: Arc<AtomicUsize>,
     input_bytes: Arc<AtomicUsize>,
     output_bytes: Arc<AtomicUsize>,
+    manual_compaction: Arc<AtomicUsize>,
 }
 
 impl Drop for EventCounter {
@@ -75,6 +76,10 @@ impl EventListener for EventCounter {
             .fetch_add(info.total_input_bytes() as usize, Ordering::SeqCst);
         self.output_bytes
             .fetch_add(info.total_output_bytes() as usize, Ordering::SeqCst);
+
+        if info.compaction_reason() == CompactionReason::ManualCompaction {
+            self.manual_compaction.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     fn on_external_file_ingested(&self, info: &IngestionInfo) {
@@ -199,6 +204,7 @@ fn test_event_listener_basic() {
     assert!(
         counter.input_bytes.load(Ordering::SeqCst) > counter.output_bytes.load(Ordering::SeqCst)
     );
+    assert_eq!(counter.manual_compaction.load(Ordering::SeqCst), 1);
 }
 
 #[test]

@@ -143,6 +143,7 @@ using rocksdb::ColumnFamilyMetaData;
 using rocksdb::LevelMetaData;
 using rocksdb::SstFileMetaData;
 using rocksdb::CompactionOptions;
+using rocksdb::CompactionReason;
 using rocksdb::PerfLevel;
 using rocksdb::PerfContext;
 using rocksdb::BottommostLevelCompaction;
@@ -1882,6 +1883,11 @@ uint64_t crocksdb_compactionjobinfo_total_input_bytes(
 uint64_t crocksdb_compactionjobinfo_total_output_bytes(
     const crocksdb_compactionjobinfo_t* info) {
   return info->rep.stats.total_output_bytes;
+}
+
+CompactionReason crocksdb_compactionjobinfo_compaction_reason(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.compaction_reason;
 }
 
 /* ExternalFileIngestionInfo */
