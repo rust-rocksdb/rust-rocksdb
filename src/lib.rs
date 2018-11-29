@@ -101,7 +101,7 @@ pub struct Error {
 
 impl Error {
     fn new(message: String) -> Error {
-        Error { message: message }
+        Error { message }
     }
 
     pub fn to_string(self) -> String {

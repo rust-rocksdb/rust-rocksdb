@@ -384,7 +384,7 @@ impl DBRawIterator {
     /// if the iterator's seek position is ever moved by any of the seek commands or the
     /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
     /// for something else or freed entirely.
-    pub unsafe fn key_inner<'a>(&'a self) -> Option<&'a [u8]> {
+    pub unsafe fn key_inner(&self) -> Option<&[u8]> {
         if self.valid() {
             let mut key_len: size_t = 0;
             let key_len_ptr: *mut size_t = &mut key_len;
@@ -408,7 +408,7 @@ impl DBRawIterator {
     /// if the iterator's seek position is ever moved by any of the seek commands or the
     /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
     /// for something else or freed entirely.
-    pub unsafe fn value_inner<'a>(&'a self) -> Option<&'a [u8]> {
+    pub unsafe fn value_inner(&self) -> Option<&[u8]> {
         if self.valid() {
             let mut val_len: size_t = 0;
             let val_len_ptr: *mut size_t = &mut val_len;
@@ -452,7 +452,7 @@ impl DBIterator {
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let mut rv = DBIterator {
-            raw: try!(DBRawIterator::new_cf(db, cf_handle, readopts)),
+            raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };
@@ -686,7 +686,9 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.write().unwrap().insert(n.name.clone(), ColumnFamily { inner: h });
+                cf_map.write()
+                    .map_err(|e| Error::new(e.to_string()))?
+                    .insert(n.name.clone(), ColumnFamily { inner: h });
             }
         }
 
@@ -860,14 +862,16 @@ impl DB {
                 cname.as_ptr(),
             ));
             let cf = ColumnFamily { inner: cf_handler };
-            self.cfs.write().unwrap().insert(name.to_string(), cf);
+            self.cfs.write().map_err(|e| Error::new(e.to_string()))?
+                .insert(name.to_string(), cf);
             cf
         };
         Ok(cf)
     }
 
     pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.write().unwrap().remove(name) {
+        if let Some(cf) = self.cfs.write().map_err(|e| Error::new(e.to_string()))?
+            .remove(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
             }
@@ -881,7 +885,7 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().unwrap().get(name).cloned()
+        self.cfs.read().ok()?.get(name).cloned()
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -898,7 +902,7 @@ impl DB {
         DBIterator::new(self, &opts, mode)
     }
 
-    pub fn prefix_iterator<'a>(&self, prefix: &'a [u8]) -> DBIterator {
+    pub fn prefix_iterator(&self, prefix: &[u8]) -> DBIterator {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
         DBIterator::new(self, &opts, IteratorMode::From(prefix, Direction::Forward))
@@ -923,10 +927,10 @@ impl DB {
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
-    pub fn prefix_iterator_cf<'a>(
+    pub fn prefix_iterator_cf(
         &self,
         cf_handle: ColumnFamily,
-        prefix: &'a [u8]
+        prefix: &[u8]
     ) -> Result<DBIterator, Error> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
@@ -1217,8 +1221,10 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for cf in self.cfs.read().unwrap().values() {
-                ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            if let Ok(cfs) = self.cfs.read() {
+                for cf in cfs.values() {
+                    ffi::rocksdb_column_family_handle_destroy(cf.inner);
+                }
             }
             ffi::rocksdb_close(self.inner);
         }
