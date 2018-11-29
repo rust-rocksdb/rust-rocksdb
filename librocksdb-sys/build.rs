@@ -1,5 +1,5 @@
-extern crate cc;
 extern crate bindgen;
+extern crate cc;
 extern crate glob;
 
 use std::env;
@@ -49,7 +49,7 @@ fn build_rocksdb() {
     config.include("rocksdb/include/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
-    
+
     if cfg!(feature = "snappy") {
         config.define("SNAPPY", Some("1"));
         config.include("snappy/");
@@ -70,7 +70,7 @@ fn build_rocksdb() {
         config.define("ZLIB", Some("1"));
         config.include("zlib/");
     }
-    
+
     if cfg!(feature = "bzip2") {
         config.define("BZIP2", Some("1"));
         config.include("bzip2/");
@@ -94,7 +94,6 @@ fn build_rocksdb() {
         config.define("OS_MACOSX", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-
     }
     if cfg!(target_os = "linux") {
         config.define("OS_LINUX", Some("1"));
@@ -118,12 +117,9 @@ fn build_rocksdb() {
             .iter()
             .cloned()
             .filter(|file| match *file {
-                "port/port_posix.cc" |
-                "env/env_posix.cc" |
-                "env/io_posix.cc" => false,
+                "port/port_posix.cc" | "env/env_posix.cc" | "env/io_posix.cc" => false,
                 _ => true,
-            })
-            .collect::<Vec<&'static str>>();
+            }).collect::<Vec<&'static str>>();
 
         // Add Windows-specific sources
         lib_sources.push("port/win/port_win.cc");
@@ -176,7 +172,7 @@ fn build_snappy() {
 
 fn build_lz4() {
     let mut compiler = cc::Build::new();
-    
+
     compiler
         .file("lz4/lib/lz4.c")
         .file("lz4/lib/lz4frame.c")
@@ -185,12 +181,11 @@ fn build_lz4() {
 
     compiler.opt_level(3);
 
-    match env::var("TARGET").unwrap().as_str()
-    {
-      "i686-pc-windows-gnu" => {
-        compiler.flag("-fno-tree-vectorize");
-      },
-      _ => {}
+    match env::var("TARGET").unwrap().as_str() {
+        "i686-pc-windows-gnu" => {
+            compiler.flag("-fno-tree-vectorize");
+        }
+        _ => {}
     }
 
     compiler.compile("liblz4.a");
@@ -198,7 +193,7 @@ fn build_lz4() {
 
 fn build_zstd() {
     let mut compiler = cc::Build::new();
-    
+
     compiler.include("zstd/lib/");
     compiler.include("zstd/lib/common");
     compiler.include("zstd/lib/legacy");
@@ -226,10 +221,8 @@ fn build_zstd() {
 
 fn build_zlib() {
     let mut compiler = cc::Build::new();
-    
-    let globs = &[
-        "zlib/*.c"
-    ];
+
+    let globs = &["zlib/*.c"];
 
     for pattern in globs {
         for path in glob::glob(pattern).unwrap() {
@@ -244,7 +237,7 @@ fn build_zlib() {
 
 fn build_bzip2() {
     let mut compiler = cc::Build::new();
-    
+
     compiler
         .file("bzip2/blocksort.c")
         .file("bzip2/bzlib.c")
