@@ -53,6 +53,7 @@ extern crate librocksdb_sys as ffi;
 mod ffi_util;
 
 pub mod backup;
+pub mod checkpoint;
 mod comparator;
 pub mod merge_operator;
 pub mod compaction_filter;
@@ -229,3 +230,5 @@ pub struct WriteOptions {
 pub struct ColumnFamily {
     inner: *mut ffi::rocksdb_column_family_handle_t,
 }
+
+unsafe impl Send for ColumnFamily {}

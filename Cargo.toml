@@ -14,8 +14,14 @@ exclude = [
 ]
 
 [features]
-default = []
+default = ["snappy", "lz4", "zstd", "zlib", "bzip2"]
 valgrind = []
+snappy = ["librocksdb-sys/snappy"]
+lz4 = ["librocksdb-sys/lz4"]
+zstd = ["librocksdb-sys/zstd"]
+zlib = ["librocksdb-sys/zlib"]
+bzip2 = ["librocksdb-sys/bzip2"]
+
 
 [dependencies]
 libc = "0.2"

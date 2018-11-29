@@ -45,6 +45,7 @@ pub enum DBCompressionType {
     Bz2 = ffi::rocksdb_bz2_compression as isize,
     Lz4 = ffi::rocksdb_lz4_compression as isize,
     Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
+    Zstd = ffi::rocksdb_zstd_compression as isize,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -182,6 +183,8 @@ pub struct DBIterator {
     direction: Direction,
     just_seeked: bool,
 }
+
+unsafe impl Send for DBIterator {}
 
 pub enum Direction {
     Forward,
@@ -1104,6 +1107,15 @@ impl WriteBatch {
         unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
     }
 
+    /// Return WriteBatch serialized size (in bytes).
+    pub fn size_in_bytes(&self) -> usize {
+        unsafe {
+            let mut batch_size: size_t = 0;
+            ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
+            batch_size as usize
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -1400,6 +1412,14 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
+        }
+        {
+            // test size_in_bytes
+            let mut batch = WriteBatch::default();
+            let before = batch.size_in_bytes();
+            let _ = batch.put(b"k1", b"v1234567890");
+            let after = batch.size_in_bytes();
+            assert!(before + 10 <= after);
         }
     }
     let opts = Options::default();

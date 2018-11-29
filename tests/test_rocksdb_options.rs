@@ -13,15 +13,18 @@
 // limitations under the License.
 //
 extern crate rocksdb;
+mod util;
 
 use rocksdb::{DB, Options};
+use util::DBPath;
 
 #[test]
 fn test_set_num_levels() {
-    let path = "_rust_rocksdb_test_set_num_levels";
-    let mut opts = Options::default();
-    opts.create_if_missing(true);
-    opts.set_num_levels(2);
-    let db = DB::open(&opts, path).unwrap();
-    drop(db);
+    let n = DBPath::new("_rust_rocksdb_test_set_num_levels");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_num_levels(2);
+        let _db = DB::open(&opts, &n).unwrap();
+    }
 }

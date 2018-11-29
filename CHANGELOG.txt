@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Unreleased (Future Date)
+~~~~~~~~~~~~~~~~~~~~
+ * add LZ4, ZSTD, ZLIB, and BZIP2 compression support (iSynaptic)
+
 0.10.1 (2018-07-17)
 ~~~~~~~~~~~~~~~~~~~~
  * bump bindgen to 0.37 (ekmartin)

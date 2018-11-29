@@ -1,5 +1,4 @@
 *.swo
-*.swp
 target
 Cargo.lock
 *.orig
@@ -8,3 +7,5 @@ _rust_rocksdb*
 *rlib
 tags
 path
+.DS_Store
+.idea
