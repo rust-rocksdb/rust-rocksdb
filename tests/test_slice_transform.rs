@@ -1,7 +1,7 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::{DB, Options, SliceTransform};
+use rocksdb::{Options, SliceTransform, DB};
 use util::DBPath;
 
 #[test]
@@ -34,7 +34,9 @@ pub fn test_slice_transform() {
             input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
         }
 
-        fn key(k: &[u8]) -> Box<[u8]> { k.to_vec().into_boxed_slice() }
+        fn key(k: &[u8]) -> Box<[u8]> {
+            k.to_vec().into_boxed_slice()
+        }
 
         {
             let expected = vec![(cba(&a1), cba(&a1)), (cba(&a2), cba(&a2))];

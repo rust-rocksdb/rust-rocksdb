@@ -13,9 +13,8 @@
 // limitations under the License.
 //
 
-
-use {DB, Error};
 use ffi;
+use {Error, DB};
 
 use libc::{c_int, uint32_t};
 use std::ffi::CString;
@@ -45,7 +44,7 @@ impl BackupEngine {
             Err(_) => {
                 return Err(Error::new(
                     "Failed to convert path to CString \
-                                       when opening backup engine"
+                     when opening backup engine"
                         .to_owned(),
                 ))
             }
@@ -64,8 +63,7 @@ impl BackupEngine {
     pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup(
-                self.inner,
-                db.inner,
+                self.inner, db.inner,
             ));
             Ok(())
         }
