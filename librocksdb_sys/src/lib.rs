@@ -20,6 +20,7 @@ extern crate tempdir;
 
 use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t, uint32_t, uint64_t, uint8_t};
 use std::ffi::CStr;
+use std::fmt;
 
 pub enum Options {}
 pub enum ColumnFamilyDescriptor {}
@@ -200,6 +201,12 @@ pub enum CompactionReason {
     ExternalSstIngestion,
     // total number of compaction reasons, new reasons must be added above this.
     NumOfReasons,
+}
+
+impl fmt::Display for CompactionReason {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
