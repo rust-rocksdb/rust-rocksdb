@@ -27,7 +27,7 @@ pub fn test_column_family() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
-        let mut db = DB::open(&opts, &n).unwrap();
+        let db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
             Ok(_db) => println!("cf1 created successfully"),
@@ -80,7 +80,7 @@ pub fn test_column_family() {
     {}
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
