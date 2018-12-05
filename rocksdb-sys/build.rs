@@ -54,7 +54,7 @@ fn main() {
 
     let mut build = out.join("build");
 
-    if target_os.contains("windows") {
+    if target_os.contains("windows") && target_env.contains("msvc") {
         let profile = match &*env::var("PROFILE").unwrap_or("debug".to_owned()) {
             "bench" | "release" => "Release",
             _ => "Debug",
