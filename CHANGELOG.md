@@ -1,0 +1,154 @@
+# Changelog
+
+## 0.11.0 (Unreleased)
+
+### Announcements
+
+* This is the first release under the new [Maintainership](MAINTAINERSHIP.md) model.
+  Three contributors have been selected to help maintain this library -- Oleksandr Anyshchenko ([@aleksus](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
+
+* A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "staffed", it may help to collaborate on changes to `rust-rocksdb`.
+
+### Changes
+
+* added LZ4, ZSTD, ZLIB, and BZIP2 compression support (iSynaptic)
+* added support for `Checkpoint` (aleksuss)
+* added support for `SliceTransform` (spacejam)
+* added `DBPath` struct to ensure test databases are cleaned up (ekmartin, iSynaptic)
+* fixed `rustfmt.toml` to work with newer `rustfmt` version (ekmartin, iSynaptic)
+* bindgen bumped up to 0.43 (s-panferov)
+* made `ColumnFamily` struct `Send` (Tpt)
+* made `DBIterator` struct `Send` (Elzor)
+* `create_cf` and `drop_cf` methods on `DB` now work with immutable references (aleksuss)
+* fixed crash in `test_column_family` test on macOS (aleksuss)
+* fixed/implemented CI builds for macOS and Windows (aleksuss, iSynaptic)
+* exposed `set_skip_stats_update_on_db_open` option (romanz)
+* exposed `keep_log_file_num` option (romanz)
+* added ability to retrieve `WriteBatch` serialized size (romanz)
+
+
+## 0.10.1 (2018-07-17)
+
+* bump bindgen to 0.37 (ekmartin)
+* bump rocksdb to 5.14.2 (ekmartin)
+* add disable_cache to block-based options (ekmartin)
+* add set_wal_dir (ekmartin)
+* add set_memtable_prefix_bloom_ratio (ekmartin)
+* add MemtableFactory support (ekmartin)
+* add full_iterator (ekmartin)
+* allow index type specification on block options (ekmartin)
+* fix windows build (iSynaptic)
+
+## 0.10.0 (2018-03-17)
+
+* Bump rocksdb to 5.11.3 (spacejam)
+
+### New Features
+
+* Link with system rocksdb and snappy libs through envvars (ozkriff)
+
+### Breaking Changes
+
+* Fix reverse iteration from a given key (ongardie)
+
+## 0.9.1 (2018-02-10)
+
+### New Features
+
+* SliceTransform support (spacejam)
+
+## 0.9.0 (2018-02-10)
+
+### New Features
+
+* Allow creating iterators over prefixes (glittershark)
+
+### Breaking Changes
+
+* Open cfs with options (garyttierney, rrichardson)
+* Non-Associative merge ops (rrichardson)
+
+## 0.8.3 (2018-02-10)
+
+* Bump rocksdb to 5.10.2 (ongardie)
+* Add Send marker to Options (iSynaptic)
+* Expose advise_random_on_open option (ongardie)
+
+## 0.8.2 (2017-12-28)
+
+* Bump rocksdb to 5.7.1 (jquesnelle)
+
+## 0.8.1 (2017-09-08)
+
+* Added list_cf (jeizsm)
+
+## 0.8.0 (2017-09-02)
+
+* Removed set_disable_data_sync (glittershark)
+
+## 0.7.2 (2017-09-02)
+
+* Bumped rocksdb to 5.6.2 (spacejam)
+
+## 0.7.1 (2017-08-29)
+
+* Bumped rocksdb to 5.6.1 (vmx)
+
+## 0.7 (2017-07-26)
+
+### Breaking Changes
+
+* Bumped rocksdb to 5.4.6 (derekdreery)
+* Remove `use_direct_writes` now that `use_direct_io_for_flush_and_compaction` exists (derekdreery)
+
+### New Features
+
+* ReadOptions is now public (rschmukler)
+* Implement Clone and AsRef<str> for Error (daboross)
+* Support for `seek_for_prev` (kaedroho)
+* Support for DirectIO (kaedroho)
+
+### Internal Cleanups
+
+* Fixed race condition in tests (debris)
+* Move tests to the default `tests` directory (vmx)
+
+## 0.6.1 (2017-03-13)
+
+### New Features
+
+* Support for raw iterator access (kaedroho)
+
+## 0.6 (2016-12-18)
+
+### Breaking Changes
+
+* Comparator function now returns an Ordering (alexreg)
+
+### New Features
+
+* Compaction filter (tmccombs)
+* Support for backups (alexreg)
+
+0.5 (2016-11-20)
+
+### Breaking changes
+
+* No more Writable trait, as WriteBatch is not thread-safe as a DB (spacejam)
+* All imports of `rocksdb::rocksdb::*` should now be simply `rocksdb::*` (alexreg)
+* All errors changed to use a new `rocksdb::Error` type (kaedroho, alexreg)
+* Removed `Options.set_filter_deletes` as it was removed in RocksDB (kaedroho)
+* Renamed `add_merge_operator` to `set_merge_operator` and `add_comparator` to `set_comparator` (kaedroho)
+
+### New Features
+
+* Windows support (development by jsgf and arkpar. ported by kaedroho)
+* The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by jsgf and arkpar. ported by kaedroho)
+* Cleaned up and improved coverage and tests of the ffi module (alexreg)
+* Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2. ported by kaedroho)
+* Added `len` and `is_empty` methods to `WriteBatch` (development by siddontang. ported by kaedroho)
+* Added `path` mathod to `DB` (development by siddontang. ported by kaedroho)
+* `DB::open` now accepts any type that implements `Into<Path>` as the path argument (kaedroho)
+* `DB` now implements the `Debug` trait (kaedroho)
+* Add iterator_cf to snapshot (jezell)
+* Changelog started
