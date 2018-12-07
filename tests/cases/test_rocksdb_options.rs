@@ -16,10 +16,11 @@ use rocksdb::crocksdb_ffi::{
     DBStatisticsHistogramType as HistogramType, DBStatisticsTickerType as TickerType,
 };
 use rocksdb::{
-    BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions, FifoCompactionOptions,
+    BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions, Env, FifoCompactionOptions,
     ReadOptions, SeekKey, SliceTransform, Writable, WriteOptions, DB,
 };
 use std::path::Path;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tempdir::TempDir;
@@ -729,4 +730,15 @@ fn test_vector_memtable_factory_options() {
     assert_eq!(iter.value(), b"v2");
     assert!(!iter.next());
     assert!(!iter.valid());
+}
+
+#[test]
+fn test_dboptions_set_env() {
+    let path = TempDir::new("_rust_rocksdb_dboptions_set_env").unwrap();
+    let path_str = path.path().to_str().unwrap();
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_env(Arc::new(Env::default()));
+    let _db = DB::open(opts, path_str).unwrap();
 }

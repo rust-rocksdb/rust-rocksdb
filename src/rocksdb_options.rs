@@ -547,6 +547,7 @@ impl Drop for CompactionOptions {
 
 pub struct DBOptions {
     pub inner: *mut Options,
+    env: Option<Arc<Env>>,
 }
 
 impl Drop for DBOptions {
@@ -562,7 +563,10 @@ impl Default for DBOptions {
         unsafe {
             let opts = crocksdb_ffi::crocksdb_options_create();
             assert!(!opts.is_null(), "Could not create rocksdb db options");
-            DBOptions { inner: opts }
+            DBOptions {
+                inner: opts,
+                env: None,
+            }
         }
     }
 }
@@ -572,7 +576,10 @@ impl Clone for DBOptions {
         unsafe {
             let opts = crocksdb_ffi::crocksdb_options_copy(self.inner);
             assert!(!opts.is_null());
-            DBOptions { inner: opts }
+            DBOptions {
+                inner: opts,
+                env: self.env.clone(),
+            }
         }
     }
 }
@@ -583,7 +590,10 @@ impl DBOptions {
     }
 
     pub unsafe fn from_raw(inner: *mut Options) -> DBOptions {
-        DBOptions { inner: inner }
+        DBOptions {
+            inner: inner,
+            env: None,
+        }
     }
 
     pub fn increase_parallelism(&mut self, parallelism: i32) {
@@ -600,6 +610,13 @@ impl DBOptions {
     pub fn create_if_missing(&mut self, create_if_missing: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_create_if_missing(self.inner, create_if_missing);
+        }
+    }
+
+    pub fn set_env(&mut self, env: Arc<Env>) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_env(self.inner, env.inner);
+            self.env = Some(env);
         }
     }
 
