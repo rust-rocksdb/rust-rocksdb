@@ -116,7 +116,8 @@ pub fn test_column_family() {
             DBOptions::new(),
             path_str,
             vec![("cf1", ColumnFamilyOptions::new())],
-        ).unwrap();
+        )
+        .unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -132,9 +133,11 @@ fn test_provided_merge(
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     match existing_val {
-        Some(v) => for e in v {
-            result.push(*e);
-        },
+        Some(v) => {
+            for e in v {
+                result.push(*e);
+            }
+        }
         None => (),
     }
     for op in operands {

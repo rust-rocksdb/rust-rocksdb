@@ -137,7 +137,8 @@ fn test_event_listener_stall_conditions_changed() {
         opts,
         path_str,
         vec![("default", ColumnFamilyOptions::new())],
-    ).unwrap();
+    )
+    .unwrap();
     db.create_cf(("test_cf", cf_opts)).unwrap();
 
     let test_cf = db.cf_handle("test_cf").unwrap();
@@ -146,7 +147,8 @@ fn test_event_listener_stall_conditions_changed() {
             test_cf,
             format!("{:04}", i).as_bytes(),
             format!("{:04}", i).as_bytes(),
-        ).unwrap();
+        )
+        .unwrap();
         db.flush_cf(test_cf, true).unwrap();
     }
     let flush_cnt = counter.flush.load(Ordering::SeqCst);
@@ -177,7 +179,8 @@ fn test_event_listener_basic() {
         db.put(
             format!("{:04}", i).as_bytes(),
             format!("{:04}", i).as_bytes(),
-        ).unwrap();
+        )
+        .unwrap();
     }
     db.flush(true).unwrap();
     assert_ne!(counter.flush.load(Ordering::SeqCst), 0);
@@ -186,7 +189,8 @@ fn test_event_listener_basic() {
         db.put(
             format!("{:04}", i).as_bytes(),
             format!("{:04}", i).as_bytes(),
-        ).unwrap();
+        )
+        .unwrap();
     }
     db.flush(true).unwrap();
     let flush_cnt = counter.flush.load(Ordering::SeqCst);

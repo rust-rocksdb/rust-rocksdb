@@ -62,14 +62,16 @@ fn test_prefix_extractor_compatibility() {
             .set_prefix_extractor(
                 "FixedPrefixTransform",
                 Box::new(FixedPrefixTransform { prefix_len: 2 }),
-            ).unwrap();
+            )
+            .unwrap();
         // also create prefix bloom for memtable
         cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
         let db = DB::open_cf(
             opts,
             path.path().to_str().unwrap(),
             vec![("default", cf_opts)],
-        ).unwrap();
+        )
+        .unwrap();
         let wopts = WriteOptions::new();
 
         // sst2 with prefix bloom.

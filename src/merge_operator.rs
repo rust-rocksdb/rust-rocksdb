@@ -190,7 +190,8 @@ mod test {
                 opts.clone(),
                 path.path().to_str().unwrap(),
                 vec![("default", cf_opts.clone())],
-            ).unwrap();
+            )
+            .unwrap();
             let p = db.put(b"k1", b"a");
             assert!(p.is_ok());
             let _ = db.merge(b"k1", b"b");
@@ -228,7 +229,8 @@ mod test {
                 opts.clone(),
                 path.path().to_str().unwrap(),
                 vec![("default", cf_opts.clone())],
-            ).unwrap();
+            )
+            .unwrap();
 
             let r: Result<Option<DBVector>, String> = db.get(b"k1");
             assert_eq!(r.unwrap().unwrap(), b"abcdefgh");
@@ -245,7 +247,8 @@ mod test {
                 opts.clone(),
                 path.path().to_str().unwrap(),
                 vec![("default", cf_opts)],
-            ).unwrap();
+            )
+            .unwrap();
 
             assert!(db.get(b"k1").unwrap().is_none());
             let r: Result<Option<DBVector>, String> = db.get(b"k2");

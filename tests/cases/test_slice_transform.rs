@@ -53,7 +53,8 @@ fn test_slice_transform() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     let samples = vec![
         (b"key_01".to_vec(), b"1".to_vec()),
         (b"key_02".to_vec(), b"2".to_vec()),

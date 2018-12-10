@@ -1449,7 +1449,10 @@ extern "C" {
         state: *mut c_void,
         name: extern "C" fn(*mut c_void) -> *const c_char,
         destruct: extern "C" fn(*mut c_void),
-        create_table_properties_collector: extern "C" fn(*mut c_void, uint32_t)
+        create_table_properties_collector: extern "C" fn(
+            *mut c_void,
+            uint32_t,
+        )
             -> *mut DBTablePropertiesCollector,
     ) -> *mut DBTablePropertiesCollectorFactory;
 

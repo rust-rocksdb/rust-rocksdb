@@ -2394,7 +2394,8 @@ mod test {
             db.put(
                 format!("{:04}", i).as_bytes(),
                 format!("{:04}", i).as_bytes(),
-            ).expect("");
+            )
+            .expect("");
         }
         db.flush(true).expect("");
         assert!(db.get(b"0001").expect("").is_some());
@@ -2482,7 +2483,8 @@ mod test {
                 restore_dir.path().to_str().unwrap(),
                 restore_dir.path().to_str().unwrap(),
                 &ropt,
-            ).unwrap();
+            )
+            .unwrap();
 
             let r = restored_db.get(key);
             assert!(r.unwrap().unwrap().to_utf8().unwrap() == str::from_utf8(value).unwrap());
@@ -2563,7 +2565,8 @@ mod test {
                 db1.put(b"k2", b"v2").unwrap();
                 db1.flush(true).unwrap();
                 db1.compact_range(None, None);
-            }).unwrap();
+            })
+            .unwrap();
         // Wait until all currently running background processes finish.
         db.pause_bg_work();
         assert_eq!(
@@ -2746,11 +2749,9 @@ mod test {
         let cf_name: &str = "cf_dynamic_level_bytes";
 
         // test when options not exist
-        assert!(
-            load_latest_options(dbpath, &Env::default(), false)
-                .unwrap()
-                .is_none()
-        );
+        assert!(load_latest_options(dbpath, &Env::default(), false)
+            .unwrap()
+            .is_none());
 
         let mut opts = DBOptions::new();
         opts.create_if_missing(true);

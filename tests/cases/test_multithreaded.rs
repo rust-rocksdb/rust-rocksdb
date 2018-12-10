@@ -45,9 +45,11 @@ pub fn test_multithreaded() {
     let j3 = thread::spawn(move || {
         for _ in 1..N {
             match db3.get(b"key") {
-                Ok(Some(v)) => if &v[..] != b"value1" && &v[..] != b"value2" {
-                    assert!(false);
-                },
+                Ok(Some(v)) => {
+                    if &v[..] != b"value1" && &v[..] != b"value2" {
+                        assert!(false);
+                    }
+                }
                 _ => {
                     assert!(false);
                 }

@@ -59,7 +59,8 @@ fn test_compact_range_change_level() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     let samples = vec![
         (b"k1".to_vec(), b"value--------1".to_vec()),
         (b"k2".to_vec(), b"value--------2".to_vec()),

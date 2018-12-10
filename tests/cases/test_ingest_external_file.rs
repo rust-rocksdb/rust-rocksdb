@@ -82,9 +82,11 @@ fn gen_sst_delete(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str) {
 fn concat_merge(_: &[u8], existing_val: Option<&[u8]>, operands: &mut MergeOperands) -> Vec<u8> {
     let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
     match existing_val {
-        Some(v) => for e in v {
-            result.push(*e)
-        },
+        Some(v) => {
+            for e in v {
+                result.push(*e)
+            }
+        }
         None => (),
     }
     for op in operands {
@@ -342,7 +344,8 @@ fn test_ingest_simulate_real_world() {
             handle,
             &ingest_opt,
             &[gen_path.path().join(cf).to_str().unwrap()],
-        ).unwrap();
+        )
+        .unwrap();
         check_kv(
             &db,
             db.cf_handle(cf),
@@ -369,7 +372,8 @@ fn test_ingest_simulate_real_world() {
             handle,
             &ingest_opt,
             &[gen_path.path().join(cf).to_str().unwrap()],
-        ).unwrap();
+        )
+        .unwrap();
         check_kv(
             &db,
             db.cf_handle(cf),

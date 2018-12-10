@@ -84,11 +84,9 @@ impl ExampleCollector {
         for (k, v) in props {
             assert_eq!(v, props.get(k).unwrap());
         }
-        assert!(
-            props
-                .get(&[Props::NumKeys as u8, Props::NumPuts as u8])
-                .is_none()
-        );
+        assert!(props
+            .get(&[Props::NumKeys as u8, Props::NumPuts as u8])
+            .is_none());
         assert!(props.len() >= 4);
 
         c
@@ -176,7 +174,8 @@ fn test_table_properties_collector_factory() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 
     let samples = vec![
         (b"key1".to_vec(), b"value1".to_vec()),
@@ -249,7 +248,8 @@ fn test_table_properties_with_table_filter() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 
     // Generate a sst with 4 entries.
     let samples = vec![

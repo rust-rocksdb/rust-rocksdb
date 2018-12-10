@@ -27,7 +27,8 @@ fn test_metadata() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     let cf_handle = db.cf_handle("default").unwrap();
 
     let num_files = 5;
@@ -80,7 +81,8 @@ fn test_compact_files() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     let cf_handle = db.cf_handle("default").unwrap();
 
     let cf_opts = db.get_options_cf(cf_handle);

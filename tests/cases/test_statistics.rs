@@ -35,10 +35,9 @@ fn test_db_statistics() {
     assert!(db.get_statistics_ticker_count(TickerType::BlockCacheHit) > 0);
     assert!(db.get_and_reset_statistics_ticker_count(TickerType::BlockCacheHit) > 0);
     assert_eq!(db.get_statistics_ticker_count(TickerType::BlockCacheHit), 0);
-    assert!(
-        db.get_statistics_histogram_string(HistogramType::DbGet)
-            .is_some()
-    );
+    assert!(db
+        .get_statistics_histogram_string(HistogramType::DbGet)
+        .is_some());
     assert!(db.get_statistics_histogram(HistogramType::DbGet).is_some());
 
     let get_micros = db.get_statistics_histogram(HistogramType::DbGet).unwrap();
@@ -70,9 +69,8 @@ fn test_disable_db_statistics() {
         db.get_and_reset_statistics_ticker_count(TickerType::BlockCacheHit),
         0
     );
-    assert!(
-        db.get_statistics_histogram_string(HistogramType::DbGet)
-            .is_none()
-    );
+    assert!(db
+        .get_statistics_histogram_string(HistogramType::DbGet)
+        .is_none());
     assert!(db.get_statistics_histogram(HistogramType::DbGet).is_none());
 }

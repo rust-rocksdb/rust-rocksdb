@@ -300,7 +300,8 @@ fn test_total_order_seek() {
         .set_prefix_extractor(
             "FixedPrefixTransform",
             Box::new(FixedPrefixTransform { prefix_len: 2 }),
-        ).unwrap();
+        )
+        .unwrap();
     // also create prefix bloom for memtable
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.1 as f64);
 
@@ -311,7 +312,8 @@ fn test_total_order_seek() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     let wopts = WriteOptions::new();
 
     // sst1
@@ -386,13 +388,15 @@ fn test_fixed_suffix_seek() {
         .set_prefix_extractor(
             "FixedSuffixTransform",
             Box::new(FixedSuffixTransform { suffix_len: 2 }),
-        ).unwrap();
+        )
+        .unwrap();
 
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     db.put(b"k-eghe-5", b"a").unwrap();
     db.put(b"k-24yfae-6", b"a").unwrap();
     db.put(b"k-h1fwd-7", b"a").unwrap();

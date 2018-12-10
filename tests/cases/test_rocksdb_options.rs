@@ -37,7 +37,8 @@ fn test_set_num_levels() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     drop(db);
 }
 
@@ -75,14 +76,12 @@ fn test_enable_statistics() {
     opts.enable_statistics(true);
     opts.set_stats_dump_period_sec(60);
     assert!(opts.get_statistics().is_some());
-    assert!(
-        opts.get_statistics_histogram(HistogramType::DbSeek)
-            .is_some()
-    );
-    assert!(
-        opts.get_statistics_histogram_string(HistogramType::DbSeek)
-            .is_some()
-    );
+    assert!(opts
+        .get_statistics_histogram(HistogramType::DbSeek)
+        .is_some());
+    assert!(opts
+        .get_statistics_histogram_string(HistogramType::DbSeek)
+        .is_some());
     assert_eq!(
         opts.get_statistics_ticker_count(TickerType::BlockCacheMiss),
         0
@@ -124,12 +123,14 @@ fn test_memtable_insert_hint_prefix_extractor() {
         .set_memtable_insert_hint_prefix_extractor(
             "FixedPrefixTransform",
             Box::new(FixedPrefixTransform { prefix_len: 2 }),
-        ).unwrap();
+        )
+        .unwrap();
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
     let wopts = WriteOptions::new();
 
     db.put_opt(b"k0-1", b"a", &wopts).unwrap();
@@ -262,7 +263,8 @@ fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -290,7 +292,8 @@ fn test_set_cache_index_and_filter_blocks_with_high_priority() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -305,7 +308,8 @@ fn test_pending_compaction_bytes_limit() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -338,7 +342,8 @@ fn test_set_optimize_filters_for_hits() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -357,7 +362,8 @@ fn test_get_block_cache_usage() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 
     for i in 0..200 {
         db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
@@ -384,7 +390,8 @@ fn test_block_cache_capacity() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 
     assert_eq!(
         db.get_options().get_block_cache_capacity(),
@@ -421,7 +428,8 @@ fn test_set_level_compaction_dynamic_level_bytes() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -477,7 +485,8 @@ fn test_set_compaction_pri() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]
@@ -552,7 +561,8 @@ fn test_bottommost_compression() {
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 #[test]

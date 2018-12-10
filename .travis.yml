@@ -1,33 +1,32 @@
-language: rust
 dist: trusty
 sudo: required
-rust:
-- beta
-- nightly
-- stable
-
-cache:
-  directories:
-  - target
+language: rust
 
 os:
   - linux
+
+rust:
+  - stable
+  - beta
+  - nightly
 
 matrix:
   include:
   - os: osx
     rust: stable
-  - rust: stable
-    install:
-      - rustup component add rustfmt-preview
-    before_script:
-      - cargo fmt --all -- --check
-
-script:
-- cargo build
-- cargo test --all
 
 env:
   global:
-  - RUST_TEST_THREADS=1
-  - LD_LIBRARY_PATH: "/usr/local/lib"
+  - RUST_BACKTRACE=1
+
+cache:
+  directories:
+  - target
+
+before_script:
+  - rustup component add rustfmt-preview
+
+script:
+  - cargo fmt --all -- --check
+  - cargo build
+  - cargo test --all
