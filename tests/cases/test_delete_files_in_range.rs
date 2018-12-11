@@ -11,6 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ops;
+
 use rand::{self, Rng};
 use rocksdb::*;
 use tempdir::TempDir;
@@ -19,39 +21,35 @@ fn initial_data(path: &str) -> DB {
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let mut cf_opts = ColumnFamilyOptions::new();
-
-    // DeleteFilesInRange ignore sst files in level 0,
-    // this will makes all sst files fall into level 1.
-    cf_opts.set_level_zero_file_num_compaction_trigger(1);
+    // We will control the compaction manually.
+    cf_opts.set_disable_auto_compactions(true);
     let db = DB::open_cf(opts, path, vec![("default", cf_opts)]).unwrap();
-    for i in 0..3 {
-        let k = format!("key{}", i);
-        let v = format!("value{}", i);
-        db.put(k.as_bytes(), v.as_bytes()).unwrap();
-        assert_eq!(v.as_bytes(), &*db.get(k.as_bytes()).unwrap().unwrap());
-    }
-    // sst1 [0, 3)
-    db.flush(true).unwrap();
 
-    for i in 3..6 {
-        let k = format!("key{}", i);
-        let v = format!("value{}", i);
-        db.put(k.as_bytes(), v.as_bytes()).unwrap();
-        assert_eq!(v.as_bytes(), &*db.get(k.as_bytes()).unwrap().unwrap());
+    {
+        let handle = db.cf_handle("default").unwrap();
+        generate_file_bottom_level(&db, handle, 0..3);
+        generate_file_bottom_level(&db, handle, 3..6);
+        generate_file_bottom_level(&db, handle, 6..9);
     }
-    // sst2 [3, 6)
-    db.flush(true).unwrap();
-
-    for i in 6..9 {
-        let k = format!("key{}", i);
-        let v = format!("value{}", i);
-        db.put(k.as_bytes(), v.as_bytes()).unwrap();
-        assert_eq!(v.as_bytes(), &*db.get(k.as_bytes()).unwrap().unwrap());
-    }
-    // sst3 [6, 9)
-    db.flush(true).unwrap();
 
     db
+}
+
+/// Generates a file with `range` and put it to the bottommost level.
+fn generate_file_bottom_level(db: &DB, handle: &CFHandle, range: ops::Range<u32>) {
+    for i in range {
+        let k = format!("key{}", i);
+        let v = format!("value{}", i);
+        db.put_cf(handle, k.as_bytes(), v.as_bytes()).unwrap();
+    }
+    db.flush_cf(handle, true).unwrap();
+
+    let opts = db.get_options_cf(handle);
+    let mut compact_opts = CompactOptions::new();
+    compact_opts.set_change_level(true);
+    compact_opts.set_target_level(opts.get_num_levels() as i32 - 1);
+    compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Skip);
+    db.compact_range_cf_opt(handle, &compact_opts, None, None);
 }
 
 #[test]
