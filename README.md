@@ -182,3 +182,4 @@ fn badly_tuned_for_somebody_elses_disk() -> DB {
     DB::open(&opts, path).unwrap()
 }
 ```
+
