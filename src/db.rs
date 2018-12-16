@@ -1123,6 +1123,35 @@ impl DB {
             );
         }
     }
+
+    pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
+        let copts = opts
+            .into_iter()
+            .map(|(name, value)| {
+                let cname = match CString::new(name.as_bytes()) {
+                    Ok(cname) => cname,
+                    Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
+                };
+                let cvalue = match CString::new(value.as_bytes()) {
+                    Ok(cvalue) => cvalue,
+                    Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
+                };
+                Ok((cname, cvalue))
+            })
+            .collect::<Result<Vec<(CString, CString)>, Error>>()?;
+
+        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
+        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
+        let count = opts.len() as i32;
+        Ok(unsafe {
+            ffi_try!(ffi::rocksdb_set_options(
+                self.inner,
+                count,
+                cnames.as_ptr(),
+                cvalues.as_ptr(),
+            ))
+        })
+    }
 }
 
 impl WriteBatch {
@@ -1496,4 +1525,41 @@ fn snapshot_test() {
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
+fn set_option_test() {
+    let path = "_rust_rocksdb_set_optionstest";
+    {
+        let db = DB::open_default(path).unwrap();
+        // set an option to valid values
+        assert!(db
+            .set_options(&[("disable_auto_compactions", "true")])
+            .is_ok());
+        assert!(db
+            .set_options(&[("disable_auto_compactions", "false")])
+            .is_ok());
+        // invalid names/values should result in an error
+        assert!(db
+            .set_options(&[("disable_auto_compactions", "INVALID_VALUE")])
+            .is_err());
+        assert!(db
+            .set_options(&[("INVALID_NAME", "INVALID_VALUE")])
+            .is_err());
+        // option names/values must not contain NULLs
+        assert!(db
+            .set_options(&[("disable_auto_compactions", "true\0")])
+            .is_err());
+        assert!(db
+            .set_options(&[("disable_auto_compactions\0", "true")])
+            .is_err());
+        // empty options are not allowed
+        assert!(db.set_options(&[]).is_err());
+        // multiple options can be set in a single API call
+        let multiple_options = [
+            ("paranoid_file_checks", "true"),
+            ("report_bg_io_stats", "true"),
+        ];
+        db.set_options(&multiple_options).unwrap();
+    }
 }
