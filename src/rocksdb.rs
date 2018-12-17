@@ -28,12 +28,14 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::io;
+use std::mem;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::{fs, ptr, slice};
 use table_properties::TablePropertiesCollection;
+use util::is_power_of_two;
 
 pub struct CFHandle {
     inner: *mut DBCFHandle,
@@ -2090,7 +2092,7 @@ impl Default for Env {
     fn default() -> Env {
         unsafe {
             Env {
-                inner: crocksdb_ffi::crocksdb_create_default_env(),
+                inner: crocksdb_ffi::crocksdb_default_env_create(),
             }
         }
     }
@@ -2100,9 +2102,29 @@ impl Env {
     pub fn new_mem() -> Env {
         unsafe {
             Env {
-                inner: crocksdb_ffi::crocksdb_create_mem_env(),
+                inner: crocksdb_ffi::crocksdb_mem_env_create(),
             }
         }
+    }
+
+    // Create a ctr encrypted env with the default env and a given ciper text.
+    // The length of ciper text must be 2^n, and must be less or equal to 2048.
+    // The recommanded block size are 1024, 512 and 256.
+    pub fn new_default_ctr_encrypted_env(ciphertext: &[u8]) -> Result<Env, String> {
+        let len = ciphertext.len();
+        if len > 2048 || !is_power_of_two(len) {
+            return Err(
+                "ciphertext length must be less or equal to 2048, and must be power of 2"
+                    .to_owned(),
+            );
+        }
+        let env = unsafe {
+            crocksdb_ffi::crocksdb_default_ctr_encrypted_env_create(
+                mem::transmute(&ciphertext[0]),
+                len,
+            )
+        };
+        Ok(Env { inner: env })
     }
 
     pub fn new_sequential_file(

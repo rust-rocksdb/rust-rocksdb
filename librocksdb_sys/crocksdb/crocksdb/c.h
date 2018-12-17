@@ -1305,8 +1305,11 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_cache_set_capacity(
 
 /* Env */
 
-extern C_ROCKSDB_LIBRARY_API crocksdb_env_t* crocksdb_create_default_env();
-extern C_ROCKSDB_LIBRARY_API crocksdb_env_t* crocksdb_create_mem_env();
+extern C_ROCKSDB_LIBRARY_API crocksdb_env_t* crocksdb_default_env_create();
+extern C_ROCKSDB_LIBRARY_API crocksdb_env_t* crocksdb_mem_env_create();
+extern C_ROCKSDB_LIBRARY_API crocksdb_env_t*
+crocksdb_default_ctr_encrypted_env_create(const char* ciphertext,
+                                          size_t ciphertext_len);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_env_set_background_threads(
     crocksdb_env_t* env, int n);
 extern C_ROCKSDB_LIBRARY_API void

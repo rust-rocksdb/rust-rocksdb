@@ -15,6 +15,7 @@
 #include "rocksdb/convenience.h"
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
+#include "rocksdb/env_encryption.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/iterator.h"
 #include "rocksdb/ldb_tool.h"
@@ -31,11 +32,10 @@
 #include "rocksdb/table_properties.h"
 #include "rocksdb/universal_compaction.h"
 #include "rocksdb/utilities/backupable_db.h"
+#include "rocksdb/utilities/db_ttl.h"
 #include "rocksdb/utilities/debug.h"
 #include "rocksdb/utilities/options_util.h"
-#include "rocksdb/utilities/db_ttl.h"
 #include "rocksdb/write_batch.h"
-
 
 #include "db/column_family.h"
 #include "table/sst_file_writer_collectors.h"
@@ -71,6 +71,10 @@ using rocksdb::DBWithTTL;
 using rocksdb::DBOptions;
 using rocksdb::Env;
 using rocksdb::EnvOptions;
+using rocksdb::EncryptionProvider;
+using rocksdb::BlockCipher;
+using rocksdb::CTREncryptionProvider;
+using rocksdb::NewEncryptedEnv;
 using rocksdb::ExternalFileIngestionInfo;
 using rocksdb::EventListener;
 using rocksdb::InfoLogLevel;
@@ -460,6 +464,8 @@ struct crocksdb_mergeoperator_t : public MergeOperator {
 struct crocksdb_env_t {
   Env* rep;
   bool is_default;
+  EncryptionProvider* encryption_provoider;
+  BlockCipher* block_cipher;
 };
 
 struct crocksdb_slicetransform_t : public SliceTransform {
@@ -3229,17 +3235,61 @@ void crocksdb_cache_set_capacity(crocksdb_cache_t* cache, size_t capacity) {
   cache->rep->SetCapacity(capacity);
 }
 
-crocksdb_env_t* crocksdb_create_default_env() {
+crocksdb_env_t* crocksdb_default_env_create() {
   crocksdb_env_t* result = new crocksdb_env_t;
   result->rep = Env::Default();
+  result->block_cipher = nullptr;
+  result->encryption_provoider = nullptr;
   result->is_default = true;
   return result;
 }
 
-crocksdb_env_t* crocksdb_create_mem_env() {
+crocksdb_env_t* crocksdb_mem_env_create() {
   crocksdb_env_t* result = new crocksdb_env_t;
   result->rep = rocksdb::NewMemEnv(Env::Default());
+  result->block_cipher = nullptr;
+  result->encryption_provoider = nullptr;
   result->is_default = false;
+  return result;
+}
+
+struct CTRBlockCipher : public BlockCipher {
+  CTRBlockCipher(size_t block_size, const std::string& cipertext)
+      : block_size_(block_size), cipertext_(cipertext) {
+    assert(block_size == cipertext.size());
+  }
+
+  virtual size_t BlockSize() { return block_size_; }
+
+  virtual Status Encrypt(char* data) {
+    const char* ciper_ptr = cipertext_.c_str();
+    for (size_t i = 0; i < block_size_; i++) {
+      data[i] = data[i] ^ ciper_ptr[i];
+    }
+
+    return Status::OK();
+  }
+
+  virtual Status Decrypt(char* data) {
+    Encrypt(data);
+    return Status::OK();
+  }
+
+ protected:
+  std::string cipertext_;
+  size_t block_size_;
+};
+
+crocksdb_env_t* crocksdb_default_ctr_encrypted_env_create(
+    const char* ciphertext, size_t ciphertext_len) {
+  auto result = new crocksdb_env_t;
+  result->block_cipher = new CTRBlockCipher(
+      ciphertext_len, std::string(ciphertext, ciphertext_len));
+  result->encryption_provoider =
+      new CTREncryptionProvider(*result->block_cipher);
+  result->rep = NewEncryptedEnv(Env::Default(), result->encryption_provoider);
+  result->is_default = true;
+
   return result;
 }
 
@@ -3265,6 +3315,8 @@ void crocksdb_env_delete_file(crocksdb_env_t* env, const char* path, char** errp
 
 void crocksdb_env_destroy(crocksdb_env_t* env) {
   if (!env->is_default) delete env->rep;
+  if (env->block_cipher) delete env->block_cipher;
+  if (env->encryption_provoider) delete env->encryption_provoider;
   delete env;
 }
 

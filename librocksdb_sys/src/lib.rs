@@ -1125,8 +1125,12 @@ extern "C" {
     pub fn crocksdb_compactionfilter_destroy(filter: *mut DBCompactionFilter);
 
     // Env
-    pub fn crocksdb_create_default_env() -> *mut DBEnv;
-    pub fn crocksdb_create_mem_env() -> *mut DBEnv;
+    pub fn crocksdb_default_env_create() -> *mut DBEnv;
+    pub fn crocksdb_mem_env_create() -> *mut DBEnv;
+    pub fn crocksdb_default_ctr_encrypted_env_create(
+        ciphertext: *const c_char,
+        ciphertext_len: size_t,
+    ) -> *mut DBEnv;
     pub fn crocksdb_env_file_exists(env: *mut DBEnv, path: *const c_char, err: *mut *mut c_char);
     pub fn crocksdb_env_delete_file(env: *mut DBEnv, path: *const c_char, err: *mut *mut c_char);
     pub fn crocksdb_env_destroy(env: *mut DBEnv);

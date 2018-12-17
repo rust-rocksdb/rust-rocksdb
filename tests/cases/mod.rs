@@ -3,6 +3,7 @@ mod test_compact_range;
 mod test_compaction_filter;
 mod test_delete_files_in_range;
 mod test_delete_range;
+mod test_encryption;
 mod test_event_listener;
 mod test_ingest_external_file;
 mod test_iterator;
