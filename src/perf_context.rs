@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crocksdb_ffi::{self, DBPerfContext};
+use crocksdb_ffi::{self, DBIOStatsContext, DBPerfContext};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PerfLevel {
@@ -336,6 +336,64 @@ impl PerfContext {
     }
 }
 
+pub struct IOStatsContext {
+    inner: *mut DBIOStatsContext,
+}
+
+impl IOStatsContext {
+    pub fn get() -> IOStatsContext {
+        unsafe {
+            IOStatsContext {
+                inner: crocksdb_ffi::crocksdb_get_iostats_context(),
+            }
+        }
+    }
+
+    pub fn reset(&mut self) {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_reset(self.inner) }
+    }
+
+    pub fn bytes_written(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_bytes_written(self.inner) }
+    }
+
+    pub fn bytes_read(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_bytes_read(self.inner) }
+    }
+
+    pub fn open_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_open_nanos(self.inner) }
+    }
+
+    pub fn allocate_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_allocate_nanos(self.inner) }
+    }
+
+    pub fn write_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_write_nanos(self.inner) }
+    }
+
+    pub fn read_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_read_nanos(self.inner) }
+    }
+
+    pub fn range_sync_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_range_sync_nanos(self.inner) }
+    }
+
+    pub fn fsync_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_fsync_nanos(self.inner) }
+    }
+
+    pub fn prepare_write_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_prepare_write_nanos(self.inner) }
+    }
+
+    pub fn logger_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_iostats_context_logger_nanos(self.inner) }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -343,7 +401,7 @@ mod test {
     use tempdir::TempDir;
 
     use rocksdb::{SeekKey, Writable, DB};
-    use rocksdb_options::DBOptions;
+    use rocksdb_options::{DBOptions, WriteOptions};
 
     #[test]
     fn test_perf_context() {
@@ -388,5 +446,47 @@ mod test {
         assert_eq!(ctx.internal_key_skipped_count(), n + n / 2);
         assert_eq!(ctx.internal_delete_skipped_count(), n / 2);
         assert_ne!(ctx.seek_internal_seek_time(), 0);
+    }
+
+    #[test]
+    fn test_iostats_context() {
+        let temp_dir = TempDir::new("test_iostats_context").unwrap();
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let db = DB::open(opts, temp_dir.path().to_str().unwrap()).unwrap();
+
+        set_perf_level(PerfLevel::EnableTime);
+        let mut ctx = IOStatsContext::get();
+
+        ctx.reset();
+        assert_eq!(ctx.bytes_written(), 0);
+        assert_eq!(ctx.bytes_read(), 0);
+        assert_eq!(ctx.open_nanos(), 0);
+        assert_eq!(ctx.allocate_nanos(), 0);
+        assert_eq!(ctx.write_nanos(), 0);
+        assert_eq!(ctx.read_nanos(), 0);
+        assert_eq!(ctx.range_sync_nanos(), 0);
+        assert_eq!(ctx.fsync_nanos(), 0);
+        assert_eq!(ctx.prepare_write_nanos(), 0);
+        assert_eq!(ctx.logger_nanos(), 0);
+
+        let mut wopts = WriteOptions::new();
+        wopts.set_sync(true);
+        let n = 10;
+        for i in 0..n {
+            let k = &[i as u8];
+            db.put_opt(k, k, &wopts).unwrap();
+            db.flush(true).unwrap();
+            assert_eq!(db.get(k).unwrap().unwrap(), k);
+        }
+
+        assert!(ctx.bytes_written() > 0);
+        assert!(ctx.bytes_read() > 0);
+        assert!(ctx.open_nanos() > 0);
+        assert!(ctx.write_nanos() > 0);
+        assert!(ctx.read_nanos() > 0);
+        assert!(ctx.fsync_nanos() > 0);
+        assert!(ctx.prepare_write_nanos() > 0);
+        assert!(ctx.logger_nanos() > 0);
     }
 }

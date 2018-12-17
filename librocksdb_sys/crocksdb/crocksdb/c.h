@@ -139,6 +139,7 @@ typedef struct crocksdb_level_meta_data_t crocksdb_level_meta_data_t;
 typedef struct crocksdb_sst_file_meta_data_t crocksdb_sst_file_meta_data_t;
 typedef struct crocksdb_compaction_options_t crocksdb_compaction_options_t;
 typedef struct crocksdb_perf_context_t crocksdb_perf_context_t;
+typedef struct crocksdb_iostats_context_t crocksdb_iostats_context_t;
 typedef struct crocksdb_writestallinfo_t crocksdb_writestallinfo_t;
 typedef struct crocksdb_writestallcondition_t crocksdb_writestallcondition_t;
 
@@ -1895,6 +1896,33 @@ extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_perf_context_env_unlock_file_nanos(crocksdb_perf_context_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_perf_context_env_new_logger_nanos(crocksdb_perf_context_t*);
+
+// IOStatsContext
+extern C_ROCKSDB_LIBRARY_API crocksdb_iostats_context_t*
+crocksdb_get_iostats_context(void);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_iostats_context_reset(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_bytes_written(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_bytes_read(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_open_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_allocate_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_write_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_read_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_range_sync_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_fsync_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_prepare_write_nanos(crocksdb_iostats_context_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t*);
+
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_run_ldb_tool(int argc, char** argv);
 

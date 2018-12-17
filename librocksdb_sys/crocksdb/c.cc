@@ -36,6 +36,7 @@
 #include "rocksdb/utilities/debug.h"
 #include "rocksdb/utilities/options_util.h"
 #include "rocksdb/write_batch.h"
+#include "rocksdb/iostats_context.h"
 
 #include "db/column_family.h"
 #include "table/sst_file_writer_collectors.h"
@@ -150,6 +151,7 @@ using rocksdb::CompactionOptions;
 using rocksdb::CompactionReason;
 using rocksdb::PerfLevel;
 using rocksdb::PerfContext;
+using rocksdb::IOStatsContext;
 using rocksdb::BottommostLevelCompaction;
 using rocksdb::LDBTool;
 
@@ -4789,6 +4791,60 @@ uint64_t crocksdb_perf_context_env_unlock_file_nanos(crocksdb_perf_context_t* ct
 
 uint64_t crocksdb_perf_context_env_new_logger_nanos(crocksdb_perf_context_t* ctx) {
   return ctx->rep.env_new_logger_nanos;
+}
+
+// IOStatsContext
+
+struct crocksdb_iostats_context_t {
+  IOStatsContext rep;
+};
+
+crocksdb_iostats_context_t* crocksdb_get_iostats_context(void) {
+  return reinterpret_cast<crocksdb_iostats_context_t*>(rocksdb::get_iostats_context());
+}
+
+void crocksdb_iostats_context_reset(crocksdb_iostats_context_t* ctx) {
+  ctx->rep.Reset();
+}
+
+uint64_t crocksdb_iostats_context_bytes_written(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.bytes_written;
+}
+
+uint64_t crocksdb_iostats_context_bytes_read(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.bytes_read;
+}
+
+uint64_t crocksdb_iostats_context_open_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.open_nanos;
+}
+
+uint64_t crocksdb_iostats_context_allocate_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.allocate_nanos;
+}
+
+uint64_t crocksdb_iostats_context_write_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.write_nanos;
+}
+
+uint64_t crocksdb_iostats_context_read_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.read_nanos;
+}
+
+uint64_t crocksdb_iostats_context_range_sync_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.range_sync_nanos;
+}
+
+uint64_t crocksdb_iostats_context_fsync_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.fsync_nanos;
+}
+
+uint64_t crocksdb_iostats_context_prepare_write_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.prepare_write_nanos;
+}
+
+uint64_t crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t* ctx) {
+  return ctx->rep.logger_nanos;
 }
 
 void crocksdb_run_ldb_tool(int argc, char** argv) {

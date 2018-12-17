@@ -31,7 +31,7 @@ pub use librocksdb_sys::{
 };
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
-pub use perf_context::{get_perf_level, set_perf_level, PerfContext, PerfLevel};
+pub use perf_context::{get_perf_level, set_perf_level, IOStatsContext, PerfContext, PerfLevel};
 pub use rocksdb::{
     load_latest_options, run_ldb_tool, set_external_sst_file_global_seq_no, BackupEngine, CFHandle,
     DBIterator, DBVector, Env, ExternalSstFileInfo, Kv, Range, SeekKey, SequentialFile,

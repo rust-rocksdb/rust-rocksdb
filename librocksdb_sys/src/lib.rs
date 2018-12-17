@@ -69,6 +69,7 @@ pub enum DBLevelMetaData {}
 pub enum DBSstFileMetaData {}
 pub enum DBCompactionOptions {}
 pub enum DBPerfContext {}
+pub enum DBIOStatsContext {}
 pub enum DBWriteStallInfo {}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -1738,6 +1739,20 @@ extern "C" {
     pub fn crocksdb_perf_context_env_lock_file_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_env_unlock_file_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_env_new_logger_nanos(ctx: *mut DBPerfContext) -> u64;
+
+    pub fn crocksdb_get_iostats_context() -> *mut DBIOStatsContext;
+    pub fn crocksdb_iostats_context_reset(ctx: *mut DBIOStatsContext);
+    pub fn crocksdb_iostats_context_bytes_written(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_bytes_read(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_open_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_allocate_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_write_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_read_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_range_sync_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_fsync_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_prepare_write_nanos(ctx: *mut DBIOStatsContext) -> u64;
+    pub fn crocksdb_iostats_context_logger_nanos(ctx: *mut DBIOStatsContext) -> u64;
+
     pub fn crocksdb_run_ldb_tool(argc: c_int, argv: *const *const c_char);
 }
 
