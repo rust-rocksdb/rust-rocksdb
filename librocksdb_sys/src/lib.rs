@@ -1128,7 +1128,8 @@ extern "C" {
     // Env
     pub fn crocksdb_default_env_create() -> *mut DBEnv;
     pub fn crocksdb_mem_env_create() -> *mut DBEnv;
-    pub fn crocksdb_default_ctr_encrypted_env_create(
+    pub fn crocksdb_ctr_encrypted_env_create(
+        base_env: *mut DBEnv,
         ciphertext: *const c_char,
         ciphertext_len: size_t,
     ) -> *mut DBEnv;
