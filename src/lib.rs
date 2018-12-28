@@ -50,6 +50,7 @@ pub use table_properties::{
 };
 pub use table_properties_collector::TablePropertiesCollector;
 pub use table_properties_collector_factory::TablePropertiesCollectorFactory;
+pub use titan::{TitanBlobIndex, TitanDBOptions};
 
 mod compaction_filter;
 pub mod comparator;
@@ -64,4 +65,5 @@ mod table_filter;
 mod table_properties;
 mod table_properties_collector;
 mod table_properties_collector_factory;
+mod titan;
 mod util;

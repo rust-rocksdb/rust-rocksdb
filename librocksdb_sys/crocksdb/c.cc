@@ -45,6 +45,10 @@
 #include "util/file_reader_writer.h"
 #include "util/coding.h"
 
+#include "rocksdb/utilities/titandb/db.h"
+#include "utilities/titandb/blob_format.h"
+#include "utilities/titandb/options.h"
+
 #include <stdlib.h>
 
 #if !defined(ROCKSDB_MAJOR) || !defined(ROCKSDB_MINOR) || !defined(ROCKSDB_PATCH)
@@ -154,6 +158,13 @@ using rocksdb::PerfContext;
 using rocksdb::IOStatsContext;
 using rocksdb::BottommostLevelCompaction;
 using rocksdb::LDBTool;
+
+using rocksdb::titandb::BlobIndex;
+using rocksdb::titandb::TitanCFDescriptor;
+using rocksdb::titandb::TitanCFOptions;
+using rocksdb::titandb::TitanDB;
+using rocksdb::titandb::TitanDBOptions;
+using rocksdb::titandb::TitanOptions;
 
 using std::shared_ptr;
 
@@ -4850,6 +4861,149 @@ uint64_t crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t* ctx) 
 
 void crocksdb_run_ldb_tool(int argc, char** argv) {
   LDBTool().Run(argc, argv);
+}
+
+/* Titan */
+struct ctitandb_options_t {
+  TitanOptions rep;
+};
+
+crocksdb_t* ctitandb_open_column_families(
+    const char* name, const crocksdb_options_t* db_options,
+    const ctitandb_options_t* tdb_options, int num_column_families,
+    const char** column_family_names,
+    const crocksdb_options_t** column_family_options,
+    const ctitandb_options_t** titan_column_family_options,
+    crocksdb_column_family_handle_t** column_family_handles, char** errptr) {
+  std::vector<TitanCFDescriptor> column_families;
+  for (int i = 0; i < num_column_families; i++) {
+    *(ColumnFamilyOptions*)&titan_column_family_options[i]->rep =
+        column_family_options[i]->rep;
+    column_families.push_back(
+        TitanCFDescriptor(std::string(column_family_names[i]),
+                          TitanCFOptions(titan_column_family_options[i]->rep)));
+  }
+
+  TitanDB* db;
+  std::vector<ColumnFamilyHandle*> handles;
+  *(DBOptions*)&tdb_options->rep = db_options->rep;
+  if (SaveError(errptr, TitanDB::Open(tdb_options->rep, std::string(name),
+                                      column_families, &handles, &db))) {
+    return nullptr;
+  }
+
+  for (size_t i = 0; i < handles.size(); i++) {
+    crocksdb_column_family_handle_t* c_handle =
+        new crocksdb_column_family_handle_t;
+    c_handle->rep = handles[i];
+    column_family_handles[i] = c_handle;
+  }
+  crocksdb_t* result = new crocksdb_t;
+  result->rep = db;
+  return result;
+}
+
+/* TitanDBOptions */
+
+ctitandb_options_t* ctitandb_options_create() { return new ctitandb_options_t; }
+
+void ctitandb_options_destroy(ctitandb_options_t* opts) { delete opts; }
+
+ctitandb_options_t* ctitandb_options_copy(ctitandb_options_t* src) {
+  if (src == nullptr) {
+    return nullptr;
+  }
+  return new ctitandb_options_t{src->rep};
+}
+
+const char* ctitandb_options_dirname(ctitandb_options_t* opts) {
+  return opts->rep.dirname.c_str();
+}
+
+void ctitandb_options_set_dirname(ctitandb_options_t* opts, const char* name) {
+  opts->rep.dirname = name;
+}
+
+uint64_t ctitandb_options_min_blob_size(ctitandb_options_t* opts) {
+  return opts->rep.min_blob_size;
+}
+
+void ctitandb_options_set_min_blob_size(ctitandb_options_t* opts,
+                                        uint64_t size) {
+  opts->rep.min_blob_size = size;
+}
+
+int ctitandb_options_blob_file_compression(ctitandb_options_t* opts) {
+  return opts->rep.blob_file_compression;
+}
+
+void ctitandb_options_set_blob_file_compression(ctitandb_options_t* opts,
+                                                int type) {
+  opts->rep.blob_file_compression = static_cast<CompressionType>(type);
+}
+
+void ctitandb_decode_blob_index(const char* value, size_t value_size,
+                                ctitandb_blob_index_t* index, char** errptr) {
+  Slice v(value, value_size);
+  BlobIndex bi;
+  if (SaveError(errptr, bi.DecodeFrom(&v))) {
+    return;
+  }
+  index->file_number = bi.file_number;
+  index->blob_offset = bi.blob_handle.offset;
+  index->blob_size = bi.blob_handle.size;
+}
+
+void ctitandb_options_set_disable_background_gc(ctitandb_options_t* options,
+                                                unsigned char disable) {
+  options->rep.disable_background_gc = disable;
+}
+
+void ctitandb_options_set_max_gc_batch_size(ctitandb_options_t* options,
+                                            uint64_t size) {
+  options->rep.max_gc_batch_size = size;
+}
+
+void ctitandb_options_set_min_gc_batch_size(ctitandb_options_t* options,
+                                            uint64_t size) {
+  options->rep.min_gc_batch_size = size;
+}
+
+void ctitandb_options_set_blob_file_discardable_ratio(
+    ctitandb_options_t* options, float ratio) {
+  options->rep.blob_file_discardable_ratio = ratio;
+}
+
+void ctitandb_options_set_sample_file_size_ratio(ctitandb_options_t* options,
+                                                 float ratio) {
+  options->rep.sample_file_size_ratio = ratio;
+}
+
+void ctitandb_options_set_merge_small_file_threshold(
+    ctitandb_options_t* options, uint64_t size) {
+  options->rep.merge_small_file_threshold = size;
+}
+
+void ctitandb_options_set_max_background_gc(ctitandb_options_t* options,
+                                            int32_t size) {
+  options->rep.max_background_gc = size;
+}
+
+void ctitandb_options_set_blob_cache(ctitandb_options_t* options,
+                                     crocksdb_cache_t* cache) {
+  if (cache) {
+    options->rep.blob_cache = cache->rep;
+  }
+}
+
+void ctitandb_options_set_discardable_ratio(ctitandb_options_t* options,
+                                            float ratio) {
+  options->rep.blob_file_discardable_ratio = ratio;
+}
+
+void ctitandb_options_set_sample_ratio(ctitandb_options_t* options,
+                                       float ratio) {
+  options->rep.sample_file_size_ratio = ratio;
 }
 
 }  // end extern "C"

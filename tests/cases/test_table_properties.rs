@@ -114,7 +114,7 @@ impl TablePropertiesCollector for ExampleCollector {
             DBEntryType::Put => self.num_puts += 1,
             DBEntryType::Merge => self.num_merges += 1,
             DBEntryType::Delete | DBEntryType::SingleDelete => self.num_deletes += 1,
-            DBEntryType::Other => {}
+            _ => {}
         }
     }
 
