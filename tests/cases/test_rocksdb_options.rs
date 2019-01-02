@@ -12,7 +12,7 @@
 // limitations under the License.
 
 use rocksdb::crocksdb_ffi::{
-    CompactionPriority, DBCompressionType, DBInfoLogLevel as InfoLogLevel,
+    CompactionPriority, DBCompressionType, DBInfoLogLevel as InfoLogLevel, DBRateLimiterMode,
     DBStatisticsHistogramType as HistogramType, DBStatisticsTickerType as TickerType,
 };
 use rocksdb::{
@@ -158,6 +158,16 @@ fn test_set_ratelimiter() {
     opts.create_if_missing(true);
     // compaction and flush rate limited below 100MB/sec
     opts.set_ratelimiter(100 * 1024 * 1024);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    drop(db);
+}
+
+#[test]
+fn test_set_ratelimiter_with_auto_tuned() {
+    let path = TempDir::new("_rust_rocksdb_test_set_rate_limiter_with_auto_tuned").expect("");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_ratelimiter_with_auto_tuned(100 * 1024 * 1024, DBRateLimiterMode::AllIo, true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }

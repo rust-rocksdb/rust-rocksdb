@@ -2780,6 +2780,31 @@ crocksdb_ratelimiter_t* crocksdb_ratelimiter_create(
   return rate_limiter;
 }
 
+crocksdb_ratelimiter_t* crocksdb_ratelimiter_create_with_auto_tuned(
+    int64_t rate_bytes_per_sec,
+    int64_t refill_period_us,
+    int32_t fairness,
+    crocksdb_ratelimiter_mode_t mode,
+    bool auto_tuned) {
+    crocksdb_ratelimiter_t* rate_limiter = new crocksdb_ratelimiter_t;
+    RateLimiter::Mode m = RateLimiter::Mode::kWritesOnly;
+    switch (mode) {
+      case kReadsOnly:
+        m = RateLimiter::Mode::kReadsOnly;
+        break;
+      case kWritesOnly:
+        m = RateLimiter::Mode::kWritesOnly;
+        break;
+      case kAllIo:
+        m = RateLimiter::Mode::kAllIo;
+        break;
+    }
+    rate_limiter->rep = NewGenericRateLimiter(rate_bytes_per_sec,
+                                              refill_period_us, fairness,
+                                              m, auto_tuned);
+    return rate_limiter;
+}
+
 void crocksdb_ratelimiter_destroy(crocksdb_ratelimiter_t *limiter) {
   if (limiter->rep) {
       delete limiter->rep;

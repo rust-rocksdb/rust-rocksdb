@@ -268,6 +268,14 @@ pub enum DBBottommostLevelCompaction {
     Force = 2,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum DBRateLimiterMode {
+    ReadOnly = 1,
+    WriteOnly = 2,
+    AllIo = 3,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -547,6 +555,13 @@ extern "C" {
         rate_bytes_per_sec: i64,
         refill_period_us: i64,
         fairness: i32,
+    ) -> *mut DBRateLimiter;
+    pub fn crocksdb_ratelimiter_create_with_auto_tuned(
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+        mode: DBRateLimiterMode,
+        auto_tuned: bool,
     ) -> *mut DBRateLimiter;
     pub fn crocksdb_ratelimiter_destroy(limiter: *mut DBRateLimiter);
     pub fn crocksdb_ratelimiter_set_bytes_per_second(
