@@ -297,6 +297,13 @@ impl<D: Deref<Target = DB>> Snapshot<D> {
         DBIterator::new(&self.db, opt)
     }
 
+    pub fn iter_cf(&self, cf_handle: &CFHandle, mut opt: ReadOptions) -> DBIterator<&DB> {
+        unsafe {
+            opt.set_snapshot(&self.snap);
+        }
+        DBIterator::new_cf(&self.db, cf_handle, opt)
+    }
+
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, String> {
         let mut readopts = ReadOptions::new();
         unsafe {
