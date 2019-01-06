@@ -4884,8 +4884,8 @@ uint64_t crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t* ctx) 
   return ctx->rep.logger_nanos;
 }
 
-void crocksdb_run_ldb_tool(int argc, char** argv) {
-  LDBTool().Run(argc, argv);
+void crocksdb_run_ldb_tool(int argc, char** argv, const crocksdb_options_t* opts) {
+  LDBTool().Run(argc, argv, opts->rep);
 }
 
 /* Titan */

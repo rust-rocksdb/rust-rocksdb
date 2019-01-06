@@ -2318,7 +2318,7 @@ pub fn load_latest_options(
     }
 }
 
-pub fn run_ldb_tool(ldb_args: &Vec<String>) {
+pub fn run_ldb_tool(ldb_args: &Vec<String>, opts: &DBOptions) {
     unsafe {
         let ldb_args_cstrs: Vec<_> = ldb_args
             .iter()
@@ -2328,6 +2328,7 @@ pub fn run_ldb_tool(ldb_args: &Vec<String>) {
         crocksdb_ffi::crocksdb_run_ldb_tool(
             args.len() as i32,
             args.as_ptr() as *const *const c_char,
+            opts.inner,
         );
     }
 }

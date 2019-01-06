@@ -1781,7 +1781,7 @@ extern "C" {
     pub fn crocksdb_iostats_context_prepare_write_nanos(ctx: *mut DBIOStatsContext) -> u64;
     pub fn crocksdb_iostats_context_logger_nanos(ctx: *mut DBIOStatsContext) -> u64;
 
-    pub fn crocksdb_run_ldb_tool(argc: c_int, argv: *const *const c_char);
+    pub fn crocksdb_run_ldb_tool(argc: c_int, argv: *const *const c_char, opts: *const Options);
 }
 
 // Titan

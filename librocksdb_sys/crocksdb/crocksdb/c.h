@@ -1934,7 +1934,7 @@ extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
-crocksdb_run_ldb_tool(int argc, char** argv);
+crocksdb_run_ldb_tool(int argc, char** argv, const crocksdb_options_t* opts);
 
 
 /* Titan */
