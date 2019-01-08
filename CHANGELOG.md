@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.11.0 (Unreleased)
+## 0.11.0 (2018-01-08)
 
 ### Announcements
 
@@ -25,6 +25,7 @@
 * exposed `set_skip_stats_update_on_db_open` option (romanz)
 * exposed `keep_log_file_num` option (romanz)
 * added ability to retrieve `WriteBatch` serialized size (romanz)
+* added `set_options` method to `DB` to allow changing options without closing and re-opening the database (romanz)
 
 
 ## 0.10.1 (2018-07-17)
