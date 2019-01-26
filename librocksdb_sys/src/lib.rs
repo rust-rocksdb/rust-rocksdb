@@ -1534,6 +1534,10 @@ extern "C" {
     pub fn crocksdb_flushjobinfo_triggered_writes_slowdown(info: *const DBFlushJobInfo) -> bool;
     pub fn crocksdb_flushjobinfo_triggered_writes_stop(info: *const DBFlushJobInfo) -> bool;
 
+    pub fn crocksdb_compactionjobinfo_status(
+        info: *const DBCompactionJobInfo,
+        errptr: *mut *mut c_char,
+    );
     pub fn crocksdb_compactionjobinfo_cf_name(
         info: *const DBCompactionJobInfo,
         size: *mut size_t,

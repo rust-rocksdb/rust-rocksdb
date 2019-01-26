@@ -81,19 +81,25 @@ impl<'a> Iterator for TablePropertiesCollectionIter<'a> {
 
     fn next(&mut self) -> Option<(&'a str, &'a TableProperties)> {
         unsafe {
-            if !crocksdb_ffi::crocksdb_table_properties_collection_iter_valid(self.inner) {
-                return None;
-            }
+            loop {
+                if !crocksdb_ffi::crocksdb_table_properties_collection_iter_valid(self.inner) {
+                    return None;
+                }
 
-            let mut klen: size_t = 0;
-            let k =
-                crocksdb_ffi::crocksdb_table_properties_collection_iter_key(self.inner, &mut klen);
-            let bytes = slice::from_raw_parts(k, klen);
-            let key = str::from_utf8(bytes).unwrap();
-            let props = crocksdb_ffi::crocksdb_table_properties_collection_iter_value(self.inner);
-            let val = TableProperties::from_ptr(props);
-            crocksdb_ffi::crocksdb_table_properties_collection_iter_next(self.inner);
-            Some((key, val))
+                let mut klen: size_t = 0;
+                let k = crocksdb_ffi::crocksdb_table_properties_collection_iter_key(
+                    self.inner, &mut klen,
+                );
+                let bytes = slice::from_raw_parts(k, klen);
+                let key = str::from_utf8(bytes).unwrap();
+                let props =
+                    crocksdb_ffi::crocksdb_table_properties_collection_iter_value(self.inner);
+                crocksdb_ffi::crocksdb_table_properties_collection_iter_next(self.inner);
+                if !props.is_null() {
+                    let val = TableProperties::from_ptr(props);
+                    return Some((key, val));
+                }
+            }
         }
     }
 }

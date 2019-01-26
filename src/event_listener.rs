@@ -60,6 +60,11 @@ impl FlushJobInfo {
 pub struct CompactionJobInfo(DBCompactionJobInfo);
 
 impl CompactionJobInfo {
+    pub fn status(&self) -> Result<(), String> {
+        unsafe { ffi_try!(crocksdb_compactionjobinfo_status(&self.0)) }
+        Ok(())
+    }
+
     pub fn cf_name(&self) -> &str {
         unsafe { fetch_str!(crocksdb_compactionjobinfo_cf_name(&self.0)) }
     }

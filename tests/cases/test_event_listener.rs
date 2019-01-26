@@ -45,6 +45,7 @@ impl EventListener for EventCounter {
     }
 
     fn on_compaction_completed(&self, info: &CompactionJobInfo) {
+        info.status().unwrap();
         assert!(!info.cf_name().is_empty());
         let input_file_count = info.input_file_count();
         assert_ne!(input_file_count, 0);
