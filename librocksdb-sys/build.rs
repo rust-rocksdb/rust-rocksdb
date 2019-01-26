@@ -231,6 +231,7 @@ fn build_zlib() {
         }
     }
 
+    compiler.flag_if_supported("-Wno-implicit-function-declaration");
     compiler.opt_level(3);
     compiler.compile("libz.a");
 }
@@ -251,6 +252,7 @@ fn build_bzip2() {
         .define("_FILE_OFFSET_BITS", Some("64"))
         .define("BZ_NO_STDIO", None);
 
+    compiler.extra_warnings(false);
     compiler.opt_level(3);
     compiler.compile("libbz2.a");
 }
