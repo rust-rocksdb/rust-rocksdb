@@ -29,10 +29,6 @@ use std::slice;
 use std::str;
 use std::sync::{Arc, RwLock};
 
-pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
-    unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
-}
-
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
