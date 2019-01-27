@@ -167,6 +167,21 @@ pub enum MemtableFactory {
     },
 }
 
+/// Used with DBOptions::set_plain_table_factory.
+/// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+///
+/// Defaults:
+///  user_key_length: 0 (variable length)
+///  bloom_bits_per_key: 10
+///  hash_table_ratio: 0.75
+///  index_sparseness: 16
+pub struct PlainTableFactoryOptions {
+    pub user_key_length: u32,
+    pub bloom_bits_per_key: i32,
+    pub hash_table_ratio: f64,
+    pub index_sparseness: usize,
+}
+
 /// Database-wide options around performance and behavior.
 ///
 /// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.

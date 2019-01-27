@@ -27,7 +27,7 @@ use merge_operator::{
 use slice_transform::SliceTransform;
 use {
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, WriteOptions,
+    MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
 };
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -982,22 +982,29 @@ impl Options {
         }
     }
 
-    // See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
-    //
-    // Defaults:
-    //  user_key_len: 0 (variable length)
-    //  bloom_bits_per_key: 10
-    //  has_table_ratio: 0.75
-    //  index_sparseness: 16
-    pub fn set_plain_table_factory(&mut self, user_key_len: u32, bloom_bits_per_key: i32,
-                                   hash_table_ratio: f64, index_sparseness: usize) {
+    /// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+    ///
+    /// ```
+    /// use rocksdb::{Options, PlainTableFactoryOptions};
+    ///
+    /// let mut opts = Options::default();
+    /// let factory_opts = PlainTableFactoryOptions {
+    ///   user_key_length: 0,
+    ///   bloom_bits_per_key: 20,
+    ///   hash_table_ratio: 0.75,
+    ///   index_sparseness: 16,
+    /// };
+    ///
+    /// opts.set_plain_table_factory(factory_opts);
+    /// ```
+    pub fn set_plain_table_factory(&mut self, options: PlainTableFactoryOptions) {
         unsafe {
             ffi::rocksdb_options_set_plain_table_factory(
                 self.inner,
-                user_key_len,
-                bloom_bits_per_key,
-                hash_table_ratio,
-                index_sparseness,
+                options.user_key_length,
+                options.bloom_bits_per_key,
+                options.hash_table_ratio,
+                options.index_sparseness,
             );
         }
     }
