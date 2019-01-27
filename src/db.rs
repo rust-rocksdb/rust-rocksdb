@@ -1170,12 +1170,7 @@ impl DB {
     pub fn property_value_cf(&self, cf: ColumnFamily, name: &str) -> Option<String> {
         let prop_name = CString::new(name).unwrap();
         unsafe {
-            let value = ffi::rocksdb_property_value_cf(
-                self.inner,
-                cf.inner,
-                prop_name.as_ptr()
-            );
-
+            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr());
             if value.is_null() {
                 return None;
             }
