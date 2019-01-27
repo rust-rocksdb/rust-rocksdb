@@ -1152,6 +1152,27 @@ impl DB {
             ))
         })
     }
+
+    pub fn property_value(&self, name: &str) -> Option<String> {
+        let prop_name = CString::new(name).unwrap();
+        unsafe {
+            let value = ffi::rocksdb_property_value(self.inner, prop_name.as_ptr());
+            if value.is_null() {
+                return None;
+            }
+
+            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            libc::free(value as *mut c_void);
+            Some(s)
+        }
+    }
+
+    pub fn property_int_value(&self, name: &str) -> Option<u64> {
+        match self.property_value(name) {
+            Some(value) => value.parse::<u64>().ok(),
+            None => None,
+        }
+    }
 }
 
 impl WriteBatch {
