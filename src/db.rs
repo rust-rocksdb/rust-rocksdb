@@ -1167,12 +1167,12 @@ impl DB {
         }
     }
 
-    pub fn property_value_cf(&self, column_family: ColumnFamily, name: &str) -> Option<String> {
+    pub fn property_value_cf(&self, cf: ColumnFamily, name: &str) -> Option<String> {
         let prop_name = CString::new(name).unwrap();
         unsafe {
             let value = ffi::rocksdb_property_value_cf(
                 self.inner,
-                column_family.inner,
+                cf.inner,
                 prop_name.as_ptr()
             );
 
@@ -1193,8 +1193,8 @@ impl DB {
         }
     }
 
-    pub fn property_int_value_cf(&self, column_family: ColumnFamily, name: &str) -> Option<u64> {
-        match self.property_value_cf(column_family, name) {
+    pub fn property_int_value_cf(&self, cf: ColumnFamily, name: &str) -> Option<u64> {
+        match self.property_value_cf(cf, name) {
             Some(value) => value.parse::<u64>().ok(),
             None => None,
         }
