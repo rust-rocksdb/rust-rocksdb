@@ -22,6 +22,7 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
+use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::Path;
 use std::ptr;
@@ -699,7 +700,7 @@ impl DB {
             for (n, h) in cfs_v.iter().zip(cfhandles) {
                 cf_map.write()
                     .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), ColumnFamily { inner: h });
+                    .insert(n.name.clone(), h);
             }
         }
 
@@ -866,15 +867,19 @@ impl DB {
             }
         };
         let cf = unsafe {
-            let cf_handler = ffi_try!(ffi::rocksdb_create_column_family(
+            let cf_handle = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
                 opts.inner,
                 cname.as_ptr(),
             ));
-            let cf = ColumnFamily { inner: cf_handler };
+
             self.cfs.write().map_err(|e| Error::new(e.to_string()))?
-                .insert(name.to_string(), cf);
-            cf
+                .insert(name.to_string(), cf_handle);
+            
+            ColumnFamily { 
+                inner: cf_handle,
+                db: PhantomData,
+            }
         };
         Ok(cf)
     }
@@ -883,7 +888,7 @@ impl DB {
         if let Some(cf) = self.cfs.write().map_err(|e| Error::new(e.to_string()))?
             .remove(name) {
             unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf,));
             }
             Ok(())
         } else {
@@ -895,7 +900,14 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().ok()?.get(name).cloned()
+        self.cfs
+            .read()
+            .ok()?
+            .get(name)
+            .map(|h| ColumnFamily {
+                inner: *h,
+                db: PhantomData
+            })
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -1269,7 +1281,7 @@ impl Drop for DB {
         unsafe {
             if let Ok(cfs) = self.cfs.read() {
                 for cf in cfs.values() {
-                    ffi::rocksdb_column_family_handle_destroy(cf.inner);
+                    ffi::rocksdb_column_family_handle_destroy(*cf);
                 }
             }
             ffi::rocksdb_close(self.inner);
