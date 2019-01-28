@@ -21,14 +21,11 @@ use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
 use comparator::{self, ComparatorCallback, CompareFn};
 use ffi;
-use merge_operator::{
-    self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
-};
+use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeFn,
+                     MergeOperatorCallback};
 use slice_transform::SliceTransform;
-use {
-    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, WriteOptions,
-};
+use {BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+     MemtableFactory, Options, WriteOptions};
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
@@ -177,6 +174,20 @@ impl Options {
         }
     }
 
+    /// If enable_pipelined_write is true, separate write thread queue is
+    /// maintained for WAL write and memtable write. A write thread first enter WAL
+    /// writer queue and then memtable writer queue. Pending thread on the WAL
+    /// writer queue thus only have to wait for previous writers to finish their
+    /// WAL writing but not the memtable writing. Enabling the feature may improve
+    /// write throughput and reduce latency of the prepare phase of two-phase
+    /// commit. db_bench benchmark shows 20% write throughput improvement
+    /// with concurrent writers and WAL enabled
+    pub fn enable_pipelined_write(&self, v: bool) {
+        unsafe {
+            ffi::rocksdb_options_enable_pipelined_write(self.inner, v as c_uchar);
+        }
+    }
+
     /// If true, any column families that didn't exist when opening the database
     /// will be created.
     ///
@@ -294,10 +305,8 @@ impl Options {
         }
     }
 
-    #[deprecated(
-        since = "0.5.0",
-        note = "add_merge_operator has been renamed to set_merge_operator"
-    )]
+    #[deprecated(since = "0.5.0",
+                 note = "add_merge_operator has been renamed to set_merge_operator")]
     pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
         self.set_merge_operator(name, merge_fn, None);
     }
@@ -359,10 +368,7 @@ impl Options {
         unsafe { ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner) }
     }
 
-    #[deprecated(
-        since = "0.5.0",
-        note = "add_comparator has been renamed to set_comparator"
-    )]
+    #[deprecated(since = "0.5.0", note = "add_comparator has been renamed to set_comparator")]
     pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
         self.set_comparator(name, compare_fn);
     }
@@ -544,10 +550,8 @@ impl Options {
     /// let mut opts = Options::default();
     /// opts.set_allow_os_buffer(false);
     /// ```
-    #[deprecated(
-        since = "0.7.0",
-        note = "replaced with set_use_direct_reads/set_use_direct_io_for_flush_and_compaction methods"
-    )]
+    #[deprecated(since = "0.7.0",
+                 note = "replaced with set_use_direct_reads/set_use_direct_io_for_flush_and_compaction methods")]
     pub fn set_allow_os_buffer(&mut self, is_allow: bool) {
         self.set_use_direct_reads(!is_allow);
         self.set_use_direct_io_for_flush_and_compaction(!is_allow);
