@@ -142,8 +142,9 @@ pub struct Snapshot<'a> {
 ///     iter.prev();
 /// }
 /// ```
-pub struct DBRawIterator {
+pub struct DBRawIterator<'a> {
     inner: *mut ffi::rocksdb_iterator_t,
+    db: PhantomData<&'a DB>
 }
 
 /// An iterator over a database or column family, with specifiable
@@ -173,13 +174,13 @@ pub struct DBRawIterator {
 ///     println!("Saw {:?} {:?}", key, value);
 /// }
 /// ```
-pub struct DBIterator {
-    raw: DBRawIterator,
+pub struct DBIterator<'a> {
+    raw: DBRawIterator<'a>,
     direction: Direction,
     just_seeked: bool,
 }
 
-unsafe impl Send for DBIterator {}
+unsafe impl<'a> Send for DBIterator<'a> {}
 
 pub enum Direction {
     Forward,
@@ -194,11 +195,12 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl DBRawIterator {
-    fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
+impl<'a> DBRawIterator<'a> {
+    fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator<'a> {
         unsafe {
             DBRawIterator {
                 inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
+                db: PhantomData
             }
         }
     }
@@ -207,10 +209,11 @@ impl DBRawIterator {
         db: &DB,
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
+    ) -> Result<DBRawIterator<'a>, Error> {
         unsafe {
             Ok(DBRawIterator {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
+                db: PhantomData
             })
         }
     }
@@ -425,7 +428,7 @@ impl DBRawIterator {
     }
 }
 
-impl Drop for DBRawIterator {
+impl<'a> Drop for DBRawIterator<'a> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
@@ -433,8 +436,8 @@ impl Drop for DBRawIterator {
     }
 }
 
-impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+impl<'a> DBIterator<'a> {
+    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
         let mut rv = DBIterator {
             raw: DBRawIterator::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
@@ -449,7 +452,7 @@ impl DBIterator {
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> Result<DBIterator<'a>, Error> {
         let mut rv = DBIterator {
             raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
             direction: Direction::Forward, // blown away by set_mode()
@@ -487,7 +490,7 @@ impl DBIterator {
     }
 }
 
-impl Iterator for DBIterator {
+impl<'a> Iterator for DBIterator<'a> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
@@ -514,8 +517,8 @@ impl Iterator for DBIterator {
     }
 }
 
-impl Into<DBRawIterator> for DBIterator {
-    fn into(self) -> DBRawIterator {
+impl<'a> Into<DBRawIterator<'a>> for DBIterator<'a> {
+    fn into(self) -> DBRawIterator<'a> {
         self.raw
     }
 }
