@@ -740,17 +740,7 @@ impl DB {
     }
 
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let cpath = match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening DB."
-                        .to_owned(),
-                ))
-            }
-        };
-
+        let cpath = to_cpath(path)?;
         let mut length = 0;
 
         unsafe {
@@ -770,7 +760,7 @@ impl DB {
     }
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = to_cpath(path)?;
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(),));
         }
@@ -778,7 +768,7 @@ impl DB {
     }
 
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = to_cpath(path)?;
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
         }
@@ -1416,30 +1406,6 @@ impl DBVector {
     }
 }
 
-/// Retrieves a list of column families names from a given path.
-pub fn get_cf_names<P: AsRef<Path>>(path: P) -> Result<Vec<String>, Error> {
-    let opts = Options::default();
-    let cpath = to_cpath(path)?;
-    let result: Vec<String>;
-
-    unsafe {
-        let mut cflen: size_t = 0;
-        let column_fams_raw = ffi_try!(ffi::rocksdb_list_column_families(
-            opts.inner,
-            cpath.as_ptr() as *const _,
-            &mut cflen,
-        ));
-        let column_fams = slice::from_raw_parts(column_fams_raw, cflen as usize);
-        result = column_fams
-            .iter()
-            .map(|cf| CStr::from_ptr(*cf).to_string_lossy().into_owned())
-            .collect();
-        ffi::rocksdb_list_column_families_destroy(column_fams_raw, cflen);
-    }
-
-    Ok(result)
-}
-
 fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
         Ok(c) => Ok(c),
@@ -1622,30 +1588,4 @@ fn set_option_test() {
         db.set_options(&multiple_options).unwrap();
     }
     assert!(DB::destroy(&Options::default(), path).is_ok());
-}
-
-#[test]
-fn get_cf_names_test() {
-    let path = "_rust_rocksdb_get_cf_names";
-    let opts = Options::default();
-    {
-        let db = DB::open_default(path).unwrap();
-        let cf_one = db.create_cf("one", &opts).unwrap();
-        let result = db.put_cf(cf_one, b"1", b"1");
-        assert!(result.is_ok());
-        let cf_two = db.create_cf("two", &opts).unwrap();
-        let result = db.put_cf(cf_two, b"2", b"2");
-        assert!(result.is_ok());
-    }
-    {
-        let cf_names = get_cf_names(path).unwrap();
-        let cfs = cf_names.iter().map(String::as_str).collect::<Vec<_>>();
-        assert_eq!(cfs, vec!["default", "one", "two"]);
-        let db = DB::open_cf(&opts, path, cfs.as_slice()).unwrap();
-        let cf_one = db.cf_handle("one").unwrap();
-        assert_eq!(db.get_cf(cf_one, b"1").unwrap().unwrap().as_ref(), b"1");
-        let cf_two = db.cf_handle("two").unwrap();
-        assert_eq!(db.get_cf(cf_two, b"2").unwrap().unwrap().as_ref(), b"2");
-    }
-    assert!(DB::destroy(&opts, path).is_ok());
 }
