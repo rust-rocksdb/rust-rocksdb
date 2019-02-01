@@ -38,18 +38,21 @@
 //! }
 //!
 //! fn main() {
-//!    let path = "path/to/rocksdb";
+//!    let path = "_rust_path_to_rocksdb";
 //!    let mut opts = Options::default();
 //!    opts.create_if_missing(true);
 //!    opts.set_merge_operator("test operator", concat_merge, None);
-//!    let db = DB::open(&opts, path).unwrap();
-//!    let p = db.put(b"k1", b"a");
-//!    db.merge(b"k1", b"b");
-//!    db.merge(b"k1", b"c");
-//!    db.merge(b"k1", b"d");
-//!    db.merge(b"k1", b"efg");
-//!    let r = db.get(b"k1");
-//!    assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+//!    {
+//!        let db = DB::open(&opts, path).unwrap();
+//!         let p = db.put(b"k1", b"a");
+//!         db.merge(b"k1", b"b");
+//!         db.merge(b"k1", b"c");
+//!         db.merge(b"k1", b"d");
+//!         db.merge(b"k1", b"efg");
+//!         let r = db.get(b"k1");
+//!         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+//!    }
+//!    let _ = DB::destroy(&opts, path);
 //! }
 //! ```
 

@@ -67,16 +67,18 @@ pub enum DBRecoveryMode {
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, WriteBatch};
+/// use rocksdb::{DB, Options, WriteBatch};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storage1").unwrap();
+/// let path = "_path_for_rocksdb_storage1";
 /// {
+///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatch::default();
 ///     batch.put(b"my key", b"my value");
 ///     batch.put(b"key2", b"value2");
 ///     batch.put(b"key3", b"value3");
 ///     db.write(batch); // Atomically commits the batch
 /// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct WriteBatch {
     inner: *mut ffi::rocksdb_writebatch_t,
@@ -89,11 +91,15 @@ pub struct ReadOptions {
 /// A consistent view of the database at the point of creation.
 ///
 /// ```
-/// use rocksdb::{DB, IteratorMode};
+/// use rocksdb::{DB, IteratorMode, Options};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storage3").unwrap();
-/// let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
-/// let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
+/// let path = "_path_for_rocksdb_storage3";
+/// {
+///     let db = DB::open_default(path).unwrap();
+///     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
+///     let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
 pub struct Snapshot<'a> {
@@ -110,40 +116,44 @@ pub struct Snapshot<'a> {
 /// widely recognised Rust idioms.
 ///
 /// ```
-/// use rocksdb::DB;
+/// use rocksdb::{DB, Options};
 ///
-/// let mut db = DB::open_default("path/for/rocksdb/storage4").unwrap();
-/// let mut iter = db.raw_iterator();
+/// let path = "_path_for_rocksdb_storage4";
+/// {
+///     let db = DB::open_default(path).unwrap();
+///     let mut iter = db.raw_iterator();
 ///
-/// // Forwards iteration
-/// iter.seek_to_first();
-/// while iter.valid() {
-///     println!("Saw {:?} {:?}", iter.key(), iter.value());
-///     iter.next();
+///     // Forwards iteration
+///     iter.seek_to_first();
+///     while iter.valid() {
+///         println!("Saw {:?} {:?}", iter.key(), iter.value());
+///         iter.next();
+///     }
+///
+///     // Reverse iteration
+///     iter.seek_to_last();
+///     while iter.valid() {
+///         println!("Saw {:?} {:?}", iter.key(), iter.value());
+///         iter.prev();
+///     }
+///
+///     // Seeking
+///     iter.seek(b"my key");
+///     while iter.valid() {
+///         println!("Saw {:?} {:?}", iter.key(), iter.value());
+///         iter.next();
+///     }
+///
+///     // Reverse iteration from key
+///     // Note, use seek_for_prev when reversing because if this key doesn't exist,
+///     // this will make the iterator start from the previous key rather than the next.
+///     iter.seek_for_prev(b"my key");
+///     while iter.valid() {
+///         println!("Saw {:?} {:?}", iter.key(), iter.value());
+///         iter.prev();
+///     }
 /// }
-///
-/// // Reverse iteration
-/// iter.seek_to_last();
-/// while iter.valid() {
-///     println!("Saw {:?} {:?}", iter.key(), iter.value());
-///     iter.prev();
-/// }
-///
-/// // Seeking
-/// iter.seek(b"my key");
-/// while iter.valid() {
-///     println!("Saw {:?} {:?}", iter.key(), iter.value());
-///     iter.next();
-/// }
-///
-/// // Reverse iteration from key
-/// // Note, use seek_for_prev when reversing because if this key doesn't exist,
-/// // this will make the iterator start from the previous key rather than the next.
-/// iter.seek_for_prev(b"my key");
-/// while iter.valid() {
-///     println!("Saw {:?} {:?}", iter.key(), iter.value());
-///     iter.prev();
-/// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct DBRawIterator {
     inner: *mut ffi::rocksdb_iterator_t,
@@ -153,28 +163,32 @@ pub struct DBRawIterator {
 /// ranges and direction.
 ///
 /// ```
-/// use rocksdb::{DB, Direction, IteratorMode};
+/// use rocksdb::{DB, Direction, IteratorMode, Options};
 ///
-/// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
-/// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
-/// }
-/// iter = db.iterator(IteratorMode::End);  // Always iterates backward
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
-/// }
-/// iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
-/// }
+/// let path = "_path_for_rocksdb_storage2";
+/// {
+///     let db = DB::open_default(path).unwrap();
+///     let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
+///     for (key, value) in iter {
+///         println!("Saw {:?} {:?}", key, value);
+///     }
+///     iter = db.iterator(IteratorMode::End);  // Always iterates backward
+///     for (key, value) in iter {
+///         println!("Saw {:?} {:?}", key, value);
+///     }
+///     iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
+///     for (key, value) in iter {
+///         println!("Saw {:?} {:?}", key, value);
+///     }
 ///
-/// // You can seek with an existing Iterator instance, too
-/// iter = db.iterator(IteratorMode::Start);
-/// iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
-/// for (key, value) in iter {
-///     println!("Saw {:?} {:?}", key, value);
+///     // You can seek with an existing Iterator instance, too
+///     iter = db.iterator(IteratorMode::Start);
+///     iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
+///     for (key, value) in iter {
+///         println!("Saw {:?} {:?}", key, value);
+///     }
 /// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct DBIterator {
     raw: DBRawIterator,
@@ -228,30 +242,31 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, Options};
     ///
-    /// let mut db = DB::open_default("path/for/rocksdb/storage5").unwrap();
-    /// let mut iter = db.raw_iterator();
+    /// let path = "_path_for_rocksdb_storage5";
+    /// {
+    ///     let db = DB::open_default(path).unwrap();
+    ///     let mut iter = db.raw_iterator();
     ///
-    /// // Iterate all keys from the start in lexicographic order
+    ///     // Iterate all keys from the start in lexicographic order
+    ///     iter.seek_to_first();
     ///
-    /// iter.seek_to_first();
+    ///     while iter.valid() {
+    ///         println!("{:?} {:?}", iter.key(), iter.value());
+    ///         iter.next();
+    ///     }
     ///
-    /// while iter.valid() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());
+    ///     // Read just the first key
+    ///     iter.seek_to_first();
     ///
-    ///    iter.next();
+    ///     if iter.valid() {
+    ///         println!("{:?} {:?}", iter.key(), iter.value());
+    ///     } else {
+    ///         // There are no keys in the database
+    ///     }
     /// }
-    ///
-    /// // Read just the first key
-    ///
-    /// iter.seek_to_first();
-    ///
-    /// if iter.valid() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());
-    /// } else {
-    ///    // There are no keys in the database
-    /// }
+    /// let _ = DB::destroy(&Options::default(), path);
     /// ```
     pub fn seek_to_first(&mut self) {
         unsafe {
@@ -264,30 +279,31 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, Options};
     ///
-    /// let mut db = DB::open_default("path/for/rocksdb/storage6").unwrap();
-    /// let mut iter = db.raw_iterator();
+    /// let path = "_path_for_rocksdb_storage6";
+    /// {
+    ///     let db = DB::open_default(path).unwrap();
+    ///     let mut iter = db.raw_iterator();
     ///
-    /// // Iterate all keys from the end in reverse lexicographic order
+    ///     // Iterate all keys from the end in reverse lexicographic order
+    ///     iter.seek_to_last();
     ///
-    /// iter.seek_to_last();
+    ///     while iter.valid() {
+    ///         println!("{:?} {:?}", iter.key(), iter.value());
+    ///         iter.prev();
+    ///     }
     ///
-    /// while iter.valid() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());
+    ///     // Read just the last key
+    ///     iter.seek_to_last();
     ///
-    ///    iter.prev();
+    ///     if iter.valid() {
+    ///         println!("{:?} {:?}", iter.key(), iter.value());
+    ///     } else {
+    ///         // There are no keys in the database
+    ///     }
     /// }
-    ///
-    /// // Read just the last key
-    ///
-    /// iter.seek_to_last();
-    ///
-    /// if iter.valid() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());
-    /// } else {
-    ///    // There are no keys in the database
-    /// }
+    /// let _ = DB::destroy(&Options::default(), path);
     /// ```
     pub fn seek_to_last(&mut self) {
         unsafe {
@@ -303,20 +319,23 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, Options};
     ///
-    /// let mut db = DB::open_default("path/for/rocksdb/storage7").unwrap();
-    /// let mut iter = db.raw_iterator();
+    /// let path = "_path_for_rocksdb_storage7";
+    /// {
+    ///     let db = DB::open_default(path).unwrap();
+    ///     let mut iter = db.raw_iterator();
     ///
-    /// // Read the first key that starts with 'a'
+    ///     // Read the first key that starts with 'a'
+    ///     iter.seek(b"a");
     ///
-    /// iter.seek(b"a");
-    ///
-    /// if iter.valid() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());
-    /// } else {
-    ///    // There are no keys in the database
+    ///     if iter.valid() {
+    ///         println!("{:?} {:?}", iter.key(), iter.value());
+    ///     } else {
+    ///         // There are no keys in the database
+    ///     }
     /// }
+    /// let _ = DB::destroy(&Options::default(), path);
     /// ```
     pub fn seek(&mut self, key: &[u8]) {
         unsafe {
@@ -337,20 +356,24 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, Options};
     ///
-    /// let mut db = DB::open_default("path/for/rocksdb/storage8").unwrap();
-    /// let mut iter = db.raw_iterator();
+    /// let path = "_path_for_rocksdb_storage8";
+    /// {
+    ///     let db = DB::open_default(path).unwrap();
+    ///     let mut iter = db.raw_iterator();
     ///
-    /// // Read the last key that starts with 'a'
+    ///     // Read the last key that starts with 'a'
+    ///     iter.seek_for_prev(b"b");
     ///
-    /// iter.seek_for_prev(b"b");
-    ///
-    /// if iter.valid() {
-    ///    println!("{:?} {:?}", iter.key(), iter.value());
-    /// } else {
-    ///    // There are no keys in the database
+    ///     if iter.valid() {
+    ///         println!("{:?} {:?}", iter.key(), iter.value());
+    ///     } else {
+    ///         // There are no keys in the database
+    ///     }
     /// }
+    /// let _ = DB::destroy(&Options::default(), path);
+    /// ```
     pub fn seek_for_prev(&mut self, key: &[u8]) {
         unsafe {
             ffi::rocksdb_iter_seek_for_prev(
@@ -640,9 +663,7 @@ impl DB {
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
-                "Failed to create RocksDB\
-                 directory: `{:?}`.",
-                e
+                "Failed to create RocksDB directory: `{:?}`.", e
             )));
         }
 
@@ -719,17 +740,7 @@ impl DB {
     }
 
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let cpath = match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening DB."
-                        .to_owned(),
-                ))
-            }
-        };
-
+        let cpath = to_cpath(path)?;
         let mut length = 0;
 
         unsafe {
@@ -749,7 +760,7 @@ impl DB {
     }
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = to_cpath(path)?;
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(),));
         }
@@ -757,7 +768,7 @@ impl DB {
     }
 
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
-        let cpath = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let cpath = to_cpath(path)?;
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
         }
@@ -1403,6 +1414,15 @@ impl DBVector {
     }
 }
 
+fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
+    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
+        Ok(c) => Ok(c),
+        Err(_) => Err(Error::new(
+            "Failed to convert path to CString when opening DB.".to_owned(),
+        )),
+    }
+}
+
 #[test]
 fn test_db_vector() {
     use std::mem;
@@ -1433,17 +1453,22 @@ fn external() {
 #[test]
 fn errors_do_stuff() {
     let path = "_rust_rocksdb_error";
-    let _db = DB::open_default(path).unwrap();
-    let opts = Options::default();
-    // The DB will still be open when we try to destroy it and the lock should fail.
-    match DB::destroy(&opts, path) {
-        Err(s) => {
-            let message = s.to_string();
-            assert!(message.find("IO error:").is_some());
-            assert!(message.find("_rust_rocksdb_error/LOCK:").is_some());
+    {
+        let _db = DB::open_default(path).unwrap();
+        let opts = Options::default();
+        // The DB will still be open when we try to destroy it and the lock should fail.
+        match DB::destroy(&opts, path) {
+            Err(s) => {
+                let message = s.to_string();
+                assert!(message.find("IO error:").is_some());
+                assert!(message.find("_rust_rocksdb_error/LOCK:").is_some());
+            }
+            Ok(_) => panic!("should fail"),
         }
-        Ok(_) => panic!("should fail"),
     }
+    let opts = Options::default();
+    let result = DB::destroy(&opts, path);
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -1570,4 +1595,5 @@ fn set_option_test() {
         ];
         db.set_options(&multiple_options).unwrap();
     }
+    assert!(DB::destroy(&Options::default(), path).is_ok());
 }
