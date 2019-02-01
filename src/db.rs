@@ -83,7 +83,7 @@ pub struct WriteBatch {
 }
 
 pub struct ReadOptions {
-    inner: *mut ffi::rocksdb_readoptions_t,
+    pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
 }
 
 /// A consistent view of the database at the point of creation.
@@ -110,7 +110,7 @@ pub struct Snapshot<'a> {
 /// widely recognised Rust idioms.
 ///
 /// ```
-/// use rocksdb::DB;
+/// use rocksdb::{DB, CreateIter};
 ///
 /// let mut db = DB::open_default("path/for/rocksdb/storage4").unwrap();
 /// let mut iter = db.raw_iterator();
@@ -146,14 +146,14 @@ pub struct Snapshot<'a> {
 /// }
 /// ```
 pub struct DBRawIterator {
-    inner: *mut ffi::rocksdb_iterator_t,
+    pub(crate) inner: *mut ffi::rocksdb_iterator_t,
 }
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///
 /// ```
-/// use rocksdb::{DB, Direction, IteratorMode};
+/// use rocksdb::{DB, Direction, IteratorMode, CreateIter};
 ///
 /// let mut db = DB::open_default("path/for/rocksdb/storage2").unwrap();
 /// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
@@ -197,27 +197,101 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl DBRawIterator {
-    fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
-        unsafe {
-            DBRawIterator {
-                inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
-            }
-        }
-    }
+pub trait CreateIter {
+    fn raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator;
 
-    fn new_cf(
-        db: &DB,
+    fn raw_iter_cf(
+        &self,
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
-        unsafe {
-            Ok(DBRawIterator {
-                inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
-            })
-        }
+    ) -> Result<DBRawIterator, Error>;
+
+    fn iter(&self, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+        let mut rv = DBIterator {
+            raw: self.raw_iter(readopts),
+            direction: Direction::Forward, // blown away by set_mode()
+            just_seeked: false,
+        };
+        rv.set_mode(mode);
+        rv
     }
 
+    fn iter_cf(
+        &self,
+        cf_handle: ColumnFamily,
+        readopts: &ReadOptions,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
+        let mut rv = DBIterator {
+            raw: self.raw_iter_cf(cf_handle, readopts)?,
+            direction: Direction::Forward, // blown away by set_mode()
+            just_seeked: false,
+        };
+        rv.set_mode(mode);
+        Ok(rv)
+    }
+    fn iterator(&self, mode: IteratorMode) -> DBIterator {
+        let opts = ReadOptions::default();
+        self.iter(&opts, mode)
+    }
+
+    fn full_iterator(&self, mode: IteratorMode) -> DBIterator {
+        let mut opts = ReadOptions::default();
+        opts.set_total_order_seek(true);
+        self.iter(&opts, mode)
+    }
+
+    fn prefix_iterator(&self, prefix: &[u8]) -> DBIterator {
+        let mut opts = ReadOptions::default();
+        opts.set_prefix_same_as_start(true);
+        self.iter(&opts, IteratorMode::From(prefix, Direction::Forward))
+    }
+
+    fn iterator_cf(
+        &self,
+        cf_handle: ColumnFamily,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
+        let opts = ReadOptions::default();
+        self.iter_cf(cf_handle, &opts, mode)
+    }
+
+    fn full_iterator_cf(
+        &self,
+        cf_handle: ColumnFamily,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_total_order_seek(true);
+        self.iter_cf(cf_handle, &opts, mode)
+    }
+
+    fn prefix_iterator_cf(
+        &self,
+        cf_handle: ColumnFamily,
+        prefix: &[u8],
+    ) -> Result<DBIterator, Error> {
+        let mut opts = ReadOptions::default();
+        opts.set_prefix_same_as_start(true);
+        self.iter_cf(
+            cf_handle,
+            &opts,
+            IteratorMode::From(prefix, Direction::Forward),
+        )
+    }
+
+    fn raw_iterator(&self) -> DBRawIterator {
+        let opts = ReadOptions::default();
+        self.raw_iter(&opts)
+    }
+
+    fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
+        let opts = ReadOptions::default();
+        self.raw_iter_cf(cf_handle, &opts)
+    }
+}
+
+impl DBRawIterator {
     /// Returns true if the iterator is valid.
     pub fn valid(&self) -> bool {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
@@ -228,7 +302,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, CreateIter};
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage5").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -264,7 +338,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, CreateIter};
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage6").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -303,7 +377,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, CreateIter};
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage7").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -337,7 +411,7 @@ impl DBRawIterator {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::DB;
+    /// use rocksdb::{DB, CreateIter};
     ///
     /// let mut db = DB::open_default("path/for/rocksdb/storage8").unwrap();
     /// let mut iter = db.raw_iterator();
@@ -437,31 +511,6 @@ impl Drop for DBRawIterator {
 }
 
 impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
-        let mut rv = DBIterator {
-            raw: DBRawIterator::new(db, readopts),
-            direction: Direction::Forward, // blown away by set_mode()
-            just_seeked: false,
-        };
-        rv.set_mode(mode);
-        rv
-    }
-
-    fn new_cf(
-        db: &DB,
-        cf_handle: ColumnFamily,
-        readopts: &ReadOptions,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
-        let mut rv = DBIterator {
-            raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
-            direction: Direction::Forward, // blown away by set_mode()
-            just_seeked: false,
-        };
-        rv.set_mode(mode);
-        Ok(rv)
-    }
-
     pub fn set_mode(&mut self, mode: IteratorMode) {
         match mode {
             IteratorMode::Start => {
@@ -535,7 +584,7 @@ impl<'a> Snapshot<'a> {
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+        self.db.iter(&readopts, mode)
     }
 
     pub fn iterator_cf(
@@ -545,19 +594,19 @@ impl<'a> Snapshot<'a> {
     ) -> Result<DBIterator, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+        self.db.iter_cf(cf_handle, &readopts, mode)
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBRawIterator::new(self.db, &readopts)
+        self.db.raw_iter(&readopts)
     }
 
     pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
         let mut readopts = ReadOptions::default();
         readopts.set_snapshot(self);
-        DBRawIterator::new_cf(self.db, cf_handle, &readopts)
+        self.db.raw_iter_cf(cf_handle, &readopts)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
@@ -634,7 +683,7 @@ impl DB {
                     "Failed to convert path to CString \
                      when opening DB."
                         .to_owned(),
-                ))
+                ));
             }
         };
 
@@ -701,7 +750,8 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map.write()
+                cf_map
+                    .write()
                     .map_err(|e| Error::new(e.to_string()))?
                     .insert(n.name.clone(), ColumnFamily { inner: h });
             }
@@ -715,6 +765,7 @@ impl DB {
             inner: db,
             cfs: cf_map,
             path: path.to_path_buf(),
+            is_base_db: false,
         })
     }
 
@@ -726,7 +777,7 @@ impl DB {
                     "Failed to convert path to CString \
                      when opening DB."
                         .to_owned(),
-                ))
+                ));
             }
         };
 
@@ -866,7 +917,7 @@ impl DB {
                     "Failed to convert path to CString \
                      when opening rocksdb"
                         .to_owned(),
-                ))
+                ));
             }
         };
         let cf = unsafe {
@@ -876,7 +927,9 @@ impl DB {
                 cname.as_ptr(),
             ));
             let cf = ColumnFamily { inner: cf_handler };
-            self.cfs.write().map_err(|e| Error::new(e.to_string()))?
+            self.cfs
+                .write()
+                .map_err(|e| Error::new(e.to_string()))?
                 .insert(name.to_string(), cf);
             cf
         };
@@ -884,15 +937,19 @@ impl DB {
     }
 
     pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.write().map_err(|e| Error::new(e.to_string()))?
-            .remove(name) {
+        if let Some(cf) = self
+            .cfs
+            .write()
+            .map_err(|e| Error::new(e.to_string()))?
+            .remove(name)
+        {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
             }
             Ok(())
         } else {
             Err(Error::new(
-                format!("Invalid column family: {}", name).to_owned()
+                format!("Invalid column family: {}", name).to_owned(),
             ))
         }
     }
@@ -900,70 +957,6 @@ impl DB {
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
         self.cfs.read().ok()?.get(name).cloned()
-    }
-
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let opts = ReadOptions::default();
-        DBIterator::new(self, &opts, mode)
-    }
-
-    /// Opens an interator with `set_total_order_seek` enabled.
-    /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
-    /// with a Hash-based implementation.
-    pub fn full_iterator(&self, mode: IteratorMode) -> DBIterator {
-        let mut opts = ReadOptions::default();
-        opts.set_total_order_seek(true);
-        DBIterator::new(self, &opts, mode)
-    }
-
-    pub fn prefix_iterator(&self, prefix: &[u8]) -> DBIterator {
-        let mut opts = ReadOptions::default();
-        opts.set_prefix_same_as_start(true);
-        DBIterator::new(self, &opts, IteratorMode::From(prefix, Direction::Forward))
-    }
-
-    pub fn iterator_cf(
-        &self,
-        cf_handle: ColumnFamily,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
-        let opts = ReadOptions::default();
-        DBIterator::new_cf(self, cf_handle, &opts, mode)
-    }
-
-    pub fn full_iterator_cf(
-        &self,
-        cf_handle: ColumnFamily,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
-        let mut opts = ReadOptions::default();
-        opts.set_total_order_seek(true);
-        DBIterator::new_cf(self, cf_handle, &opts, mode)
-    }
-
-    pub fn prefix_iterator_cf(
-        &self,
-        cf_handle: ColumnFamily,
-        prefix: &[u8]
-    ) -> Result<DBIterator, Error> {
-        let mut opts = ReadOptions::default();
-        opts.set_prefix_same_as_start(true);
-        DBIterator::new_cf(
-            self,
-            cf_handle,
-            &opts,
-            IteratorMode::From(prefix, Direction::Forward),
-        )
-    }
-
-    pub fn raw_iterator(&self) -> DBRawIterator {
-        let opts = ReadOptions::default();
-        DBRawIterator::new(self, &opts)
-    }
-
-    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
-        let opts = ReadOptions::default();
-        DBRawIterator::new_cf(self, cf_handle, &opts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -1154,6 +1147,28 @@ impl DB {
     }
 }
 
+impl CreateIter for DB {
+    fn raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
+        unsafe {
+            DBRawIterator {
+                inner: ffi::rocksdb_create_iterator(self.inner, readopts.inner),
+            }
+        }
+    }
+
+    fn raw_iter_cf(
+        &self,
+        cf_handle: ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<DBRawIterator, Error> {
+        unsafe {
+            Ok(DBRawIterator {
+                inner: ffi::rocksdb_create_iterator_cf(self.inner, readopts.inner, cf_handle.inner),
+            })
+        }
+    }
+}
+
 impl WriteBatch {
     pub fn len(&self) -> usize {
         unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
@@ -1284,7 +1299,11 @@ impl Drop for DB {
                     ffi::rocksdb_column_family_handle_destroy(cf.inner);
                 }
             }
-            ffi::rocksdb_close(self.inner);
+            if self.is_base_db {
+                ffi::rocksdb_optimistictransactiondb_close_base_db(self.inner);
+            } else {
+                ffi::rocksdb_close(self.inner);
+            }
         }
     }
 }

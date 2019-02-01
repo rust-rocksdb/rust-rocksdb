@@ -15,7 +15,7 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::DB;
+use rocksdb::{DB,CreateIter};
 use util::DBPath;
 
 #[test]

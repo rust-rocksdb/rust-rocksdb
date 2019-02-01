@@ -59,13 +59,17 @@ mod comparator;
 mod db;
 mod db_options;
 pub mod merge_operator;
+mod optimistictransactiondb;
 mod slice_transform;
+mod transaction;
 
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{
-    new_bloom_filter, DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator,
+    new_bloom_filter, CreateIter, DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator,
     DBRecoveryMode, DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
 };
+pub use optimistictransactiondb::OptimistictransactionDB;
+pub use transaction::Transaction;
 
 pub use slice_transform::SliceTransform;
 
@@ -83,6 +87,7 @@ pub struct DB {
     inner: *mut ffi::rocksdb_t,
     cfs: Arc<RwLock<BTreeMap<String, ColumnFamily>>>,
     path: PathBuf,
+    is_base_db: bool,
 }
 
 /// A descriptor for a RocksDB column family.

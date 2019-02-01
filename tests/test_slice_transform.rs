@@ -1,7 +1,7 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::{Options, SliceTransform, DB};
+use rocksdb::{CreateIter, Options, SliceTransform, DB};
 use util::DBPath;
 
 #[test]
