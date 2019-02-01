@@ -938,7 +938,7 @@ impl DB {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
     }
 
-    pub fn get_pinned_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBPinnableSlice>, Error> {
+    pub fn get_pinned_opt<T: AsRef<[u8]>>(&self, key: T, readopts: &ReadOptions) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
@@ -950,6 +950,7 @@ impl DB {
             ));
         }
 
+        let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_get_pinned(
                 self.inner,
@@ -965,14 +966,14 @@ impl DB {
         }
     }
 
-    pub fn get_pinned(&self, key: &[u8]) -> Result<Option<DBPinnableSlice>, Error> {
+    pub fn get_pinned<T: AsRef<[u8]>>(&self, key: T) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_opt(key, &ReadOptions::default())
     }
 
-    pub fn get_pinned_cf_opt(
+    pub fn get_pinned_cf_opt<T: AsRef<[u8]>>(
         &self,
         cf: ColumnFamily,
-        key: &[u8],
+        key: T,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
@@ -986,6 +987,7 @@ impl DB {
             ));
         }
 
+        let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_get_pinned_cf(
                 self.inner,
@@ -1002,7 +1004,7 @@ impl DB {
         }
     }
 
-    pub fn get_pinned_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBPinnableSlice>, Error> {
+    pub fn get_pinned_cf<T: AsRef<[u8]>>(&self, cf: ColumnFamily, key: T) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
@@ -1668,6 +1670,13 @@ fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
 pub struct DBPinnableSlice<'a> {
     ptr: *mut ffi::rocksdb_pinnableslice_t,
     db: PhantomData<&'a DB>
+}
+
+impl<'a> AsRef<[u8]> for DBPinnableSlice<'a> {
+    fn as_ref(&self) -> &[u8] {
+        // Implement this via Deref so as not to repeat ourselves
+        &*self
+    }
 }
 
 impl<'a> Deref for DBPinnableSlice<'a> {
