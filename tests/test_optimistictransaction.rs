@@ -1,14 +1,14 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::{OptimistictransactionDB,CreateIter};
+use rocksdb::{OptimisticTransactionDB,CreateIter};
 use util::DBPath;
 
 #[test]
 pub fn test_optimistictransaction() {
     let n = DBPath::new("optimistictransaction");
     {
-        let db = OptimistictransactionDB::open_default(&n).unwrap();
+        let db = OptimisticTransactionDB::open_default(&n).unwrap();
 
         let trans = db.transaction_default();
         

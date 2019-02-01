@@ -10,23 +10,23 @@ use std::ptr;
 use std::str;
 use std::sync::{Arc, RwLock};
 
-pub struct OptimistictransactionDB {
+pub struct OptimisticTransactionDB {
     inner: *mut ffi::rocksdb_optimistictransactiondb_t,
     cfs: Arc<RwLock<BTreeMap<String, ColumnFamily>>>,
     path: PathBuf,
 }
 
-impl OptimistictransactionDB {
+impl OptimisticTransactionDB {
     /// Open a database with default options.
-    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<OptimistictransactionDB, Error> {
+    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<OptimisticTransactionDB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        OptimistictransactionDB::open(&opts, path)
+        OptimisticTransactionDB::open(&opts, path)
     }
 
     /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<OptimistictransactionDB, Error> {
-        OptimistictransactionDB::open_cf(opts, path, &[])
+    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<OptimisticTransactionDB, Error> {
+        OptimisticTransactionDB::open_cf(opts, path, &[])
     }
 
     /// Open a database with the given database options and column family names.
@@ -36,14 +36,14 @@ impl OptimistictransactionDB {
         opts: &Options,
         path: P,
         cfs: &[&str],
-    ) -> Result<OptimistictransactionDB, Error> {
+    ) -> Result<OptimisticTransactionDB, Error> {
         let cfs_v = cfs
             .to_vec()
             .iter()
             .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
             .collect();
 
-        OptimistictransactionDB::open_cf_descriptors(opts, path, cfs_v)
+        OptimisticTransactionDB::open_cf_descriptors(opts, path, cfs_v)
     }
 
     /// Open a database with the given database options and column family names/options.
@@ -51,7 +51,7 @@ impl OptimistictransactionDB {
         opts: &Options,
         path: P,
         cfs: Vec<ColumnFamilyDescriptor>,
-    ) -> Result<OptimistictransactionDB, Error> {
+    ) -> Result<OptimisticTransactionDB, Error> {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
@@ -140,7 +140,7 @@ impl OptimistictransactionDB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        Ok(OptimistictransactionDB {
+        Ok(OptimisticTransactionDB {
             inner: db,
             cfs: cf_map,
             path: path.to_path_buf(),
@@ -186,7 +186,7 @@ impl OptimistictransactionDB {
     }
 }
 
-impl Drop for OptimistictransactionDB {
+impl Drop for OptimisticTransactionDB {
     fn drop(&mut self) {
         unsafe {
             if let Ok(cfs) = self.cfs.read() {
