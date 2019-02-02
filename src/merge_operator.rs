@@ -368,7 +368,7 @@ mod test {
                     let _ = db.get(b"k2");
                 }
             }
-            db.compact_range(None, None);
+            db.compact_range(None::<&[u8]>, None::<&[u8]>);
             let d1 = db.clone();
             let d2 = db.clone();
             let d3 = db.clone();
@@ -399,7 +399,7 @@ mod test {
                         let _ = d2.get(b"k2");
                     }
                 }
-                d2.compact_range(None, None);
+                d2.compact_range(None::<&[u8]>, None::<&[u8]>);
             });
             h2.join().unwrap();
             let h3 = thread::spawn(move || {
