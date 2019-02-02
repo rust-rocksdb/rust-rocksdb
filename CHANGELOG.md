@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.11.0 (2018-01-10)
+## 0.11.0 (2019-01-10)
 
 ### Announcements
 
 * This is the first release under the new [Maintainership](MAINTAINERSHIP.md) model.
-  Three contributors have been selected to help maintain this library -- Oleksandr Anyshchenko ([@aleksus](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
+  Three contributors have been selected to help maintain this library -- Oleksandr Anyshchenko ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
 
 * A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "staffed", it may help to collaborate on changes to `rust-rocksdb`.
 
