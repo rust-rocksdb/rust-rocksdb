@@ -533,9 +533,8 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+        let readopts = ReadOptions::default();
+        self.iterator_opt(mode, readopts)
     }
 
     pub fn iterator_cf(
@@ -543,31 +542,61 @@ impl<'a> Snapshot<'a> {
         cf_handle: ColumnFamily,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
-        let mut readopts = ReadOptions::default();
+        let readopts = ReadOptions::default();
+        self.iterator_cf_opt(cf_handle, readopts, mode)
+    }
+
+    pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator {
+        readopts.set_snapshot(self);
+        DBIterator::new(self.db, &readopts, mode)
+    }
+
+    pub fn iterator_cf_opt(
+        &self,
+        cf_handle: ColumnFamily,
+        mut readopts: ReadOptions,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
         readopts.set_snapshot(self);
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
-        let mut readopts = ReadOptions::default();
+        let readopts = ReadOptions::default();
+        self.raw_iterator_opt(readopts)
+    }
+
+    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
+        let readopts = ReadOptions::default();
+        self.raw_iterator_cf_opt(cf_handle, readopts)
+    }
+
+    pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new(self.db, &readopts)
     }
 
-    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
-        let mut readopts = ReadOptions::default();
+    pub fn raw_iterator_cf_opt(&self, cf_handle: ColumnFamily, mut readopts: ReadOptions) -> Result<DBRawIterator, Error> {
         readopts.set_snapshot(self);
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let mut readopts = ReadOptions::default();
+        let readopts = ReadOptions::default();
+        self.get_opt(key, readopts)
+    }
+
+    pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
+        let readopts = ReadOptions::default();
+        self.get_cf_opt(cf, key, readopts)
+    }
+
+    pub fn get_opt(&self, key: &[u8], mut readopts: ReadOptions) -> Result<Option<DBVector>, Error> {
         readopts.set_snapshot(self);
         self.db.get_opt(key, &readopts)
     }
 
-    pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let mut readopts = ReadOptions::default();
+    pub fn get_cf_opt(&self, cf: ColumnFamily, key: &[u8], mut readopts: ReadOptions) -> Result<Option<DBVector>, Error> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key, &readopts)
     }
@@ -914,8 +943,12 @@ impl DB {
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let opts = ReadOptions::default();
-        DBIterator::new(self, &opts, mode)
+        let readopts = ReadOptions::default();
+        self.iterator_opt(mode, &readopts)
+    }
+
+    pub fn iterator_opt(&self, mode: IteratorMode, readopts: &ReadOptions) -> DBIterator {
+        DBIterator::new(self, &readopts, mode)
     }
 
     /// Opens an interator with `set_total_order_seek` enabled.
