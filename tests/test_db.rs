@@ -39,8 +39,7 @@ fn external() {
     {
         let db = DB::open_default(&path).unwrap();
         
-        let p = db.put(b"k1", b"v1111");
-        assert!(p.is_ok());
+        assert!(db.put(b"k1", b"v1111").is_ok());
 
         let r: Result<Option<DBVector>, Error> = db.get(b"k1");
 
@@ -82,8 +81,7 @@ fn writebatch_works() {
             assert_eq!(batch.len(), 1);
             assert!(!batch.is_empty());
             assert!(db.get(b"k1").unwrap().is_none());
-            let p = db.write(batch);
-            assert!(p.is_ok());
+            assert!(db.write(batch).is_ok());
             let r: Result<Option<DBVector>, Error> = db.get(b"k1");
             assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
         }
@@ -93,8 +91,7 @@ fn writebatch_works() {
             let _ = batch.delete(b"k1");
             assert_eq!(batch.len(), 1);
             assert!(!batch.is_empty());
-            let p = db.write(batch);
-            assert!(p.is_ok());
+            assert!(db.write(batch).is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
         }
         {
@@ -137,8 +134,7 @@ fn snapshot_test() {
         assert!(db.put(b"k1", b"v1111").is_ok());
 
         let snap = db.snapshot();
-        let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert!(snap.get(b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         assert!(db.put(b"k2", b"v2222").is_ok());
         
