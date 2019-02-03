@@ -20,7 +20,6 @@ mod util;
 use libc::{size_t};
 
 use rocksdb::{DB, DBVector, Error, IteratorMode, Options, WriteBatch};
-use std::str;
 use util::DBPath;
 
 #[test]
@@ -35,14 +34,20 @@ fn test_db_vector() {
 
 #[test]
 fn external() {
-  let path = DBPath::new("_rust_rocksdb_externaltest");
-  let db = DB::open_default(&path).unwrap();
-  let p = db.put(b"k1", b"v1111");
-  assert!(p.is_ok());
-  let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-  assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
-  assert!(db.delete(b"k1").is_ok());
-  assert!(db.get(b"k1").unwrap().is_none());
+    let path = DBPath::new("_rust_rocksdb_externaltest");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+        
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
+    }
 }
 
 #[test]
@@ -107,20 +112,18 @@ fn writebatch_works() {
 fn iterator_test() {
     let path = DBPath::new("_rust_rocksdb_iteratortest");
     {
+        let data = [(b"k1", b"v1111"), (b"k2", b"v2222"), (b"k3", b"v3333")];
         let db = DB::open_default(&path).unwrap();
-        let p = db.put(b"k1", b"v1111");
-        assert!(p.is_ok());
-        let p = db.put(b"k2", b"v2222");
-        assert!(p.is_ok());
-        let p = db.put(b"k3", b"v3333");
-        assert!(p.is_ok());
+
+        for (key, value) in &data {
+            assert!(db.put(key, value).is_ok());
+        }
+
         let iter = db.iterator(IteratorMode::Start);
-        for (k, v) in iter {
-            println!(
-                "Hello {}: {}",
-                str::from_utf8(&*k).unwrap(),
-                str::from_utf8(&*v).unwrap()
-            );
+
+        for (idx, (db_key, db_value)) in iter.enumerate() {
+            let (key, value) = data[idx];
+            assert_eq!((&key[..], &value[..]), (db_key.as_ref(), db_value.as_ref()));
         }
     }
 }
@@ -130,16 +133,15 @@ fn snapshot_test() {
     let path = DBPath::new("_rust_rocksdb_snapshottest");
     {
         let db = DB::open_default(&path).unwrap();
-        let p = db.put(b"k1", b"v1111");
-        assert!(p.is_ok());
+        
+        assert!(db.put(b"k1", b"v1111").is_ok());
 
         let snap = db.snapshot();
         let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
-        let p = db.put(b"k2", b"v2222");
-        assert!(p.is_ok());
-
+        assert!(db.put(b"k2", b"v2222").is_ok());
+        
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
     }
