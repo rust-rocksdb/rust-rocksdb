@@ -213,7 +213,7 @@ pub fn test_prefix_iterator_uses_full_prefix() {
 
     // Explanation: `db.prefix_iterator` sets the underlying
     // options to seek to the first key that matches the *entire*
-    // prefix. From there, the iterator will continue to read pairs
+    // `prefix`. From there, the iterator will continue to read pairs
     // as long as the prefix extracted from `key` matches the 
     // prefix extracted from `prefix`.
 
