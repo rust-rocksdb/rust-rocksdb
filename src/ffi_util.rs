@@ -26,9 +26,9 @@ pub fn error_message(ptr: *const c_char) -> String {
     s
 }
 
-pub fn opt_bytes_to_ptr(opt: Option<&[u8]>) -> *const c_char {
+pub fn opt_bytes_to_ptr<T: AsRef<[u8]>>(opt: Option<T>) -> *const c_char {
     match opt {
-        Some(v) => v.as_ptr() as *const c_char,
+        Some(v) => v.as_ref().as_ptr() as *const c_char,
         None => ptr::null(),
     }
 }

@@ -22,16 +22,13 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
+use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
 use std::sync::{Arc, RwLock};
-
-pub fn new_bloom_filter(bits: c_int) -> *mut ffi::rocksdb_filterpolicy_t {
-    unsafe { ffi::rocksdb_filterpolicy_create_bloom(bits) }
-}
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
@@ -155,8 +152,9 @@ pub struct Snapshot<'a> {
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct DBRawIterator {
+pub struct DBRawIterator<'a> {
     inner: *mut ffi::rocksdb_iterator_t,
+    db: PhantomData<&'a DB>
 }
 
 /// An iterator over a database or column family, with specifiable
@@ -190,13 +188,13 @@ pub struct DBRawIterator {
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct DBIterator {
-    raw: DBRawIterator,
+pub struct DBIterator<'a> {
+    raw: DBRawIterator<'a>,
     direction: Direction,
     just_seeked: bool,
 }
 
-unsafe impl Send for DBIterator {}
+unsafe impl<'a> Send for DBIterator<'a> {}
 
 pub enum Direction {
     Forward,
@@ -211,11 +209,12 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl DBRawIterator {
-    fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator {
+impl<'a> DBRawIterator<'a> {
+    fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator<'a> {
         unsafe {
             DBRawIterator {
                 inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
+                db: PhantomData
             }
         }
     }
@@ -224,10 +223,11 @@ impl DBRawIterator {
         db: &DB,
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
+    ) -> Result<DBRawIterator<'a>, Error> {
         unsafe {
             Ok(DBRawIterator {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
+                db: PhantomData
             })
         }
     }
@@ -337,7 +337,9 @@ impl DBRawIterator {
     /// }
     /// let _ = DB::destroy(&Options::default(), path);
     /// ```
-    pub fn seek(&mut self, key: &[u8]) {
+    pub fn seek<K: AsRef<[u8]>>(&mut self, key: K) {
+        let key = key.as_ref();
+
         unsafe {
             ffi::rocksdb_iter_seek(
                 self.inner,
@@ -374,7 +376,9 @@ impl DBRawIterator {
     /// }
     /// let _ = DB::destroy(&Options::default(), path);
     /// ```
-    pub fn seek_for_prev(&mut self, key: &[u8]) {
+    pub fn seek_for_prev<K: AsRef<[u8]>>(&mut self, key: K) {
+        let key = key.as_ref();
+
         unsafe {
             ffi::rocksdb_iter_seek_for_prev(
                 self.inner,
@@ -451,7 +455,7 @@ impl DBRawIterator {
     }
 }
 
-impl Drop for DBRawIterator {
+impl<'a> Drop for DBRawIterator<'a> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
@@ -459,8 +463,8 @@ impl Drop for DBRawIterator {
     }
 }
 
-impl DBIterator {
-    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator {
+impl<'a> DBIterator<'a> {
+    fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
         let mut rv = DBIterator {
             raw: DBRawIterator::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
@@ -475,7 +479,7 @@ impl DBIterator {
         cf_handle: ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> Result<DBIterator<'a>, Error> {
         let mut rv = DBIterator {
             raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
             direction: Direction::Forward, // blown away by set_mode()
@@ -513,7 +517,7 @@ impl DBIterator {
     }
 }
 
-impl Iterator for DBIterator {
+impl<'a> Iterator for DBIterator<'a> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
@@ -540,8 +544,8 @@ impl Iterator for DBIterator {
     }
 }
 
-impl Into<DBRawIterator> for DBIterator {
-    fn into(self) -> DBRawIterator {
+impl<'a> Into<DBRawIterator<'a>> for DBIterator<'a> {
+    fn into(self) -> DBRawIterator<'a> {
         self.raw
     }
 }
@@ -556,9 +560,8 @@ impl<'a> Snapshot<'a> {
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+        let readopts = ReadOptions::default();
+        self.iterator_opt(mode, readopts)
     }
 
     pub fn iterator_cf(
@@ -566,33 +569,63 @@ impl<'a> Snapshot<'a> {
         cf_handle: ColumnFamily,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
-        let mut readopts = ReadOptions::default();
+        let readopts = ReadOptions::default();
+        self.iterator_cf_opt(cf_handle, readopts, mode)
+    }
+
+    pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator {
+        readopts.set_snapshot(self);
+        DBIterator::new(self.db, &readopts, mode)
+    }
+
+    pub fn iterator_cf_opt(
+        &self,
+        cf_handle: ColumnFamily,
+        mut readopts: ReadOptions,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
         readopts.set_snapshot(self);
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
 
     pub fn raw_iterator(&self) -> DBRawIterator {
-        let mut readopts = ReadOptions::default();
+        let readopts = ReadOptions::default();
+        self.raw_iterator_opt(readopts)
+    }
+
+    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
+        let readopts = ReadOptions::default();
+        self.raw_iterator_cf_opt(cf_handle, readopts)
+    }
+
+    pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new(self.db, &readopts)
     }
 
-    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
-        let mut readopts = ReadOptions::default();
+    pub fn raw_iterator_cf_opt(&self, cf_handle: ColumnFamily, mut readopts: ReadOptions) -> Result<DBRawIterator, Error> {
         readopts.set_snapshot(self);
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
 
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let mut readopts = ReadOptions::default();
-        readopts.set_snapshot(self);
-        self.db.get_opt(key, &readopts)
+    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
+        let readopts = ReadOptions::default();
+        self.get_opt(key, readopts)
     }
 
-    pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        let mut readopts = ReadOptions::default();
+    pub fn get_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamily, key: K) -> Result<Option<DBVector>, Error> {
+        let readopts = ReadOptions::default();
+        self.get_cf_opt(cf, key.as_ref(), readopts)
+    }
+
+    pub fn get_opt<K: AsRef<[u8]>>(&self, key: K, mut readopts: ReadOptions) -> Result<Option<DBVector>, Error> {
         readopts.set_snapshot(self);
-        self.db.get_cf_opt(cf, key, &readopts)
+        self.db.get_opt(key.as_ref(), &readopts)
+    }
+
+    pub fn get_cf_opt<K: AsRef<[u8]>>(&self, cf: ColumnFamily, key: K, mut readopts: ReadOptions) -> Result<Option<DBVector>, Error> {
+        readopts.set_snapshot(self);
+        self.db.get_cf_opt(cf, key.as_ref(), &readopts)
     }
 }
 
@@ -724,7 +757,7 @@ impl DB {
             for (n, h) in cfs_v.iter().zip(cfhandles) {
                 cf_map.write()
                     .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), ColumnFamily { inner: h });
+                    .insert(n.name.clone(), h);
             }
         }
 
@@ -796,7 +829,7 @@ impl DB {
         self.write_opt(batch, &wo)
     }
 
-    pub fn get_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBVector>, Error> {
+    pub fn get_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
@@ -807,6 +840,8 @@ impl DB {
                     .to_owned(),
             ));
         }
+
+        let key = key.as_ref();
 
         unsafe {
             let mut val_len: size_t = 0;
@@ -826,14 +861,14 @@ impl DB {
     }
 
     /// Return the bytes associated with a key value
-    pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        self.get_opt(key, &ReadOptions::default())
+    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
+        self.get_opt(key.as_ref(), &ReadOptions::default())
     }
 
-    pub fn get_cf_opt(
+    pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: ColumnFamily,
-        key: &[u8],
+        key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
@@ -846,6 +881,8 @@ impl DB {
                     .to_owned(),
             ));
         }
+
+        let key = key.as_ref();
 
         unsafe {
             let mut val_len: size_t = 0;
@@ -865,8 +902,8 @@ impl DB {
         }
     }
 
-    pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        self.get_cf_opt(cf, key, &ReadOptions::default())
+    pub fn get_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamily, key: K) -> Result<Option<DBVector>, Error> {
+        self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
     }
 
     pub fn create_cf(&self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
@@ -881,15 +918,19 @@ impl DB {
             }
         };
         let cf = unsafe {
-            let cf_handler = ffi_try!(ffi::rocksdb_create_column_family(
+            let cf_handle = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
                 opts.inner,
                 cname.as_ptr(),
             ));
-            let cf = ColumnFamily { inner: cf_handler };
+
             self.cfs.write().map_err(|e| Error::new(e.to_string()))?
-                .insert(name.to_string(), cf);
-            cf
+                .insert(name.to_string(), cf_handle);
+            
+            ColumnFamily { 
+                inner: cf_handle,
+                db: PhantomData,
+            }
         };
         Ok(cf)
     }
@@ -898,7 +939,7 @@ impl DB {
         if let Some(cf) = self.cfs.write().map_err(|e| Error::new(e.to_string()))?
             .remove(name) {
             unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf,));
             }
             Ok(())
         } else {
@@ -910,12 +951,23 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().ok()?.get(name).cloned()
+        self.cfs
+            .read()
+            .ok()?
+            .get(name)
+            .map(|h| ColumnFamily {
+                inner: *h,
+                db: PhantomData
+            })
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
-        let opts = ReadOptions::default();
-        DBIterator::new(self, &opts, mode)
+        let readopts = ReadOptions::default();
+        self.iterator_opt(mode, &readopts)
+    }
+
+    pub fn iterator_opt(&self, mode: IteratorMode, readopts: &ReadOptions) -> DBIterator {
+        DBIterator::new(self, &readopts, mode)
     }
 
     /// Opens an interator with `set_total_order_seek` enabled.
@@ -927,10 +979,10 @@ impl DB {
         DBIterator::new(self, &opts, mode)
     }
 
-    pub fn prefix_iterator(&self, prefix: &[u8]) -> DBIterator {
+    pub fn prefix_iterator<P: AsRef<[u8]>>(&self, prefix: P) -> DBIterator {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
-        DBIterator::new(self, &opts, IteratorMode::From(prefix, Direction::Forward))
+        DBIterator::new(self, &opts, IteratorMode::From(prefix.as_ref(), Direction::Forward))
     }
 
     pub fn iterator_cf(
@@ -952,10 +1004,10 @@ impl DB {
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
-    pub fn prefix_iterator_cf(
+    pub fn prefix_iterator_cf<P: AsRef<[u8]>>(
         &self,
         cf_handle: ColumnFamily,
-        prefix: &[u8]
+        prefix: P
     ) -> Result<DBIterator, Error> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
@@ -963,7 +1015,7 @@ impl DB {
             self,
             cf_handle,
             &opts,
-            IteratorMode::From(prefix, Direction::Forward),
+            IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
 
@@ -981,8 +1033,15 @@ impl DB {
         Snapshot::new(self)
     }
 
-    pub fn put_opt(&self, key: &[u8], value: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
+
             ffi_try!(ffi::rocksdb_put(
                 self.inner,
                 writeopts.inner,
@@ -995,14 +1054,21 @@ impl DB {
         }
     }
 
-    pub fn put_cf_opt(
+    pub fn put_cf_opt<K, V>(
         &self,
         cf: ColumnFamily,
-        key: &[u8],
-        value: &[u8],
+        key: K,
+        value: V,
         writeopts: &WriteOptions,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
+
             ffi_try!(ffi::rocksdb_put_cf(
                 self.inner,
                 writeopts.inner,
@@ -1016,12 +1082,18 @@ impl DB {
         }
     }
 
-    pub fn merge_opt(
+    pub fn merge_opt<K, V>(
         &self,
-        key: &[u8],
-        value: &[u8],
+        key: K,
+        value: V,
         writeopts: &WriteOptions,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+                  
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
             ffi_try!(ffi::rocksdb_merge(
                 self.inner,
@@ -1035,14 +1107,21 @@ impl DB {
         }
     }
 
-    pub fn merge_cf_opt(
+    pub fn merge_cf_opt<K, V>(
         &self,
         cf: ColumnFamily,
-        key: &[u8],
-        value: &[u8],
+        key: K,
+        value: V,
         writeopts: &WriteOptions,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error>
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+        
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
+
             ffi_try!(ffi::rocksdb_merge_cf(
                 self.inner,
                 writeopts.inner,
@@ -1056,7 +1135,9 @@ impl DB {
         }
     }
 
-    pub fn delete_opt(&self, key: &[u8], writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn delete_opt<K: AsRef<[u8]>>(&self, key: K, writeopts: &WriteOptions) -> Result<(), Error> {
+        let key = key.as_ref();
+        
         unsafe {
             ffi_try!(ffi::rocksdb_delete(
                 self.inner,
@@ -1068,12 +1149,15 @@ impl DB {
         }
     }
 
-    pub fn delete_cf_opt(
+    pub fn delete_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: ColumnFamily,
-        key: &[u8],
+        key: K,
         writeopts: &WriteOptions,
     ) -> Result<(), Error> {
+        
+        let key = key.as_ref();
+
         unsafe {
             ffi_try!(ffi::rocksdb_delete_cf(
                 self.inner,
@@ -1086,32 +1170,47 @@ impl DB {
         }
     }
 
-    pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
-        self.put_opt(key, value, &WriteOptions::default())
+    pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        self.put_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn put_cf(&self, cf: ColumnFamily, key: &[u8], value: &[u8]) -> Result<(), Error> {
-        self.put_cf_opt(cf, key, value, &WriteOptions::default())
+    pub fn put_cf<K, V>(&self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        self.put_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
-        self.merge_opt(key, value, &WriteOptions::default())
+    pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+        
+        self.merge_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn merge_cf(&self, cf: ColumnFamily, key: &[u8], value: &[u8]) -> Result<(), Error> {
-        self.merge_cf_opt(cf, key, value, &WriteOptions::default())
+    pub fn merge_cf<K, V>(&self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        self.merge_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn delete(&self, key: &[u8]) -> Result<(), Error> {
-        self.delete_opt(key, &WriteOptions::default())
+    pub fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), Error> {
+        self.delete_opt(key.as_ref(), &WriteOptions::default())
     }
 
-    pub fn delete_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<(), Error> {
-        self.delete_cf_opt(cf, key, &WriteOptions::default())
+    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamily, key: K) -> Result<(), Error> {
+        self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
     }
 
-    pub fn compact_range(&self, start: Option<&[u8]>, end: Option<&[u8]>) {
+    pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
         unsafe {
+            let start = start.as_ref().map(|s| s.as_ref());
+            let end = end.as_ref().map(|e| e.as_ref());
+
             ffi::rocksdb_compact_range(
                 self.inner,
                 opt_bytes_to_ptr(start),
@@ -1184,7 +1283,13 @@ impl WriteBatch {
     }
 
     /// Insert a value into the database under the given key.
-    pub fn put(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
+    pub fn put<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
             ffi::rocksdb_writebatch_put(
                 self.inner,
@@ -1197,7 +1302,13 @@ impl WriteBatch {
         }
     }
 
-    pub fn put_cf(&mut self, cf: ColumnFamily, key: &[u8], value: &[u8]) -> Result<(), Error> {
+    pub fn put_cf<K, V>(&mut self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
             ffi::rocksdb_writebatch_put_cf(
                 self.inner,
@@ -1211,7 +1322,13 @@ impl WriteBatch {
         }
     }
 
-    pub fn merge(&mut self, key: &[u8], value: &[u8]) -> Result<(), Error> {
+    pub fn merge<K, V>(&mut self, key: K, value: V) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
             ffi::rocksdb_writebatch_merge(
                 self.inner,
@@ -1224,7 +1341,13 @@ impl WriteBatch {
         }
     }
 
-    pub fn merge_cf(&mut self, cf: ColumnFamily, key: &[u8], value: &[u8]) -> Result<(), Error> {
+    pub fn merge_cf<K, V>(&mut self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error> 
+        where K: AsRef<[u8]>, 
+              V: AsRef<[u8]> {
+        
+        let key = key.as_ref();
+        let value = value.as_ref();
+
         unsafe {
             ffi::rocksdb_writebatch_merge_cf(
                 self.inner,
@@ -1241,7 +1364,9 @@ impl WriteBatch {
     /// Remove the database entry for key.
     ///
     /// Returns an error if the key was not found.
-    pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
+    pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), Error> {
+        let key = key.as_ref();
+
         unsafe {
             ffi::rocksdb_writebatch_delete(
                 self.inner,
@@ -1252,7 +1377,9 @@ impl WriteBatch {
         }
     }
 
-    pub fn delete_cf(&mut self, cf: ColumnFamily, key: &[u8]) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: ColumnFamily, key: K) -> Result<(), Error> {
+        let key = key.as_ref();
+
         unsafe {
             ffi::rocksdb_writebatch_delete_cf(
                 self.inner,
@@ -1292,7 +1419,7 @@ impl Drop for DB {
         unsafe {
             if let Ok(cfs) = self.cfs.read() {
                 for cf in cfs.values() {
-                    ffi::rocksdb_column_family_handle_destroy(cf.inner);
+                    ffi::rocksdb_column_family_handle_destroy(*cf);
                 }
             }
             ffi::rocksdb_close(self.inner);
@@ -1329,7 +1456,9 @@ impl ReadOptions {
         }
     }
 
-    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
+    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
+        let key = key.as_ref();
+        
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(
                 self.inner,

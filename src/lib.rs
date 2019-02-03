@@ -71,8 +71,8 @@ mod slice_transform;
 
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{
-    new_bloom_filter, DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator,
-    DBRecoveryMode, DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
+    DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DBRecoveryMode,
+    DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
 };
 
 pub use slice_transform::SliceTransform;
@@ -81,6 +81,7 @@ pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
+use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
@@ -89,7 +90,7 @@ use std::sync::{Arc, RwLock};
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: Arc<RwLock<BTreeMap<String, ColumnFamily>>>,
+    cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
     path: PathBuf,
 }
 
@@ -244,8 +245,9 @@ pub struct WriteOptions {
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
 #[derive(Copy, Clone)]
-pub struct ColumnFamily {
+pub struct ColumnFamily<'a> {
     inner: *mut ffi::rocksdb_column_family_handle_t,
+    db: PhantomData<&'a DB>,
 }
 
-unsafe impl Send for ColumnFamily {}
+unsafe impl<'a> Send for ColumnFamily<'a> {}

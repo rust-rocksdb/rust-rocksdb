@@ -185,7 +185,7 @@ pub fn test_column_family_with_options() {
 
         let cfs = vec![cf_descriptor];
         match DB::open_cf_descriptors(&opts, &n, cfs) {
-            Ok(_db) => println!("created db with column family descriptors succesfully"),
+            Ok(_db) => println!("created db with column family descriptors successfully"),
             Err(e) => {
                 panic!(
                     "could not create new database with column family descriptors: {}",
@@ -204,7 +204,7 @@ pub fn test_column_family_with_options() {
         let cfs = vec![cf_descriptor];
 
         match DB::open_cf_descriptors(&opts, &n, cfs) {
-            Ok(_db) => println!("succesfully re-opened database with column family descriptors"),
+            Ok(_db) => println!("successfully re-opened database with column family descriptors"),
             Err(e) => {
                 panic!(
                     "unable to re-open database with column family descriptors: {}",
