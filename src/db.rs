@@ -22,7 +22,6 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
-use std::iter;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::Path;
@@ -661,7 +660,7 @@ impl DB {
 
     /// Open the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, iter::empty::<&str>())
+        DB::open_cf(opts, path, None::<&str>)
     }
 
     /// Open a database with the given database options and column family names.
