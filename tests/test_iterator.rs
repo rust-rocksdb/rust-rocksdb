@@ -23,7 +23,7 @@ fn cba(input: &Box<[u8]>) -> Box<[u8]> {
 }
 
 #[test]
-pub fn test_iterator() {
+fn test_iterator() {
     let n = DBPath::new("_rust_rocksdb_iteratortest");
     {
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
@@ -172,7 +172,7 @@ fn key(k: &[u8]) -> Box<[u8]> {
 }
 
 #[test]
-pub fn test_prefix_iterator() {
+fn test_prefix_iterator() {
     let n = DBPath::new("_rust_rocksdb_prefixiteratortest");
     {
         let a1: Box<[u8]> = key(b"aaa1");
@@ -208,7 +208,51 @@ pub fn test_prefix_iterator() {
 }
 
 #[test]
-pub fn test_full_iterator() {
+fn test_prefix_iterator_uses_full_prefix() {
+    // Test scenario derived from GitHub issue #221
+
+    // Explanation: `db.prefix_iterator` sets the underlying
+    // options to seek to the first key that matches the *entire*
+    // `prefix`. From there, the iterator will continue to read pairs
+    // as long as the prefix extracted from `key` matches the 
+    // prefix extracted from `prefix`.
+
+    let path = DBPath::new("_rust_rocksdb_prefixiteratorusesfullprefixtest");
+    {
+        let data = [
+            ([0,0,0,0], b"111"),
+            ([0,0,0,1], b"222"),
+            ([0,1,0,1], b"333"),
+            ([0,1,1,1], b"444"),
+            ([0,1,2,1], b"555"),
+            ([0,2,0,0], b"666"),
+            ([2,0,0,0], b"777"),
+            ([2,2,2,2], b"888")
+        ];
+
+        let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(1);
+
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_prefix_extractor(prefix_extractor);
+
+        let db = DB::open(&opts, &path).unwrap();
+
+        for (key, value) in &data {
+            assert!(db.put(key, *value).is_ok());
+        }
+
+        let prefix = [0,1,1];
+        let results: Vec<_> = db.prefix_iterator(&prefix)
+            .map(|(_,v)| std::str::from_utf8(&v).unwrap().to_string())
+            .collect();
+
+        assert_eq!(results, vec!("444", "555", "666"));
+    }
+}
+
+#[test]
+fn test_full_iterator() {
     let path = "_rust_rocksdb_fulliteratortest";
     {
         let a1: Box<[u8]> = key(b"aaa1");
