@@ -679,7 +679,7 @@ impl DB {
         DB::open_cf_descriptors(opts, path, cfs)
     }
 
-    /// Open a database with the given database options and column family names/options.
+    /// Open a database with the given database options and column family descriptors.
     pub fn open_cf_descriptors<P, I>(
         opts: &Options,
         path: P,

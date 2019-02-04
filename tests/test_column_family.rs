@@ -100,12 +100,7 @@ fn test_can_open_db_with_results_of_list_cf() {
         let db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
 
-        match db.create_cf("cf1", &opts) {
-            Ok(_db) => println!("cf1 created successfully"),
-            Err(e) => {
-                panic!("could not create column family: {}", e);
-            }
-        }
+        assert!(db.create_cf("cf1", &opts).is_ok());
     }
 
     {
