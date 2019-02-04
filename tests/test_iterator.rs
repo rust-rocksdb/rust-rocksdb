@@ -23,7 +23,7 @@ fn cba(input: &Box<[u8]>) -> Box<[u8]> {
 }
 
 #[test]
-pub fn test_iterator() {
+fn test_iterator() {
     let n = DBPath::new("_rust_rocksdb_iteratortest");
     {
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
@@ -172,7 +172,7 @@ fn key(k: &[u8]) -> Box<[u8]> {
 }
 
 #[test]
-pub fn test_prefix_iterator() {
+fn test_prefix_iterator() {
     let n = DBPath::new("_rust_rocksdb_prefixiteratortest");
     {
         let a1: Box<[u8]> = key(b"aaa1");
@@ -208,7 +208,7 @@ pub fn test_prefix_iterator() {
 }
 
 #[test]
-pub fn test_prefix_iterator_uses_full_prefix() {
+fn test_prefix_iterator_uses_full_prefix() {
     // Test scenario derived from GitHub issue #221
 
     // Explanation: `db.prefix_iterator` sets the underlying
@@ -252,7 +252,7 @@ pub fn test_prefix_iterator_uses_full_prefix() {
 }
 
 #[test]
-pub fn test_full_iterator() {
+fn test_full_iterator() {
     let path = "_rust_rocksdb_fulliteratortest";
     {
         let a1: Box<[u8]> = key(b"aaa1");
