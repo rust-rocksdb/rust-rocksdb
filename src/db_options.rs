@@ -995,7 +995,7 @@ impl Options {
     ///   index_sparseness: 16,
     /// };
     ///
-    /// opts.set_plain_table_factory(&factory_opts);
+    /// opts.set_a_function_that_doesnt_exist(&factory_opts);
     /// ```
     pub fn set_plain_table_factory(&mut self, options: &PlainTableFactoryOptions) {
         unsafe {
