@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate rocksdb;
 extern crate libc;
+extern crate rocksdb;
 
 mod util;
 
-use libc::{size_t};
+use libc::size_t;
 
-use rocksdb::{DB, DBVector, Error, IteratorMode, Options, WriteBatch};
+use rocksdb::{DBVector, Error, IteratorMode, Options, WriteBatch, DB};
 use util::DBPath;
 
 #[test]
@@ -38,7 +38,7 @@ fn external() {
 
     {
         let db = DB::open_default(&path).unwrap();
-        
+
         assert!(db.put(b"k1", b"v1111").is_ok());
 
         let r: Result<Option<DBVector>, Error> = db.get(b"k1");
@@ -130,14 +130,14 @@ fn snapshot_test() {
     let path = DBPath::new("_rust_rocksdb_snapshottest");
     {
         let db = DB::open_default(&path).unwrap();
-        
+
         assert!(db.put(b"k1", b"v1111").is_ok());
 
         let snap = db.snapshot();
         assert!(snap.get(b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1111");
 
         assert!(db.put(b"k2", b"v2222").is_ok());
-        
+
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
     }
