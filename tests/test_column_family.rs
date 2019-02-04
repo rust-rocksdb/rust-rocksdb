@@ -19,7 +19,7 @@ use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB};
 use util::DBPath;
 
 #[test]
-pub fn test_column_family() {
+fn test_column_family() {
     let n = DBPath::new("_rust_rocksdb_cftest");
 
     // should be able to create column families
@@ -85,6 +85,35 @@ pub fn test_column_family() {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
+    }
+}
+
+#[test]
+fn test_can_open_db_with_results_of_list_cf() {
+    // Test scenario derived from GitHub issue #175 and 177
+
+    let n = DBPath::new("_rust_rocksdb_cftest_with_list_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let db = DB::open(&opts, &n).unwrap();
+        let opts = Options::default();
+
+        match db.create_cf("cf1", &opts) {
+            Ok(_db) => println!("cf1 created successfully"),
+            Err(e) => {
+                panic!("could not create column family: {}", e);
+            }
+        }
+    }
+
+    {
+        let options = Options::default();
+        let cfs = DB::list_cf(&options, &n).unwrap();
+        let db = DB::open_cf(&options, &n, &cfs).unwrap();
+
+        assert!(db.cf_handle("cf1").is_some());
     }
 }
 
@@ -172,7 +201,7 @@ fn test_provided_merge(
 }
 
 #[test]
-pub fn test_column_family_with_options() {
+fn test_column_family_with_options() {
     let n = DBPath::new("_rust_rocksdb_cf_with_optionstest");
     {
         let mut cfopts = Options::default();
