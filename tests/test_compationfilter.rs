@@ -16,7 +16,7 @@ extern crate rocksdb;
 
 mod util;
 
-use rocksdb::{CompactionDecision, DB, Options};
+use rocksdb::{CompactionDecision, Options, DB};
 use util::DBPath;
 
 #[cfg(test)]

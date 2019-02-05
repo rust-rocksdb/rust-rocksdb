@@ -45,7 +45,8 @@ impl<F> CompactionFilterFn for F
 where
     F: FnMut(u32, &[u8], &[u8]) -> Decision,
     F: Send + 'static,
-{}
+{
+}
 
 pub struct CompactionFilterCallback<F>
 where

@@ -214,20 +214,20 @@ fn test_prefix_iterator_uses_full_prefix() {
     // Explanation: `db.prefix_iterator` sets the underlying
     // options to seek to the first key that matches the *entire*
     // `prefix`. From there, the iterator will continue to read pairs
-    // as long as the prefix extracted from `key` matches the 
+    // as long as the prefix extracted from `key` matches the
     // prefix extracted from `prefix`.
 
     let path = DBPath::new("_rust_rocksdb_prefixiteratorusesfullprefixtest");
     {
         let data = [
-            ([0,0,0,0], b"111"),
-            ([0,0,0,1], b"222"),
-            ([0,1,0,1], b"333"),
-            ([0,1,1,1], b"444"),
-            ([0,1,2,1], b"555"),
-            ([0,2,0,0], b"666"),
-            ([2,0,0,0], b"777"),
-            ([2,2,2,2], b"888")
+            ([0, 0, 0, 0], b"111"),
+            ([0, 0, 0, 1], b"222"),
+            ([0, 1, 0, 1], b"333"),
+            ([0, 1, 1, 1], b"444"),
+            ([0, 1, 2, 1], b"555"),
+            ([0, 2, 0, 0], b"666"),
+            ([2, 0, 0, 0], b"777"),
+            ([2, 2, 2, 2], b"888"),
         ];
 
         let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(1);
@@ -242,9 +242,10 @@ fn test_prefix_iterator_uses_full_prefix() {
             assert!(db.put(key, *value).is_ok());
         }
 
-        let prefix = [0,1,1];
-        let results: Vec<_> = db.prefix_iterator(&prefix)
-            .map(|(_,v)| std::str::from_utf8(&v).unwrap().to_string())
+        let prefix = [0, 1, 1];
+        let results: Vec<_> = db
+            .prefix_iterator(&prefix)
+            .map(|(_, v)| std::str::from_utf8(&v).unwrap().to_string())
             .collect();
 
         assert_eq!(results, vec!("444", "555", "666"));
