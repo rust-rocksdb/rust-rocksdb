@@ -683,11 +683,12 @@ impl DB {
     /// Open a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error> 
-        where P: AsRef<Path>,
-              I: IntoIterator<Item = N>,
-              N: AsRef<str> {
-
+    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
         let cfs = cfs
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
@@ -696,17 +697,12 @@ impl DB {
     }
 
     /// Open a database with the given database options and column family descriptors.
-    pub fn open_cf_descriptors<P, I>(
-        opts: &Options,
-        path: P,
-        cfs: I,
-    ) -> Result<DB, Error> 
-        where P: AsRef<Path>,
-              I: IntoIterator<Item = ColumnFamilyDescriptor> {
-
-        let cfs: Vec<_> = cfs
-            .into_iter()
-            .collect();
+    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        let cfs: Vec<_> = cfs.into_iter().collect();
 
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
