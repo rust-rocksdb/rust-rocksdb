@@ -1,17 +1,25 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::{OptimisticTransactionDB,CreateIter};
+use rocksdb::{CreateIter, OptimisticTransactionDB, Options};
 use util::DBPath;
 
 #[test]
-pub fn test_optimistictransaction() {
-    let n = DBPath::new("optimistictransaction");
+pub fn test_optimistic_transaction() {
+    let n = DBPath::new("_rust_rocksdb_optimistic_transaction");
     {
         let db = OptimisticTransactionDB::open_default(&n).unwrap();
 
+        let base_db = db.get_base_db();
+
+        let opts = Options::default();
+
+        assert!(base_db.create_cf("cf1", &opts).is_ok());
+
+        assert!(base_db.drop_cf("cf1").is_ok());
+
         let trans = db.transaction_default();
-        
+
         trans.put(b"k1", b"v1").unwrap();
         trans.put(b"k2", b"v2").unwrap();
         trans.put(b"k3", b"v3").unwrap();
@@ -52,10 +60,10 @@ pub fn test_optimistictransaction() {
 
         let trans3_result = trans3.commit();
 
-        assert_eq!(trans3_result.is_ok(),true);
+        assert_eq!(trans3_result.is_ok(), true);
 
         let trans2_result = trans2.commit();
 
-        assert_eq!(trans2_result.is_err(),true);
+        assert_eq!(trans2_result.is_err(), true);
     }
 }

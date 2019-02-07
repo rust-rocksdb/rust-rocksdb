@@ -1,4 +1,4 @@
-use crate::{ColumnFamily, ColumnFamilyDescriptor, Error, Options, Transaction, WriteOptions, DB};
+use crate::{ColumnFamilyDescriptor, Error, Options, Transaction, WriteOptions, DB};
 use ffi;
 use libc::{c_int, c_uchar};
 use std::collections::BTreeMap;
@@ -12,8 +12,8 @@ use std::sync::{Arc, RwLock};
 
 pub struct OptimisticTransactionDB {
     inner: *mut ffi::rocksdb_optimistictransactiondb_t,
-    cfs: Arc<RwLock<BTreeMap<String, ColumnFamily>>>,
     path: PathBuf,
+    base_db: DB,
 }
 
 impl OptimisticTransactionDB {
@@ -132,18 +132,30 @@ impl OptimisticTransactionDB {
                 cf_map
                     .write()
                     .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), ColumnFamily { inner: h });
+                    .insert(n.name.clone(), h);
             }
         }
 
         if db.is_null() {
             return Err(Error::new("Could not initialize database.".to_owned()));
-        }
+        };
+
+        let path_buf = path.to_path_buf();
+
+        let base_db = unsafe {
+            let inner = ffi::rocksdb_optimistictransactiondb_get_base_db(db);
+            DB {
+                inner,
+                cfs: cf_map,
+                path: path_buf.clone(),
+                is_base_db: true,
+            }
+        };
 
         Ok(OptimisticTransactionDB {
             inner: db,
-            cfs: cf_map,
-            path: path.to_path_buf(),
+            path: path_buf,
+            base_db,
         })
     }
 
@@ -173,27 +185,14 @@ impl OptimisticTransactionDB {
         &self.path.as_path()
     }
 
-    pub fn get_base_db(&self) -> DB {
-        unsafe {
-            let db = ffi::rocksdb_optimistictransactiondb_get_base_db(self.inner);
-            DB {
-                inner: db,
-                cfs: self.cfs.to_owned(),
-                path: self.path.to_owned(),
-                is_base_db: true,
-            }
-        }
+    pub fn get_base_db(&self) -> &DB {
+        &self.base_db
     }
 }
 
 impl Drop for OptimisticTransactionDB {
     fn drop(&mut self) {
         unsafe {
-            if let Ok(cfs) = self.cfs.read() {
-                for cf in cfs.values() {
-                    ffi::rocksdb_column_family_handle_destroy(cf.inner);
-                }
-            }
             ffi::rocksdb_optimistictransactiondb_close(self.inner);
         }
     }

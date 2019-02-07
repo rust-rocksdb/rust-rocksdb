@@ -1,14 +1,21 @@
-use crate::{ColumnFamily, CreateIter, DBRawIterator, DBVector, Error, ReadOptions};
+use crate::{
+    ColumnFamily, CreateIter, DBRawIterator, DBVector, Error, OptimisticTransactionDB, ReadOptions,
+};
 use ffi;
 use libc::{c_char, size_t};
+use std::marker::PhantomData;
 
-pub struct Transaction {
+pub struct Transaction<'a> {
     pub(crate) inner: *mut ffi::rocksdb_transaction_t,
+    pub(crate) db: PhantomData<&'a OptimisticTransactionDB>,
 }
 
-impl Transaction {
-    pub fn new(inner: *mut ffi::rocksdb_transaction_t) -> Transaction {
-        Transaction { inner }
+impl<'a> Transaction<'a> {
+    pub fn new(inner: *mut ffi::rocksdb_transaction_t) -> Transaction<'a> {
+        Transaction {
+            inner,
+            db: PhantomData,
+        }
     }
 
     pub fn commit(&self) -> Result<(), Error> {
@@ -169,7 +176,7 @@ impl Transaction {
     }
 }
 
-impl Drop for Transaction {
+impl<'a> Drop for Transaction<'a> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_transaction_destroy(self.inner);
@@ -177,11 +184,12 @@ impl Drop for Transaction {
     }
 }
 
-impl CreateIter for Transaction {
+impl<'a> CreateIter for Transaction<'a> {
     fn raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
         unsafe {
             DBRawIterator {
                 inner: ffi::rocksdb_transaction_create_iterator(self.inner, readopts.inner),
+                db: PhantomData,
             }
         }
     }
@@ -198,6 +206,7 @@ impl CreateIter for Transaction {
                     readopts.inner,
                     cf_handle.inner,
                 ),
+                db: PhantomData,
             })
         }
     }

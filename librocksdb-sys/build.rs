@@ -119,7 +119,8 @@ fn build_rocksdb() {
             .filter(|file| match *file {
                 "port/port_posix.cc" | "env/env_posix.cc" | "env/io_posix.cc" => false,
                 _ => true,
-            }).collect::<Vec<&'static str>>();
+            })
+            .collect::<Vec<&'static str>>();
 
         // Add Windows-specific sources
         lib_sources.push("port/win/port_win.cc");
