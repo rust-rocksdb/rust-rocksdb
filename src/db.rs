@@ -938,14 +938,20 @@ impl DB {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
     }
 
-    pub fn get_pinned_opt<T: AsRef<[u8]>>(&self, key: T, readopts: &ReadOptions) -> Result<Option<DBPinnableSlice>, Error> {
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy.
+    pub fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
-                                   This is a fairly trivial call, and its \
-                                   failure may be indicative of a \
-                                   mis-compiled or mis-loaded RocksDB \
-                                   library."
+                 This is a fairly trivial call, and its \
+                 failure may be indicative of a \
+                 mis-compiled or mis-loaded RocksDB \
+                 library."
                     .to_owned(),
             ));
         }
@@ -966,23 +972,29 @@ impl DB {
         }
     }
 
-    pub fn get_pinned<T: AsRef<[u8]>>(&self, key: T) -> Result<Option<DBPinnableSlice>, Error> {
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
+    /// leverages default options.
+    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_opt(key, &ReadOptions::default())
     }
 
-    pub fn get_pinned_cf_opt<T: AsRef<[u8]>>(
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
+    /// allows specifying ColumnFamily
+    pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: ColumnFamily,
-        key: T,
+        key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
-                                   This is a fairly trivial call, and its \
-                                   failure may be indicative of a \
-                                   mis-compiled or mis-loaded RocksDB \
-                                   library."
+                 This is a fairly trivial call, and its \
+                 failure may be indicative of a \
+                 mis-compiled or mis-loaded RocksDB \
+                 library."
                     .to_owned(),
             ));
         }
@@ -1004,7 +1016,14 @@ impl DB {
         }
     }
 
-    pub fn get_pinned_cf<T: AsRef<[u8]>>(&self, cf: ColumnFamily, key: T) -> Result<Option<DBPinnableSlice>, Error> {
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_cf_opt but
+    /// leverages default options.
+    pub fn get_pinned_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: ColumnFamily,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
@@ -1667,9 +1686,14 @@ fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     }
 }
 
+/// Wrapper around RocksDB PinnableSlice struct.
+///
+/// With a pinnable slice, we can directly leverage in-memory data within
+/// RocksDB toa void unnecessary memory copies. The struct here wraps the
+/// returned raw pointer and ensures proper finalization work.
 pub struct DBPinnableSlice<'a> {
     ptr: *mut ffi::rocksdb_pinnableslice_t,
-    db: PhantomData<&'a DB>
+    db: PhantomData<&'a DB>,
 }
 
 impl<'a> AsRef<[u8]> for DBPinnableSlice<'a> {
@@ -1685,8 +1709,8 @@ impl<'a> Deref for DBPinnableSlice<'a> {
     fn deref(&self) -> &[u8] {
         unsafe {
             let mut val_len: size_t = 0;
-            let val = ffi::rocksdb_pinnableslice_value(self.ptr, &mut val_len,) as *mut u8;
-            slice::from_raw_parts(val, val_len,)
+            let val = ffi::rocksdb_pinnableslice_value(self.ptr, &mut val_len) as *mut u8;
+            slice::from_raw_parts(val, val_len)
         }
     }
 }
@@ -1694,7 +1718,7 @@ impl<'a> Deref for DBPinnableSlice<'a> {
 impl<'a> Drop for DBPinnableSlice<'a> {
     fn drop(&mut self) {
         unsafe {
-            ffi::rocksdb_pinnableslice_destroy(self.ptr,);
+            ffi::rocksdb_pinnableslice_destroy(self.ptr);
         }
     }
 }

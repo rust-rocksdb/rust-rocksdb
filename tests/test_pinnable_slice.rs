@@ -3,16 +3,16 @@ extern crate rocksdb;
 use rocksdb::{Options, DB};
 
 #[test]
-pub fn test_pinnable_slice() {
+fn test_pinnable_slice() {
     let path = "_rust_rocksdb_pinnable_slice_test";
 
     let mut opts = Options::default();
-    opts.create_if_missing(true,);
-    let db = DB::open(&opts, path,).unwrap();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, path).unwrap();
 
-    db.put(b"k1", b"value12345",).unwrap();
+    db.put(b"k1", b"value12345").unwrap();
 
-    let result = db.get_pinned(b"k1",);
+    let result = db.get_pinned(b"k1");
     assert!(result.is_ok());
 
     let value = result.unwrap();
