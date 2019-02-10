@@ -1161,7 +1161,10 @@ impl DB {
         let prop_name = match CString::new(name) {
             Ok(c) => c,
             Err(e) => {
-                return Err(Error::new(format!("Failed to convert property name to CString: {}", e)))
+                return Err(Error::new(format!(
+                    "Failed to convert property name to CString: {}",
+                    e
+                )));
             }
         };
 
@@ -1174,7 +1177,10 @@ impl DB {
             let str_value = match CStr::from_ptr(value).to_str() {
                 Ok(s) => s.to_owned(),
                 Err(e) => {
-                    return Err(Error::new(format!("Failed to convert property value to string: {}", e)))
+                    return Err(Error::new(format!(
+                        "Failed to convert property value to string: {}",
+                        e
+                    )));
                 }
             };
 
@@ -1191,7 +1197,10 @@ impl DB {
         let prop_name = match CString::new(name) {
             Ok(c) => c,
             Err(e) => {
-                return Err(Error::new(format!("Failed to convert property name to CString: {}", e)))
+                return Err(Error::new(format!(
+                    "Failed to convert property name to CString: {}",
+                    e
+                )));
             }
         };
 
@@ -1204,7 +1213,10 @@ impl DB {
             let str_value = match CStr::from_ptr(value).to_str() {
                 Ok(s) => s.to_owned(),
                 Err(e) => {
-                    return Err(Error::new(format!("Failed to convert property value to string: {}", e)))
+                    return Err(Error::new(format!(
+                        "Failed to convert property value to string: {}",
+                        e
+                    )));
                 }
             };
 
@@ -1221,8 +1233,11 @@ impl DB {
         match self.property_value(name) {
             Ok(Some(value)) => match value.parse::<u64>() {
                 Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!("Failed to convert property value to int: {}", e))),
-            }
+                Err(e) => Err(Error::new(format!(
+                    "Failed to convert property value to int: {}",
+                    e
+                ))),
+            },
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
@@ -1232,12 +1247,19 @@ impl DB {
     ///
     /// For a full list of properties that return int values, see
     /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
-    pub fn property_int_value_cf(&self, cf: ColumnFamily, name: &str) -> Result<Option<u64>, Error> {
+    pub fn property_int_value_cf(
+        &self,
+        cf: ColumnFamily,
+        name: &str,
+    ) -> Result<Option<u64>, Error> {
         match self.property_value_cf(cf, name) {
             Ok(Some(value)) => match value.parse::<u64>() {
                 Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!("Failed to convert property value to int: {}", e))),
-            }
+                Err(e) => Err(Error::new(format!(
+                    "Failed to convert property value to int: {}",
+                    e
+                ))),
+            },
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }

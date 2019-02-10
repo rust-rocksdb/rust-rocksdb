@@ -23,10 +23,7 @@ fn property_test() {
     let n = DBPath::new("_rust_rocksdb_property_test");
     {
         let db = DB::open_default(&n).unwrap();
-        let value = db
-            .property_value("rocksdb.stats")
-            .unwrap()
-            .unwrap();
+        let value = db.property_value("rocksdb.stats").unwrap().unwrap();
 
         assert!(value.contains("Stats"));
     }
@@ -39,10 +36,7 @@ fn property_cf_test() {
         let opts = Options::default();
         let db = DB::open_default(&n).unwrap();
         let cf = db.create_cf("cf1", &opts).unwrap();
-        let value = db
-            .property_value_cf(cf, "rocksdb.stats")
-            .unwrap()
-            .unwrap();
+        let value = db.property_value_cf(cf, "rocksdb.stats").unwrap().unwrap();
 
         assert!(value.contains("Stats"));
     }
