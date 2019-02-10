@@ -1153,45 +1153,93 @@ impl DB {
         })
     }
 
-    pub fn property_value(&self, name: &str) -> Option<String> {
-        let prop_name = CString::new(name).unwrap();
+    /// Retrieves a RocksDB property by name.
+    ///
+    /// For a full list of properties, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
+        let prop_name = match CString::new(name) {
+            Ok(c) => c,
+            Err(e) => {
+                return Err(Error::new(format!("Failed to convert property name to CString: {}", e)))
+            }
+        };
+
         unsafe {
             let value = ffi::rocksdb_property_value(self.inner, prop_name.as_ptr());
             if value.is_null() {
-                return None;
+                return Ok(None);
             }
 
-            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            let str_value = match CStr::from_ptr(value).to_str() {
+                Ok(s) => s.to_owned(),
+                Err(e) => {
+                    return Err(Error::new(format!("Failed to convert property value to string: {}", e)))
+                }
+            };
+
             libc::free(value as *mut c_void);
-            Some(s)
+            Ok(Some(str_value))
         }
     }
 
-    pub fn property_value_cf(&self, cf: ColumnFamily, name: &str) -> Option<String> {
-        let prop_name = CString::new(name).unwrap();
+    /// Retrieves a RocksDB property by name, for a specific column family.
+    ///
+    /// For a full list of properties, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    pub fn property_value_cf(&self, cf: ColumnFamily, name: &str) -> Result<Option<String>, Error> {
+        let prop_name = match CString::new(name) {
+            Ok(c) => c,
+            Err(e) => {
+                return Err(Error::new(format!("Failed to convert property name to CString: {}", e)))
+            }
+        };
+
         unsafe {
             let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr());
             if value.is_null() {
-                return None;
+                return Ok(None);
             }
 
-            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
+            let str_value = match CStr::from_ptr(value).to_str() {
+                Ok(s) => s.to_owned(),
+                Err(e) => {
+                    return Err(Error::new(format!("Failed to convert property value to string: {}", e)))
+                }
+            };
+
             libc::free(value as *mut c_void);
-            Some(s)
+            Ok(Some(str_value))
         }
     }
 
-    pub fn property_int_value(&self, name: &str) -> Option<u64> {
+    /// Retrieves a RocksDB property and casts it to an integer.
+    ///
+    /// For a full list of properties that return int values, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
         match self.property_value(name) {
-            Some(value) => value.parse::<u64>().ok(),
-            None => None,
+            Ok(Some(value)) => match value.parse::<u64>() {
+                Ok(int_value) => Ok(Some(int_value)),
+                Err(e) => Err(Error::new(format!("Failed to convert property value to int: {}", e))),
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
         }
     }
 
-    pub fn property_int_value_cf(&self, cf: ColumnFamily, name: &str) -> Option<u64> {
+    /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
+    ///
+    /// For a full list of properties that return int values, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    pub fn property_int_value_cf(&self, cf: ColumnFamily, name: &str) -> Result<Option<u64>, Error> {
         match self.property_value_cf(cf, name) {
-            Some(value) => value.parse::<u64>().ok(),
-            None => None,
+            Ok(Some(value)) => match value.parse::<u64>() {
+                Ok(int_value) => Ok(Some(int_value)),
+                Err(e) => Err(Error::new(format!("Failed to convert property value to int: {}", e))),
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
         }
     }
 }

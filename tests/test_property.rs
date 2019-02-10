@@ -27,7 +27,7 @@ fn property_test() {
             .property_int_value("rocksdb.estimate-live-data-size")
             .unwrap();
 
-        assert!(value == 0);
+        assert!(value == Some(0));
     }
 }
 
@@ -40,8 +40,8 @@ fn property_cf_test() {
         let cf = db.create_cf("cf1", &opts).unwrap();
         let total_keys = db
             .property_int_value_cf(cf, "rocksdb.estimate-num-keys")
-            .unwrap() as usize;
+            .unwrap();
 
-        assert!(total_keys == 0);
+        assert!(total_keys == Some(0));
     }
 }
