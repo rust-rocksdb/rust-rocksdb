@@ -18,22 +18,28 @@
 //! # Examples
 //!
 //! ```
-//!  use rocksdb::DB;
-//!  // NB: db is automatically closed at end of lifetime
-//!  let db = DB::open_default("path/for/rocksdb/storage").unwrap();
-//!  db.put(b"my key", b"my value");
-//!  match db.get(b"my key") {
-//!     Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
-//!     Ok(None) => println!("value not found"),
-//!     Err(e) => println!("operational problem encountered: {}", e),
-//!  }
-//!  db.delete(b"my key").unwrap();
+//! use rocksdb::{DB, Options};
+//! // NB: db is automatically closed at end of lifetime
+//! let path = "_path_for_rocksdb_storage";
+//! {
+//!    let db = DB::open_default(path).unwrap();
+//!    db.put(b"my key", b"my value");
+//!    match db.get(b"my key") {
+//!        Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
+//!        Ok(None) => println!("value not found"),
+//!        Err(e) => println!("operational problem encountered: {}", e),
+//!    }
+//!    db.delete(b"my key").unwrap();
+//! }
+//! let _ = DB::destroy(&Options::default(), path);
 //! ```
 //!
 //! Opening a database and a single column family with custom options:
 //!
 //! ```
 //! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//!
+//! let path = "_path_for_rocksdb_storage_with_cfs";
 //! let mut cf_opts = Options::default();
 //! cf_opts.set_max_write_buffer_number(16);
 //! let cf = ColumnFamilyDescriptor::new("cf1", cf_opts);
@@ -41,8 +47,10 @@
 //! let mut db_opts = Options::default();
 //! db_opts.create_missing_column_families(true);
 //! db_opts.create_if_missing(true);
-//!
-//! let db = DB::open_cf_descriptors(&db_opts, "path/for/rocksdb/storage_with_cfs", vec![cf]).unwrap();
+//! {
+//!     let db = DB::open_cf_descriptors(&db_opts, path, vec![cf]).unwrap();
+//! }
+//! let _ = DB::destroy(&db_opts, path);
 //! ```
 //!
 
@@ -63,7 +71,7 @@ mod slice_transform;
 
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{
-    new_bloom_filter, DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator,
+    DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
     DBRecoveryMode, DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
 };
 
@@ -73,6 +81,7 @@ pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
+use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
@@ -81,7 +90,7 @@ use std::sync::{Arc, RwLock};
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: Arc<RwLock<BTreeMap<String, ColumnFamily>>>,
+    cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
     path: PathBuf,
 }
 
@@ -167,6 +176,21 @@ pub enum MemtableFactory {
     },
 }
 
+/// Used with DBOptions::set_plain_table_factory.
+/// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+///
+/// Defaults:
+///  user_key_length: 0 (variable length)
+///  bloom_bits_per_key: 10
+///  hash_table_ratio: 0.75
+///  index_sparseness: 16
+pub struct PlainTableFactoryOptions {
+    pub user_key_length: u32,
+    pub bloom_bits_per_key: i32,
+    pub hash_table_ratio: f64,
+    pub index_sparseness: usize,
+}
+
 /// Database-wide options around performance and behavior.
 ///
 /// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
@@ -211,20 +235,23 @@ pub struct Options {
 /// Making an unsafe write of a batch:
 ///
 /// ```
-/// use rocksdb::{DB, WriteBatch, WriteOptions};
+/// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
 ///
-/// let db = DB::open_default("path/for/rocksdb/storageY").unwrap();
+/// let path = "_path_for_rocksdb_storageY";
+/// {
+///     let db = DB::open_default(path).unwrap();
+///     let mut batch = WriteBatch::default();
+///     batch.put(b"my key", b"my value");
+///     batch.put(b"key2", b"value2");
+///     batch.put(b"key3", b"value3");
 ///
-/// let mut batch = WriteBatch::default();
-/// batch.put(b"my key", b"my value");
-/// batch.put(b"key2", b"value2");
-/// batch.put(b"key3", b"value3");
+///     let mut write_options = WriteOptions::default();
+///     write_options.set_sync(false);
+///     write_options.disable_wal(true);
 ///
-/// let mut write_options = WriteOptions::default();
-/// write_options.set_sync(false);
-/// write_options.disable_wal(true);
-///
-/// db.write_opt(batch, &write_options);
+///     db.write_opt(batch, &write_options);
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
@@ -233,8 +260,9 @@ pub struct WriteOptions {
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
 #[derive(Copy, Clone)]
-pub struct ColumnFamily {
+pub struct ColumnFamily<'a> {
     inner: *mut ffi::rocksdb_column_family_handle_t,
+    db: PhantomData<&'a DB>,
 }
 
-unsafe impl Send for ColumnFamily {}
+unsafe impl<'a> Send for ColumnFamily<'a> {}

@@ -45,7 +45,8 @@ impl<F> CompactionFilterFn for F
 where
     F: FnMut(u32, &[u8], &[u8]) -> Decision,
     F: Send + 'static,
-{}
+{
+}
 
 pub struct CompactionFilterCallback<F>
 where
@@ -126,9 +127,11 @@ fn compaction_filter_test() {
         let _ = db.put(b"k1", b"a");
         let _ = db.put(b"_k", b"b");
         let _ = db.put(b"%k", b"c");
-        db.compact_range(None, None);
+        db.compact_range(None::<&[u8]>, None::<&[u8]>);
         assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
         assert!(db.get(b"_k").unwrap().is_none());
         assert_eq!(&*db.get(b"%k").unwrap().unwrap(), b"secret");
     }
+    let result = DB::destroy(&opts, path);
+    assert!(result.is_ok());
 }
