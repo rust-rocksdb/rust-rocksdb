@@ -24,6 +24,36 @@ fn property_test() {
     {
         let db = DB::open_default(&n).unwrap();
         let value = db
+            .property_value("rocksdb.stats")
+            .unwrap()
+            .unwrap();
+
+        assert!(value.contains("Stats"));
+    }
+}
+
+#[test]
+fn property_cf_test() {
+    let n = DBPath::new("_rust_rocksdb_property_cf_test");
+    {
+        let opts = Options::default();
+        let db = DB::open_default(&n).unwrap();
+        let cf = db.create_cf("cf1", &opts).unwrap();
+        let value = db
+            .property_value_cf(cf, "rocksdb.stats")
+            .unwrap()
+            .unwrap();
+
+        assert!(value.contains("Stats"));
+    }
+}
+
+#[test]
+fn property_int_test() {
+    let n = DBPath::new("_rust_rocksdb_property_int_test");
+    {
+        let db = DB::open_default(&n).unwrap();
+        let value = db
             .property_int_value("rocksdb.estimate-live-data-size")
             .unwrap();
 
@@ -32,8 +62,8 @@ fn property_test() {
 }
 
 #[test]
-fn property_cf_test() {
-    let n = DBPath::new("_rust_rocksdb_property_cf_test");
+fn property_int_cf_test() {
+    let n = DBPath::new("_rust_rocksdb_property_int_cf_test");
     {
         let opts = Options::default();
         let db = DB::open_default(&n).unwrap();
