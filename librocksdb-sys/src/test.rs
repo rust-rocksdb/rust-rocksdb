@@ -1,4 +1,4 @@
-// Copyright 2014 Tyler Neely
+// Copyright 2019 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,13 +55,15 @@ fn internal() {
 
         let key = b"name\x00";
         let val = b"spacejam\x00";
-        rocksdb_put(db,
-                    writeopts.clone(),
-                    key.as_ptr() as *const c_char,
-                    4,
-                    val.as_ptr() as *const c_char,
-                    8,
-                    err_ptr);
+        rocksdb_put(
+            db,
+            writeopts.clone(),
+            key.as_ptr() as *const c_char,
+            4,
+            val.as_ptr() as *const c_char,
+            8,
+            err_ptr,
+        );
         rocksdb_writeoptions_destroy(writeopts);
         assert!(err.is_null());
 
@@ -70,12 +72,14 @@ fn internal() {
 
         let mut val_len: size_t = 0;
         let val_len_ptr = &mut val_len as *mut size_t;
-        rocksdb_get(db,
-                    readopts.clone(),
-                    key.as_ptr() as *const c_char,
-                    4,
-                    val_len_ptr,
-                    err_ptr);
+        rocksdb_get(
+            db,
+            readopts.clone(),
+            key.as_ptr() as *const c_char,
+            4,
+            val_len_ptr,
+            err_ptr,
+        );
         rocksdb_readoptions_destroy(readopts);
         assert!(err.is_null());
         rocksdb_close(db);

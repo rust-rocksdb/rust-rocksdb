@@ -25,4 +25,4 @@ bzip2 = ["librocksdb-sys/bzip2"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "5.14.3" }
+librocksdb-sys = { path = "librocksdb-sys", version = "5.17.2" }
