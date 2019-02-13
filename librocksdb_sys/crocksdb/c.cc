@@ -2258,8 +2258,8 @@ void crocksdb_options_enable_statistics(crocksdb_options_t* opt, unsigned char v
 }
 
 void crocksdb_options_reset_statistics(crocksdb_options_t* opt) {
-  auto statistics = opt->rep.statistics.get();
-  if (statistics) {
+  if (opt->rep.statistics) {
+    auto* statistics = opt->rep.statistics.get();
     statistics->Reset();
   }
 }
@@ -2684,8 +2684,8 @@ void crocksdb_options_set_delayed_write_rate(crocksdb_options_t *opt, uint64_t d
 }
 
 char *crocksdb_options_statistics_get_string(crocksdb_options_t *opt) {
-  rocksdb::Statistics *statistics = opt->rep.statistics.get();
-  if (statistics) {
+  if (opt->rep.statistics) {
+    rocksdb::Statistics* statistics = opt->rep.statistics.get();
     return strdup(statistics->ToString().c_str());
   }
   return nullptr;
@@ -2693,8 +2693,8 @@ char *crocksdb_options_statistics_get_string(crocksdb_options_t *opt) {
 
 uint64_t crocksdb_options_statistics_get_ticker_count(crocksdb_options_t* opt,
                                                       uint32_t ticker_type) {
-  rocksdb::Statistics* statistics = opt->rep.statistics.get();
-  if (statistics) {
+  if (opt->rep.statistics) {
+    rocksdb::Statistics* statistics = opt->rep.statistics.get();
     return statistics->getTickerCount(ticker_type);
   }
   return 0;
@@ -2702,8 +2702,8 @@ uint64_t crocksdb_options_statistics_get_ticker_count(crocksdb_options_t* opt,
 
 uint64_t crocksdb_options_statistics_get_and_reset_ticker_count(crocksdb_options_t* opt,
                                                                 uint32_t ticker_type) {
-  rocksdb::Statistics* statistics = opt->rep.statistics.get();
-  if (statistics) {
+  if (opt->rep.statistics) {
+    rocksdb::Statistics* statistics = opt->rep.statistics.get();
     return statistics->getAndResetTickerCount(ticker_type);
   }
   return 0;
@@ -2711,8 +2711,8 @@ uint64_t crocksdb_options_statistics_get_and_reset_ticker_count(crocksdb_options
 
 char* crocksdb_options_statistics_get_histogram_string(crocksdb_options_t* opt,
                                                        uint32_t type) {
-  rocksdb::Statistics* statistics = opt->rep.statistics.get();
-  if (statistics) {
+  if (opt->rep.statistics) {
+    rocksdb::Statistics* statistics = opt->rep.statistics.get();
     return strdup(statistics->getHistogramString(type).c_str());
   }
   return nullptr;
@@ -2727,8 +2727,8 @@ unsigned char crocksdb_options_statistics_get_histogram(
     double* average,
     double* standard_deviation,
     double* max) {
-  rocksdb::Statistics* statistics = opt->rep.statistics.get();
-  if (statistics) {
+  if (opt->rep.statistics) {
+    rocksdb::Statistics* statistics = opt->rep.statistics.get();
     crocksdb_histogramdata_t data;
     statistics->histogramData(type, &data.rep);
     *median = data.rep.median;
