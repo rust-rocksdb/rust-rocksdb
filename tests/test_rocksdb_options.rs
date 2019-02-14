@@ -28,3 +28,14 @@ fn test_set_num_levels() {
         let _db = DB::open(&opts, &n).unwrap();
     }
 }
+
+#[test]
+fn test_increase_parallelism() {
+    let n = DBPath::new("_rust_rocksdb_test_increase_parallelism");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.increase_parallelism(4);
+        let _db = DB::open(&opts, &n).unwrap();
+    }
+}
