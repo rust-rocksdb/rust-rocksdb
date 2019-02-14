@@ -1027,8 +1027,8 @@ impl DB {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn create_cf(&self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
-        let cname = match CString::new(name.as_bytes()) {
+    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<ColumnFamily, Error> {
+        let cname = match CString::new(name.as_ref().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
@@ -1048,7 +1048,7 @@ impl DB {
             self.cfs
                 .write()
                 .map_err(|e| Error::new(e.to_string()))?
-                .insert(name.to_string(), cf_handle);
+                .insert(name.as_ref().to_string(), cf_handle);
 
             ColumnFamily {
                 inner: cf_handle,
