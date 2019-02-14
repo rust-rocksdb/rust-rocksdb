@@ -8,16 +8,22 @@ use std::marker::PhantomData;
 pub struct Transaction<'a> {
     pub(crate) inner: *mut ffi::rocksdb_transaction_t,
     pub(crate) db: PhantomData<&'a OptimisticTransactionDB>,
+    snapshot: Option<*const ffi::rocksdb_snapshot_t>,
 }
 
 impl<'a> Transaction<'a> {
-    pub fn new(inner: *mut ffi::rocksdb_transaction_t) -> Transaction<'a> {
+    pub(crate) fn new(
+        inner: *mut ffi::rocksdb_transaction_t,
+        snapshot: Option<*const ffi::rocksdb_snapshot_t>,
+    ) -> Transaction<'a> {
         Transaction {
             inner,
             db: PhantomData,
+            snapshot,
         }
     }
 
+    /// commits a transaction
     pub fn commit(&self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner,));
@@ -25,6 +31,9 @@ impl<'a> Transaction<'a> {
         Ok(())
     }
 
+    /// Delete a key inside a transaction
+    ///
+    /// ColumnFamilyHandle: default
     pub fn delete(&self, key: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete(
@@ -36,6 +45,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Delete a key inside a transaction
     pub fn delete_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete_cf(
@@ -48,7 +58,14 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn get_opt(&self, key: &[u8], readopts: &ReadOptions) -> Result<Option<DBVector>, Error> {
+    /// Read a key inside a transaction
+    ///
+    /// ColumnFamilyHandle: default
+    pub fn get_opt(
+        &self,
+        key: &[u8],
+        mut readopts: ReadOptions,
+    ) -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. \
@@ -59,6 +76,10 @@ impl<'a> Transaction<'a> {
                     .to_owned(),
             ));
         }
+
+        if let Some(snapshot) = self.snapshot {
+            readopts.set_snapshot(snapshot)
+        };
 
         unsafe {
             let mut val_len: size_t = 0;
@@ -77,15 +98,20 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Read a key inside a transaction
+    ///
+    /// ReadOptions: default
+    /// ColumnFamilyHandle: default
     pub fn get(&self, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        self.get_opt(key, &ReadOptions::default())
+        self.get_opt(key, ReadOptions::default())
     }
 
+    /// Read a key inside a transaction
     pub fn get_cf_opt(
         &self,
         cf: ColumnFamily,
         key: &[u8],
-        readopts: &ReadOptions,
+        mut readopts: ReadOptions,
     ) -> Result<Option<DBVector>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
@@ -97,6 +123,10 @@ impl<'a> Transaction<'a> {
                     .to_owned(),
             ));
         }
+
+        if let Some(snapshot) = self.snapshot {
+            readopts.set_snapshot(snapshot)
+        };
 
         unsafe {
             let mut val_len: size_t = 0;
@@ -116,11 +146,16 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Read a key inside a transaction
+    ///
+    /// ReadOptions: default
     pub fn get_cf(&self, cf: ColumnFamily, key: &[u8]) -> Result<Option<DBVector>, Error> {
-        self.get_cf_opt(cf, key, &ReadOptions::default())
+        self.get_cf_opt(cf, key, ReadOptions::default())
     }
 
     /// Insert a value into the database under the given key.
+    ///
+    /// ColumnFamilyHandle: default
     pub fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_put(
@@ -134,6 +169,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Insert a value into the database under the given key.
     pub fn put_cf(&self, cf: ColumnFamily, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_put_cf(
@@ -148,6 +184,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Merge a key inside a transaction
     pub fn merge(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge(
@@ -161,16 +198,19 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Transaction rollback
     pub fn rollback(&self) -> Result<(), Error> {
         unsafe { ffi_try!(ffi::rocksdb_transaction_rollback(self.inner,)) }
         Ok(())
     }
 
+    /// Transaction rollback to savepoint
     pub fn rollback_to_savepoint(&self) -> Result<(), Error> {
         unsafe { ffi_try!(ffi::rocksdb_transaction_rollback_to_savepoint(self.inner,)) }
         Ok(())
     }
 
+    /// Set savepoint for transaction
     pub fn set_savepoint(&self) {
         unsafe { ffi::rocksdb_transaction_set_savepoint(self.inner) }
     }
@@ -178,6 +218,7 @@ impl<'a> Transaction<'a> {
 
 impl<'a> Drop for Transaction<'a> {
     fn drop(&mut self) {
+        self.snapshot = None;
         unsafe {
             ffi::rocksdb_transaction_destroy(self.inner);
         }

@@ -73,10 +73,10 @@ mod transaction;
 
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{
-    CreateIter, DBCompactionStyle, DBCompressionType, DBIterator, DBRawIterator, DBRecoveryMode,
-    DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
+    CreateIter, DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
+    DBRecoveryMode, DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
 };
-pub use optimistic_transaction_db::OptimisticTransactionDB;
+pub use optimistic_transaction_db::{OptimisticTransactionDB, OptimisticTransactionOptions};
 pub use transaction::Transaction;
 
 pub use slice_transform::SliceTransform;

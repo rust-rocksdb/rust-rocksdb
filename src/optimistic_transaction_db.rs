@@ -26,32 +26,38 @@ impl OptimisticTransactionDB {
 
     /// Open the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<OptimisticTransactionDB, Error> {
-        OptimisticTransactionDB::open_cf(opts, path, &[])
+        OptimisticTransactionDB::open_cf(opts, path, None::<&str>)
     }
 
     /// Open a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P: AsRef<Path>>(
+    pub fn open_cf<P, I, N>(
         opts: &Options,
         path: P,
-        cfs: &[&str],
-    ) -> Result<OptimisticTransactionDB, Error> {
-        let cfs_v = cfs
-            .to_vec()
-            .iter()
-            .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
-            .collect();
-
-        OptimisticTransactionDB::open_cf_descriptors(opts, path, cfs_v)
+        cfs: I,
+    ) -> Result<OptimisticTransactionDB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+        OptimisticTransactionDB::open_cf_descriptors(opts, path, cfs)
     }
 
     /// Open a database with the given database options and column family names/options.
-    pub fn open_cf_descriptors<P: AsRef<Path>>(
+    pub fn open_cf_descriptors<P, I>(
         opts: &Options,
         path: P,
-        cfs: Vec<ColumnFamilyDescriptor>,
-    ) -> Result<OptimisticTransactionDB, Error> {
+        cfs: I,
+    ) -> Result<OptimisticTransactionDB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
         let path = path.as_ref();
         let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
             Ok(c) => c,
@@ -74,7 +80,8 @@ impl OptimisticTransactionDB {
 
         let db: *mut ffi::rocksdb_optimistictransactiondb_t;
         let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
-        if cfs.len() == 0 {
+        let mut cfs: Vec<_> = cfs.into_iter().collect();
+        if cfs.is_empty() {
             unsafe {
                 db = ffi_try!(ffi::rocksdb_optimistictransactiondb_open(
                     opts.inner,
@@ -82,43 +89,42 @@ impl OptimisticTransactionDB {
                 ));
             }
         } else {
-            let mut cfs_v = cfs;
             // Always open the default column family.
-            if !cfs_v.iter().any(|cf| cf.name == "default") {
-                cfs_v.push(ColumnFamilyDescriptor {
+            if !cfs
+                .iter()
+                .any(|cf: &ColumnFamilyDescriptor| cf.name == "default")
+            {
+                cfs.push(ColumnFamilyDescriptor {
                     name: String::from("default"),
                     options: Options::default(),
                 });
             }
             // We need to store our CStrings in an intermediate vector
             // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v
+            let c_cfs: Vec<CString> = cfs
                 .iter()
                 .map(|cf| CString::new(cf.name.as_bytes()).unwrap())
                 .collect();
 
-            let mut cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
+            let mut cf_names: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
             // These handles will be populated by DB.
-            let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
+            let mut cf_handles: Vec<_> = cfs.iter().map(|_| ptr::null_mut()).collect();
 
-            let mut cfopts: Vec<_> = cfs_v
-                .iter()
-                .map(|cf| cf.options.inner as *const _)
-                .collect();
+            let mut cf_opts: Vec<_> = cfs.iter().map(|cf| cf.options.inner as *const _).collect();
 
             unsafe {
                 db = ffi_try!(ffi::rocksdb_optimistictransactiondb_open_column_families(
                     opts.inner,
                     cpath.as_ptr(),
-                    cfs_v.len() as c_int,
-                    cfnames.as_mut_ptr(),
-                    cfopts.as_mut_ptr(),
-                    cfhandles.as_mut_ptr(),
+                    cfs.len() as c_int,
+                    cf_names.as_mut_ptr(),
+                    cf_opts.as_mut_ptr(),
+                    cf_handles.as_mut_ptr(),
                 ));
             }
 
-            for handle in &cfhandles {
+            for handle in &cf_handles {
                 if handle.is_null() {
                     return Err(Error::new(
                         "Received null column family \
@@ -128,7 +134,7 @@ impl OptimisticTransactionDB {
                 }
             }
 
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
+            for (n, h) in cfs.iter().zip(cf_handles) {
                 cf_map
                     .write()
                     .map_err(|e| Error::new(e.to_string()))?
@@ -159,32 +165,41 @@ impl OptimisticTransactionDB {
         })
     }
 
+    /// Begins a new optimistic transaction.
     pub fn transaction(
         &self,
-        writeopts: &WriteOptions,
-        otxnoptions: &OptimistictransactionOptions,
+        write_options: &WriteOptions,
+        optimistic_tx_options: &OptimisticTransactionOptions,
     ) -> Transaction {
         unsafe {
             let inner = ffi::rocksdb_optimistictransaction_begin(
                 self.inner,
-                writeopts.inner,
-                otxnoptions.inner,
+                write_options.inner,
+                optimistic_tx_options.inner,
                 ptr::null_mut(),
             );
-            Transaction::new(inner)
+            let snapshot = if optimistic_tx_options.set_snapshot {
+                Some(ffi::rocksdb_transaction_get_snapshot(inner))
+            } else {
+                None
+            };
+            Transaction::new(inner, snapshot)
         }
     }
 
+    /// Begins a new optimistic transaction with default options.
     pub fn transaction_default(&self) -> Transaction {
         let write_options = WriteOptions::default();
-        let optimistictransaction_options = OptimistictransactionOptions::new();
-        self.transaction(&write_options, &optimistictransaction_options)
+        let optimistic_transaction_options = OptimisticTransactionOptions::new();
+        self.transaction(&write_options, &optimistic_transaction_options)
     }
 
+    // Get database path
     pub fn path(&self) -> &Path {
         &self.path.as_path()
     }
 
+    /// Get base DB
     pub fn get_base_db(&self) -> &DB {
         &self.base_db
     }
@@ -192,37 +207,53 @@ impl OptimisticTransactionDB {
 
 impl Drop for OptimisticTransactionDB {
     fn drop(&mut self) {
+        self.base_db.drop_base_db();
         unsafe {
             ffi::rocksdb_optimistictransactiondb_close(self.inner);
         }
     }
 }
 
-pub struct OptimistictransactionOptions {
+pub struct OptimisticTransactionOptions {
     inner: *mut ffi::rocksdb_optimistictransaction_options_t,
+    set_snapshot: bool,
 }
 
-impl OptimistictransactionOptions {
-    pub fn new() -> OptimistictransactionOptions {
+impl OptimisticTransactionOptions {
+    /// Create new optimistic transaction options
+    pub fn new() -> OptimisticTransactionOptions {
         unsafe {
             let inner = ffi::rocksdb_optimistictransaction_options_create();
-            OptimistictransactionOptions { inner }
+            OptimisticTransactionOptions {
+                inner,
+                set_snapshot: false,
+            }
         }
     }
-    pub fn set_snapshot(&self, set_snapshot: bool) {
+
+    /// mode snapshot switch.
+    /// Default: false
+    pub fn set_snapshot(&mut self, set_snapshot: bool) {
         unsafe {
             ffi::rocksdb_optimistictransaction_options_set_set_snapshot(
                 self.inner,
                 set_snapshot as c_uchar,
             );
         }
+        self.set_snapshot = set_snapshot;
     }
 }
 
-impl Drop for OptimistictransactionOptions {
+impl Drop for OptimisticTransactionOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_optimistictransaction_options_destroy(self.inner);
         }
+    }
+}
+
+impl Default for OptimisticTransactionOptions {
+    fn default() -> OptimisticTransactionOptions {
+        OptimisticTransactionOptions::new()
     }
 }
