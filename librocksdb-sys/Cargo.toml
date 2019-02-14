@@ -1,11 +1,11 @@
 [package]
 name = "librocksdb-sys"
-version = "5.14.3"
+version = "5.17.2"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
 readme = "README.md"
-repository = "https://github.com/spacejam/rust-rocksdb.git"
+repository = "https://github.com/rust-rocksdb/rust-rocksdb.git"
 keywords = [ "ffi", "rocksdb" ]
 
 build = "build.rs"
@@ -25,11 +25,10 @@ bzip2 = []
 libc = "0.2"
 
 [dev-dependencies]
-const-cstr = "0.2"
+const-cstr = "0.3"
 uuid = { version = "0.7", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "^1.0", features = ["parallel"] }
-make-cmd = "0.1"
-bindgen = "0.43"
+bindgen = "0.47"
 glob = "0.2.11"

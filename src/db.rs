@@ -1086,8 +1086,8 @@ impl DB {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn create_cf(&self, name: &str, opts: &Options) -> Result<ColumnFamily, Error> {
-        let cname = match CString::new(name.as_bytes()) {
+    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<ColumnFamily, Error> {
+        let cname = match CString::new(name.as_ref().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
@@ -1107,7 +1107,7 @@ impl DB {
             self.cfs
                 .write()
                 .map_err(|e| Error::new(e.to_string()))?
-                .insert(name.to_string(), cf_handle);
+                .insert(name.as_ref().to_string(), cf_handle);
 
             ColumnFamily {
                 inner: cf_handle,
@@ -1380,6 +1380,118 @@ impl DB {
         })
     }
 
+    /// Retrieves a RocksDB property by name.
+    ///
+    /// For a full list of properties, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
+        let prop_name = match CString::new(name) {
+            Ok(c) => c,
+            Err(e) => {
+                return Err(Error::new(format!(
+                    "Failed to convert property name to CString: {}",
+                    e
+                )));
+            }
+        };
+
+        unsafe {
+            let value = ffi::rocksdb_property_value(self.inner, prop_name.as_ptr());
+            if value.is_null() {
+                return Ok(None);
+            }
+
+            let str_value = match CStr::from_ptr(value).to_str() {
+                Ok(s) => s.to_owned(),
+                Err(e) => {
+                    return Err(Error::new(format!(
+                        "Failed to convert property value to string: {}",
+                        e
+                    )));
+                }
+            };
+
+            libc::free(value as *mut c_void);
+            Ok(Some(str_value))
+        }
+    }
+
+    /// Retrieves a RocksDB property by name, for a specific column family.
+    ///
+    /// For a full list of properties, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    pub fn property_value_cf(&self, cf: ColumnFamily, name: &str) -> Result<Option<String>, Error> {
+        let prop_name = match CString::new(name) {
+            Ok(c) => c,
+            Err(e) => {
+                return Err(Error::new(format!(
+                    "Failed to convert property name to CString: {}",
+                    e
+                )));
+            }
+        };
+
+        unsafe {
+            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr());
+            if value.is_null() {
+                return Ok(None);
+            }
+
+            let str_value = match CStr::from_ptr(value).to_str() {
+                Ok(s) => s.to_owned(),
+                Err(e) => {
+                    return Err(Error::new(format!(
+                        "Failed to convert property value to string: {}",
+                        e
+                    )));
+                }
+            };
+
+            libc::free(value as *mut c_void);
+            Ok(Some(str_value))
+        }
+    }
+
+    /// Retrieves a RocksDB property and casts it to an integer.
+    ///
+    /// For a full list of properties that return int values, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
+        match self.property_value(name) {
+            Ok(Some(value)) => match value.parse::<u64>() {
+                Ok(int_value) => Ok(Some(int_value)),
+                Err(e) => Err(Error::new(format!(
+                    "Failed to convert property value to int: {}",
+                    e
+                ))),
+            },
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
+    ///
+    /// For a full list of properties that return int values, see
+    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    pub fn property_int_value_cf(
+        &self,
+        cf: ColumnFamily,
+        name: &str,
+    ) -> Result<Option<u64>, Error> {
+        match self.property_value_cf(cf, name) {
+            Ok(Some(value)) => match value.parse::<u64>() {
+                Ok(int_value) => Ok(Some(int_value)),
+                Err(e) => Err(Error::new(format!(
+                    "Failed to convert property value to int: {}",
+                    e
+                ))),
+            },
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     pub(crate) fn drop_base_db(&mut self) {
         unsafe {
             if let Ok(cfs) = self.cfs.read() {
@@ -1636,6 +1748,23 @@ impl ReadOptions {
 
     pub fn set_total_order_seek(&mut self, v: bool) {
         unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
+    }
+
+    /// If non-zero, an iterator will create a new table reader which
+    /// performs reads of the given size. Using a large size (> 2MB) can
+    /// improve the performance of forward iteration on spinning disks.
+    /// Default: 0
+    ///
+    /// ```
+    /// use rocksdb::{ReadOptions};
+    ///
+    /// let mut opts = ReadOptions::default();
+    /// opts.set_readahead_size(4_194_304); // 4mb
+    /// ```
+    pub fn set_readahead_size(&mut self, v: usize) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_readahead_size(self.inner, v as size_t);
+        }
     }
 }
 

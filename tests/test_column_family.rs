@@ -238,3 +238,20 @@ fn test_column_family_with_options() {
         }
     }
 }
+
+#[test]
+fn test_create_duplicate_column_family() {
+    let n = DBPath::new("_rust_rocksdb_create_duplicate_column_family");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let db = match DB::open_cf(&opts, &n, &["cf1"]) {
+            Ok(d) => d,
+            Err(e) => panic!("failed to create new column family: {}", e),
+        };
+
+        assert!(db.create_cf("cf1", &opts).is_err());
+    }
+}

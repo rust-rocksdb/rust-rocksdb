@@ -23,7 +23,7 @@
 //! let path = "_path_for_rocksdb_storage";
 //! {
 //!    let db = DB::open_default(path).unwrap();
-//!    db.put(b"my key", b"my value");
+//!    db.put(b"my key", b"my value").unwrap();
 //!    match db.get(b"my key") {
 //!        Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
 //!        Ok(None) => println!("value not found"),
