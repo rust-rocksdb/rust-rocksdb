@@ -277,7 +277,7 @@ impl Options {
     ) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            full_merge_fn: full_merge_fn,
+            full_merge_fn,
             partial_merge_fn: partial_merge_fn.unwrap_or(full_merge_fn),
         });
 
@@ -318,7 +318,7 @@ impl Options {
     {
         let cb = Box::new(CompactionFilterCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            filter_fn: filter_fn,
+            filter_fn,
         });
 
         unsafe {

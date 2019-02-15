@@ -179,13 +179,10 @@ fn test_provided_merge(
 ) -> Option<Vec<u8>> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
-    match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e);
-            }
+    if let Some(v) = existing_val {
+        for e in v {
+            result.push(*e);
         }
-        None => (),
     }
     for op in operands {
         for e in op {

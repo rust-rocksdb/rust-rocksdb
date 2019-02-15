@@ -94,7 +94,7 @@ pub unsafe extern "C" fn full_merge_callback(
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    let oldval = if existing_value == ptr::null() {
+    let oldval = if existing_value.is_null() {
         None
     } else {
         Some(slice::from_raw_parts(
@@ -160,8 +160,8 @@ impl MergeOperands {
     ) -> MergeOperands {
         assert!(num_operands >= 0);
         MergeOperands {
-            operands_list: operands_list,
-            operands_list_len: operands_list_len,
+            operands_list,
+            operands_list_len,
             num_operands: num_operands as usize,
             cursor: 0,
         }
@@ -273,12 +273,12 @@ mod test {
             );
             None
         } else {
-            unsafe { Some(::std::mem::transmute(s.as_ptr())) }
+            unsafe { Some(&*(s.as_ptr() as *const T)) }
         }
     }
 
     #[repr(packed)]
-    #[derive(Copy, Clone, Debug)]
+    #[derive(Copy, Clone, Debug, Default)]
     struct ValueCounts {
         num_a: u32,
         num_b: u32,
@@ -306,15 +306,10 @@ mod test {
         existing_val: Option<&[u8]>,
         operands: &mut MergeOperands,
     ) -> Option<Vec<u8>> {
-        let mut counts: ValueCounts = if let Some(v) = existing_val {
-            from_slice::<ValueCounts>(v).unwrap().clone()
+        let mut counts = if let Some(v) = existing_val {
+            *from_slice::<ValueCounts>(v).unwrap_or(&ValueCounts::default())
         } else {
-            ValueCounts {
-                num_a: 0,
-                num_b: 0,
-                num_c: 0,
-                num_d: 0,
-            }
+            ValueCounts::default()
         };
 
         for op in operands {

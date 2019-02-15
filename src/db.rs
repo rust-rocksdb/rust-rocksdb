@@ -554,7 +554,7 @@ impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
-            db: db,
+            db,
             inner: snapshot,
         }
     }
@@ -726,7 +726,7 @@ impl DB {
         let db: *mut ffi::rocksdb_t;
         let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
 
-        if cfs.len() == 0 {
+        if cfs.is_empty() {
             unsafe {
                 db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _,));
             }
@@ -1366,7 +1366,7 @@ impl DB {
 
     pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
         let copts = opts
-            .into_iter()
+            .iter()
             .map(|(name, value)| {
                 let cname = match CString::new(name.as_bytes()) {
                     Ok(cname) => cname,
@@ -1383,14 +1383,15 @@ impl DB {
         let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
         let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
         let count = opts.len() as i32;
-        Ok(unsafe {
+        unsafe {
             ffi_try!(ffi::rocksdb_set_options(
                 self.inner,
                 count,
                 cnames.as_ptr(),
                 cvalues.as_ptr(),
-            ))
-        })
+            ));
+        }
+        Ok(())
     }
 
     /// Retrieves a RocksDB property by name.
@@ -1869,7 +1870,7 @@ impl<'a> DBPinnableSlice<'a> {
 fn test_db_vector() {
     use std::mem;
     let len: size_t = 4;
-    let data: *mut u8 = unsafe { mem::transmute(libc::calloc(len, mem::size_of::<u8>())) };
+    let data = unsafe { libc::calloc(len, mem::size_of::<u8>()) as *mut u8 };
     let v = unsafe { DBVector::from_c(data, len) };
     let ctrl = [0u8, 0, 0, 0];
     assert_eq!(&*v, &ctrl[..]);
@@ -1919,7 +1920,7 @@ fn writebatch_works() {
     {
         let db = DB::open_default(path).unwrap();
         {
-            // test put
+            // test putx
             let mut batch = WriteBatch::default();
             assert!(db.get(b"k1").unwrap().is_none());
             assert_eq!(batch.len(), 0);
