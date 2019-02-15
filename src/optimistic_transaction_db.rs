@@ -4,7 +4,7 @@ use libc::{c_int, c_uchar};
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::path::PathBuf;
 use std::ptr;
 use std::str;
