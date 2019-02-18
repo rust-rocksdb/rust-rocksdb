@@ -1,5 +1,6 @@
 extern crate rocksdb;
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -30,8 +31,12 @@ impl DBPath {
 
 impl Drop for DBPath {
     fn drop(&mut self) {
-        let opts = Options::default();
-        DB::destroy(&opts, &self.path).unwrap();
+        {
+            let opts = Options::default();
+            DB::destroy(&opts, &self.path).unwrap();
+        }
+
+        fs::remove_dir_all(self).unwrap();
     }
 }
 

@@ -77,7 +77,7 @@ pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{DB, DBPinnableSlice, Snapshot, WriteBatch};
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
-pub use db_options::{Options, ReadOptions, WriteOptions, MemtableFactory, DBCompactionStyle, DBCompressionType, DBRecoveryMode, };
+pub use db_options::{BlockBasedOptions, BlockBasedIndexType, Options, ReadOptions, WriteOptions, MemtableFactory, DBCompactionStyle, DBCompressionType, DBRecoveryMode, PlainTableFactoryOptions};
 pub use db_vector::DBVector;
 
 pub use slice_transform::SliceTransform;
