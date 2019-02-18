@@ -114,7 +114,7 @@ impl Error {
         Error { message }
     }
 
-    pub fn to_string(self) -> String {
+    pub fn into_string(self) -> String {
         self.into()
     }
 }

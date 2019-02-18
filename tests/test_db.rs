@@ -26,7 +26,7 @@ use util::DBPath;
 fn test_db_vector() {
     use std::mem;
     let len: size_t = 4;
-    let data: *mut u8 = unsafe { mem::transmute(libc::calloc(len, mem::size_of::<u8>())) };
+    let data: *mut u8 = unsafe { libc::calloc(len, mem::size_of::<u8>()) as *mut u8 };
     let v = unsafe { DBVector::from_c(data, len) };
     let ctrl = [0u8, 0, 0, 0];
     assert_eq!(&*v, &ctrl[..]);

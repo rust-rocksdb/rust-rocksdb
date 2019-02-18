@@ -18,8 +18,8 @@ mod util;
 use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
 use util::DBPath;
 
-fn cba(input: &Box<[u8]>) -> Box<[u8]> {
-    input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
+fn cba(input: &[u8]) -> Box<[u8]> {
+    input.to_vec().into_boxed_slice()
 }
 
 #[test]

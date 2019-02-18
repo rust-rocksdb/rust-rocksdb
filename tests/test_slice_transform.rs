@@ -30,8 +30,8 @@ pub fn test_slice_transform() {
         assert!(db.put(&*b1, &*b1).is_ok());
         assert!(db.put(&*b2, &*b2).is_ok());
 
-        fn cba(input: &Box<[u8]>) -> Box<[u8]> {
-            input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
+        fn cba(input: &[u8]) -> Box<[u8]> {
+            input.to_vec().into_boxed_slice()
         }
 
         fn key(k: &[u8]) -> Box<[u8]> {
