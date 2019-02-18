@@ -17,7 +17,7 @@ use ffi;
 use ffi_util::opt_bytes_to_ptr;
 use util::to_cpath;
 
-use crate::{ColumnFamily, ColumnFamilyDescriptor, Error, Options, ReadOptions, WriteOptions, DB, DBVector, DBRawIterator, DBIterator, Direction, IteratorMode};
+use crate::{ColumnFamily, ColumnFamilyDescriptor, Error, Options, ReadOptions, WriteOptions, DBVector, DBRawIterator, DBIterator, Direction, IteratorMode};
 
 use libc::{self, c_char, c_int, c_void, size_t};
 use std::collections::BTreeMap;
@@ -26,11 +26,20 @@ use std::fmt;
 use std::fs;
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr;
 use std::slice;
 use std::str;
 use std::sync::{Arc, RwLock};
+
+/// A RocksDB database.
+///
+/// See crate level documentation for a simple usage example.
+pub struct DB {
+    pub(crate) inner: *mut ffi::rocksdb_t,
+    cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
+    path: PathBuf,
+}
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}

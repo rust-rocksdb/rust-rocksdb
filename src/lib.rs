@@ -75,8 +75,7 @@ mod slice_transform;
 
 pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{DBPinnableSlice, Snapshot, WriteBatch,
-};
+pub use db::{DB, DBPinnableSlice, Snapshot, WriteBatch};
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
 pub use db_options::{Options, ReadOptions, WriteOptions, MemtableFactory, DBCompactionStyle, DBCompressionType, DBRecoveryMode, };
 pub use db_vector::DBVector;
@@ -84,20 +83,9 @@ pub use db_vector::DBVector;
 pub use slice_transform::SliceTransform;
 
 pub use merge_operator::MergeOperands;
-use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
-/// A RocksDB database.
-///
-/// See crate level documentation for a simple usage example.
-pub struct DB {
-    inner: *mut ffi::rocksdb_t,
-    cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
-    path: PathBuf,
-}
 
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
