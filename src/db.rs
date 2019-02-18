@@ -17,9 +17,9 @@ use ffi;
 use ffi_util::opt_bytes_to_ptr;
 use util::to_cpath;
 
-use crate::{ColumnFamily, ColumnFamilyDescriptor, Error, Options, WriteOptions, DB, DBVector, DBRawIterator, DBIterator, Direction, IteratorMode};
+use crate::{ColumnFamily, ColumnFamilyDescriptor, Error, Options, ReadOptions, WriteOptions, DB, DBVector, DBRawIterator, DBIterator, Direction, IteratorMode};
 
-use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
+use libc::{self, c_char, c_int, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -34,32 +34,6 @@ use std::sync::{Arc, RwLock};
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum DBCompressionType {
-    None = ffi::rocksdb_no_compression as isize,
-    Snappy = ffi::rocksdb_snappy_compression as isize,
-    Zlib = ffi::rocksdb_zlib_compression as isize,
-    Bz2 = ffi::rocksdb_bz2_compression as isize,
-    Lz4 = ffi::rocksdb_lz4_compression as isize,
-    Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
-    Zstd = ffi::rocksdb_zstd_compression as isize,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum DBCompactionStyle {
-    Level = ffi::rocksdb_level_compaction as isize,
-    Universal = ffi::rocksdb_universal_compaction as isize,
-    Fifo = ffi::rocksdb_fifo_compaction as isize,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum DBRecoveryMode {
-    TolerateCorruptedTailRecords = ffi::rocksdb_tolerate_corrupted_tail_records_recovery as isize,
-    AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
-    PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
-    SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
-}
 
 /// An atomic batch of write operations.
 ///
@@ -80,11 +54,7 @@ pub enum DBRecoveryMode {
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct WriteBatch {
-    inner: *mut ffi::rocksdb_writebatch_t,
-}
-
-pub struct ReadOptions {
-    pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
 }
 
 /// A consistent view of the database at the point of creation.
@@ -103,10 +73,8 @@ pub struct ReadOptions {
 ///
 pub struct Snapshot<'a> {
     db: &'a DB,
-    inner: *const ffi::rocksdb_snapshot_t,
+    pub(crate) inner: *const ffi::rocksdb_snapshot_t,
 }
-
-
 
 impl<'a> Snapshot<'a> {
     pub fn new(db: &DB) -> Snapshot {
@@ -1238,76 +1206,6 @@ impl fmt::Debug for DB {
     }
 }
 
-impl Drop for ReadOptions {
-    fn drop(&mut self) {
-        unsafe { ffi::rocksdb_readoptions_destroy(self.inner) }
-    }
-}
-
-impl ReadOptions {
-    // TODO add snapshot setting here
-    // TODO add snapshot wrapper structs with proper destructors;
-    // that struct needs an "iterator" impl too.
-    #[allow(dead_code)]
-    fn fill_cache(&mut self, v: bool) {
-        unsafe {
-            ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
-        }
-    }
-
-    fn set_snapshot(&mut self, snapshot: &Snapshot) {
-        unsafe {
-            ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
-        }
-    }
-
-    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
-        let key = key.as_ref();
-
-        unsafe {
-            ffi::rocksdb_readoptions_set_iterate_upper_bound(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            );
-        }
-    }
-
-    pub fn set_prefix_same_as_start(&mut self, v: bool) {
-        unsafe { ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar) }
-    }
-
-    pub fn set_total_order_seek(&mut self, v: bool) {
-        unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
-    }
-
-    /// If non-zero, an iterator will create a new table reader which
-    /// performs reads of the given size. Using a large size (> 2MB) can
-    /// improve the performance of forward iteration on spinning disks.
-    /// Default: 0
-    ///
-    /// ```
-    /// use rocksdb::{ReadOptions};
-    ///
-    /// let mut opts = ReadOptions::default();
-    /// opts.set_readahead_size(4_194_304); // 4mb
-    /// ```
-    pub fn set_readahead_size(&mut self, v: usize) {
-        unsafe {
-            ffi::rocksdb_readoptions_set_readahead_size(self.inner, v as size_t);
-        }
-    }
-}
-
-impl Default for ReadOptions {
-    fn default() -> ReadOptions {
-        unsafe {
-            ReadOptions {
-                inner: ffi::rocksdb_readoptions_create(),
-            }
-        }
-    }
-}
 
 /// Wrapper around RocksDB PinnableSlice struct.
 ///
