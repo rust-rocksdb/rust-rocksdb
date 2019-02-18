@@ -59,6 +59,7 @@ extern crate librocksdb_sys as ffi;
 
 #[macro_use]
 mod ffi_util;
+mod util;
 
 pub mod backup;
 pub mod checkpoint;
@@ -66,14 +67,16 @@ pub mod compaction_filter;
 mod comparator;
 mod db;
 mod db_options;
+mod db_vector;
 pub mod merge_operator;
 mod slice_transform;
 
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{
     DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
-    DBRecoveryMode, DBVector, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
+    DBRecoveryMode, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
 };
+pub use db_vector::DBVector;
 
 pub use slice_transform::SliceTransform;
 
