@@ -576,10 +576,7 @@ impl DB {
                 .map_err(|e| Error::new(e.to_string()))?
                 .insert(name.as_ref().to_string(), cf_handle);
 
-            ColumnFamily {
-                inner: cf_handle,
-                db: PhantomData,
-            }
+            ColumnFamily::new(self, cf_handle)
         };
         Ok(cf)
     }
@@ -604,10 +601,7 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().ok()?.get(name).map(|h| ColumnFamily {
-            inner: *h,
-            db: PhantomData,
-        })
+        self.cfs.read().ok()?.get(name).map(|h| ColumnFamily::new(self, *h))
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {

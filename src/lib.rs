@@ -63,6 +63,7 @@ mod util;
 
 pub mod backup;
 pub mod checkpoint;
+pub mod column_family;
 pub mod compaction_filter;
 mod comparator;
 mod db;
@@ -72,6 +73,7 @@ mod db_vector;
 pub mod merge_operator;
 mod slice_transform;
 
+pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{DBPinnableSlice, Snapshot, WriteBatch,
 };
@@ -85,7 +87,6 @@ pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
@@ -96,14 +97,6 @@ pub struct DB {
     inner: *mut ffi::rocksdb_t,
     cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
     path: PathBuf,
-}
-
-/// A descriptor for a RocksDB column family.
-///
-/// A description of the column family, containing the name and `Options`.
-pub struct ColumnFamilyDescriptor {
-    name: String,
-    options: Options,
 }
 
 /// A simple wrapper round a string, used for errors reported from
@@ -146,13 +139,3 @@ impl fmt::Display for Error {
         self.message.fmt(formatter)
     }
 }
-
-/// An opaque type used to represent a column family. Returned from some functions, and used
-/// in others
-#[derive(Copy, Clone)]
-pub struct ColumnFamily<'a> {
-    inner: *mut ffi::rocksdb_column_family_handle_t,
-    db: PhantomData<&'a DB>,
-}
-
-unsafe impl<'a> Send for ColumnFamily<'a> {}
