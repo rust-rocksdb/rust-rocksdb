@@ -1,12 +1,10 @@
 extern crate rocksdb;
-mod util;
 
-use rocksdb::{Options, DB};
-use util::DBPath;
+use rocksdb::{Options, TemporaryDBPath, DB};
 
 #[test]
 fn test_pinnable_slice() {
-    let path = DBPath::new("_rust_rocksdb_pinnable_slice_test");
+    let path = TemporaryDBPath::new("_rust_rocksdb_pinnable_slice_test");
 
     let mut opts = Options::default();
     opts.create_if_missing(true);

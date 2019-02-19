@@ -1,12 +1,10 @@
 extern crate rocksdb;
-mod util;
 
-use rocksdb::{Options, SliceTransform, DB};
-use util::DBPath;
+use rocksdb::{Options, SliceTransform, TemporaryDBPath, DB};
 
 #[test]
 pub fn test_slice_transform() {
-    let n = DBPath::new("_rust_rocksdb_slicetransform_test");
+    let n = TemporaryDBPath::new("_rust_rocksdb_slicetransform_test");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");

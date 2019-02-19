@@ -15,12 +15,9 @@
 extern crate libc;
 extern crate rocksdb;
 
-mod util;
-
 use libc::size_t;
 
-use rocksdb::{DBVector, Error, IteratorMode, Options, WriteBatch, DB};
-use util::DBPath;
+use rocksdb::{DBVector, Error, IteratorMode, Options, TemporaryDBPath, WriteBatch, DB};
 
 #[test]
 fn test_db_vector() {
@@ -34,7 +31,7 @@ fn test_db_vector() {
 
 #[test]
 fn external() {
-    let path = DBPath::new("_rust_rocksdb_externaltest");
+    let path = TemporaryDBPath::new("_rust_rocksdb_externaltest");
 
     {
         let db = DB::open_default(&path).unwrap();
@@ -51,7 +48,7 @@ fn external() {
 
 #[test]
 fn errors_do_stuff() {
-    let path = DBPath::new("_rust_rocksdb_error");
+    let path = TemporaryDBPath::new("_rust_rocksdb_error");
     let _db = DB::open_default(&path).unwrap();
     let opts = Options::default();
     // The DB will still be open when we try to destroy it and the lock should fail.
@@ -68,7 +65,7 @@ fn errors_do_stuff() {
 
 #[test]
 fn writebatch_works() {
-    let path = DBPath::new("_rust_rocksdb_writebacktest");
+    let path = TemporaryDBPath::new("_rust_rocksdb_writebacktest");
     {
         let db = DB::open_default(&path).unwrap();
         {
@@ -107,7 +104,7 @@ fn writebatch_works() {
 
 #[test]
 fn iterator_test() {
-    let path = DBPath::new("_rust_rocksdb_iteratortest");
+    let path = TemporaryDBPath::new("_rust_rocksdb_iteratortest");
     {
         let data = [(b"k1", b"v1111"), (b"k2", b"v2222"), (b"k3", b"v3333")];
         let db = DB::open_default(&path).unwrap();
@@ -127,7 +124,7 @@ fn iterator_test() {
 
 #[test]
 fn snapshot_test() {
-    let path = DBPath::new("_rust_rocksdb_snapshottest");
+    let path = TemporaryDBPath::new("_rust_rocksdb_snapshottest");
     {
         let db = DB::open_default(&path).unwrap();
 
@@ -145,7 +142,7 @@ fn snapshot_test() {
 
 #[test]
 fn set_option_test() {
-    let path = DBPath::new("_rust_rocksdb_set_optionstest");
+    let path = TemporaryDBPath::new("_rust_rocksdb_set_optionstest");
     {
         let db = DB::open_default(&path).unwrap();
         // set an option to valid values

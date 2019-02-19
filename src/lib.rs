@@ -19,27 +19,34 @@
 //!
 //! ```
 //! use rocksdb::{DB, Options};
+//! # use rocksdb::TemporaryDBPath;
 //! // NB: db is automatically closed at end of lifetime
+//!
 //! let path = "_path_for_rocksdb_storage";
-//! {
-//!    let db = DB::open_default(path).unwrap();
-//!    db.put(b"my key", b"my value").unwrap();
-//!    match db.get(b"my key") {
-//!        Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
-//!        Ok(None) => println!("value not found"),
-//!        Err(e) => println!("operational problem encountered: {}", e),
-//!    }
-//!    db.delete(b"my key").unwrap();
+//! # let path = TemporaryDBPath::new(path);
+//! # {
+//!
+//! let db = DB::open_default(&path).unwrap();
+//! db.put(b"my key", b"my value").unwrap();
+//! match db.get(b"my key") {
+//!     Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
+//!     Ok(None) => println!("value not found"),
+//!     Err(e) => println!("operational problem encountered: {}", e),
 //! }
-//! let _ = DB::destroy(&Options::default(), path);
+//! db.delete(b"my key").unwrap();
+
+//! # }
 //! ```
 //!
 //! Opening a database and a single column family with custom options:
 //!
 //! ```
 //! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//! # use rocksdb::TemporaryDBPath;
 //!
 //! let path = "_path_for_rocksdb_storage_with_cfs";
+//! # let path = TemporaryDBPath::new(path);
+//!
 //! let mut cf_opts = Options::default();
 //! cf_opts.set_max_write_buffer_number(16);
 //! let cf = ColumnFamilyDescriptor::new("cf1", cf_opts);
@@ -47,10 +54,9 @@
 //! let mut db_opts = Options::default();
 //! db_opts.create_missing_column_families(true);
 //! db_opts.create_if_missing(true);
-//! {
-//!     let db = DB::open_cf_descriptors(&db_opts, path, vec![cf]).unwrap();
-//! }
-//! let _ = DB::destroy(&db_opts, path);
+//! # {
+//! let db = DB::open_cf_descriptors(&db_opts, &path, vec![cf]).unwrap();
+//! # }
 //! ```
 //!
 
@@ -75,17 +81,20 @@ mod slice_transform;
 
 pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{DB, DBPinnableSlice, Snapshot, WriteBatch};
+pub use db::{DBPinnableSlice, Snapshot, WriteBatch, DB};
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
-pub use db_options::{BlockBasedOptions, BlockBasedIndexType, Options, ReadOptions, WriteOptions, MemtableFactory, DBCompactionStyle, DBCompressionType, DBRecoveryMode, PlainTableFactoryOptions};
+pub use db_options::{
+    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+    MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
+};
 pub use db_vector::DBVector;
+pub use util::TemporaryDBPath;
 
 pub use slice_transform::SliceTransform;
 
 pub use merge_operator::MergeOperands;
 use std::error;
 use std::fmt;
-
 
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.

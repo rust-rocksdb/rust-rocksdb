@@ -17,6 +17,7 @@
 //!
 //! ```
 //! use rocksdb::{Options, DB, MergeOperands};
+//! # use rocksdb::TemporaryDBPath;
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
@@ -38,21 +39,23 @@
 //! }
 //!
 //! fn main() {
-//!    let path = "_rust_path_to_rocksdb";
-//!    let mut opts = Options::default();
-//!    opts.create_if_missing(true);
-//!    opts.set_merge_operator("test operator", concat_merge, None);
-//!    {
-//!        let db = DB::open(&opts, path).unwrap();
-//!         let p = db.put(b"k1", b"a");
-//!         db.merge(b"k1", b"b");
-//!         db.merge(b"k1", b"c");
-//!         db.merge(b"k1", b"d");
-//!         db.merge(b"k1", b"efg");
-//!         let r = db.get(b"k1");
-//!         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
-//!    }
-//!    let _ = DB::destroy(&opts, path);
+//!   let path = "_rust_path_to_rocksdb";
+//! # let path = TemporaryDBPath::new(path);
+//!   let mut opts = Options::default();
+//!   opts.create_if_missing(true);
+//!   opts.set_merge_operator("test operator", concat_merge, None);
+//! # {
+
+//!   let db = DB::open(&opts, &path).unwrap();
+//!   let p = db.put(b"k1", b"a");
+//!   db.merge(b"k1", b"b");
+//!   db.merge(b"k1", b"c");
+//!   db.merge(b"k1", b"d");
+//!   db.merge(b"k1", b"efg");
+//!   let r = db.get(b"k1");
+//!   assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+
+//! # }
 //! }
 //! ```
 
@@ -225,14 +228,14 @@ mod test {
 
     #[test]
     fn mergetest() {
-        use {Options, DB};
+        use {Options, TemporaryDBPath, DB};
 
-        let path = "_rust_rocksdb_mergetest";
+        let path = TemporaryDBPath::new("_rust_rocksdb_mergetest");
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
         {
-            let db = DB::open(&opts, path).unwrap();
+            let db = DB::open(&opts, &path).unwrap();
             let p = db.put(b"k1", b"a");
             assert!(p.is_ok());
             let _ = db.merge(b"k1", b"b");
@@ -256,7 +259,6 @@ mod test {
             assert!(db.delete(b"k1").is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
         }
-        assert!(DB::destroy(&opts, path).is_ok());
     }
 
     unsafe fn to_slice<T: Sized>(p: &T) -> &[u8] {
@@ -331,9 +333,9 @@ mod test {
     fn counting_mergetest() {
         use std::sync::Arc;
         use std::thread;
-        use {DBCompactionStyle, Options, DB};
+        use {DBCompactionStyle, Options, TemporaryDBPath, DB};
 
-        let path = "_rust_rocksdb_partial_mergetest";
+        let path = TemporaryDBPath::new("_rust_rocksdb_partial_mergetest");
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compaction_style(DBCompactionStyle::Universal);
@@ -345,7 +347,7 @@ mod test {
             Some(test_counting_partial_merge),
         );
         {
-            let db = Arc::new(DB::open(&opts, path).unwrap());
+            let db = Arc::new(DB::open(&opts, &path).unwrap());
             let _ = db.delete(b"k1");
             let _ = db.delete(b"k2");
             let _ = db.merge(b"k1", b"a");
@@ -445,6 +447,5 @@ mod test {
                 _ => panic!("value not present"),
             }
         }
-        assert!(DB::destroy(&opts, path).is_ok());
     }
 }

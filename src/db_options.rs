@@ -16,7 +16,7 @@ use std::ffi::{CStr, CString};
 use std::mem;
 use std::path::Path;
 
-use libc::{self, c_int, c_char, c_uchar, c_uint, c_void, size_t, uint64_t};
+use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
 use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
 use comparator::{self, ComparatorCallback, CompareFn};
@@ -26,7 +26,7 @@ use merge_operator::{
 };
 use slice_transform::SliceTransform;
 
-use crate::{Snapshot};
+use crate::Snapshot;
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
@@ -129,22 +129,25 @@ pub struct Options {
 ///
 /// ```
 /// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
+/// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storageY";
-/// {
-///     let db = DB::open_default(path).unwrap();
-///     let mut batch = WriteBatch::default();
-///     batch.put(b"my key", b"my value");
-///     batch.put(b"key2", b"value2");
-///     batch.put(b"key3", b"value3");
+/// # let path = TemporaryDBPath::new(path);
+/// # {
 ///
-///     let mut write_options = WriteOptions::default();
-///     write_options.set_sync(false);
-///     write_options.disable_wal(true);
+/// let db = DB::open_default(&path).unwrap();
+/// let mut batch = WriteBatch::default();
+/// batch.put(b"my key", b"my value");
+/// batch.put(b"key2", b"value2");
+/// batch.put(b"key3", b"value3");
 ///
-///     db.write_opt(batch, &write_options);
-/// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let mut write_options = WriteOptions::default();
+/// write_options.set_sync(false);
+/// write_options.disable_wal(true);
+///
+/// db.write_opt(batch, &write_options);
+
+/// # }
 /// ```
 pub struct WriteOptions {
     pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,

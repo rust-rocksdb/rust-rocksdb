@@ -13,10 +13,8 @@
 // limitations under the License.
 //
 extern crate rocksdb;
-mod util;
 
-use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
-use util::DBPath;
+use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, TemporaryDBPath, DB};
 
 fn cba(input: &[u8]) -> Box<[u8]> {
     input.to_vec().into_boxed_slice()
@@ -24,7 +22,7 @@ fn cba(input: &[u8]) -> Box<[u8]> {
 
 #[test]
 fn test_iterator() {
-    let n = DBPath::new("_rust_rocksdb_iteratortest");
+    let n = TemporaryDBPath::new("_rust_rocksdb_iteratortest");
     {
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -173,7 +171,7 @@ fn key(k: &[u8]) -> Box<[u8]> {
 
 #[test]
 fn test_prefix_iterator() {
-    let n = DBPath::new("_rust_rocksdb_prefixiteratortest");
+    let n = TemporaryDBPath::new("_rust_rocksdb_prefixiteratortest");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
@@ -217,7 +215,7 @@ fn test_prefix_iterator_uses_full_prefix() {
     // as long as the prefix extracted from `key` matches the
     // prefix extracted from `prefix`.
 
-    let path = DBPath::new("_rust_rocksdb_prefixiteratorusesfullprefixtest");
+    let path = TemporaryDBPath::new("_rust_rocksdb_prefixiteratorusesfullprefixtest");
     {
         let data = [
             ([0, 0, 0, 0], b"111"),
@@ -254,7 +252,7 @@ fn test_prefix_iterator_uses_full_prefix() {
 
 #[test]
 fn test_full_iterator() {
-    let path = "_rust_rocksdb_fulliteratortest";
+    let path = TemporaryDBPath::new("_rust_rocksdb_fulliteratortest");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
@@ -274,7 +272,7 @@ fn test_full_iterator() {
         opts.set_allow_concurrent_memtable_write(false);
         opts.set_memtable_factory(factory);
 
-        let db = DB::open(&opts, path).unwrap();
+        let db = DB::open(&opts, &path).unwrap();
 
         assert!(db.put(&*a1, &*a1).is_ok());
         assert!(db.put(&*a2, &*a2).is_ok());
@@ -296,6 +294,4 @@ fn test_full_iterator() {
         let a_iterator = db.full_iterator(IteratorMode::Start);
         assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }

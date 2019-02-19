@@ -13,17 +13,15 @@
 // limitations under the License.
 //
 extern crate rocksdb;
-mod util;
 
-use rocksdb::{checkpoint::Checkpoint, Options, DB};
-use util::DBPath;
+use rocksdb::{checkpoint::Checkpoint, Options, TemporaryDBPath, DB};
 
 #[test]
 pub fn test_single_checkpoint() {
     const PATH_PREFIX: &str = "_rust_rocksdb_cp_single_";
 
     // Create DB with some data
-    let db_path = DBPath::new(&format!("{}db1", PATH_PREFIX));
+    let db_path = TemporaryDBPath::new(&format!("{}db1", PATH_PREFIX));
 
     let mut opts = Options::default();
     opts.create_if_missing(true);
@@ -36,7 +34,7 @@ pub fn test_single_checkpoint() {
 
     // Create checkpoint
     let cp1 = Checkpoint::new(&db).unwrap();
-    let cp1_path = DBPath::new(&format!("{}cp1", PATH_PREFIX));
+    let cp1_path = TemporaryDBPath::new(&format!("{}cp1", PATH_PREFIX));
     cp1.create_checkpoint(&cp1_path).unwrap();
 
     // Verify checkpoint
@@ -53,7 +51,7 @@ pub fn test_multi_checkpoints() {
     const PATH_PREFIX: &str = "_rust_rocksdb_cp_multi_";
 
     // Create DB with some data
-    let db_path = DBPath::new(&format!("{}db1", PATH_PREFIX));
+    let db_path = TemporaryDBPath::new(&format!("{}db1", PATH_PREFIX));
 
     let mut opts = Options::default();
     opts.create_if_missing(true);
@@ -66,7 +64,7 @@ pub fn test_multi_checkpoints() {
 
     // Create first checkpoint
     let cp1 = Checkpoint::new(&db).unwrap();
-    let cp1_path = DBPath::new(&format!("{}cp1", PATH_PREFIX));
+    let cp1_path = TemporaryDBPath::new(&format!("{}cp1", PATH_PREFIX));
     cp1.create_checkpoint(&cp1_path).unwrap();
 
     // Verify checkpoint
@@ -87,7 +85,7 @@ pub fn test_multi_checkpoints() {
 
     // Create another checkpoint
     let cp2 = Checkpoint::new(&db).unwrap();
-    let cp2_path = DBPath::new(&format!("{}cp2", PATH_PREFIX));
+    let cp2_path = TemporaryDBPath::new(&format!("{}cp2", PATH_PREFIX));
     cp2.create_checkpoint(&cp2_path).unwrap();
 
     // Verify second checkpoint

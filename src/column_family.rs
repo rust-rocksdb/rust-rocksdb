@@ -14,7 +14,7 @@
 
 use std::marker::PhantomData;
 
-use crate::{DB, Options};
+use crate::{Options, DB};
 
 /// A descriptor for a RocksDB column family.
 ///
@@ -33,12 +33,12 @@ pub struct ColumnFamily<'a> {
 }
 
 impl<'a> ColumnFamily<'a> {
-  pub(crate) fn new(_: &DB, handle: *mut ffi::rocksdb_column_family_handle_t) -> ColumnFamily {
-    ColumnFamily {
-      inner: handle,
-      db: PhantomData
+    pub(crate) fn new(_: &DB, handle: *mut ffi::rocksdb_column_family_handle_t) -> ColumnFamily {
+        ColumnFamily {
+            inner: handle,
+            db: PhantomData,
+        }
     }
-  }
 }
 
 unsafe impl<'a> Send for ColumnFamily<'a> {}

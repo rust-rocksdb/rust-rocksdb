@@ -14,10 +14,10 @@
 //
 
 use libc::{c_char, c_uchar, size_t};
-use std::slice;
 use std::marker::PhantomData;
+use std::slice;
 
-use crate::{DB, ColumnFamily, Error, ReadOptions};
+use crate::{ColumnFamily, Error, ReadOptions, DB};
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
@@ -29,43 +29,47 @@ use crate::{DB, ColumnFamily, Error, ReadOptions};
 ///
 /// ```
 /// use rocksdb::{DB, Options};
+/// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage4";
-/// {
-///     let db = DB::open_default(path).unwrap();
-///     let mut iter = db.raw_iterator();
+/// # let path = TemporaryDBPath::new(path);
+/// # {
+/// #
 ///
-///     // Forwards iteration
-///     iter.seek_to_first();
-///     while iter.valid() {
-///         println!("Saw {:?} {:?}", iter.key(), iter.value());
-///         iter.next();
-///     }
+/// let db = DB::open_default(&path).unwrap();
+/// let mut iter = db.raw_iterator();
 ///
-///     // Reverse iteration
-///     iter.seek_to_last();
-///     while iter.valid() {
-///         println!("Saw {:?} {:?}", iter.key(), iter.value());
-///         iter.prev();
-///     }
-///
-///     // Seeking
-///     iter.seek(b"my key");
-///     while iter.valid() {
-///         println!("Saw {:?} {:?}", iter.key(), iter.value());
-///         iter.next();
-///     }
-///
-///     // Reverse iteration from key
-///     // Note, use seek_for_prev when reversing because if this key doesn't exist,
-///     // this will make the iterator start from the previous key rather than the next.
-///     iter.seek_for_prev(b"my key");
-///     while iter.valid() {
-///         println!("Saw {:?} {:?}", iter.key(), iter.value());
-///         iter.prev();
-///     }
+/// // Forwards iteration
+/// iter.seek_to_first();
+/// while iter.valid() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.next();
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+///
+/// // Reverse iteration
+/// iter.seek_to_last();
+/// while iter.valid() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.prev();
+/// }
+///
+/// // Seeking
+/// iter.seek(b"my key");
+/// while iter.valid() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.next();
+/// }
+///
+/// // Reverse iteration from key
+/// // Note, use seek_for_prev when reversing because if this key doesn't exist,
+/// // this will make the iterator start from the previous key rather than the next.
+/// iter.seek_for_prev(b"my key");
+/// while iter.valid() {
+///     println!("Saw {:?} {:?}", iter.key(), iter.value());
+///     iter.prev();
+/// }
+
+/// # }
 /// ```
 pub struct DBRawIterator<'a> {
     inner: *mut ffi::rocksdb_iterator_t,
@@ -77,31 +81,36 @@ pub struct DBRawIterator<'a> {
 ///
 /// ```
 /// use rocksdb::{DB, Direction, IteratorMode, Options};
-///
+/// # use rocksdb::TemporaryDBPath;
+
 /// let path = "_path_for_rocksdb_storage2";
-/// {
-///     let db = DB::open_default(path).unwrap();
-///     let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
-///     for (key, value) in iter {
-///         println!("Saw {:?} {:?}", key, value);
-///     }
-///     iter = db.iterator(IteratorMode::End);  // Always iterates backward
-///     for (key, value) in iter {
-///         println!("Saw {:?} {:?}", key, value);
-///     }
-///     iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
-///     for (key, value) in iter {
-///         println!("Saw {:?} {:?}", key, value);
-///     }
-///
-///     // You can seek with an existing Iterator instance, too
-///     iter = db.iterator(IteratorMode::Start);
-///     iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
-///     for (key, value) in iter {
-///         println!("Saw {:?} {:?}", key, value);
-///     }
+/// # let path = TemporaryDBPath::new(path);
+/// # {
+
+/// let db = DB::open_default(&path).unwrap();
+/// let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+///
+/// iter = db.iterator(IteratorMode::End);  // Always iterates backward
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+///
+/// iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+///
+/// // You can seek with an existing Iterator instance, too
+/// iter = db.iterator(IteratorMode::Start);
+/// iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
+/// for (key, value) in iter {
+///     println!("Saw {:?} {:?}", key, value);
+/// }
+
+/// # }
 /// ```
 pub struct DBIterator<'a> {
     raw: DBRawIterator<'a>,
@@ -158,30 +167,33 @@ impl<'a> DBRawIterator<'a> {
     ///
     /// ```rust
     /// use rocksdb::{DB, Options};
+    /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage5";
-    /// {
-    ///     let db = DB::open_default(path).unwrap();
-    ///     let mut iter = db.raw_iterator();
+    /// # let path = TemporaryDBPath::new(path);
+    /// # {
     ///
-    ///     // Iterate all keys from the start in lexicographic order
-    ///     iter.seek_to_first();
+    /// let db = DB::open_default(&path).unwrap();
+    /// let mut iter = db.raw_iterator();
     ///
-    ///     while iter.valid() {
-    ///         println!("{:?} {:?}", iter.key(), iter.value());
-    ///         iter.next();
-    ///     }
+    /// // Iterate all keys from the start in lexicographic order
+    /// iter.seek_to_first();
     ///
-    ///     // Read just the first key
-    ///     iter.seek_to_first();
-    ///
-    ///     if iter.valid() {
-    ///         println!("{:?} {:?}", iter.key(), iter.value());
-    ///     } else {
-    ///         // There are no keys in the database
-    ///     }
+    /// while iter.valid() {
+    ///     println!("{:?} {:?}", iter.key(), iter.value());
+    ///     iter.next();
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+    ///
+    /// // Read just the first key
+    /// iter.seek_to_first();
+    ///
+    /// if iter.valid() {
+    ///     println!("{:?} {:?}", iter.key(), iter.value());
+    /// } else {
+    ///     // There are no keys in the database
+    /// }
+
+    /// # }
     /// ```
     pub fn seek_to_first(&mut self) {
         unsafe {
@@ -195,30 +207,33 @@ impl<'a> DBRawIterator<'a> {
     ///
     /// ```rust
     /// use rocksdb::{DB, Options};
+    /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage6";
-    /// {
-    ///     let db = DB::open_default(path).unwrap();
-    ///     let mut iter = db.raw_iterator();
+    /// # let path = TemporaryDBPath::new(path);
+    /// # {
     ///
-    ///     // Iterate all keys from the end in reverse lexicographic order
-    ///     iter.seek_to_last();
+    /// let db = DB::open_default(&path).unwrap();
+    /// let mut iter = db.raw_iterator();
     ///
-    ///     while iter.valid() {
-    ///         println!("{:?} {:?}", iter.key(), iter.value());
-    ///         iter.prev();
-    ///     }
+    /// // Iterate all keys from the end in reverse lexicographic order
+    /// iter.seek_to_last();
     ///
-    ///     // Read just the last key
-    ///     iter.seek_to_last();
-    ///
-    ///     if iter.valid() {
-    ///         println!("{:?} {:?}", iter.key(), iter.value());
-    ///     } else {
-    ///         // There are no keys in the database
-    ///     }
+    /// while iter.valid() {
+    ///     println!("{:?} {:?}", iter.key(), iter.value());
+    ///     iter.prev();
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+    ///
+    /// // Read just the last key
+    /// iter.seek_to_last();
+    ///
+    /// if iter.valid() {
+    ///     println!("{:?} {:?}", iter.key(), iter.value());
+    /// } else {
+    ///     // There are no keys in the database
+    /// }
+
+    /// # }
     /// ```
     pub fn seek_to_last(&mut self) {
         unsafe {
@@ -235,22 +250,25 @@ impl<'a> DBRawIterator<'a> {
     ///
     /// ```rust
     /// use rocksdb::{DB, Options};
+    /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage7";
-    /// {
-    ///     let db = DB::open_default(path).unwrap();
-    ///     let mut iter = db.raw_iterator();
+    /// # let path = TemporaryDBPath::new(path);
+    /// # {
     ///
-    ///     // Read the first key that starts with 'a'
-    ///     iter.seek(b"a");
+    /// let db = DB::open_default(&path).unwrap();
+    /// let mut iter = db.raw_iterator();
     ///
-    ///     if iter.valid() {
-    ///         println!("{:?} {:?}", iter.key(), iter.value());
-    ///     } else {
-    ///         // There are no keys in the database
-    ///     }
+    /// // Read the first key that starts with 'a'
+    /// iter.seek(b"a");
+    ///
+    /// if iter.valid() {
+    ///     println!("{:?} {:?}", iter.key(), iter.value());
+    /// } else {
+    ///     // There are no keys in the database
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+
+    /// # }
     /// ```
     pub fn seek<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
@@ -274,22 +292,25 @@ impl<'a> DBRawIterator<'a> {
     ///
     /// ```rust
     /// use rocksdb::{DB, Options};
+    /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage8";
-    /// {
-    ///     let db = DB::open_default(path).unwrap();
-    ///     let mut iter = db.raw_iterator();
+    /// # let path = TemporaryDBPath::new(path);
+    /// # {
     ///
-    ///     // Read the last key that starts with 'a'
-    ///     iter.seek_for_prev(b"b");
+    /// let db = DB::open_default(&path).unwrap();
+    /// let mut iter = db.raw_iterator();
     ///
-    ///     if iter.valid() {
-    ///         println!("{:?} {:?}", iter.key(), iter.value());
-    ///     } else {
-    ///         // There are no keys in the database
-    ///     }
+    /// // Read the last key that starts with 'a'
+    /// iter.seek_for_prev(b"b");
+    ///
+    /// if iter.valid() {
+    ///     println!("{:?} {:?}", iter.key(), iter.value());
+    /// } else {
+    ///     // There are no keys in the database
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+
+    /// # }
     /// ```
     pub fn seek_for_prev<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();

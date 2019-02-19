@@ -17,7 +17,10 @@ use ffi;
 use ffi_util::opt_bytes_to_ptr;
 use util::to_cpath;
 
-use crate::{ColumnFamily, ColumnFamilyDescriptor, Error, Options, ReadOptions, WriteOptions, DBVector, DBRawIterator, DBIterator, Direction, IteratorMode};
+use crate::{
+    ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator, DBVector, Direction, Error,
+    IteratorMode, Options, ReadOptions, WriteOptions,
+};
 
 use libc::{self, c_char, c_int, c_void, size_t};
 use std::collections::BTreeMap;
@@ -50,17 +53,22 @@ unsafe impl Sync for DB {}
 ///
 /// ```
 /// use rocksdb::{DB, Options, WriteBatch};
+/// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage1";
-/// {
-///     let db = DB::open_default(path).unwrap();
-///     let mut batch = WriteBatch::default();
-///     batch.put(b"my key", b"my value");
-///     batch.put(b"key2", b"value2");
-///     batch.put(b"key3", b"value3");
-///     db.write(batch); // Atomically commits the batch
-/// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// # let path = TemporaryDBPath::new(path);
+/// # {
+///
+/// let db = DB::open_default(&path).unwrap();
+///
+/// let mut batch = WriteBatch::default();
+/// batch.put(b"my key", b"my value");
+/// batch.put(b"key2", b"value2");
+/// batch.put(b"key3", b"value3");
+///
+/// db.write(batch); // Atomically commits the batch
+
+/// # }
 /// ```
 pub struct WriteBatch {
     pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
@@ -70,14 +78,17 @@ pub struct WriteBatch {
 ///
 /// ```
 /// use rocksdb::{DB, IteratorMode, Options};
+/// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage3";
-/// {
-///     let db = DB::open_default(path).unwrap();
+/// # let path = TemporaryDBPath::new(path);
+/// # {
+///
+///     let db = DB::open_default(&path).unwrap();
 ///     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
 ///     let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
-/// }
-/// let _ = DB::destroy(&Options::default(), path);
+
+/// # }
 /// ```
 ///
 pub struct Snapshot<'a> {
@@ -610,7 +621,11 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().ok()?.get(name).map(|h| ColumnFamily::new(self, *h))
+        self.cfs
+            .read()
+            .ok()?
+            .get(name)
+            .map(|h| ColumnFamily::new(self, *h))
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -1209,7 +1224,6 @@ impl fmt::Debug for DB {
     }
 }
 
-
 /// Wrapper around RocksDB PinnableSlice struct.
 ///
 /// With a pinnable slice, we can directly leverage in-memory data within
@@ -1272,9 +1286,11 @@ fn test_db_vector() {
 
 #[test]
 fn external() {
-    let path = "_rust_rocksdb_externaltest";
+    use crate::TemporaryDBPath;
+
+    let path = TemporaryDBPath::new("_rust_rocksdb_externaltest");
     {
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let r: Result<Option<DBVector>, Error> = db.get(b"k1");
@@ -1282,37 +1298,35 @@ fn external() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
-    let opts = Options::default();
-    let result = DB::destroy(&opts, path);
-    assert!(result.is_ok());
 }
 
 #[test]
 fn errors_do_stuff() {
-    let path = "_rust_rocksdb_error";
+    use crate::TemporaryDBPath;
+
+    let path = TemporaryDBPath::new("_rust_rocksdb_error");
     {
-        let _db = DB::open_default(path).unwrap();
+        let _db = DB::open_default(&path).unwrap();
         let opts = Options::default();
         // The DB will still be open when we try to destroy it and the lock should fail.
-        match DB::destroy(&opts, path) {
+        match DB::destroy(&opts, &path) {
             Err(s) => {
                 let message = s.to_string();
                 assert!(message.find("IO error:").is_some());
-                assert!(message.find("_rust_rocksdb_error/LOCK:").is_some());
+                assert!(message.find("/LOCK:").is_some());
             }
             Ok(_) => panic!("should fail"),
         }
     }
-    let opts = Options::default();
-    let result = DB::destroy(&opts, path);
-    assert!(result.is_ok());
 }
 
 #[test]
 fn writebatch_works() {
-    let path = "_rust_rocksdb_writebacktest";
+    use crate::TemporaryDBPath;
+
+    let path = TemporaryDBPath::new("_rust_rocksdb_writebacktest");
     {
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&path).unwrap();
         {
             // test putx
             let mut batch = WriteBatch::default();
@@ -1347,15 +1361,15 @@ fn writebatch_works() {
             assert!(before + 10 <= after);
         }
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 #[test]
 fn iterator_test() {
-    let path = "_rust_rocksdb_iteratortest";
+    use crate::TemporaryDBPath;
+
+    let path = TemporaryDBPath::new("_rust_rocksdb_iteratortest");
     {
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
         let p = db.put(b"k2", b"v2222");
@@ -1371,15 +1385,15 @@ fn iterator_test() {
             );
         }
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 #[test]
 fn snapshot_test() {
-    let path = "_rust_rocksdb_snapshottest";
+    use crate::TemporaryDBPath;
+
+    let path = TemporaryDBPath::new("_rust_rocksdb_snapshottest");
     {
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
 
@@ -1393,15 +1407,15 @@ fn snapshot_test() {
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 #[test]
 fn set_option_test() {
-    let path = "_rust_rocksdb_set_optionstest";
+    use crate::TemporaryDBPath;
+
+    let path = TemporaryDBPath::new("_rust_rocksdb_set_optionstest");
     {
-        let db = DB::open_default(path).unwrap();
+        let db = DB::open_default(&path).unwrap();
         // set an option to valid values
         assert!(db
             .set_options(&[("disable_auto_compactions", "true")])
@@ -1432,5 +1446,4 @@ fn set_option_test() {
         ];
         db.set_options(&multiple_options).unwrap();
     }
-    assert!(DB::destroy(&Options::default(), path).is_ok());
 }
