@@ -1986,6 +1986,9 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_decode_blob_index(
     const char* value, size_t value_size, ctitandb_blob_index_t* index,
     char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API void ctitandb_encode_blob_index(
+    const ctitandb_blob_index_t& index, char** value, size_t* value_size);
+
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_disable_background_gc(
     ctitandb_options_t* options, unsigned char disable);
 

@@ -4988,6 +4988,18 @@ void ctitandb_decode_blob_index(const char* value, size_t value_size,
   index->blob_size = bi.blob_handle.size;
 }
 
+void ctitandb_encode_blob_index(const ctitandb_blob_index_t& index,
+                                char** value, size_t* value_size) {
+  BlobIndex bi;
+  bi.file_number = index.file_number;
+  bi.blob_handle.offset = index.blob_offset;
+  bi.blob_handle.size = index.blob_size;
+  std::string result;
+  bi.EncodeTo(&result);
+  *value = CopyString(result);
+  *value_size = result.size();
+}
+
 void ctitandb_options_set_disable_background_gc(ctitandb_options_t* options,
                                                 unsigned char disable) {
   options->rep.disable_background_gc = disable;
