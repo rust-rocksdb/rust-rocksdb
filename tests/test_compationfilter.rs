@@ -31,7 +31,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> CompactionDecision {
 fn compaction_filter_test() {
     use {Options, DB};
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_filtertest");
+    let path = TemporaryDBPath::new();
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_compaction_filter("test", test_filter);

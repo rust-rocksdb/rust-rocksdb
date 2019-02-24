@@ -40,7 +40,7 @@
 //!
 //! fn main() {
 //!   let path = "_rust_path_to_rocksdb";
-//! # let path = TemporaryDBPath::new(path);
+//! # let path = TemporaryDBPath::new();
 //!   let mut opts = Options::default();
 //!   opts.create_if_missing(true);
 //!   opts.set_merge_operator("test operator", concat_merge, None);
@@ -231,7 +231,7 @@ mod test {
     fn mergetest() {
         use {Options, TemporaryDBPath, DB};
 
-        let path = TemporaryDBPath::new("_rust_rocksdb_mergetest");
+        let path = TemporaryDBPath::new();
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
@@ -336,7 +336,7 @@ mod test {
         use std::thread;
         use {DBCompactionStyle, Options, TemporaryDBPath, DB};
 
-        let path = TemporaryDBPath::new("_rust_rocksdb_partial_mergetest");
+        let path = TemporaryDBPath::new();
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compaction_style(DBCompactionStyle::Universal);

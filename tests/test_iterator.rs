@@ -22,7 +22,7 @@ fn cba(input: &[u8]) -> Box<[u8]> {
 
 #[test]
 fn test_iterator() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_iteratortest");
+    let n = TemporaryDBPath::new();
     {
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -171,7 +171,7 @@ fn key(k: &[u8]) -> Box<[u8]> {
 
 #[test]
 fn test_prefix_iterator() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_prefixiteratortest");
+    let n = TemporaryDBPath::new();
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
@@ -215,7 +215,7 @@ fn test_prefix_iterator_uses_full_prefix() {
     // as long as the prefix extracted from `key` matches the
     // prefix extracted from `prefix`.
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_prefixiteratorusesfullprefixtest");
+    let path = TemporaryDBPath::new();
     {
         let data = [
             ([0, 0, 0, 0], b"111"),
@@ -252,7 +252,7 @@ fn test_prefix_iterator_uses_full_prefix() {
 
 #[test]
 fn test_full_iterator() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_fulliteratortest");
+    let path = TemporaryDBPath::new();
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");

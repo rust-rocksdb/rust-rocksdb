@@ -17,6 +17,7 @@ use std::ffi::CString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{Ordering, AtomicUsize};
 
 use crate::{Error, Options, DB};
 
@@ -26,21 +27,30 @@ pub struct TemporaryDBPath {
     path: PathBuf,
 }
 
+static PATH_NUM: AtomicUsize = AtomicUsize::new(0);
+
 impl TemporaryDBPath {
+
     /// Suffixes the given `prefix` with a timestamp to ensure that subsequent test runs don't reuse
     /// an old database in case of panics prior to Drop being called.
-    pub fn new(prefix: &str) -> TemporaryDBPath {
+    pub fn new() -> TemporaryDBPath {
+
+        // needed to disambiguate directories when running in
+        // a multi-threaded environment (eg. `cargo test`) since
+        // there is no guarantee time will be unique
+        let path_num = PATH_NUM.fetch_add(1, Ordering::SeqCst);
+
         let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+
         let path = format!(
-            "{}.{}.{}",
-            prefix,
+            "temp_rocksdb.{}.{}.{}",
+            path_num,
             current_time.as_secs(),
             current_time.subsec_nanos()
         );
 
-        TemporaryDBPath {
-            path: PathBuf::from(path),
-        }
+        let path = PathBuf::from(path);
+        TemporaryDBPath { path }
     }
 }
 

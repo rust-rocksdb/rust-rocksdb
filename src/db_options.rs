@@ -132,7 +132,7 @@ pub struct Options {
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storageY";
-/// # let path = TemporaryDBPath::new(path);
+/// # let path = TemporaryDBPath::new();
 /// # {
 ///
 /// let db = DB::open_default(&path).unwrap();

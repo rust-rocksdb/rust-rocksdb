@@ -31,7 +31,7 @@ fn test_db_vector() {
 
 #[test]
 fn external() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_externaltest");
+    let path = TemporaryDBPath::new();
 
     {
         let db = DB::open_default(&path).unwrap();
@@ -48,7 +48,7 @@ fn external() {
 
 #[test]
 fn errors_do_stuff() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_error");
+    let path = TemporaryDBPath::new();
     let _db = DB::open_default(&path).unwrap();
     let opts = Options::default();
     // The DB will still be open when we try to destroy it and the lock should fail.
@@ -56,7 +56,6 @@ fn errors_do_stuff() {
         Err(s) => {
             let message = s.to_string();
             assert!(message.find("IO error:").is_some());
-            assert!(message.find("_rust_rocksdb_error").is_some());
             assert!(message.find("/LOCK:").is_some());
         }
         Ok(_) => panic!("should fail"),
@@ -65,7 +64,7 @@ fn errors_do_stuff() {
 
 #[test]
 fn writebatch_works() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_writebacktest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         {
@@ -104,7 +103,7 @@ fn writebatch_works() {
 
 #[test]
 fn iterator_test() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_iteratortest");
+    let path = TemporaryDBPath::new();
     {
         let data = [(b"k1", b"v1111"), (b"k2", b"v2222"), (b"k3", b"v3333")];
         let db = DB::open_default(&path).unwrap();
@@ -124,7 +123,7 @@ fn iterator_test() {
 
 #[test]
 fn snapshot_test() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_snapshottest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
 
@@ -142,7 +141,7 @@ fn snapshot_test() {
 
 #[test]
 fn set_option_test() {
-    let path = TemporaryDBPath::new("_rust_rocksdb_set_optionstest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         // set an option to valid values

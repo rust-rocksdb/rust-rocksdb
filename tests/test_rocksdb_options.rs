@@ -18,7 +18,7 @@ use rocksdb::{Options, TemporaryDBPath, DB};
 
 #[test]
 fn test_set_num_levels() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_test_set_num_levels");
+    let n = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -29,7 +29,7 @@ fn test_set_num_levels() {
 
 #[test]
 fn test_increase_parallelism() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_test_increase_parallelism");
+    let n = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);

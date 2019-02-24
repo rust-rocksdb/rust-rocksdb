@@ -32,7 +32,7 @@ use crate::{ColumnFamily, Error, ReadOptions, DB};
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage4";
-/// # let path = TemporaryDBPath::new(path);
+/// # let path = TemporaryDBPath::new();
 /// # {
 /// #
 ///
@@ -84,7 +84,7 @@ pub struct DBRawIterator<'a> {
 /// # use rocksdb::TemporaryDBPath;
 
 /// let path = "_path_for_rocksdb_storage2";
-/// # let path = TemporaryDBPath::new(path);
+/// # let path = TemporaryDBPath::new();
 /// # {
 
 /// let db = DB::open_default(&path).unwrap();
@@ -170,7 +170,7 @@ impl<'a> DBRawIterator<'a> {
     /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage5";
-    /// # let path = TemporaryDBPath::new(path);
+    /// # let path = TemporaryDBPath::new();
     /// # {
     ///
     /// let db = DB::open_default(&path).unwrap();
@@ -210,7 +210,7 @@ impl<'a> DBRawIterator<'a> {
     /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage6";
-    /// # let path = TemporaryDBPath::new(path);
+    /// # let path = TemporaryDBPath::new();
     /// # {
     ///
     /// let db = DB::open_default(&path).unwrap();
@@ -253,7 +253,7 @@ impl<'a> DBRawIterator<'a> {
     /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage7";
-    /// # let path = TemporaryDBPath::new(path);
+    /// # let path = TemporaryDBPath::new();
     /// # {
     ///
     /// let db = DB::open_default(&path).unwrap();
@@ -295,7 +295,7 @@ impl<'a> DBRawIterator<'a> {
     /// # use rocksdb::TemporaryDBPath;
     ///
     /// let path = "_path_for_rocksdb_storage8";
-    /// # let path = TemporaryDBPath::new(path);
+    /// # let path = TemporaryDBPath::new();
     /// # {
     ///
     /// let db = DB::open_default(&path).unwrap();

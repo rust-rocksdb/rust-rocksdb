@@ -23,7 +23,7 @@
 //! // NB: db is automatically closed at end of lifetime
 //!
 //! let path = "_path_for_rocksdb_storage";
-//! # let path = TemporaryDBPath::new(path);
+//! # let path = TemporaryDBPath::new();
 //! # {
 //!
 //! let db = DB::open_default(&path).unwrap();
@@ -45,7 +45,7 @@
 //! # use rocksdb::TemporaryDBPath;
 //!
 //! let path = "_path_for_rocksdb_storage_with_cfs";
-//! # let path = TemporaryDBPath::new(path);
+//! # let path = TemporaryDBPath::new();
 //!
 //! let mut cf_opts = Options::default();
 //! cf_opts.set_max_write_buffer_number(16);

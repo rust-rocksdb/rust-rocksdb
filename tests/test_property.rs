@@ -18,7 +18,7 @@ use rocksdb::{Options, TemporaryDBPath, DB};
 
 #[test]
 fn property_test() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_property_test");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         let value = db.property_value("rocksdb.stats").unwrap().unwrap();
@@ -29,7 +29,7 @@ fn property_test() {
 
 #[test]
 fn property_cf_test() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_property_cf_test");
+    let n = TemporaryDBPath::new();
     {
         let opts = Options::default();
         let db = DB::open_default(&n).unwrap();
@@ -42,7 +42,7 @@ fn property_cf_test() {
 
 #[test]
 fn property_int_test() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_property_int_test");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         let value = db
@@ -55,7 +55,7 @@ fn property_int_test() {
 
 #[test]
 fn property_int_cf_test() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_property_int_cf_test");
+    let n = TemporaryDBPath::new();
     {
         let opts = Options::default();
         let db = DB::open_default(&n).unwrap();

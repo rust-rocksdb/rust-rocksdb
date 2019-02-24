@@ -65,7 +65,7 @@ unsafe impl Sync for DB {}
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage1";
-/// # let path = TemporaryDBPath::new(path);
+/// # let path = TemporaryDBPath::new();
 /// # {
 ///
 /// let db = DB::open_default(&path).unwrap();
@@ -90,7 +90,7 @@ pub struct WriteBatch {
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage3";
-/// # let path = TemporaryDBPath::new(path);
+/// # let path = TemporaryDBPath::new();
 /// # {
 ///
 ///     let db = DB::open_default(&path).unwrap();
@@ -1286,7 +1286,7 @@ fn test_db_vector() {
 fn external() {
     use crate::TemporaryDBPath;
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_externaltest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         let p = db.put(b"k1", b"v1111");
@@ -1302,7 +1302,7 @@ fn external() {
 fn errors_do_stuff() {
     use crate::TemporaryDBPath;
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_error");
+    let path = TemporaryDBPath::new();
     {
         let _db = DB::open_default(&path).unwrap();
         let opts = Options::default();
@@ -1322,7 +1322,7 @@ fn errors_do_stuff() {
 fn writebatch_works() {
     use crate::TemporaryDBPath;
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_writebacktest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         {
@@ -1365,7 +1365,7 @@ fn writebatch_works() {
 fn iterator_test() {
     use crate::TemporaryDBPath;
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_iteratortest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         let p = db.put(b"k1", b"v1111");
@@ -1389,7 +1389,7 @@ fn iterator_test() {
 fn snapshot_test() {
     use crate::TemporaryDBPath;
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_snapshottest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         let p = db.put(b"k1", b"v1111");
@@ -1411,7 +1411,7 @@ fn snapshot_test() {
 fn set_option_test() {
     use crate::TemporaryDBPath;
 
-    let path = TemporaryDBPath::new("_rust_rocksdb_set_optionstest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         // set an option to valid values

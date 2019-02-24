@@ -18,7 +18,7 @@ use rocksdb::{TemporaryDBPath, DB};
 
 #[test]
 pub fn test_forwards_iteration() {
-    let n = TemporaryDBPath::new("forwards_iteration");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
@@ -51,7 +51,7 @@ pub fn test_forwards_iteration() {
 
 #[test]
 pub fn test_seek_last() {
-    let n = TemporaryDBPath::new("backwards_iteration");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
@@ -84,7 +84,7 @@ pub fn test_seek_last() {
 
 #[test]
 pub fn test_seek() {
-    let n = TemporaryDBPath::new("seek");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
@@ -109,7 +109,7 @@ pub fn test_seek() {
 
 #[test]
 pub fn test_seek_to_nonexistant() {
-    let n = TemporaryDBPath::new("seek_to_nonexistant");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();
@@ -127,7 +127,7 @@ pub fn test_seek_to_nonexistant() {
 
 #[test]
 pub fn test_seek_for_prev() {
-    let n = TemporaryDBPath::new("seek_for_prev");
+    let n = TemporaryDBPath::new();
     {
         let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();

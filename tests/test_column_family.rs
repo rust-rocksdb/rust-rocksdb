@@ -18,7 +18,7 @@ use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, TemporaryDBPath, D
 
 #[test]
 fn test_column_family() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_cftest");
+    let n = TemporaryDBPath::new();
 
     // should be able to create column families
     {
@@ -90,7 +90,7 @@ fn test_column_family() {
 fn test_can_open_db_with_results_of_list_cf() {
     // Test scenario derived from GitHub issue #175 and 177
 
-    let n = TemporaryDBPath::new("_rust_rocksdb_cftest_with_list_cf");
+    let n = TemporaryDBPath::new();
 
     {
         let mut opts = Options::default();
@@ -112,7 +112,7 @@ fn test_can_open_db_with_results_of_list_cf() {
 
 #[test]
 fn test_create_missing_column_family() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_missing_cftest");
+    let n = TemporaryDBPath::new();
 
     // should be able to create new column families when opening a new database
     {
@@ -130,7 +130,7 @@ fn test_create_missing_column_family() {
 #[test]
 #[ignore]
 fn test_merge_operator() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_cftest_merge");
+    let n = TemporaryDBPath::new();
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
         let mut opts = Options::default();
@@ -192,7 +192,7 @@ fn test_provided_merge(
 
 #[test]
 fn test_column_family_with_options() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_cf_with_optionstest");
+    let n = TemporaryDBPath::new();
     {
         let mut cfopts = Options::default();
         cfopts.set_max_write_buffer_number(16);
@@ -236,7 +236,7 @@ fn test_column_family_with_options() {
 
 #[test]
 fn test_create_duplicate_column_family() {
-    let n = TemporaryDBPath::new("_rust_rocksdb_create_duplicate_column_family");
+    let n = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
