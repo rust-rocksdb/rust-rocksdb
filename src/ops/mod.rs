@@ -1,6 +1,6 @@
 mod get;
 
-pub use self::get::{Get, GetCF};
+pub use self::get::{Get};
 
 /// Marker trait for operations that leave DB
 /// state unchanged
