@@ -80,18 +80,20 @@ mod handle;
 pub mod merge_operator;
 pub mod ops;
 mod slice_transform;
+mod snapshot;
 
 pub mod prelude;
 
 pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{DBPinnableSlice, Snapshot, WriteBatch, DB};
+pub use db::{DBPinnableSlice, WriteBatch, DB};
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
 pub use db_options::{
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
     MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
 };
 pub use db_vector::DBVector;
+pub use snapshot::Snapshot;
 pub use util::TemporaryDBPath;
 
 pub use slice_transform::SliceTransform;
