@@ -1,56 +1,99 @@
-use libc::{c_char, size_t};
+// Copyright 2019 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 
 use ffi;
+use libc::{c_char, size_t};
+
 
 use crate::{handle::Handle, ReadOptions, Error, DBVector, ColumnFamily};
 
-pub trait Get {
+pub trait Get<'a> {
+    type ReadOptions;
+
     fn get_full<K: AsRef<[u8]>>(
-        &self,
-        cf: Option<ColumnFamily>,
+        &'a self,
         key: K,
-        readopts: Option<&ReadOptions>,
+        readopts: Option<Self::ReadOptions>,
     ) -> Result<Option<DBVector>, Error>;
 
-    /// Return the bytes associated with a key value
-    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
-        self.get_full(None, key, None)
+    fn get<K: AsRef<[u8]>>(&'a self, key: K) -> Result<Option<DBVector>, Error> {
+        self.get_full(key, None)
     }
 
     fn get_opt<K: AsRef<[u8]>>(
-        &self,
+        &'a self,
         key: K,
-        readopts: &ReadOptions,
+        readopts: Self::ReadOptions,
     ) -> Result<Option<DBVector>, Error> {
-        self.get_full(None, key, Some(readopts))
-    }
-
-    fn get_cf<K: AsRef<[u8]>>(
-        &self,
-        cf: ColumnFamily,
-        key: K,
-    ) -> Result<Option<DBVector>, Error> {
-        self.get_full(Some(cf), key, None)
-    }
-
-    fn get_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: ColumnFamily,
-        key: K,
-        readopts: &ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
-        self.get_full(Some(cf), key, Some(readopts))
+        self.get_full(key, Some(readopts))
     }
 }
 
-impl<T> Get for T
+pub trait GetCF<'a> {
+    type ColumnFamily;
+    type ReadOptions;
+
+    fn get_cf_full<K: AsRef<[u8]>>(
+        &'a self,
+        cf: Option<Self::ColumnFamily>,
+        key: K,
+        readopts: Option<Self::ReadOptions>,
+    ) -> Result<Option<DBVector>, Error>;
+
+    fn get_cf<K: AsRef<[u8]>>(
+        &'a self,
+        cf: Self::ColumnFamily,
+        key: K,
+    ) -> Result<Option<DBVector>, Error> {
+        self.get_cf_full(Some(cf), key, None)
+    }
+
+    fn get_cf_opt<K: AsRef<[u8]>>(
+        &'a self,
+        cf: Self::ColumnFamily,
+        key: K,
+        readopts: Self::ReadOptions,
+    ) -> Result<Option<DBVector>, Error> {
+        self.get_cf_full(Some(cf), key, Some(readopts))
+    }
+}
+
+impl<'a, T, R> Get<'a> for T
+  where T: GetCF<'a, ReadOptions = R> {
+      type ReadOptions = R;
+    
+      fn get_full<K: AsRef<[u8]>>(
+          &'a self,
+          key: K,
+          readopts: Option<Self::ReadOptions>,
+      ) -> Result<Option<DBVector>, Error> {
+        self.get_cf_full(None, key, readopts)
+      }
+  }
+
+impl<'a, T> GetCF<'a> for T
   where T: Handle<ffi::rocksdb_t> + super::Read {
 
-    fn get_full<K: AsRef<[u8]>>(
+    type ColumnFamily = ColumnFamily<'a>;
+    type ReadOptions = &'a ReadOptions;
+
+    fn get_cf_full<K: AsRef<[u8]>>(
         &self,
-        cf: Option<ColumnFamily>,
+        cf: Option<Self::ColumnFamily>,
         key: K,
-        readopts: Option<&ReadOptions>,
+        readopts: Option<Self::ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
 
         let mut default_readopts = None;

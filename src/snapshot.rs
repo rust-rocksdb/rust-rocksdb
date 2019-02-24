@@ -98,40 +98,40 @@ impl<'a> Snapshot<'a> {
         readopts.set_snapshot(self);
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
+}
 
-    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
-        let readopts = ReadOptions::default();
-        self.get_opt(key, readopts)
-    }
+impl<'a> Read for Snapshot<'a>{}
 
-    pub fn get_cf<K: AsRef<[u8]>>(
+impl<'a> GetCF<'a> for Snapshot<'a> {
+
+    type ColumnFamily = ColumnFamily<'a>;
+    type ReadOptions = ReadOptions;
+
+    fn get_cf_full<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: Option<Self::ColumnFamily>,
         key: K,
+        readopts: Option<Self::ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
-        let readopts = ReadOptions::default();
-        self.get_cf_opt(cf, key.as_ref(), readopts)
-    }
-
-    pub fn get_opt<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-        mut readopts: ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
-        readopts.set_snapshot(self);
-        self.db.get_opt(key.as_ref(), &readopts)
-    }
-
-    pub fn get_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: ColumnFamily,
-        key: K,
-        mut readopts: ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
-        readopts.set_snapshot(self);
-        self.db.get_cf_opt(cf, key.as_ref(), &readopts)
+    
+        let mut ro = readopts.unwrap_or_else(|| ReadOptions::default());
+        ro.set_snapshot(self);
+        
+        self.db.get_cf_full(cf, key, Some(&ro))
     }
 }
+
+// impl<'a> Get<'a> for Snapshot<'a> {
+//     type ReadOptions = ReadOptions;
+
+//     fn get_full<K: AsRef<[u8]>>(
+//         &self,
+//         key: K,
+//         readopts: Option<Self::ReadOptions>,
+//     ) -> Result<Option<DBVector>, Error> {
+//         self.get_cf_full(None, key, readopts)
+//     }
+// }
 
 impl<'a> Drop for Snapshot<'a> {
     fn drop(&mut self) {
