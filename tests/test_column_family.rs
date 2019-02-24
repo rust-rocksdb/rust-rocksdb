@@ -14,7 +14,7 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, TemporaryDBPath, DB};
+use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, TemporaryDBPath, DB, ops::*};
 
 #[test]
 fn test_column_family() {

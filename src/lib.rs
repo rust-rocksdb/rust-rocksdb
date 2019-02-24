@@ -18,7 +18,7 @@
 //! # Examples
 //!
 //! ```
-//! use rocksdb::{DB, Options};
+//! use rocksdb::prelude::*;
 //! # use rocksdb::TemporaryDBPath;
 //! // NB: db is automatically closed at end of lifetime
 //!
@@ -76,8 +76,12 @@ mod db;
 mod db_iterator;
 mod db_options;
 mod db_vector;
+mod handle;
 pub mod merge_operator;
+pub mod ops;
 mod slice_transform;
+
+pub mod prelude;
 
 pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;

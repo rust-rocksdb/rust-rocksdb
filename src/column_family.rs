@@ -24,6 +24,19 @@ pub struct ColumnFamilyDescriptor {
     pub(crate) options: Options,
 }
 
+impl ColumnFamilyDescriptor {
+    // Create a new column family descriptor with the specified name and options.
+    pub fn new<S>(name: S, options: Options) -> Self
+    where
+        S: Into<String>,
+    {
+        ColumnFamilyDescriptor {
+            name: name.into(),
+            options,
+        }
+    }
+}
+
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
 #[derive(Copy, Clone)]

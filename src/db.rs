@@ -18,8 +18,8 @@ use ffi_util::opt_bytes_to_ptr;
 use util::to_cpath;
 
 use crate::{
-    ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator, DBVector, Direction, Error,
-    IteratorMode, Options, ReadOptions, WriteOptions,
+    handle::Handle, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator, DBVector, Direction, Error,
+    IteratorMode, Options, ReadOptions, WriteOptions, ops::{self, *},
 };
 
 use libc::{self, c_char, c_int, c_void, size_t};
@@ -43,6 +43,15 @@ pub struct DB {
     cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
     path: PathBuf,
 }
+
+impl Handle<ffi::rocksdb_t> for DB {
+  fn handle(&self) -> *mut ffi::rocksdb_t {
+    self.inner
+  }
+}
+
+impl ops::Read for DB {}
+impl ops::Write for DB {}
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
@@ -196,19 +205,6 @@ impl<'a> Drop for Snapshot<'a> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
-        }
-    }
-}
-
-impl ColumnFamilyDescriptor {
-    // Create a new column family descriptor with the specified name and options.
-    pub fn new<S>(name: S, options: Options) -> Self
-    where
-        S: Into<String>,
-    {
-        ColumnFamilyDescriptor {
-            name: name.into(),
-            options,
         }
     }
 }
@@ -399,6 +395,7 @@ impl DB {
         self.write_opt(batch, &wo)
     }
 
+/*
     pub fn get_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -483,6 +480,7 @@ impl DB {
     ) -> Result<Option<DBVector>, Error> {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
     }
+    */
 
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy.

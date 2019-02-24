@@ -14,7 +14,9 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{TemporaryDBPath, DB};
+use rocksdb::{TemporaryDBPath, DB, ops::*};
+
+
 use std::sync::Arc;
 use std::thread;
 

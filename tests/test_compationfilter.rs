@@ -14,7 +14,7 @@
 
 extern crate rocksdb;
 
-use rocksdb::{CompactionDecision, Options, TemporaryDBPath, DB};
+use rocksdb::{CompactionDecision, Options, TemporaryDBPath, DB, ops::*};
 
 #[cfg(test)]
 #[allow(unused_variables)]

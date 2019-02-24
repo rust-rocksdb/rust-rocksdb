@@ -16,7 +16,7 @@
 //! rustic merge operator
 //!
 //! ```
-//! use rocksdb::{Options, DB, MergeOperands};
+//! use rocksdb::{prelude::*, MergeOperands};
 //! # use rocksdb::TemporaryDBPath;
 //!
 //! fn concat_merge(new_key: &[u8],
@@ -204,6 +204,7 @@ impl<'a> Iterator for &'a mut MergeOperands {
 #[cfg(test)]
 mod test {
 
+    use crate::prelude::*;
     use super::*;
 
     fn test_provided_merge(
