@@ -79,6 +79,7 @@ mod db_vector;
 mod handle;
 pub mod merge_operator;
 pub mod ops;
+mod read_only_db;
 mod slice_transform;
 mod snapshot;
 
@@ -93,6 +94,7 @@ pub use db_options::{
     MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
 };
 pub use db_vector::DBVector;
+pub use read_only_db::ReadOnlyDB;
 pub use snapshot::Snapshot;
 pub use util::TemporaryDBPath;
 
