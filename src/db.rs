@@ -540,44 +540,6 @@ impl DB {
         }
     }
 
-    pub fn delete_opt<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error> {
-        let key = key.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_delete(
-                self.inner,
-                writeopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    pub fn delete_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: ColumnFamily,
-        key: K,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error> {
-        let key = key.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_delete_cf(
-                self.inner,
-                writeopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -592,14 +554,6 @@ impl DB {
         V: AsRef<[u8]>,
     {
         self.merge_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), Error> {
-        self.delete_opt(key.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamily, key: K) -> Result<(), Error> {
-        self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
     }
 
     pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
