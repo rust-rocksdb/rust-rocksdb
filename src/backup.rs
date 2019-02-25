@@ -46,7 +46,7 @@ impl BackupEngine {
                     "Failed to convert path to CString \
                      when opening backup engine"
                         .to_owned(),
-                ))
+                ));
             }
         };
 

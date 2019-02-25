@@ -13,18 +13,17 @@
 // limitations under the License.
 //
 extern crate rocksdb;
+mod util;
 
 use rocksdb::{checkpoint::Checkpoint, Options, DB};
-use std::fs::remove_dir_all;
+use util::DBPath;
 
 #[test]
 pub fn test_single_checkpoint() {
     const PATH_PREFIX: &str = "_rust_rocksdb_cp_single_";
 
     // Create DB with some data
-    let db_path = format!("{}db1", PATH_PREFIX);
-
-    let _ = remove_dir_all(&db_path);
+    let db_path = DBPath::new(&format!("{}db1", PATH_PREFIX));
 
     let mut opts = Options::default();
     opts.create_if_missing(true);
@@ -37,8 +36,7 @@ pub fn test_single_checkpoint() {
 
     // Create checkpoint
     let cp1 = Checkpoint::new(&db).unwrap();
-    let cp1_path = format!("{}cp1", PATH_PREFIX);
-    let _ = remove_dir_all(&cp1_path);
+    let cp1_path = DBPath::new(&format!("{}cp1", PATH_PREFIX));
     cp1.create_checkpoint(&cp1_path).unwrap();
 
     // Verify checkpoint
@@ -48,9 +46,6 @@ pub fn test_single_checkpoint() {
     assert_eq!(*cp.get(b"k2").unwrap().unwrap(), *b"v2");
     assert_eq!(*cp.get(b"k3").unwrap().unwrap(), *b"v3");
     assert_eq!(*cp.get(b"k4").unwrap().unwrap(), *b"v4");
-
-    let _ = remove_dir_all(&db_path);
-    let _ = remove_dir_all(&cp1_path);
 }
 
 #[test]
@@ -58,8 +53,7 @@ pub fn test_multi_checkpoints() {
     const PATH_PREFIX: &str = "_rust_rocksdb_cp_multi_";
 
     // Create DB with some data
-    let db_path = format!("{}db1", PATH_PREFIX);
-    let _ = remove_dir_all(&db_path);
+    let db_path = DBPath::new(&format!("{}db1", PATH_PREFIX));
 
     let mut opts = Options::default();
     opts.create_if_missing(true);
@@ -72,8 +66,7 @@ pub fn test_multi_checkpoints() {
 
     // Create first checkpoint
     let cp1 = Checkpoint::new(&db).unwrap();
-    let cp1_path = format!("{}cp1", PATH_PREFIX);
-    let _ = remove_dir_all(&cp1_path);
+    let cp1_path = DBPath::new(&format!("{}cp1", PATH_PREFIX));
     cp1.create_checkpoint(&cp1_path).unwrap();
 
     // Verify checkpoint
@@ -83,8 +76,6 @@ pub fn test_multi_checkpoints() {
     assert_eq!(*cp.get(b"k2").unwrap().unwrap(), *b"v2");
     assert_eq!(*cp.get(b"k3").unwrap().unwrap(), *b"v3");
     assert_eq!(*cp.get(b"k4").unwrap().unwrap(), *b"v4");
-
-    let _ = remove_dir_all(&cp1_path);
 
     // Change some existing keys
     db.put(b"k1", b"modified").unwrap();
@@ -96,8 +87,7 @@ pub fn test_multi_checkpoints() {
 
     // Create another checkpoint
     let cp2 = Checkpoint::new(&db).unwrap();
-    let cp2_path = format!("{}cp2", PATH_PREFIX);
-    let _ = remove_dir_all(&cp2_path);
+    let cp2_path = DBPath::new(&format!("{}cp2", PATH_PREFIX));
     cp2.create_checkpoint(&cp2_path).unwrap();
 
     // Verify second checkpoint
@@ -107,7 +97,4 @@ pub fn test_multi_checkpoints() {
     assert_eq!(*cp.get(b"k2").unwrap().unwrap(), *b"changed");
     assert_eq!(*cp.get(b"k5").unwrap().unwrap(), *b"v5");
     assert_eq!(*cp.get(b"k6").unwrap().unwrap(), *b"v6");
-
-    let _ = remove_dir_all(&db_path);
-    let _ = remove_dir_all(&cp2_path);
 }

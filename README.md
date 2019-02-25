@@ -9,9 +9,17 @@ rust-rocksdb
 
 ![GitHub commits (since latest release)](https://img.shields.io/github/commits-since/rust-rocksdb/rust-rocksdb/latest.svg)
 
+## Requirements
+
+- Clang and LLVM
+
+## Contributing
+
 Feedback and pull requests welcome!  If a particular feature of RocksDB is 
 important to you, please let me know by opening an issue, and I'll 
 prioritize it.
+
+## Usage
 
 This binding is statically linked with a specific version of RocksDB. If you 
 want to build it yourself, make sure you've also cloned the RocksDB and 

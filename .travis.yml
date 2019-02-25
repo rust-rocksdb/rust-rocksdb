@@ -22,7 +22,12 @@ addons:
       - libclang-3.9-dev
       - clang-3.9
 
+install:
+  - rustup component add rustfmt
+  - rustfmt -V
+
 script:
+  - cargo fmt --all -- --check
   - cargo test --manifest-path=librocksdb-sys/Cargo.toml
   - cargo test
 
