@@ -13,8 +13,11 @@
 // limitations under the License.
 //
 
+// PIGMED operations (Put, Iterate, Get, Merge, Delete)
+mod put;
 mod get;
 
+pub use self::put::{Put, PutCF}; 
 pub use self::get::{Get, GetCF};
 
 /// Marker trait for operations that leave DB

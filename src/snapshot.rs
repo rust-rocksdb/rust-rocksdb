@@ -121,18 +121,6 @@ impl<'a> GetCF<'a> for Snapshot<'a> {
     }
 }
 
-// impl<'a> Get<'a> for Snapshot<'a> {
-//     type ReadOptions = ReadOptions;
-
-//     fn get_full<K: AsRef<[u8]>>(
-//         &self,
-//         key: K,
-//         readopts: Option<Self::ReadOptions>,
-//     ) -> Result<Option<DBVector>, Error> {
-//         self.get_cf_full(None, key, readopts)
-//     }
-// }
-
 impl<'a> Drop for Snapshot<'a> {
     fn drop(&mut self) {
         unsafe {

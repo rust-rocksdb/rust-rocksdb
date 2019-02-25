@@ -491,55 +491,6 @@ impl DB {
         Snapshot::new(self)
     }
 
-    pub fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_put(
-                self.inner,
-                writeopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    pub fn put_cf_opt<K, V>(
-        &self,
-        cf: ColumnFamily,
-        key: K,
-        value: V,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_put_cf(
-                self.inner,
-                writeopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     pub fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -625,22 +576,6 @@ impl DB {
             ));
             Ok(())
         }
-    }
-
-    pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.put_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn put_cf<K, V>(&self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.put_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
     pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>

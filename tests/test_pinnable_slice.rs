@@ -1,6 +1,6 @@
 extern crate rocksdb;
 
-use rocksdb::{Options, TemporaryDBPath, DB};
+use rocksdb::{prelude::*, TemporaryDBPath};
 
 #[test]
 fn test_pinnable_slice() {

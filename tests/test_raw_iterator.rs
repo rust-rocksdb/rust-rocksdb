@@ -14,7 +14,7 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{TemporaryDBPath, DB};
+use rocksdb::{prelude::*, TemporaryDBPath};
 
 #[test]
 pub fn test_forwards_iteration() {

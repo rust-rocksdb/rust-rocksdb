@@ -90,7 +90,7 @@ impl<'a, T> GetCF<'a> for T
     type ReadOptions = &'a ReadOptions;
 
     fn get_cf_full<K: AsRef<[u8]>>(
-        &self,
+        &'a self,
         cf: Option<Self::ColumnFamily>,
         key: K,
         readopts: Option<Self::ReadOptions>,
