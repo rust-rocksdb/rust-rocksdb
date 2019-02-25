@@ -36,6 +36,13 @@ impl Deref for DBVector {
     }
 }
 
+impl AsRef<[u8]> for DBVector {
+    fn as_ref(&self) -> &[u8] {
+        // Implement this via Deref so as not to repeat ourselves
+        &*self
+    }
+}
+
 impl Drop for DBVector {
     fn drop(&mut self) {
         unsafe {
