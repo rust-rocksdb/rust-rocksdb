@@ -78,6 +78,38 @@ impl BackupEngine {
             Ok(())
         }
     }
+    pub fn restore_from_latest_backup<P: AsRef<Path>>(&mut self, db_dir: P, wal_dir: P, opts: &RestoreOptions) -> Result<(), Error>{
+
+        let db_dir = db_dir.as_ref();
+        let c_db_dir = match CString::new(db_dir.to_string_lossy().as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::new(
+                    "Failed to convert db_dir to CString \
+                     when restoring from latest backup"
+                        .to_owned(),
+                ))
+            }
+        };
+
+        let wal_dir = wal_dir.as_ref();
+        let c_wal_dir = match CString::new(wal_dir.to_string_lossy().as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::new(
+                    "Failed to convert wal_dir to CString \
+                     when restoring from latest backup"
+                        .to_owned(),
+                ))
+            }
+        };
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_backup_engine_restore_db_from_latest_backup(self.inner, c_db_dir.as_ptr(),
+            c_wal_dir.as_ptr(), opts.inner,));
+        }
+        Ok(())
+    }
 }
 
 impl BackupEngineOptions {
