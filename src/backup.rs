@@ -78,11 +78,18 @@ impl BackupEngine {
             Ok(())
         }
     }
+    
     /// Restore from the latest backup
-    /// db_dir:  input db directory
-    /// wal_dir:  input wal directory
-    /// opts: restore options
-    /// example:
+    ///
+    /// # Arguments
+    ///
+    /// * `db_dir` - A path to the database directory
+    /// * `wal_dir` - A path to the wal directory
+    /// * `opts` - Restore options
+    ///
+    /// # Example
+    ///
+    /// ```ignore
     /// use rocksdb::backup::{BackupEngine, BackupEngineOptions};
     /// let backup_opts = BackupEngineOptions::default();
     /// let backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
@@ -92,10 +99,11 @@ impl BackupEngine {
     ///     error!("Failed to restore from the backup. Error:{:?}", e);
     ///     return Err(e.to_string());
     ///  }
-    pub fn restore_from_latest_backup<P: AsRef<Path>>(
+    /// ```
+    pub fn restore_from_latest_backup<D: AsRef<Path>,W: AsRef<Path>>(
         &mut self,
-        db_dir: P,
-        wal_dir: P,
+        db_dir: D,
+        wal_dir: W,
         opts: &RestoreOptions,
     ) -> Result<(), Error> {
         let db_dir = db_dir.as_ref();
