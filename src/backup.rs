@@ -92,10 +92,10 @@ impl BackupEngine {
     ///     error!("Failed to restore from the backup. Error:{:?}", e);
     ///     return Err(e.to_string());
     ///  }
-    pub fn restore_from_latest_backup<P: AsRef<Path>>(
+    pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,
-        db_dir: P,
-        wal_dir: P,
+        db_dir: D,
+        wal_dir: W,
         opts: &RestoreOptions,
     ) -> Result<(), Error> {
         let db_dir = db_dir.as_ref();
