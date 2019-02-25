@@ -26,7 +26,6 @@ use libc::{self, c_char, c_int, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
-use std::fs;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -83,8 +82,6 @@ pub struct WriteBatch {
     pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
 }
 
-
-
 impl DB {
     /// Open a database with default options.
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
@@ -133,13 +130,6 @@ impl DB {
                 ));
             }
         };
-
-        if let Err(e) = fs::create_dir_all(&path) {
-            return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
-            )));
-        }
 
         let db: *mut ffi::rocksdb_t;
         let cf_map = Arc::new(RwLock::new(BTreeMap::new()));

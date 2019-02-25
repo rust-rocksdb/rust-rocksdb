@@ -23,7 +23,6 @@ use crate::{
 use libc::{c_int, c_uchar};
 use std::collections::BTreeMap;
 use std::ffi::{CString};
-use std::fs;
 use std::path::{Path};
 use std::ptr;
 use std::str;
@@ -95,13 +94,6 @@ impl ReadOnlyDB {
                 ));
             }
         };
-
-        if let Err(e) = fs::create_dir_all(&path) {
-            return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
-            )));
-        }
 
         let db: *mut ffi::rocksdb_t;
         let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
