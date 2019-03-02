@@ -78,7 +78,7 @@ impl BackupEngine {
             Ok(())
         }
     }
-    
+
     /// Restore from the latest backup
     ///
     /// # Arguments
@@ -92,7 +92,7 @@ impl BackupEngine {
     /// ```ignore
     /// use rocksdb::backup::{BackupEngine, BackupEngineOptions};
     /// let backup_opts = BackupEngineOptions::default();
-    /// let backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
+    /// let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
     /// let mut restore_option = rocksdb::backup::RestoreOptions::default();
     /// restore_option.set_keep_log_files(true); /// true to keep log files
     /// if let Err(e) = backup_engine.restore_from_latest_backup(&db_path, &wal_dir, &restore_option) {
@@ -200,4 +200,43 @@ impl Drop for RestoreOptions {
             ffi::rocksdb_restore_options_destroy(self.inner);
         }
     }
+}
+
+#[test]
+fn backup_restore() {
+
+    use db::DBVector;
+    // create backup
+    let path = "_rust_rocksdb_backup_restore_test";
+    {
+        let db = DB::open_default(path).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        let backup_path = "_rust_rocksdb_backup_path";
+        {
+            let backup_opts = BackupEngineOptions::default();
+            let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
+
+            let r = backup_engine.create_new_backup(&db);
+            assert!(r.is_ok());
+
+            let restore_path = "_rust_rocksdb_restore_from_backup_path";
+            {
+                let mut restore_option = RestoreOptions::default();
+                restore_option.set_keep_log_files(true); // true to keep log files
+                let restore_status = backup_engine.restore_from_latest_backup(&restore_path, &restore_path, &restore_option);
+                assert!(restore_status.is_ok());
+                
+                let db = DB::open_default(restore_path).unwrap();
+
+                let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+                assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+            }
+        }
+    }
+
+
 }
