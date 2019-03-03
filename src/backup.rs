@@ -100,9 +100,8 @@ impl BackupEngine {
     ///     return Err(e.to_string());
     ///  }
     /// ```
-    
-    pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
 
+    pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,
         db_dir: D,
         wal_dir: W,
@@ -206,7 +205,6 @@ impl Drop for RestoreOptions {
 
 #[test]
 fn backup_restore() {
-
     use db::DBVector;
     // create backup
     let path = "_rust_rocksdb_backup_restore_test";
@@ -229,9 +227,13 @@ fn backup_restore() {
             {
                 let mut restore_option = RestoreOptions::default();
                 restore_option.set_keep_log_files(true); // true to keep log files
-                let restore_status = backup_engine.restore_from_latest_backup(&restore_path, &restore_path, &restore_option);
+                let restore_status = backup_engine.restore_from_latest_backup(
+                    &restore_path,
+                    &restore_path,
+                    &restore_option,
+                );
                 assert!(restore_status.is_ok());
-                
+
                 let db = DB::open_default(restore_path).unwrap();
 
                 let r: Result<Option<DBVector>, Error> = db.get(b"k1");
@@ -239,6 +241,4 @@ fn backup_restore() {
             }
         }
     }
-
-
 }
