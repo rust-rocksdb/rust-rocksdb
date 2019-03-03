@@ -1,4 +1,4 @@
-// Copyright 2014 Tyler Neely
+// Copyright 2019 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ pub struct ColumnFamilyDescriptor {
 }
 
 impl ColumnFamilyDescriptor {
-    // Create a new column family descriptor with the specified name and options.
+    /// Create a new column family descriptor with the specified name and options.
     pub fn new<S>(name: S, options: Options) -> Self
     where
         S: Into<String>,

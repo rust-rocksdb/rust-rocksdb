@@ -79,7 +79,7 @@ impl<'a, T, W> Delete<'a> for T
       ) -> Result<(), Error> {
         self.delete_cf_full(None, key, writeopts)
       }
-  }
+}
 
 impl<'a, T> DeleteCF<'a> for T
   where T: Handle<ffi::rocksdb_t> + super::Write {
@@ -126,5 +126,5 @@ impl<'a, T> DeleteCF<'a> for T
           Ok(())
         }
 
-        }
+    }
 }
