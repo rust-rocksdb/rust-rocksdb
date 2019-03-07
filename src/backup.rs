@@ -206,6 +206,7 @@ impl Drop for RestoreOptions {
 #[test]
 fn backup_restore() {
     use db::DBVector;
+    use Options;
     // create backup
     let path = "_rust_rocksdb_backup_restore_test";
     {
@@ -234,11 +235,18 @@ fn backup_restore() {
                 );
                 assert!(restore_status.is_ok());
 
-                let db = DB::open_default(restore_path).unwrap();
+                let db_restore = DB::open_default(restore_path).unwrap();
 
-                let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+                let r: Result<Option<DBVector>, Error> = db_restore.get(b"k1");
                 assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
             }
+            assert!(DB::destroy(&Options::default(), restore_path).is_ok());
+
         }
+        assert!(DB::destroy(&Options::default(), backup_path).is_ok());
+
     }
+    assert!(DB::destroy(&Options::default(), path).is_ok());
+
 }
