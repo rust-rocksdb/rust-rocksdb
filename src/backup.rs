@@ -239,14 +239,10 @@ fn backup_restore() {
 
                 let r: Result<Option<DBVector>, Error> = db_restore.get(b"k1");
                 assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
-
             }
             assert!(DB::destroy(&Options::default(), restore_path).is_ok());
-
         }
         assert!(DB::destroy(&Options::default(), backup_path).is_ok());
-
     }
     assert!(DB::destroy(&Options::default(), path).is_ok());
-
 }
