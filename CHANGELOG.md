@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.0 (Unreleased)
+
+### Changes
+
+* Added support for PlainTable factories (ekmartin)
+* Added ability to restore latest backup (rohitjoshi)
+* Added support for pinnable slices (xxuejie)
+* Added ability to get property values (ekmartin)
+* Simplified opening database when using non-default column families (iSynaptic)
+* `ColumnFamily`, `DBIterator` and `DBRawIterator` now have lifetime parameters to prevent using them after the `DB` has been dropped (iSynaptic)
+* Creating `DBIterator` and `DBRawIterator` now accept `ReadOptions` (iSynaptic)
+* All database operations that accepted byte slices, `&[u8]`, are now generic and accept anything that implements `AsRef<[u8]>` (iSynaptic)
+* Bumped RocksDB to version 5.17.2 (aleksuss)
+* Added `set_readahead_size` to `ReadOptions` (iSynaptic)
+* Updated main example in doc tests (mohanson)
+* Updated requirements documentation (jamesray1)
+
+
 ## 0.11.0 (2019-01-10)
 
 ### Announcements
