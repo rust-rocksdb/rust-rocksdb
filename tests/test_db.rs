@@ -50,6 +50,26 @@ fn external() {
 }
 
 #[test]
+fn db_vector_as_ref_byte_slice() {
+    let path = DBPath::new("_rust_rocksdb_db_vector_as_ref_byte_slice");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        assert!(db.put(b"k1", b"v1111").is_ok());
+
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        let vector = r.unwrap().unwrap();
+
+        assert!(get_byte_slice(&vector) == b"v1111");
+    }
+}
+
+fn get_byte_slice<T: AsRef<[u8]>>(source: &'_ T) -> &'_ [u8] {
+    source.as_ref()
+}
+
+#[test]
 fn errors_do_stuff() {
     let path = DBPath::new("_rust_rocksdb_error");
     let _db = DB::open_default(&path).unwrap();
