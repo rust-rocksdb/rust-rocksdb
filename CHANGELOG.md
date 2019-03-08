@@ -16,6 +16,7 @@
 * Added `set_readahead_size` to `ReadOptions` (iSynaptic)
 * Updated main example in doc tests (mohanson)
 * Updated requirements documentation (jamesray1)
+* Implemented `AsRef<[u8]>` for `DBVector` (iSynaptic)
 
 
 ## 0.11.0 (2019-01-10)
