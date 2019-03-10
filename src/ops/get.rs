@@ -16,8 +16,7 @@
 use ffi;
 use libc::{c_char, size_t};
 
-
-use crate::{handle::Handle, ReadOptions, Error, DBVector, ColumnFamily};
+use crate::{handle::Handle, ColumnFamily, DBVector, Error, ReadOptions};
 
 pub trait Get<'a> {
     type ReadOptions;
@@ -71,21 +70,24 @@ pub trait GetCF<'a> {
 }
 
 impl<'a, T, R> Get<'a> for T
-  where T: GetCF<'a, ReadOptions = R> {
-      type ReadOptions = R;
-    
-      fn get_full<K: AsRef<[u8]>>(
-          &'a self,
-          key: K,
-          readopts: Option<Self::ReadOptions>,
-      ) -> Result<Option<DBVector>, Error> {
+where
+    T: GetCF<'a, ReadOptions = R>,
+{
+    type ReadOptions = R;
+
+    fn get_full<K: AsRef<[u8]>>(
+        &'a self,
+        key: K,
+        readopts: Option<Self::ReadOptions>,
+    ) -> Result<Option<DBVector>, Error> {
         self.get_cf_full(None, key, readopts)
-      }
-  }
+    }
+}
 
 impl<'a, T> GetCF<'a> for T
-  where T: Handle<ffi::rocksdb_t> + super::Read {
-
+where
+    T: Handle<ffi::rocksdb_t> + super::Read,
+{
     type ColumnFamily = ColumnFamily<'a>;
     type ReadOptions = &'a ReadOptions;
 
@@ -95,7 +97,6 @@ impl<'a, T> GetCF<'a> for T
         key: K,
         readopts: Option<Self::ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
-
         let mut default_readopts = None;
 
         if readopts.is_none() {
@@ -140,9 +141,9 @@ impl<'a, T> GetCF<'a> for T
                     key_ptr,
                     key_len,
                     &mut val_len,
-                ))
+                )),
             } as *mut u8;
-                
+
             if val.is_null() {
                 Ok(None)
             } else {

@@ -14,15 +14,19 @@
 //
 
 // PIGMED operations (Put, Iterate, Get, Merge, Delete)
-mod put;
+mod delete;
 mod get;
 mod get_pinned;
-mod delete;
+mod put;
 
-pub use self::put::{Put, PutCF}; 
+mod open;
+
+pub use self::delete::{Delete, DeleteCF};
 pub use self::get::{Get, GetCF};
 pub use self::get_pinned::{GetPinned, GetPinnedCF};
-pub use self::delete::{Delete, DeleteCF};
+pub use self::put::{Put, PutCF};
+
+pub use self::open::{Open, OpenCF};
 
 /// Marker trait for operations that leave DB
 /// state unchanged

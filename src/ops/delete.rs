@@ -16,15 +16,15 @@
 use ffi;
 use libc::{c_char, size_t};
 
-use crate::{handle::Handle, WriteOptions, Error, ColumnFamily};
+use crate::{handle::Handle, ColumnFamily, Error, WriteOptions};
 
 pub trait Delete<'a> {
     type WriteOptions;
 
     fn delete_full<K>(&'a self, key: K, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
-      where
-          K: AsRef<[u8]>;
-    
+    where
+        K: AsRef<[u8]>;
+
     fn delete<K>(&'a self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -32,12 +32,11 @@ pub trait Delete<'a> {
         self.delete_full(key, None)
     }
 
-
     fn delete_opt<K>(&'a self, key: K, writeopts: Self::WriteOptions) -> Result<(), Error>
     where
-        K: AsRef<[u8]>
+        K: AsRef<[u8]>,
     {
-       self.delete_full(key, Some(writeopts))
+        self.delete_full(key, Some(writeopts))
     }
 }
 
@@ -45,13 +44,18 @@ pub trait DeleteCF<'a> {
     type ColumnFamily;
     type WriteOptions;
 
-    fn delete_cf_full<K>(&'a self, cf: Option<Self::ColumnFamily>, key: K, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
+    fn delete_cf_full<K>(
+        &'a self,
+        cf: Option<Self::ColumnFamily>,
+        key: K,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error>
     where
         K: AsRef<[u8]>;
-    
+
     fn delete_cf<K>(&'a self, cf: Self::ColumnFamily, key: K) -> Result<(), Error>
     where
-        K: AsRef<[u8]>
+        K: AsRef<[u8]>,
     {
         self.delete_cf_full(Some(cf), key, None)
     }
@@ -63,34 +67,43 @@ pub trait DeleteCF<'a> {
         writeopts: Self::WriteOptions,
     ) -> Result<(), Error>
     where
-        K: AsRef<[u8]> {
-          self.delete_cf_full(Some(cf), key, Some(writeopts))
-        }
+        K: AsRef<[u8]>,
+    {
+        self.delete_cf_full(Some(cf), key, Some(writeopts))
+    }
 }
 
 impl<'a, T, W> Delete<'a> for T
-  where T: DeleteCF<'a, WriteOptions = W> {
-      type WriteOptions = W;
-    
-      fn delete_full<K: AsRef<[u8]>>(
-          &'a self,
-          key: K,
-          writeopts: Option<Self::WriteOptions>,
-      ) -> Result<(), Error> {
+where
+    T: DeleteCF<'a, WriteOptions = W>,
+{
+    type WriteOptions = W;
+
+    fn delete_full<K: AsRef<[u8]>>(
+        &'a self,
+        key: K,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error> {
         self.delete_cf_full(None, key, writeopts)
-      }
+    }
 }
 
 impl<'a, T> DeleteCF<'a> for T
-  where T: Handle<ffi::rocksdb_t> + super::Write {
-
+where
+    T: Handle<ffi::rocksdb_t> + super::Write,
+{
     type ColumnFamily = ColumnFamily<'a>;
     type WriteOptions = &'a WriteOptions;
 
-    fn delete_cf_full<K>(&'a self, cf: Option<Self::ColumnFamily>, key: K, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
+    fn delete_cf_full<K>(
+        &'a self,
+        cf: Option<Self::ColumnFamily>,
+        key: K,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error>
     where
-        K: AsRef<[u8]> {
-
+        K: AsRef<[u8]>,
+    {
         let mut default_writeopts = None;
 
         if default_writeopts.is_none() {
@@ -107,24 +120,23 @@ impl<'a, T> DeleteCF<'a> for T
         let key_len = key.len() as size_t;
 
         unsafe {
-          match cf {
-              Some(cf) => ffi_try!(ffi::rocksdb_delete_cf(
-                  self.handle(),
-                  wo_handle,
-                  cf.inner,
-                  key_ptr,
-                  key_len,
-              )),
-              None => ffi_try!(ffi::rocksdb_delete(
-                  self.handle(),
-                  wo_handle,
-                  key_ptr,
-                  key_len,
-              ))
-          }
-            
-          Ok(())
-        }
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_delete_cf(
+                    self.handle(),
+                    wo_handle,
+                    cf.inner,
+                    key_ptr,
+                    key_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_delete(
+                    self.handle(),
+                    wo_handle,
+                    key_ptr,
+                    key_len,
+                )),
+            }
 
+            Ok(())
+        }
     }
 }

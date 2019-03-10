@@ -27,9 +27,9 @@ fn open_existing_db_in_read_only() {
     }
 
     {
-      let db = ReadOnlyDB::open_default(true, &path).unwrap();
-      let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-      
-      assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        let db = ReadOnlyDB::open_default(&path).unwrap();
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
     }
 }

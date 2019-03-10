@@ -16,16 +16,21 @@
 use ffi;
 use libc::{c_char, size_t};
 
-use crate::{handle::Handle, WriteOptions, Error, ColumnFamily};
+use crate::{handle::Handle, ColumnFamily, Error, WriteOptions};
 
 pub trait Put<'a> {
     type WriteOptions;
 
-    fn put_full<K, V>(&'a self, key: K, value: V, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
-      where
-          K: AsRef<[u8]>,
-          V: AsRef<[u8]>;
-    
+    fn put_full<K, V>(
+        &'a self,
+        key: K,
+        value: V,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>;
+
     fn put<K, V>(&'a self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -34,13 +39,12 @@ pub trait Put<'a> {
         self.put_full(key, value, None)
     }
 
-
     fn put_opt<K, V>(&'a self, key: K, value: V, writeopts: Self::WriteOptions) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-       self.put_full(key, value, Some(writeopts))
+        self.put_full(key, value, Some(writeopts))
     }
 }
 
@@ -48,11 +52,17 @@ pub trait PutCF<'a> {
     type ColumnFamily;
     type WriteOptions;
 
-    fn put_cf_full<K, V>(&'a self, cf: Option<Self::ColumnFamily>, key: K, value: V, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
+    fn put_cf_full<K, V>(
+        &'a self,
+        cf: Option<Self::ColumnFamily>,
+        key: K,
+        value: V,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
-    
+
     fn put_cf<K, V>(&'a self, cf: Self::ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -70,36 +80,46 @@ pub trait PutCF<'a> {
     ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
-        V: AsRef<[u8]> {
-          self.put_cf_full(Some(cf), key, value, Some(writeopts))
-        }
+        V: AsRef<[u8]>,
+    {
+        self.put_cf_full(Some(cf), key, value, Some(writeopts))
+    }
 }
 
 impl<'a, T, W> Put<'a> for T
-  where T: PutCF<'a, WriteOptions = W> {
-      type WriteOptions = W;
-    
-      fn put_full<K: AsRef<[u8]>, V: AsRef<[u8]>>(
-          &'a self,
-          key: K,
-          value: V,
-          writeopts: Option<Self::WriteOptions>,
-      ) -> Result<(), Error> {
+where
+    T: PutCF<'a, WriteOptions = W>,
+{
+    type WriteOptions = W;
+
+    fn put_full<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+        &'a self,
+        key: K,
+        value: V,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error> {
         self.put_cf_full(None, key, value, writeopts)
-      }
-  }
+    }
+}
 
 impl<'a, T> PutCF<'a> for T
-  where T: Handle<ffi::rocksdb_t> + super::Write {
-
+where
+    T: Handle<ffi::rocksdb_t> + super::Write,
+{
     type ColumnFamily = ColumnFamily<'a>;
     type WriteOptions = &'a WriteOptions;
 
-    fn put_cf_full<K, V>(&'a self, cf: Option<Self::ColumnFamily>, key: K, value: V, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
+    fn put_cf_full<K, V>(
+        &'a self,
+        cf: Option<Self::ColumnFamily>,
+        key: K,
+        value: V,
+        writeopts: Option<Self::WriteOptions>,
+    ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
-        V: AsRef<[u8]> {
-
+        V: AsRef<[u8]>,
+    {
         let mut default_writeopts = None;
 
         if default_writeopts.is_none() {
@@ -119,28 +139,27 @@ impl<'a, T> PutCF<'a> for T
         let val_len = value.len() as size_t;
 
         unsafe {
-          match cf {
-              Some(cf) => ffi_try!(ffi::rocksdb_put_cf(
-                  self.handle(),
-                  wo_handle,
-                  cf.inner,
-                  key_ptr,
-                  key_len,
-                  val_ptr,
-                  val_len,
-              )),
-              None => ffi_try!(ffi::rocksdb_put(
-                  self.handle(),
-                  wo_handle,
-                  key_ptr,
-                  key_len,
-                  val_ptr,
-                  val_len,
-              ))
-          }
-            
-          Ok(())
-        }
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_put_cf(
+                    self.handle(),
+                    wo_handle,
+                    cf.inner,
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_put(
+                    self.handle(),
+                    wo_handle,
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+            }
 
+            Ok(())
         }
+    }
 }

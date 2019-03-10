@@ -41,7 +41,7 @@
 //! Opening a database and a single column family with custom options:
 //!
 //! ```
-//! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//! use rocksdb::{prelude::*, ColumnFamilyDescriptor};
 //! # use rocksdb::TemporaryDBPath;
 //!
 //! let path = "_path_for_rocksdb_storage_with_cfs";
@@ -78,6 +78,7 @@ mod db_options;
 mod db_vector;
 mod handle;
 pub mod merge_operator;
+mod open_raw;
 pub mod ops;
 mod read_only_db;
 mod slice_transform;

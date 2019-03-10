@@ -17,7 +17,7 @@ extern crate rocksdb;
 
 use libc::size_t;
 
-use rocksdb::{DBVector, Error, IteratorMode, Options, TemporaryDBPath, WriteBatch, DB, ops::*};
+use rocksdb::{ops::*, DBVector, Error, IteratorMode, Options, TemporaryDBPath, WriteBatch, DB};
 
 #[test]
 fn test_db_vector() {

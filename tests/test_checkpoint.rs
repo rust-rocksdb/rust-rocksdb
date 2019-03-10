@@ -14,11 +14,10 @@
 //
 extern crate rocksdb;
 
-use rocksdb::{prelude::*, checkpoint::Checkpoint, TemporaryDBPath};
+use rocksdb::{checkpoint::Checkpoint, prelude::*, TemporaryDBPath};
 
 #[test]
 pub fn test_single_checkpoint() {
-
     // Create DB with some data
     let db_path = TemporaryDBPath::new();
 

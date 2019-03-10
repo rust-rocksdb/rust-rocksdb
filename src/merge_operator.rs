@@ -204,8 +204,8 @@ impl<'a> Iterator for &'a mut MergeOperands {
 #[cfg(test)]
 mod test {
 
-    use crate::prelude::*;
     use super::*;
+    use crate::prelude::*;
 
     fn test_provided_merge(
         _new_key: &[u8],

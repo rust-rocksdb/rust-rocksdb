@@ -14,22 +14,22 @@
 //
 
 use ffi;
-use ffi_util::opt_bytes_to_ptr;
-use util::to_cpath;
+use ffi_util::{opt_bytes_to_ptr, to_cpath};
 
 use crate::{
-    handle::Handle, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator, Direction, Error,
-    IteratorMode, Options, ReadOptions, WriteOptions, Snapshot, ops,
+    handle::Handle,
+    open_raw::{OpenRaw, OpenRawFFI},
+    ops, ColumnFamily, DBIterator, DBRawIterator, Direction, Error, IteratorMode, Options,
+    ReadOptions, Snapshot, WriteOptions,
 };
 
-use libc::{self, c_char, c_int, c_void, size_t};
+use libc::{self, c_char, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
-use std::ptr;
 use std::slice;
 use std::str;
 use std::sync::{Arc, RwLock};
@@ -44,9 +44,54 @@ pub struct DB {
 }
 
 impl Handle<ffi::rocksdb_t> for DB {
-  fn handle(&self) -> *mut ffi::rocksdb_t {
-    self.inner
-  }
+    fn handle(&self) -> *mut ffi::rocksdb_t {
+        self.inner
+    }
+}
+
+impl ops::Open for DB {}
+impl ops::OpenCF for DB {}
+
+impl OpenRaw for DB {
+    type Pointer = ffi::rocksdb_t;
+    type Descriptor = ();
+
+    fn open_impl(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
+        let pointer = unsafe {
+            if input.num_column_families <= 0 {
+                ffi_try!(ffi::rocksdb_open(input.options, input.path,))
+            } else {
+                ffi_try!(ffi::rocksdb_open_column_families(
+                    input.options,
+                    input.path,
+                    input.num_column_families,
+                    input.column_family_names,
+                    input.column_family_options,
+                    input.column_family_handles,
+                ))
+            }
+        };
+
+        Ok(pointer)
+    }
+
+    fn build<I>(
+        path: PathBuf,
+        _open_descriptor: Self::Descriptor,
+        pointer: *mut Self::Pointer,
+        column_families: I,
+    ) -> Result<Self, Error>
+    where
+        I: IntoIterator<Item = (String, *mut ffi::rocksdb_column_family_handle_t)>,
+    {
+        let cfs: BTreeMap<_, _> = column_families.into_iter().collect();
+
+        Ok(DB {
+            inner: pointer,
+            cfs: Arc::new(RwLock::new(cfs)),
+            path,
+        })
+    }
 }
 
 impl ops::Read for DB {}
@@ -60,7 +105,7 @@ unsafe impl Sync for DB {}
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, Options, WriteBatch};
+/// use rocksdb::{prelude::*, WriteBatch};
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage1";
@@ -83,129 +128,11 @@ pub struct WriteBatch {
 }
 
 impl DB {
-    /// Open a database with default options.
-    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        DB::open(&opts, path)
-    }
-
-    /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, None::<&str>)
-    }
-
-    /// Open a database with the given database options and column family names.
-    ///
-    /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = N>,
-        N: AsRef<str>,
-    {
-        let cfs = cfs
-            .into_iter()
-            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
-
-        DB::open_cf_descriptors(opts, path, cfs)
-    }
-
-    /// Open a database with the given database options and column family descriptors.
-    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
-        let cfs: Vec<_> = cfs.into_iter().collect();
-
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening DB."
-                        .to_owned(),
-                ));
-            }
-        };
-
-        let db: *mut ffi::rocksdb_t;
-        let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
-
-        if cfs.is_empty() {
-            unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _,));
-            }
-        } else {
-            let mut cfs_v = cfs;
-            // Always open the default column family.
-            if !cfs_v.iter().any(|cf| cf.name == "default") {
-                cfs_v.push(ColumnFamilyDescriptor {
-                    name: String::from("default"),
-                    options: Options::default(),
-                });
-            }
-            // We need to store our CStrings in an intermediate vector
-            // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v
-                .iter()
-                .map(|cf| CString::new(cf.name.as_bytes()).unwrap())
-                .collect();
-
-            let mut cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
-
-            // These handles will be populated by DB.
-            let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
-
-            let mut cfopts: Vec<_> = cfs_v
-                .iter()
-                .map(|cf| cf.options.inner as *const _)
-                .collect();
-
-            unsafe {
-                db = ffi_try!(ffi::rocksdb_open_column_families(
-                    opts.inner,
-                    cpath.as_ptr(),
-                    cfs_v.len() as c_int,
-                    cfnames.as_mut_ptr(),
-                    cfopts.as_mut_ptr(),
-                    cfhandles.as_mut_ptr(),
-                ));
-            }
-
-            for handle in &cfhandles {
-                if handle.is_null() {
-                    return Err(Error::new(
-                        "Received null column family \
-                         handle from DB."
-                            .to_owned(),
-                    ));
-                }
-            }
-
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map
-                    .write()
-                    .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), h);
-            }
-        }
-
-        if db.is_null() {
-            return Err(Error::new("Could not initialize database.".to_owned()));
-        }
-
-        Ok(DB {
-            inner: db,
-            cfs: cf_map,
-            path: path.to_path_buf(),
-        })
-    }
-
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let cpath = to_cpath(path)?;
+        let cpath = to_cpath(
+            path,
+            "Failed to convert path to CString when opening database.",
+        )?;
         let mut length = 0;
 
         unsafe {
@@ -225,7 +152,10 @@ impl DB {
     }
 
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = to_cpath(path)?;
+        let cpath = to_cpath(
+            path,
+            "Failed to convert path to CString when opening database.",
+        )?;
         unsafe {
             ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(),));
         }
@@ -233,7 +163,10 @@ impl DB {
     }
 
     pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
-        let cpath = to_cpath(path)?;
+        let cpath = to_cpath(
+            path,
+            "Failed to convert path to CString when opening database.",
+        )?;
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
         }
@@ -853,8 +786,8 @@ impl<'a> DBPinnableSlice<'a> {
 
 #[test]
 fn test_db_vector() {
-    use std::mem;
     use crate::prelude::*;
+    use std::mem;
 
     let len: size_t = 4;
     let data = unsafe { libc::calloc(len, mem::size_of::<u8>()) as *mut u8 };

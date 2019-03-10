@@ -16,166 +16,96 @@
 use ffi;
 
 use crate::{
-    handle::Handle, ColumnFamilyDescriptor,  Error,
-    Options, ops,
+    handle::Handle,
+    open_raw::{OpenRaw, OpenRawFFI},
+    ops, Error,
 };
 
-use libc::{c_int, c_uchar};
+use libc::c_uchar;
 use std::collections::BTreeMap;
-use std::ffi::{CString};
-use std::path::{Path};
-use std::ptr;
-use std::str;
+use std::fmt;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 pub struct ReadOnlyDB {
     pub(crate) inner: *mut ffi::rocksdb_t,
     cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
+    path: PathBuf,
 }
 
 impl ReadOnlyDB {
-      /// Open a database with default options.
-    pub fn open_default<P: AsRef<Path>>(error_if_log_file_exists: bool, path: P) -> Result<ReadOnlyDB, Error> {
-        let opts = Options::default();
-        ReadOnlyDB::open(error_if_log_file_exists, &opts, path)
+    pub fn path(&self) -> &Path {
+        &self.path.as_path()
     }
+}
 
-  /// Open the database with the specified options.
-    pub fn open<P: AsRef<Path>>(
-      error_if_log_file_exists: bool,
-      opts: &Options,
-       path: P) -> Result<ReadOnlyDB, Error> {
+pub struct ReadOnlyOpenDescriptor {
+    error_if_log_file_exists: bool,
+}
 
-        ReadOnlyDB::open_cf(error_if_log_file_exists, opts, path, None::<&str>)
+impl Default for ReadOnlyOpenDescriptor {
+    fn default() -> Self {
+        ReadOnlyOpenDescriptor {
+            error_if_log_file_exists: true,
+        }
     }
+}
 
-    /// Open a database with the given database options and column family names.
-    ///
-    /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P, I, N>(
-        error_if_log_file_exists: bool, 
-        opts: &Options,
-        path: P,
-        cfs: I) -> Result<ReadOnlyDB, Error>
+impl ops::Open for ReadOnlyDB {}
+impl ops::OpenCF for ReadOnlyDB {}
 
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = N>,
-        N: AsRef<str>,
-    {
-        let cfs = cfs
-            .into_iter()
-            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+impl OpenRaw for ReadOnlyDB {
+    type Pointer = ffi::rocksdb_t;
+    type Descriptor = ReadOnlyOpenDescriptor;
 
-        ReadOnlyDB::open_cf_descriptors(error_if_log_file_exists, opts, path, cfs)
-    }
-
-    /// Open a database with the given database options and column family descriptors.
-    pub fn open_cf_descriptors<P, I>(
-      error_if_log_file_exists: bool,
-      opts: &Options,
-      path: P,
-      cfs: I) -> Result<ReadOnlyDB, Error>
-
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
-        let cfs: Vec<_> = cfs.into_iter().collect();
-
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening DB."
-                        .to_owned(),
-                ));
+    fn open_impl(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
+        let error_if_log_file_exists = input.open_descriptor.error_if_log_file_exists as c_uchar;
+        let pointer = unsafe {
+            if input.num_column_families <= 0 {
+                ffi_try!(ffi::rocksdb_open_for_read_only(
+                    input.options,
+                    input.path,
+                    error_if_log_file_exists,
+                ))
+            } else {
+                ffi_try!(ffi::rocksdb_open_for_read_only_column_families(
+                    input.options,
+                    input.path,
+                    input.num_column_families,
+                    input.column_family_names,
+                    input.column_family_options,
+                    input.column_family_handles,
+                    error_if_log_file_exists,
+                ))
             }
         };
 
-        let db: *mut ffi::rocksdb_t;
-        let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
+        Ok(pointer)
+    }
 
-        if cfs.is_empty() {
-            unsafe {
-                db = ffi_try!(ffi::rocksdb_open_for_read_only(
-                  opts.inner,
-                  cpath.as_ptr() as *const _,
-                  error_if_log_file_exists as c_uchar,));
-            }
-        } else {
-            let mut cfs_v = cfs;
-            // Always open the default column family.
-            if !cfs_v.iter().any(|cf| cf.name == "default") {
-                cfs_v.push(ColumnFamilyDescriptor {
-                    name: String::from("default"),
-                    options: Options::default(),
-                });
-            }
-            // We need to store our CStrings in an intermediate vector
-            // so that their pointers remain valid.
-            let c_cfs: Vec<CString> = cfs_v
-                .iter()
-                .map(|cf| CString::new(cf.name.as_bytes()).unwrap())
-                .collect();
-
-            let mut cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
-
-            // These handles will be populated by DB.
-            let mut cfhandles: Vec<_> = cfs_v.iter().map(|_| ptr::null_mut()).collect();
-
-            let mut cfopts: Vec<_> = cfs_v
-                .iter()
-                .map(|cf| cf.options.inner as *const _)
-                .collect();
-
-            unsafe {
-                db = ffi_try!(ffi::rocksdb_open_for_read_only_column_families(
-                    opts.inner,
-                    cpath.as_ptr(),
-                    cfs_v.len() as c_int,
-                    cfnames.as_mut_ptr(),
-                    cfopts.as_mut_ptr(),
-                    cfhandles.as_mut_ptr(),
-                    error_if_log_file_exists as c_uchar,
-                ));
-            }
-
-            for handle in &cfhandles {
-                if handle.is_null() {
-                    return Err(Error::new(
-                        "Received null column family \
-                         handle from DB."
-                            .to_owned(),
-                    ));
-                }
-            }
-
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map
-                    .write()
-                    .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), h);
-            }
-        }
-
-        if db.is_null() {
-            return Err(Error::new("Could not initialize database.".to_owned()));
-        }
+    fn build<I>(
+        path: PathBuf,
+        _open_descriptor: Self::Descriptor,
+        pointer: *mut Self::Pointer,
+        column_families: I,
+    ) -> Result<Self, Error>
+    where
+        I: IntoIterator<Item = (String, *mut ffi::rocksdb_column_family_handle_t)>,
+    {
+        let cfs: BTreeMap<_, _> = column_families.into_iter().collect();
 
         Ok(ReadOnlyDB {
-            inner: db,
-            cfs: cf_map,
+            inner: pointer,
+            cfs: Arc::new(RwLock::new(cfs)),
+            path,
         })
     }
 }
 
 impl Handle<ffi::rocksdb_t> for ReadOnlyDB {
-  fn handle(&self) -> *mut ffi::rocksdb_t {
-    self.inner
-  }
+    fn handle(&self) -> *mut ffi::rocksdb_t {
+        self.inner
+    }
 }
 
 impl ops::Read for ReadOnlyDB {}
@@ -193,5 +123,11 @@ impl Drop for ReadOnlyDB {
             }
             ffi::rocksdb_close(self.inner);
         }
+    }
+}
+
+impl fmt::Debug for ReadOnlyDB {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Read-only RocksDB {{ path: {:?} }}", self.path())
     }
 }

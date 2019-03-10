@@ -91,8 +91,7 @@ pub struct PlainTableFactoryOptions {
 /// # Examples
 ///
 /// ```
-/// use rocksdb::{Options, DB};
-/// use rocksdb::DBCompactionStyle;
+/// use rocksdb::{prelude::*, DBCompactionStyle};
 ///
 /// fn badly_tuned_for_somebody_elses_disk() -> DB {
 ///    let path = "path/for/rocksdb/storageX";
@@ -128,7 +127,7 @@ pub struct Options {
 /// Making an unsafe write of a batch:
 ///
 /// ```
-/// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
+/// use rocksdb::{prelude::*, WriteBatch, WriteOptions};
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storageY";

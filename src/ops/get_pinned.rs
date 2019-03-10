@@ -16,8 +16,7 @@
 use ffi;
 use libc::{c_char, size_t};
 
-
-use crate::{handle::Handle, ReadOptions, Error, DBPinnableSlice, ColumnFamily};
+use crate::{handle::Handle, ColumnFamily, DBPinnableSlice, Error, ReadOptions};
 
 pub trait GetPinned<'a> {
     type ReadOptions;
@@ -84,21 +83,24 @@ pub trait GetPinnedCF<'a> {
 }
 
 impl<'a, T, R> GetPinned<'a> for T
-  where T: GetPinnedCF<'a, ReadOptions = R> {
-      type ReadOptions = R;
-    
-      fn get_pinned_full<K: AsRef<[u8]>>(
-          &'a self,
-          key: K,
-          readopts: Option<Self::ReadOptions>,
-      ) -> Result<Option<DBPinnableSlice<'a>>, Error> {
+where
+    T: GetPinnedCF<'a, ReadOptions = R>,
+{
+    type ReadOptions = R;
+
+    fn get_pinned_full<K: AsRef<[u8]>>(
+        &'a self,
+        key: K,
+        readopts: Option<Self::ReadOptions>,
+    ) -> Result<Option<DBPinnableSlice<'a>>, Error> {
         self.get_pinned_cf_full(None, key, readopts)
-      }
-  }
+    }
+}
 
 impl<'a, T> GetPinnedCF<'a> for T
-  where T: Handle<ffi::rocksdb_t> + super::Read {
-
+where
+    T: Handle<ffi::rocksdb_t> + super::Read,
+{
     type ColumnFamily = ColumnFamily<'a>;
     type ReadOptions = &'a ReadOptions;
 
@@ -108,7 +110,6 @@ impl<'a, T> GetPinnedCF<'a> for T
         key: K,
         readopts: Option<Self::ReadOptions>,
     ) -> Result<Option<DBPinnableSlice<'a>>, Error> {
-
         let mut default_readopts = None;
 
         if readopts.is_none() {
@@ -149,9 +150,9 @@ impl<'a, T> GetPinnedCF<'a> for T
                     ro_handle,
                     key_ptr,
                     key_len,
-                ))
+                )),
             };
-                
+
             if val.is_null() {
                 Ok(None)
             } else {

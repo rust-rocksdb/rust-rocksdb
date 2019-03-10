@@ -13,13 +13,12 @@
 // limitations under the License.
 //
 
-use std::ffi::CString;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::sync::atomic::{Ordering, AtomicUsize};
 
-use crate::{Error, Options, DB};
+use crate::{Options, DB};
 
 /// Ensures that DB::Destroy is called and the directory is deleted
 /// for this database when TemporaryDBPath is dropped.
@@ -30,11 +29,9 @@ pub struct TemporaryDBPath {
 static PATH_NUM: AtomicUsize = AtomicUsize::new(0);
 
 impl TemporaryDBPath {
-
     /// Suffixes the given `prefix` with a timestamp to ensure that subsequent test runs don't reuse
     /// an old database in case of panics prior to Drop being called.
     pub fn new() -> TemporaryDBPath {
-
         // needed to disambiguate directories when running in
         // a multi-threaded environment (eg. `cargo test`) since
         // there is no guarantee time will be unique
@@ -68,14 +65,5 @@ impl Drop for TemporaryDBPath {
 impl AsRef<Path> for TemporaryDBPath {
     fn as_ref(&self) -> &Path {
         &self.path
-    }
-}
-
-pub fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
-    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
-        Ok(c) => Ok(c),
-        Err(_) => Err(Error::new(
-            "Failed to convert path to CString when opening DB.".to_owned(),
-        )),
     }
 }

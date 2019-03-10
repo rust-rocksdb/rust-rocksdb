@@ -13,12 +13,14 @@
 // limitations under the License.
 //
 
-use crate::{ReadOptions, DBVector, Error, ColumnFamily, DBIterator, DBRawIterator, IteratorMode, DB, ops::*};
+use crate::{
+    ops::*, ColumnFamily, DBIterator, DBRawIterator, DBVector, Error, IteratorMode, ReadOptions, DB,
+};
 
 /// A consistent view of the database at the point of creation.
 ///
 /// ```
-/// use rocksdb::{DB, IteratorMode, Options};
+/// use rocksdb::{prelude::*, IteratorMode};
 /// # use rocksdb::TemporaryDBPath;
 ///
 /// let path = "_path_for_rocksdb_storage3";
@@ -100,10 +102,9 @@ impl<'a> Snapshot<'a> {
     }
 }
 
-impl<'a> Read for Snapshot<'a>{}
+impl<'a> Read for Snapshot<'a> {}
 
 impl<'a> GetCF<'a> for Snapshot<'a> {
-
     type ColumnFamily = ColumnFamily<'a>;
     type ReadOptions = ReadOptions;
 
@@ -113,10 +114,9 @@ impl<'a> GetCF<'a> for Snapshot<'a> {
         key: K,
         readopts: Option<Self::ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
-    
         let mut ro = readopts.unwrap_or_else(|| ReadOptions::default());
         ro.set_snapshot(self);
-        
+
         self.db.get_cf_full(cf, key, Some(&ro))
     }
 }
