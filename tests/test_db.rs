@@ -17,7 +17,7 @@ extern crate rocksdb;
 
 use libc::size_t;
 
-use rocksdb::{ops::*, DBVector, Error, IteratorMode, Options, TemporaryDBPath, WriteBatch, DB};
+use rocksdb::{prelude::*, IteratorMode, TemporaryDBPath, WriteBatch};
 
 #[test]
 fn test_db_vector() {
@@ -44,6 +44,26 @@ fn external() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
+}
+
+#[test]
+fn db_vector_as_ref_byte_slice() {
+    let path = TemporaryDBPath::new();
+
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        assert!(db.put(b"k1", b"v1111").is_ok());
+
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        let vector = r.unwrap().unwrap();
+
+        assert!(get_byte_slice(&vector) == b"v1111");
+    }
+}
+
+fn get_byte_slice<T: AsRef<[u8]>>(source: &'_ T) -> &'_ [u8] {
+    source.as_ref()
 }
 
 #[test]
