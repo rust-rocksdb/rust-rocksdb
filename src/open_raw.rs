@@ -46,7 +46,7 @@ pub trait OpenRaw: Sized {
     type Descriptor: Default;
     type Pointer;
 
-    fn open_impl(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error>;
+    fn open_ffi(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error>;
 
     fn build<I>(
         path: PathBuf,
@@ -85,7 +85,7 @@ pub trait OpenRaw: Sized {
                 .take(cf_names.len())
                 .collect();
 
-        let pointer = Self::open_impl(OpenRawFFI {
+        let pointer = Self::open_ffi(OpenRawFFI {
             options: input.options.inner,
             path: cpath.as_ptr(),
             num_column_families: cf_names.len() as c_int,

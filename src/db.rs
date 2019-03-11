@@ -54,7 +54,7 @@ impl OpenRaw for DB {
     type Pointer = ffi::rocksdb_t;
     type Descriptor = ();
 
-    fn open_impl(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
+    fn open_ffi(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
         let pointer = unsafe {
             if input.num_column_families <= 0 {
                 ffi_try!(ffi::rocksdb_open(input.options, input.path,))

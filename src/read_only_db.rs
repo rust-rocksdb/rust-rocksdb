@@ -58,7 +58,7 @@ impl OpenRaw for ReadOnlyDB {
     type Pointer = ffi::rocksdb_t;
     type Descriptor = ReadOnlyOpenDescriptor;
 
-    fn open_impl(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
+    fn open_ffi(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
         let error_if_log_file_exists = input.open_descriptor.error_if_log_file_exists as c_uchar;
         let pointer = unsafe {
             if input.num_column_families <= 0 {
