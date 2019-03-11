@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 
-use ffi;
 use crate::{Error, DB};
+use ffi;
 
 use libc::{c_int, uint32_t};
 use std::ffi::CString;
@@ -226,11 +226,8 @@ fn backup_restore() {
 
         let mut restore_option = RestoreOptions::default();
         restore_option.set_keep_log_files(true); // true to keep log files
-        let restore_status = backup_engine.restore_from_latest_backup(
-            &restore_path,
-            &restore_path,
-            &restore_option,
-        );
+        let restore_status =
+            backup_engine.restore_from_latest_backup(&restore_path, &restore_path, &restore_option);
         assert!(restore_status.is_ok());
 
         let db_restore = DB::open_default(&restore_path).unwrap();

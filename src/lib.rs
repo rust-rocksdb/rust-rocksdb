@@ -84,12 +84,13 @@ pub mod ops;
 mod read_only_db;
 mod slice_transform;
 mod snapshot;
+mod write_batch;
 
 pub mod prelude;
 
 pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{WriteBatch, DB};
+pub use db::DB;
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
 pub use db_options::{
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
@@ -100,6 +101,7 @@ pub use db_vector::DBVector;
 pub use read_only_db::ReadOnlyDB;
 pub use snapshot::Snapshot;
 pub use util::TemporaryDBPath;
+pub use write_batch::WriteBatch;
 
 pub use slice_transform::SliceTransform;
 

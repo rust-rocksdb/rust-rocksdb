@@ -20,7 +20,7 @@ use crate::{
     handle::Handle,
     open_raw::{OpenRaw, OpenRawFFI},
     ops, ColumnFamily, DBIterator, DBRawIterator, Direction, Error, IteratorMode, Options,
-    ReadOptions, Snapshot, WriteOptions,
+    ReadOptions, Snapshot, WriteBatch, WriteOptions,
 };
 
 use libc::{self, c_char, c_void, size_t};
@@ -97,33 +97,6 @@ impl ops::Write for DB {}
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
-
-/// An atomic batch of write operations.
-///
-/// Making an atomic commit of several writes:
-///
-/// ```
-/// use rocksdb::{prelude::*, WriteBatch};
-/// # use rocksdb::TemporaryDBPath;
-///
-/// let path = "_path_for_rocksdb_storage1";
-/// # let path = TemporaryDBPath::new();
-/// # {
-///
-/// let db = DB::open_default(&path).unwrap();
-///
-/// let mut batch = WriteBatch::default();
-/// batch.put(b"my key", b"my value");
-/// batch.put(b"key2", b"value2");
-/// batch.put(b"key3", b"value3");
-///
-/// db.write(batch); // Atomically commits the batch
-
-/// # }
-/// ```
-pub struct WriteBatch {
-    pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
-}
 
 impl DB {
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
@@ -556,160 +529,6 @@ impl DB {
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
-    }
-}
-
-impl WriteBatch {
-    pub fn len(&self) -> usize {
-        unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
-    }
-
-    /// Return WriteBatch serialized size (in bytes).
-    pub fn size_in_bytes(&self) -> usize {
-        unsafe {
-            let mut batch_size: size_t = 0;
-            ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
-            batch_size as usize
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Insert a value into the database under the given key.
-    pub fn put<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi::rocksdb_writebatch_put(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            );
-            Ok(())
-        }
-    }
-
-    pub fn put_cf<K, V>(&mut self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi::rocksdb_writebatch_put_cf(
-                self.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            );
-            Ok(())
-        }
-    }
-
-    pub fn merge<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi::rocksdb_writebatch_merge(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            );
-            Ok(())
-        }
-    }
-
-    pub fn merge_cf<K, V>(&mut self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi::rocksdb_writebatch_merge_cf(
-                self.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            );
-            Ok(())
-        }
-    }
-
-    /// Remove the database entry for key.
-    ///
-    /// Returns an error if the key was not found.
-    pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), Error> {
-        let key = key.as_ref();
-
-        unsafe {
-            ffi::rocksdb_writebatch_delete(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            );
-            Ok(())
-        }
-    }
-
-    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: ColumnFamily, key: K) -> Result<(), Error> {
-        let key = key.as_ref();
-
-        unsafe {
-            ffi::rocksdb_writebatch_delete_cf(
-                self.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            );
-            Ok(())
-        }
-    }
-
-    /// Clear all updates buffered in this batch.
-    pub fn clear(&mut self) -> Result<(), Error> {
-        unsafe {
-            ffi::rocksdb_writebatch_clear(self.inner);
-        }
-        Ok(())
-    }
-}
-
-impl Default for WriteBatch {
-    fn default() -> WriteBatch {
-        WriteBatch {
-            inner: unsafe { ffi::rocksdb_writebatch_create() },
-        }
-    }
-}
-
-impl Drop for WriteBatch {
-    fn drop(&mut self) {
-        unsafe { ffi::rocksdb_writebatch_destroy(self.inner) }
     }
 }
 
