@@ -75,6 +75,7 @@ mod comparator;
 mod db;
 mod db_iterator;
 mod db_options;
+mod db_pinnable_slice;
 mod db_vector;
 mod handle;
 pub mod merge_operator;
@@ -88,12 +89,13 @@ pub mod prelude;
 
 pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
 pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{DBPinnableSlice, WriteBatch, DB};
+pub use db::{WriteBatch, DB};
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
 pub use db_options::{
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
     MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
 };
+pub use db_pinnable_slice::DBPinnableSlice;
 pub use db_vector::DBVector;
 pub use read_only_db::ReadOnlyDB;
 pub use snapshot::Snapshot;
