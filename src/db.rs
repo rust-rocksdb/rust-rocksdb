@@ -1093,6 +1093,15 @@ impl DB {
         DBIterator::new(self, &readopts, mode)
     }
 
+    pub fn iterator_cf_opt(
+        &self,
+        cf_handle: ColumnFamily,
+        readopts: &ReadOptions,
+        mode: IteratorMode,
+    ) -> Result<DBIterator, Error> {
+        DBIterator::new_cf(self, cf_handle, &readopts, mode)
+    }
+
     /// Opens an interator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
