@@ -1093,6 +1093,8 @@ impl DB {
         DBIterator::new(self, &readopts, mode)
     }
 
+    /// Opens an interator using the provided ReadOptions.
+    /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
     pub fn iterator_cf_opt(
         &self,
         cf_handle: ColumnFamily,
