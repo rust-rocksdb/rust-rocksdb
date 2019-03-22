@@ -944,7 +944,7 @@ impl DBOptions {
             Err(_) => {
                 return Err(
                     "Failed to convert path to CString when creating rocksdb info log".to_owned(),
-                )
+                );
             }
         };
 
