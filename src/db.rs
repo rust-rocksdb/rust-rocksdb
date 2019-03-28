@@ -1162,6 +1162,10 @@ impl DB {
         DBRawIterator::new(self, &opts)
     }
 
+    pub fn raw_iterator_opt(&self, opts: ReadOptions) -> DBRawIterator {
+        DBRawIterator::new(self, &opts)
+    }
+
     pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, &opts)
