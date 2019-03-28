@@ -1654,8 +1654,8 @@ impl WriteBatch {
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
-    pub fn delete_range<K: AsRef<[u8]>>(&mut self, start_key: K, end_key: K) -> Result<(), Error> {
-        let (start_key, end_key) = (start_key.as_ref(), end_key.as_ref());
+    pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) -> Result<(), Error> {
+        let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
             ffi::rocksdb_writebatch_delete_range(
@@ -1672,10 +1672,10 @@ impl WriteBatch {
     pub fn delete_range_cf<K: AsRef<[u8]>>(
         &mut self,
         cf: ColumnFamily,
-        start_key: K,
-        end_key: K,
+        from: K,
+        to: K,
     ) -> Result<(), Error> {
-        let (start_key, end_key) = (start_key.as_ref(), end_key.as_ref());
+        let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
             ffi::rocksdb_writebatch_delete_range_cf(
