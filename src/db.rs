@@ -1362,8 +1362,16 @@ impl DB {
         }
     }
 
-    pub fn compact_range_cf(&self, cf: ColumnFamily, start: Option<&[u8]>, end: Option<&[u8]>) {
+    pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
+        &self,
+        cf: ColumnFamily,
+        start: Option<S>,
+        end: Option<E>,
+    ) {
         unsafe {
+            let start = start.as_ref().map(|s| s.as_ref());
+            let end = end.as_ref().map(|e| e.as_ref());
+
             ffi::rocksdb_compact_range_cf(
                 self.inner,
                 cf.inner,
