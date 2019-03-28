@@ -1649,6 +1649,40 @@ impl WriteBatch {
         }
     }
 
+    pub fn delete_range<K: AsRef<[u8]>>(&mut self, start_key: K,  end_key: K) -> Result<(), Error> {
+        let start_key = start_key.as_ref();
+        let end_key = end_key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_delete_range(
+                self.inner,
+                start_key.as_ptr() as *const c_char,
+                start_key.len() as size_t,
+                end_key.as_ptr() as *const c_char,
+                end_key.len() as size_t,
+            );
+            Ok(())
+        }
+    }
+
+    pub fn delete_range_cf<K: AsRef<[u8]>>(&mut self, cf: ColumnFamily, start_key: K,  end_key: K) -> Result<(), Error> {
+        let start_key = start_key.as_ref();
+        let end_key = end_key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_delete_range_cf(
+                self.inner,
+                cf.inner,
+                start_key.as_ptr() as *const c_char,
+                start_key.len() as size_t,
+                end_key.as_ptr() as *const c_char,
+                end_key.len() as size_t,
+            );
+            Ok(())
+        }
+    }
+
+
     /// Clear all updates buffered in this batch.
     pub fn clear(&mut self) -> Result<(), Error> {
         unsafe {
