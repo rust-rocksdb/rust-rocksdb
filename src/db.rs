@@ -1669,6 +1669,11 @@ impl WriteBatch {
         }
     }
 
+    /// Remove database entries in column family from start key to end key.
+    ///
+    /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
+    /// including "begin_key" and excluding "end_key". It is not an error if no
+    /// keys exist in the range ["begin_key", "end_key").
     pub fn delete_range_cf<K: AsRef<[u8]>>(
         &mut self,
         cf: ColumnFamily,
