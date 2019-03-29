@@ -1657,6 +1657,52 @@ impl WriteBatch {
         }
     }
 
+    /// Remove database entries from start key to end key.
+    ///
+    /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
+    /// including "begin_key" and excluding "end_key". It is not an error if no
+    /// keys exist in the range ["begin_key", "end_key").
+    pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) -> Result<(), Error> {
+        let (start_key, end_key) = (from.as_ref(), to.as_ref());
+
+        unsafe {
+            ffi::rocksdb_writebatch_delete_range(
+                self.inner,
+                start_key.as_ptr() as *const c_char,
+                start_key.len() as size_t,
+                end_key.as_ptr() as *const c_char,
+                end_key.len() as size_t,
+            );
+            Ok(())
+        }
+    }
+
+    /// Remove database entries in column family from start key to end key.
+    ///
+    /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
+    /// including "begin_key" and excluding "end_key". It is not an error if no
+    /// keys exist in the range ["begin_key", "end_key").
+    pub fn delete_range_cf<K: AsRef<[u8]>>(
+        &mut self,
+        cf: ColumnFamily,
+        from: K,
+        to: K,
+    ) -> Result<(), Error> {
+        let (start_key, end_key) = (from.as_ref(), to.as_ref());
+
+        unsafe {
+            ffi::rocksdb_writebatch_delete_range_cf(
+                self.inner,
+                cf.inner,
+                start_key.as_ptr() as *const c_char,
+                start_key.len() as size_t,
+                end_key.as_ptr() as *const c_char,
+                end_key.len() as size_t,
+            );
+            Ok(())
+        }
+    }
+
     /// Clear all updates buffered in this batch.
     pub fn clear(&mut self) -> Result<(), Error> {
         unsafe {
@@ -1952,7 +1998,9 @@ fn writebatch_works() {
             assert_eq!(batch.len(), 0);
             assert!(batch.is_empty());
             let _ = batch.put(b"k1", b"v1111");
-            assert_eq!(batch.len(), 1);
+            let _ = batch.put(b"k2", b"v2222");
+            let _ = batch.put(b"k3", b"v3333");
+            assert_eq!(batch.len(), 3);
             assert!(!batch.is_empty());
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
@@ -1969,6 +2017,17 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
+        }
+        {
+            // test delete_range
+            let mut batch = WriteBatch::default();
+            let _ = batch.delete_range(b"k2", b"k4");
+            assert_eq!(batch.len(), 1);
+            assert!(!batch.is_empty());
+            let p = db.write(batch);
+            assert!(p.is_ok());
+            assert!(db.get(b"k2").unwrap().is_none());
+            assert!(db.get(b"k3").unwrap().is_none());
         }
         {
             // test size_in_bytes
