@@ -1690,7 +1690,6 @@ impl WriteBatch {
         }
     }
 
-
     /// Clear all updates buffered in this batch.
     pub fn clear(&mut self) -> Result<(), Error> {
         unsafe {
