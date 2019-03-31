@@ -30,7 +30,7 @@ Discussion around design and development of the wrapper primarily occurs within 
 
 ## Pull Requests
 [pull-requests]: #pull-requests
-Pull requests are welcome, and the maintainers greatly appreciate PRs that follow open-source contribution best practices:
+Pull requests are welcome, and when contributing code, the author agrees to do so under the project's [licensing](https://github.com/rust-rocksdb/rust-rocksdb/blob/master/LICENSE) - Apache 2.0 as of the time of this writing. The maintainers greatly appreciate PRs that follow open-source contribution best practices:
 1. Fork this repository to your personal GitHub account.
 1. Create a branch that includes your changes, **keep changes isolated and granular**.
 1. Include any relevant documentation and/or tests. Write [documentation tests](https://doc.rust-lang.org/rustdoc/documentation-tests.html) when relevant.
