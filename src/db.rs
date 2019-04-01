@@ -1768,9 +1768,10 @@ impl ReadOptions {
         }
     }
 
+    /// set_iterate_upper_bound sets the upper bound for an iterator, and the upper bound itself
+    /// is not included on the iteration result.
     pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
-
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(
                 self.inner,
