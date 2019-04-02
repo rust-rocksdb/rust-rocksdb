@@ -1104,7 +1104,7 @@ impl DB {
         DBIterator::new_cf(self, cf_handle, &readopts, mode)
     }
 
-    /// Opens an interator with `set_total_order_seek` enabled.
+    /// Opens an iterator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
     pub fn full_iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -1768,9 +1768,9 @@ impl ReadOptions {
         }
     }
 
+    /// Set the upper bound for an iterator, and the upper bound itself is not included on the iteration result.
     pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
-
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(
                 self.inner,
