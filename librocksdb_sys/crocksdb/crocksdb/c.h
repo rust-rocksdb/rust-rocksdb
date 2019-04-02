@@ -594,6 +594,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_iterate(
 extern C_ROCKSDB_LIBRARY_API const char* crocksdb_writebatch_data(
     crocksdb_writebatch_t*, size_t* size);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_set_save_point(crocksdb_writebatch_t*);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_pop_save_point(
+    crocksdb_writebatch_t*, char** errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_writebatch_rollback_to_save_point(crocksdb_writebatch_t*, char** errptr);
 
 /* Block based table options */

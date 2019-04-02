@@ -1654,6 +1654,11 @@ void crocksdb_writebatch_set_save_point(crocksdb_writebatch_t* b) {
   b->rep.SetSavePoint();
 }
 
+void crocksdb_writebatch_pop_save_point(crocksdb_writebatch_t* b,
+                                        char** errptr) {
+  SaveError(errptr, b->rep.PopSavePoint());
+}
+
 void crocksdb_writebatch_rollback_to_save_point(crocksdb_writebatch_t* b, char** errptr) {
   SaveError(errptr, b->rep.RollbackToSavePoint());
 }

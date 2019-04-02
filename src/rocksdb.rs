@@ -659,18 +659,18 @@ impl DB {
         &self.path
     }
 
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), String> {
+    pub fn write_opt(&self, batch: &WriteBatch, writeopts: &WriteOptions) -> Result<(), String> {
         unsafe {
             ffi_try!(crocksdb_write(self.inner, writeopts.inner, batch.inner));
         }
         Ok(())
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<(), String> {
+    pub fn write(&self, batch: &WriteBatch) -> Result<(), String> {
         self.write_opt(batch, &WriteOptions::new())
     }
 
-    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), String> {
+    pub fn write_without_wal(&self, batch: &WriteBatch) -> Result<(), String> {
         let mut wo = WriteOptions::new();
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
@@ -1686,6 +1686,13 @@ impl WriteBatch {
         }
         Ok(())
     }
+
+    pub fn pop_save_point(&mut self) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_writebatch_pop_save_point(self.inner));
+        }
+        Ok(())
+    }
 }
 
 impl Drop for WriteBatch {
@@ -2389,7 +2396,7 @@ mod test {
         assert_eq!(batch.count(), 1);
         assert!(!batch.is_empty());
         assert!(db.get(b"k1").unwrap().is_none());
-        let p = db.write(batch);
+        let p = db.write(&batch);
         assert!(p.is_ok());
         let r = db.get(b"k1");
         assert_eq!(r.unwrap().unwrap(), b"v1111");
@@ -2399,7 +2406,7 @@ mod test {
         let _ = batch.delete(b"k1");
         assert_eq!(batch.count(), 1);
         assert!(!batch.is_empty());
-        let p = db.write(batch);
+        let p = db.write(&batch);
         assert!(p.is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
 
@@ -2412,6 +2419,8 @@ mod test {
 
         // test save point
         let mut batch = WriteBatch::new();
+        batch.set_save_point();
+        batch.pop_save_point().unwrap();
         batch.put(b"k10", b"v10").unwrap();
         batch.set_save_point();
         batch.put(b"k11", b"v11").unwrap();
@@ -2421,7 +2430,7 @@ mod test {
         batch.put(b"k13", b"v13").unwrap();
         batch.rollback_to_save_point().unwrap();
         batch.rollback_to_save_point().unwrap();
-        let p = db.write(batch);
+        let p = db.write(&batch);
         assert!(p.is_ok());
         let r = db.get(b"k10");
         assert_eq!(r.unwrap().unwrap(), b"v10");
@@ -2436,7 +2445,7 @@ mod test {
         let batch = WriteBatch::with_capacity(1024);
         batch.put(b"kc1", b"v1").unwrap();
         batch.put(b"kc2", b"v2").unwrap();
-        let p = db.write(batch);
+        let p = db.write(&batch);
         assert!(p.is_ok());
         let r = db.get(b"kc1");
         assert!(r.unwrap().is_some());

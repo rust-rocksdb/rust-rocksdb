@@ -1341,14 +1341,14 @@ fn test_delete_range() {
     prepare_data();
     let batch = WriteBatch::new();
     batch.delete_range(b"a", b"c").unwrap();
-    assert!(db.write(batch).is_ok());
+    assert!(db.write(&batch).is_ok());
     check_data();
 
     // Test `WriteBatch::delete_range_cf()`
     prepare_data();
     let batch = WriteBatch::new();
     batch.delete_range_cf(cf_handle, b"a", b"c").unwrap();
-    assert!(db.write(batch).is_ok());
+    assert!(db.write(&batch).is_ok());
     check_data();
 }
 

@@ -909,6 +909,7 @@ extern "C" {
     );
     pub fn crocksdb_writebatch_data(batch: *mut DBWriteBatch, size: *mut size_t) -> *const u8;
     pub fn crocksdb_writebatch_set_save_point(batch: *mut DBWriteBatch);
+    pub fn crocksdb_writebatch_pop_save_point(batch: *mut DBWriteBatch, err: *mut *mut c_char);
     pub fn crocksdb_writebatch_rollback_to_save_point(
         batch: *mut DBWriteBatch,
         err: *mut *mut c_char,
