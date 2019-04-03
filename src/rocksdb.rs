@@ -218,6 +218,13 @@ impl<D: Deref<Target = DB>> DBIterator<D> {
         unsafe { crocksdb_ffi::crocksdb_iter_valid(self.inner) }
     }
 
+    pub fn status(&self) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_iter_get_error(self.inner));
+        }
+        Ok(())
+    }
+
     pub fn new_cf(db: D, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<D> {
         unsafe {
             let iterator = crocksdb_ffi::crocksdb_create_iterator_cf(
