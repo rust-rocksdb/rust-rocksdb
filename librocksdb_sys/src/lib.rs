@@ -709,6 +709,7 @@ extern "C" {
     ) -> *mut DBIterator;
     pub fn crocksdb_create_snapshot(db: *mut DBInstance) -> *const DBSnapshot;
     pub fn crocksdb_release_snapshot(db: *mut DBInstance, snapshot: *const DBSnapshot);
+    pub fn crocksdb_get_snapshot_sequence_number(snapshot: *const DBSnapshot) -> u64;
 
     pub fn crocksdb_delete(
         db: *mut DBInstance,
@@ -1002,6 +1003,8 @@ extern "C" {
     );
     pub fn crocksdb_flush_wal(db: *mut DBInstance, sync: bool, err: *mut *mut c_char);
     pub fn crocksdb_sync_wal(db: *mut DBInstance, err: *mut *mut c_char);
+
+    pub fn crocksdb_get_latest_sequence_number(db: *mut DBInstance) -> u64;
 
     pub fn crocksdb_approximate_sizes(
         db: *mut DBInstance,

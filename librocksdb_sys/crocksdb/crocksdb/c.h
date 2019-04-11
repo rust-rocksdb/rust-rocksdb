@@ -378,6 +378,8 @@ extern C_ROCKSDB_LIBRARY_API const crocksdb_snapshot_t* crocksdb_create_snapshot
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_release_snapshot(
     crocksdb_t* db, const crocksdb_snapshot_t* snapshot);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_get_snapshot_sequence_number(const crocksdb_snapshot_t* snapshot);
 
 /* Returns NULL if property name is unknown.
    Else returns a pointer to a malloc()-ed null-terminated value. */
@@ -449,6 +451,9 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_flush_wal(
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sync_wal(
     crocksdb_t* db, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_get_latest_sequence_number(crocksdb_t* db);
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_disable_file_deletions(crocksdb_t* db,
                                                                char** errptr);

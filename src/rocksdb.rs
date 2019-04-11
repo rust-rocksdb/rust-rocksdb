@@ -326,6 +326,11 @@ impl<D: Deref<Target = DB>> Snapshot<D> {
         }
         self.db.get_cf_opt(cf, key, &readopts)
     }
+
+    /// Get the snapshot's sequence number.
+    pub fn get_sequence_number(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_get_snapshot_sequence_number(self.snap.get_inner()) }
+    }
 }
 
 impl<D: Deref<Target = DB>> Drop for Snapshot<D> {
@@ -1009,6 +1014,11 @@ impl DB {
             ffi_try!(crocksdb_sync_wal(self.inner));
             Ok(())
         }
+    }
+
+    /// Get the sequence number of the most recent transaction.
+    pub fn get_latest_sequence_number(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_get_latest_sequence_number(self.inner) }
     }
 
     /// Return the approximate file system space used by keys in each ranges.
@@ -2868,5 +2878,23 @@ mod test {
                 assert!(!cf_desc.options().get_level_compaction_dynamic_level_bytes());
             }
         }
+    }
+
+    #[test]
+    fn test_sequence_number() {
+        let path = TempDir::new("_rust_rocksdb_sequence_number").expect("");
+
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+
+        let snap = db.snapshot();
+        let snap_seq = snap.get_sequence_number();
+        let seq1 = db.get_latest_sequence_number();
+        assert_eq!(snap_seq, seq1);
+
+        db.put(b"key", b"value").unwrap();
+        let seq2 = db.get_latest_sequence_number();
+        assert!(seq2 > seq1);
     }
 }

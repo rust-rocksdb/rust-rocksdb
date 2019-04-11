@@ -3,7 +3,6 @@ use std::ops::Deref;
 
 use crocksdb_ffi::{self, DBCompressionType, DBTitanBlobIndex, DBTitanDBOptions};
 use librocksdb_sys::ctitandb_encode_blob_index;
-use std::ffi::c_void;
 use std::ops::DerefMut;
 use std::os::raw::c_double;
 use std::os::raw::c_int;
@@ -148,7 +147,7 @@ impl TitanBlobIndex {
             ctitandb_encode_blob_index(&self.inner, &mut value, &mut value_size);
             let slice = slice::from_raw_parts(value, value_size as usize);
             let vec = slice.to_vec();
-            libc::free(value as *mut c_void);
+            libc::free(value as *mut libc::c_void);
             vec
         }
     }
