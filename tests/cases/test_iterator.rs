@@ -278,7 +278,9 @@ fn read_with_upper_bound() {
         db.put_opt(b"k2-0", b"c", &writeopts).unwrap();
 
         let mut readopts = ReadOptions::new();
-        readopts.set_iterate_upper_bound(b"k2");
+        let upper_bound = b"k2".to_vec();
+        readopts.set_iterate_upper_bound(upper_bound);
+        assert_eq!(readopts.iterate_upper_bound(), b"k2");
         let mut iter = db.iter_opt(readopts);
         iter.seek(SeekKey::Start);
         let vec = next_collect(&mut iter);

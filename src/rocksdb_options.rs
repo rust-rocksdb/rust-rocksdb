@@ -311,8 +311,8 @@ impl ReadOptions {
         crocksdb_ffi::crocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
     }
 
-    pub fn set_iterate_lower_bound(&mut self, key: &[u8]) {
-        self.lower_bound = Vec::from(key);
+    pub fn set_iterate_lower_bound(&mut self, key: Vec<u8>) {
+        self.lower_bound = key;
         unsafe {
             crocksdb_ffi::crocksdb_readoptions_set_iterate_lower_bound(
                 self.inner,
@@ -322,8 +322,12 @@ impl ReadOptions {
         }
     }
 
-    pub fn set_iterate_upper_bound(&mut self, key: &[u8]) {
-        self.upper_bound = Vec::from(key);
+    pub fn iterate_lower_bound(&self) -> &[u8] {
+        &self.lower_bound
+    }
+
+    pub fn set_iterate_upper_bound(&mut self, key: Vec<u8>) {
+        self.upper_bound = key;
         unsafe {
             crocksdb_ffi::crocksdb_readoptions_set_iterate_upper_bound(
                 self.inner,
@@ -331,6 +335,10 @@ impl ReadOptions {
                 self.upper_bound.len(),
             );
         }
+    }
+
+    pub fn iterate_upper_bound(&self) -> &[u8] {
+        &self.upper_bound
     }
 
     pub fn set_read_tier(&mut self, tier: c_int) {

@@ -656,8 +656,8 @@ fn test_readoptions_lower_bound() {
     db.put(b"k3", b"a").unwrap();
 
     let mut read_opts = ReadOptions::new();
-    let lower_bound = b"k2";
-    read_opts.set_iterate_lower_bound(lower_bound.as_ref());
+    let lower_bound = b"k2".to_vec();
+    read_opts.set_iterate_lower_bound(lower_bound);
     let mut iter = db.iter_opt(read_opts);
     iter.seek(SeekKey::Key(b"k3"));
     let mut count = 0;
