@@ -299,3 +299,21 @@ fn test_full_iterator() {
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
 }
+
+fn custom_iter(db: &DB) -> impl Iterator<Item = usize> {
+    db.iterator(IteratorMode::Start)
+        .map(|(_, db_value)| db_value.len())
+}
+
+#[test]
+fn test_custom_iterator() {
+    let path = DBPath::new("_rust_rocksdb_customiterator_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let db = DB::open(&opts, &path).unwrap();
+        let _data = custom_iter(&db).collect::<Vec<usize>>();
+    }
+    let opts = Options::default();
+    assert!(DB::destroy(&opts, path).is_ok());
+}
