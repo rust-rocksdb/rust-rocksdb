@@ -1089,7 +1089,11 @@ impl DB {
         self.iterator_opt(mode, &readopts)
     }
 
-    pub fn iterator_opt<'a, 'b: 'a>(&'a self, mode: IteratorMode, readopts: &ReadOptions) -> DBIterator<'b> {
+    pub fn iterator_opt<'a, 'b: 'a>(
+        &'a self,
+        mode: IteratorMode,
+        readopts: &ReadOptions,
+    ) -> DBIterator<'b> {
         DBIterator::new(self, &readopts, mode)
     }
 
