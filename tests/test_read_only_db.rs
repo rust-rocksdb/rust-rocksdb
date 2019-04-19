@@ -1,4 +1,4 @@
-// Copyright 2014 Tyler Neely
+// Copyright 2019 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,29 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
+extern crate libc;
 extern crate rocksdb;
 
-use rocksdb::{prelude::*, TemporaryDBPath};
+use rocksdb::{prelude::*, ReadOnlyDB, TemporaryDBPath};
 
 #[test]
-fn test_set_num_levels() {
-    let n = TemporaryDBPath::new();
+fn open_existing_db_in_read_only() {
+    let path = TemporaryDBPath::new();
+
     {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.set_num_levels(2);
-        let _db = DB::open(&opts, &n).unwrap();
+        let db = DB::open_default(&path).unwrap();
+        assert!(db.put(b"k1", b"v1111").is_ok());
     }
-}
 
-#[test]
-fn test_increase_parallelism() {
-    let n = TemporaryDBPath::new();
     {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.increase_parallelism(4);
-        let _db = DB::open(&opts, &n).unwrap();
+        let db = ReadOnlyDB::open_default(&path).unwrap();
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
     }
 }

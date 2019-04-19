@@ -1,15 +1,13 @@
 extern crate rocksdb;
-mod util;
 
 use rocksdb::{
-    CreateIter, MergeOperands, OptimisticTransactionDB, OptimisticTransactionOptions, Options,
-    WriteOptions,
+    prelude::*, IteratorMode, MergeOperands, OptimisticTransactionDB, OptimisticTransactionOptions,
+    Options, TemporaryDBPath, WriteBatch, WriteOptions,
 };
-use util::DBPath;
 
 #[test]
 pub fn test_optimistic_transaction() {
-    let n = DBPath::new("_rust_rocksdb_optimistic_transaction");
+    let n = TemporaryDBPath::new();
     {
         let db = OptimisticTransactionDB::open_default(&n).unwrap();
 
@@ -61,7 +59,7 @@ pub fn test_optimistic_transaction() {
 
 #[test]
 pub fn test_optimistic_transaction_rollback_savepoint() {
-    let path = DBPath::new("_rust_rocksdb_optimistic_transaction_rollback_savepoint");
+    let path = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -111,35 +109,36 @@ pub fn test_optimistic_transaction_rollback_savepoint() {
 
 #[test]
 pub fn test_optimistic_transaction_cf() {
-    let path = DBPath::new("_rust_rocksdb_optimistic_transaction_cf");
+    let path = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = OptimisticTransactionDB::open_cf(&opts, &path, &["cf1"]).unwrap();
-        let base_db = db.get_base_db();
-        let cf_handle = base_db.cf_handle("cf1").unwrap();
-        let write_options = WriteOptions::default();
-        let optimistic_transaction_options = OptimisticTransactionOptions::new();
+        let mut db = OptimisticTransactionDB::open_cf(&opts, &path, &["cf1"]).unwrap();
+        {
+            let cf_handle = db.cf_handle("cf1").unwrap();
+            let write_options = WriteOptions::default();
+            let optimistic_transaction_options = OptimisticTransactionOptions::new();
 
-        let trans = db.transaction(&write_options, &optimistic_transaction_options);
+            let trans = db.transaction(&write_options, &optimistic_transaction_options);
 
-        trans.put_cf(cf_handle, b"k1", b"v1").unwrap();
-        trans.commit().unwrap();
+            trans.put_cf(cf_handle, b"k1", b"v1").unwrap();
+            trans.commit().unwrap();
 
-        let k1 = trans.get_cf(cf_handle, b"k1").unwrap().unwrap();
-        assert_eq!(&*k1, b"v1");
+            let k1 = trans.get_cf(cf_handle, b"k1").unwrap().unwrap();
+            assert_eq!(&*k1, b"v1");
 
-        trans.delete_cf(cf_handle, b"k1").unwrap();
-        trans.commit().unwrap();
+            trans.delete_cf(cf_handle, b"k1").unwrap();
+            trans.commit().unwrap();
+        }
 
-        base_db.drop_cf("cf1").unwrap();
+        db.drop_cf("cf1").unwrap();
     }
 }
 
 #[test]
 pub fn test_optimistic_transaction_snapshot() {
-    let path = DBPath::new("_rust_rocksdb_optimistic_transaction_snapshot");
+    let path = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -169,7 +168,9 @@ pub fn test_optimistic_transaction_snapshot() {
         trans1.delete(b"k1").unwrap();
         trans1.commit().unwrap();
 
-        let k1_3 = trans3.get(b"k1").unwrap().unwrap();
+        assert!(trans3.get(b"k1").unwrap().is_none());
+
+        let k1_3 = trans3.snapshot().get(b"k1").unwrap().unwrap();
         assert_eq!(&*k1_3, b"v1");
 
         trans3.commit().unwrap();
@@ -177,7 +178,7 @@ pub fn test_optimistic_transaction_snapshot() {
 
         let trans4 = db.transaction(&write_options, &optimistic_transaction_options_snapshot);
 
-        let k1_4 = trans4.get(b"k1").unwrap();
+        let k1_4 = trans4.snapshot().get(b"k1").unwrap();
         assert!(k1_4.is_none());
 
         trans4.commit().unwrap();
@@ -205,7 +206,7 @@ pub fn test_optimistic_transaction_merge() {
         Some(result)
     }
 
-    let path = DBPath::new("_rust_rocksdb_optimistic_transaction_snapshot");
+    let path = TemporaryDBPath::new();
 
     {
         let mut opts = Options::default();

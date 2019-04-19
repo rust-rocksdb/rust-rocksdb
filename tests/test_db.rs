@@ -15,18 +15,15 @@
 extern crate libc;
 extern crate rocksdb;
 
-mod util;
-
 use libc::size_t;
 
-use rocksdb::{CreateIter, DBVector, Error, IteratorMode, Options, WriteBatch, DB};
-use util::DBPath;
+use rocksdb::{prelude::*, IteratorMode, TemporaryDBPath, WriteBatch};
 
 #[test]
 fn test_db_vector() {
     use std::mem;
     let len: size_t = 4;
-    let data: *mut u8 = unsafe { mem::transmute(libc::calloc(len, mem::size_of::<u8>())) };
+    let data: *mut u8 = unsafe { libc::calloc(len, mem::size_of::<u8>()) as *mut u8 };
     let v = unsafe { DBVector::from_c(data, len) };
     let ctrl = [0u8, 0, 0, 0];
     assert_eq!(&*v, &ctrl[..]);
@@ -34,7 +31,7 @@ fn test_db_vector() {
 
 #[test]
 fn external() {
-    let path = DBPath::new("_rust_rocksdb_externaltest");
+    let path = TemporaryDBPath::new();
 
     {
         let db = DB::open_default(&path).unwrap();
@@ -50,8 +47,28 @@ fn external() {
 }
 
 #[test]
+fn db_vector_as_ref_byte_slice() {
+    let path = TemporaryDBPath::new();
+
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        assert!(db.put(b"k1", b"v1111").is_ok());
+
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        let vector = r.unwrap().unwrap();
+
+        assert!(get_byte_slice(&vector) == b"v1111");
+    }
+}
+
+fn get_byte_slice<T: AsRef<[u8]>>(source: &'_ T) -> &'_ [u8] {
+    source.as_ref()
+}
+
+#[test]
 fn errors_do_stuff() {
-    let path = DBPath::new("_rust_rocksdb_error");
+    let path = TemporaryDBPath::new();
     let _db = DB::open_default(&path).unwrap();
     let opts = Options::default();
     // The DB will still be open when we try to destroy it and the lock should fail.
@@ -59,7 +76,6 @@ fn errors_do_stuff() {
         Err(s) => {
             let message = s.to_string();
             assert!(message.find("IO error:").is_some());
-            assert!(message.find("_rust_rocksdb_error").is_some());
             assert!(message.find("/LOCK:").is_some());
         }
         Ok(_) => panic!("should fail"),
@@ -68,7 +84,7 @@ fn errors_do_stuff() {
 
 #[test]
 fn writebatch_works() {
-    let path = DBPath::new("_rust_rocksdb_writebacktest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         {
@@ -107,7 +123,7 @@ fn writebatch_works() {
 
 #[test]
 fn iterator_test() {
-    let path = DBPath::new("_rust_rocksdb_iteratortest");
+    let path = TemporaryDBPath::new();
     {
         let data = [(b"k1", b"v1111"), (b"k2", b"v2222"), (b"k3", b"v3333")];
         let db = DB::open_default(&path).unwrap();
@@ -127,7 +143,7 @@ fn iterator_test() {
 
 #[test]
 fn snapshot_test() {
-    let path = DBPath::new("_rust_rocksdb_snapshottest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
 
@@ -145,7 +161,7 @@ fn snapshot_test() {
 
 #[test]
 fn set_option_test() {
-    let path = DBPath::new("_rust_rocksdb_set_optionstest");
+    let path = TemporaryDBPath::new();
     {
         let db = DB::open_default(&path).unwrap();
         // set an option to valid values

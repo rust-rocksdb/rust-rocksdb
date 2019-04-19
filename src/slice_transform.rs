@@ -43,8 +43,8 @@ impl SliceTransform {
     ) -> SliceTransform {
         let cb = Box::new(TransformCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            transform_fn: transform_fn,
-            in_domain_fn: in_domain_fn,
+            transform_fn,
+            in_domain_fn,
         });
 
         let st = unsafe {
@@ -55,7 +55,7 @@ impl SliceTransform {
                 // this is ugly, but I can't get the compiler
                 // not to barf with "expected fn pointer, found fn item"
                 // without this. sorry.
-                if let Some(_) = in_domain_fn {
+                if in_domain_fn.is_some() {
                     Some(in_domain_callback)
                 } else {
                     None

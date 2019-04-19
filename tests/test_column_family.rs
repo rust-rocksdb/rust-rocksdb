@@ -13,21 +13,19 @@
 // limitations under the License.
 //
 extern crate rocksdb;
-mod util;
 
-use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB};
-use util::DBPath;
+use rocksdb::{prelude::*, ColumnFamilyDescriptor, MergeOperands, TemporaryDBPath};
 
 #[test]
 fn test_column_family() {
-    let n = DBPath::new("_rust_rocksdb_cftest");
+    let n = TemporaryDBPath::new();
 
     // should be able to create column families
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
-        let db = DB::open(&opts, &n).unwrap();
+        let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
             Ok(_db) => println!("cf1 created successfully"),
@@ -80,7 +78,7 @@ fn test_column_family() {
     {}
     // should b able to drop a cf
     {
-        let db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -92,12 +90,12 @@ fn test_column_family() {
 fn test_can_open_db_with_results_of_list_cf() {
     // Test scenario derived from GitHub issue #175 and 177
 
-    let n = DBPath::new("_rust_rocksdb_cftest_with_list_cf");
+    let n = TemporaryDBPath::new();
 
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        let db = DB::open(&opts, &n).unwrap();
+        let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
 
         assert!(db.create_cf("cf1", &opts).is_ok());
@@ -114,7 +112,7 @@ fn test_can_open_db_with_results_of_list_cf() {
 
 #[test]
 fn test_create_missing_column_family() {
-    let n = DBPath::new("_rust_rocksdb_missing_cftest");
+    let n = TemporaryDBPath::new();
 
     // should be able to create new column families when opening a new database
     {
@@ -132,7 +130,7 @@ fn test_create_missing_column_family() {
 #[test]
 #[ignore]
 fn test_merge_operator() {
-    let n = DBPath::new("_rust_rocksdb_cftest_merge");
+    let n = TemporaryDBPath::new();
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
         let mut opts = Options::default();
@@ -146,7 +144,7 @@ fn test_merge_operator() {
         };
         let cf1 = db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
+        assert!(db.get_cf(&cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         db.merge_cf(cf1, b"k1", b"b").unwrap();
@@ -165,7 +163,7 @@ fn test_merge_operator() {
             _ => panic!("value not present!"),
         }
 
-        let _ = db.get_cf(cf1, b"k1");
+        let _ = db.get_cf(&cf1, b"k1");
         // TODO assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
@@ -179,13 +177,10 @@ fn test_provided_merge(
 ) -> Option<Vec<u8>> {
     let nops = operands.size_hint().0;
     let mut result: Vec<u8> = Vec::with_capacity(nops);
-    match existing_val {
-        Some(v) => {
-            for e in v {
-                result.push(*e);
-            }
+    if let Some(v) = existing_val {
+        for e in v {
+            result.push(*e);
         }
-        None => (),
     }
     for op in operands {
         for e in op {
@@ -197,7 +192,7 @@ fn test_provided_merge(
 
 #[test]
 fn test_column_family_with_options() {
-    let n = DBPath::new("_rust_rocksdb_cf_with_optionstest");
+    let n = TemporaryDBPath::new();
     {
         let mut cfopts = Options::default();
         cfopts.set_max_write_buffer_number(16);
@@ -241,13 +236,13 @@ fn test_column_family_with_options() {
 
 #[test]
 fn test_create_duplicate_column_family() {
-    let n = DBPath::new("_rust_rocksdb_create_duplicate_column_family");
+    let n = TemporaryDBPath::new();
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let db = match DB::open_cf(&opts, &n, &["cf1"]) {
+        let mut db = match DB::open_cf(&opts, &n, &["cf1"]) {
             Ok(d) => d,
             Err(e) => panic!("failed to create new column family: {}", e),
         };

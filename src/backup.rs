@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 
+use crate::{Error, DB};
 use ffi;
-use {Error, DB};
 
 use libc::{c_int, uint32_t};
 use std::ffi::CString;
@@ -78,6 +78,69 @@ impl BackupEngine {
             Ok(())
         }
     }
+
+    /// Restore from the latest backup
+    ///
+    /// # Arguments
+    ///
+    /// * `db_dir` - A path to the database directory
+    /// * `wal_dir` - A path to the wal directory
+    /// * `opts` - Restore options
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use rocksdb::backup::{BackupEngine, BackupEngineOptions};
+    /// let backup_opts = BackupEngineOptions::default();
+    /// let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
+    /// let mut restore_option = rocksdb::backup::RestoreOptions::default();
+    /// restore_option.set_keep_log_files(true); /// true to keep log files
+    /// if let Err(e) = backup_engine.restore_from_latest_backup(&db_path, &wal_dir, &restore_option) {
+    ///     error!("Failed to restore from the backup. Error:{:?}", e);
+    ///     return Err(e.to_string());
+    ///  }
+    /// ```
+
+    pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
+        &mut self,
+        db_dir: D,
+        wal_dir: W,
+        opts: &RestoreOptions,
+    ) -> Result<(), Error> {
+        let db_dir = db_dir.as_ref();
+        let c_db_dir = match CString::new(db_dir.to_string_lossy().as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::new(
+                    "Failed to convert db_dir to CString \
+                     when restoring from latest backup"
+                        .to_owned(),
+                ));
+            }
+        };
+
+        let wal_dir = wal_dir.as_ref();
+        let c_wal_dir = match CString::new(wal_dir.to_string_lossy().as_bytes()) {
+            Ok(c) => c,
+            Err(_) => {
+                return Err(Error::new(
+                    "Failed to convert wal_dir to CString \
+                     when restoring from latest backup"
+                        .to_owned(),
+                ));
+            }
+        };
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_backup_engine_restore_db_from_latest_backup(
+                self.inner,
+                c_db_dir.as_ptr(),
+                c_wal_dir.as_ptr(),
+                opts.inner,
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl BackupEngineOptions {
@@ -137,5 +200,39 @@ impl Drop for RestoreOptions {
         unsafe {
             ffi::rocksdb_restore_options_destroy(self.inner);
         }
+    }
+}
+
+#[test]
+fn backup_restore() {
+    use crate::{prelude::*, TemporaryDBPath};
+    // create backup
+    let path = TemporaryDBPath::new();
+    let backup_path = TemporaryDBPath::new();
+    let restore_path = TemporaryDBPath::new();
+
+    {
+        let db = DB::open_default(&path).unwrap();
+        let p = db.put(b"k1", b"v1111");
+        assert!(p.is_ok());
+        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+
+        let backup_opts = BackupEngineOptions::default();
+        let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
+
+        let r = backup_engine.create_new_backup(&db);
+        assert!(r.is_ok());
+
+        let mut restore_option = RestoreOptions::default();
+        restore_option.set_keep_log_files(true); // true to keep log files
+        let restore_status =
+            backup_engine.restore_from_latest_backup(&restore_path, &restore_path, &restore_option);
+        assert!(restore_status.is_ok());
+
+        let db_restore = DB::open_default(&restore_path).unwrap();
+
+        let r: Result<Option<DBVector>, Error> = db_restore.get(b"k1");
+        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
     }
 }

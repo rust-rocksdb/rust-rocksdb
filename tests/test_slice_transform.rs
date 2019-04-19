@@ -1,12 +1,10 @@
 extern crate rocksdb;
-mod util;
 
-use rocksdb::{CreateIter, Options, SliceTransform, DB};
-use util::DBPath;
+use rocksdb::{prelude::*, SliceTransform, TemporaryDBPath};
 
 #[test]
 pub fn test_slice_transform() {
-    let n = DBPath::new("_rust_rocksdb_slicetransform_test");
+    let n = TemporaryDBPath::new();
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
@@ -30,8 +28,8 @@ pub fn test_slice_transform() {
         assert!(db.put(&*b1, &*b1).is_ok());
         assert!(db.put(&*b2, &*b2).is_ok());
 
-        fn cba(input: &Box<[u8]>) -> Box<[u8]> {
-            input.iter().cloned().collect::<Vec<_>>().into_boxed_slice()
+        fn cba(input: &[u8]) -> Box<[u8]> {
+            input.to_vec().into_boxed_slice()
         }
 
         fn key(k: &[u8]) -> Box<[u8]> {

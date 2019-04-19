@@ -16,7 +16,7 @@ use std::ffi::{CStr, CString};
 use std::mem;
 use std::path::Path;
 
-use libc::{self, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
+use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t, uint64_t};
 
 use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
 use comparator::{self, ComparatorCallback, CompareFn};
@@ -25,13 +25,228 @@ use merge_operator::{
     self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
 };
 use slice_transform::SliceTransform;
-use {
-    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
-};
+
+use crate::{handle::ConstHandle, Snapshot};
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
+}
+
+pub struct ReadOptions {
+    pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+}
+
+/// For configuring block-based file storage.
+pub struct BlockBasedOptions {
+    inner: *mut ffi::rocksdb_block_based_table_options_t,
+}
+
+/// Used by BlockBasedOptions::set_index_type.
+pub enum BlockBasedIndexType {
+    /// A space efficient index block that is optimized for
+    /// binary-search-based index.
+    BinarySearch,
+
+    /// The hash index, if enabled, will perform a hash lookup if
+    /// a prefix extractor has been provided through Options::set_prefix_extractor.
+    HashSearch,
+
+    /// A two-level index implementation. Both levels are binary search indexes.
+    TwoLevelIndexSearch,
+}
+
+/// Defines the underlying memtable implementation.
+/// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+pub enum MemtableFactory {
+    Vector,
+    HashSkipList {
+        bucket_count: usize,
+        height: i32,
+        branching_factor: i32,
+    },
+    HashLinkList {
+        bucket_count: usize,
+    },
+}
+
+/// Used with DBOptions::set_plain_table_factory.
+/// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+///
+/// Defaults:
+///  user_key_length: 0 (variable length)
+///  bloom_bits_per_key: 10
+///  hash_table_ratio: 0.75
+///  index_sparseness: 16
+pub struct PlainTableFactoryOptions {
+    pub user_key_length: u32,
+    pub bloom_bits_per_key: i32,
+    pub hash_table_ratio: f64,
+    pub index_sparseness: usize,
+}
+
+/// Database-wide options around performance and behavior.
+///
+/// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
+///
+/// # Examples
+///
+/// ```
+/// use rocksdb::{prelude::*, DBCompactionStyle};
+///
+/// fn badly_tuned_for_somebody_elses_disk() -> DB {
+///    let path = "path/for/rocksdb/storageX";
+///    let mut opts = Options::default();
+///    opts.create_if_missing(true);
+///    opts.set_max_open_files(10000);
+///    opts.set_use_fsync(false);
+///    opts.set_bytes_per_sync(8388608);
+///    opts.optimize_for_point_lookup(1024);
+///    opts.set_table_cache_num_shard_bits(6);
+///    opts.set_max_write_buffer_number(32);
+///    opts.set_write_buffer_size(536870912);
+///    opts.set_target_file_size_base(1073741824);
+///    opts.set_min_write_buffer_number_to_merge(4);
+///    opts.set_level_zero_stop_writes_trigger(2000);
+///    opts.set_level_zero_slowdown_writes_trigger(0);
+///    opts.set_compaction_style(DBCompactionStyle::Universal);
+///    opts.set_max_background_compactions(4);
+///    opts.set_max_background_flushes(4);
+///    opts.set_disable_auto_compactions(true);
+///
+///    DB::open(&opts, path).unwrap()
+/// }
+/// ```
+pub struct Options {
+    pub(crate) inner: *mut ffi::rocksdb_options_t,
+}
+
+/// Optionally disable WAL or sync for this write.
+///
+/// # Examples
+///
+/// Making an unsafe write of a batch:
+///
+/// ```
+/// use rocksdb::{prelude::*, WriteBatch, WriteOptions};
+/// # use rocksdb::TemporaryDBPath;
+///
+/// let path = "_path_for_rocksdb_storageY";
+/// # let path = TemporaryDBPath::new();
+/// # {
+///
+/// let db = DB::open_default(&path).unwrap();
+/// let mut batch = WriteBatch::default();
+/// batch.put(b"my key", b"my value");
+/// batch.put(b"key2", b"value2");
+/// batch.put(b"key3", b"value3");
+///
+/// let mut write_options = WriteOptions::default();
+/// write_options.set_sync(false);
+/// write_options.disable_wal(true);
+///
+/// db.write_opt(batch, &write_options);
+
+/// # }
+/// ```
+pub struct WriteOptions {
+    pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,
+}
+
+impl Drop for ReadOptions {
+    fn drop(&mut self) {
+        unsafe { ffi::rocksdb_readoptions_destroy(self.inner) }
+    }
+}
+
+impl ReadOptions {
+    // TODO add snapshot setting here
+    // TODO add snapshot wrapper structs with proper destructors;
+    // that struct needs an "iterator" impl too.
+    #[allow(dead_code)]
+    fn fill_cache(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
+        }
+    }
+
+    pub(crate) fn set_snapshot(&mut self, snapshot: *const ffi::rocksdb_snapshot_t) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot);
+        }
+    }
+
+    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
+        let key = key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_readoptions_set_iterate_upper_bound(
+                self.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            );
+        }
+    }
+
+    pub fn set_prefix_same_as_start(&mut self, v: bool) {
+        unsafe { ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar) }
+    }
+
+    pub fn set_total_order_seek(&mut self, v: bool) {
+        unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
+    }
+
+    /// If non-zero, an iterator will create a new table reader which
+    /// performs reads of the given size. Using a large size (> 2MB) can
+    /// improve the performance of forward iteration on spinning disks.
+    /// Default: 0
+    ///
+    /// ```
+    /// use rocksdb::{ReadOptions};
+    ///
+    /// let mut opts = ReadOptions::default();
+    /// opts.set_readahead_size(4_194_304); // 4mb
+    /// ```
+    pub fn set_readahead_size(&mut self, v: usize) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_readahead_size(self.inner, v as size_t);
+        }
+    }
+}
+
+impl Default for ReadOptions {
+    fn default() -> ReadOptions {
+        unsafe {
+            ReadOptions {
+                inner: ffi::rocksdb_readoptions_create(),
+            }
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum DBCompressionType {
+    None = ffi::rocksdb_no_compression as isize,
+    Snappy = ffi::rocksdb_snappy_compression as isize,
+    Zlib = ffi::rocksdb_zlib_compression as isize,
+    Bz2 = ffi::rocksdb_bz2_compression as isize,
+    Lz4 = ffi::rocksdb_lz4_compression as isize,
+    Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
+    Zstd = ffi::rocksdb_zstd_compression as isize,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum DBCompactionStyle {
+    Level = ffi::rocksdb_level_compaction as isize,
+    Universal = ffi::rocksdb_universal_compaction as isize,
+    Fifo = ffi::rocksdb_fifo_compaction as isize,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum DBRecoveryMode {
+    TolerateCorruptedTailRecords = ffi::rocksdb_tolerate_corrupted_tail_records_recovery as isize,
+    AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
+    PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
+    SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
 }
 
 unsafe impl Send for Options {}
@@ -277,7 +492,7 @@ impl Options {
     ) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            full_merge_fn: full_merge_fn,
+            full_merge_fn,
             partial_merge_fn: partial_merge_fn.unwrap_or(full_merge_fn),
         });
 
@@ -318,7 +533,7 @@ impl Options {
     {
         let cb = Box::new(CompactionFilterCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            filter_fn: filter_fn,
+            filter_fn,
         });
 
         unsafe {
@@ -1226,5 +1441,75 @@ mod tests {
             height: 4,
             branching_factor: 4,
         });
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ReadOptionsFactory {
+    option_fill_cache: Option<bool>,
+    option_set_iterate_upper_bound: Option<Vec<u8>>,
+    option_set_prefix_same_as_start: Option<bool>,
+    option_set_total_order_seek: Option<bool>,
+    option_set_readahead_size: Option<usize>,
+}
+
+impl ReadOptionsFactory {
+    #[allow(dead_code)]
+    fn fill_cache(mut self, v: bool) -> Self {
+        self.option_fill_cache = Some(v);
+        self
+    }
+
+    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(mut self, key: K) -> Self {
+        let key = key.as_ref();
+        self.option_set_iterate_upper_bound = Some(key.to_vec());
+        self
+    }
+
+    pub fn set_prefix_same_as_start(mut self, v: bool) -> Self {
+        self.option_set_prefix_same_as_start = Some(v);
+        self
+    }
+
+    pub fn set_total_order_seek(mut self, v: bool) -> Self {
+        self.option_set_total_order_seek = Some(v);
+        self
+    }
+
+    pub fn set_readahead_size(mut self, v: usize) -> Self {
+        self.option_set_readahead_size = Some(v);
+        self
+    }
+
+    pub fn build(&self) -> ReadOptions {
+        let mut ops = ReadOptions::default();
+        if let Some(option_fill_cache) = self.option_fill_cache {
+            ops.fill_cache(option_fill_cache);
+        };
+        if let Some(option_set_iterate_upper_bound) = &self.option_set_iterate_upper_bound {
+            ops.set_iterate_upper_bound(option_set_iterate_upper_bound);
+        };
+        if let Some(option_set_prefix_same_as_start) = self.option_set_prefix_same_as_start {
+            ops.set_prefix_same_as_start(option_set_prefix_same_as_start);
+        };
+        if let Some(option_set_total_order_seek) = self.option_set_total_order_seek {
+            ops.set_total_order_seek(option_set_total_order_seek);
+        };
+        if let Some(option_set_readahead_size) = self.option_set_readahead_size {
+            ops.set_readahead_size(option_set_readahead_size);
+        };
+        ops
+    }
+}
+
+impl Default for ReadOptionsFactory {
+    fn default() -> ReadOptionsFactory {
+        ReadOptionsFactory {
+            option_fill_cache: None,
+            option_set_iterate_upper_bound: None,
+            option_set_prefix_same_as_start: None,
+            option_set_total_order_seek: None,
+            option_set_readahead_size: None,
+        }
     }
 }

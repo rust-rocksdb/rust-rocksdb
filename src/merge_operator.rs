@@ -16,7 +16,8 @@
 //! rustic merge operator
 //!
 //! ```
-//! use rocksdb::{Options, DB, MergeOperands};
+//! use rocksdb::{prelude::*, MergeOperands};
+//! # use rocksdb::TemporaryDBPath;
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
@@ -38,21 +39,23 @@
 //! }
 //!
 //! fn main() {
-//!    let path = "_rust_path_to_rocksdb";
-//!    let mut opts = Options::default();
-//!    opts.create_if_missing(true);
-//!    opts.set_merge_operator("test operator", concat_merge, None);
-//!    {
-//!        let db = DB::open(&opts, path).unwrap();
-//!         let p = db.put(b"k1", b"a");
-//!         db.merge(b"k1", b"b");
-//!         db.merge(b"k1", b"c");
-//!         db.merge(b"k1", b"d");
-//!         db.merge(b"k1", b"efg");
-//!         let r = db.get(b"k1");
-//!         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
-//!    }
-//!    let _ = DB::destroy(&opts, path);
+//!   let path = "_rust_path_to_rocksdb";
+//! # let path = TemporaryDBPath::new();
+//!   let mut opts = Options::default();
+//!   opts.create_if_missing(true);
+//!   opts.set_merge_operator("test operator", concat_merge, None);
+//! # {
+
+//!   let db = DB::open(&opts, &path).unwrap();
+//!   let p = db.put(b"k1", b"a");
+//!   db.merge(b"k1", b"b");
+//!   db.merge(b"k1", b"c");
+//!   db.merge(b"k1", b"d");
+//!   db.merge(b"k1", b"efg");
+//!   let r = db.get(b"k1");
+//!   assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+
+//! # }
 //! }
 //! ```
 
@@ -94,7 +97,7 @@ pub unsafe extern "C" fn full_merge_callback(
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    let oldval = if existing_value == ptr::null() {
+    let oldval = if existing_value.is_null() {
         None
     } else {
         Some(slice::from_raw_parts(
@@ -160,8 +163,8 @@ impl MergeOperands {
     ) -> MergeOperands {
         assert!(num_operands >= 0);
         MergeOperands {
-            operands_list: operands_list,
-            operands_list_len: operands_list_len,
+            operands_list,
+            operands_list_len,
             num_operands: num_operands as usize,
             cursor: 0,
         }
@@ -202,6 +205,7 @@ impl<'a> Iterator for &'a mut MergeOperands {
 mod test {
 
     use super::*;
+    use crate::prelude::*;
 
     fn test_provided_merge(
         _new_key: &[u8],
@@ -225,14 +229,14 @@ mod test {
 
     #[test]
     fn mergetest() {
-        use {Options, DB};
+        use {Options, TemporaryDBPath, DB};
 
-        let path = "_rust_rocksdb_mergetest";
+        let path = TemporaryDBPath::new();
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
         {
-            let db = DB::open(&opts, path).unwrap();
+            let db = DB::open(&opts, &path).unwrap();
             let p = db.put(b"k1", b"a");
             assert!(p.is_ok());
             let _ = db.merge(b"k1", b"b");
@@ -256,7 +260,6 @@ mod test {
             assert!(db.delete(b"k1").is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
         }
-        assert!(DB::destroy(&opts, path).is_ok());
     }
 
     unsafe fn to_slice<T: Sized>(p: &T) -> &[u8] {
@@ -273,12 +276,12 @@ mod test {
             );
             None
         } else {
-            unsafe { Some(::std::mem::transmute(s.as_ptr())) }
+            unsafe { Some(&*(s.as_ptr() as *const T)) }
         }
     }
 
     #[repr(packed)]
-    #[derive(Copy, Clone, Debug)]
+    #[derive(Copy, Clone, Debug, Default)]
     struct ValueCounts {
         num_a: u32,
         num_b: u32,
@@ -306,15 +309,10 @@ mod test {
         existing_val: Option<&[u8]>,
         operands: &mut MergeOperands,
     ) -> Option<Vec<u8>> {
-        let mut counts: ValueCounts = if let Some(v) = existing_val {
-            from_slice::<ValueCounts>(v).unwrap().clone()
+        let mut counts = if let Some(v) = existing_val {
+            *from_slice::<ValueCounts>(v).unwrap_or(&ValueCounts::default())
         } else {
-            ValueCounts {
-                num_a: 0,
-                num_b: 0,
-                num_c: 0,
-                num_d: 0,
-            }
+            ValueCounts::default()
         };
 
         for op in operands {
@@ -336,9 +334,9 @@ mod test {
     fn counting_mergetest() {
         use std::sync::Arc;
         use std::thread;
-        use {DBCompactionStyle, Options, DB};
+        use {DBCompactionStyle, Options, TemporaryDBPath, DB};
 
-        let path = "_rust_rocksdb_partial_mergetest";
+        let path = TemporaryDBPath::new();
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compaction_style(DBCompactionStyle::Universal);
@@ -350,7 +348,7 @@ mod test {
             Some(test_counting_partial_merge),
         );
         {
-            let db = Arc::new(DB::open(&opts, path).unwrap());
+            let db = Arc::new(DB::open(&opts, &path).unwrap());
             let _ = db.delete(b"k1");
             let _ = db.delete(b"k2");
             let _ = db.merge(b"k1", b"a");
@@ -450,6 +448,5 @@ mod test {
                 _ => panic!("value not present"),
             }
         }
-        assert!(DB::destroy(&opts, path).is_ok());
     }
 }
