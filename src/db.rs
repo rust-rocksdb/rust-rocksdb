@@ -21,8 +21,7 @@ use crate::{
     open_raw::{OpenRaw, OpenRawFFI},
     ops,
     ops::*,
-    ColumnFamily, DBRawIterator, Error, IteratorMode, Options, ReadOptions, Snapshot, WriteBatch,
-    WriteOptions,
+    ColumnFamily, DBRawIterator, Error, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
 };
 
 use libc::{self, c_char, c_void, size_t};
@@ -91,7 +90,7 @@ impl OpenRaw for DB {
 
         Ok(DB {
             inner: pointer,
-            cfs: cfs,
+            cfs,
             path,
         })
     }
@@ -617,7 +616,7 @@ fn writebatch_works() {
 
 #[test]
 fn iterator_test() {
-    use crate::{prelude::*, TemporaryDBPath};
+    use crate::{prelude::*, IteratorMode, TemporaryDBPath};
 
     let path = TemporaryDBPath::new();
     {

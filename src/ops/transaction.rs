@@ -1,6 +1,6 @@
 use crate::Transaction;
 
-pub trait TransactionBegin:Sized {
+pub trait TransactionBegin: Sized {
     type WriteOptions: Default;
     type TransactionOptions: Default;
     fn transaction(

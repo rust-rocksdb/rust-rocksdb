@@ -111,9 +111,9 @@ where
         }
 
         let wo_handle = writeopts
-            .or(default_writeopts.as_ref())
+            .or_else(|| default_writeopts.as_ref())
             .map(|r| r.inner)
-            .ok_or(Error::new("Unable to extract write options.".to_string()))?;
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
 
         let key = key.as_ref();
         let key_ptr = key.as_ptr() as *const c_char;

@@ -117,9 +117,9 @@ where
         }
 
         let ro_handle = readopts
-            .or(default_readopts.as_ref())
+            .or_else(|| default_readopts.as_ref())
             .map(|r| r.inner)
-            .ok_or(Error::new("Unable to extract read options.".to_string()))?;
+            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
 
         if ro_handle.is_null() {
             return Err(Error::new(

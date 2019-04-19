@@ -43,9 +43,7 @@ pub struct ColumnFamily {
 
 impl ColumnFamily {
     pub(crate) fn new(handle: *mut ffi::rocksdb_column_family_handle_t) -> ColumnFamily {
-        ColumnFamily {
-            inner: handle,
-        }
+        ColumnFamily { inner: handle }
     }
 }
 

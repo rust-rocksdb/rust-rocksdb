@@ -73,7 +73,7 @@ impl OpenRaw for OptimisticTransactionDB {
         let base_db = unsafe { ffi::rocksdb_optimistictransactiondb_get_base_db(pointer) };
         Ok(OptimisticTransactionDB {
             inner: pointer,
-            cfs: cfs,
+            cfs,
             path,
             base_db,
         })

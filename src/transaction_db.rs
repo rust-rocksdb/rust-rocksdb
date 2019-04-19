@@ -2,19 +2,24 @@ use crate::ops::*;
 use crate::{
     handle::Handle,
     open_raw::{OpenRaw, OpenRawFFI},
-    ColumnFamily, DBRawIterator, Error, ReadOptions, Transaction, WriteOptions,
+    DBRawIterator, Error, ReadOptions, Transaction, WriteOptions,
 };
 use ffi;
 use libc::c_uchar;
-use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use std::path::Path;
 use std::path::PathBuf;
 use std::ptr;
 
 pub struct TransactionDB {
     inner: *mut ffi::rocksdb_transactiondb_t,
-    cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
+}
+
+impl TransactionDB {
+    pub fn path(&self) -> &Path {
+        &self.path.as_path()
+    }
 }
 
 impl Handle<ffi::rocksdb_transactiondb_t> for TransactionDB {
@@ -45,18 +50,13 @@ impl OpenRaw for TransactionDB {
         path: PathBuf,
         _open_descriptor: Self::Descriptor,
         pointer: *mut Self::Pointer,
-        column_families: I,
+        _column_families: I,
     ) -> Result<Self, Error>
     where
         I: IntoIterator<Item = (String, *mut ffi::rocksdb_column_family_handle_t)>,
     {
-        let cfs: BTreeMap<_, _> = column_families
-            .into_iter()
-            .map(|(k, h)| (k, ColumnFamily::new(h)))
-            .collect();
         Ok(TransactionDB {
             inner: pointer,
-            cfs: cfs,
             path,
         })
     }

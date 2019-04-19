@@ -81,7 +81,7 @@ pub trait OpenRaw: Sized {
         let mut cf_options: Vec<_> = cfs.iter().map(|cf| cf.options.inner as *const _).collect();
 
         let mut cf_handles: Vec<*mut ffi::rocksdb_column_family_handle_t> =
-            iter::repeat_with(|| ptr::null_mut())
+            iter::repeat_with(ptr::null_mut)
                 .take(cf_names.len())
                 .collect();
 

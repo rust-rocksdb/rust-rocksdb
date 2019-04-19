@@ -22,6 +22,7 @@ use crate::{Options, DB};
 
 /// Ensures that DB::Destroy is called and the directory is deleted
 /// for this database when TemporaryDBPath is dropped.
+#[derive(Default)]
 pub struct TemporaryDBPath {
     path: PathBuf,
 }
