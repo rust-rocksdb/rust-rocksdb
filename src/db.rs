@@ -21,8 +21,8 @@ use crate::{
     open_raw::{OpenRaw, OpenRawFFI},
     ops,
     ops::*,
-    ColumnFamily, DBIterator, DBRawIterator, Direction, Error, IteratorMode, Options, ReadOptions,
-    Snapshot, WriteBatch, WriteOptions,
+    ColumnFamily, DBRawIterator, Error, IteratorMode, Options, ReadOptions, Snapshot, WriteBatch,
+    WriteOptions,
 };
 
 use libc::{self, c_char, c_void, size_t};
@@ -33,7 +33,6 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::slice;
 use std::str;
-use std::sync::{Arc, RwLock};
 
 /// A RocksDB database.
 ///
@@ -301,8 +300,16 @@ impl DB {
         }
     }
 
-    pub fn compact_range_cf(&self, cf: &ColumnFamily, start: Option<&[u8]>, end: Option<&[u8]>) {
+    pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        start: Option<S>,
+        end: Option<E>,
+    ) {
         unsafe {
+            let start = start.as_ref().map(|s| s.as_ref());
+            let end = end.as_ref().map(|e| e.as_ref());
+
             ffi::rocksdb_compact_range_cf(
                 self.inner,
                 cf.inner,
@@ -566,7 +573,9 @@ fn writebatch_works() {
             assert_eq!(batch.len(), 0);
             assert!(batch.is_empty());
             let _ = batch.put(b"k1", b"v1111");
-            assert_eq!(batch.len(), 1);
+            let _ = batch.put(b"k2", b"v2222");
+            let _ = batch.put(b"k3", b"v3333");
+            assert_eq!(batch.len(), 3);
             assert!(!batch.is_empty());
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
@@ -583,6 +592,17 @@ fn writebatch_works() {
             let p = db.write(batch);
             assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
+        }
+        {
+            // test delete_range
+            let mut batch = WriteBatch::default();
+            let _ = batch.delete_range(b"k2", b"k4");
+            assert_eq!(batch.len(), 1);
+            assert!(!batch.is_empty());
+            let p = db.write(batch);
+            assert!(p.is_ok());
+            assert!(db.get(b"k2").unwrap().is_none());
+            assert!(db.get(b"k3").unwrap().is_none());
         }
         {
             // test size_in_bytes

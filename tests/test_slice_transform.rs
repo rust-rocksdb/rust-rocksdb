@@ -11,8 +11,8 @@ pub fn test_slice_transform() {
         let b1: Box<[u8]> = key(b"bbb1");
         let b2: Box<[u8]> = key(b"bbb2");
 
-        fn first_three(k: &[u8]) -> Vec<u8> {
-            k.iter().take(3).cloned().collect()
+        fn first_three<'a>(k: &'a [u8]) -> &'a [u8] {
+            &k[..3]
         }
 
         let prefix_extractor = SliceTransform::create("first_three", first_three, None);

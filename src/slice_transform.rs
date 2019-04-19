@@ -13,11 +13,9 @@
 // limitations under the License.
 
 use std::ffi::CString;
-use std::mem;
-use std::ptr;
 use std::slice;
 
-use libc::{self, c_char, c_void, size_t};
+use libc::{c_char, c_void, size_t};
 
 use ffi;
 
@@ -41,15 +39,15 @@ impl SliceTransform {
         transform_fn: TransformFn,
         in_domain_fn: Option<InDomainFn>,
     ) -> SliceTransform {
-        let cb = Box::new(TransformCallback {
+        let cb = Box::into_raw(Box::new(TransformCallback {
             name: CString::new(name.as_bytes()).unwrap(),
             transform_fn,
             in_domain_fn,
-        });
+        }));
 
         let st = unsafe {
             ffi::rocksdb_slicetransform_create(
-                mem::transmute(cb),
+                cb as *mut c_void,
                 Some(slice_transform_destructor_callback),
                 Some(transform_callback),
                 // this is ugly, but I can't get the compiler
@@ -82,18 +80,17 @@ impl SliceTransform {
     }
 }
 
-pub type TransformFn = fn(&[u8]) -> Vec<u8>;
+pub type TransformFn<'a> = fn(&'a [u8]) -> &'a [u8];
 pub type InDomainFn = fn(&[u8]) -> bool;
 
-pub struct TransformCallback {
+pub struct TransformCallback<'a> {
     pub name: CString,
-    pub transform_fn: TransformFn,
+    pub transform_fn: TransformFn<'a>,
     pub in_domain_fn: Option<InDomainFn>,
 }
 
 pub unsafe extern "C" fn slice_transform_destructor_callback(raw_cb: *mut c_void) {
-    let transform: Box<TransformCallback> = mem::transmute(raw_cb);
-    drop(transform);
+    Box::from_raw(raw_cb as *mut TransformCallback);
 }
 
 pub unsafe extern "C" fn slice_transform_name_callback(raw_cb: *mut c_void) -> *const c_char {
@@ -109,16 +106,9 @@ pub unsafe extern "C" fn transform_callback(
 ) -> *mut c_char {
     let cb = &mut *(raw_cb as *mut TransformCallback);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    let mut result = (cb.transform_fn)(key);
-    result.shrink_to_fit();
-
-    // copy the result into a C++ destroyable buffer
-    let buf = libc::malloc(result.len() as size_t);
-    assert!(!buf.is_null());
-    ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
-
-    *dst_length = result.len() as size_t;
-    buf as *mut c_char
+    let prefix = (cb.transform_fn)(key);
+    *dst_length = prefix.len() as size_t;
+    prefix.as_ptr() as *mut c_char
 }
 
 pub unsafe extern "C" fn in_domain_callback(
@@ -128,10 +118,6 @@ pub unsafe extern "C" fn in_domain_callback(
 ) -> u8 {
     let cb = &mut *(raw_cb as *mut TransformCallback);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-
-    if (cb.in_domain_fn.unwrap())(key) {
-        1
-    } else {
-        0
-    }
+    let in_domain = cb.in_domain_fn.unwrap();
+    in_domain(key) as u8
 }

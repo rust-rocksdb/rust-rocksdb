@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.1 (2019-03-27)
+
+### Changes
+
+* Added `iterator_cf_opt` function to `DB` (elichai)
+* Added `set_allow_mmap_writes` and `set_allow_mmap_reads` functions to `Options` (aleksuss)
+
+
 ## 0.12.0 (2019-03-10)
 
 ### Changes

@@ -1,11 +1,10 @@
 use crate::{
     handle::{ConstHandle, Handle},
     ops::*,
-    ColumnFamily, DBIterator, DBRawIterator, DBVector, Error, IteratorMode,
-    OptimisticTransactionDB, ReadOptions, ReadOptionsFactory, Snapshot, TransactionDB, DB,
+    ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions, ReadOptionsFactory,
 };
 use ffi;
-use libc::{c_char, c_void, free, size_t};
+use libc::{c_char, c_void, size_t};
 use std::marker::PhantomData;
 
 pub struct Transaction<'a, T> {
@@ -163,8 +162,7 @@ impl<'a, T> Handle<ffi::rocksdb_transaction_t> for Transaction<'a, T> {
     }
 }
 
-impl<'a, T> Read for Transaction<'a,T> {
-}
+impl<'a, T> Read for Transaction<'a, T> {}
 
 impl<'a, T> GetCF<ReadOptions> for Transaction<'a, T>
 where

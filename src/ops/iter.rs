@@ -1,5 +1,4 @@
 use crate::{ColumnFamily, DBIterator, DBRawIterator, Direction, Error, IteratorMode, ReadOptions};
-use ffi;
 
 pub trait Iterate {
     fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator;

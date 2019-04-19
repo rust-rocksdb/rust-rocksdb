@@ -14,8 +14,8 @@
 //
 
 use crate::{
-    handle::ConstHandle, ops::*, ColumnFamily, DBIterator, DBRawIterator, DBVector, Error,
-    IteratorMode, ReadOptions, ReadOptionsFactory, DB,
+    handle::ConstHandle, ops::*, ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions,
+    ReadOptionsFactory, DB,
 };
 
 /// A consistent view of the database at the point of creation.

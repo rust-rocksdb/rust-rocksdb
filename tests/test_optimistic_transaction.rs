@@ -1,8 +1,8 @@
 extern crate rocksdb;
 
 use rocksdb::{
-    prelude::*, IteratorMode, MergeOperands, OptimisticTransactionDB, OptimisticTransactionOptions,
-    Options, TemporaryDBPath, WriteBatch, WriteOptions,
+    prelude::*, MergeOperands, OptimisticTransactionDB, OptimisticTransactionOptions, Options,
+    TemporaryDBPath, WriteOptions,
 };
 
 #[test]

@@ -17,7 +17,7 @@ use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
 use std::slice;
 
-use crate::{ColumnFamily, Error, ReadOptions, DB};
+use crate::DB;
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.

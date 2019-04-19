@@ -1,21 +1,19 @@
-use crate::{ColumnFamily,
+use crate::{
+    ffi_util::{opt_bytes_to_ptr, to_cpath},
     handle::Handle,
     open_raw::{OpenRaw, OpenRawFFI},
-    ops, ColumnFamilyDescriptor, Error, Options, Transaction, WriteOptions, DB,
-    ffi_util::{to_cpath,opt_bytes_to_ptr},
-    write_batch::WriteBatch
+    ops,
+    write_batch::WriteBatch,
+    ColumnFamily, Error, Options, Transaction, WriteOptions,
 };
 use ffi;
-use libc::{c_int, c_uchar,c_void,c_char,size_t};
+use libc::{c_char, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
-use std::fmt;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::ptr;
-use std::str;
-use std::sync::{Arc, RwLock};
 use std::slice;
+use std::str;
 
 pub struct OptimisticTransactionDB {
     inner: *mut ffi::rocksdb_optimistictransactiondb_t,
@@ -68,7 +66,10 @@ impl OpenRaw for OptimisticTransactionDB {
     where
         I: IntoIterator<Item = (String, *mut ffi::rocksdb_column_family_handle_t)>,
     {
-        let cfs: BTreeMap<_, _> = column_families.into_iter().map(|(k,h)| (k,ColumnFamily::new(h))).collect();
+        let cfs: BTreeMap<_, _> = column_families
+            .into_iter()
+            .map(|(k, h)| (k, ColumnFamily::new(h)))
+            .collect();
         let base_db = unsafe { ffi::rocksdb_optimistictransactiondb_get_base_db(pointer) };
         Ok(OptimisticTransactionDB {
             inner: pointer,
@@ -137,7 +138,11 @@ impl OptimisticTransactionDB {
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_write(self.base_db, writeopts.inner, batch.inner,));
+            ffi_try!(ffi::rocksdb_write(
+                self.base_db,
+                writeopts.inner,
+                batch.inner,
+            ));
         }
         Ok(())
     }
@@ -177,10 +182,7 @@ impl OptimisticTransactionDB {
     }
 
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self
-            .cfs
-            .remove(name)
-        {
+        if let Some(cf) = self.cfs.remove(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(self.base_db, cf.inner,));
             }
@@ -194,8 +196,7 @@ impl OptimisticTransactionDB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
-        self.cfs
-            .get(name)
+        self.cfs.get(name)
     }
 
     pub fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
@@ -437,9 +438,9 @@ impl OptimisticTransactionDB {
 impl Drop for OptimisticTransactionDB {
     fn drop(&mut self) {
         unsafe {
-                for cf in self.cfs.values() {
-                    ffi::rocksdb_column_family_handle_destroy(cf.inner);
-                }
+            for cf in self.cfs.values() {
+                ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            }
             ffi::rocksdb_optimistictransactiondb_close_base_db(self.base_db);
             ffi::rocksdb_optimistictransactiondb_close(self.inner);
         }

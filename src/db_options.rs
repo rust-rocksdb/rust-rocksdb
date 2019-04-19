@@ -26,8 +26,6 @@ use merge_operator::{
 };
 use slice_transform::SliceTransform;
 
-use crate::{handle::ConstHandle, Snapshot};
-
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
@@ -1371,6 +1369,42 @@ impl Options {
     pub fn set_keep_log_file_num(&mut self, nfiles: usize) {
         unsafe {
             ffi::rocksdb_options_set_keep_log_file_num(self.inner, nfiles);
+        }
+    }
+
+    /// Allow the OS to mmap file for writing.
+    ///
+    /// Default: false
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_allow_mmap_writes(true);
+    /// ```
+    pub fn set_allow_mmap_writes(&mut self, is_enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_allow_mmap_writes(self.inner, is_enabled as c_uchar);
+        }
+    }
+
+    /// Allow the OS to mmap file for reading sst tables.
+    ///
+    /// Default: false
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_allow_mmap_reads(true);
+    /// ```
+    pub fn set_allow_mmap_reads(&mut self, is_enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_allow_mmap_reads(self.inner, is_enabled as c_uchar);
         }
     }
 }

@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::marker::PhantomData;
-
-use crate::{Options, DB};
+use crate::Options;
 
 /// A descriptor for a RocksDB column family.
 ///
