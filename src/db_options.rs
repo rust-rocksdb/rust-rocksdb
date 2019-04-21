@@ -27,7 +27,7 @@ use merge_operator::{
 use slice_transform::SliceTransform;
 use {
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
+    MemtableFactory, Options, PlainTableFactoryOptions, FlushOptions, WriteOptions,
 };
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -48,6 +48,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for FlushOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_flushoptions_destroy(self.inner);
         }
     }
 }
@@ -1205,6 +1213,28 @@ impl Default for Options {
             }
             Options { inner: opts }
         }
+    }
+}
+
+impl FlushOptions {
+    pub fn new() -> FlushOptions {
+        FlushOptions::default()
+    }
+
+    pub fn set_wait(&mut self, wait: bool) {
+        unsafe {
+            ffi::rocksdb_flushoptions_set_wait(self.inner, wait as c_uchar);
+        }
+    }
+}
+
+impl Default for FlushOptions {
+    fn default() -> FlushOptions {
+        let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
+        if flush_opts.is_null() {
+            panic!("Could not create RocksDB flush options");
+        }
+        FlushOptions { inner: flush_opts }
     }
 }
 

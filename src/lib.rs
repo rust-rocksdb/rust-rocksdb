@@ -228,6 +228,30 @@ pub struct Options {
     inner: *mut ffi::rocksdb_options_t,
 }
 
+/// Optionally wait for the memtable flush to be performed.
+///
+/// # Examples
+///
+/// Manually flushing the memtable:
+///
+/// ```
+/// use rocksdb::{DB, Options, FlushOptions};
+///
+/// let path = "_path_for_rocksdb_storageY";
+/// {
+///     let db = DB::open_default(path).unwrap();
+///
+///     let mut flush_options = FlushOptions::default();
+///     flush_options.set_wait(true);
+///
+///     db.flush_opt(&flush_options);
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
+/// ```
+pub struct FlushOptions {
+    inner: *mut ffi::rocksdb_flushoptions_t,
+}
+
 /// Optionally disable WAL or sync for this write.
 ///
 /// # Examples
