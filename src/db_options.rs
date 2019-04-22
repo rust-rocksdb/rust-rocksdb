@@ -27,7 +27,7 @@ use merge_operator::{
 use slice_transform::SliceTransform;
 use {
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, PlainTableFactoryOptions, FlushOptions, WriteOptions,
+    FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
 };
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
