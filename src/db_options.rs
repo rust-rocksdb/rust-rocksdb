@@ -1221,6 +1221,18 @@ impl FlushOptions {
         FlushOptions::default()
     }
 
+    /// Waits until the flush is done.
+    ///
+    /// Default: true
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::FlushOptions;
+    ///
+    /// let mut options = FlushOptions::default();
+    /// options.set_wait(false);
+    /// ```
     pub fn set_wait(&mut self, wait: bool) {
         unsafe {
             ffi::rocksdb_flushoptions_set_wait(self.inner, wait as c_uchar);
