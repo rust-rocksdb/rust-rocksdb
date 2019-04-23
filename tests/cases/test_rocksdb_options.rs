@@ -16,8 +16,9 @@ use rocksdb::crocksdb_ffi::{
     DBStatisticsHistogramType as HistogramType, DBStatisticsTickerType as TickerType,
 };
 use rocksdb::{
-    BlockBasedOptions, ColumnFamilyOptions, CompactOptions, DBOptions, Env, FifoCompactionOptions,
-    ReadOptions, SeekKey, SliceTransform, Writable, WriteOptions, DB,
+    BlockBasedOptions, Cache, ColumnFamilyOptions, CompactOptions, DBOptions, Env,
+    FifoCompactionOptions, LRUCacheOptions, ReadOptions, SeekKey, SliceTransform, Writable,
+    WriteOptions, DB,
 };
 use std::path::Path;
 use std::sync::Arc;
@@ -284,7 +285,9 @@ fn test_set_lru_cache() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
-    block_opts.set_lru_cache(8388608, -1, 0, 0.0);
+    let mut cache_opts = LRUCacheOptions::new();
+    cache_opts.set_capacity(8388608);
+    block_opts.set_block_cache(Cache::new_lru_cache(cache_opts));
     cf_opts.set_block_based_table_factory(&block_opts);
     DB::open_cf(opts, path.path().to_str().unwrap(), vec!["default"]).unwrap();
 }
@@ -366,7 +369,9 @@ fn test_get_block_cache_usage() {
 
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
-    block_opts.set_lru_cache(16 * 1024 * 1024, -1, 0, 0.0);
+    let mut cache_opts = LRUCacheOptions::new();
+    cache_opts.set_capacity(16 * 1024 * 1024);
+    block_opts.set_block_cache(Cache::new_lru_cache(cache_opts));
     cf_opts.set_block_based_table_factory(&block_opts);
     let db = DB::open_cf(
         opts,
@@ -394,7 +399,9 @@ fn test_block_cache_capacity() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
-    block_opts.set_lru_cache(16 * 1024 * 1024, -1, 0, 0.0);
+    let mut cache_opts = LRUCacheOptions::new();
+    cache_opts.set_capacity(16 * 1024 * 1024);
+    block_opts.set_block_cache(Cache::new_lru_cache(cache_opts));
     cf_opts.set_block_based_table_factory(&block_opts);
     let db = DB::open_cf(
         opts,

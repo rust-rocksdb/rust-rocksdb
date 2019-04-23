@@ -29,6 +29,7 @@ pub enum DBWriteOptions {}
 pub enum DBReadOptions {}
 pub enum DBMergeOperator {}
 pub enum DBBlockBasedTableOptions {}
+pub enum DBLRUCacheOptions {}
 pub enum DBCache {}
 pub enum DBFilterPolicy {}
 pub enum DBSnapshot {}
@@ -97,13 +98,8 @@ pub fn new_bloom_filter(bits: c_int) -> *mut DBFilterPolicy {
     unsafe { crocksdb_filterpolicy_create_bloom(bits) }
 }
 
-pub fn new_cache(
-    capacity: size_t,
-    shard_bits: c_int,
-    capacity_limit: c_uchar,
-    pri_ratio: c_double,
-) -> *mut DBCache {
-    unsafe { crocksdb_cache_create_lru(capacity, shard_bits, capacity_limit, pri_ratio) }
+pub fn new_lru_cache(opt: *mut DBLRUCacheOptions) -> *mut DBCache {
+    unsafe { crocksdb_cache_create_lru(opt) }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -328,13 +324,26 @@ extern "C" {
     pub fn crocksdb_options_from_column_family_descriptor(
         cf_descs: *const ColumnFamilyDescriptor,
     ) -> *mut Options;
-    pub fn crocksdb_cache_create_lru(
-        capacity: size_t,
-        shard_bits: c_int,
-        capacity_limit: c_uchar,
-        pri_ratio: c_double,
-    ) -> *mut DBCache;
+
+    // Cache
+    pub fn crocksdb_lru_cache_options_create() -> *mut DBLRUCacheOptions;
+    pub fn crocksdb_lru_cache_options_destroy(opt: *mut DBLRUCacheOptions);
+    pub fn crocksdb_lru_cache_options_set_capacity(opt: *mut DBLRUCacheOptions, capacity: size_t);
+    pub fn crocksdb_lru_cache_options_set_num_shard_bits(
+        opt: *mut DBLRUCacheOptions,
+        num_shard_bits: c_int,
+    );
+    pub fn crocksdb_lru_cache_options_set_strict_capacity_limit(
+        opt: *mut DBLRUCacheOptions,
+        strict_capacity_limit: bool,
+    );
+    pub fn crocksdb_lru_cache_options_set_high_pri_pool_ratio(
+        opt: *mut DBLRUCacheOptions,
+        high_pri_pool_ratio: c_double,
+    );
+    pub fn crocksdb_cache_create_lru(opt: *mut DBLRUCacheOptions) -> *mut DBCache;
     pub fn crocksdb_cache_destroy(cache: *mut DBCache);
+
     pub fn crocksdb_block_based_options_create() -> *mut DBBlockBasedTableOptions;
     pub fn crocksdb_block_based_options_destroy(opts: *mut DBBlockBasedTableOptions);
     pub fn crocksdb_block_based_options_set_block_size(

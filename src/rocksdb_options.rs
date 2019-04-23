@@ -18,14 +18,15 @@ use comparator::{self, compare_callback, ComparatorCallback};
 use crocksdb_ffi::{
     self, DBBlockBasedTableOptions, DBBottommostLevelCompaction, DBCompactOptions,
     DBCompactionOptions, DBCompressionType, DBFifoCompactionOptions, DBFlushOptions,
-    DBInfoLogLevel, DBInstance, DBRateLimiter, DBRateLimiterMode, DBReadOptions, DBRecoveryMode,
-    DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType, DBStatisticsTickerType,
-    DBTitanDBOptions, DBWriteOptions, Options,
+    DBInfoLogLevel, DBInstance, DBLRUCacheOptions, DBRateLimiter, DBRateLimiterMode, DBReadOptions,
+    DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
+    DBStatisticsTickerType, DBTitanDBOptions, DBWriteOptions, Options,
 };
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::MergeFn;
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
+use rocksdb::Cache;
 use rocksdb::Env;
 use slice_transform::{new_slice_transform, SliceTransform};
 use std::ffi::{CStr, CString};
@@ -85,21 +86,9 @@ impl BlockBasedOptions {
         }
     }
 
-    /// the recommanded shard_bits is 6, also you can set a larger value as long as it is
-    /// smaller than 20, also you can set shard_bits to -1, RocksDB will choose a value for you
-    /// the recommanded capacity_limit is 0(false) if your memory is sufficient
-    /// the recommanded pri_ratio should be 0.05 or 0.1
-    pub fn set_lru_cache(
-        &mut self,
-        size: size_t,
-        shard_bits: c_int,
-        capacity_limit: c_uchar,
-        pri_ratio: c_double,
-    ) {
-        let cache = crocksdb_ffi::new_cache(size, shard_bits, capacity_limit, pri_ratio);
+    pub fn set_block_cache(&mut self, cache: Cache) {
         unsafe {
-            crocksdb_ffi::crocksdb_block_based_options_set_block_cache(self.inner, cache);
-            crocksdb_ffi::crocksdb_cache_destroy(cache);
+            crocksdb_ffi::crocksdb_block_based_options_set_block_cache(self.inner, cache.inner);
         }
     }
 
@@ -1769,6 +1758,62 @@ impl Drop for FifoCompactionOptions {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_fifo_compaction_options_destroy(self.inner);
+        }
+    }
+}
+
+pub struct LRUCacheOptions {
+    pub inner: *mut DBLRUCacheOptions,
+}
+
+impl LRUCacheOptions {
+    pub fn new() -> LRUCacheOptions {
+        unsafe {
+            LRUCacheOptions {
+                inner: crocksdb_ffi::crocksdb_lru_cache_options_create(),
+            }
+        }
+    }
+
+    pub fn set_capacity(&mut self, capacity: usize) {
+        unsafe {
+            crocksdb_ffi::crocksdb_lru_cache_options_set_capacity(self.inner, capacity);
+        }
+    }
+
+    /// the recommanded shard_bits is 6, also you can set a larger value as long as it is
+    /// smaller than 20, also you can set shard_bits to -1, RocksDB will choose a value for you
+    /// the recommanded capacity_limit is 0(false) if your memory is sufficient
+    /// the recommanded pri_ratio should be 0.05 or 0.1
+    pub fn set_num_shard_bits(&mut self, num_shard_bits: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_lru_cache_options_set_num_shard_bits(self.inner, num_shard_bits);
+        }
+    }
+
+    pub fn set_strict_capacity_limit(&mut self, strict_capacity_limit: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_lru_cache_options_set_strict_capacity_limit(
+                self.inner,
+                strict_capacity_limit,
+            );
+        }
+    }
+
+    pub fn set_high_pri_pool_ratio(&mut self, high_pri_pool_ratio: c_double) {
+        unsafe {
+            crocksdb_ffi::crocksdb_lru_cache_options_set_high_pri_pool_ratio(
+                self.inner,
+                high_pri_pool_ratio,
+            );
+        }
+    }
+}
+
+impl Drop for LRUCacheOptions {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_lru_cache_options_destroy(self.inner);
         }
     }
 }

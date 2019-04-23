@@ -3,10 +3,11 @@ use std::ops::Deref;
 
 use crocksdb_ffi::{self, DBCompressionType, DBTitanBlobIndex, DBTitanDBOptions};
 use librocksdb_sys::ctitandb_encode_blob_index;
+use rocksdb::Cache;
+use rocksdb_options::LRUCacheOptions;
 use std::ops::DerefMut;
 use std::os::raw::c_double;
 use std::os::raw::c_int;
-use std::os::raw::c_uchar;
 use std::ptr;
 use std::slice;
 
@@ -85,13 +86,17 @@ impl TitanDBOptions {
         &mut self,
         size: usize,
         shard_bits: c_int,
-        capacity_limit: c_uchar,
+        capacity_limit: bool,
         pri_ratio: c_double,
     ) {
-        let cache = crocksdb_ffi::new_cache(size, shard_bits, capacity_limit, pri_ratio);
+        let mut cache_opt = LRUCacheOptions::new();
+        cache_opt.set_capacity(size);
+        cache_opt.set_num_shard_bits(shard_bits);
+        cache_opt.set_strict_capacity_limit(capacity_limit);
+        cache_opt.set_high_pri_pool_ratio(pri_ratio);
+        let cache = Cache::new_lru_cache(cache_opt);
         unsafe {
-            crocksdb_ffi::ctitandb_options_set_blob_cache(self.inner, cache);
-            crocksdb_ffi::crocksdb_cache_destroy(cache);
+            crocksdb_ffi::ctitandb_options_set_blob_cache(self.inner, cache.inner);
         }
     }
 

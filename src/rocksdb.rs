@@ -13,15 +13,17 @@
 // limitations under the License.
 
 use crocksdb_ffi::{
-    self, DBBackupEngine, DBCFHandle, DBCompressionType, DBEnv, DBInstance, DBPinnableSlice,
-    DBSequentialFile, DBStatisticsHistogramType, DBStatisticsTickerType, DBWriteBatch,
+    self, DBBackupEngine, DBCFHandle, DBCache, DBCompressionType, DBEnv, DBInstance,
+    DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType, DBStatisticsTickerType,
+    DBWriteBatch,
 };
 use libc::{self, c_char, c_int, c_void, size_t};
 use metadata::ColumnFamilyMetaData;
 use rocksdb_options::{
     CColumnFamilyDescriptor, ColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,
     CompactionOptions, DBOptions, EnvOptions, FlushOptions, HistogramData,
-    IngestExternalFileOptions, ReadOptions, RestoreOptions, UnsafeSnap, WriteOptions,
+    IngestExternalFileOptions, LRUCacheOptions, ReadOptions, RestoreOptions, UnsafeSnap,
+    WriteOptions,
 };
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
@@ -2284,6 +2286,26 @@ impl Drop for SequentialFile {
     fn drop(&mut self) {
         unsafe {
             crocksdb_ffi::crocksdb_sequential_file_destroy(self.inner);
+        }
+    }
+}
+
+pub struct Cache {
+    pub inner: *mut DBCache,
+}
+
+impl Cache {
+    pub fn new_lru_cache(opt: LRUCacheOptions) -> Cache {
+        Cache {
+            inner: crocksdb_ffi::new_lru_cache(opt.inner),
+        }
+    }
+}
+
+impl Drop for Cache {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_cache_destroy(self.inner);
         }
     }
 }

@@ -94,6 +94,7 @@ using rocksdb::FlushOptions;
 using rocksdb::IngestExternalFileOptions;
 using rocksdb::Iterator;
 using rocksdb::Logger;
+using rocksdb::LRUCacheOptions;
 using rocksdb::MergeOperator;
 using rocksdb::NewBloomFilterPolicy;
 using rocksdb::NewLRUCache;
@@ -205,6 +206,9 @@ struct crocksdb_randomfile_t      { RandomAccessFile* rep; };
 struct crocksdb_writablefile_t    { WritableFile*     rep; };
 struct crocksdb_filelock_t        { FileLock*         rep; };
 struct crocksdb_logger_t          { shared_ptr<Logger>  rep; };
+struct crocksdb_lru_cache_options_t {
+  LRUCacheOptions rep;
+};
 struct crocksdb_cache_t           { shared_ptr<Cache>   rep; };
 struct crocksdb_livefiles_t       { std::vector<LiveFileMetaData> rep; };
 struct crocksdb_column_family_handle_t  { ColumnFamilyHandle* rep; };
@@ -3279,10 +3283,37 @@ void crocksdb_flushoptions_set_allow_write_stall(
   opt->rep.allow_write_stall = v;
 }
 
-crocksdb_cache_t* crocksdb_cache_create_lru(size_t capacity,
-  int num_shard_bits, unsigned char strict_capacity_limit, double high_pri_pool_ratio) {
+crocksdb_lru_cache_options_t* crocksdb_lru_cache_options_create() {
+  return new crocksdb_lru_cache_options_t;
+}
+
+void crocksdb_lru_cache_options_destroy(crocksdb_lru_cache_options_t* opt) {
+  delete opt;
+}
+
+void crocksdb_lru_cache_options_set_capacity(
+    crocksdb_lru_cache_options_t* opt, size_t capacity) {
+  opt->rep.capacity = capacity;
+}
+
+void crocksdb_lru_cache_options_set_num_shard_bits(
+    crocksdb_lru_cache_options_t* opt, int num_shard_bits) {
+  opt->rep.num_shard_bits = num_shard_bits;
+}
+
+void crocksdb_lru_cache_options_set_strict_capacity_limit(
+    crocksdb_lru_cache_options_t* opt, bool strict_capacity_limit) {
+  opt->rep.strict_capacity_limit = strict_capacity_limit;
+}
+
+void crocksdb_lru_cache_options_set_high_pri_pool_ratio(
+    crocksdb_lru_cache_options_t* opt, double high_pri_pool_ratio) {
+  opt->rep.high_pri_pool_ratio = high_pri_pool_ratio;
+}
+
+crocksdb_cache_t* crocksdb_cache_create_lru(crocksdb_lru_cache_options_t* opt) {
   crocksdb_cache_t* c = new crocksdb_cache_t;
-  c->rep = NewLRUCache(capacity, num_shard_bits, strict_capacity_limit, high_pri_pool_ratio);
+  c->rep = NewLRUCache(opt->rep);
   return c;
 }
 

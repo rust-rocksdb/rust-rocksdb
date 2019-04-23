@@ -74,6 +74,7 @@ typedef struct crocksdb_t                 crocksdb_t;
 typedef struct crocksdb_backup_engine_t   crocksdb_backup_engine_t;
 typedef struct crocksdb_backup_engine_info_t   crocksdb_backup_engine_info_t;
 typedef struct crocksdb_restore_options_t crocksdb_restore_options_t;
+typedef struct crocksdb_lru_cache_options_t crocksdb_lru_cache_options_t;
 typedef struct crocksdb_cache_t           crocksdb_cache_t;
 typedef struct crocksdb_compactionfilter_t crocksdb_compactionfilter_t;
 typedef struct crocksdb_compactionfiltercontext_t
@@ -1314,8 +1315,20 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_flushoptions_set_allow_write_stall(
 
 /* Cache */
 
+extern C_ROCKSDB_LIBRARY_API crocksdb_lru_cache_options_t*
+crocksdb_lru_cache_options_create();
+extern C_ROCKSDB_LIBRARY_API void crocksdb_lru_cache_options_destroy(
+    crocksdb_lru_cache_options_t*);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_lru_cache_options_set_capacity(
+    crocksdb_lru_cache_options_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_lru_cache_options_set_num_shard_bits(
+    crocksdb_lru_cache_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_lru_cache_options_set_strict_capacity_limit(
+    crocksdb_lru_cache_options_t*, bool);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_lru_cache_options_set_high_pri_pool_ratio(
+    crocksdb_lru_cache_options_t*, double);
 extern C_ROCKSDB_LIBRARY_API crocksdb_cache_t* crocksdb_cache_create_lru(
-    size_t capacity, int num_shard_bits, unsigned char strict_capacity_limit, double high_pri_pool_ratio);
+    crocksdb_lru_cache_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_cache_destroy(crocksdb_cache_t* cache);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_cache_set_capacity(
     crocksdb_cache_t* cache, size_t capacity);
