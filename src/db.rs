@@ -1167,6 +1167,14 @@ impl DB {
         DBRawIterator::new_cf(self, cf_handle, &opts)
     }
 
+    pub fn raw_iterator_cf_opt(
+        &self,
+        cf_handle: ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<DBRawIterator, Error> {
+        DBRawIterator::new_cf(self, cf_handle, readopts)
+    }
+
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
     }
