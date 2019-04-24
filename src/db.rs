@@ -15,7 +15,7 @@
 
 use ffi;
 use ffi_util::opt_bytes_to_ptr;
-use {ColumnFamily, ColumnFamilyDescriptor, Error, Options, WriteOptions, DB};
+use {ColumnFamily, ColumnFamilyDescriptor, Error, FlushOptions, Options, WriteOptions, DB};
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
@@ -834,6 +834,19 @@ impl DB {
 
     pub fn path(&self) -> &Path {
         &self.path.as_path()
+    }
+
+    /// Flush database memtable to SST files on disk (with options).
+    pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner,));
+        }
+        Ok(())
+    }
+
+    /// Flush database memtable to SST files on disk.
+    pub fn flush(&self) -> Result<(), Error> {
+        self.flush_opt(&FlushOptions::default())
     }
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
