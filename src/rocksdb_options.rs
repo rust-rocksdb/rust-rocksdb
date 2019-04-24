@@ -86,7 +86,7 @@ impl BlockBasedOptions {
         }
     }
 
-    pub fn set_block_cache(&mut self, cache: Cache) {
+    pub fn set_block_cache(&mut self, cache: &Cache) {
         unsafe {
             crocksdb_ffi::crocksdb_block_based_options_set_block_cache(self.inner, cache.inner);
         }
