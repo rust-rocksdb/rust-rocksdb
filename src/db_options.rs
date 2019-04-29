@@ -286,24 +286,14 @@ impl Options {
     /// So users of this feature may see increased memory usage.
     ///
     /// Default: `0`
-    pub fn set_max_dict_bytes(&mut self, max_dict_bytes: u32) {
+    pub fn set_compression_options(&mut self, w_bits: c_int, level: c_int, strategy: c_int, max_dict_bytes: c_int
+
+                                                        enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_max_dict_bytes(self.inner, max_dict_bytes as u32);
+            ffi::rocksdb_options_set_compression_options(self.inner, w_bits, level, strategy, max_dict_bytes, enabled);
         }
     }
     
-    /// Maximum size of training data passed to zstd's dictionary trainer. Using
-    /// zstd's dictionary trainer can achieve even better compression ratio
-    /// improvements than using `max_dict_bytes` alone.
-    ///
-    /// The training data will be used to generate a dictionary of max_dict_bytes.
-    ///
-    /// Default: `0`
-    pub fn set_zstd_max_train_bytes(&mut self, max_dict_bytes: u32) {
-        unsafe {
-            ffi::rocksdb_options_zstd_max_train_bytes(self.inner, max_dict_bytes as u32);
-        }
-    }
 
     /// If non-zero, we perform bigger reads when doing compaction. If you're
     /// running RocksDB on spinning disks, you should set this to at least 2MB.
