@@ -269,6 +269,41 @@ impl Options {
             )
         }
     }
+    
+    /// Maximum size of dictionaries used to prime the compression library.
+    /// Enabling dictionary can improve compression ratios when there are
+    /// repetitions across data blocks.
+    ///
+    /// The dictionary is created by sampling the SST file data. If
+    /// `zstd_max_train_bytes` is nonzero, the samples are passed through zstd's
+    /// dictionary generator. Otherwise, the random samples are used directly as
+    /// the dictionary.
+    ///
+    /// When compression dictionary is disabled, we compress and write each block
+    /// before buffering data for the next one. When compression dictionary is
+    /// enabled, we buffer all SST file data in-memory so we can sample it, as data
+    /// can only be compressed and written after the dictionary has been finalized.
+    /// So users of this feature may see increased memory usage.
+    ///
+    /// Default: `0`
+    pub fn set_max_dict_bytes(&mut self, max_dict_bytes: u32) {
+        unsafe {
+            ffi::rocksdb_options_set_max_dict_bytes(self.inner, max_dict_bytes as u32);
+        }
+    }
+    
+    /// Maximum size of training data passed to zstd's dictionary trainer. Using
+    /// zstd's dictionary trainer can achieve even better compression ratio
+    /// improvements than using `max_dict_bytes` alone.
+    ///
+    /// The training data will be used to generate a dictionary of max_dict_bytes.
+    ///
+    /// Default: `0`
+    pub fn set_zstd_max_train_bytes(&mut self, max_dict_bytes: u32) {
+        unsafe {
+            ffi::rocksdb_options_zstd_max_train_bytes(self.inner, max_dict_bytes as u32);
+        }
+    }
 
     /// If non-zero, we perform bigger reads when doing compaction. If you're
     /// running RocksDB on spinning disks, you should set this to at least 2MB.
