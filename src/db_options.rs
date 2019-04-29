@@ -286,11 +286,9 @@ impl Options {
     /// So users of this feature may see increased memory usage.
     ///
     /// Default: `0`
-    pub fn set_compression_options(&mut self, w_bits: c_int, level: c_int, strategy: c_int, max_dict_bytes: c_int
-
-                                                        enabled: bool) {
+    pub fn set_compression_options(&mut self, w_bits: c_int, level: c_int, strategy: c_int, max_dict_bytes: c_int) {
         unsafe {
-            ffi::rocksdb_options_set_compression_options(self.inner, w_bits, level, strategy, max_dict_bytes, enabled);
+            ffi::rocksdb_options_set_compression_options(self.inner, w_bits, level, strategy, max_dict_bytes);
         }
     }
     
