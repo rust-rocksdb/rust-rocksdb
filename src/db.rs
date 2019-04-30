@@ -28,7 +28,6 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
-use std::sync::{Arc, RwLock};
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
@@ -724,7 +723,7 @@ impl DB {
         }
 
         let db: *mut ffi::rocksdb_t;
-        let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
+        let mut cf_map = BTreeMap::new();
 
         if cfs.is_empty() {
             unsafe {
@@ -778,10 +777,7 @@ impl DB {
             }
 
             for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map
-                    .write()
-                    .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), h);
+                cf_map.insert(n.name.clone(), h);
             }
         }
 
@@ -1040,7 +1036,7 @@ impl DB {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<ColumnFamily, Error> {
+    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let cname = match CString::new(name.as_ref().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -1051,33 +1047,20 @@ impl DB {
                 ));
             }
         };
-        let cf = unsafe {
+        unsafe {
             let cf_handle = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
                 opts.inner,
                 cname.as_ptr(),
             ));
 
-            self.cfs
-                .write()
-                .map_err(|e| Error::new(e.to_string()))?
-                .insert(name.as_ref().to_string(), cf_handle);
-
-            ColumnFamily {
-                inner: cf_handle,
-                db: PhantomData,
-            }
+            self.cfs.insert(name.as_ref().to_string(), cf_handle);
         };
-        Ok(cf)
+        Ok(())
     }
 
-    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self
-            .cfs
-            .write()
-            .map_err(|e| Error::new(e.to_string()))?
-            .remove(name)
-        {
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.remove(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf,));
             }
@@ -1091,7 +1074,7 @@ impl DB {
 
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().ok()?.get(name).map(|h| ColumnFamily {
+        self.cfs.get(name).map(|h| ColumnFamily {
             inner: *h,
             db: PhantomData,
         })
@@ -1742,10 +1725,8 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            if let Ok(cfs) = self.cfs.read() {
-                for cf in cfs.values() {
-                    ffi::rocksdb_column_family_handle_destroy(*cf);
-                }
+            for cf in self.cfs.values() {
+                ffi::rocksdb_column_family_handle_destroy(*cf);
             }
             ffi::rocksdb_close(self.inner);
         }
