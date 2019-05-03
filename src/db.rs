@@ -232,9 +232,26 @@ impl<'a> DBRawIterator<'a> {
         }
     }
 
-    /// Returns true if the iterator is valid.
+    /// Returns `true` if the iterator is valid. An iterator is invalidated when
+    /// it reaches the end of its defined range, or when it encounters an error.
+    ///
+    /// To check whether the iterator encountered an error after `valid` has
+    /// returned `false`, use the [`status`](DBRawIterator::status) method. `status` will never
+    /// return an error when `valid` is `true`.
     pub fn valid(&self) -> bool {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
+    }
+
+    /// Returns an error `Result` if the iterator has encountered an error
+    /// during operation. When an error is encountered, the iterator is
+    /// invalidated and [`valid`](DBRawIterator::valid) will return `false` when called.
+    ///
+    /// Performing a seek will discard the current status.
+    pub fn status(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_iter_get_error(self.inner,));
+        }
+        Ok(())
     }
 
     /// Seeks to the first key in the database.
@@ -512,8 +529,14 @@ impl<'a> DBIterator<'a> {
         self.just_seeked = true;
     }
 
+    /// See [`valid`](DBRawIterator::valid)
     pub fn valid(&self) -> bool {
         self.raw.valid()
+    }
+
+    /// See [`status`](DBRawIterator::status)
+    pub fn status(&self) -> Result<(), Error> {
+        self.raw.status()
     }
 }
 
