@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.2 (2019-05-03)
+
+### Changes
+
+* Updated `compact_range_cf` to use generic arguments (romanz)
+* Removed allocations from `SliceTransform` implementation (ekmartin)
+* Bumped RocksDB to 5.18.3 (baptistejamin)
+* Implemented `delete_range` and `delete_range_cf` (baptistejamin)
+* Added contribution guide (rhurkes)
+* Cleaned up documentation for `ReadOptions.set_iterate_upper_bound` method (xiaobogaga)
+* Added `flush` and `flush_opt` operations (valeriansaliou)
+
 ## 0.12.1 (2019-03-27)
 
 ### Changes
