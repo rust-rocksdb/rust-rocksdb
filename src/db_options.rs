@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::handle::{ConstHandle, Handle};
+use crate::{
+    handle::{ConstHandle, Handle},
+    BlockBasedIndexType, BlockBasedOptions, FlushOptions, MemtableFactory, Options,
+    PlainTableFactoryOptions, WriteOptions,
+};
 
 use std::ffi::{CStr, CString};
 use std::mem;
@@ -39,124 +43,6 @@ pub struct ReadOptions {
     option_set_total_order_seek: Option<bool>,
     option_set_readahead_size: Option<usize>,
     inner: *mut ffi::rocksdb_readoptions_t,
-}
-
-/// For configuring block-based file storage.
-pub struct BlockBasedOptions {
-    inner: *mut ffi::rocksdb_block_based_table_options_t,
-}
-
-/// Used by BlockBasedOptions::set_index_type.
-pub enum BlockBasedIndexType {
-    /// A space efficient index block that is optimized for
-    /// binary-search-based index.
-    BinarySearch,
-
-    /// The hash index, if enabled, will perform a hash lookup if
-    /// a prefix extractor has been provided through Options::set_prefix_extractor.
-    HashSearch,
-
-    /// A two-level index implementation. Both levels are binary search indexes.
-    TwoLevelIndexSearch,
-}
-
-/// Defines the underlying memtable implementation.
-/// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
-pub enum MemtableFactory {
-    Vector,
-    HashSkipList {
-        bucket_count: usize,
-        height: i32,
-        branching_factor: i32,
-    },
-    HashLinkList {
-        bucket_count: usize,
-    },
-}
-
-/// Used with DBOptions::set_plain_table_factory.
-/// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
-///
-/// Defaults:
-///  user_key_length: 0 (variable length)
-///  bloom_bits_per_key: 10
-///  hash_table_ratio: 0.75
-///  index_sparseness: 16
-pub struct PlainTableFactoryOptions {
-    pub user_key_length: u32,
-    pub bloom_bits_per_key: i32,
-    pub hash_table_ratio: f64,
-    pub index_sparseness: usize,
-}
-
-/// Database-wide options around performance and behavior.
-///
-/// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
-///
-/// # Examples
-///
-/// ```
-/// use rocksdb::{prelude::*, DBCompactionStyle};
-///
-/// fn badly_tuned_for_somebody_elses_disk() -> DB {
-///    let path = "path/for/rocksdb/storageX";
-///    let mut opts = Options::default();
-///    opts.create_if_missing(true);
-///    opts.set_max_open_files(10000);
-///    opts.set_use_fsync(false);
-///    opts.set_bytes_per_sync(8388608);
-///    opts.optimize_for_point_lookup(1024);
-///    opts.set_table_cache_num_shard_bits(6);
-///    opts.set_max_write_buffer_number(32);
-///    opts.set_write_buffer_size(536870912);
-///    opts.set_target_file_size_base(1073741824);
-///    opts.set_min_write_buffer_number_to_merge(4);
-///    opts.set_level_zero_stop_writes_trigger(2000);
-///    opts.set_level_zero_slowdown_writes_trigger(0);
-///    opts.set_compaction_style(DBCompactionStyle::Universal);
-///    opts.set_max_background_compactions(4);
-///    opts.set_max_background_flushes(4);
-///    opts.set_disable_auto_compactions(true);
-///
-///    DB::open(&opts, path).unwrap()
-/// }
-/// ```
-pub struct Options {
-    pub(crate) inner: *mut ffi::rocksdb_options_t,
-}
-
-/// Optionally disable WAL or sync for this write.
-///
-/// # Examples
-///
-/// Making an unsafe write of a batch:
-///
-/// ```
-/// use rocksdb::{prelude::*, WriteBatch, WriteOptions};
-/// # use rocksdb::TemporaryDBPath;
-///
-/// let path = "_path_for_rocksdb_storageY";
-/// # let path = TemporaryDBPath::new();
-/// # {
-///
-/// let db = DB::open_default(&path).unwrap();
-/// let mut batch = WriteBatch::default();
-/// batch.put(b"my key", b"my value");
-/// batch.put(b"key2", b"value2");
-/// batch.put(b"key3", b"value3");
-///
-/// let mut write_options = WriteOptions::default();
-/// write_options.set_sync(false);
-/// write_options.disable_wal(true);
-///
-/// db.write_opt(batch, &write_options);
-
-/// # }
-/// ```
-pub struct WriteOptions {
-    option_set_sync: Option<bool>,
-    option_disable_wal: Option<bool>,
-    inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
 impl Drop for ReadOptions {
@@ -311,6 +197,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for FlushOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_flushoptions_destroy(self.inner);
         }
     }
 }
@@ -1474,6 +1368,40 @@ impl Default for Options {
             }
             Options { inner: opts }
         }
+    }
+}
+
+impl FlushOptions {
+    pub fn new() -> FlushOptions {
+        FlushOptions::default()
+    }
+
+    /// Waits until the flush is done.
+    ///
+    /// Default: true
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::FlushOptions;
+    ///
+    /// let mut options = FlushOptions::default();
+    /// options.set_wait(false);
+    /// ```
+    pub fn set_wait(&mut self, wait: bool) {
+        unsafe {
+            ffi::rocksdb_flushoptions_set_wait(self.inner, wait as c_uchar);
+        }
+    }
+}
+
+impl Default for FlushOptions {
+    fn default() -> FlushOptions {
+        let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
+        if flush_opts.is_null() {
+            panic!("Could not create RocksDB flush options");
+        }
+        FlushOptions { inner: flush_opts }
     }
 }
 

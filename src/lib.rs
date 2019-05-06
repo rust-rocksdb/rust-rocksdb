@@ -91,14 +91,11 @@ mod write_batch;
 
 pub mod prelude;
 
-pub use column_family::{ColumnFamily, ColumnFamilyDescriptor};
+pub use column_family::ColumnFamilyDescriptor;
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::DB;
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
-pub use db_options::{
-    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
-};
+pub use db_options::{DBCompactionStyle, DBCompressionType, DBRecoveryMode, ReadOptions};
 pub use db_pinnable_slice::DBPinnableSlice;
 pub use db_vector::DBVector;
 pub use read_only_db::ReadOnlyDB;
@@ -156,3 +153,153 @@ impl fmt::Display for Error {
         self.message.fmt(formatter)
     }
 }
+
+/// For configuring block-based file storage.
+pub struct BlockBasedOptions {
+    inner: *mut ffi::rocksdb_block_based_table_options_t,
+}
+
+/// Used by BlockBasedOptions::set_index_type.
+pub enum BlockBasedIndexType {
+    /// A space efficient index block that is optimized for
+    /// binary-search-based index.
+    BinarySearch,
+
+    /// The hash index, if enabled, will perform a hash lookup if
+    /// a prefix extractor has been provided through Options::set_prefix_extractor.
+    HashSearch,
+
+    /// A two-level index implementation. Both levels are binary search indexes.
+    TwoLevelIndexSearch,
+}
+
+/// Defines the underlying memtable implementation.
+/// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+pub enum MemtableFactory {
+    Vector,
+    HashSkipList {
+        bucket_count: usize,
+        height: i32,
+        branching_factor: i32,
+    },
+    HashLinkList {
+        bucket_count: usize,
+    },
+}
+
+/// Used with DBOptions::set_plain_table_factory.
+/// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+///
+/// Defaults:
+///  user_key_length: 0 (variable length)
+///  bloom_bits_per_key: 10
+///  hash_table_ratio: 0.75
+///  index_sparseness: 16
+pub struct PlainTableFactoryOptions {
+    pub user_key_length: u32,
+    pub bloom_bits_per_key: i32,
+    pub hash_table_ratio: f64,
+    pub index_sparseness: usize,
+}
+
+/// Database-wide options around performance and behavior.
+///
+/// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
+///
+/// # Examples
+///
+/// ```
+/// use rocksdb::{Options, DB, prelude::*};
+/// use rocksdb::DBCompactionStyle;
+///
+/// fn badly_tuned_for_somebody_elses_disk() -> DB {
+///    let path = "path/for/rocksdb/storageX";
+///    let mut opts = Options::default();
+///    opts.create_if_missing(true);
+///    opts.set_max_open_files(10000);
+///    opts.set_use_fsync(false);
+///    opts.set_bytes_per_sync(8388608);
+///    opts.optimize_for_point_lookup(1024);
+///    opts.set_table_cache_num_shard_bits(6);
+///    opts.set_max_write_buffer_number(32);
+///    opts.set_write_buffer_size(536870912);
+///    opts.set_target_file_size_base(1073741824);
+///    opts.set_min_write_buffer_number_to_merge(4);
+///    opts.set_level_zero_stop_writes_trigger(2000);
+///    opts.set_level_zero_slowdown_writes_trigger(0);
+///    opts.set_compaction_style(DBCompactionStyle::Universal);
+///    opts.set_max_background_compactions(4);
+///    opts.set_max_background_flushes(4);
+///    opts.set_disable_auto_compactions(true);
+///
+///    DB::open(&opts, path).unwrap()
+/// }
+/// ```
+pub struct Options {
+    inner: *mut ffi::rocksdb_options_t,
+}
+
+/// Optionally wait for the memtable flush to be performed.
+///
+/// # Examples
+///
+/// Manually flushing the memtable:
+///
+/// ```
+/// use rocksdb::{DB, Options, FlushOptions, prelude::*};
+///
+/// let path = "_path_for_rocksdb_storageY";
+/// {
+///
+///     let db = DB::open_default(path).unwrap();
+///
+///     let mut flush_options = FlushOptions::default();
+///     flush_options.set_wait(true);
+///
+///     db.flush_opt(&flush_options);
+/// }
+///
+/// let _ = DB::destroy(&Options::default(), path);
+/// ```
+pub struct FlushOptions {
+    inner: *mut ffi::rocksdb_flushoptions_t,
+}
+
+/// Optionally disable WAL or sync for this write.
+///
+/// # Examples
+///
+/// Making an unsafe write of a batch:
+///
+/// ```
+/// use rocksdb::{DB, Options, WriteBatch, WriteOptions, prelude::*};
+///
+/// let path = "_path_for_rocksdb_storageZ";
+/// {
+///     let db = DB::open_default(path).unwrap();
+///     let mut batch = WriteBatch::default();
+///     batch.put(b"my key", b"my value");
+///     batch.put(b"key2", b"value2");
+///     batch.put(b"key3", b"value3");
+///
+///     let mut write_options = WriteOptions::default();
+///     write_options.set_sync(false);
+///     write_options.disable_wal(true);
+///
+///     db.write_opt(batch, &write_options);
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
+/// ```
+pub struct WriteOptions {
+    option_set_sync: Option<bool>,
+    option_disable_wal: Option<bool>,
+    inner: *mut ffi::rocksdb_writeoptions_t,
+}
+
+/// An opaque type used to represent a column family. Returned from some functions, and used
+/// in others
+pub struct ColumnFamily {
+    inner: *mut ffi::rocksdb_column_family_handle_t,
+}
+
+unsafe impl Send for ColumnFamily {}

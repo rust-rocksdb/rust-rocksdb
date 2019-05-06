@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Options;
+use crate::{ColumnFamily, Options};
 
 /// A descriptor for a RocksDB column family.
 ///
@@ -35,16 +35,8 @@ impl ColumnFamilyDescriptor {
     }
 }
 
-/// An opaque type used to represent a column family. Returned from some functions, and used
-/// in others
-pub struct ColumnFamily {
-    pub(crate) inner: *mut ffi::rocksdb_column_family_handle_t,
-}
-
 impl ColumnFamily {
     pub(crate) fn new(handle: *mut ffi::rocksdb_column_family_handle_t) -> ColumnFamily {
         ColumnFamily { inner: handle }
     }
 }
-
-unsafe impl Send for ColumnFamily {}
