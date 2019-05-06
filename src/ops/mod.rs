@@ -14,21 +14,28 @@
 //
 
 // PIGMED operations (Put, Iterate, Get, Merge, Delete)
+mod columnfamily;
 mod delete;
 mod get;
 mod get_pinned;
+mod merge;
 mod put;
+mod writebatch;
 
 mod open;
 
+mod checkpoint;
+mod compact;
 mod iter;
-mod snapshot;
+mod property;
 mod transaction;
 
 pub use self::delete::{Delete, DeleteCF};
 pub use self::get::{Get, GetCF};
 pub use self::get_pinned::{GetPinned, GetPinnedCF};
+pub use self::merge::{Merge, MergeCF};
 pub use self::put::{Put, PutCF};
+pub use self::writebatch::WriteOps;
 
 pub use self::open::{Open, OpenCF};
 
@@ -40,6 +47,11 @@ pub trait Read {}
 /// DB state
 pub trait Write {}
 
+pub use self::checkpoint::CreateCheckpointObject;
+pub use self::columnfamily::CreateCf;
+pub use self::columnfamily::DropCf;
+pub use self::columnfamily::GetColumnFamilys;
+pub use self::compact::{CompactRange, CompactRangeCF};
 pub use self::iter::{Iterate, IterateCF};
-pub use self::snapshot::*;
+pub use self::property::{GetProperty, GetPropertyCF, SetOptions};
 pub use self::transaction::TransactionBegin;

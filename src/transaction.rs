@@ -1,7 +1,7 @@
 use crate::{
     handle::{ConstHandle, Handle},
     ops::*,
-    ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions, ReadOptionsFactory,
+    ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions,
 };
 use ffi;
 use libc::{c_char, c_void, size_t};
@@ -100,26 +100,6 @@ impl<'a, T> Transaction<'a, T> {
         }
     }
 
-    /// Merge a key inside a transaction
-    pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_transaction_merge(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     /// Transaction rollback
     pub fn rollback(&self) -> Result<(), Error> {
         unsafe { ffi_try!(ffi::rocksdb_transaction_rollback(self.inner,)) }
@@ -182,7 +162,7 @@ where
 
         let ro_handle = readopts
             .or_else(|| default_readopts.as_ref())
-            .map(|r| r.inner)
+            .map(|r| r.handle())
             .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
 
         if ro_handle.is_null() {
@@ -233,7 +213,7 @@ impl<'a, T> Iterate for Transaction<'a, T> {
     fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
         unsafe {
             DBRawIterator {
-                inner: ffi::rocksdb_transaction_create_iterator(self.inner, readopts.inner),
+                inner: ffi::rocksdb_transaction_create_iterator(self.inner, readopts.handle()),
                 db: PhantomData,
             }
         }
@@ -250,7 +230,7 @@ impl<'a, T> IterateCF for Transaction<'a, T> {
             Ok(DBRawIterator {
                 inner: ffi::rocksdb_transaction_create_iterator_cf(
                     self.inner,
-                    readopts.inner,
+                    readopts.handle(),
                     cf_handle.inner,
                 ),
                 db: PhantomData,
@@ -272,7 +252,7 @@ impl<'a, T> ConstHandle<ffi::rocksdb_snapshot_t> for TransactionSnapshot<'a, T> 
 
 impl<'a, T> Read for TransactionSnapshot<'a, T> {}
 
-impl<'a, T> GetCF<ReadOptionsFactory> for TransactionSnapshot<'a, T>
+impl<'a, T> GetCF<ReadOptions> for TransactionSnapshot<'a, T>
 where
     Transaction<'a, T>: GetCF<ReadOptions>,
 {
@@ -280,14 +260,10 @@ where
         &self,
         cf: Option<&ColumnFamily>,
         key: K,
-        readopts: Option<&ReadOptionsFactory>,
+        readopts: Option<&ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
-        let mut ro = if let Some(rof) = readopts {
-            rof.build()
-        } else {
-            ReadOptions::default()
-        };
-        ro.set_snapshot(self.inner);
+        let mut ro = readopts.cloned().unwrap_or_default();
+        ro.set_snapshot(self);
         self.db.get_cf_full(cf, key, Some(&ro))
     }
 }
@@ -300,22 +276,44 @@ impl<'a, T> Drop for TransactionSnapshot<'a, T> {
     }
 }
 
-impl<'a, T: Iterate> SnapshotIterate for TransactionSnapshot<'a, T> {
-    fn get_raw_iter(&self, readopts: &ReadOptionsFactory) -> DBRawIterator {
-        let mut readopts = readopts.build();
-        readopts.set_snapshot(self.inner);
+impl<'a, T: Iterate> Iterate for TransactionSnapshot<'a, T> {
+    fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
+        let mut readopts = readopts.to_owned();
+        readopts.set_snapshot(self);
         self.db.get_raw_iter(&readopts)
     }
 }
 
-impl<'a, T: IterateCF> SnapshotIterateCF for TransactionSnapshot<'a, T> {
+impl<'a, T: IterateCF> IterateCF for TransactionSnapshot<'a, T> {
     fn get_raw_iter_cf(
         &self,
         cf_handle: &ColumnFamily,
-        readopts: &ReadOptionsFactory,
+        readopts: &ReadOptions,
     ) -> Result<DBRawIterator, Error> {
-        let mut readopts = readopts.build();
-        readopts.set_snapshot(self.inner);
+        let mut readopts = readopts.to_owned();
+        readopts.set_snapshot(self);
         self.db.get_raw_iter_cf(cf_handle, &readopts)
+    }
+}
+
+impl<'a, T> Merge<()> for Transaction<'a, T> {
+    fn merge_full<K, V>(&self, key: K, value: V, _writeopts: Option<&()>) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_merge(
+                self.inner, key_ptr, key_len, val_ptr, val_len,
+            ));
+            Ok(())
+        }
     }
 }

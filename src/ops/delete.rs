@@ -18,21 +18,19 @@ use libc::{c_char, size_t};
 
 use crate::{handle::Handle, ColumnFamily, Error, WriteOptions};
 
-pub trait Delete<'a> {
-    type WriteOptions;
-
-    fn delete_full<K>(&'a self, key: K, writeopts: Option<Self::WriteOptions>) -> Result<(), Error>
+pub trait Delete<W> {
+    fn delete_full<K>(&self, key: K, writeopts: Option<&W>) -> Result<(), Error>
     where
         K: AsRef<[u8]>;
 
-    fn delete<K>(&'a self, key: K) -> Result<(), Error>
+    fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
         self.delete_full(key, None)
     }
 
-    fn delete_opt<K>(&'a self, key: K, writeopts: Self::WriteOptions) -> Result<(), Error>
+    fn delete_opt<K>(&self, key: K, writeopts: &W) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
@@ -40,32 +38,24 @@ pub trait Delete<'a> {
     }
 }
 
-pub trait DeleteCF<'a> {
-    type ColumnFamily;
-    type WriteOptions;
-
+pub trait DeleteCF<W> {
     fn delete_cf_full<K>(
-        &'a self,
-        cf: Option<Self::ColumnFamily>,
+        &self,
+        cf: Option<&ColumnFamily>,
         key: K,
-        writeopts: Option<Self::WriteOptions>,
+        writeopts: Option<&W>,
     ) -> Result<(), Error>
     where
         K: AsRef<[u8]>;
 
-    fn delete_cf<K>(&'a self, cf: Self::ColumnFamily, key: K) -> Result<(), Error>
+    fn delete_cf<K>(&self, cf: &ColumnFamily, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
         self.delete_cf_full(Some(cf), key, None)
     }
 
-    fn put_cf_opt<K>(
-        &'a self,
-        cf: Self::ColumnFamily,
-        key: K,
-        writeopts: Self::WriteOptions,
-    ) -> Result<(), Error>
+    fn put_cf_opt<K>(&self, cf: &ColumnFamily, key: K, writeopts: &W) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
@@ -73,33 +63,24 @@ pub trait DeleteCF<'a> {
     }
 }
 
-impl<'a, T, W> Delete<'a> for T
+impl<T, W> Delete<W> for T
 where
-    T: DeleteCF<'a, WriteOptions = W>,
+    T: DeleteCF<W>,
 {
-    type WriteOptions = W;
-
-    fn delete_full<K: AsRef<[u8]>>(
-        &'a self,
-        key: K,
-        writeopts: Option<Self::WriteOptions>,
-    ) -> Result<(), Error> {
+    fn delete_full<K: AsRef<[u8]>>(&self, key: K, writeopts: Option<&W>) -> Result<(), Error> {
         self.delete_cf_full(None, key, writeopts)
     }
 }
 
-impl<'a, T> DeleteCF<'a> for T
+impl<T> DeleteCF<WriteOptions> for T
 where
     T: Handle<ffi::rocksdb_t> + super::Write,
 {
-    type ColumnFamily = &'a ColumnFamily;
-    type WriteOptions = &'a WriteOptions;
-
     fn delete_cf_full<K>(
-        &'a self,
-        cf: Option<Self::ColumnFamily>,
+        &self,
+        cf: Option<&ColumnFamily>,
         key: K,
-        writeopts: Option<Self::WriteOptions>,
+        writeopts: Option<&WriteOptions>,
     ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -112,7 +93,7 @@ where
 
         let wo_handle = writeopts
             .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.inner)
+            .map(|r| r.handle())
             .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
 
         let key = key.as_ref();

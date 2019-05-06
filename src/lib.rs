@@ -97,8 +97,7 @@ pub use db::DB;
 pub use db_iterator::{DBIterator, DBRawIterator, Direction, IteratorMode};
 pub use db_options::{
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, ReadOptionsFactory,
-    WriteOptions,
+    MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
 };
 pub use db_pinnable_slice::DBPinnableSlice;
 pub use db_vector::DBVector;

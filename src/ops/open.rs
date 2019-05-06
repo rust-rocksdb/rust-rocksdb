@@ -37,6 +37,17 @@ pub trait Open: OpenRaw {
 
         Self::open_raw(input)
     }
+
+    fn open_with_descriptor<P: AsRef<Path>>(opts: &Options, path: P,descriptor:Self::Descriptor) -> Result<Self,Error> {
+        let input = OpenRawInput {
+            options: opts,
+            path: path.as_ref(),
+            column_families: vec![],
+            open_descriptor: descriptor,
+        };
+
+        Self::open_raw(input)
+    }
 }
 
 pub trait OpenCF: OpenRaw {

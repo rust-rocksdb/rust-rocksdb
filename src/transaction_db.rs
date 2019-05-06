@@ -1,16 +1,19 @@
 use crate::ops::*;
 use crate::{
-    handle::Handle,
+    db_vector::DBVector,
+    handle::{ConstHandle, Handle},
     open_raw::{OpenRaw, OpenRawFFI},
+    write_batch::WriteBatch,
     DBRawIterator, Error, ReadOptions, Transaction, WriteOptions,
 };
 use ffi;
-use libc::c_uchar;
+use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 use std::ptr;
 
+/// A transaction database.
 pub struct TransactionDB {
     inner: *mut ffi::rocksdb_transactiondb_t,
     path: PathBuf,
@@ -79,7 +82,7 @@ impl TransactionBegin for TransactionDB {
         unsafe {
             let inner = ffi::rocksdb_transaction_begin(
                 self.inner,
-                write_options.inner,
+                write_options.handle(),
                 tx_options.inner,
                 ptr::null_mut(),
             );
@@ -92,7 +95,7 @@ impl Iterate for TransactionDB {
     fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
         unsafe {
             DBRawIterator {
-                inner: ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.inner),
+                inner: ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.handle()),
                 db: PhantomData,
             }
         }
@@ -191,5 +194,244 @@ impl Drop for TransactionOptions {
 impl Default for TransactionOptions {
     fn default() -> TransactionOptions {
         TransactionOptions::new()
+    }
+}
+
+impl CreateCheckpointObject for TransactionDB {
+    unsafe fn create_checkpoint_object_raw(&self) -> Result<*mut ffi::rocksdb_checkpoint_t, Error> {
+        Ok(ffi_try!(
+            ffi::rocksdb_transactiondb_checkpoint_object_create(self.inner,)
+        ))
+    }
+}
+
+impl Get<ReadOptions> for TransactionDB {
+    fn get_full<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: Option<&ReadOptions>,
+    ) -> Result<Option<DBVector>, Error> {
+        let mut default_readopts = None;
+
+        if readopts.is_none() {
+            default_readopts.replace(ReadOptions::default());
+        }
+
+        let ro_handle = readopts
+            .or_else(|| default_readopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
+
+        if ro_handle.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. \
+                 This is a fairly trivial call, and its \
+                 failure may be indicative of a \
+                 mis-compiled or mis-loaded RocksDB \
+                 library."
+                    .to_string(),
+            ));
+        }
+
+        let key = key.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+
+        unsafe {
+            let mut val_len: size_t = 0;
+
+            let val = ffi_try!(ffi::rocksdb_transactiondb_get(
+                self.inner,
+                ro_handle,
+                key_ptr,
+                key_len,
+                &mut val_len,
+            )) as *mut u8;
+
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
+            }
+        }
+    }
+}
+
+impl Put<WriteOptions> for TransactionDB {
+    fn put_full<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+        &self,
+        key: K,
+        value: V,
+        writeopts: Option<&WriteOptions>,
+    ) -> Result<(), Error> {
+        let mut default_writeopts = None;
+
+        if default_writeopts.is_none() {
+            default_writeopts.replace(WriteOptions::default());
+        }
+
+        let wo_handle = writeopts
+            .or_else(|| default_writeopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_put(
+                self.inner, wo_handle, key_ptr, key_len, val_ptr, val_len,
+            ));
+            Ok(())
+        }
+    }
+}
+
+impl Delete<WriteOptions> for TransactionDB {
+    fn delete_full<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        writeopts: Option<&WriteOptions>,
+    ) -> Result<(), Error> {
+        let mut default_writeopts = None;
+
+        if default_writeopts.is_none() {
+            default_writeopts.replace(WriteOptions::default());
+        }
+
+        let wo_handle = writeopts
+            .or_else(|| default_writeopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+
+        let key = key.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_delete(
+                self.inner, wo_handle, key_ptr, key_len,
+            ));
+
+            Ok(())
+        }
+    }
+}
+
+impl TransactionDB {
+    pub fn snapshot(&self) -> Snapshot {
+        let snapshot = unsafe { ffi::rocksdb_transactiondb_create_snapshot(self.inner) };
+        Snapshot {
+            db: self,
+            inner: snapshot,
+        }
+    }
+}
+
+pub struct Snapshot<'a> {
+    db: &'a TransactionDB,
+    inner: *const ffi::rocksdb_snapshot_t,
+}
+
+impl<'a> ConstHandle<ffi::rocksdb_snapshot_t> for Snapshot<'a> {
+    fn const_handle(&self) -> *const ffi::rocksdb_snapshot_t {
+        self.inner
+    }
+}
+
+impl<'a> Read for Snapshot<'a> {}
+
+impl<'a> Get<ReadOptions> for Snapshot<'a> {
+    fn get_full<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: Option<&ReadOptions>,
+    ) -> Result<Option<DBVector>, Error> {
+        let mut ro = readopts.cloned().unwrap_or_default();
+        ro.set_snapshot(self);
+
+        self.db.get_full(key, Some(&ro))
+    }
+}
+
+impl<'a> Drop for Snapshot<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_transactiondb_release_snapshot(self.db.inner, self.inner);
+        }
+    }
+}
+
+impl<'a> Iterate for Snapshot<'a> {
+    fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
+        let mut ro = readopts.to_owned();
+        ro.set_snapshot(self);
+        self.db.get_raw_iter(&ro)
+    }
+}
+
+impl Merge<WriteOptions> for TransactionDB {
+    fn merge_full<K, V>(
+        &self,
+        key: K,
+        value: V,
+        writeopts: Option<&WriteOptions>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let mut default_writeopts = None;
+
+        if default_writeopts.is_none() {
+            default_writeopts.replace(WriteOptions::default());
+        }
+
+        let wo_handle = writeopts
+            .or_else(|| default_writeopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_merge(
+                self.inner, wo_handle, key_ptr, key_len, val_ptr, val_len,
+            ));
+            Ok(())
+        }
+    }
+}
+
+impl WriteOps for TransactionDB {
+    fn write_full(&self, batch: WriteBatch, writeopts: Option<&WriteOptions>) -> Result<(), Error> {
+        let mut default_writeopts = None;
+
+        if default_writeopts.is_none() {
+            default_writeopts.replace(WriteOptions::default());
+        }
+
+        let wo_handle = writeopts
+            .or_else(|| default_writeopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_write(
+                self.handle(),
+                wo_handle,
+                batch.inner,
+            ));
+            Ok(())
+        }
     }
 }

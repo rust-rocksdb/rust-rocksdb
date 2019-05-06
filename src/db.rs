@@ -14,24 +14,22 @@
 //
 
 use ffi;
-use ffi_util::{opt_bytes_to_ptr, to_cpath};
+use ffi_util::to_cpath;
 
 use crate::{
     handle::Handle,
     open_raw::{OpenRaw, OpenRawFFI},
     ops,
     ops::*,
-    ColumnFamily, DBRawIterator, Error, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
+    ColumnFamily, DBRawIterator, Error, Options, ReadOptions, Snapshot,
 };
 
-use libc::{self, c_char, c_void, size_t};
 use std::collections::BTreeMap;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::fmt;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::slice;
-use std::str;
 
 /// A RocksDB database.
 ///
@@ -152,317 +150,11 @@ impl DB {
         &self.path.as_path()
     }
 
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner,));
-        }
-        Ok(())
-    }
-
-    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
-        self.write_opt(batch, &WriteOptions::default())
-    }
-
-    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error> {
-        let mut wo = WriteOptions::new();
-        wo.disable_wal(true);
-        self.write_opt(batch, &wo)
-    }
-
-    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
-        let cname = match CString::new(name.as_ref().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening rocksdb"
-                        .to_owned(),
-                ));
-            }
-        };
-        unsafe {
-            let cf_handle = ffi_try!(ffi::rocksdb_create_column_family(
-                self.inner,
-                opts.inner,
-                cname.as_ptr(),
-            ));
-
-            self.cfs
-                .insert(name.as_ref().to_string(), ColumnFamily::new(cf_handle));
-        };
-        Ok(())
-    }
-
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.remove(name) {
-            unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
-            }
-            Ok(())
-        } else {
-            Err(Error::new(
-                format!("Invalid column family: {}", name).to_owned(),
-            ))
-        }
-    }
-
-    /// Return the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
-        self.cfs.get(name)
-    }
-
     pub fn snapshot(&self) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(self.inner) };
         Snapshot {
             db: self,
             inner: snapshot,
-        }
-    }
-
-    pub fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_merge(
-                self.inner,
-                writeopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    pub fn merge_cf_opt<K, V>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-        value: V,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_merge_cf(
-                self.inner,
-                writeopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.merge_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn merge_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.merge_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
-        unsafe {
-            let start = start.as_ref().map(|s| s.as_ref());
-            let end = end.as_ref().map(|e| e.as_ref());
-
-            ffi::rocksdb_compact_range(
-                self.inner,
-                opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
-                opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
-            );
-        }
-    }
-
-    pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        start: Option<S>,
-        end: Option<E>,
-    ) {
-        unsafe {
-            let start = start.as_ref().map(|s| s.as_ref());
-            let end = end.as_ref().map(|e| e.as_ref());
-
-            ffi::rocksdb_compact_range_cf(
-                self.inner,
-                cf.inner,
-                opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
-                opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
-            );
-        }
-    }
-
-    pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
-        let copts = opts
-            .iter()
-            .map(|(name, value)| {
-                let cname = match CString::new(name.as_bytes()) {
-                    Ok(cname) => cname,
-                    Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
-                };
-                let cvalue = match CString::new(value.as_bytes()) {
-                    Ok(cvalue) => cvalue,
-                    Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
-                };
-                Ok((cname, cvalue))
-            })
-            .collect::<Result<Vec<(CString, CString)>, Error>>()?;
-
-        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
-        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
-        let count = opts.len() as i32;
-        unsafe {
-            ffi_try!(ffi::rocksdb_set_options(
-                self.inner,
-                count,
-                cnames.as_ptr(),
-                cvalues.as_ptr(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// Retrieves a RocksDB property by name.
-    ///
-    /// For a full list of properties, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
-    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
-        let prop_name = match CString::new(name) {
-            Ok(c) => c,
-            Err(e) => {
-                return Err(Error::new(format!(
-                    "Failed to convert property name to CString: {}",
-                    e
-                )));
-            }
-        };
-
-        unsafe {
-            let value = ffi::rocksdb_property_value(self.inner, prop_name.as_ptr());
-            if value.is_null() {
-                return Ok(None);
-            }
-
-            let str_value = match CStr::from_ptr(value).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(e) => {
-                    return Err(Error::new(format!(
-                        "Failed to convert property value to string: {}",
-                        e
-                    )));
-                }
-            };
-
-            libc::free(value as *mut c_void);
-            Ok(Some(str_value))
-        }
-    }
-
-    /// Retrieves a RocksDB property by name, for a specific column family.
-    ///
-    /// For a full list of properties, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
-    pub fn property_value_cf(
-        &self,
-        cf: &ColumnFamily,
-        name: &str,
-    ) -> Result<Option<String>, Error> {
-        let prop_name = match CString::new(name) {
-            Ok(c) => c,
-            Err(e) => {
-                return Err(Error::new(format!(
-                    "Failed to convert property name to CString: {}",
-                    e
-                )));
-            }
-        };
-
-        unsafe {
-            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr());
-            if value.is_null() {
-                return Ok(None);
-            }
-
-            let str_value = match CStr::from_ptr(value).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(e) => {
-                    return Err(Error::new(format!(
-                        "Failed to convert property value to string: {}",
-                        e
-                    )));
-                }
-            };
-
-            libc::free(value as *mut c_void);
-            Ok(Some(str_value))
-        }
-    }
-
-    /// Retrieves a RocksDB property and casts it to an integer.
-    ///
-    /// For a full list of properties that return int values, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
-    pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
-        match self.property_value(name) {
-            Ok(Some(value)) => match value.parse::<u64>() {
-                Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!(
-                    "Failed to convert property value to int: {}",
-                    e
-                ))),
-            },
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
-    ///
-    /// For a full list of properties that return int values, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
-    pub fn property_int_value_cf(
-        &self,
-        cf: &ColumnFamily,
-        name: &str,
-    ) -> Result<Option<u64>, Error> {
-        match self.property_value_cf(cf, name) {
-            Ok(Some(value)) => match value.parse::<u64>() {
-                Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!(
-                    "Failed to convert property value to int: {}",
-                    e
-                ))),
-            },
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
         }
     }
 }
@@ -488,7 +180,7 @@ impl Iterate for DB {
     fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
         unsafe {
             DBRawIterator {
-                inner: ffi::rocksdb_create_iterator(self.inner, readopts.inner),
+                inner: ffi::rocksdb_create_iterator(self.inner, readopts.handle()),
                 db: PhantomData,
             }
         }
@@ -503,16 +195,30 @@ impl IterateCF for DB {
     ) -> Result<DBRawIterator, Error> {
         unsafe {
             Ok(DBRawIterator {
-                inner: ffi::rocksdb_create_iterator_cf(self.inner, readopts.inner, cf_handle.inner),
+                inner: ffi::rocksdb_create_iterator_cf(
+                    self.inner,
+                    readopts.handle(),
+                    cf_handle.inner,
+                ),
                 db: PhantomData,
             })
         }
     }
 }
 
+impl GetColumnFamilys for DB {
+    fn get_cfs(&self) -> &BTreeMap<String, ColumnFamily> {
+        &self.cfs
+    }
+    fn get_mut_cfs(&mut self) -> &mut BTreeMap<String, ColumnFamily> {
+        &mut self.cfs
+    }
+}
+
 #[test]
 fn test_db_vector() {
     use crate::prelude::*;
+    use libc::size_t;
     use std::mem;
 
     let len: size_t = 4;
@@ -560,7 +266,7 @@ fn errors_do_stuff() {
 
 #[test]
 fn writebatch_works() {
-    use crate::{prelude::*, TemporaryDBPath};
+    use crate::{prelude::*, TemporaryDBPath, WriteBatch};
 
     let path = TemporaryDBPath::new();
     {
@@ -617,6 +323,7 @@ fn writebatch_works() {
 #[test]
 fn iterator_test() {
     use crate::{prelude::*, IteratorMode, TemporaryDBPath};
+    use std::str;
 
     let path = TemporaryDBPath::new();
     {

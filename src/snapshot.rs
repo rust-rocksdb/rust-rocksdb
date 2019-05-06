@@ -14,8 +14,7 @@
 //
 
 use crate::{
-    handle::ConstHandle, ops::*, ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions,
-    ReadOptionsFactory, DB,
+    handle::ConstHandle, ops::*, ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions, DB,
 };
 
 /// A consistent view of the database at the point of creation.
@@ -48,19 +47,15 @@ impl<'a> ConstHandle<ffi::rocksdb_snapshot_t> for Snapshot<'a> {
 
 impl<'a> Read for Snapshot<'a> {}
 
-impl<'a> GetCF<ReadOptionsFactory> for Snapshot<'a> {
+impl<'a> GetCF<ReadOptions> for Snapshot<'a> {
     fn get_cf_full<K: AsRef<[u8]>>(
         &self,
         cf: Option<&ColumnFamily>,
         key: K,
-        readopts: Option<&ReadOptionsFactory>,
+        readopts: Option<&ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
-        let mut ro = if let Some(rof) = readopts {
-            rof.build()
-        } else {
-            ReadOptions::default()
-        };
-        ro.set_snapshot(self.inner);
+        let mut ro = readopts.cloned().unwrap_or_default();
+        ro.set_snapshot(self);
 
         self.db.get_cf_full(cf, key, Some(&ro))
     }
@@ -74,22 +69,22 @@ impl<'a> Drop for Snapshot<'a> {
     }
 }
 
-impl<'a> SnapshotIterate for Snapshot<'a> {
-    fn get_raw_iter(&self, readopts: &ReadOptionsFactory) -> DBRawIterator {
-        let mut ro = readopts.build();
-        ro.set_snapshot(self.inner);
+impl<'a> Iterate for Snapshot<'a> {
+    fn get_raw_iter(&self, readopts: &ReadOptions) -> DBRawIterator {
+        let mut ro = readopts.to_owned();
+        ro.set_snapshot(self);
         self.db.get_raw_iter(&ro)
     }
 }
 
-impl<'a> SnapshotIterateCF for Snapshot<'a> {
+impl<'a> IterateCF for Snapshot<'a> {
     fn get_raw_iter_cf(
         &self,
         cf_handle: &ColumnFamily,
-        readopts: &ReadOptionsFactory,
+        readopts: &ReadOptions,
     ) -> Result<DBRawIterator, Error> {
-        let mut ro = readopts.build();
-        ro.set_snapshot(self.inner);
+        let mut ro = readopts.to_owned();
+        ro.set_snapshot(self);
         self.db.get_raw_iter_cf(cf_handle, &ro)
     }
 }

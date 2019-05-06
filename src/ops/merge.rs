@@ -1,48 +1,33 @@
-// Copyright 2019 Tyler Neely
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-
 use ffi;
 use libc::{c_char, size_t};
 
 use crate::{handle::Handle, ColumnFamily, Error, WriteOptions};
 
-pub trait Put<W> {
-    fn put_full<K, V>(&self, key: K, value: V, writeopts: Option<&W>) -> Result<(), Error>
+pub trait Merge<W> {
+    fn merge_full<K, V>(&self, key: K, value: V, writeopts: Option<&W>) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
 
-    fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        self.put_full(key, value, None)
+        self.merge_full(key, value, None)
     }
 
-    fn put_opt<K, V>(&self, key: K, value: V, writeopts: &W) -> Result<(), Error>
+    fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &W) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        self.put_full(key, value, Some(writeopts))
+        self.merge_full(key, value, Some(writeopts))
     }
 }
 
-pub trait PutCF<W> {
-    fn put_cf_full<K, V>(
+pub trait MergeCF<W> {
+    fn merge_cf_full<K, V>(
         &self,
         cf: Option<&ColumnFamily>,
         key: K,
@@ -53,15 +38,15 @@ pub trait PutCF<W> {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
 
-    fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    fn merge_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        self.put_cf_full(Some(cf), key, value, None)
+        self.merge_cf_full(Some(cf), key, value, None)
     }
 
-    fn put_cf_opt<K, V>(
+    fn merge_cf_opt<K, V>(
         &self,
         cf: &ColumnFamily,
         key: K,
@@ -72,29 +57,29 @@ pub trait PutCF<W> {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        self.put_cf_full(Some(cf), key, value, Some(writeopts))
+        self.merge_cf_full(Some(cf), key, value, Some(writeopts))
     }
 }
 
-impl<T, W> Put<W> for T
+impl<T, W> Merge<W> for T
 where
-    T: PutCF<W>,
+    T: MergeCF<W>,
 {
-    fn put_full<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+    fn merge_full<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
         key: K,
         value: V,
         writeopts: Option<&W>,
     ) -> Result<(), Error> {
-        self.put_cf_full(None, key, value, writeopts)
+        self.merge_cf_full(None, key, value, writeopts)
     }
 }
 
-impl<T> PutCF<WriteOptions> for T
+impl<T> MergeCF<WriteOptions> for T
 where
     T: Handle<ffi::rocksdb_t> + super::Write,
 {
-    fn put_cf_full<K, V>(
+    fn merge_cf_full<K, V>(
         &self,
         cf: Option<&ColumnFamily>,
         key: K,
@@ -125,7 +110,7 @@ where
 
         unsafe {
             match cf {
-                Some(cf) => ffi_try!(ffi::rocksdb_put_cf(
+                Some(cf) => ffi_try!(ffi::rocksdb_merge_cf(
                     self.handle(),
                     wo_handle,
                     cf.inner,
@@ -134,7 +119,7 @@ where
                     val_ptr,
                     val_len,
                 )),
-                None => ffi_try!(ffi::rocksdb_put(
+                None => ffi_try!(ffi::rocksdb_merge(
                     self.handle(),
                     wo_handle,
                     key_ptr,

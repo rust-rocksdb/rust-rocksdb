@@ -6,6 +6,16 @@ use rocksdb::{
 };
 
 #[test]
+fn test_optimistic_transactiondb() {
+    let n = TemporaryDBPath::new();
+    {
+        let db = OptimisticTransactionDB::open_default(&n).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_ref(), b"v1");
+    }
+}
+
+#[test]
 pub fn test_optimistic_transaction() {
     let n = TemporaryDBPath::new();
     {

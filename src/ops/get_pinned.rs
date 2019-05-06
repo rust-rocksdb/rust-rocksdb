@@ -118,7 +118,7 @@ where
 
         let ro_handle = readopts
             .or_else(|| default_readopts.as_ref())
-            .map(|r| r.inner)
+            .map(|r| r.handle())
             .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
 
         if ro_handle.is_null() {

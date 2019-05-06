@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::handle::{ConstHandle, Handle};
+
 use std::ffi::{CStr, CString};
 use std::mem;
 use std::path::Path;
@@ -31,7 +33,12 @@ pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
 }
 
 pub struct ReadOptions {
-    pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    option_fill_cache: Option<bool>,
+    option_set_iterate_upper_bound: Option<Vec<u8>>,
+    option_set_prefix_same_as_start: Option<bool>,
+    option_set_total_order_seek: Option<bool>,
+    option_set_readahead_size: Option<usize>,
+    inner: *mut ffi::rocksdb_readoptions_t,
 }
 
 /// For configuring block-based file storage.
@@ -147,12 +154,20 @@ pub struct Options {
 /// # }
 /// ```
 pub struct WriteOptions {
-    pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,
+    option_set_sync: Option<bool>,
+    option_disable_wal: Option<bool>,
+    inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
 impl Drop for ReadOptions {
     fn drop(&mut self) {
         unsafe { ffi::rocksdb_readoptions_destroy(self.inner) }
+    }
+}
+
+impl Handle<ffi::rocksdb_readoptions_t> for ReadOptions {
+    fn handle(&self) -> *mut ffi::rocksdb_readoptions_t {
+        self.inner
     }
 }
 
@@ -165,11 +180,15 @@ impl ReadOptions {
         unsafe {
             ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
         }
+        self.option_fill_cache = Some(v);
     }
 
-    pub(crate) fn set_snapshot(&mut self, snapshot: *const ffi::rocksdb_snapshot_t) {
+    pub(crate) fn set_snapshot<T>(&mut self, snapshot: &T)
+    where
+        T: ConstHandle<ffi::rocksdb_snapshot_t>,
+    {
         unsafe {
-            ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot);
+            ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.const_handle());
         }
     }
 
@@ -183,14 +202,17 @@ impl ReadOptions {
                 key.len() as size_t,
             );
         }
+        self.option_set_iterate_upper_bound = Some(key.to_vec());
     }
 
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
         unsafe { ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar) }
+        self.option_set_prefix_same_as_start = Some(v);
     }
 
     pub fn set_total_order_seek(&mut self, v: bool) {
         unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
+        self.option_set_total_order_seek = Some(v);
     }
 
     /// If non-zero, an iterator will create a new table reader which
@@ -208,6 +230,7 @@ impl ReadOptions {
         unsafe {
             ffi::rocksdb_readoptions_set_readahead_size(self.inner, v as size_t);
         }
+        self.option_set_readahead_size = Some(v);
     }
 }
 
@@ -215,9 +238,36 @@ impl Default for ReadOptions {
     fn default() -> ReadOptions {
         unsafe {
             ReadOptions {
+                option_fill_cache: None,
+                option_set_iterate_upper_bound: None,
+                option_set_prefix_same_as_start: None,
+                option_set_total_order_seek: None,
+                option_set_readahead_size: None,
                 inner: ffi::rocksdb_readoptions_create(),
             }
         }
+    }
+}
+
+impl Clone for ReadOptions {
+    fn clone(&self) -> ReadOptions {
+        let mut ops = ReadOptions::default();
+        if let Some(fill_cache) = self.option_fill_cache {
+            ops.fill_cache(fill_cache);
+        };
+        if let Some(set_iterate_upper_bound) = &self.option_set_iterate_upper_bound {
+            ops.set_iterate_upper_bound(set_iterate_upper_bound);
+        };
+        if let Some(set_prefix_same_as_start) = self.option_set_prefix_same_as_start {
+            ops.set_prefix_same_as_start(set_prefix_same_as_start);
+        };
+        if let Some(set_total_order_seek) = self.option_set_total_order_seek {
+            ops.set_total_order_seek(set_total_order_seek);
+        };
+        if let Some(set_readahead_size) = self.option_set_readahead_size {
+            ops.set_readahead_size(set_readahead_size)
+        };
+        ops
     }
 }
 
@@ -270,6 +320,12 @@ impl Drop for WriteOptions {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
         }
+    }
+}
+
+impl Handle<ffi::rocksdb_writeoptions_t> for WriteOptions {
+    fn handle(&self) -> *mut ffi::rocksdb_writeoptions_t {
+        self.inner
     }
 }
 
@@ -1429,13 +1485,15 @@ impl WriteOptions {
     pub fn set_sync(&mut self, sync: bool) {
         unsafe {
             ffi::rocksdb_writeoptions_set_sync(self.inner, sync as c_uchar);
-        }
+        };
+        self.option_set_sync = Some(sync);
     }
 
     pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
             ffi::rocksdb_writeoptions_disable_WAL(self.inner, disable as c_int);
         }
+        self.option_disable_wal = Some(disable);
     }
 }
 
@@ -1445,7 +1503,24 @@ impl Default for WriteOptions {
         if write_opts.is_null() {
             panic!("Could not create RocksDB write options");
         }
-        WriteOptions { inner: write_opts }
+        WriteOptions {
+            option_set_sync: None,
+            option_disable_wal: None,
+            inner: write_opts,
+        }
+    }
+}
+
+impl Clone for WriteOptions {
+    fn clone(&self) -> WriteOptions {
+        let mut ops = WriteOptions::default();
+        if let Some(set_sync) = self.option_set_sync {
+            ops.set_sync(set_sync);
+        };
+        if let Some(disable_wal) = self.option_disable_wal {
+            ops.disable_wal(disable_wal);
+        };
+        ops
     }
 }
 
@@ -1475,75 +1550,5 @@ mod tests {
             height: 4,
             branching_factor: 4,
         });
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ReadOptionsFactory {
-    option_fill_cache: Option<bool>,
-    option_set_iterate_upper_bound: Option<Vec<u8>>,
-    option_set_prefix_same_as_start: Option<bool>,
-    option_set_total_order_seek: Option<bool>,
-    option_set_readahead_size: Option<usize>,
-}
-
-impl ReadOptionsFactory {
-    #[allow(dead_code)]
-    fn fill_cache(mut self, v: bool) -> Self {
-        self.option_fill_cache = Some(v);
-        self
-    }
-
-    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(mut self, key: K) -> Self {
-        let key = key.as_ref();
-        self.option_set_iterate_upper_bound = Some(key.to_vec());
-        self
-    }
-
-    pub fn set_prefix_same_as_start(mut self, v: bool) -> Self {
-        self.option_set_prefix_same_as_start = Some(v);
-        self
-    }
-
-    pub fn set_total_order_seek(mut self, v: bool) -> Self {
-        self.option_set_total_order_seek = Some(v);
-        self
-    }
-
-    pub fn set_readahead_size(mut self, v: usize) -> Self {
-        self.option_set_readahead_size = Some(v);
-        self
-    }
-
-    pub fn build(&self) -> ReadOptions {
-        let mut ops = ReadOptions::default();
-        if let Some(option_fill_cache) = self.option_fill_cache {
-            ops.fill_cache(option_fill_cache);
-        };
-        if let Some(option_set_iterate_upper_bound) = &self.option_set_iterate_upper_bound {
-            ops.set_iterate_upper_bound(option_set_iterate_upper_bound);
-        };
-        if let Some(option_set_prefix_same_as_start) = self.option_set_prefix_same_as_start {
-            ops.set_prefix_same_as_start(option_set_prefix_same_as_start);
-        };
-        if let Some(option_set_total_order_seek) = self.option_set_total_order_seek {
-            ops.set_total_order_seek(option_set_total_order_seek);
-        };
-        if let Some(option_set_readahead_size) = self.option_set_readahead_size {
-            ops.set_readahead_size(option_set_readahead_size);
-        };
-        ops
-    }
-}
-
-impl Default for ReadOptionsFactory {
-    fn default() -> ReadOptionsFactory {
-        ReadOptionsFactory {
-            option_fill_cache: None,
-            option_set_iterate_upper_bound: None,
-            option_set_prefix_same_as_start: None,
-            option_set_total_order_seek: None,
-            option_set_readahead_size: None,
-        }
     }
 }

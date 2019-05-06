@@ -48,6 +48,17 @@ where
     }
 }
 
+pub fn to_cstring<S, E>(string: S, error_message: E) -> Result<CString, Error>
+where
+    S: AsRef<str>,
+    E: AsRef<str>,
+{
+    match CString::new(string.as_ref().as_bytes()) {
+        Ok(c) => Ok(c),
+        Err(_) => Err(Error::new(error_message.as_ref().to_string())),
+    }
+}
+
 macro_rules! ffi_try {
     ( $($function:ident)::*( $( $arg:expr,)* ) ) => ({
         let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();

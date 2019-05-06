@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 
+use crate::ops::*;
 use ffi;
 use std::ffi::CString;
 use std::path::Path;
@@ -27,7 +28,7 @@ const LOG_SIZE_FOR_FLUSH: u64 = 0_u64;
 /// Database's checkpoint object.
 /// Used to create checkpoints of the specified DB from time to time.
 pub struct Checkpoint {
-    inner: *mut ffi::rocksdb_checkpoint_t,
+    pub(crate) inner: *mut ffi::rocksdb_checkpoint_t,
 }
 
 impl Checkpoint {
@@ -36,15 +37,7 @@ impl Checkpoint {
     /// Does not actually produce checkpoints, call `.create_checkpoint()` method to produce
     /// a DB checkpoint.
     pub fn new(db: &DB) -> Result<Checkpoint, Error> {
-        let checkpoint: *mut ffi::rocksdb_checkpoint_t;
-
-        unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner,)) };
-
-        if checkpoint.is_null() {
-            return Err(Error::new("Could not create checkpoint object.".to_owned()));
-        }
-
-        Ok(Checkpoint { inner: checkpoint })
+        db.create_checkpoint_object()
     }
 
     /// Creates new physical DB checkpoint in directory specified by `path`.
