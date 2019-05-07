@@ -26,6 +26,7 @@ mod open;
 
 mod checkpoint;
 mod compact;
+mod flush;
 mod iter;
 mod property;
 mod transaction;
@@ -52,6 +53,7 @@ pub use self::columnfamily::CreateCf;
 pub use self::columnfamily::DropCf;
 pub use self::columnfamily::GetColumnFamilys;
 pub use self::compact::{CompactRange, CompactRangeCF};
+pub use self::flush::Flush;
 pub use self::iter::{Iterate, IterateCF};
 pub use self::property::{GetProperty, GetPropertyCF, SetOptions};
 pub use self::transaction::TransactionBegin;

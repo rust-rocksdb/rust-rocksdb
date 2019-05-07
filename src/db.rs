@@ -157,19 +157,6 @@ impl DB {
             inner: snapshot,
         }
     }
-
-    /// Flush database memtable to SST files on disk (with options).
-    pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner,));
-        }
-        Ok(())
-    }
-
-    /// Flush database memtable to SST files on disk.
-    pub fn flush(&self) -> Result<(), Error> {
-        self.flush_opt(&FlushOptions::default())
-    }
 }
 
 impl Drop for DB {
