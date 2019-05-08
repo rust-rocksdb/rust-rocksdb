@@ -14,7 +14,7 @@
 
 use crate::{
     handle::{ConstHandle, Handle},
-    BlockBasedIndexType, BlockBasedOptions, FlushOptions, MemtableFactory, Options,
+    BlockBasedIndexType, BlockBasedOptions, Error, FlushOptions, MemtableFactory, Options,
     PlainTableFactoryOptions, WriteOptions,
 };
 
@@ -117,6 +117,33 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_readahead_size(self.inner, v as size_t);
         }
         self.option_set_readahead_size = Some(v);
+    }
+
+    pub(crate) fn input_or_default(
+        input: Option<&ReadOptions>,
+        default_readopts: &mut Option<ReadOptions>,
+    ) -> Result<*mut ffi::rocksdb_readoptions_t, Error> {
+        if input.is_none() && default_readopts.is_none() {
+            default_readopts.replace(ReadOptions::default());
+        }
+
+        let ro_handle = input
+            .or_else(|| default_readopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
+
+        if ro_handle.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. \
+                 This is a fairly trivial call, and its \
+                 failure may be indicative of a \
+                 mis-compiled or mis-loaded RocksDB \
+                 library."
+                    .to_string(),
+            ));
+        }
+
+        Ok(ro_handle)
     }
 }
 
@@ -1422,6 +1449,22 @@ impl WriteOptions {
             ffi::rocksdb_writeoptions_disable_WAL(self.inner, disable as c_int);
         }
         self.option_disable_wal = Some(disable);
+    }
+
+    pub(crate) fn input_or_default(
+        input: Option<&WriteOptions>,
+        default_writeopts: &mut Option<WriteOptions>,
+    ) -> Result<*mut ffi::rocksdb_writeoptions_t, Error> {
+        if default_writeopts.is_none() {
+            default_writeopts.replace(WriteOptions::default());
+        }
+
+        let wo_handle = input
+            .or_else(|| default_writeopts.as_ref())
+            .map(|r| r.handle())
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+
+        Ok(wo_handle)
     }
 }
 

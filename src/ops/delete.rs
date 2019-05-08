@@ -87,14 +87,7 @@ where
     {
         let mut default_writeopts = None;
 
-        if default_writeopts.is_none() {
-            default_writeopts.replace(WriteOptions::default());
-        }
-
-        let wo_handle = writeopts
-            .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
 
         let key = key.as_ref();
         let key_ptr = key.as_ptr() as *const c_char;

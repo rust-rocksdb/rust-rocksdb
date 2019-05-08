@@ -112,25 +112,7 @@ where
     ) -> Result<Option<DBPinnableSlice<'a>>, Error> {
         let mut default_readopts = None;
 
-        if readopts.is_none() {
-            default_readopts.replace(ReadOptions::default());
-        }
-
-        let ro_handle = readopts
-            .or_else(|| default_readopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
-
-        if ro_handle.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
-                    .to_string(),
-            ));
-        }
+        let ro_handle = ReadOptions::input_or_default(readopts, &mut default_readopts)?;
 
         let key = key.as_ref();
         let key_ptr = key.as_ptr() as *const c_char;

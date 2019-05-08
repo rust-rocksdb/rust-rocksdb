@@ -28,35 +28,6 @@ impl<'a, T> Transaction<'a, T> {
         Ok(())
     }
 
-    /// Delete a key inside a transaction
-    ///
-    /// ColumnFamilyHandle: default
-    pub fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), Error> {
-        let key = key.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_transaction_delete(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    /// Delete a key inside a transaction
-    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
-        let key = key.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_transaction_delete_cf(
-                self.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     /// Insert a value into the database under the given key.
     ///
     /// ColumnFamilyHandle: default
@@ -156,25 +127,7 @@ where
     ) -> Result<Option<DBVector>, Error> {
         let mut default_readopts = None;
 
-        if readopts.is_none() {
-            default_readopts.replace(ReadOptions::default());
-        }
-
-        let ro_handle = readopts
-            .or_else(|| default_readopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
-
-        if ro_handle.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
-                    .to_string(),
-            ));
-        }
+        let ro_handle = ReadOptions::input_or_default(readopts, &mut default_readopts)?;
 
         let key = key.as_ref();
         let key_ptr = key.as_ptr() as *const c_char;
@@ -241,7 +194,7 @@ impl<'a, T> IterateCF for Transaction<'a, T> {
 
 pub struct TransactionSnapshot<'a, T> {
     db: &'a Transaction<'a, T>,
-    pub(crate) inner: *const ffi::rocksdb_snapshot_t,
+    inner: *const ffi::rocksdb_snapshot_t,
 }
 
 impl<'a, T> ConstHandle<ffi::rocksdb_snapshot_t> for TransactionSnapshot<'a, T> {
@@ -265,6 +218,105 @@ where
         let mut ro = readopts.cloned().unwrap_or_default();
         ro.set_snapshot(self);
         self.db.get_cf_full(cf, key, Some(&ro))
+    }
+}
+
+impl<'a, T> PutCF<()> for Transaction<'a, T> {
+    fn put_cf_full<K, V>(
+        &self,
+        cf: Option<&ColumnFamily>,
+        key: K,
+        value: V,
+        _: Option<&()>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transaction_put_cf(
+                    self.handle(),
+                    cf.handle(),
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transaction_put(
+                    self.handle(),
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+            }
+
+            Ok(())
+        }
+    }
+}
+
+impl<'a, T> Merge<()> for Transaction<'a, T> {
+    fn merge_full<K, V>(&self, key: K, value: V, _writeopts: Option<&()>) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_merge(
+                self.inner, key_ptr, key_len, val_ptr, val_len,
+            ));
+            Ok(())
+        }
+    }
+}
+
+impl<'a, T> DeleteCF<()> for Transaction<'a, T> {
+    fn delete_cf_full<K>(
+        &self,
+        cf: Option<&ColumnFamily>,
+        key: K,
+        _: Option<&()>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+
+        unsafe {
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transaction_delete_cf(
+                    self.handle(),
+                    cf.inner,
+                    key_ptr,
+                    key_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transaction_delete(
+                    self.handle(),
+                    key_ptr,
+                    key_len,
+                )),
+            }
+
+            Ok(())
+        }
     }
 }
 
@@ -293,27 +345,5 @@ impl<'a, T: IterateCF> IterateCF for TransactionSnapshot<'a, T> {
         let mut readopts = readopts.to_owned();
         readopts.set_snapshot(self);
         self.db.get_raw_iter_cf(cf_handle, &readopts)
-    }
-}
-
-impl<'a, T> Merge<()> for Transaction<'a, T> {
-    fn merge_full<K, V>(&self, key: K, value: V, _writeopts: Option<&()>) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-        let key_ptr = key.as_ptr() as *const c_char;
-        let key_len = key.len() as size_t;
-        let val_ptr = value.as_ptr() as *const c_char;
-        let val_len = value.len() as size_t;
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_transaction_merge(
-                self.inner, key_ptr, key_len, val_ptr, val_len,
-            ));
-            Ok(())
-        }
     }
 }

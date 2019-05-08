@@ -213,25 +213,7 @@ impl Get<ReadOptions> for TransactionDB {
     ) -> Result<Option<DBVector>, Error> {
         let mut default_readopts = None;
 
-        if readopts.is_none() {
-            default_readopts.replace(ReadOptions::default());
-        }
-
-        let ro_handle = readopts
-            .or_else(|| default_readopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
-
-        if ro_handle.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
-                    .to_string(),
-            ));
-        }
+        let ro_handle = ReadOptions::input_or_default(readopts, &mut default_readopts)?;
 
         let key = key.as_ref();
         let key_ptr = key.as_ptr() as *const c_char;
@@ -266,14 +248,7 @@ impl Put<WriteOptions> for TransactionDB {
     ) -> Result<(), Error> {
         let mut default_writeopts = None;
 
-        if default_writeopts.is_none() {
-            default_writeopts.replace(WriteOptions::default());
-        }
-
-        let wo_handle = writeopts
-            .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
 
         let key = key.as_ref();
         let value = value.as_ref();
@@ -299,14 +274,7 @@ impl Delete<WriteOptions> for TransactionDB {
     ) -> Result<(), Error> {
         let mut default_writeopts = None;
 
-        if default_writeopts.is_none() {
-            default_writeopts.replace(WriteOptions::default());
-        }
-
-        let wo_handle = writeopts
-            .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
 
         let key = key.as_ref();
         let key_ptr = key.as_ptr() as *const c_char;
@@ -317,6 +285,37 @@ impl Delete<WriteOptions> for TransactionDB {
                 self.inner, wo_handle, key_ptr, key_len,
             ));
 
+            Ok(())
+        }
+    }
+}
+
+impl Merge<WriteOptions> for TransactionDB {
+    fn merge_full<K, V>(
+        &self,
+        key: K,
+        value: V,
+        writeopts: Option<&WriteOptions>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let mut default_writeopts = None;
+
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_merge(
+                self.inner, wo_handle, key_ptr, key_len, val_ptr, val_len,
+            ));
             Ok(())
         }
     }
@@ -374,56 +373,11 @@ impl<'a> Iterate for Snapshot<'a> {
     }
 }
 
-impl Merge<WriteOptions> for TransactionDB {
-    fn merge_full<K, V>(
-        &self,
-        key: K,
-        value: V,
-        writeopts: Option<&WriteOptions>,
-    ) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let mut default_writeopts = None;
-
-        if default_writeopts.is_none() {
-            default_writeopts.replace(WriteOptions::default());
-        }
-
-        let wo_handle = writeopts
-            .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
-
-        let key = key.as_ref();
-        let value = value.as_ref();
-        let key_ptr = key.as_ptr() as *const c_char;
-        let key_len = key.len() as size_t;
-        let val_ptr = value.as_ptr() as *const c_char;
-        let val_len = value.len() as size_t;
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_transactiondb_merge(
-                self.inner, wo_handle, key_ptr, key_len, val_ptr, val_len,
-            ));
-            Ok(())
-        }
-    }
-}
-
 impl WriteOps for TransactionDB {
     fn write_full(&self, batch: WriteBatch, writeopts: Option<&WriteOptions>) -> Result<(), Error> {
         let mut default_writeopts = None;
 
-        if default_writeopts.is_none() {
-            default_writeopts.replace(WriteOptions::default());
-        }
-
-        let wo_handle = writeopts
-            .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
 
         unsafe {
             ffi_try!(ffi::rocksdb_transactiondb_write(

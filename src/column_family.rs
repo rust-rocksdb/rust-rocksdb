@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ColumnFamily, Options};
+use crate::{handle::Handle, ColumnFamily, Options};
 
 /// A descriptor for a RocksDB column family.
 ///
@@ -38,5 +38,11 @@ impl ColumnFamilyDescriptor {
 impl ColumnFamily {
     pub(crate) fn new(handle: *mut ffi::rocksdb_column_family_handle_t) -> ColumnFamily {
         ColumnFamily { inner: handle }
+    }
+}
+
+impl Handle<ffi::rocksdb_column_family_handle_t> for ColumnFamily {
+    fn handle(&self) -> *mut ffi::rocksdb_column_family_handle_t {
+        self.inner
     }
 }

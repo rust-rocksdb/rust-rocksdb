@@ -27,14 +27,7 @@ where
     fn write_full(&self, batch: WriteBatch, writeopts: Option<&WriteOptions>) -> Result<(), Error> {
         let mut default_writeopts = None;
 
-        if default_writeopts.is_none() {
-            default_writeopts.replace(WriteOptions::default());
-        }
-
-        let wo_handle = writeopts
-            .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
 
         unsafe {
             ffi_try!(ffi::rocksdb_write(self.handle(), wo_handle, batch.inner,));

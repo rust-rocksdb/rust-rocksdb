@@ -21,7 +21,7 @@ use crate::{
     open_raw::{OpenRaw, OpenRawFFI},
     ops,
     ops::*,
-    ColumnFamily, DBRawIterator, Error, FlushOptions, Options, ReadOptions, Snapshot,
+    ColumnFamily, DBRawIterator, Error, Options, ReadOptions, Snapshot,
 };
 
 use std::collections::BTreeMap;

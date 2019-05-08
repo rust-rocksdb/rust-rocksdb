@@ -40,7 +40,7 @@ pub trait Iterate {
     }
 }
 
-pub trait IterateCF {
+pub trait IterateCF: Iterate {
     fn get_raw_iter_cf(
         &self,
         cf_handle: &ColumnFamily,

@@ -13,11 +13,10 @@
 // limitations under the License.
 //
 
+use crate::ops::Iterate;
 use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
 use std::slice;
-
-use crate::DB;
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
@@ -73,7 +72,7 @@ use crate::DB;
 /// ```
 pub struct DBRawIterator<'a> {
     pub(crate) inner: *mut ffi::rocksdb_iterator_t,
-    pub(crate) db: PhantomData<&'a DB>,
+    pub(crate) db: PhantomData<&'a dyn Iterate>,
 }
 
 /// An iterator over a database or column family, with specifiable
