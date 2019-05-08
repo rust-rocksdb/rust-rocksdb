@@ -665,6 +665,31 @@ impl Options {
         }
     }
 
+    /// Amount of data to build up in memtables across all column
+    /// families before writing to disk.
+    ///
+    /// This is distinct from write_buffer_size, which enforces a limit
+    /// for a single memtable.
+    ///
+    /// This feature is disabled by default. Specify a non-zero value
+    /// to enable it.
+    ///
+    /// Default: 0 (disabled)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_db_write_buffer_size(128 * 1024 * 1024);
+    /// ```
+    pub fn set_db_write_buffer_size(&mut self, size: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_db_write_buffer_size(self.inner, size);
+        }
+    }
+
     /// Control maximum total data size for a level.
     /// max_bytes_for_level_base is the max total for level-1.
     /// Maximum number of bytes for level L can be calculated as
