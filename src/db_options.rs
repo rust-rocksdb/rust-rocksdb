@@ -129,8 +129,8 @@ impl ReadOptions {
 
         let ro_handle = input
             .or_else(|| default_readopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?;
+            .ok_or_else(|| Error::new("Unable to extract read options.".to_string()))?
+            .handle();
 
         if ro_handle.is_null() {
             return Err(Error::new(
@@ -1461,8 +1461,8 @@ impl WriteOptions {
 
         let wo_handle = input
             .or_else(|| default_writeopts.as_ref())
-            .map(|r| r.handle())
-            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?;
+            .ok_or_else(|| Error::new("Unable to extract write options.".to_string()))?
+            .handle();
 
         Ok(wo_handle)
     }

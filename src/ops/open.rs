@@ -28,14 +28,7 @@ pub trait Open: OpenRaw {
 
     /// Open the database with the specified options.
     fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Self, Error> {
-        let input = OpenRawInput {
-            options: opts,
-            path: path.as_ref(),
-            column_families: vec![],
-            open_descriptor: Self::Descriptor::default(),
-        };
-
-        Self::open_raw(input)
+        Self::open_with_descriptor(opts, path, Self::Descriptor::default())
     }
 
     fn open_with_descriptor<P: AsRef<Path>>(
@@ -77,11 +70,24 @@ pub trait OpenCF: OpenRaw {
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
+        Self::open_cf_descriptors_with_descriptor(opts, path, cfs, Self::Descriptor::default())
+    }
+
+    fn open_cf_descriptors_with_descriptor<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        descriptor: Self::Descriptor,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
         let input = OpenRawInput {
             options: opts,
             path: path.as_ref(),
             column_families: cfs.into_iter().collect(),
-            open_descriptor: Self::Descriptor::default(),
+            open_descriptor: descriptor,
         };
 
         Self::open_raw(input)

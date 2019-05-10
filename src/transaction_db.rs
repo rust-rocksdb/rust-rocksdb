@@ -4,10 +4,11 @@ use crate::{
     handle::{ConstHandle, Handle},
     open_raw::{OpenRaw, OpenRawFFI},
     write_batch::WriteBatch,
-    DBRawIterator, Error, ReadOptions, Transaction, WriteOptions,
+    ColumnFamily, DBRawIterator, Error, ReadOptions, Transaction, WriteOptions,
 };
 use ffi;
 use libc::{c_char, c_uchar, size_t};
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
@@ -17,6 +18,7 @@ use std::ptr;
 pub struct TransactionDB {
     inner: *mut ffi::rocksdb_transactiondb_t,
     path: PathBuf,
+    cfs: BTreeMap<String, ColumnFamily>,
 }
 
 impl TransactionDB {
@@ -39,11 +41,23 @@ impl OpenRaw for TransactionDB {
 
     fn open_ffi(input: OpenRawFFI<'_, Self::Descriptor>) -> Result<*mut Self::Pointer, Error> {
         let pointer = unsafe {
-            ffi_try!(ffi::rocksdb_transactiondb_open(
-                input.options,
-                input.open_descriptor.inner,
-                input.path,
-            ))
+            if input.num_column_families <= 0 {
+                ffi_try!(ffi::rocksdb_transactiondb_open(
+                    input.options,
+                    input.open_descriptor.inner,
+                    input.path,
+                ))
+            } else {
+                ffi_try!(ffi::rocksdb_transactiondb_open_column_families(
+                    input.options,
+                    input.open_descriptor.inner,
+                    input.path,
+                    input.num_column_families,
+                    input.column_family_names,
+                    input.column_family_options,
+                    input.column_family_handles,
+                ))
+            }
         };
 
         Ok(pointer)
@@ -53,15 +67,29 @@ impl OpenRaw for TransactionDB {
         path: PathBuf,
         _open_descriptor: Self::Descriptor,
         pointer: *mut Self::Pointer,
-        _column_families: I,
+        column_families: I,
     ) -> Result<Self, Error>
     where
         I: IntoIterator<Item = (String, *mut ffi::rocksdb_column_family_handle_t)>,
     {
+        let cfs: BTreeMap<_, _> = column_families
+            .into_iter()
+            .map(|(k, h)| (k, ColumnFamily::new(h)))
+            .collect();
         Ok(TransactionDB {
             inner: pointer,
             path,
+            cfs,
         })
+    }
+}
+
+impl GetColumnFamilys for TransactionDB {
+    fn get_cfs(&self) -> &BTreeMap<String, ColumnFamily> {
+        &self.cfs
+    }
+    fn get_mut_cfs(&mut self) -> &mut BTreeMap<String, ColumnFamily> {
+        &mut self.cfs
     }
 }
 
@@ -98,6 +126,25 @@ impl Iterate for TransactionDB {
                 inner: ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.handle()),
                 db: PhantomData,
             }
+        }
+    }
+}
+
+impl IterateCF for TransactionDB {
+    fn get_raw_iter_cf(
+        &self,
+        cf_handle: &ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<DBRawIterator, Error> {
+        unsafe {
+            Ok(DBRawIterator {
+                inner: ffi::rocksdb_transactiondb_create_iterator_cf(
+                    self.inner,
+                    readopts.handle(),
+                    cf_handle.handle(),
+                ),
+                db: PhantomData,
+            })
         }
     }
 }
@@ -205,9 +252,10 @@ impl CreateCheckpointObject for TransactionDB {
     }
 }
 
-impl Get<ReadOptions> for TransactionDB {
-    fn get_full<K: AsRef<[u8]>>(
+impl GetCF<ReadOptions> for TransactionDB {
+    fn get_cf_full<K: AsRef<[u8]>>(
         &self,
+        cf: Option<&ColumnFamily>,
         key: K,
         readopts: Option<&ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
@@ -222,13 +270,23 @@ impl Get<ReadOptions> for TransactionDB {
         unsafe {
             let mut val_len: size_t = 0;
 
-            let val = ffi_try!(ffi::rocksdb_transactiondb_get(
-                self.inner,
-                ro_handle,
-                key_ptr,
-                key_len,
-                &mut val_len,
-            )) as *mut u8;
+            let val = match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transactiondb_get_cf(
+                    self.handle(),
+                    ro_handle,
+                    cf.handle(),
+                    key_ptr,
+                    key_len,
+                    &mut val_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transactiondb_get(
+                    self.handle(),
+                    ro_handle,
+                    key_ptr,
+                    key_len,
+                    &mut val_len,
+                )),
+            } as *mut u8;
 
             if val.is_null() {
                 Ok(None)
@@ -239,60 +297,10 @@ impl Get<ReadOptions> for TransactionDB {
     }
 }
 
-impl Put<WriteOptions> for TransactionDB {
-    fn put_full<K: AsRef<[u8]>, V: AsRef<[u8]>>(
+impl PutCF<WriteOptions> for TransactionDB {
+    fn put_cf_full<K, V>(
         &self,
-        key: K,
-        value: V,
-        writeopts: Option<&WriteOptions>,
-    ) -> Result<(), Error> {
-        let mut default_writeopts = None;
-
-        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
-
-        let key = key.as_ref();
-        let value = value.as_ref();
-        let key_ptr = key.as_ptr() as *const c_char;
-        let key_len = key.len() as size_t;
-        let val_ptr = value.as_ptr() as *const c_char;
-        let val_len = value.len() as size_t;
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_transactiondb_put(
-                self.inner, wo_handle, key_ptr, key_len, val_ptr, val_len,
-            ));
-            Ok(())
-        }
-    }
-}
-
-impl Delete<WriteOptions> for TransactionDB {
-    fn delete_full<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-        writeopts: Option<&WriteOptions>,
-    ) -> Result<(), Error> {
-        let mut default_writeopts = None;
-
-        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
-
-        let key = key.as_ref();
-        let key_ptr = key.as_ptr() as *const c_char;
-        let key_len = key.len() as size_t;
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_transactiondb_delete(
-                self.inner, wo_handle, key_ptr, key_len,
-            ));
-
-            Ok(())
-        }
-    }
-}
-
-impl Merge<WriteOptions> for TransactionDB {
-    fn merge_full<K, V>(
-        &self,
+        cf: Option<&ColumnFamily>,
         key: K,
         value: V,
         writeopts: Option<&WriteOptions>,
@@ -313,9 +321,115 @@ impl Merge<WriteOptions> for TransactionDB {
         let val_len = value.len() as size_t;
 
         unsafe {
-            ffi_try!(ffi::rocksdb_transactiondb_merge(
-                self.inner, wo_handle, key_ptr, key_len, val_ptr, val_len,
-            ));
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transactiondb_put_cf(
+                    self.handle(),
+                    wo_handle,
+                    cf.handle(),
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transactiondb_put(
+                    self.handle(),
+                    wo_handle,
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+            }
+
+            Ok(())
+        }
+    }
+}
+
+impl DeleteCF<WriteOptions> for TransactionDB {
+    fn delete_cf_full<K>(
+        &self,
+        cf: Option<&ColumnFamily>,
+        key: K,
+        writeopts: Option<&WriteOptions>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let mut default_writeopts = None;
+
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
+
+        let key = key.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+
+        unsafe {
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transactiondb_delete_cf(
+                    self.handle(),
+                    wo_handle,
+                    cf.handle(),
+                    key_ptr,
+                    key_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transactiondb_delete(
+                    self.handle(),
+                    wo_handle,
+                    key_ptr,
+                    key_len,
+                )),
+            }
+
+            Ok(())
+        }
+    }
+}
+
+impl MergeCF<WriteOptions> for TransactionDB {
+    fn merge_cf_full<K, V>(
+        &self,
+        cf: Option<&ColumnFamily>,
+        key: K,
+        value: V,
+        writeopts: Option<&WriteOptions>,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let mut default_writeopts = None;
+
+        let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
+
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        let val_ptr = value.as_ptr() as *const c_char;
+        let val_len = value.len() as size_t;
+
+        unsafe {
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transactiondb_merge_cf(
+                    self.handle(),
+                    wo_handle,
+                    cf.handle(),
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transactiondb_merge(
+                    self.handle(),
+                    wo_handle,
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+            }
+
             Ok(())
         }
     }
@@ -344,16 +458,17 @@ impl<'a> ConstHandle<ffi::rocksdb_snapshot_t> for Snapshot<'a> {
 
 impl<'a> Read for Snapshot<'a> {}
 
-impl<'a> Get<ReadOptions> for Snapshot<'a> {
-    fn get_full<K: AsRef<[u8]>>(
+impl<'a> GetCF<ReadOptions> for Snapshot<'a> {
+    fn get_cf_full<K: AsRef<[u8]>>(
         &self,
+        cf: Option<&ColumnFamily>,
         key: K,
         readopts: Option<&ReadOptions>,
     ) -> Result<Option<DBVector>, Error> {
         let mut ro = readopts.cloned().unwrap_or_default();
         ro.set_snapshot(self);
 
-        self.db.get_full(key, Some(&ro))
+        self.db.get_cf_full(cf, key, Some(&ro))
     }
 }
 
@@ -370,6 +485,18 @@ impl<'a> Iterate for Snapshot<'a> {
         let mut ro = readopts.to_owned();
         ro.set_snapshot(self);
         self.db.get_raw_iter(&ro)
+    }
+}
+
+impl<'a> IterateCF for Snapshot<'a> {
+    fn get_raw_iter_cf(
+        &self,
+        cf_handle: &ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<DBRawIterator, Error> {
+        let mut ro = readopts.to_owned();
+        ro.set_snapshot(self);
+        self.db.get_raw_iter_cf(cf_handle, &ro)
     }
 }
 

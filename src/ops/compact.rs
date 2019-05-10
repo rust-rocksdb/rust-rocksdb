@@ -16,8 +16,8 @@ where
 {
     fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
         unsafe {
-            let start = start.as_ref().map(|s| s.as_ref());
-            let end = end.as_ref().map(|e| e.as_ref());
+            let start = start.as_ref().map(AsRef::as_ref);
+            let end = end.as_ref().map(AsRef::as_ref);
 
             ffi::rocksdb_compact_range(
                 self.handle(),

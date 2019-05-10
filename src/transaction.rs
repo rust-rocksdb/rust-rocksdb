@@ -4,7 +4,7 @@ use crate::{
     ColumnFamily, DBRawIterator, DBVector, Error, ReadOptions,
 };
 use ffi;
-use libc::{c_char, c_void, size_t};
+use libc::{c_char, c_uchar, c_void, size_t};
 use std::marker::PhantomData;
 
 pub struct Transaction<'a, T> {
@@ -26,49 +26,6 @@ impl<'a, T> Transaction<'a, T> {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner,));
         }
         Ok(())
-    }
-
-    /// Insert a value into the database under the given key.
-    ///
-    /// ColumnFamilyHandle: default
-    pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_transaction_put(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    /// Insert a value into the database under the given key.
-    pub fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_transaction_put_cf(
-                self.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
     }
 
     /// Transaction rollback
@@ -94,6 +51,78 @@ impl<'a, T> Transaction<'a, T> {
             TransactionSnapshot {
                 inner: snapshot,
                 db: self,
+            }
+        }
+    }
+
+    pub fn get_for_update<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
+        let opt = ReadOptions::default();
+        self.get_for_update_opt(key, &opt, true)
+    }
+
+    pub fn get_for_update_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+        exclusive: bool,
+    ) -> Result<Option<DBVector>, Error> {
+        let key = key.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        unsafe {
+            let mut val_len: size_t = 0;
+            let val = ffi_try!(ffi::rocksdb_transaction_get_for_update(
+                self.handle(),
+                readopts.handle(),
+                key_ptr,
+                key_len,
+                &mut val_len,
+                exclusive as c_uchar,
+            )) as *mut u8;
+
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
+            }
+        }
+    }
+
+    pub fn get_for_update_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        key: K,
+    ) -> Result<Option<DBVector>, Error> {
+        let opt = ReadOptions::default();
+        self.get_for_update_cf_opt(cf, key, &opt, true)
+    }
+
+    pub fn get_for_update_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        key: K,
+        readopts: &ReadOptions,
+        exclusive: bool,
+    ) -> Result<Option<DBVector>, Error> {
+        let key = key.as_ref();
+        let key_ptr = key.as_ptr() as *const c_char;
+        let key_len = key.len() as size_t;
+        unsafe {
+            let mut val_len: size_t = 0;
+            let val = ffi_try!(ffi::rocksdb_transaction_get_for_update_cf(
+                self.handle(),
+                readopts.handle(),
+                cf.handle(),
+                key_ptr,
+                key_len,
+                &mut val_len,
+                exclusive as c_uchar,
+            )) as *mut u8;
+
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBVector::from_c(val, val_len)))
             }
         }
     }
@@ -264,8 +293,14 @@ impl<'a, T> PutCF<()> for Transaction<'a, T> {
     }
 }
 
-impl<'a, T> Merge<()> for Transaction<'a, T> {
-    fn merge_full<K, V>(&self, key: K, value: V, _writeopts: Option<&()>) -> Result<(), Error>
+impl<'a, T> MergeCF<()> for Transaction<'a, T> {
+    fn merge_cf_full<K, V>(
+        &self,
+        cf: Option<&ColumnFamily>,
+        key: K,
+        value: V,
+        _: Option<&()>,
+    ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -278,9 +313,24 @@ impl<'a, T> Merge<()> for Transaction<'a, T> {
         let val_len = value.len() as size_t;
 
         unsafe {
-            ffi_try!(ffi::rocksdb_transaction_merge(
-                self.inner, key_ptr, key_len, val_ptr, val_len,
-            ));
+            match cf {
+                Some(cf) => ffi_try!(ffi::rocksdb_transaction_merge_cf(
+                    self.handle(),
+                    cf.handle(),
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+                None => ffi_try!(ffi::rocksdb_transaction_merge(
+                    self.handle(),
+                    key_ptr,
+                    key_len,
+                    val_ptr,
+                    val_len,
+                )),
+            }
+
             Ok(())
         }
     }
