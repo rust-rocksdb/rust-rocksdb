@@ -45,9 +45,9 @@
 #include "util/file_reader_writer.h"
 #include "util/coding.h"
 
-#include "rocksdb/utilities/titandb/db.h"
-#include "utilities/titandb/blob_format.h"
-#include "utilities/titandb/options.h"
+#include "titan/db.h"
+#include "titan/options.h"
+#include "src/blob_format.h"
 
 #include <stdlib.h>
 

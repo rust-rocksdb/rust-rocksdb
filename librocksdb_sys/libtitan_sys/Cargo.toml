@@ -1,23 +1,11 @@
 [package]
-name = "librocksdb_sys"
-version = "0.1.0"
-authors = ["Jay Lee <busyjaylee@gmail.com>"]
+name = "libtitan_sys"
+version = "0.0.1"
 build = "build.rs"
-links = "rocksdb"
+links = "titan"
 
 [dependencies]
 libc = "0.2.11"
-libtitan_sys = { path = "libtitan_sys" }
-
-[dev-dependencies]
-tempdir = "0.3"
-
-[features]
-default = []
-# portable doesn't require static link, though it's meaningless
-# when not using with static-link right now in this crate.
-portable = []
-sse = []
 
 [build-dependencies]
 cc = "1.0.3"
