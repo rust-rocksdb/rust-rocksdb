@@ -29,6 +29,7 @@ mod compact;
 mod flush;
 mod iter;
 mod property;
+mod setoptions;
 mod transaction;
 
 pub use self::delete::{Delete, DeleteCF};
@@ -55,5 +56,6 @@ pub use self::columnfamily::GetColumnFamilys;
 pub use self::compact::{CompactRange, CompactRangeCF};
 pub use self::flush::Flush;
 pub use self::iter::{Iterate, IterateCF};
-pub use self::property::{GetProperty, GetPropertyCF, SetOptions};
+pub use self::property::{GetProperty, GetPropertyCF};
+pub use self::setoptions::SetOptions;
 pub use self::transaction::TransactionBegin;

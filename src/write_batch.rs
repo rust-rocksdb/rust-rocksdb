@@ -15,7 +15,7 @@
 
 use ffi;
 
-use crate::{ColumnFamily, Error};
+use crate::{handle::Handle, ColumnFamily, Error};
 
 use libc::{c_char, size_t};
 
@@ -43,7 +43,7 @@ use libc::{c_char, size_t};
 /// # }
 /// ```
 pub struct WriteBatch {
-    pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
+    inner: *mut ffi::rocksdb_writebatch_t,
 }
 
 impl WriteBatch {
@@ -75,7 +75,7 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_put(
-                self.inner,
+                self.handle(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -95,8 +95,8 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_put_cf(
-                self.inner,
-                cf.inner,
+                self.handle(),
+                cf.handle(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -116,7 +116,7 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_merge(
-                self.inner,
+                self.handle(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -136,8 +136,8 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_merge_cf(
-                self.inner,
-                cf.inner,
+                self.handle(),
+                cf.handle(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -155,7 +155,7 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_delete(
-                self.inner,
+                self.handle(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
@@ -168,8 +168,8 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_delete_cf(
-                self.inner,
-                cf.inner,
+                self.handle(),
+                cf.handle(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
@@ -187,7 +187,7 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_delete_range(
-                self.inner,
+                self.handle(),
                 start_key.as_ptr() as *const c_char,
                 start_key.len() as size_t,
                 end_key.as_ptr() as *const c_char,
@@ -212,8 +212,8 @@ impl WriteBatch {
 
         unsafe {
             ffi::rocksdb_writebatch_delete_range_cf(
-                self.inner,
-                cf.inner,
+                self.handle(),
+                cf.handle(),
                 start_key.as_ptr() as *const c_char,
                 start_key.len() as size_t,
                 end_key.as_ptr() as *const c_char,
@@ -243,5 +243,11 @@ impl Default for WriteBatch {
 impl Drop for WriteBatch {
     fn drop(&mut self) {
         unsafe { ffi::rocksdb_writebatch_destroy(self.inner) }
+    }
+}
+
+impl Handle<ffi::rocksdb_writebatch_t> for WriteBatch {
+    fn handle(&self) -> *mut ffi::rocksdb_writebatch_t {
+        self.inner
     }
 }

@@ -24,6 +24,7 @@ pub trait Put<W> {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
 
+    /// Insert a value into the database under the given key.
     fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -121,7 +122,7 @@ where
                 Some(cf) => ffi_try!(ffi::rocksdb_put_cf(
                     self.handle(),
                     wo_handle,
-                    cf.inner,
+                    cf.handle(),
                     key_ptr,
                     key_len,
                     val_ptr,

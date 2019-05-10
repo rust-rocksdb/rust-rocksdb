@@ -383,7 +383,7 @@ impl WriteOps for TransactionDB {
             ffi_try!(ffi::rocksdb_transactiondb_write(
                 self.handle(),
                 wo_handle,
-                batch.inner,
+                batch.handle(),
             ));
             Ok(())
         }

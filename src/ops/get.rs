@@ -25,6 +25,7 @@ pub trait Get<R> {
         readopts: Option<&R>,
     ) -> Result<Option<DBVector>, Error>;
 
+    /// Return the bytes associated with a key value
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
         self.get_full(key, None)
     }
@@ -94,7 +95,7 @@ where
                 Some(cf) => ffi_try!(ffi::rocksdb_get_cf(
                     self.handle(),
                     ro_handle,
-                    cf.inner,
+                    cf.handle(),
                     key_ptr,
                     key_len,
                     &mut val_len,

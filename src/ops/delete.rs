@@ -23,6 +23,9 @@ pub trait Delete<W> {
     where
         K: AsRef<[u8]>;
 
+    /// Remove the database entry for key.
+    ///
+    /// Returns an error if the key was not found.
     fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -98,7 +101,7 @@ where
                 Some(cf) => ffi_try!(ffi::rocksdb_delete_cf(
                     self.handle(),
                     wo_handle,
-                    cf.inner,
+                    cf.handle(),
                     key_ptr,
                     key_len,
                 )),

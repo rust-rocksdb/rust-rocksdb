@@ -22,6 +22,9 @@ pub trait Iterate {
         self.iterator_opt(mode, &readopts)
     }
 
+    /// Opens an interator with `set_total_order_seek` enabled.
+    /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
+    /// with a Hash-based implementation.
     fn full_iterator(&self, mode: IteratorMode) -> DBIterator {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
@@ -60,6 +63,17 @@ pub trait IterateCF: Iterate {
         };
         rv.set_mode(mode);
         Ok(rv)
+    }
+
+    /// Opens an interator using the provided ReadOptions.
+    /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
+    fn iterator_cf_opt(
+        &self,
+        cf_handle: &ColumnFamily,
+        mode: IteratorMode,
+        readopts: &ReadOptions,
+    ) -> Result<DBIterator, Error> {
+        self.get_iter_cf(cf_handle, readopts, mode)
     }
 
     fn iterator_cf(

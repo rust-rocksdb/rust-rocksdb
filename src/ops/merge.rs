@@ -106,7 +106,7 @@ where
                 Some(cf) => ffi_try!(ffi::rocksdb_merge_cf(
                     self.handle(),
                     wo_handle,
-                    cf.inner,
+                    cf.handle(),
                     key_ptr,
                     key_len,
                     val_ptr,

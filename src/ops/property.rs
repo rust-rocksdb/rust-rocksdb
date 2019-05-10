@@ -1,45 +1,6 @@
 use crate::{handle::Handle, ColumnFamily, Error};
-use libc::{c_char, c_void};
+use libc::c_void;
 use std::ffi::{CStr, CString};
-
-pub trait SetOptions {
-    fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error>;
-}
-
-impl<T> SetOptions for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
-    fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
-        let copts = opts
-            .iter()
-            .map(|(name, value)| {
-                let cname = match CString::new(name.as_bytes()) {
-                    Ok(cname) => cname,
-                    Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
-                };
-                let cvalue = match CString::new(value.as_bytes()) {
-                    Ok(cvalue) => cvalue,
-                    Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
-                };
-                Ok((cname, cvalue))
-            })
-            .collect::<Result<Vec<(CString, CString)>, Error>>()?;
-
-        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
-        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
-        let count = opts.len() as i32;
-        unsafe {
-            ffi_try!(ffi::rocksdb_set_options(
-                self.handle(),
-                count,
-                cnames.as_ptr(),
-                cvalues.as_ptr(),
-            ));
-        }
-        Ok(())
-    }
-}
 
 pub trait GetProperty {
     /// Retrieves a RocksDB property by name.
@@ -47,6 +8,7 @@ pub trait GetProperty {
     /// For a full list of properties, see
     /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
     fn property_value(&self, name: &str) -> Result<Option<String>, Error>;
+
     /// Retrieves a RocksDB property and casts it to an integer.
     ///
     /// For a full list of properties that return int values, see
@@ -72,6 +34,7 @@ pub trait GetPropertyCF {
     /// For a full list of properties, see
     /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
     fn property_value_cf(&self, cf: &ColumnFamily, name: &str) -> Result<Option<String>, Error>;
+
     /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
     ///
     /// For a full list of properties that return int values, see

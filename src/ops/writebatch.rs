@@ -30,7 +30,7 @@ where
         let wo_handle = WriteOptions::input_or_default(writeopts, &mut default_writeopts)?;
 
         unsafe {
-            ffi_try!(ffi::rocksdb_write(self.handle(), wo_handle, batch.inner,));
+            ffi_try!(ffi::rocksdb_write(self.handle(), wo_handle, batch.handle(),));
             Ok(())
         }
     }
