@@ -234,7 +234,7 @@ pub fn test_optimistic_transaction_merge() {
         trans.commit().unwrap();
 
         let k1 = trans.get(b"k1").unwrap().unwrap();
-        assert_eq!(k1.to_utf8().unwrap(), "abcdefg");
+        assert_eq!(&*k1, b"abcdefg");
 
         trans.commit().unwrap();
     }

@@ -1,11 +1,13 @@
-use crate::ops::*;
 use crate::{
     db_vector::DBVector,
+    ffi_util::to_cstring,
     handle::{ConstHandle, Handle},
     open_raw::{OpenRaw, OpenRawFFI},
+    ops::*,
     write_batch::WriteBatch,
-    ColumnFamily, DBRawIterator, Error, ReadOptions, Transaction, WriteOptions,
+    ColumnFamily, DBRawIterator, Error, Options, ReadOptions, Transaction, WriteOptions,
 };
+
 use ffi;
 use libc::{c_char, c_uchar, size_t};
 use std::collections::BTreeMap;
@@ -167,6 +169,32 @@ impl TransactionDBOptions {
         unsafe {
             let inner = ffi::rocksdb_transactiondb_options_create();
             TransactionDBOptions { inner }
+        }
+    }
+
+    pub fn set_default_lock_timeout(&self, default_lock_timeout: i64) {
+        unsafe {
+            ffi::rocksdb_transactiondb_options_set_default_lock_timeout(
+                self.inner,
+                default_lock_timeout,
+            )
+        }
+    }
+
+    pub fn set_max_num_locks(&self, max_num_locks: i64) {
+        unsafe { ffi::rocksdb_transactiondb_options_set_max_num_locks(self.inner, max_num_locks) }
+    }
+
+    pub fn set_num_stripes(&self, num_stripes: usize) {
+        unsafe { ffi::rocksdb_transactiondb_options_set_num_stripes(self.inner, num_stripes) }
+    }
+
+    pub fn set_transaction_lock_timeout(&self, txn_lock_timeout: i64) {
+        unsafe {
+            ffi::rocksdb_transactiondb_options_set_transaction_lock_timeout(
+                self.inner,
+                txn_lock_timeout,
+            )
         }
     }
 }
@@ -432,6 +460,26 @@ impl MergeCF<WriteOptions> for TransactionDB {
 
             Ok(())
         }
+    }
+}
+
+impl CreateCf for TransactionDB {
+    fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
+        let cname = to_cstring(
+            name.as_ref(),
+            "Failed to convert path to CString when opening rocksdb",
+        )?;
+        unsafe {
+            let cf_handle = ffi_try!(ffi::rocksdb_transactiondb_create_column_family(
+                self.handle(),
+                opts.const_handle(),
+                cname.as_ptr(),
+            ));
+
+            self.get_mut_cfs()
+                .insert(name.as_ref().to_string(), ColumnFamily::new(cf_handle));
+        };
+        Ok(())
     }
 }
 

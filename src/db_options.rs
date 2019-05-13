@@ -1523,3 +1523,9 @@ mod tests {
         });
     }
 }
+
+impl ConstHandle<ffi::rocksdb_options_t> for Options {
+    fn const_handle(&self) -> *const ffi::rocksdb_options_t {
+        self.inner
+    }
+}
