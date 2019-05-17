@@ -45,6 +45,7 @@ impl<'a, T> Transaction<'a, T> {
         unsafe { ffi::rocksdb_transaction_set_savepoint(self.inner) }
     }
 
+    /// Get Snapshot
     pub fn snapshot(&'a self) -> TransactionSnapshot<'a, T> {
         unsafe {
             let snapshot = ffi::rocksdb_transaction_get_snapshot(self.inner);
@@ -55,11 +56,15 @@ impl<'a, T> Transaction<'a, T> {
         }
     }
 
+    /// Get For Update
+    /// ReadOptions: Default
+    /// exclusive: true
     pub fn get_for_update<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
         let opt = ReadOptions::default();
         self.get_for_update_opt(key, &opt, true)
     }
 
+    /// Get For Update with custom ReadOptions and exclusive
     pub fn get_for_update_opt<K: AsRef<[u8]>>(
         &self,
         key: K,

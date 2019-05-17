@@ -79,8 +79,8 @@ impl ReadOptions {
     }
 
     pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
-        let key = key.as_ref();
-
+        self.option_set_iterate_upper_bound = Some(key.as_ref().to_vec());
+        let key = self.option_set_iterate_upper_bound.as_ref().unwrap();
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(
                 self.inner,
@@ -88,7 +88,6 @@ impl ReadOptions {
                 key.len() as size_t,
             );
         }
-        self.option_set_iterate_upper_bound = Some(key.to_vec());
     }
 
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
