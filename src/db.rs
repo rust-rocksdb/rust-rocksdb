@@ -1781,8 +1781,15 @@ impl ReadOptions {
         }
     }
 
-    /// Set the upper bound for an iterator, and the upper bound itself is not included on the iteration result.
-    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
+    /// Set the upper bound for an iterator.
+    /// The upper bound itself is not included on the iteration result.
+    ///
+    /// # Safety
+    ///
+    /// This function will store a clone of key and will give a raw pointer of it to the
+    /// underlying C++ API, therefore, when given to any other [`DB`] method you must ensure
+    /// that this [`ReadOptions`] value does not leave the scope too early (e.g. `DB::iterator_cf_opt`).
+    pub unsafe fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(
