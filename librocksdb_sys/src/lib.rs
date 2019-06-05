@@ -272,6 +272,14 @@ pub enum DBRateLimiterMode {
     AllIo = 3,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum DBTitanDBBlobRunMode {
+    Normal = 0,
+    ReadOnly = 1,
+    Fallback = 2,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -1849,6 +1857,7 @@ extern "C" {
     pub fn ctitandb_options_set_discardable_ratio(opts: *mut DBTitanDBOptions, ratio: f64);
     pub fn ctitandb_options_set_sample_ratio(opts: *mut DBTitanDBOptions, ratio: f64);
     pub fn ctitandb_options_set_merge_small_file_threshold(opts: *mut DBTitanDBOptions, size: u64);
+    pub fn ctitandb_options_set_blob_run_mode(opts: *mut DBTitanDBOptions, t: DBTitanDBBlobRunMode);
 }
 
 #[cfg(test)]

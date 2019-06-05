@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString};
 use std::ops::Deref;
 
 use crocksdb_ffi::{self, DBCompressionType, DBTitanBlobIndex, DBTitanDBOptions};
-use librocksdb_sys::ctitandb_encode_blob_index;
+use librocksdb_sys::{ctitandb_encode_blob_index, DBTitanDBBlobRunMode};
 use rocksdb::Cache;
 use rocksdb_options::LRUCacheOptions;
 use std::ops::DerefMut;
@@ -115,6 +115,12 @@ impl TitanDBOptions {
     pub fn set_merge_small_file_threshold(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::ctitandb_options_set_merge_small_file_threshold(self.inner, size);
+        }
+    }
+
+    pub fn set_blob_run_mode(&mut self, t: DBTitanDBBlobRunMode) {
+        unsafe {
+            crocksdb_ffi::ctitandb_options_set_blob_run_mode(self.inner, t);
         }
     }
 }

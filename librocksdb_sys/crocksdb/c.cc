@@ -170,6 +170,7 @@ using rocksdb::titandb::TitanCFOptions;
 using rocksdb::titandb::TitanDB;
 using rocksdb::titandb::TitanDBOptions;
 using rocksdb::titandb::TitanOptions;
+using rocksdb::titandb::TitanBlobRunMode;
 
 using std::shared_ptr;
 
@@ -5101,6 +5102,11 @@ void ctitandb_options_set_discardable_ratio(ctitandb_options_t* options,
 void ctitandb_options_set_sample_ratio(ctitandb_options_t* options,
                                        float ratio) {
   options->rep.sample_file_size_ratio = ratio;
+}
+
+void ctitandb_options_set_blob_run_mode(ctitandb_options_t* options,
+                                        int mode) {
+  options->rep.blob_run_mode = static_cast<TitanBlobRunMode>(mode);
 }
 
 }  // end extern "C"
