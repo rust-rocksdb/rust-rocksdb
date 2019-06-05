@@ -996,6 +996,14 @@ impl DBOptions {
             );
         }
     }
+
+    /// Set paranoid checks. The default value is `true`. We can set it to `false`
+    /// to skip manifest checks.
+    pub fn set_paranoid_checks(&self, enable: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_paranoid_checks(self.inner, enable as u8);
+        }
+    }
 }
 
 pub struct ColumnFamilyOptions {

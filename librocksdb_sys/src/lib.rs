@@ -325,6 +325,7 @@ extern "C" {
     pub fn crocksdb_options_create() -> *mut Options;
     pub fn crocksdb_options_copy(opts: *const Options) -> *mut Options;
     pub fn crocksdb_options_destroy(opts: *mut Options);
+    pub fn crocksdb_options_set_paranoid_checks(opts: *mut Options, _: u8);
     pub fn crocksdb_column_family_descriptor_destroy(cf_desc: *mut ColumnFamilyDescriptor);
     pub fn crocksdb_name_from_column_family_descriptor(
         cf_descs: *const ColumnFamilyDescriptor,
