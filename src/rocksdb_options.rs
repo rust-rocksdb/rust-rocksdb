@@ -895,6 +895,12 @@ impl DBOptions {
         }
     }
 
+    pub fn set_recycle_log_file_num(&mut self, num: u64) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_recycle_log_file_num(self.inner, num as size_t);
+        }
+    }
+
     pub fn set_compaction_readahead_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compaction_readahead_size(

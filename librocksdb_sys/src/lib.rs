@@ -456,6 +456,7 @@ extern "C" {
     pub fn crocksdb_options_set_log_file_time_to_roll(options: *mut Options, bytes: size_t);
     pub fn crocksdb_options_set_info_log_level(options: *mut Options, level: DBInfoLogLevel);
     pub fn crocksdb_options_set_keep_log_file_num(options: *mut Options, num: size_t);
+    pub fn crocksdb_options_set_recycle_log_file_num(options: *mut Options, num: size_t);
     pub fn crocksdb_options_set_max_manifest_file_size(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_set_hash_skip_list_rep(
         options: *mut Options,

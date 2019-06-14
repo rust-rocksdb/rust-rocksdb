@@ -50,6 +50,7 @@ fn test_log_file_opt() {
     opts.create_if_missing(true);
     opts.set_max_log_file_size(100 * 1024 * 1024);
     opts.set_keep_log_file_num(10);
+    opts.set_recycle_log_file_num(10);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
 }
