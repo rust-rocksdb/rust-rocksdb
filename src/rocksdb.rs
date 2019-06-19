@@ -370,7 +370,6 @@ pub struct Range<'a> {
 
 impl<'a> Range<'a> {
     pub fn new(start_key: &'a [u8], end_key: &'a [u8]) -> Range<'a> {
-        assert!(start_key <= end_key);
         Range {
             start_key: start_key,
             end_key: end_key,
