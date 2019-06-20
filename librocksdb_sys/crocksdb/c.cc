@@ -5068,12 +5068,12 @@ void ctitandb_options_set_min_gc_batch_size(ctitandb_options_t* options,
 }
 
 void ctitandb_options_set_blob_file_discardable_ratio(
-    ctitandb_options_t* options, float ratio) {
+    ctitandb_options_t* options, double ratio) {
   options->rep.blob_file_discardable_ratio = ratio;
 }
 
 void ctitandb_options_set_sample_file_size_ratio(ctitandb_options_t* options,
-                                                 float ratio) {
+                                                 double ratio) {
   options->rep.sample_file_size_ratio = ratio;
 }
 
@@ -5095,12 +5095,12 @@ void ctitandb_options_set_blob_cache(ctitandb_options_t* options,
 }
 
 void ctitandb_options_set_discardable_ratio(ctitandb_options_t* options,
-                                            float ratio) {
+                                            double ratio) {
   options->rep.blob_file_discardable_ratio = ratio;
 }
 
 void ctitandb_options_set_sample_ratio(ctitandb_options_t* options,
-                                       float ratio) {
+                                       double ratio) {
   options->rep.sample_file_size_ratio = ratio;
 }
 

@@ -2020,10 +2020,10 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_min_gc_batch_size(
 
 extern C_ROCKSDB_LIBRARY_API void
 ctitandb_options_set_blob_file_discardable_ratio(ctitandb_options_t* options,
-                                                 float ratio);
+                                                 double ratio);
 
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_sample_file_size_ratio(
-    ctitandb_options_t* options, float ratio);
+    ctitandb_options_t* options, double ratio);
 
 extern C_ROCKSDB_LIBRARY_API void
 ctitandb_options_set_merge_small_file_threshold(ctitandb_options_t* options,
@@ -2036,10 +2036,10 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_blob_cache(
     ctitandb_options_t* options, crocksdb_cache_t* cache);
 
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_discardable_ratio(
-    ctitandb_options_t* options, float ratio);
+    ctitandb_options_t* options, double ratio);
 
 extern void ctitandb_options_set_sample_ratio(ctitandb_options_t* options,
-                                              float ratio);
+                                              double ratio);
 
 #ifdef __cplusplus
 }  /* end extern "C" */
