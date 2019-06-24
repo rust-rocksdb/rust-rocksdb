@@ -20,7 +20,7 @@ use crocksdb_ffi::{
     DBCompactionOptions, DBCompressionType, DBFifoCompactionOptions, DBFlushOptions,
     DBInfoLogLevel, DBInstance, DBLRUCacheOptions, DBRateLimiter, DBRateLimiterMode, DBReadOptions,
     DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
-    DBStatisticsTickerType, DBTitanDBOptions, DBWriteOptions, Options,
+    DBStatisticsTickerType, DBTitanDBOptions, DBTitanReadOptions, DBWriteOptions, Options,
 };
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
@@ -252,11 +252,17 @@ pub struct ReadOptions {
     inner: *mut DBReadOptions,
     lower_bound: Vec<u8>,
     upper_bound: Vec<u8>,
+    titan_inner: *mut DBTitanReadOptions,
 }
 
 impl Drop for ReadOptions {
     fn drop(&mut self) {
-        unsafe { crocksdb_ffi::crocksdb_readoptions_destroy(self.inner) }
+        unsafe {
+            crocksdb_ffi::crocksdb_readoptions_destroy(self.inner);
+            if !self.titan_inner.is_null() {
+                crocksdb_ffi::ctitandb_readoptions_destroy(self.titan_inner);
+            }
+        }
     }
 }
 
@@ -269,6 +275,7 @@ impl Default for ReadOptions {
                 inner: opts,
                 lower_bound: vec![],
                 upper_bound: vec![],
+                titan_inner: ptr::null_mut::<DBTitanReadOptions>(),
             }
         }
     }
@@ -392,8 +399,21 @@ impl ReadOptions {
         }
     }
 
-    pub unsafe fn get_inner(&self) -> *const DBReadOptions {
+    pub fn get_inner(&self) -> *const DBReadOptions {
         self.inner
+    }
+
+    pub fn get_titan_inner(&self) -> *const DBTitanReadOptions {
+        self.titan_inner
+    }
+
+    pub fn set_titan_key_only(&mut self, v: bool) {
+        unsafe {
+            if self.titan_inner.is_null() {
+                self.titan_inner = crocksdb_ffi::ctitandb_readoptions_create();
+            }
+            crocksdb_ffi::ctitandb_readoptions_set_key_only(self.titan_inner, v);
+        }
     }
 
     pub fn set_table_filter(&mut self, filter: Box<TableFilter>) {

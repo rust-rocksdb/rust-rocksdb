@@ -104,6 +104,12 @@ impl Debug for DB {
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
+impl DB {
+    pub fn is_titan(&self) -> bool {
+        !self.opts.titan_inner.is_null()
+    }
+}
+
 pub struct WriteBatch {
     inner: *mut DBWriteBatch,
 }
@@ -136,8 +142,40 @@ impl<'a> From<&'a [u8]> for SeekKey<'a> {
 impl<D: Deref<Target = DB>> DBIterator<D> {
     pub fn new(db: D, readopts: ReadOptions) -> DBIterator<D> {
         unsafe {
-            let iterator = crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner());
+            let iterator = if db.is_titan() {
+                crocksdb_ffi::ctitandb_create_iterator(
+                    db.inner,
+                    readopts.get_inner(),
+                    readopts.get_titan_inner(),
+                )
+            } else {
+                crocksdb_ffi::crocksdb_create_iterator(db.inner, readopts.get_inner())
+            };
 
+            DBIterator {
+                _db: db,
+                _readopts: readopts,
+                inner: iterator,
+            }
+        }
+    }
+
+    pub fn new_cf(db: D, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<D> {
+        unsafe {
+            let iterator = if db.is_titan() {
+                crocksdb_ffi::ctitandb_create_iterator_cf(
+                    db.inner,
+                    readopts.get_inner(),
+                    readopts.get_titan_inner(),
+                    cf_handle.inner,
+                )
+            } else {
+                crocksdb_ffi::crocksdb_create_iterator_cf(
+                    db.inner,
+                    readopts.get_inner(),
+                    cf_handle.inner,
+                )
+            };
             DBIterator {
                 _db: db,
                 _readopts: readopts,
@@ -225,21 +263,6 @@ impl<D: Deref<Target = DB>> DBIterator<D> {
             ffi_try!(crocksdb_iter_get_error(self.inner));
         }
         Ok(())
-    }
-
-    pub fn new_cf(db: D, cf_handle: &CFHandle, readopts: ReadOptions) -> DBIterator<D> {
-        unsafe {
-            let iterator = crocksdb_ffi::crocksdb_create_iterator_cf(
-                db.inner,
-                readopts.get_inner(),
-                cf_handle.inner,
-            );
-            DBIterator {
-                _db: db,
-                _readopts: readopts,
-                inner: iterator,
-            }
-        }
     }
 }
 

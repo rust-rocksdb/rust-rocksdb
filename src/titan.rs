@@ -70,6 +70,12 @@ impl TitanDBOptions {
         }
     }
 
+    pub fn set_purge_obsolete_files_period(&mut self, period: usize) {
+        unsafe {
+            crocksdb_ffi::ctitandb_options_set_purge_obsolete_files_period(self.inner, period);
+        }
+    }
+
     pub fn set_min_gc_batch_size(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::ctitandb_options_set_min_gc_batch_size(self.inner, size);

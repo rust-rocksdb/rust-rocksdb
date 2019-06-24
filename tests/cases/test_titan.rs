@@ -18,7 +18,7 @@ use tempdir::TempDir;
 
 use rand::Rng;
 use rocksdb::{
-    ColumnFamilyOptions, DBCompressionType, DBEntryType, DBOptions, SeekKey,
+    ColumnFamilyOptions, DBCompressionType, DBEntryType, DBOptions, ReadOptions, SeekKey,
     TablePropertiesCollector, TablePropertiesCollectorFactory, TitanBlobIndex, TitanDBOptions,
     UserCollectedProperties, Writable, DB,
 };
@@ -108,6 +108,7 @@ fn test_titandb() {
     tdb_opts.set_min_blob_size(max_value_size / 2 + 1);
     tdb_opts.set_blob_file_compression(DBCompressionType::No);
     tdb_opts.set_disable_background_gc(true);
+    tdb_opts.set_purge_obsolete_files_period(10);
 
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
@@ -144,6 +145,37 @@ fn test_titandb() {
             assert!(iter.valid());
             assert_eq!(iter.key(), &[k]);
             assert_eq!(iter.value(), v.as_slice());
+            iter.next();
+        }
+    }
+
+    let mut readopts = ReadOptions::new();
+    readopts.set_titan_key_only(true);
+    iter = db.iter_opt(readopts);
+    iter.seek(SeekKey::Start);
+    for i in 0..n {
+        for j in 0..n {
+            let k = (i * n + j) as u8;
+            let v = vec![k; (j + 1) as usize];
+            assert_eq!(db.get(&[k]).unwrap().unwrap(), &v);
+            assert!(iter.valid());
+            assert_eq!(iter.key(), &[k]);
+            iter.next();
+        }
+    }
+
+    let cf_handle = db.cf_handle("default").unwrap();
+    readopts = ReadOptions::new();
+    readopts.set_titan_key_only(true);
+    iter = db.iter_cf_opt(&cf_handle, readopts);
+    iter.seek(SeekKey::Start);
+    for i in 0..n {
+        for j in 0..n {
+            let k = (i * n + j) as u8;
+            let v = vec![k; (j + 1) as usize];
+            assert_eq!(db.get(&[k]).unwrap().unwrap(), &v);
+            assert!(iter.valid());
+            assert_eq!(iter.key(), &[k]);
             iter.next();
         }
     }
