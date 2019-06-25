@@ -104,6 +104,9 @@ pub struct Snapshot<'a> {
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
+unsafe impl<'a> Send for Snapshot<'a> {}
+unsafe impl<'a> Sync for Snapshot<'a> {}
+
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///
