@@ -18,7 +18,6 @@ use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
     Options, DB,
 };
-use std::fs;
 
 #[test]
 fn backup_restore() {
@@ -26,20 +25,20 @@ fn backup_restore() {
     let path = "_rust_rocksdb_backup_test";
     let restore_path = "_rust_rocksdb_restore_from_backup_path";
     let mut opts = Options::default();
+    opts.create_if_missing(true);
     {
-        opts.create_if_missing(true);
         let db = DB::open(&opts, path).unwrap();
         assert!(db.put(b"k1", b"v1111").is_ok());
         let value = db.get(b"k1");
         assert_eq!(value.unwrap().unwrap().as_ref(), b"v1111");
         {
-            let backup_path = "_rust_rocksdb_backup_path";
+            let backup_path = "/tmp/_rust_rocksdb_backup_path";
             let backup_opts = BackupEngineOptions::default();
             let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
             assert!(backup_engine.create_new_backup(&db).is_ok());
 
             let mut restore_option = RestoreOptions::default();
-            restore_option.set_keep_log_files(true); // true to keep log files
+            restore_option.set_keep_log_files(false); // true to keep log files
             let restore_status = backup_engine.restore_from_latest_backup(
                 &restore_path,
                 &restore_path,
@@ -50,7 +49,6 @@ fn backup_restore() {
             let db_restore = DB::open_default(restore_path).unwrap();
             let value = db_restore.get(b"k1");
             assert_eq!(value.unwrap().unwrap().as_ref(), b"v1111");
-            assert!(fs::remove_dir_all(backup_path).is_ok());
         }
     }
     assert!(DB::destroy(&opts, restore_path).is_ok());
