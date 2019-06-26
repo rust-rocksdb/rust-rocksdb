@@ -6,14 +6,14 @@ use util::DBPath;
 
 #[test]
 pub fn test_slice_transform() {
-    let n = DBPath::new("_rust_rocksdb_slicetransform_test");
+    let db_path = DBPath::new("_rust_rocksdb_slicetransform_test");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
         let b1: Box<[u8]> = key(b"bbb1");
         let b2: Box<[u8]> = key(b"bbb2");
 
-        fn first_three<'a>(k: &'a [u8]) -> &'a [u8] {
+        fn first_three(k: &[u8]) -> &[u8] {
             &k[..3]
         }
 
@@ -23,7 +23,7 @@ pub fn test_slice_transform() {
         opts.create_if_missing(true);
         opts.set_prefix_extractor(prefix_extractor);
 
-        let db = DB::open(&opts, &n).unwrap();
+        let db = DB::open(&opts, &db_path).unwrap();
 
         assert!(db.put(&*a1, &*a1).is_ok());
         assert!(db.put(&*a2, &*a2).is_ok());
