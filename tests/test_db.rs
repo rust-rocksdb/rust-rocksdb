@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![feature(thread_spawn_unchecked)]
+
 extern crate libc;
 extern crate rocksdb;
 
@@ -21,6 +23,7 @@ use libc::size_t;
 
 use rocksdb::{DBVector, Error, IteratorMode, Options, WriteBatch, DB};
 use util::DBPath;
+use std::thread;
 
 #[test]
 fn test_db_vector() {
@@ -160,6 +163,36 @@ fn snapshot_test() {
 
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
+    }
+}
+
+#[test]
+fn sync_snapshot_test() {
+    let path = DBPath::new("_rust_rocksdb_sync_snapshottest");
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        assert!(db.put(b"k1", b"v1").is_ok());
+        assert!(db.put(b"k2", b"v2").is_ok());
+
+        let snapshot = db.snapshot();
+
+        // Unsafe here is safe, because `handler.join()` is called at the end of the
+        // method to ensure that snapshot will not outlive database.
+        let handler_1 = unsafe {
+            thread::Builder::new().spawn_unchecked(|| {
+                assert_eq!(snapshot.get(b"k1").unwrap().unwrap().to_utf8().unwrap(), "v1");
+            }).unwrap()
+        };
+
+        let handler_2 = unsafe {
+            thread::Builder::new().spawn_unchecked(|| {
+                assert_eq!(snapshot.get(b"k2").unwrap().unwrap().to_utf8().unwrap(), "v2");
+            }).unwrap()
+        };
+
+        handler_1.join().unwrap();
+        handler_2.join().unwrap();
     }
 }
 
