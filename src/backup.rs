@@ -16,7 +16,7 @@
 use ffi;
 use {Error, DB};
 
-use libc::{c_int, uint32_t};
+use libc::c_int;
 use std::ffi::CString;
 use std::path::Path;
 
@@ -73,7 +73,7 @@ impl BackupEngine {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_purge_old_backups(
                 self.inner,
-                num_backups_to_keep as uint32_t,
+                num_backups_to_keep as u32,
             ));
             Ok(())
         }
