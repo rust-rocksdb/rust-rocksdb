@@ -603,30 +603,15 @@ impl Options {
         }
     }
 
-    /// Sets the total maximum number of write buffers to maintain in memory including
-    /// copies of buffers that have already been flushed.  Unlike
-    /// max_write_buffer_number, this parameter does not affect flushing.
-    /// This controls the minimum amount of write history that will be available
-    /// in memory for conflict checking when Transactions are used.
+    /// Sets the maximum number of write buffers that are built up in memory.
+    /// The default and the minimum number is 2, so that when 1 write buffer
+    /// is being flushed to storage, new writes can continue to the other
+    /// write buffer.
+    /// If max_write_buffer_number > 3, writing will be slowed down to
+    /// options.delayed_write_rate if we are writing to the last write buffer
+    /// allowed.
     ///
-    /// When using an OptimisticTransactionDB:
-    /// If this value is too low, some transactions may fail at commit time due
-    /// to not being able to determine whether there were any write conflicts.
-    ///
-    /// When using a TransactionDB:
-    /// If Transaction::SetSnapshot is used, TransactionDB will read either
-    /// in-memory write buffers or SST files to do write-conflict checking.
-    /// Increasing this value can reduce the number of reads to SST files
-    /// done for conflict detection.
-    ///
-    /// Setting this value to `0` will cause write buffers to be freed immediately
-    /// after they are flushed.
-    /// If this value is set to `-1`, 'max_write_buffer_number' will be used.
-    ///
-    /// Default:
-    /// If using a TransactionDB/OptimisticTransactionDB, the default value will
-    /// be set to the value of 'max_write_buffer_number' if it is not explicitly
-    /// set by the user.  Otherwise, the default is 0.
+    /// Default: `2`
     ///
     /// # Example
     ///
@@ -634,7 +619,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
-    /// opts.set_min_write_buffer_number(4);
+    /// opts.set_max_write_buffer_number(4);
     /// ```
     pub fn set_max_write_buffer_number(&mut self, nbuf: c_int) {
         unsafe {
