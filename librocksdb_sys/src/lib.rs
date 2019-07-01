@@ -1826,6 +1826,13 @@ extern "C" {
         err: *mut *mut c_char,
     ) -> *mut DBInstance;
 
+    pub fn ctitandb_create_column_family(
+        db: *mut DBInstance,
+        titan_column_family_options: *const DBTitanDBOptions,
+        column_family_name: *const c_char,
+        err: *mut *mut c_char,
+    ) -> *mut DBCFHandle;
+
     pub fn ctitandb_options_create() -> *mut DBTitanDBOptions;
     pub fn ctitandb_options_destroy(opts: *mut DBTitanDBOptions);
     pub fn ctitandb_options_copy(opts: *mut DBTitanDBOptions) -> *mut DBTitanDBOptions;

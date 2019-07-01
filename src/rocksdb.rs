@@ -771,11 +771,19 @@ impl DB {
         };
         let cname_ptr = cname.as_ptr();
         unsafe {
-            let cf_handler = ffi_try!(crocksdb_create_column_family(
-                self.inner,
-                cfd.options.inner,
-                cname_ptr
-            ));
+            let cf_handler = if !self.is_titan() {
+                ffi_try!(crocksdb_create_column_family(
+                    self.inner,
+                    cfd.options.inner,
+                    cname_ptr
+                ))
+            } else {
+                ffi_try!(ctitandb_create_column_family(
+                    self.inner,
+                    cfd.options.titan_inner,
+                    cname_ptr
+                ))
+            };
             let handle = CFHandle { inner: cf_handler };
             self._cf_opts.push(cfd.options);
             Ok(match self.cfs.entry(cfd.name.to_owned()) {

@@ -4958,6 +4958,9 @@ struct ctitandb_options_t {
   TitanOptions rep;
 };
 
+// TODO: Simplify the API by merging db_options into tdb_options, and
+// column_family_options into titan_column_family_options, since the later
+// of the pairs already contain the former.
 crocksdb_t* ctitandb_open_column_families(
     const char* name, const crocksdb_options_t* db_options,
     const ctitandb_options_t* tdb_options, int num_column_families,
@@ -4991,6 +4994,26 @@ crocksdb_t* ctitandb_open_column_families(
   crocksdb_t* result = new crocksdb_t;
   result->rep = db;
   return result;
+}
+
+// Caller should make sure `db` is created from ctitandb_open_column_families.
+//
+// TODO: ctitandb_open_column_family should return a ctitandb_t. Caller can
+// use ctitandb_t for titan specific functions.
+crocksdb_column_family_handle_t* ctitandb_create_column_family(
+    crocksdb_t* db,
+    const ctitandb_options_t* titan_column_family_options,
+    const char* column_family_name,
+    char** errptr) {
+  // Blindly cast db into TitanDB.
+  TitanDB* titan_db = reinterpret_cast<TitanDB*>(db->rep);
+  crocksdb_column_family_handle_t* handle = new crocksdb_column_family_handle_t;
+  SaveError(errptr,
+      titan_db->CreateColumnFamily(
+          TitanCFDescriptor(std::string(column_family_name),
+                            titan_column_family_options->rep),
+          &(handle->rep)));
+  return handle;
 }
 
 /* TitanDBOptions */
