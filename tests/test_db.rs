@@ -20,6 +20,7 @@ mod util;
 use libc::size_t;
 
 use rocksdb::{DBVector, Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
+use std::sync::Arc;
 use std::{mem, thread};
 use util::DBPath;
 
@@ -164,14 +165,15 @@ fn snapshot_test() {
     }
 }
 
+#[derive(Clone)]
 struct SnapshotWrapper {
-    snapshot: Snapshot<'static>,
+    snapshot: Arc<Snapshot<'static>>,
 }
 
 impl SnapshotWrapper {
     fn new(db: &DB) -> Self {
         Self {
-            snapshot: unsafe { mem::transmute(db.snapshot()) },
+            snapshot: Arc::new(unsafe { mem::transmute(db.snapshot()) }),
         }
     }
 
@@ -192,10 +194,11 @@ fn sync_snapshot_test() {
     assert!(db.put(b"k2", b"v2").is_ok());
 
     let wrapper = SnapshotWrapper::new(&db);
-    let handler_1 = thread::spawn(move || wrapper.check("k1", "v1"));
+    let wrapper_1 = wrapper.clone();
+    let handler_1 = thread::spawn(move || wrapper_1.check("k1", "v1"));
 
-    let wrapper = SnapshotWrapper::new(&db);
-    let handler_2 = thread::spawn(move || wrapper.check("k2", "v2"));
+    let wrapper_2 = wrapper.clone();
+    let handler_2 = thread::spawn(move || wrapper_2.check("k2", "v2"));
 
     assert!(handler_1.join().unwrap());
     assert!(handler_2.join().unwrap());
