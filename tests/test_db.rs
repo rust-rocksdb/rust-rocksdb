@@ -22,8 +22,8 @@ mod util;
 use libc::size_t;
 
 use rocksdb::{DBVector, Error, IteratorMode, Options, WriteBatch, DB};
-use util::DBPath;
 use std::thread;
+use util::DBPath;
 
 #[test]
 fn test_db_vector() {
@@ -180,15 +180,25 @@ fn sync_snapshot_test() {
         // Unsafe here is safe, because `handler.join()` is called at the end of the
         // method to ensure that snapshot will not outlive database.
         let handler_1 = unsafe {
-            thread::Builder::new().spawn_unchecked(|| {
-                assert_eq!(snapshot.get(b"k1").unwrap().unwrap().to_utf8().unwrap(), "v1");
-            }).unwrap()
+            thread::Builder::new()
+                .spawn_unchecked(|| {
+                    assert_eq!(
+                        snapshot.get(b"k1").unwrap().unwrap().to_utf8().unwrap(),
+                        "v1"
+                    );
+                })
+                .unwrap()
         };
 
         let handler_2 = unsafe {
-            thread::Builder::new().spawn_unchecked(|| {
-                assert_eq!(snapshot.get(b"k2").unwrap().unwrap().to_utf8().unwrap(), "v2");
-            }).unwrap()
+            thread::Builder::new()
+                .spawn_unchecked(|| {
+                    assert_eq!(
+                        snapshot.get(b"k2").unwrap().unwrap().to_utf8().unwrap(),
+                        "v2"
+                    );
+                })
+                .unwrap()
         };
 
         handler_1.join().unwrap();
