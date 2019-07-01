@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(thread_spawn_unchecked)]
-
 extern crate libc;
 extern crate rocksdb;
 
@@ -21,8 +19,8 @@ mod util;
 
 use libc::size_t;
 
-use rocksdb::{DBVector, Error, IteratorMode, Options, WriteBatch, DB};
-use std::thread;
+use rocksdb::{DBVector, Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
+use std::{mem, thread};
 use util::DBPath;
 
 #[test]
@@ -166,44 +164,41 @@ fn snapshot_test() {
     }
 }
 
+struct SnapshotWrapper {
+    snapshot: Snapshot<'static>,
+}
+
+impl SnapshotWrapper {
+    fn new(db: &DB) -> Self {
+        Self {
+            snapshot: unsafe { mem::transmute(db.snapshot()) },
+        }
+    }
+
+    fn check<K>(&self, key: K, value: &str) -> bool
+    where
+        K: AsRef<[u8]>,
+    {
+        self.snapshot.get(key).unwrap().unwrap().to_utf8().unwrap() == value
+    }
+}
+
 #[test]
 fn sync_snapshot_test() {
     let path = DBPath::new("_rust_rocksdb_sync_snapshottest");
-    {
-        let db = DB::open_default(&path).unwrap();
+    let db = DB::open_default(&path).unwrap();
 
-        assert!(db.put(b"k1", b"v1").is_ok());
-        assert!(db.put(b"k2", b"v2").is_ok());
+    assert!(db.put(b"k1", b"v1").is_ok());
+    assert!(db.put(b"k2", b"v2").is_ok());
 
-        let snapshot = db.snapshot();
+    let wrapper = SnapshotWrapper::new(&db);
+    let handler_1 = thread::spawn(move || wrapper.check("k1", "v1"));
 
-        // Unsafe here is safe, because `handler.join()` is called at the end of the
-        // method to ensure that snapshot will not outlive database.
-        let handler_1 = unsafe {
-            thread::Builder::new()
-                .spawn_unchecked(|| {
-                    assert_eq!(
-                        snapshot.get(b"k1").unwrap().unwrap().to_utf8().unwrap(),
-                        "v1"
-                    );
-                })
-                .unwrap()
-        };
+    let wrapper = SnapshotWrapper::new(&db);
+    let handler_2 = thread::spawn(move || wrapper.check("k2", "v2"));
 
-        let handler_2 = unsafe {
-            thread::Builder::new()
-                .spawn_unchecked(|| {
-                    assert_eq!(
-                        snapshot.get(b"k2").unwrap().unwrap().to_utf8().unwrap(),
-                        "v2"
-                    );
-                })
-                .unwrap()
-        };
-
-        handler_1.join().unwrap();
-        handler_2.join().unwrap();
-    }
+    assert!(handler_1.join().unwrap());
+    assert!(handler_2.join().unwrap());
 }
 
 #[test]
