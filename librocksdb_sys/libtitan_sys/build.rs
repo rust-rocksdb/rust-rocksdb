@@ -3,7 +3,14 @@ extern crate cmake;
 
 fn main() {
     let cur_dir = std::env::current_dir().unwrap();
-    let dst = cmake::Config::new("titan")
+    let mut cfg = cmake::Config::new("titan");
+    if cfg!(feature = "portable") {
+        cfg.define("PORTABLE", "ON");
+    }
+    if cfg!(feature = "sse") {
+        cfg.define("FORCE_SSE42", "ON");
+    }
+    let dst = cfg
         .define("ROCKSDB_DIR", cur_dir.join("..").join("rocksdb"))
         .define("WITH_TITAN_TESTS", "OFF")
         .define("WITH_TITAN_TOOLS", "OFF")

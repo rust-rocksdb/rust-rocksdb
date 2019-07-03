@@ -16,8 +16,8 @@ tempdir = "0.3"
 default = []
 # portable doesn't require static link, though it's meaningless
 # when not using with static-link right now in this crate.
-portable = []
-sse = []
+portable = ["libtitan_sys/portable"]
+sse = ["libtitan_sys/portable"]
 
 [build-dependencies]
 cc = "1.0.3"
