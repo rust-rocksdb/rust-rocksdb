@@ -20,7 +20,8 @@ use crocksdb_ffi::{
     DBCompactionOptions, DBCompressionType, DBFifoCompactionOptions, DBFlushOptions,
     DBInfoLogLevel, DBInstance, DBLRUCacheOptions, DBRateLimiter, DBRateLimiterMode, DBReadOptions,
     DBRecoveryMode, DBRestoreOptions, DBSnapshot, DBStatisticsHistogramType,
-    DBStatisticsTickerType, DBTitanDBOptions, DBTitanReadOptions, DBWriteOptions, Options,
+    DBStatisticsTickerType, DBTitanDBOptions, DBTitanReadOptions, DBWriteOptions, IndexType,
+    Options,
 };
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
@@ -80,9 +81,21 @@ impl BlockBasedOptions {
         BlockBasedOptions::default()
     }
 
+    pub fn set_metadata_block_size(&mut self, size: usize) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_metadata_block_size(self.inner, size);
+        }
+    }
+
     pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             crocksdb_ffi::crocksdb_block_based_options_set_block_size(self.inner, size);
+        }
+    }
+
+    pub fn set_index_type(&mut self, index_type: IndexType) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_index_type(self.inner, index_type);
         }
     }
 
@@ -110,9 +123,31 @@ impl BlockBasedOptions {
         }
     }
 
+    pub fn set_hash_index_allow_collision(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_hash_index_allow_collision(
+                self.inner, v as u8,
+            );
+        }
+    }
+
+    pub fn set_partition_filters(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_partition_filters(self.inner, v as u8);
+        }
+    }
+
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_block_based_options_set_cache_index_and_filter_blocks(
+                self.inner, v as u8,
+            );
+        }
+    }
+
+    pub fn set_pin_top_level_index_and_filter(&mut self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_block_based_options_set_pin_top_level_index_and_filter(
                 self.inner, v as u8,
             );
         }

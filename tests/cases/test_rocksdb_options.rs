@@ -17,8 +17,8 @@ use rocksdb::crocksdb_ffi::{
 };
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamilyOptions, CompactOptions, DBOptions, Env,
-    FifoCompactionOptions, LRUCacheOptions, ReadOptions, SeekKey, SliceTransform, Writable,
-    WriteOptions, DB,
+    FifoCompactionOptions, IndexType, LRUCacheOptions, ReadOptions, SeekKey, SliceTransform,
+    Writable, WriteOptions, DB,
 };
 use std::path::Path;
 use std::sync::Arc;
@@ -269,6 +269,31 @@ fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
+    block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+    cf_opts.set_block_based_table_factory(&block_opts);
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+}
+
+#[test]
+fn test_partitioned_index_filters() {
+    let path = TempDir::new("_rust_rocksdb_set_cache_and_index").expect("");
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    let mut block_opts = BlockBasedOptions::new();
+    // See https://github.com/facebook/rocksdb/wiki/Partitioned-Index-Filters#how-to-use-it
+    block_opts.set_index_type(IndexType::TwoLevelIndexSearch);
+    block_opts.set_partition_filters(true);
+    block_opts.set_bloom_filter(10, false);
+    block_opts.set_metadata_block_size(4096);
+    block_opts.set_cache_index_and_filter_blocks(true);
+    block_opts.set_pin_top_level_index_and_filter(true);
+    block_opts.set_cache_index_and_filter_blocks_with_high_priority(true);
     block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
     cf_opts.set_block_based_table_factory(&block_opts);
     DB::open_cf(

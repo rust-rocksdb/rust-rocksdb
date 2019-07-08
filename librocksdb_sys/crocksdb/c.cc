@@ -1689,6 +1689,11 @@ void crocksdb_block_based_options_destroy(
   delete options;
 }
 
+void crocksdb_block_based_options_set_metadata_block_size(
+    crocksdb_block_based_table_options_t* options, size_t block_size) {
+  options->rep.metadata_block_size = block_size;
+}
+
 void crocksdb_block_based_options_set_block_size(
     crocksdb_block_based_table_options_t* options, size_t block_size) {
   options->rep.block_size = block_size;
@@ -1752,9 +1757,19 @@ void crocksdb_block_based_options_set_hash_index_allow_collision(
   options->rep.hash_index_allow_collision = v;
 }
 
+void crocksdb_block_based_options_set_partition_filters(
+    crocksdb_block_based_table_options_t* options, unsigned char v) {
+  options->rep.partition_filters = v;
+}
+
 void crocksdb_block_based_options_set_cache_index_and_filter_blocks(
     crocksdb_block_based_table_options_t* options, unsigned char v) {
   options->rep.cache_index_and_filter_blocks = v;
+}
+
+void crocksdb_block_based_options_set_pin_top_level_index_and_filter(
+    crocksdb_block_based_table_options_t* options, unsigned char v) {
+  options->rep.pin_top_level_index_and_filter = v;
 }
 
 void crocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority(

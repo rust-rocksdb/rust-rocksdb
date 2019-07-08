@@ -610,6 +610,8 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_block_based_table_options_t*
 crocksdb_block_based_options_create();
 extern C_ROCKSDB_LIBRARY_API void crocksdb_block_based_options_destroy(
     crocksdb_block_based_table_options_t* options);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_block_based_options_set_metadata_block_size(
+    crocksdb_block_based_table_options_t* options, size_t block_size);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_block_based_options_set_block_size(
     crocksdb_block_based_table_options_t* options, size_t block_size);
 extern C_ROCKSDB_LIBRARY_API void
@@ -637,6 +639,7 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_block_based_options_set_format_versio
 enum {
   crocksdb_block_based_table_index_type_binary_search = 0,
   crocksdb_block_based_table_index_type_hash_search = 1,
+  crocksdb_block_based_table_index_type_two_level_index_search = 2,
 };
 extern C_ROCKSDB_LIBRARY_API void crocksdb_block_based_options_set_index_type(
     crocksdb_block_based_table_options_t*, int);  // uses one of the above enums
@@ -644,7 +647,13 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_block_based_options_set_hash_index_allow_collision(
     crocksdb_block_based_table_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
+crocksdb_block_based_options_set_partition_filters(
+    crocksdb_block_based_table_options_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
 crocksdb_block_based_options_set_cache_index_and_filter_blocks(
+    crocksdb_block_based_table_options_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API void
+crocksdb_block_based_options_set_pin_top_level_index_and_filter(
     crocksdb_block_based_table_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority(

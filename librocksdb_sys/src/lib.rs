@@ -281,6 +281,14 @@ pub enum DBTitanDBBlobRunMode {
     Fallback = 2,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum IndexType {
+    BinarySearch = 0,
+    HashSearch = 1,
+    TwoLevelIndexSearch = 2,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -356,6 +364,10 @@ extern "C" {
 
     pub fn crocksdb_block_based_options_create() -> *mut DBBlockBasedTableOptions;
     pub fn crocksdb_block_based_options_destroy(opts: *mut DBBlockBasedTableOptions);
+    pub fn crocksdb_block_based_options_set_metadata_block_size(
+        block_options: *mut DBBlockBasedTableOptions,
+        block_size: size_t,
+    );
     pub fn crocksdb_block_based_options_set_block_size(
         block_options: *mut DBBlockBasedTableOptions,
         block_size: size_t,
@@ -368,7 +380,23 @@ extern "C" {
         block_options: *mut DBBlockBasedTableOptions,
         block_restart_interval: c_int,
     );
+    pub fn crocksdb_block_based_options_set_index_type(
+        block_options: *mut DBBlockBasedTableOptions,
+        v: IndexType,
+    );
+    pub fn crocksdb_block_based_options_set_hash_index_allow_collision(
+        block_options: *mut DBBlockBasedTableOptions,
+        v: c_uchar,
+    );
+    pub fn crocksdb_block_based_options_set_partition_filters(
+        block_options: *mut DBBlockBasedTableOptions,
+        v: c_uchar,
+    );
     pub fn crocksdb_block_based_options_set_cache_index_and_filter_blocks(
+        block_options: *mut DBBlockBasedTableOptions,
+        v: c_uchar,
+    );
+    pub fn crocksdb_block_based_options_set_pin_top_level_index_and_filter(
         block_options: *mut DBBlockBasedTableOptions,
         v: c_uchar,
     );
