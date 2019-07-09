@@ -19,7 +19,9 @@ mod util;
 
 use libc::size_t;
 
-use rocksdb::{DBVector, Error, IteratorMode, Options, WriteBatch, DB};
+use rocksdb::{DBVector, Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
+use std::sync::Arc;
+use std::{mem, thread};
 use util::DBPath;
 
 #[test]
@@ -161,6 +163,45 @@ fn snapshot_test() {
         assert!(db.get(b"k2").unwrap().is_some());
         assert!(snap.get(b"k2").unwrap().is_none());
     }
+}
+
+#[derive(Clone)]
+struct SnapshotWrapper {
+    snapshot: Arc<Snapshot<'static>>,
+}
+
+impl SnapshotWrapper {
+    fn new(db: &DB) -> Self {
+        Self {
+            snapshot: Arc::new(unsafe { mem::transmute(db.snapshot()) }),
+        }
+    }
+
+    fn check<K>(&self, key: K, value: &str) -> bool
+    where
+        K: AsRef<[u8]>,
+    {
+        self.snapshot.get(key).unwrap().unwrap().to_utf8().unwrap() == value
+    }
+}
+
+#[test]
+fn sync_snapshot_test() {
+    let path = DBPath::new("_rust_rocksdb_sync_snapshottest");
+    let db = DB::open_default(&path).unwrap();
+
+    assert!(db.put(b"k1", b"v1").is_ok());
+    assert!(db.put(b"k2", b"v2").is_ok());
+
+    let wrapper = SnapshotWrapper::new(&db);
+    let wrapper_1 = wrapper.clone();
+    let handler_1 = thread::spawn(move || wrapper_1.check("k1", "v1"));
+
+    let wrapper_2 = wrapper.clone();
+    let handler_2 = thread::spawn(move || wrapper_2.check("k2", "v2"));
+
+    assert!(handler_1.join().unwrap());
+    assert!(handler_2.join().unwrap());
 }
 
 #[test]

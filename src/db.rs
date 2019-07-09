@@ -104,6 +104,11 @@ pub struct Snapshot<'a> {
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
+/// `Send` and `Sync` implementations for `Snapshot` are safe, because `Snapshot` is
+/// immutable and can be safely shared between threads.
+unsafe impl<'a> Send for Snapshot<'a> {}
+unsafe impl<'a> Sync for Snapshot<'a> {}
+
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///

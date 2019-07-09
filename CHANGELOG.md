@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changes
+
+* Added `Sync` and `Send` implementations to `Snapshot` (pavel-mukhanov)
+
 ## 0.12.2 (2019-05-03)
 
 ### Changes
