@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-### Changes
+### 0.12.3 (2019-07-19)
 
+* Enabled sse4.2/pclmul for accelerated crc32c (yjh0502)
+* Added `set_db_write_buffer_size` to the Options API (rnarubin)
+* Bumped RocksDB to 6.1.2 (lispy)
 * Added `Sync` and `Send` implementations to `Snapshot` (pavel-mukhanov)
 
 ## 0.12.2 (2019-05-03)
