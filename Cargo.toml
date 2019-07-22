@@ -16,9 +16,10 @@ exclude = [
 
 [features]
 default = []
-valgrind = []
+jemalloc = ["librocksdb_sys/jemalloc"]
 portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
+valgrind = []
 
 [dependencies]
 libc = "0.2.11"

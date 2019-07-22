@@ -77,6 +77,9 @@ fn build_rocksdb() -> Build {
     }
 
     let mut cfg = Config::new("rocksdb");
+    if cfg!(feature = "jemalloc") {
+        cfg.define("WITH_JEMALLOC", "ON");
+    }
     if cfg!(feature = "portable") {
         cfg.define("PORTABLE", "ON");
     }
