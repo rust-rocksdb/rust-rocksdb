@@ -8,6 +8,7 @@
 * Added `set_db_write_buffer_size` to the Options API (rnarubin)
 * Bumped RocksDB to 6.1.2 (lispy)
 * Added `Sync` and `Send` implementations to `Snapshot` (pavel-mukhanov)
+* Added `raw_iterator_cf_opt` to the DB API (rnarubin)
 
 ## 0.12.2 (2019-05-03)
 
