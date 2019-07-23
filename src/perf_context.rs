@@ -419,6 +419,7 @@ mod test {
             }
         }
 
+        set_perf_level(PerfLevel::EnableCount);
         let mut ctx = PerfContext::get();
 
         let mut iter = db.iter();
