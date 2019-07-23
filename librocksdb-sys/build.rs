@@ -123,6 +123,7 @@ fn build_rocksdb() {
         link("rpcrt4", false);
         link("shlwapi", false);
         config.define("OS_WIN", Some("1"));
+        config.define("ROCKSDB_WINDOWS_UTF8_FILENAMES", Some("1"));
 
         // Remove POSIX-specific sources
         lib_sources = lib_sources
