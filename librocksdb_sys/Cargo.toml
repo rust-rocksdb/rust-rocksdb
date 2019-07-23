@@ -14,7 +14,7 @@ tempdir = "0.3"
 
 [features]
 default = []
-jemalloc = []
+jemalloc = ["jemalloc-sys"]
 # portable doesn't require static link, though it's meaningless
 # when not using with static-link right now in this crate.
 portable = ["libtitan_sys/portable"]
@@ -23,6 +23,10 @@ sse = ["libtitan_sys/sse"]
 [build-dependencies]
 cc = "1.0.3"
 cmake = "0.1"
+
+[dependencies.jemalloc-sys]
+version = ">= 0.1.8"
+optional = true
 
 [dependencies.libz-sys]
 version = "1.0.25"
