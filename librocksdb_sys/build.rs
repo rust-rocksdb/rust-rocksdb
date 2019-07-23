@@ -87,6 +87,7 @@ fn build_rocksdb() -> Build {
         cfg.define("FORCE_SSE42", "ON");
     }
     let dst = cfg
+        .define("WITH_GFLAGS", "OFF")
         .register_dep("Z")
         .define("WITH_ZLIB", "ON")
         .register_dep("BZIP2")
