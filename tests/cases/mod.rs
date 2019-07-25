@@ -7,6 +7,7 @@ extern crate tempdir;
 mod test_column_family;
 mod test_compact_range;
 mod test_compaction_filter;
+mod test_compression;
 mod test_delete_files_in_range;
 mod test_delete_range;
 mod test_encryption;
