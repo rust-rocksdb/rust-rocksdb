@@ -19,6 +19,11 @@ use cmake::Config;
 use std::path::PathBuf;
 use std::{env, str};
 
+// On these platforms jemalloc-sys will use a prefixed jemalloc which cannot be linked together
+// with RocksDB.
+// See https://github.com/gnzlbg/jemallocator/blob/bfc89192971e026e6423d9ee5aaa02bc56585c58/jemalloc-sys/build.rs#L45
+const NO_JEMALLOC_TARGETS: &[&str] = &["android", "dragonfly", "musl", "darwin"];
+
 fn main() {
     let mut build = build_rocksdb();
 
@@ -71,13 +76,15 @@ fn link_cpp(build: &mut Build) {
 }
 
 fn build_rocksdb() -> Build {
+    let target = env::var("TARGET").expect("TARGET was not set");
+
     let mut build = Build::new();
     for e in env::vars() {
         println!("{:?}", e);
     }
 
     let mut cfg = Config::new("rocksdb");
-    if cfg!(feature = "jemalloc") {
+    if cfg!(feature = "jemalloc") && NO_JEMALLOC_TARGETS.iter().all(|i| !target.contains(i)) {
         cfg.register_dep("JEMALLOC").define("WITH_JEMALLOC", "ON");
     }
     if cfg!(feature = "portable") {
