@@ -1195,14 +1195,25 @@ impl DB {
         include_end: bool,
     ) -> Result<(), String> {
         unsafe {
-            ffi_try!(crocksdb_delete_files_in_range(
-                self.inner,
-                start_key.as_ptr(),
-                start_key.len() as size_t,
-                end_key.as_ptr(),
-                end_key.len() as size_t,
-                include_end
-            ));
+            if self.is_titan() {
+                ffi_try!(ctitandb_delete_files_in_range(
+                    self.inner,
+                    start_key.as_ptr(),
+                    start_key.len() as size_t,
+                    end_key.as_ptr(),
+                    end_key.len() as size_t,
+                    include_end
+                ));
+            } else {
+                ffi_try!(crocksdb_delete_files_in_range(
+                    self.inner,
+                    start_key.as_ptr(),
+                    start_key.len() as size_t,
+                    end_key.as_ptr(),
+                    end_key.len() as size_t,
+                    include_end
+                ));
+            }
             Ok(())
         }
     }
@@ -1215,15 +1226,27 @@ impl DB {
         include_end: bool,
     ) -> Result<(), String> {
         unsafe {
-            ffi_try!(crocksdb_delete_files_in_range_cf(
-                self.inner,
-                cf.inner,
-                start_key.as_ptr(),
-                start_key.len() as size_t,
-                end_key.as_ptr(),
-                end_key.len() as size_t,
-                include_end
-            ));
+            if self.is_titan() {
+                ffi_try!(ctitandb_delete_files_in_range_cf(
+                    self.inner,
+                    cf.inner,
+                    start_key.as_ptr(),
+                    start_key.len() as size_t,
+                    end_key.as_ptr(),
+                    end_key.len() as size_t,
+                    include_end
+                ));
+            } else {
+                ffi_try!(crocksdb_delete_files_in_range_cf(
+                    self.inner,
+                    cf.inner,
+                    start_key.as_ptr(),
+                    start_key.len() as size_t,
+                    end_key.as_ptr(),
+                    end_key.len() as size_t,
+                    include_end
+                ));
+            }
             Ok(())
         }
     }
@@ -1239,16 +1262,29 @@ impl DB {
         let limit_keys: Vec<*const u8> = ranges.iter().map(|x| x.end_key.as_ptr()).collect();
         let limit_keys_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
         unsafe {
-            ffi_try!(crocksdb_delete_files_in_ranges_cf(
-                self.inner,
-                cf.inner,
-                start_keys.as_ptr(),
-                start_keys_lens.as_ptr(),
-                limit_keys.as_ptr(),
-                limit_keys_lens.as_ptr(),
-                ranges.len(),
-                include_end
-            ));
+            if self.is_titan() {
+                ffi_try!(ctitandb_delete_files_in_ranges_cf(
+                    self.inner,
+                    cf.inner,
+                    start_keys.as_ptr(),
+                    start_keys_lens.as_ptr(),
+                    limit_keys.as_ptr(),
+                    limit_keys_lens.as_ptr(),
+                    ranges.len(),
+                    include_end
+                ));
+            } else {
+                ffi_try!(crocksdb_delete_files_in_ranges_cf(
+                    self.inner,
+                    cf.inner,
+                    start_keys.as_ptr(),
+                    start_keys_lens.as_ptr(),
+                    limit_keys.as_ptr(),
+                    limit_keys_lens.as_ptr(),
+                    ranges.len(),
+                    include_end
+                ));
+            }
         }
         Ok(())
     }

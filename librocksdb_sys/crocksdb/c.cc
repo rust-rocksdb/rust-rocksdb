@@ -5242,4 +5242,66 @@ void ctitandb_create_iterators(
   }
 }
 
+void ctitandb_delete_files_in_range(
+    crocksdb_t* db,
+    const char* start_key, size_t start_key_len,
+    const char* limit_key, size_t limit_key_len,
+    bool include_end, char** errptr) {
+  Slice a, b;
+  RangePtr range(
+    start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr,
+    limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr);
+  
+  SaveError(
+      errptr,
+      static_cast<TitanDB*>(db->rep)->DeleteFilesInRanges(
+          db->rep->DefaultColumnFamily(),
+          &range, 1,
+          include_end));
+}
+
+void ctitandb_delete_files_in_range_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
+    const char* start_key, size_t start_key_len,
+    const char* limit_key, size_t limit_key_len,
+    bool include_end, char** errptr) {
+  Slice a, b;
+  RangePtr range(
+    start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr,
+    limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr);
+  
+  SaveError(
+      errptr,
+      static_cast<TitanDB*>(db->rep)->DeleteFilesInRanges(
+          column_family->rep,
+          &range, 1,
+          include_end));
+}
+
+void ctitandb_delete_files_in_ranges_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* cf,
+    const char* const* start_keys, const size_t* start_keys_lens,
+    const char* const* limit_keys, const size_t* limit_keys_lens,
+    size_t num_ranges, bool include_end, char** errptr) {
+  std::vector<Slice> starts(num_ranges);
+  std::vector<Slice> limits(num_ranges);
+  std::vector<RangePtr> ranges(num_ranges);
+  for (auto i = 0; i < num_ranges; i++) {
+    const Slice* start = nullptr;
+    if (start_keys[i]) {
+      starts[i] = Slice(start_keys[i], start_keys_lens[i]);
+      start = &starts[i];
+    }
+    const Slice* limit = nullptr;
+    if (limit_keys[i]) {
+      limits[i] = Slice(limit_keys[i], limit_keys_lens[i]);
+      limit = &limits[i];
+    }
+    ranges[i] = RangePtr(start, limit);
+  }
+  SaveError(
+      errptr,
+      static_cast<TitanDB*>(db->rep)->DeleteFilesInRanges(
+          cf->rep, &ranges[0], num_ranges, include_end));
+}
 }  // end extern "C"

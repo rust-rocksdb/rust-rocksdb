@@ -12,15 +12,17 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::ops;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use tempdir::TempDir;
 
 use rand::Rng;
 use rocksdb::{
-    ColumnFamilyOptions, DBCompressionType, DBEntryType, DBOptions, ReadOptions, SeekKey,
-    TablePropertiesCollector, TablePropertiesCollectorFactory, TitanBlobIndex, TitanDBOptions,
-    UserCollectedProperties, Writable, DB,
+    CFHandle, ColumnFamilyOptions, CompactOptions, DBBottommostLevelCompaction, DBCompressionType,
+    DBEntryType, DBOptions, Range, ReadOptions, SeekKey, TablePropertiesCollector,
+    TablePropertiesCollectorFactory, TitanBlobIndex, TitanDBOptions, UserCollectedProperties,
+    Writable, DB,
 };
 
 fn encode_u32(x: u32) -> Vec<u8> {
@@ -196,4 +198,82 @@ fn test_titan_blob_index() {
     assert_eq!(index2.file_number, index.file_number);
     assert_eq!(index2.blob_size, index.blob_size);
     assert_eq!(index2.blob_offset, index.blob_offset);
+}
+
+// Generates a file with `range` and put it to the bottommost level.
+fn generate_file_bottom_level(db: &DB, handle: &CFHandle, range: ops::Range<u32>) {
+    for i in range {
+        let k = format!("key{}", i);
+        let v = format!("value{}", i);
+        db.put_cf(handle, k.as_bytes(), v.as_bytes()).unwrap();
+    }
+    db.flush_cf(handle, true).unwrap();
+
+    let opts = db.get_options_cf(handle);
+    let mut compact_opts = CompactOptions::new();
+    compact_opts.set_change_level(true);
+    compact_opts.set_target_level(opts.get_num_levels() as i32 - 1);
+    compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Skip);
+    db.compact_range_cf_opt(handle, &compact_opts, None, None);
+}
+
+#[test]
+fn test_titan_delete_files_in_ranges() {
+    let path = TempDir::new("_rust_rocksdb_test_titan_delete_files_in_multi_ranges").unwrap();
+    let tdb_path = path.path().join("titandb");
+    let mut tdb_opts = TitanDBOptions::new();
+    tdb_opts.set_dirname(tdb_path.to_str().unwrap());
+    tdb_opts.set_min_blob_size(0);
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_titandb_options(&tdb_opts);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    let f = TitanCollectorFactory::default();
+    cf_opts.add_table_properties_collector_factory("titan-collector", Box::new(f));
+    cf_opts.set_titandb_options(&tdb_opts);
+
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+
+    let cf_handle = db.cf_handle("default").unwrap();
+    generate_file_bottom_level(&db, cf_handle, 0..3);
+    generate_file_bottom_level(&db, cf_handle, 3..6);
+    generate_file_bottom_level(&db, cf_handle, 6..9);
+
+    // Delete files in multiple overlapped ranges.
+    // File ["key0", "key2"], ["key3", "key5"] should have been deleted,
+    // but file ["key6", "key8"] should not be deleted because "key8" is exclusive.
+    let mut ranges = Vec::new();
+    ranges.push(Range::new(b"key0", b"key4"));
+    ranges.push(Range::new(b"key2", b"key6"));
+    ranges.push(Range::new(b"key4", b"key8"));
+
+    db.delete_files_in_ranges_cf(cf_handle, &ranges, false)
+        .unwrap();
+
+    // Check that ["key0", "key5"] have been deleted, but ["key6", "key8"] still exist.
+    let mut readopts = ReadOptions::new();
+    readopts.set_titan_key_only(true);
+    let mut iter = db.iter_cf_opt(&cf_handle, readopts);
+    iter.seek(SeekKey::Start);
+    for i in 6..9 {
+        assert!(iter.valid());
+        let k = format!("key{}", i);
+        assert_eq!(iter.key(), k.as_bytes());
+        iter.next();
+    }
+    assert!(!iter.valid());
+
+    // Delete the last file.
+    let ranges = vec![Range::new(b"key6", b"key8")];
+    db.delete_files_in_ranges_cf(cf_handle, &ranges, true)
+        .unwrap();
+    let mut iter = db.iter();
+    iter.seek(SeekKey::Start);
+    assert!(!iter.valid());
 }

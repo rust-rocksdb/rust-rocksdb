@@ -2094,6 +2094,24 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_create_iterators(
     size_t size,
     char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API void ctitandb_delete_files_in_range(
+    crocksdb_t* db,
+    const char* start_key, size_t start_key_len,
+    const char* limit_key, size_t limit_key_len,
+    bool include_end, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_delete_files_in_range_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
+    const char* start_key, size_t start_key_len,
+    const char* limit_key, size_t limit_key_len,
+    bool include_end, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_delete_files_in_ranges_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* cf,
+    const char* const* start_keys, const size_t* start_keys_lens,
+    const char* const* limit_keys, const size_t* limit_keys_lens,
+    size_t num_ranges, bool include_end, char** errptr);
+
 #ifdef __cplusplus
 }  /* end extern "C" */
 #endif
