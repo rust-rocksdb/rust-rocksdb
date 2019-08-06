@@ -301,10 +301,19 @@ pub fn error_message(ptr: *mut c_char) -> String {
 
 #[macro_export]
 macro_rules! ffi_try {
-    ($func:ident($($arg:expr),*)) => ({
+    ($func:ident($($arg:expr),+)) => ({
         use std::ptr;
         let mut err = ptr::null_mut();
-        let res = $crate::$func($($arg),*, &mut err);
+        let res = $crate::$func($($arg),+, &mut err);
+        if !err.is_null() {
+            return Err($crate::error_message(err));
+        }
+        res
+    });
+    ($func:ident()) => ({
+        use std::ptr;
+        let mut err = ptr::null_mut();
+        let res = $crate::$func(&mut err);
         if !err.is_null() {
             return Err($crate::error_message(err));
         }
