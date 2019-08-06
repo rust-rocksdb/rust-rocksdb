@@ -173,6 +173,8 @@ using rocksdb::titandb::TitanOptions;
 using rocksdb::titandb::TitanReadOptions;
 using rocksdb::titandb::TitanBlobRunMode;
 
+using rocksdb::MemoryAllocator;
+
 using std::shared_ptr;
 
 extern "C" {
@@ -212,6 +214,7 @@ struct crocksdb_lru_cache_options_t {
   LRUCacheOptions rep;
 };
 struct crocksdb_cache_t           { shared_ptr<Cache>   rep; };
+struct crocksdb_memory_allocator_t { shared_ptr<MemoryAllocator> rep; };
 struct crocksdb_livefiles_t       { std::vector<LiveFileMetaData> rep; };
 struct crocksdb_column_family_handle_t  { ColumnFamilyHandle* rep; };
 struct crocksdb_envoptions_t      { EnvOptions        rep; };
@@ -3303,6 +3306,17 @@ void crocksdb_flushoptions_set_allow_write_stall(
   opt->rep.allow_write_stall = v;
 }
 
+crocksdb_memory_allocator_t* crocksdb_jemalloc_nodump_allocator_create(char** errptr) {
+  crocksdb_memory_allocator_t* allocator = new crocksdb_memory_allocator_t;
+  rocksdb::JemallocAllocatorOptions options;
+  SaveError(errptr, rocksdb::NewJemallocNodumpAllocator(options, &allocator->rep));
+  return allocator;
+}
+
+void crocksdb_memory_allocator_destroy(crocksdb_memory_allocator_t* allocator) {
+  delete allocator;
+}
+
 crocksdb_lru_cache_options_t* crocksdb_lru_cache_options_create() {
   return new crocksdb_lru_cache_options_t;
 }
@@ -3329,6 +3343,11 @@ void crocksdb_lru_cache_options_set_strict_capacity_limit(
 void crocksdb_lru_cache_options_set_high_pri_pool_ratio(
     crocksdb_lru_cache_options_t* opt, double high_pri_pool_ratio) {
   opt->rep.high_pri_pool_ratio = high_pri_pool_ratio;
+}
+
+void crocksdb_lru_cache_options_set_memory_allocator(
+    crocksdb_lru_cache_options_t* opt, crocksdb_memory_allocator_t* allocator) {
+    opt->rep.memory_allocator = allocator->rep;
 }
 
 crocksdb_cache_t* crocksdb_cache_create_lru(crocksdb_lru_cache_options_t* opt) {
@@ -5129,7 +5148,7 @@ void ctitandb_options_set_max_background_gc(ctitandb_options_t* options,
   options->rep.max_background_gc = size;
 }
 
-void ctitandb_options_set_purge_obsolete_files_period(ctitandb_options_t* options, 
+void ctitandb_options_set_purge_obsolete_files_period(ctitandb_options_t* options,
                                                       unsigned int period) {
   options->rep.purge_obsolete_files_period = period;
 }
@@ -5161,12 +5180,12 @@ struct ctitandb_readoptions_t {
   TitanReadOptions rep;
 };
 
-ctitandb_readoptions_t* ctitandb_readoptions_create() { 
-  return new ctitandb_readoptions_t; 
+ctitandb_readoptions_t* ctitandb_readoptions_create() {
+  return new ctitandb_readoptions_t;
 }
 
-void ctitandb_readoptions_destroy(ctitandb_readoptions_t* opts) { 
-  delete opts; 
+void ctitandb_readoptions_destroy(ctitandb_readoptions_t* opts) {
+  delete opts;
 }
 
 bool ctitandb_readoptions_key_only(ctitandb_readoptions_t* opts) {

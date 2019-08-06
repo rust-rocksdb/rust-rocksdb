@@ -29,6 +29,7 @@ pub enum DBWriteOptions {}
 pub enum DBReadOptions {}
 pub enum DBMergeOperator {}
 pub enum DBBlockBasedTableOptions {}
+pub enum DBMemoryAllocator {}
 pub enum DBLRUCacheOptions {}
 pub enum DBCache {}
 pub enum DBFilterPolicy {}
@@ -343,6 +344,10 @@ extern "C" {
         cf_descs: *const ColumnFamilyDescriptor,
     ) -> *mut Options;
 
+    // Memory Allocator
+    pub fn crocksdb_jemalloc_nodump_allocator_create() -> *mut DBMemoryAllocator;
+    pub fn crocksdb_memory_allocator_destroy(allocator: *mut DBMemoryAllocator);
+
     // Cache
     pub fn crocksdb_lru_cache_options_create() -> *mut DBLRUCacheOptions;
     pub fn crocksdb_lru_cache_options_destroy(opt: *mut DBLRUCacheOptions);
@@ -358,6 +363,10 @@ extern "C" {
     pub fn crocksdb_lru_cache_options_set_high_pri_pool_ratio(
         opt: *mut DBLRUCacheOptions,
         high_pri_pool_ratio: c_double,
+    );
+    pub fn crocksdb_lru_cache_options_set_memory_allocator(
+        opt: *mut DBLRUCacheOptions,
+        allocator: *mut DBMemoryAllocator,
     );
     pub fn crocksdb_cache_create_lru(opt: *mut DBLRUCacheOptions) -> *mut DBCache;
     pub fn crocksdb_cache_destroy(cache: *mut DBCache);

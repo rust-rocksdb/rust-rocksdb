@@ -15,6 +15,7 @@ use rocksdb::crocksdb_ffi::{
     CompactionPriority, DBCompressionType, DBInfoLogLevel as InfoLogLevel, DBRateLimiterMode,
     DBStatisticsHistogramType as HistogramType, DBStatisticsTickerType as TickerType,
 };
+use rocksdb::rocksdb::MemoryAllocator;
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamilyOptions, CompactOptions, DBOptions, Env,
     FifoCompactionOptions, IndexType, LRUCacheOptions, ReadOptions, SeekKey, SliceTransform,
@@ -312,6 +313,22 @@ fn test_set_lru_cache() {
     opts.create_if_missing(true);
     let mut block_opts = BlockBasedOptions::new();
     let mut cache_opts = LRUCacheOptions::new();
+    cache_opts.set_capacity(8388608);
+    block_opts.set_block_cache(&Cache::new_lru_cache(cache_opts));
+    cf_opts.set_block_based_table_factory(&block_opts);
+    DB::open_cf(opts, path.path().to_str().unwrap(), vec!["default"]).unwrap();
+}
+
+#[cfg(feature = "jemalloc")]
+#[test]
+fn test_set_jemalloc_nodump_allocator_for_lru_cache() {
+    let path = TempDir::new("_rust_rocksdb_set_jemalloc_nodump_allocator").expect("");
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    let mut block_opts = BlockBasedOptions::new();
+    let mut cache_opts = LRUCacheOptions::new();
+    cache_opts.set_memory_allocator(MemoryAllocator::new_jemalloc_memory_allocator().unwrap());
     cache_opts.set_capacity(8388608);
     block_opts.set_block_cache(&Cache::new_lru_cache(cache_opts));
     cf_opts.set_block_based_table_factory(&block_opts);

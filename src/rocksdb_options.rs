@@ -27,8 +27,8 @@ use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
 use merge_operator::MergeFn;
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
-use rocksdb::Cache;
 use rocksdb::Env;
+use rocksdb::{Cache, MemoryAllocator};
 use slice_transform::{new_slice_transform, SliceTransform};
 use std::ffi::{CStr, CString};
 use std::mem;
@@ -1874,6 +1874,15 @@ impl LRUCacheOptions {
             crocksdb_ffi::crocksdb_lru_cache_options_set_high_pri_pool_ratio(
                 self.inner,
                 high_pri_pool_ratio,
+            );
+        }
+    }
+
+    pub fn set_memory_allocator(&mut self, allocator: &MemoryAllocator) {
+        unsafe {
+            crocksdb_ffi::crocksdb_lru_cache_options_set_memory_allocator(
+                self.inner,
+                allocator.inner,
             );
         }
     }
