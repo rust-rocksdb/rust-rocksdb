@@ -1878,7 +1878,7 @@ impl LRUCacheOptions {
         }
     }
 
-    pub fn set_memory_allocator(&mut self, allocator: &MemoryAllocator) {
+    pub fn set_memory_allocator(&mut self, allocator: MemoryAllocator) {
         unsafe {
             crocksdb_ffi::crocksdb_lru_cache_options_set_memory_allocator(
                 self.inner,

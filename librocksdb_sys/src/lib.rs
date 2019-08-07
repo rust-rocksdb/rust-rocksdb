@@ -354,7 +354,9 @@ extern "C" {
     ) -> *mut Options;
 
     // Memory Allocator
-    pub fn crocksdb_jemalloc_nodump_allocator_create() -> *mut DBMemoryAllocator;
+    pub fn crocksdb_jemalloc_nodump_allocator_create(
+        err: *mut *mut c_char,
+    ) -> *mut DBMemoryAllocator;
     pub fn crocksdb_memory_allocator_destroy(allocator: *mut DBMemoryAllocator);
 
     // Cache

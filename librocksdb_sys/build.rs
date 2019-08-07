@@ -80,6 +80,7 @@ fn build_rocksdb() -> Build {
     let mut cfg = Config::new("rocksdb");
     if cfg!(feature = "jemalloc") && NO_JEMALLOC_TARGETS.iter().all(|i| !target.contains(i)) {
         cfg.register_dep("JEMALLOC").define("WITH_JEMALLOC", "ON");
+        println!("cargo:rustc-link-lib=static=jemalloc");
     }
     if cfg!(feature = "portable") {
         cfg.define("PORTABLE", "ON");

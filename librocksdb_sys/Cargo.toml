@@ -25,8 +25,9 @@ cc = "1.0.3"
 cmake = "0.1"
 
 [dependencies.jemalloc-sys]
-version = ">= 0.1.8"
+version = "0.1.8"
 optional = true
+features = ["unprefixed_malloc_on_supported_platforms"]
 
 [dependencies.libz-sys]
 version = "1.0.25"
