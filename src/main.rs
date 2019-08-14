@@ -107,7 +107,7 @@ fn custom_merge() {
         }
     }
     let opts = DBOptions::new();
-    DB::destroy(&opts, path).is_ok();
+    let _ = DB::destroy(&opts, path).is_ok();
 }
 
 #[cfg(test)]

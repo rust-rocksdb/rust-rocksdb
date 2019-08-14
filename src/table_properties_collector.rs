@@ -35,11 +35,11 @@ pub trait TablePropertiesCollector {
 
 struct TablePropertiesCollectorHandle {
     name: CString,
-    rep: Box<TablePropertiesCollector>,
+    rep: Box<dyn TablePropertiesCollector>,
 }
 
 impl TablePropertiesCollectorHandle {
-    fn new(name: &str, rep: Box<TablePropertiesCollector>) -> TablePropertiesCollectorHandle {
+    fn new(name: &str, rep: Box<dyn TablePropertiesCollector>) -> TablePropertiesCollectorHandle {
         TablePropertiesCollectorHandle {
             name: CString::new(name).unwrap(),
             rep: rep,
@@ -97,7 +97,7 @@ pub extern "C" fn finish(handle: *mut c_void, props: *mut DBUserCollectedPropert
 
 pub unsafe fn new_table_properties_collector(
     cname: &str,
-    collector: Box<TablePropertiesCollector>,
+    collector: Box<dyn TablePropertiesCollector>,
 ) -> *mut DBTablePropertiesCollector {
     let handle = TablePropertiesCollectorHandle::new(cname, collector);
     crocksdb_ffi::crocksdb_table_properties_collector_create(

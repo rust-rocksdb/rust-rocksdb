@@ -27,13 +27,13 @@ pub trait TableFilter {
 
 pub extern "C" fn table_filter(ctx: *mut c_void, props: *const DBTableProperties) -> c_int {
     unsafe {
-        let filter = &*(ctx as *mut Box<TableFilter>);
+        let filter = &*(ctx as *mut Box<dyn TableFilter>);
         filter.table_filter(mem::transmute(&*props)) as c_int
     }
 }
 
 pub extern "C" fn destroy_table_filter(filter: *mut c_void) {
     unsafe {
-        Box::from_raw(filter as *mut Box<TableFilter>);
+        Box::from_raw(filter as *mut Box<dyn TableFilter>);
     }
 }

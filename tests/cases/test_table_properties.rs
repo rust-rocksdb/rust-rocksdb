@@ -132,7 +132,7 @@ impl ExampleFactory {
 }
 
 impl TablePropertiesCollectorFactory for ExampleFactory {
-    fn create_table_properties_collector(&mut self, _: u32) -> Box<TablePropertiesCollector> {
+    fn create_table_properties_collector(&mut self, _: u32) -> Box<dyn TablePropertiesCollector> {
         Box::new(ExampleCollector::new())
     }
 }

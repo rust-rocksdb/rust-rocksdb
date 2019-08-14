@@ -21,7 +21,7 @@ pub trait CompactionFilter {
 #[repr(C)]
 pub struct CompactionFilterProxy {
     name: CString,
-    filter: Box<CompactionFilter>,
+    filter: Box<dyn CompactionFilter>,
 }
 
 extern "C" fn name(filter: *mut c_void) -> *const c_char {
@@ -69,7 +69,7 @@ impl Drop for CompactionFilterHandle {
 pub unsafe fn new_compaction_filter(
     c_name: CString,
     ignore_snapshots: bool,
-    f: Box<CompactionFilter>,
+    f: Box<dyn CompactionFilter>,
 ) -> Result<CompactionFilterHandle, String> {
     let proxy = Box::into_raw(Box::new(CompactionFilterProxy {
         name: c_name,

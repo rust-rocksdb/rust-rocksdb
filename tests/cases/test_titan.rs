@@ -82,7 +82,7 @@ impl TablePropertiesCollector for TitanCollector {
 struct TitanCollectorFactory {}
 
 impl TablePropertiesCollectorFactory for TitanCollectorFactory {
-    fn create_table_properties_collector(&mut self, _: u32) -> Box<TablePropertiesCollector> {
+    fn create_table_properties_collector(&mut self, _: u32) -> Box<dyn TablePropertiesCollector> {
         Box::new(TitanCollector::default())
     }
 }

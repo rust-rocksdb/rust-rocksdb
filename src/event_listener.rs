@@ -183,7 +183,7 @@ pub trait EventListener: Send + Sync {
 
 extern "C" fn destructor(ctx: *mut c_void) {
     unsafe {
-        Box::from_raw(ctx as *mut Box<EventListener>);
+        Box::from_raw(ctx as *mut Box<dyn EventListener>);
     }
 }
 
@@ -194,7 +194,12 @@ extern "C" fn on_flush_completed(
     _: *mut DBInstance,
     info: *const DBFlushJobInfo,
 ) {
-    let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
+    let (ctx, info) = unsafe {
+        (
+            &*(ctx as *mut Box<dyn EventListener>),
+            mem::transmute(&*info),
+        )
+    };
     ctx.on_flush_completed(info);
 }
 
@@ -203,7 +208,12 @@ extern "C" fn on_compaction_completed(
     _: *mut DBInstance,
     info: *const DBCompactionJobInfo,
 ) {
-    let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
+    let (ctx, info) = unsafe {
+        (
+            &*(ctx as *mut Box<dyn EventListener>),
+            mem::transmute(&*info),
+        )
+    };
     ctx.on_compaction_completed(info);
 }
 
@@ -212,17 +222,27 @@ extern "C" fn on_external_file_ingested(
     _: *mut DBInstance,
     info: *const DBIngestionInfo,
 ) {
-    let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
+    let (ctx, info) = unsafe {
+        (
+            &*(ctx as *mut Box<dyn EventListener>),
+            mem::transmute(&*info),
+        )
+    };
     ctx.on_external_file_ingested(info);
 }
 
 extern "C" fn on_stall_conditions_changed(ctx: *mut c_void, info: *const DBWriteStallInfo) {
-    let (ctx, info) = unsafe { (&*(ctx as *mut Box<EventListener>), mem::transmute(&*info)) };
+    let (ctx, info) = unsafe {
+        (
+            &*(ctx as *mut Box<dyn EventListener>),
+            mem::transmute(&*info),
+        )
+    };
     ctx.on_stall_conditions_changed(info);
 }
 
 pub fn new_event_listener<L: EventListener>(l: L) -> *mut DBEventListener {
-    let p: Box<EventListener> = Box::new(l);
+    let p: Box<dyn EventListener> = Box::new(l);
     unsafe {
         crocksdb_ffi::crocksdb_eventlistener_create(
             Box::into_raw(Box::new(p)) as *mut c_void,

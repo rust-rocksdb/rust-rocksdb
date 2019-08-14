@@ -40,7 +40,7 @@ pub trait SliceTransform {
 #[repr(C)]
 pub struct SliceTransformProxy {
     name: CString,
-    transform: Box<SliceTransform>,
+    transform: Box<dyn SliceTransform>,
 }
 
 extern "C" fn name(transform: *mut c_void) -> *const c_char {
@@ -86,7 +86,7 @@ extern "C" fn in_range(transform: *mut c_void, key: *const u8, key_len: size_t) 
 
 pub unsafe fn new_slice_transform(
     c_name: CString,
-    f: Box<SliceTransform>,
+    f: Box<dyn SliceTransform>,
 ) -> Result<*mut DBSliceTransform, String> {
     let proxy = Box::into_raw(Box::new(SliceTransformProxy {
         name: c_name,
