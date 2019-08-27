@@ -168,7 +168,7 @@ fn build_rocksdb() {
 
 fn build_snappy() {
     let target = env::var("TARGET").unwrap();
-    
+
     let mut config = cc::Build::new();
     config.include("snappy/");
     config.include(".");
