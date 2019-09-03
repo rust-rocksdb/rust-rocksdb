@@ -1033,6 +1033,7 @@ crocksdb_options_set_delete_obsolete_files_period_micros(crocksdb_options_t*,
                                                         uint64_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_prepare_for_bulk_load(
     crocksdb_options_t*);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_options_get_memtable_factory_name(crocksdb_options_t *opt);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_memtable_vector_rep(
     crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_memtable_prefix_bloom_size_ratio(
@@ -1043,6 +1044,7 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hash_skip_list_rep(
     crocksdb_options_t*, size_t, int32_t, int32_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hash_link_list_rep(
     crocksdb_options_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_doubly_skip_list_rep(crocksdb_options_t *opt);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_plain_table_factory(
     crocksdb_options_t*, uint32_t, int, double, size_t);
 

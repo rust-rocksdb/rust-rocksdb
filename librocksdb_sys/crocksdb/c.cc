@@ -2646,6 +2646,13 @@ void crocksdb_options_set_memtable_huge_page_size(crocksdb_options_t* opt,
                                                  size_t v) {
   opt->rep.memtable_huge_page_size = v;
 }
+const char* crocksdb_options_get_memtable_factory_name(
+    crocksdb_options_t *opt) {
+  if (!opt->rep.memtable_factory) {
+     return nullptr;
+  }
+  return opt->rep.memtable_factory->Name();
+}
 
 void crocksdb_options_set_hash_skip_list_rep(
     crocksdb_options_t *opt, size_t bucket_count,
@@ -2658,6 +2665,11 @@ void crocksdb_options_set_hash_skip_list_rep(
 void crocksdb_options_set_hash_link_list_rep(
     crocksdb_options_t *opt, size_t bucket_count) {
   opt->rep.memtable_factory.reset(rocksdb::NewHashLinkListRepFactory(bucket_count));
+}
+
+void crocksdb_options_set_doubly_skip_list_rep(crocksdb_options_t *opt) {
+  rocksdb::MemTableRepFactory* factory = new rocksdb::DoublySkipListFactory();
+  opt->rep.memtable_factory.reset(factory);
 }
 
 void crocksdb_options_set_plain_table_factory(

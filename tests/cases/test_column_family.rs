@@ -147,3 +147,14 @@ fn test_provided_merge(
     }
     result
 }
+
+#[test]
+pub fn test_column_family_option_use_doubly_skiplist() {
+    let mut cf_opts = ColumnFamilyOptions::new();
+    let memtable_name = cf_opts.get_memtable_factory_name();
+    assert!(memtable_name.is_some());
+    assert_eq!("SkipListFactory", memtable_name.unwrap());
+    cf_opts.set_doubly_skiplist();
+    let memtable_name = cf_opts.get_memtable_factory_name();
+    assert_eq!("DoublySkipListFactory", memtable_name.unwrap());
+}

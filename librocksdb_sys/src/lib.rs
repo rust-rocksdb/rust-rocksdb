@@ -507,12 +507,14 @@ extern "C" {
     pub fn crocksdb_options_set_keep_log_file_num(options: *mut Options, num: size_t);
     pub fn crocksdb_options_set_recycle_log_file_num(options: *mut Options, num: size_t);
     pub fn crocksdb_options_set_max_manifest_file_size(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_get_memtable_factory_name(options: *mut Options) -> *const c_char;
     pub fn crocksdb_options_set_hash_skip_list_rep(
         options: *mut Options,
         bytes: u64,
         a1: i32,
         a2: i32,
     );
+    pub fn crocksdb_options_set_doubly_skip_list_rep(options: *mut Options);
     pub fn crocksdb_options_set_compaction_style(options: *mut Options, cs: DBCompactionStyle);
     pub fn crocksdb_options_set_fifo_compaction_options(
         options: *mut Options,
