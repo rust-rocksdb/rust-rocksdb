@@ -1560,6 +1560,11 @@ impl DB {
             Err(e) => Err(e),
         }
     }
+
+    /// The sequence number of the most recent transaction.
+    pub fn latest_sequence_number(&self) -> u64 {
+        unsafe { ffi::rocksdb_get_latest_sequence_number(self.inner) }
+    }
 }
 
 impl WriteBatch {
