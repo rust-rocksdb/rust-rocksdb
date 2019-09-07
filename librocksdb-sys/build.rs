@@ -82,7 +82,7 @@ fn build_rocksdb() {
     config.define("NDEBUG", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
-        .split(" ")
+        .split("\n")
         .collect::<Vec<&'static str>>();
 
     // We have a pregenerated a version of build_version.cc in the local directory
