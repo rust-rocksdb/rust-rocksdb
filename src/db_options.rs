@@ -34,7 +34,17 @@ pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
 
+// Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
+// pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
+// rocksdb internally does not rely on thread-local information for its user-exposed types.
 unsafe impl Send for Options {}
+unsafe impl Send for WriteOptions {}
+unsafe impl Send for BlockBasedOptions {}
+// Sync is similarly safe for many types because they do not expose interior mutability, and their
+// use within the rocksdb library is generally behind a const reference
+unsafe impl Sync for Options {}
+unsafe impl Sync for WriteOptions {}
+unsafe impl Sync for BlockBasedOptions {}
 
 impl Drop for Options {
     fn drop(&mut self) {
