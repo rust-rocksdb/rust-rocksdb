@@ -4,7 +4,6 @@ options/db_options.cc
 options/cf_options.cc
 options/options_sanity_check.cc
 options/options.cc
-cache/cache_bench.cc
 cache/clock_cache.cc
 cache/sharded_cache.cc
 cache/lru_cache.cc
@@ -38,14 +37,12 @@ util/file_util.cc
 util/auto_roll_logger.cc
 util/compression_context_cache.cc
 util/murmurhash.cc
-util/log_write_bench.cc
 util/slice.cc
 util/comparator.cc
 util/coding.cc
 util/jemalloc_nodump_allocator.cc
 util/compaction_job_stats_impl.cc
 util/thread_local.cc
-memtable/memtablerep_bench.cc
 memtable/alloc_tracker.cc
 memtable/write_buffer_manager.cc
 memtable/skiplistrep.cc
@@ -97,9 +94,7 @@ utilities/merge_operators/string_append/stringappend2.cc
 utilities/merge_operators/string_append/stringappend.cc
 utilities/merge_operators/bytesxor.cc
 utilities/convenience/info_log_finder.cc
-utilities/persistent_cache/persistent_cache_bench.cc
 utilities/persistent_cache/block_cache_tier_metadata.cc
-utilities/persistent_cache/hash_table_bench.cc
 utilities/persistent_cache/volatile_tier_impl.cc
 utilities/persistent_cache/block_cache_tier.cc
 utilities/persistent_cache/block_cache_tier_file.cc
@@ -120,7 +115,6 @@ table/index_builder.cc
 table/plain_table_builder.cc
 table/block.cc
 table/sst_file_reader.cc
-table/table_reader_bench.cc
 table/block_based_table_builder.cc
 table/sst_file_writer.cc
 table/cuckoo_table_builder.cc
@@ -158,14 +152,12 @@ db/forward_iterator.cc
 db/error_handler.cc
 db/db_impl.cc
 db/db_impl_write.cc
-db/forward_iterator_bench.cc
 db/table_cache.cc
 db/column_family.cc
 db/log_reader.cc
 db/write_batch.cc
 db/event_helpers.cc
 db/flush_scheduler.cc
-db/range_del_aggregator_bench.cc
 db/memtable_list.cc
 db/wal_manager.cc
 db/write_batch_base.cc
