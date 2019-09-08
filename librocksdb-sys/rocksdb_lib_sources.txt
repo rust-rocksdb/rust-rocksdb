@@ -200,7 +200,6 @@ db/merge_helper.cc
 db/logs_with_prep_tracker.cc
 db/experimental.cc
 db/compaction_job.cc
-third-party/gtest-1.7.0/fused-src/gtest/gtest-all.cc
 port/port_posix.cc
 port/stack_trace.cc
 monitoring/statistics.cc
