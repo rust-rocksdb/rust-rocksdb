@@ -45,6 +45,8 @@ fn bindgen_rocksdb() {
 }
 
 fn build_rocksdb() {
+    let target = env::var("TARGET").unwrap();
+
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
@@ -90,27 +92,40 @@ fn build_rocksdb() {
         .filter(|file| *file != "util/build_version.cc")
         .collect::<Vec<&'static str>>();
 
-    if cfg!(target_os = "macos") {
+    if target.contains("x86_64") {
+        // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
+        // only available since Intel Nehalem (about 2010) and AMD Bulldozer
+        // (about 2011).
+        config.define("HAVE_PCLMUL", Some("1"));
+        config.define("HAVE_SSE42", Some("1"));
+        config.flag("-msse2");
+        config.flag("-msse4.1");
+        config.flag("-msse4.2");
+        config.flag("-mpclmul");
+    }
+
+    if target.contains("darwin") {
         config.define("OS_MACOSX", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
     }
-    if cfg!(target_os = "linux") {
+    if target.contains("linux") {
         config.define("OS_LINUX", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
         // COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
     }
-    if cfg!(target_os = "freebsd") {
+    if target.contains("freebsd") {
         config.define("OS_FREEBSD", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
     }
 
-    if cfg!(target_os = "windows") {
+    if target.contains("windows") {
         link("rpcrt4", false);
         link("shlwapi", false);
         config.define("OS_WIN", Some("1"));
+        config.define("ROCKSDB_WINDOWS_UTF8_FILENAMES", Some("1"));
 
         // Remove POSIX-specific sources
         lib_sources = lib_sources
@@ -131,7 +146,7 @@ fn build_rocksdb() {
         lib_sources.push("port/win/win_thread.cc");
     }
 
-    if cfg!(target_env = "msvc") {
+    if target.contains("msvc") {
         config.flag("-EHsc");
     } else {
         config.flag("-std=c++11");
@@ -152,13 +167,15 @@ fn build_rocksdb() {
 }
 
 fn build_snappy() {
+    let target = env::var("TARGET").unwrap();
+
     let mut config = cc::Build::new();
     config.include("snappy/");
     config.include(".");
 
     config.define("NDEBUG", Some("1"));
 
-    if cfg!(target_env = "msvc") {
+    if target.contains("msvc") {
         config.flag("-EHsc");
     } else {
         config.flag("-std=c++11");

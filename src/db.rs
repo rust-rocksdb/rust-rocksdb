@@ -103,6 +103,11 @@ pub struct Snapshot<'a> {
     inner: *const ffi::rocksdb_snapshot_t,
 }
 
+/// `Send` and `Sync` implementations for `Snapshot` are safe, because `Snapshot` is
+/// immutable and can be safely shared between threads.
+unsafe impl<'a> Send for Snapshot<'a> {}
+unsafe impl<'a> Sync for Snapshot<'a> {}
+
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///
@@ -193,8 +198,6 @@ pub struct DBIterator<'a> {
     just_seeked: bool,
 }
 
-unsafe impl<'a> Send for DBIterator<'a> {}
-
 pub enum Direction {
     Forward,
     Reverse,
@@ -231,9 +234,26 @@ impl<'a> DBRawIterator<'a> {
         }
     }
 
-    /// Returns true if the iterator is valid.
+    /// Returns `true` if the iterator is valid. An iterator is invalidated when
+    /// it reaches the end of its defined range, or when it encounters an error.
+    ///
+    /// To check whether the iterator encountered an error after `valid` has
+    /// returned `false`, use the [`status`](DBRawIterator::status) method. `status` will never
+    /// return an error when `valid` is `true`.
     pub fn valid(&self) -> bool {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
+    }
+
+    /// Returns an error `Result` if the iterator has encountered an error
+    /// during operation. When an error is encountered, the iterator is
+    /// invalidated and [`valid`](DBRawIterator::valid) will return `false` when called.
+    ///
+    /// Performing a seek will discard the current status.
+    pub fn status(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_iter_get_error(self.inner,));
+        }
+        Ok(())
     }
 
     /// Seeks to the first key in the database.
@@ -511,8 +531,14 @@ impl<'a> DBIterator<'a> {
         self.just_seeked = true;
     }
 
+    /// See [`valid`](DBRawIterator::valid)
     pub fn valid(&self) -> bool {
         self.raw.valid()
+    }
+
+    /// See [`status`](DBRawIterator::status)
+    pub fn status(&self) -> Result<(), Error> {
+        self.raw.status()
     }
 }
 
@@ -587,21 +613,25 @@ impl<'a> Snapshot<'a> {
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
 
+    /// Opens a raw iterator over the data in this snapshot, using the default read options.
     pub fn raw_iterator(&self) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_opt(readopts)
     }
 
+    /// Opens a raw iterator over the data in this snapshot under the given column family, using the default read options.
     pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
 
+    /// Opens a raw iterator over the data in this snapshot, using the given read options.
     pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new(self.db, &readopts)
     }
 
+    /// Opens a raw iterator over the data in this snapshot under the given column family, using the given read options.
     pub fn raw_iterator_cf_opt(
         &self,
         cf_handle: &ColumnFamily,
@@ -1151,14 +1181,30 @@ impl DB {
         )
     }
 
+    /// Opens a raw iterator over the database, using the default read options
     pub fn raw_iterator(&self) -> DBRawIterator {
         let opts = ReadOptions::default();
         DBRawIterator::new(self, &opts)
     }
 
+    /// Opens a raw iterator over the given column family, using the default read options
     pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, &opts)
+    }
+
+    /// Opens a raw iterator over the database, using the given read options
+    pub fn raw_iterator_opt(&self, readopts: &ReadOptions) -> DBRawIterator {
+        DBRawIterator::new(self, readopts)
+    }
+
+    /// Opens a raw iterator over the given column family, using the given read options
+    pub fn raw_iterator_cf_opt(
+        &self,
+        cf_handle: &ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<DBRawIterator, Error> {
+        DBRawIterator::new_cf(self, cf_handle, readopts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -1522,6 +1568,11 @@ impl DB {
             Err(e) => Err(e),
         }
     }
+
+    /// The sequence number of the most recent transaction.
+    pub fn latest_sequence_number(&self) -> u64 {
+        unsafe { ffi::rocksdb_get_latest_sequence_number(self.inner) }
+    }
 }
 
 impl WriteBatch {
@@ -1764,8 +1815,15 @@ impl ReadOptions {
         }
     }
 
-    /// Set the upper bound for an iterator, and the upper bound itself is not included on the iteration result.
-    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
+    /// Set the upper bound for an iterator.
+    /// The upper bound itself is not included on the iteration result.
+    ///
+    /// # Safety
+    ///
+    /// This function will store a clone of key and will give a raw pointer of it to the
+    /// underlying C++ API, therefore, when given to any other [`DB`] method you must ensure
+    /// that this [`ReadOptions`] value does not leave the scope too early (e.g. `DB::iterator_cf_opt`).
+    pub unsafe fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
         unsafe {
             ffi::rocksdb_readoptions_set_iterate_upper_bound(
@@ -1811,6 +1869,16 @@ impl Default for ReadOptions {
         }
     }
 }
+
+// Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
+// pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
+// rocksdb internally does not rely on thread-local information for its user-exposed types.
+unsafe impl<'a> Send for DBRawIterator<'a> {}
+unsafe impl Send for ReadOptions {}
+
+// Sync is similarly safe for many types because they do not expose interior mutability, and their
+// use within the rocksdb library is generally behind a const reference
+unsafe impl Sync for ReadOptions {}
 
 /// Vector of bytes stored in the database.
 ///

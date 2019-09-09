@@ -286,3 +286,49 @@ pub struct ColumnFamily {
 }
 
 unsafe impl Send for ColumnFamily {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn is_send() {
+        // test (at compile time) that certain types implement the auto-trait Send, either directly for
+        // pointer-wrapping types or transitively for types with all Send fields
+
+        fn is_send<T: Send>() {
+            // dummy function just used for its parameterized type bound
+        }
+
+        is_send::<DB>();
+        is_send::<DBIterator<'_>>();
+        is_send::<DBRawIterator<'_>>();
+        is_send::<Snapshot>();
+        is_send::<Options>();
+        is_send::<ReadOptions>();
+        is_send::<WriteOptions>();
+        is_send::<BlockBasedOptions>();
+        is_send::<PlainTableFactoryOptions>();
+        is_send::<ColumnFamilyDescriptor>();
+        is_send::<ColumnFamily>();
+    }
+
+    #[test]
+    fn is_sync() {
+        // test (at compile time) that certain types implement the auto-trait Sync
+
+        fn is_sync<T: Sync>() {
+            // dummy function just used for its parameterized type bound
+        }
+
+        is_sync::<DB>();
+        is_sync::<Snapshot>();
+        is_sync::<Options>();
+        is_sync::<ReadOptions>();
+        is_sync::<WriteOptions>();
+        is_sync::<BlockBasedOptions>();
+        is_sync::<PlainTableFactoryOptions>();
+        is_sync::<ColumnFamilyDescriptor>();
+    }
+
+}
