@@ -48,19 +48,19 @@ pub fn test_multithreaded() {
         let db3 = db.clone();
         let j3 = thread::spawn(move || {
             for _ in 1..N {
-                match db3.get(b"key") {
+                let result = match db3.get(b"key") {
                     Ok(Some(v)) => {
                         if &v[..] != b"value1" && &v[..] != b"value2" {
-                            assert!(false);
+                            false
+                        } else {
+                            true
                         }
                     }
-                    _ => {
-                        assert!(false);
-                    }
-                }
+                    _ => false,
+                };
+                assert!(result);
             }
         });
-
         j1.join().unwrap();
         j2.join().unwrap();
         j3.join().unwrap();

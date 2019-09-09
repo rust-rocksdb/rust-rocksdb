@@ -247,7 +247,7 @@ fn test_sequence_number() {
     {
         let db = DB::open_default(&path).unwrap();
         assert_eq!(db.latest_sequence_number(), 0);
-        db.put(b"key", b"value");
+        let _ = db.put(b"key", b"value");
         assert_eq!(db.latest_sequence_number(), 1);
     }
 }

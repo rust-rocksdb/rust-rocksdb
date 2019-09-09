@@ -1825,13 +1825,11 @@ impl ReadOptions {
     /// that this [`ReadOptions`] value does not leave the scope too early (e.g. `DB::iterator_cf_opt`).
     pub unsafe fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
-        unsafe {
-            ffi::rocksdb_readoptions_set_iterate_upper_bound(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            );
-        }
+        ffi::rocksdb_readoptions_set_iterate_upper_bound(
+            self.inner,
+            key.as_ptr() as *const c_char,
+            key.len() as size_t,
+        );
     }
 
     pub fn set_prefix_same_as_start(&mut self, v: bool) {

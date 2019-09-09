@@ -330,5 +330,4 @@ mod test {
         is_sync::<PlainTableFactoryOptions>();
         is_sync::<ColumnFamilyDescriptor>();
     }
-
 }
