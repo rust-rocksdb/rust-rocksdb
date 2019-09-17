@@ -277,3 +277,67 @@ fn test_titan_delete_files_in_ranges() {
     iter.seek(SeekKey::Start);
     assert!(!iter.valid());
 }
+
+#[test]
+fn test_get_blob_cache_usage() {
+    let path = TempDir::new("_rust_rocksdb_set_blob_cache").expect("");
+    let tdb_path = path.path().join("titandb");
+    let mut tdb_opts = TitanDBOptions::new();
+    tdb_opts.set_dirname(tdb_path.to_str().unwrap());
+    tdb_opts.set_min_blob_size(0);
+    tdb_opts.set_blob_cache(16 * 1024 * 1024, -1, false, 0.0);
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_titandb_options(&tdb_opts);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_titandb_options(&tdb_opts);
+    assert_eq!(cf_opts.get_blob_cache_usage(), 0);
+
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+
+    for i in 0..200 {
+        db.put(format!("k_{}", i).as_bytes(), b"v").unwrap();
+    }
+    db.flush(true).unwrap();
+    for i in 0..200 {
+        db.get(format!("k_{}", i).as_bytes()).unwrap();
+    }
+
+    assert!(db.get_options().get_blob_cache_usage() > 0);
+}
+
+#[test]
+fn test_blob_cache_capacity() {
+    let path = TempDir::new("_rust_rocksdb_set_and_get_blob_cache_capacity").expect("");
+    let tdb_path = path.path().join("titandb");
+    let mut tdb_opts = TitanDBOptions::new();
+    tdb_opts.set_dirname(tdb_path.to_str().unwrap());
+    tdb_opts.set_min_blob_size(0);
+    tdb_opts.set_blob_cache(16 * 1024 * 1024, -1, false, 0.0);
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_titandb_options(&tdb_opts);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_titandb_options(&tdb_opts);
+
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+
+    assert_eq!(db.get_options().get_blob_cache_capacity(), 16 * 1024 * 1024);
+
+    let opt = db.get_options();
+    opt.set_blob_cache_capacity(32 * 1024 * 1024).unwrap();
+
+    assert_eq!(db.get_options().get_blob_cache_capacity(), 32 * 1024 * 1024);
+}

@@ -37,7 +37,6 @@ fn main() {
         .register_dep("SNAPPY")
         .define("WITH_SNAPPY", "ON")
         .build_target("titan")
-        .very_verbose(true)
         .build();
     println!("cargo:rustc-link-search=native={}/build", dst.display());
     println!("cargo:rustc-link-lib=static=titan");

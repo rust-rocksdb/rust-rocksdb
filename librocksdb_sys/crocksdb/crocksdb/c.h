@@ -2011,6 +2011,9 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_destroy(ctitandb_options_t*);
 
 extern C_ROCKSDB_LIBRARY_API ctitandb_options_t* ctitandb_options_copy(
     ctitandb_options_t*);
+   
+extern C_ROCKSDB_LIBRARY_API ctitandb_options_t* ctitandb_get_titan_options_cf(
+    const crocksdb_t* db, crocksdb_column_family_handle_t* column_family);
 
 extern C_ROCKSDB_LIBRARY_API const char* ctitandb_options_dirname(
     ctitandb_options_t*);
@@ -2065,6 +2068,15 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_purge_obsolete_files_peri
 
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_blob_cache(
     ctitandb_options_t* options, crocksdb_cache_t* cache);
+
+extern C_ROCKSDB_LIBRARY_API size_t ctitandb_options_get_blob_cache_usage(
+    ctitandb_options_t *opt);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_blob_cache_capacity(
+  ctitandb_options_t* opt, size_t capacity, char **errptr);
+  
+extern C_ROCKSDB_LIBRARY_API size_t ctitandb_options_get_blob_cache_capacity(
+  ctitandb_options_t* opt);
 
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_discardable_ratio(
     ctitandb_options_t* options, double ratio);

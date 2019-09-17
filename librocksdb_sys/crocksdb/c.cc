@@ -5075,6 +5075,15 @@ ctitandb_options_t* ctitandb_options_copy(ctitandb_options_t* src) {
   return new ctitandb_options_t{src->rep};
 }
 
+ctitandb_options_t* ctitandb_get_titan_options_cf(
+    const crocksdb_t* db,
+    crocksdb_column_family_handle_t* column_family) {
+  ctitandb_options_t* options = new ctitandb_options_t;
+   TitanDB* titan_db = reinterpret_cast<TitanDB*>(db->rep);
+  options->rep = titan_db->GetTitanOptions(column_family->rep);
+  return options;
+}
+
 const char* ctitandb_options_dirname(ctitandb_options_t* opts) {
   return opts->rep.dirname.c_str();
 }
@@ -5170,6 +5179,30 @@ void ctitandb_options_set_blob_cache(ctitandb_options_t* options,
   if (cache) {
     options->rep.blob_cache = cache->rep;
   }
+}
+
+size_t ctitandb_options_get_blob_cache_usage(ctitandb_options_t *opt) {
+  if (opt && opt->rep.blob_cache != nullptr) {
+    return opt->rep.blob_cache->GetUsage();
+  }
+  return 0;
+}
+
+void ctitandb_options_set_blob_cache_capacity(ctitandb_options_t* opt, size_t capacity, char **errptr) {
+  Status s;
+  if (opt && opt->rep.blob_cache != nullptr) {
+    return opt->rep.blob_cache->SetCapacity(capacity);
+  } else {
+    s = Status::InvalidArgument("Blob cache was disabled.");
+  }
+  SaveError(errptr, s);
+}
+
+size_t ctitandb_options_get_blob_cache_capacity(ctitandb_options_t* opt) {
+  if (opt && opt->rep.blob_cache != nullptr) {
+    return opt->rep.blob_cache->GetCapacity();
+  }
+  return 0;
 }
 
 void ctitandb_options_set_discardable_ratio(ctitandb_options_t* options,
