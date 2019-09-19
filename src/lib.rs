@@ -81,16 +81,14 @@ pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::marker::PhantomData;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
 /// A RocksDB database.
 ///
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
+    cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
 }
 
@@ -283,13 +281,11 @@ pub struct WriteOptions {
 
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
-#[derive(Copy, Clone)]
-pub struct ColumnFamily<'a> {
+pub struct ColumnFamily {
     inner: *mut ffi::rocksdb_column_family_handle_t,
-    db: PhantomData<&'a DB>,
 }
 
-unsafe impl<'a> Send for ColumnFamily<'a> {}
+unsafe impl Send for ColumnFamily {}
 
 #[cfg(test)]
 mod test {
@@ -334,5 +330,4 @@ mod test {
         is_sync::<PlainTableFactoryOptions>();
         is_sync::<ColumnFamilyDescriptor>();
     }
-
 }
