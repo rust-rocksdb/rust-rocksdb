@@ -28,7 +28,6 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 use std::str;
-use std::sync::{Arc, RwLock};
 
 unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
@@ -199,8 +198,6 @@ pub struct DBIterator<'a> {
     just_seeked: bool,
 }
 
-unsafe impl<'a> Send for DBIterator<'a> {}
-
 pub enum Direction {
     Forward,
     Reverse,
@@ -226,7 +223,7 @@ impl<'a> DBRawIterator<'a> {
 
     fn new_cf(
         db: &DB,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
     ) -> Result<DBRawIterator<'a>, Error> {
         unsafe {
@@ -237,9 +234,26 @@ impl<'a> DBRawIterator<'a> {
         }
     }
 
-    /// Returns true if the iterator is valid.
+    /// Returns `true` if the iterator is valid. An iterator is invalidated when
+    /// it reaches the end of its defined range, or when it encounters an error.
+    ///
+    /// To check whether the iterator encountered an error after `valid` has
+    /// returned `false`, use the [`status`](DBRawIterator::status) method. `status` will never
+    /// return an error when `valid` is `true`.
     pub fn valid(&self) -> bool {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
+    }
+
+    /// Returns an error `Result` if the iterator has encountered an error
+    /// during operation. When an error is encountered, the iterator is
+    /// invalidated and [`valid`](DBRawIterator::valid) will return `false` when called.
+    ///
+    /// Performing a seek will discard the current status.
+    pub fn status(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_iter_get_error(self.inner,));
+        }
+        Ok(())
     }
 
     /// Seeks to the first key in the database.
@@ -481,7 +495,7 @@ impl<'a> DBIterator<'a> {
 
     fn new_cf(
         db: &DB,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
     ) -> Result<DBIterator<'a>, Error> {
@@ -517,8 +531,14 @@ impl<'a> DBIterator<'a> {
         self.just_seeked = true;
     }
 
+    /// See [`valid`](DBRawIterator::valid)
     pub fn valid(&self) -> bool {
         self.raw.valid()
+    }
+
+    /// See [`status`](DBRawIterator::status)
+    pub fn status(&self) -> Result<(), Error> {
+        self.raw.status()
     }
 }
 
@@ -571,7 +591,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn iterator_cf(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let readopts = ReadOptions::default();
@@ -585,7 +605,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn iterator_cf_opt(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
@@ -600,7 +620,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Opens a raw iterator over the data in this snapshot under the given column family, using the default read options.
-    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
@@ -614,7 +634,7 @@ impl<'a> Snapshot<'a> {
     /// Opens a raw iterator over the data in this snapshot under the given column family, using the given read options.
     pub fn raw_iterator_cf_opt(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
     ) -> Result<DBRawIterator, Error> {
         readopts.set_snapshot(self);
@@ -628,7 +648,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
     ) -> Result<Option<DBVector>, Error> {
         let readopts = ReadOptions::default();
@@ -646,7 +666,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
         mut readopts: ReadOptions,
     ) -> Result<Option<DBVector>, Error> {
@@ -733,7 +753,7 @@ impl DB {
         }
 
         let db: *mut ffi::rocksdb_t;
-        let cf_map = Arc::new(RwLock::new(BTreeMap::new()));
+        let mut cf_map = BTreeMap::new();
 
         if cfs.is_empty() {
             unsafe {
@@ -786,11 +806,8 @@ impl DB {
                 }
             }
 
-            for (n, h) in cfs_v.iter().zip(cfhandles) {
-                cf_map
-                    .write()
-                    .map_err(|e| Error::new(e.to_string()))?
-                    .insert(n.name.clone(), h);
+            for (cf_desc, inner) in cfs_v.iter().zip(cfhandles) {
+                cf_map.insert(cf_desc.name.clone(), ColumnFamily { inner });
             }
         }
 
@@ -917,7 +934,7 @@ impl DB {
 
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBVector>, Error> {
@@ -954,7 +971,7 @@ impl DB {
 
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
     ) -> Result<Option<DBVector>, Error> {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
@@ -1006,7 +1023,7 @@ impl DB {
     /// allows specifying ColumnFamily
     pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
@@ -1043,13 +1060,13 @@ impl DB {
     /// leverages default options.
     pub fn get_pinned_cf<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
     ) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<ColumnFamily, Error> {
+    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let cname = match CString::new(name.as_ref().as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -1060,35 +1077,23 @@ impl DB {
                 ));
             }
         };
-        let cf = unsafe {
-            let cf_handle = ffi_try!(ffi::rocksdb_create_column_family(
+        unsafe {
+            let inner = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
                 opts.inner,
                 cname.as_ptr(),
             ));
 
             self.cfs
-                .write()
-                .map_err(|e| Error::new(e.to_string()))?
-                .insert(name.as_ref().to_string(), cf_handle);
-
-            ColumnFamily {
-                inner: cf_handle,
-                db: PhantomData,
-            }
+                .insert(name.as_ref().to_string(), ColumnFamily { inner });
         };
-        Ok(cf)
+        Ok(())
     }
 
-    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self
-            .cfs
-            .write()
-            .map_err(|e| Error::new(e.to_string()))?
-            .remove(name)
-        {
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.remove(name) {
             unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf,));
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
             }
             Ok(())
         } else {
@@ -1099,11 +1104,8 @@ impl DB {
     }
 
     /// Return the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.read().ok()?.get(name).map(|h| ColumnFamily {
-            inner: *h,
-            db: PhantomData,
-        })
+    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
+        self.cfs.get(name)
     }
 
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
@@ -1119,7 +1121,7 @@ impl DB {
     /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
     pub fn iterator_cf_opt(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
@@ -1147,7 +1149,7 @@ impl DB {
 
     pub fn iterator_cf(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let opts = ReadOptions::default();
@@ -1156,7 +1158,7 @@ impl DB {
 
     pub fn full_iterator_cf(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         mode: IteratorMode,
     ) -> Result<DBIterator, Error> {
         let mut opts = ReadOptions::default();
@@ -1166,7 +1168,7 @@ impl DB {
 
     pub fn prefix_iterator_cf<P: AsRef<[u8]>>(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         prefix: P,
     ) -> Result<DBIterator, Error> {
         let mut opts = ReadOptions::default();
@@ -1186,7 +1188,7 @@ impl DB {
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
-    pub fn raw_iterator_cf(&self, cf_handle: ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, &opts)
     }
@@ -1199,7 +1201,7 @@ impl DB {
     /// Opens a raw iterator over the given column family, using the given read options
     pub fn raw_iterator_cf_opt(
         &self,
-        cf_handle: ColumnFamily,
+        cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
     ) -> Result<DBRawIterator, Error> {
         DBRawIterator::new_cf(self, cf_handle, readopts)
@@ -1232,7 +1234,7 @@ impl DB {
 
     pub fn put_cf_opt<K, V>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
         value: V,
         writeopts: &WriteOptions,
@@ -1281,7 +1283,7 @@ impl DB {
 
     pub fn merge_cf_opt<K, V>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
         value: V,
         writeopts: &WriteOptions,
@@ -1327,7 +1329,7 @@ impl DB {
 
     pub fn delete_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         key: K,
         writeopts: &WriteOptions,
     ) -> Result<(), Error> {
@@ -1353,7 +1355,7 @@ impl DB {
         self.put_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn put_cf<K, V>(&self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1369,7 +1371,7 @@ impl DB {
         self.merge_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn merge_cf<K, V>(&self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn merge_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1381,7 +1383,7 @@ impl DB {
         self.delete_opt(key.as_ref(), &WriteOptions::default())
     }
 
-    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamily, key: K) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
         self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
     }
 
@@ -1402,7 +1404,7 @@ impl DB {
 
     pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         start: Option<S>,
         end: Option<E>,
     ) {
@@ -1491,7 +1493,11 @@ impl DB {
     ///
     /// For a full list of properties, see
     /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
-    pub fn property_value_cf(&self, cf: ColumnFamily, name: &str) -> Result<Option<String>, Error> {
+    pub fn property_value_cf(
+        &self,
+        cf: &ColumnFamily,
+        name: &str,
+    ) -> Result<Option<String>, Error> {
         let prop_name = match CString::new(name) {
             Ok(c) => c,
             Err(e) => {
@@ -1547,7 +1553,7 @@ impl DB {
     /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
     pub fn property_int_value_cf(
         &self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         name: &str,
     ) -> Result<Option<u64>, Error> {
         match self.property_value_cf(cf, name) {
@@ -1561,6 +1567,11 @@ impl DB {
             Ok(None) => Ok(None),
             Err(e) => Err(e),
         }
+    }
+
+    /// The sequence number of the most recent transaction.
+    pub fn latest_sequence_number(&self) -> u64 {
+        unsafe { ffi::rocksdb_get_latest_sequence_number(self.inner) }
     }
 }
 
@@ -1603,7 +1614,7 @@ impl WriteBatch {
         }
     }
 
-    pub fn put_cf<K, V>(&mut self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn put_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1644,7 +1655,7 @@ impl WriteBatch {
         }
     }
 
-    pub fn merge_cf<K, V>(&mut self, cf: ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn merge_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1681,7 +1692,7 @@ impl WriteBatch {
         }
     }
 
-    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: ColumnFamily, key: K) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
         let key = key.as_ref();
 
         unsafe {
@@ -1722,7 +1733,7 @@ impl WriteBatch {
     /// keys exist in the range ["begin_key", "end_key").
     pub fn delete_range_cf<K: AsRef<[u8]>>(
         &mut self,
-        cf: ColumnFamily,
+        cf: &ColumnFamily,
         from: K,
         to: K,
     ) -> Result<(), Error> {
@@ -1767,10 +1778,8 @@ impl Drop for WriteBatch {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            if let Ok(cfs) = self.cfs.read() {
-                for cf in cfs.values() {
-                    ffi::rocksdb_column_family_handle_destroy(*cf);
-                }
+            for cf in self.cfs.values() {
+                ffi::rocksdb_column_family_handle_destroy(cf.inner);
             }
             ffi::rocksdb_close(self.inner);
         }
@@ -1806,16 +1815,21 @@ impl ReadOptions {
         }
     }
 
-    /// Set the upper bound for an iterator, and the upper bound itself is not included on the iteration result.
-    pub fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
+    /// Set the upper bound for an iterator.
+    /// The upper bound itself is not included on the iteration result.
+    ///
+    /// # Safety
+    ///
+    /// This function will store a clone of key and will give a raw pointer of it to the
+    /// underlying C++ API, therefore, when given to any other [`DB`] method you must ensure
+    /// that this [`ReadOptions`] value does not leave the scope too early (e.g. `DB::iterator_cf_opt`).
+    pub unsafe fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
-        unsafe {
-            ffi::rocksdb_readoptions_set_iterate_upper_bound(
-                self.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            );
-        }
+        ffi::rocksdb_readoptions_set_iterate_upper_bound(
+            self.inner,
+            key.as_ptr() as *const c_char,
+            key.len() as size_t,
+        );
     }
 
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
@@ -1853,6 +1867,16 @@ impl Default for ReadOptions {
         }
     }
 }
+
+// Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
+// pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
+// rocksdb internally does not rely on thread-local information for its user-exposed types.
+unsafe impl<'a> Send for DBRawIterator<'a> {}
+unsafe impl Send for ReadOptions {}
+
+// Sync is similarly safe for many types because they do not expose interior mutability, and their
+// use within the rocksdb library is generally behind a const reference
+unsafe impl Sync for ReadOptions {}
 
 /// Vector of bytes stored in the database.
 ///

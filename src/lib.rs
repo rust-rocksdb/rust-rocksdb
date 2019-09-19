@@ -81,16 +81,14 @@ pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::marker::PhantomData;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
 /// A RocksDB database.
 ///
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     inner: *mut ffi::rocksdb_t,
-    cfs: Arc<RwLock<BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>>>,
+    cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
 }
 
@@ -283,10 +281,53 @@ pub struct WriteOptions {
 
 /// An opaque type used to represent a column family. Returned from some functions, and used
 /// in others
-#[derive(Copy, Clone)]
-pub struct ColumnFamily<'a> {
+pub struct ColumnFamily {
     inner: *mut ffi::rocksdb_column_family_handle_t,
-    db: PhantomData<&'a DB>,
 }
 
-unsafe impl<'a> Send for ColumnFamily<'a> {}
+unsafe impl Send for ColumnFamily {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn is_send() {
+        // test (at compile time) that certain types implement the auto-trait Send, either directly for
+        // pointer-wrapping types or transitively for types with all Send fields
+
+        fn is_send<T: Send>() {
+            // dummy function just used for its parameterized type bound
+        }
+
+        is_send::<DB>();
+        is_send::<DBIterator<'_>>();
+        is_send::<DBRawIterator<'_>>();
+        is_send::<Snapshot>();
+        is_send::<Options>();
+        is_send::<ReadOptions>();
+        is_send::<WriteOptions>();
+        is_send::<BlockBasedOptions>();
+        is_send::<PlainTableFactoryOptions>();
+        is_send::<ColumnFamilyDescriptor>();
+        is_send::<ColumnFamily>();
+    }
+
+    #[test]
+    fn is_sync() {
+        // test (at compile time) that certain types implement the auto-trait Sync
+
+        fn is_sync<T: Sync>() {
+            // dummy function just used for its parameterized type bound
+        }
+
+        is_sync::<DB>();
+        is_sync::<Snapshot>();
+        is_sync::<Options>();
+        is_sync::<ReadOptions>();
+        is_sync::<WriteOptions>();
+        is_sync::<BlockBasedOptions>();
+        is_sync::<PlainTableFactoryOptions>();
+        is_sync::<ColumnFamilyDescriptor>();
+    }
+}

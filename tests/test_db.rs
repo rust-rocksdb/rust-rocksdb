@@ -240,3 +240,14 @@ fn set_option_test() {
         db.set_options(&multiple_options).unwrap();
     }
 }
+
+#[test]
+fn test_sequence_number() {
+    let path = DBPath::new("_rust_rocksdb_test_sequence_number");
+    {
+        let db = DB::open_default(&path).unwrap();
+        assert_eq!(db.latest_sequence_number(), 0);
+        let _ = db.put(b"key", b"value");
+        assert_eq!(db.latest_sequence_number(), 1);
+    }
+}

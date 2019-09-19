@@ -9,6 +9,8 @@
 * Bumped RocksDB to 6.1.2 (lispy)
 * Added `Sync` and `Send` implementations to `Snapshot` (pavel-mukhanov)
 * Added `raw_iterator_cf_opt` to the DB API (rnarubin)
+* Added `DB::latest_sequence_number` method (vitvakatu)
+* Changed column families storing (aleksuss)
 
 ## 0.12.2 (2019-05-03)
 

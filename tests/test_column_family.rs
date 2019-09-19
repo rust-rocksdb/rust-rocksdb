@@ -27,10 +27,10 @@ fn test_column_family() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
-        let db = DB::open(&opts, &n).unwrap();
+        let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
-            Ok(_db) => println!("cf1 created successfully"),
+            Ok(()) => println!("cf1 created successfully"),
             Err(e) => {
                 panic!("could not create column family: {}", e);
             }
@@ -80,7 +80,7 @@ fn test_column_family() {
     {}
     // should b able to drop a cf
     {
-        let db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -97,7 +97,7 @@ fn test_can_open_db_with_results_of_list_cf() {
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        let db = DB::open(&opts, &n).unwrap();
+        let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
 
         assert!(db.create_cf("cf1", &opts).is_ok());
@@ -244,7 +244,7 @@ fn test_create_duplicate_column_family() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let db = match DB::open_cf(&opts, &n, &["cf1"]) {
+        let mut db = match DB::open_cf(&opts, &n, &["cf1"]) {
             Ok(d) => d,
             Err(e) => panic!("failed to create new column family: {}", e),
         };
