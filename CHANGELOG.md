@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-### 0.12.3 (2019-07-19)
+### Added
+
+* `DB::get_updates_since()` to iterate write batches in a given sequence (nlfiedler).
+
+## 0.12.3 (2019-07-19)
+
+### Changes
 
 * Enabled sse4.2/pclmul for accelerated crc32c (yjh0502)
 * Added `set_db_write_buffer_size` to the Options API (rnarubin)
