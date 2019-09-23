@@ -2738,6 +2738,11 @@ void crocksdb_options_set_delayed_write_rate(crocksdb_options_t *opt, uint64_t d
   opt->rep.delayed_write_rate = delayed_write_rate;
 }
 
+void crocksdb_options_set_force_consistency_checks(crocksdb_options_t *opt,
+                                                   unsigned char v) {
+  opt->rep.force_consistency_checks = v;
+}
+
 char *crocksdb_options_statistics_get_string(crocksdb_options_t *opt) {
   if (opt->rep.statistics) {
     rocksdb::Statistics* statistics = opt->rep.statistics.get();

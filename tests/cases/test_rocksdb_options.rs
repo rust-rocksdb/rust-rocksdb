@@ -402,6 +402,21 @@ fn test_set_optimize_filters_for_hits() {
 }
 
 #[test]
+fn test_set_force_consistency_checks() {
+    let path = TempDir::new("_rust_rocksdb_force_consistency_checks").expect("");
+    let mut opts = DBOptions::new();
+    let mut cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    cf_opts.set_force_consistency_checks(true);
+    DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+}
+
+#[test]
 fn test_get_block_cache_usage() {
     let path = TempDir::new("_rust_rocksdb_set_cache_and_index").expect("");
 
