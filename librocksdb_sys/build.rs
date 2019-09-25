@@ -110,7 +110,10 @@ fn build_rocksdb() -> Build {
         .define("WITH_ZSTD", "ON")
         .register_dep("SNAPPY")
         .define("WITH_SNAPPY", "ON")
+        .define("WITH_TESTS", "OFF")
+        .define("WITH_TOOLS", "OFF")
         .build_target("rocksdb")
+        .very_verbose(true)
         .build();
     let build_dir = format!("{}/build", dst.display());
     let mut build = Build::new();
