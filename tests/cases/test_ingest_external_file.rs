@@ -505,3 +505,50 @@ fn test_ingest_external_file_optimized() {
     assert_eq!(db.get_cf(handle, b"k2").unwrap().unwrap(), b"b");
     assert_eq!(db.get_cf(handle, b"k3").unwrap().unwrap(), b"c");
 }
+
+#[test]
+fn test_read_sst() {
+    let dir = TempDir::new("_rust_rocksdb_test_read_sst").unwrap();
+    let sst_path = dir.path().join("sst");
+    let sst_path_str = sst_path.to_str().unwrap();
+    gen_sst_put(ColumnFamilyOptions::new(), None, sst_path_str);
+
+    let mut reader = SstFileReader::new(ColumnFamilyOptions::default());
+    reader.open(sst_path_str).unwrap();
+    reader.verify_checksum().unwrap();
+    reader.read_table_properties(|props| {
+        assert_eq!(props.num_entries(), 3);
+    });
+    let mut it = reader.iter();
+    it.seek(SeekKey::Start);
+    assert_eq!(
+        it.collect::<Vec<_>>(),
+        vec![
+            (b"k1".to_vec(), b"a".to_vec()),
+            (b"k2".to_vec(), b"b".to_vec()),
+            (b"k3".to_vec(), b"c".to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn test_read_invalid_sst() {
+    let dir = TempDir::new("_rust_rocksdb_test_read_invalid_sst").unwrap();
+    let sst_path = dir.path().join("sst");
+    let sst_path_str = sst_path.to_str().unwrap();
+    gen_sst_put(ColumnFamilyOptions::new(), None, sst_path_str);
+
+    // corrupt one byte.
+    {
+        use std::io::{Seek, SeekFrom};
+
+        let mut f = fs::OpenOptions::new().write(true).open(&sst_path).unwrap();
+        f.seek(SeekFrom::Start(9)).unwrap();
+        f.write(b"!").unwrap();
+    }
+
+    let mut reader = SstFileReader::new(ColumnFamilyOptions::default());
+    reader.open(sst_path_str).unwrap();
+    let error_message = reader.verify_checksum().unwrap_err();
+    assert!(error_message.contains("checksum mismatch"));
+}

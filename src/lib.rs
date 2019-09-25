@@ -36,7 +36,7 @@ pub use perf_context::{get_perf_level, set_perf_level, IOStatsContext, PerfConte
 pub use rocksdb::{
     load_latest_options, run_ldb_tool, set_external_sst_file_global_seq_no, BackupEngine, CFHandle,
     Cache, DBIterator, DBVector, Env, ExternalSstFileInfo, Kv, MemoryAllocator, Range, SeekKey,
-    SequentialFile, SstFileWriter, Writable, WriteBatch, DB,
+    SequentialFile, SstFileReader, SstFileWriter, Writable, WriteBatch, DB,
 };
 pub use rocksdb_options::{
     BlockBasedOptions, CColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,

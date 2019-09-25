@@ -26,6 +26,7 @@
 #include "rocksdb/perf_context.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/sst_file_reader.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/status.h"
 #include "rocksdb/table.h"
@@ -109,6 +110,7 @@ using rocksdb::Slice;
 using rocksdb::SliceParts;
 using rocksdb::SliceTransform;
 using rocksdb::Snapshot;
+using rocksdb::SstFileReader;
 using rocksdb::SstFileWriter;
 using rocksdb::ExternalSstFileInfo;
 using rocksdb::Status;
@@ -220,6 +222,7 @@ struct crocksdb_column_family_handle_t  { ColumnFamilyHandle* rep; };
 struct crocksdb_envoptions_t      { EnvOptions        rep; };
 struct crocksdb_sequential_file_t { SequentialFile*   rep; };
 struct crocksdb_ingestexternalfileoptions_t  { IngestExternalFileOptions rep; };
+struct crocksdb_sstfilereader_t   { SstFileReader*    rep; };
 struct crocksdb_sstfilewriter_t   { SstFileWriter*    rep; };
 struct crocksdb_externalsstfileinfo_t   { ExternalSstFileInfo rep; };
 struct crocksdb_ratelimiter_t     { RateLimiter*      rep; };
@@ -3505,6 +3508,42 @@ void crocksdb_sequential_file_destroy(crocksdb_sequential_file_t* file) {
   delete file;
 }
 
+crocksdb_sstfilereader_t* crocksdb_sstfilereader_create(
+    const crocksdb_options_t* io_options) {
+  auto reader = new crocksdb_sstfilereader_t;
+  reader->rep = new SstFileReader(io_options->rep);
+  return reader;
+}
+
+void crocksdb_sstfilereader_open(crocksdb_sstfilereader_t* reader,
+                                 const char* name, char** errptr) {
+  SaveError(errptr, reader->rep->Open(std::string(name)));
+}
+
+crocksdb_iterator_t* crocksdb_sstfilereader_new_iterator(
+    crocksdb_sstfilereader_t* reader, const crocksdb_readoptions_t* options) {
+  auto it = new crocksdb_iterator_t;
+  it->rep = reader->rep->NewIterator(options->rep);
+  return it;
+}
+
+void crocksdb_sstfilereader_read_table_properties(
+    const crocksdb_sstfilereader_t* reader,
+    void* ctx, void (*cb)(void*, const crocksdb_table_properties_t*)) {
+  auto props = reader->rep->GetTableProperties();
+  cb(ctx, reinterpret_cast<const crocksdb_table_properties_t*>(props.get()));
+}
+
+void crocksdb_sstfilereader_verify_checksum(crocksdb_sstfilereader_t* reader,
+                                            char** errptr) {
+  SaveError(errptr, reader->rep->VerifyChecksum());
+}
+
+void crocksdb_sstfilereader_destroy(crocksdb_sstfilereader_t* reader) {
+  delete reader->rep;
+  delete reader;
+}
+
 crocksdb_sstfilewriter_t* crocksdb_sstfilewriter_create(
     const crocksdb_envoptions_t* env, const crocksdb_options_t* io_options) {
   crocksdb_sstfilewriter_t* writer = new crocksdb_sstfilewriter_t;
@@ -5320,7 +5359,7 @@ void ctitandb_delete_files_in_range(
   RangePtr range(
     start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr,
     limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr);
-  
+
   SaveError(
       errptr,
       static_cast<TitanDB*>(db->rep)->DeleteFilesInRanges(
@@ -5338,7 +5377,7 @@ void ctitandb_delete_files_in_range_cf(
   RangePtr range(
     start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr,
     limit_key ? (b = Slice(limit_key, limit_key_len), &b) : nullptr);
-  
+
   SaveError(
       errptr,
       static_cast<TitanDB*>(db->rep)->DeleteFilesInRanges(

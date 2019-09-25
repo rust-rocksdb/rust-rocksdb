@@ -41,6 +41,7 @@ pub enum DBComparator {}
 pub enum DBFlushOptions {}
 pub enum DBCompactionFilter {}
 pub enum EnvOptions {}
+pub enum SstFileReader {}
 pub enum SstFileWriter {}
 pub enum ExternalSstFileInfo {}
 pub enum IngestExternalFileOptions {}
@@ -1282,6 +1283,33 @@ extern "C" {
         allow_blocking_flush: bool,
     );
     pub fn crocksdb_ingestexternalfileoptions_destroy(opt: *mut IngestExternalFileOptions);
+
+    // SstFileReader
+    pub fn crocksdb_sstfilereader_create(io_options: *const Options) -> *mut SstFileReader;
+
+    pub fn crocksdb_sstfilereader_open(
+        reader: *mut SstFileReader,
+        name: *const c_char,
+        err: *mut *mut c_char,
+    );
+
+    pub fn crocksdb_sstfilereader_new_iterator(
+        reader: *mut SstFileReader,
+        options: *const DBReadOptions,
+    ) -> *mut DBIterator;
+
+    pub fn crocksdb_sstfilereader_read_table_properties(
+        reader: *const SstFileReader,
+        ctx: *mut c_void,
+        callback: extern "C" fn(*mut c_void, *const DBTableProperties),
+    );
+
+    pub fn crocksdb_sstfilereader_verify_checksum(
+        reader: *mut SstFileReader,
+        errptr: *mut *mut c_char,
+    );
+
+    pub fn crocksdb_sstfilereader_destroy(reader: *mut SstFileReader);
 
     // SstFileWriter
     pub fn crocksdb_sstfilewriter_create(
