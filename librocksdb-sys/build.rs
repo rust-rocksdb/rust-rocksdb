@@ -83,6 +83,7 @@ fn build_rocksdb() {
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .split("\n")
+        .map(str::trim)
         .collect::<Vec<&'static str>>();
 
     // We have a pregenerated a version of build_version.cc in the local directory
