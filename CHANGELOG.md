@@ -5,6 +5,7 @@
 ### Added
 
 * `DB::get_updates_since()` to iterate write batches in a given sequence (nlfiedler).
+* `ReadOptions::set_tailing()` to create a tailing iterator that continues to iterate over the database as new records are added.
 
 ## 0.12.3 (2019-07-19)
 

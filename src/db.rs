@@ -1998,6 +1998,15 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_readahead_size(self.inner, v as size_t);
         }
     }
+
+    /// If true, create a tailing iterator. Note that tailing iterators
+    /// only support moving in the forward direction. Iterating in reverse
+    /// or seek_to_last are not supported.
+    pub fn set_tailing(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_tailing(self.inner, v as c_uchar);
+        }
+    }
 }
 
 impl Default for ReadOptions {
@@ -2265,6 +2274,40 @@ fn iterator_test() {
                 str::from_utf8(&*v).unwrap()
             );
         }
+    }
+    let opts = Options::default();
+    assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
+fn iterator_test_tailing() {
+    let path = "_rust_rocksdb_iteratortest_tailing";
+    {
+        let data = [(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")];
+        let mut ro = ReadOptions::default();
+        ro.set_tailing(true);
+        let db = DB::open_default(path).unwrap();
+
+        let mut data_iter = data.iter();
+        let (k, v) = data_iter.next().unwrap();
+        let r = db.put(k, v);
+        assert!(r.is_ok());
+
+        let tail_iter = db.iterator_opt(IteratorMode::Start, &ro);
+        for (k, v) in data_iter {
+            let r = db.put(k, v);
+            assert!(r.is_ok());
+        }
+
+        let mut tot = 0;
+        for (i, (k, v)) in tail_iter.enumerate() {
+            assert_eq!(
+                (k.to_vec(), v.to_vec()),
+                (data[i].0.to_vec(), data[i].1.to_vec())
+            );
+            tot = tot + 1;
+        }
+        assert_eq!(tot, data.len());
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
