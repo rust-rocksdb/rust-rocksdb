@@ -1859,12 +1859,6 @@ impl FifoCompactionOptions {
         }
     }
 
-    pub fn set_ttl(&mut self, ttl: u64) {
-        unsafe {
-            crocksdb_ffi::crocksdb_fifo_compaction_options_set_ttl(self.inner, ttl);
-        }
-    }
-
     pub fn set_max_table_files_size(&mut self, max_table_files_size: u64) {
         unsafe {
             crocksdb_ffi::crocksdb_fifo_compaction_options_set_max_table_files_size(

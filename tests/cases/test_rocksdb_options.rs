@@ -772,7 +772,6 @@ fn test_fifo_compaction_options() {
     let mut cf_opts = ColumnFamilyOptions::new();
     let mut fifo_opts = FifoCompactionOptions::new();
     fifo_opts.set_allow_compaction(true);
-    fifo_opts.set_ttl(100000);
     fifo_opts.set_max_table_files_size(100000);
     cf_opts.set_fifo_compaction_options(fifo_opts);
     DB::open_cf(opts, path_str, vec![("default", cf_opts)]).unwrap();

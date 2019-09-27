@@ -41,8 +41,8 @@
 
 #include "db/column_family.h"
 #include "table/sst_file_writer_collectors.h"
+#include "table/block_based/block_based_table_factory.h"
 #include "table/table_reader.h"
-#include "table/block_based_table_factory.h"
 #include "util/file_reader_writer.h"
 #include "util/coding.h"
 
@@ -3899,11 +3899,6 @@ void crocksdb_fifo_compaction_options_set_max_table_files_size(
   fifo_opts->rep.max_table_files_size = size;
 }
 
-void crocksdb_fifo_compaction_options_set_ttl(
-    crocksdb_fifo_compaction_options_t* fifo_opts, uint64_t ttl) {
-  fifo_opts->rep.ttl = ttl;
-}
-
 void crocksdb_fifo_compaction_options_set_allow_compaction(
     crocksdb_fifo_compaction_options_t* fifo_opts, bool allow_compaction) {
   fifo_opts->rep.allow_compaction = allow_compaction;
@@ -5247,9 +5242,9 @@ void ctitandb_options_set_max_background_gc(ctitandb_options_t* options,
   options->rep.max_background_gc = size;
 }
 
-void ctitandb_options_set_purge_obsolete_files_period(ctitandb_options_t* options,
-                                                      unsigned int period) {
-  options->rep.purge_obsolete_files_period = period;
+void ctitandb_options_set_purge_obsolete_files_period_sec(
+    ctitandb_options_t* options, unsigned int period) {
+  options->rep.purge_obsolete_files_period_sec = period;
 }
 
 void ctitandb_options_set_blob_cache(ctitandb_options_t* options,

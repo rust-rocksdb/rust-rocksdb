@@ -1563,9 +1563,6 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_fifo_compaction_options_set_max_table_files_size(
     crocksdb_fifo_compaction_options_t* fifo_opts, uint64_t size);
 extern C_ROCKSDB_LIBRARY_API void
-crocksdb_fifo_compaction_options_set_ttl(
-    crocksdb_fifo_compaction_options_t* fifo_opts, uint64_t ttl);
-extern C_ROCKSDB_LIBRARY_API void
 crocksdb_fifo_compaction_options_set_allow_compaction(
     crocksdb_fifo_compaction_options_t* fifo_opts, bool allow_compaction);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_fifo_compaction_options_destroy(
@@ -2102,7 +2099,8 @@ ctitandb_options_set_merge_small_file_threshold(ctitandb_options_t* options,
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_max_background_gc(
     ctitandb_options_t* options, int32_t size);
 
-extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_purge_obsolete_files_period(
+extern C_ROCKSDB_LIBRARY_API void
+ctitandb_options_set_purge_obsolete_files_period_sec(
     ctitandb_options_t* options, unsigned int period);
 
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_blob_cache(

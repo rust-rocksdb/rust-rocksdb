@@ -19,9 +19,7 @@ env:
   global:
   - RUST_BACKTRACE=1
 
-cache:
-  directories:
-  - target
+cache: false
 
 before_script:
   - rustup component add rustfmt-preview
