@@ -12,8 +12,9 @@
 // limitations under the License.
 
 use crocksdb_ffi::{
-    self, CompactionReason, DBCompactionJobInfo, DBEventListener, DBFlushJobInfo, DBIngestionInfo,
-    DBInstance, DBWriteStallInfo, WriteStallCondition,
+    self, CompactionReason, DBBackgroundErrorReason, DBCompactionJobInfo, DBEventListener,
+    DBFlushJobInfo, DBIngestionInfo, DBInstance, DBStatusPtr, DBWriteStallInfo,
+    WriteStallCondition,
 };
 use libc::c_void;
 use std::path::Path;
@@ -178,6 +179,7 @@ pub trait EventListener: Send + Sync {
     fn on_flush_completed(&self, _: &FlushJobInfo) {}
     fn on_compaction_completed(&self, _: &CompactionJobInfo) {}
     fn on_external_file_ingested(&self, _: &IngestionInfo) {}
+    fn on_background_error(&self, _: DBBackgroundErrorReason, _: Result<(), String>) {}
     fn on_stall_conditions_changed(&self, _: &WriteStallInfo) {}
 }
 
@@ -231,6 +233,23 @@ extern "C" fn on_external_file_ingested(
     ctx.on_external_file_ingested(info);
 }
 
+extern "C" fn on_background_error(
+    ctx: *mut c_void,
+    reason: DBBackgroundErrorReason,
+    status: *mut DBStatusPtr,
+) {
+    let (ctx, result) = unsafe {
+        (
+            &*(ctx as *mut Box<dyn EventListener>),
+            || -> Result<(), String> {
+                ffi_try!(crocksdb_status_ptr_get_error(status));
+                Ok(())
+            }(),
+        )
+    };
+    ctx.on_background_error(reason, result);
+}
+
 extern "C" fn on_stall_conditions_changed(ctx: *mut c_void, info: *const DBWriteStallInfo) {
     let (ctx, info) = unsafe {
         (
@@ -250,6 +269,7 @@ pub fn new_event_listener<L: EventListener>(l: L) -> *mut DBEventListener {
             on_flush_completed,
             on_compaction_completed,
             on_external_file_ingested,
+            on_background_error,
             on_stall_conditions_changed,
         )
     }

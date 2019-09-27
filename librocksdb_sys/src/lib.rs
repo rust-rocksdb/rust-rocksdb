@@ -74,6 +74,7 @@ pub enum DBCompactionOptions {}
 pub enum DBPerfContext {}
 pub enum DBIOStatsContext {}
 pub enum DBWriteStallInfo {}
+pub enum DBStatusPtr {}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
@@ -291,6 +292,15 @@ pub enum IndexType {
     TwoLevelIndexSearch = 2,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum DBBackgroundErrorReason {
+    Flush = 1,
+    Compaction = 2,
+    WriteCallback = 3,
+    MemTable = 4,
+}
+
 pub fn error_message(ptr: *mut c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr) };
     let s = format!("{}", c_str.to_string_lossy());
@@ -325,6 +335,7 @@ macro_rules! ffi_try {
 // TODO audit the use of boolean arguments, b/c I think they need to be u8
 // instead...
 extern "C" {
+    pub fn crocksdb_status_ptr_get_error(status: *mut DBStatusPtr, err: *mut *mut c_char);
     pub fn crocksdb_get_db_options(db: *mut DBInstance) -> *mut Options;
     pub fn crocksdb_set_db_options(
         db: *mut DBInstance,
@@ -1708,6 +1719,7 @@ extern "C" {
         flush: extern "C" fn(*mut c_void, *mut DBInstance, *const DBFlushJobInfo),
         compact: extern "C" fn(*mut c_void, *mut DBInstance, *const DBCompactionJobInfo),
         ingest: extern "C" fn(*mut c_void, *mut DBInstance, *const DBIngestionInfo),
+        bg_error: extern "C" fn(*mut c_void, DBBackgroundErrorReason, *mut DBStatusPtr),
         stall_conditions: extern "C" fn(*mut c_void, *const DBWriteStallInfo),
     ) -> *mut DBEventListener;
     pub fn crocksdb_eventlistener_destroy(et: *mut DBEventListener);

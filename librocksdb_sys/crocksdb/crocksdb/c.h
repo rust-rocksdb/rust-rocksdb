@@ -71,6 +71,7 @@ extern "C" {
 /* Exported types */
 
 typedef struct crocksdb_t                 crocksdb_t;
+typedef struct crocksdb_status_ptr_t      crocksdb_status_ptr_t;
 typedef struct crocksdb_backup_engine_t   crocksdb_backup_engine_t;
 typedef struct crocksdb_backup_engine_info_t   crocksdb_backup_engine_info_t;
 typedef struct crocksdb_restore_options_t crocksdb_restore_options_t;
@@ -172,6 +173,13 @@ typedef enum crocksdb_ratelimiter_mode_t {
   kAllIo = 3,
 } crocksdb_ratelimiter_mode_t;
 
+typedef enum crocksdb_backgrounderrorreason_t {
+  kFlush = 1,
+  kCompaction = 2,
+  kWriteCallback = 3,
+  kMemTable = 4,
+} crocksdb_backgrounderrorreason_t;
+
 /* DB operations */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open(
@@ -183,6 +191,9 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_with_ttl(
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_for_read_only(
     const crocksdb_options_t* options, const char* name,
     unsigned char error_if_log_file_exist, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void crocksdb_status_ptr_get_error(
+    crocksdb_status_ptr_t*, char** errptr);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_backup_engine_t* crocksdb_backup_engine_open(
     const crocksdb_options_t* options, const char* path, char** errptr);
@@ -760,6 +771,8 @@ typedef void (*on_compaction_completed_cb)(void*, crocksdb_t*,
                                            const crocksdb_compactionjobinfo_t*);
 typedef void (*on_external_file_ingested_cb)(
     void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
+typedef void (*on_background_error_cb)(void*, crocksdb_backgrounderrorreason_t,
+                                       crocksdb_status_ptr_t*);
 typedef void (*on_stall_conditions_changed_cb)(void*, const crocksdb_writestallinfo_t*);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_eventlistener_t*
@@ -768,6 +781,7 @@ crocksdb_eventlistener_create(
     on_flush_completed_cb on_flush_completed,
     on_compaction_completed_cb on_compaction_completed,
     on_external_file_ingested_cb on_external_file_ingested,
+    on_background_error_cb on_background_error,
     on_stall_conditions_changed_cb on_stall_conditions_changed);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_eventlistener_destroy(
     crocksdb_eventlistener_t*);
@@ -2001,7 +2015,6 @@ crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t*);
 
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_run_ldb_tool(int argc, char** argv, const crocksdb_options_t* opts);
-
 
 /* Titan */
 struct ctitandb_blob_index_t {

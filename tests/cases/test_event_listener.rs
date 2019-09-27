@@ -121,6 +121,17 @@ impl EventListener for StallEventCounter {
     }
 }
 
+#[derive(Default, Clone)]
+struct BackgroundErrorCounter {
+    background_error: Arc<AtomicUsize>,
+}
+
+impl EventListener for BackgroundErrorCounter {
+    fn on_background_error(&self, _: DBBackgroundErrorReason, _: Result<(), String>) {
+        self.background_error.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
 #[test]
 fn test_event_listener_stall_conditions_changed() {
     let path = TempDir::new("_rust_rocksdb_event_listener_stall_conditions").expect("");
@@ -242,4 +253,24 @@ fn test_event_listener_ingestion() {
     assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
     assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
     assert_ne!(counter.ingestion.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn test_event_listener_background_error() {
+    // TODO(yiwu): should create a test Env object which inject some IO error, to
+    // actually trigger background error.
+    let path = TempDir::new("_rust_rocksdb_event_listener_ingestion").expect("");
+    let path_str = path.path().to_str().unwrap();
+
+    let mut opts = DBOptions::new();
+    let counter = BackgroundErrorCounter::default();
+    opts.add_event_listener(counter.clone());
+    opts.create_if_missing(true);
+    let db = DB::open(opts, path_str).unwrap();
+
+    for i in 1..10 {
+        db.put(format!("{:04}", i).as_bytes(), b"value").unwrap();
+        db.flush(false).unwrap();
+    }
+    assert_eq!(counter.background_error.load(Ordering::SeqCst), 0);
 }

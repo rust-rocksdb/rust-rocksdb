@@ -89,6 +89,7 @@ using rocksdb::InfoLogLevel;
 using rocksdb::FileLock;
 using rocksdb::FilterPolicy;
 using rocksdb::FlushJobInfo;
+using rocksdb::BackgroundErrorReason;
 using rocksdb::WriteStallInfo;
 using rocksdb::WriteStallCondition;
 using rocksdb::FlushOptions;
@@ -184,6 +185,7 @@ extern "C" {
 const char* block_base_table_str = "BlockBasedTable";
 
 struct crocksdb_t                 { DB*               rep; };
+struct crocksdb_status_ptr_t      { Status*           rep; };
 struct crocksdb_backup_engine_t   { BackupEngine*     rep; };
 struct crocksdb_backup_engine_info_t { std::vector<BackupInfo> rep; };
 struct crocksdb_restore_options_t { RestoreOptions rep; };
@@ -597,6 +599,10 @@ crocksdb_t* crocksdb_open_for_read_only(
   crocksdb_t* result = new crocksdb_t;
   result->rep = db;
   return result;
+}
+
+void crocksdb_status_ptr_get_error(crocksdb_status_ptr_t* status, char** errptr) {
+  SaveError(errptr, *(status->rep));
 }
 
 crocksdb_backup_engine_t* crocksdb_backup_engine_open(
@@ -2012,6 +2018,8 @@ struct crocksdb_eventlistener_t : public EventListener {
                                   const crocksdb_compactionjobinfo_t*);
   void (*on_external_file_ingested)(
       void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
+  void (*on_background_error)(
+      void*, crocksdb_backgrounderrorreason_t, crocksdb_status_ptr_t*);
   void (*on_stall_conditions_changed)(void*, const crocksdb_writestallinfo_t*);
 
   virtual void OnFlushCompleted(DB* db, const FlushJobInfo& info) {
@@ -2035,6 +2043,30 @@ struct crocksdb_eventlistener_t : public EventListener {
         reinterpret_cast<const crocksdb_externalfileingestioninfo_t*>(&info));
   }
 
+  virtual void OnBackgroundError(BackgroundErrorReason reason, Status* status) {
+    crocksdb_backgrounderrorreason_t r;
+    switch (reason) {
+      case BackgroundErrorReason::kFlush:
+        r = crocksdb_backgrounderrorreason_t::kFlush;
+        break;
+      case BackgroundErrorReason::kCompaction:
+        r = crocksdb_backgrounderrorreason_t::kCompaction;
+        break;
+      case BackgroundErrorReason::kWriteCallback:
+        r = crocksdb_backgrounderrorreason_t::kWriteCallback;
+        break;
+      case BackgroundErrorReason::kMemTable:
+        r = crocksdb_backgrounderrorreason_t::kMemTable;
+        break;
+      default:
+        assert(false);
+    }
+    crocksdb_status_ptr_t* s = new crocksdb_status_ptr_t;
+    s->rep = status;
+    on_background_error(state_, r, s);
+    delete s;
+  }
+
   virtual void OnStallConditionsChanged(const WriteStallInfo& info) {
     on_stall_conditions_changed(
         state_,
@@ -2049,6 +2081,7 @@ crocksdb_eventlistener_t* crocksdb_eventlistener_create(
     on_flush_completed_cb on_flush_completed,
     on_compaction_completed_cb on_compaction_completed,
     on_external_file_ingested_cb on_external_file_ingested,
+    on_background_error_cb on_background_error,
     on_stall_conditions_changed_cb on_stall_conditions_changed) {
   crocksdb_eventlistener_t* et = new crocksdb_eventlistener_t;
   et->state_ = state_;
@@ -2056,6 +2089,7 @@ crocksdb_eventlistener_t* crocksdb_eventlistener_create(
   et->on_flush_completed = on_flush_completed;
   et->on_compaction_completed = on_compaction_completed;
   et->on_external_file_ingested = on_external_file_ingested;
+  et->on_background_error = on_background_error;
   et->on_stall_conditions_changed = on_stall_conditions_changed;
   return et;
 }
