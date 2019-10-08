@@ -1,14 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.12.4 (2019-10-08)
 
-### 0.12.3 (2019-07-19)
+### Changes
+
+* Bumped RocksDB to 6.1.2 (vitvakatu)
+
+## 0.12.3 (2019-07-19)
+
+### Changes
 
 * Enabled sse4.2/pclmul for accelerated crc32c (yjh0502)
 * Added `set_db_write_buffer_size` to the Options API (rnarubin)
-* Bumped RocksDB to 6.1.2 (lispy)
 * Added `Sync` and `Send` implementations to `Snapshot` (pavel-mukhanov)
 * Added `raw_iterator_cf_opt` to the DB API (rnarubin)
+* Added `DB::latest_sequence_number` method (vitvakatu)
 
 ## 0.12.2 (2019-05-03)
 
