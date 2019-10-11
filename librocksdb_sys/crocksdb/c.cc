@@ -267,6 +267,10 @@ struct crocksdb_compaction_options_t {
   CompactionOptions rep;
 };
 
+struct crocksdb_map_property_t {
+  std::map<std::string, std::string> rep;
+};
+
 struct crocksdb_compactionfilter_t : public CompactionFilter {
   void* state_;
   void (*destructor_)(void*);
@@ -1125,6 +1129,44 @@ void crocksdb_release_snapshot(
 uint64_t crocksdb_get_snapshot_sequence_number(
     const crocksdb_snapshot_t* snapshot) {
   return snapshot->rep->GetSequenceNumber();
+}
+
+crocksdb_map_property_t* crocksdb_create_map_property() {
+  return new crocksdb_map_property_t;
+}
+
+void crocksdb_destroy_map_property(crocksdb_map_property_t* info) {
+  delete info;
+}
+
+bool crocksdb_get_map_property_cf(
+    crocksdb_t* db,
+    crocksdb_column_family_handle_t* column_family,
+    const char* property,
+    crocksdb_map_property_t* info) {
+  return db->rep->GetMapProperty(column_family->rep, property, &info->rep);
+}
+
+char* crocksdb_map_property_value(
+    crocksdb_map_property_t* info,
+    const char* propname) {
+  auto iter = info->rep.find(std::string(propname));
+  if (iter != info->rep.end()) {
+    return strdup(iter->second.c_str());
+  } else {
+    return nullptr;
+  }
+}
+
+uint64_t crocksdb_map_property_int_value(
+    crocksdb_map_property_t* info,
+    const char* propname) {
+  auto iter = info->rep.find(std::string(propname));
+  if (iter != info->rep.end()) {
+    return (uint64_t)stoll(iter->second, nullptr);
+  } else {
+    return 0;
+  }
 }
 
 char* crocksdb_property_value(

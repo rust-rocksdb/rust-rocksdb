@@ -22,6 +22,7 @@ env:
 cache: false
 
 before_script:
+  - rustup default nightly-2019-09-05
   - rustup component add rustfmt-preview
 
 script:

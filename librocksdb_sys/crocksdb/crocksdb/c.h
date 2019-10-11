@@ -146,6 +146,7 @@ typedef struct crocksdb_perf_context_t crocksdb_perf_context_t;
 typedef struct crocksdb_iostats_context_t crocksdb_iostats_context_t;
 typedef struct crocksdb_writestallinfo_t crocksdb_writestallinfo_t;
 typedef struct crocksdb_writestallcondition_t crocksdb_writestallcondition_t;
+typedef struct crocksdb_map_property_t crocksdb_map_property_t;
 
 typedef enum crocksdb_table_property_t {
   kDataSize = 1,
@@ -397,6 +398,21 @@ crocksdb_get_snapshot_sequence_number(const crocksdb_snapshot_t* snapshot);
 
 /* Returns NULL if property name is unknown.
    Else returns a pointer to a malloc()-ed null-terminated value. */
+extern C_ROCKSDB_LIBRARY_API crocksdb_map_property_t* crocksdb_create_map_property();
+
+extern C_ROCKSDB_LIBRARY_API void crocksdb_destroy_map_property(crocksdb_map_property_t* info);
+
+extern C_ROCKSDB_LIBRARY_API bool crocksdb_get_map_property_cf(
+    crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
+    const char* property, crocksdb_map_property_t* data);
+
+extern C_ROCKSDB_LIBRARY_API char* crocksdb_map_property_value(
+    crocksdb_map_property_t* info,
+    const char* propname);
+
+extern C_ROCKSDB_LIBRARY_API uint64_t crocksdb_map_property_int_value(
+    crocksdb_map_property_t* info, const char* propname);
+
 extern C_ROCKSDB_LIBRARY_API char* crocksdb_property_value(crocksdb_t* db,
                                                         const char* propname);
 

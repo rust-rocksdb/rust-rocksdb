@@ -75,6 +75,7 @@ pub enum DBPerfContext {}
 pub enum DBIOStatsContext {}
 pub enum DBWriteStallInfo {}
 pub enum DBStatusPtr {}
+pub enum DBMapProperty {}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
@@ -1206,6 +1207,25 @@ extern "C" {
         include_end: bool,
         errptr: *mut *mut c_char,
     );
+    pub fn crocksdb_create_map_property() -> *mut DBMapProperty;
+    pub fn crocksdb_destroy_map_property(info: *mut DBMapProperty);
+    pub fn crocksdb_get_map_property_cf(
+        db: *mut DBInstance,
+        cf: *mut DBCFHandle,
+        name: *const c_char,
+        info: *mut DBMapProperty,
+    ) -> bool;
+
+    pub fn crocksdb_map_property_value(
+        info: *const DBMapProperty,
+        propname: *const c_char,
+    ) -> *mut c_char;
+
+    pub fn crocksdb_map_property_int_value(
+        info: *const DBMapProperty,
+        propname: *const c_char,
+    ) -> uint64_t;
+
     pub fn crocksdb_property_value(db: *mut DBInstance, propname: *const c_char) -> *mut c_char;
     pub fn crocksdb_property_value_cf(
         db: *mut DBInstance,
