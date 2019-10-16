@@ -82,6 +82,7 @@ fn build_rocksdb() {
     config.define("NDEBUG", Some("1"));
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
+        .trim()
         .split("\n")
         .map(str::trim)
         .collect::<Vec<&'static str>>();
