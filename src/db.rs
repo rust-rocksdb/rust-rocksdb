@@ -1652,7 +1652,7 @@ impl DB {
             // rocksdb_wal_readoptions_t does not appear to have any functions
             // for creating and destroying it; fortunately we can pass a nullptr
             // here to get the default behavior
-            let opts: *const ffi::rocksdb_wal_readoptions_t = ptr::null();;
+            let opts: *const ffi::rocksdb_wal_readoptions_t = ptr::null();
             let iter = ffi_try!(ffi::rocksdb_get_updates_since(self.inner, seq_number, opts,));
             Ok(DBWALIterator { inner: iter })
         }
