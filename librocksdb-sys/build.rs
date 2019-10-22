@@ -129,6 +129,13 @@ fn build_rocksdb() {
         link("shlwapi", false);
         config.define("OS_WIN", Some("1"));
         config.define("ROCKSDB_WINDOWS_UTF8_FILENAMES", Some("1"));
+        if &target == "x86_64-pc-windows-gnu" {
+            // Tell MinGW to create localtime_r wrapper of localtime_s function.
+            config.define("_POSIX_C_SOURCE", None);
+            // Tell MinGW to use at least Windows Vista headers instead of the ones of Windows XP.
+            // (This is minimum supported version of rocksdb)
+            config.define("_WIN32_WINNT", Some("0x0600"));
+        }
 
         // Remove POSIX-specific sources
         lib_sources = lib_sources
