@@ -111,20 +111,19 @@ fn build_rocksdb() {
         config.define("OS_MACOSX", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-    }
-    if target.contains("linux") {
+    } else if target.contains("android") {
+        config.define("OS_ANDROID", Some("1"));
+        config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
+        config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+    } else if target.contains("linux") {
         config.define("OS_LINUX", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-        // COMMON_FLAGS="$COMMON_FLAGS -fno-builtin-memcmp"
-    }
-    if target.contains("freebsd") {
+    } else if target.contains("freebsd") {
         config.define("OS_FREEBSD", Some("1"));
         config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
         config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-    }
-
-    if target.contains("windows") {
+    } else if target.contains("windows") {
         link("rpcrt4", false);
         link("shlwapi", false);
         config.define("OS_WIN", Some("1"));
