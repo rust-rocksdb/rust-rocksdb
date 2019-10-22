@@ -20,6 +20,7 @@ jemalloc = ["librocksdb_sys/jemalloc"]
 portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
 valgrind = []
+update_titan = ["librocksdb_sys/update_titan"]
 
 [dependencies]
 libc = "0.2.11"

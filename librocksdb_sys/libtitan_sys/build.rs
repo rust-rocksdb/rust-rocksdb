@@ -2,6 +2,7 @@ extern crate cc;
 extern crate cmake;
 
 use std::env;
+use std::process::Command;
 
 fn main() {
     // RocksDB cmake script expect libz.a being under ${DEP_Z_ROOT}/lib, but libz-sys crate put it
@@ -21,6 +22,13 @@ fn main() {
     }
     if cfg!(feature = "sse") {
         cfg.define("FORCE_SSE42", "ON");
+    }
+    if cfg!(feature = "update_titan") {
+        Command::new("make")
+            .current_dir("../..")
+            .args(&["update_titan"])
+            .status()
+            .expect("failed to update titan!");
     }
     let dst = cfg
         .define("ROCKSDB_DIR", cur_dir.join("..").join("rocksdb"))
