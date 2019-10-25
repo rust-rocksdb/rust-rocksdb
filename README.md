@@ -6,7 +6,7 @@ This library has been tested against RocksDB 5.15 on Linux and macOS.
   - [x] basic open/put/get/delete/close
   - [x] rustic merge operator
   - [x] write batch (thanks @dgrnbrg!)
-   - [x] save ponit
+  - [x] save point
   - [x] compaction filter, style
   - [x] LRU cache
   - [x] destroy/repair
