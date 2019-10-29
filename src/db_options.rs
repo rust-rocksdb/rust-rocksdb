@@ -414,6 +414,12 @@ impl Options {
         }
     }
 
+    pub fn set_optimize_filters_for_hits(&mut self, optimize_for_hits: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_optimize_filters_for_hits(self.inner, optimize_for_hits as c_uchar);
+        }
+    }
+    
     /// Sets the number of open files that can be used by the DB. You may need to
     /// increase this if your database has a large working set. Value `-1` means
     /// files opened are always kept open. You can estimate number of files based
