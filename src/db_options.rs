@@ -428,7 +428,10 @@ impl Options {
     /// ```
     pub fn set_optimize_filters_for_hits(&mut self, optimize_for_hits: bool) {
         unsafe {
-            ffi::rocksdb_options_set_optimize_filters_for_hits(self.inner, optimize_for_hits as c_int);
+            ffi::rocksdb_options_set_optimize_filters_for_hits(
+                self.inner,
+                optimize_for_hits as c_int,
+            );
         }
     }
 
