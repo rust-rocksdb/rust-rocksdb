@@ -647,7 +647,7 @@ impl<'a> Snapshot<'a> {
         }
     }
 
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
+    pub fn iterator(&self, mode: IteratorMode) -> DBIterator<'a> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, readopts)
     }
@@ -661,7 +661,7 @@ impl<'a> Snapshot<'a> {
         self.iterator_cf_opt(cf_handle, readopts, mode)
     }
 
-    pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator {
+    pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator<'a> {
         readopts.set_snapshot(self);
         DBIterator::new(self.db, &readopts, mode)
     }
@@ -1171,12 +1171,16 @@ impl DB {
         self.cfs.get(name)
     }
 
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator {
+    pub fn iterator<'a, 'b: 'a>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, &readopts)
     }
 
-    pub fn iterator_opt(&self, mode: IteratorMode, readopts: &ReadOptions) -> DBIterator {
+    pub fn iterator_opt<'a, 'b: 'a>(
+        &'a self,
+        mode: IteratorMode,
+        readopts: &ReadOptions,
+    ) -> DBIterator<'b> {
         DBIterator::new(self, &readopts, mode)
     }
 
@@ -1194,13 +1198,13 @@ impl DB {
     /// Opens an iterator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
-    pub fn full_iterator(&self, mode: IteratorMode) -> DBIterator {
+    pub fn full_iterator<'a, 'b: 'a>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
         DBIterator::new(self, &opts, mode)
     }
 
-    pub fn prefix_iterator<P: AsRef<[u8]>>(&self, prefix: P) -> DBIterator {
+    pub fn prefix_iterator<'a, 'b: 'a, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
         DBIterator::new(
