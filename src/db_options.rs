@@ -286,6 +286,15 @@ impl Options {
     /// So users of this feature may see increased memory usage.
     ///
     /// Default: `0`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compression_options(4, 5, 6, 7);
+    /// ```
     pub fn set_compression_options(
         &mut self,
         w_bits: c_int,
