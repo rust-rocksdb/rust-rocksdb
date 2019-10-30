@@ -2017,6 +2017,7 @@ unsafe impl Send for ReadOptions {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
+unsafe impl<'a> Sync for DBRawIterator<'a> {}
 unsafe impl Sync for ReadOptions {}
 
 /// Vector of bytes stored in the database.
