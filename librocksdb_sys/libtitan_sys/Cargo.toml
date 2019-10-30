@@ -13,7 +13,6 @@ default = []
 # when not using with static-link right now in this crate.
 portable = []
 sse = []
-update_titan = []
 
 [build-dependencies]
 cc = "1.0.3"
