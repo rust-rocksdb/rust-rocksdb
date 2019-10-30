@@ -269,7 +269,7 @@ impl Options {
             )
         }
     }
-    
+
     /// Maximum size of dictionaries used to prime the compression library.
     /// Enabling dictionary can improve compression ratios when there are
     /// repetitions across data blocks.
@@ -286,12 +286,23 @@ impl Options {
     /// So users of this feature may see increased memory usage.
     ///
     /// Default: `0`
-    pub fn set_compression_options(&mut self, w_bits: c_int, level: c_int, strategy: c_int, max_dict_bytes: c_int) {
+    pub fn set_compression_options(
+        &mut self,
+        w_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+    ) {
         unsafe {
-            ffi::rocksdb_options_set_compression_options(self.inner, w_bits, level, strategy, max_dict_bytes);
+            ffi::rocksdb_options_set_compression_options(
+                self.inner,
+                w_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+            );
         }
     }
-    
 
     /// If non-zero, we perform bigger reads when doing compaction. If you're
     /// running RocksDB on spinning disks, you should set this to at least 2MB.
