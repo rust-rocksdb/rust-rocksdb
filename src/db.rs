@@ -488,52 +488,38 @@ impl<'a> DBRawIterator<'a> {
         }
     }
 
-    /// Returns a slice to the internal buffer storing the current key.
-    ///
-    /// This may be slightly more performant to use than the standard ``.key()`` method
-    /// as it does not copy the key. However, you must be careful to not use the buffer
-    /// if the iterator's seek position is ever moved by any of the seek commands or the
-    /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
-    /// for something else or freed entirely.
-    pub unsafe fn key_inner(&self) -> Option<&[u8]> {
+    /// Returns a slice of the current key.
+    pub fn key(&self) -> Option<&[u8]> {
         if self.valid() {
-            let mut key_len: size_t = 0;
-            let key_len_ptr: *mut size_t = &mut key_len;
-            let key_ptr = ffi::rocksdb_iter_key(self.inner, key_len_ptr) as *const c_uchar;
+            // Safety Note: This is safe as all methods that may invalidate the buffer returned
+            // take `&mut self`, so borrow checker will prevent use of buffer after seek.
+            unsafe {
+                let mut key_len: size_t = 0;
+                let key_len_ptr: *mut size_t = &mut key_len;
+                let key_ptr = ffi::rocksdb_iter_key(self.inner, key_len_ptr) as *const c_uchar;
 
-            Some(slice::from_raw_parts(key_ptr, key_len as usize))
+                Some(slice::from_raw_parts(key_ptr, key_len as usize))
+            }
         } else {
             None
         }
     }
 
-    /// Returns a copy of the current key.
-    pub fn key(&self) -> Option<Vec<u8>> {
-        unsafe { self.key_inner().map(|key| key.to_vec()) }
-    }
-
-    /// Returns a slice to the internal buffer storing the current value.
-    ///
-    /// This may be slightly more performant to use than the standard ``.value()`` method
-    /// as it does not copy the value. However, you must be careful to not use the buffer
-    /// if the iterator's seek position is ever moved by any of the seek commands or the
-    /// ``.next()`` and ``.previous()`` methods as the underlying buffer may be reused
-    /// for something else or freed entirely.
-    pub unsafe fn value_inner(&self) -> Option<&[u8]> {
+    /// Returns a slice of the current value.
+    pub fn value(&self) -> Option<&[u8]> {
         if self.valid() {
-            let mut val_len: size_t = 0;
-            let val_len_ptr: *mut size_t = &mut val_len;
-            let val_ptr = ffi::rocksdb_iter_value(self.inner, val_len_ptr) as *const c_uchar;
+            // Safety Note: This is safe as all methods that may invalidate the buffer returned
+            // take `&mut self`, so borrow checker will prevent use of buffer after seek.
+            unsafe {
+                let mut val_len: size_t = 0;
+                let val_len_ptr: *mut size_t = &mut val_len;
+                let val_ptr = ffi::rocksdb_iter_value(self.inner, val_len_ptr) as *const c_uchar;
 
-            Some(slice::from_raw_parts(val_ptr, val_len as usize))
+                Some(slice::from_raw_parts(val_ptr, val_len as usize))
+            }
         } else {
             None
         }
-    }
-
-    /// Returns a copy of the current value.
-    pub fn value(&self) -> Option<Vec<u8>> {
-        unsafe { self.value_inner().map(|value| value.to_vec()) }
     }
 }
 
@@ -623,8 +609,8 @@ impl<'a> Iterator for DBIterator<'a> {
         if self.raw.valid() {
             // .key() and .value() only ever return None if valid == false, which we've just cheked
             Some((
-                self.raw.key().unwrap().into_boxed_slice(),
-                self.raw.value().unwrap().into_boxed_slice(),
+                self.raw.key().unwrap().to_vec().into_boxed_slice(),
+                self.raw.value().unwrap().to_vec().into_boxed_slice(),
             ))
         } else {
             None
