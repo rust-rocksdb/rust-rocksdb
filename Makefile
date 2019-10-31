@@ -22,4 +22,4 @@ update_titan:
 		git config --file=.gitmodules submodule.titan.branch ${TITAN_BRANCH}; \
 	fi
 	@git submodule sync
-	@git submodule update --remote librocksdb_sys/libtitan_sys/titan
+	@git submodule update --init --remote librocksdb_sys/libtitan_sys/titan
