@@ -23,3 +23,13 @@ update_titan:
 	fi
 	@git submodule sync
 	@git submodule update --init --remote librocksdb_sys/libtitan_sys/titan
+
+update_rocksdb:
+	@if [ -n "${ROCKSDB_REPO}" ]; then \
+		git config --file=.gitmodules submodule.rocksdb.url https://github.com/${ROCKSDB_REPO}/rocksdb.git; \
+	fi
+	@if [ -n "${ROCKSDB_BRANCH}" ]; then \
+		git config --file=.gitmodules submodule.rocksdb.branch ${ROCKSDB_BRANCH}; \
+	fi
+	@git submodule sync
+	@git submodule update --remote librocksdb_sys/rocksdb
