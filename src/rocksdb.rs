@@ -34,6 +34,7 @@ use std::io;
 use std::mem;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::{fs, ptr, slice};
@@ -2138,6 +2139,27 @@ impl SstFileReader {
                     readopts.get_inner(),
                 ),
                 _db: self,
+                _readopts: readopts,
+            }
+        }
+    }
+
+    /// Create an iterator out of a reference-counted SstFileReader.
+    ///
+    /// This exists due to restrictions on lifetimes in associated types.
+    /// See RocksSstIterator in TiKV's engine_rocks.
+    pub fn iter_rc(this: Rc<Self>) -> DBIterator<Rc<Self>> {
+        Self::iter_opt_rc(this, ReadOptions::new())
+    }
+
+    pub fn iter_opt_rc(this: Rc<Self>, readopts: ReadOptions) -> DBIterator<Rc<Self>> {
+        unsafe {
+            DBIterator {
+                inner: crocksdb_ffi::crocksdb_sstfilereader_new_iterator(
+                    this.inner,
+                    readopts.get_inner(),
+                ),
+                _db: this,
                 _readopts: readopts,
             }
         }
