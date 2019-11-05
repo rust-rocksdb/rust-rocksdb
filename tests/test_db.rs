@@ -17,22 +17,10 @@ extern crate rocksdb;
 
 mod util;
 
-use libc::size_t;
-
-use rocksdb::{DBVector, Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
+use rocksdb::{Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
 use std::sync::Arc;
 use std::{mem, thread};
 use util::DBPath;
-
-#[test]
-fn test_db_vector() {
-    use std::mem;
-    let len: size_t = 4;
-    let data: *mut u8 = unsafe { libc::calloc(len, mem::size_of::<u8>()) as *mut u8 };
-    let v = unsafe { DBVector::from_c(data, len) };
-    let ctrl = [0u8, 0, 0, 0];
-    assert_eq!(&*v, &ctrl[..]);
-}
 
 #[test]
 fn external() {
@@ -43,9 +31,9 @@ fn external() {
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
-        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
 
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert_eq!(r.unwrap().unwrap(), b"v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
@@ -60,7 +48,7 @@ fn db_vector_as_ref_byte_slice() {
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
-        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
         let vector = r.unwrap().unwrap();
 
         assert!(get_byte_slice(&vector) == b"v1111");
@@ -104,8 +92,8 @@ fn writebatch_works() {
             assert!(!batch.is_empty());
             assert!(db.get(b"k1").unwrap().is_none());
             assert!(db.write(batch).is_ok());
-            let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+            let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+            assert_eq!(r.unwrap().unwrap(), b"v1111");
         }
         {
             // test delete
@@ -156,7 +144,7 @@ fn snapshot_test() {
         assert!(db.put(b"k1", b"v1111").is_ok());
 
         let snap = db.snapshot();
-        assert!(snap.get(b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        assert_eq!(snap.get(b"k1").unwrap().unwrap(), b"v1111");
 
         assert!(db.put(b"k2", b"v2222").is_ok());
 
@@ -177,11 +165,11 @@ impl SnapshotWrapper {
         }
     }
 
-    fn check<K>(&self, key: K, value: &str) -> bool
+    fn check<K>(&self, key: K, value: &[u8]) -> bool
     where
         K: AsRef<[u8]>,
     {
-        self.snapshot.get(key).unwrap().unwrap().to_utf8().unwrap() == value
+        self.snapshot.get(key).unwrap().unwrap() == value
     }
 }
 
@@ -195,10 +183,10 @@ fn sync_snapshot_test() {
 
     let wrapper = SnapshotWrapper::new(&db);
     let wrapper_1 = wrapper.clone();
-    let handler_1 = thread::spawn(move || wrapper_1.check("k1", "v1"));
+    let handler_1 = thread::spawn(move || wrapper_1.check("k1", b"v1"));
 
     let wrapper_2 = wrapper.clone();
-    let handler_2 = thread::spawn(move || wrapper_2.check("k2", "v2"));
+    let handler_2 = thread::spawn(move || wrapper_2.check("k2", b"v2"));
 
     assert!(handler_1.join().unwrap());
     assert!(handler_2.join().unwrap());

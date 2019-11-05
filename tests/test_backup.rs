@@ -30,7 +30,7 @@ fn backup_restore() {
         let db = DB::open(&opts, path).unwrap();
         assert!(db.put(b"k1", b"v1111").is_ok());
         let value = db.get(b"k1");
-        assert_eq!(value.unwrap().unwrap().as_ref(), b"v1111");
+        assert_eq!(value.unwrap().unwrap(), b"v1111");
         {
             let backup_path = "_rust_rocksdb_backup_path";
             let backup_opts = BackupEngineOptions::default();
@@ -48,7 +48,7 @@ fn backup_restore() {
 
             let db_restore = DB::open_default(restore_path).unwrap();
             let value = db_restore.get(b"k1");
-            assert_eq!(value.unwrap().unwrap().as_ref(), b"v1111");
+            assert_eq!(value.unwrap().unwrap(), b"v1111");
         }
     }
     assert!(DB::destroy(&opts, restore_path).is_ok());

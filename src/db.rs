@@ -690,7 +690,7 @@ impl<'a> Snapshot<'a> {
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
 
-    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
+    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         let readopts = ReadOptions::default();
         self.get_opt(key, readopts)
     }
@@ -699,7 +699,7 @@ impl<'a> Snapshot<'a> {
         &self,
         cf: &ColumnFamily,
         key: K,
-    ) -> Result<Option<DBVector>, Error> {
+    ) -> Result<Option<Vec<u8>>, Error> {
         let readopts = ReadOptions::default();
         self.get_cf_opt(cf, key.as_ref(), readopts)
     }
@@ -708,7 +708,7 @@ impl<'a> Snapshot<'a> {
         &self,
         key: K,
         mut readopts: ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
+    ) -> Result<Option<Vec<u8>>, Error> {
         readopts.set_snapshot(self);
         self.db.get_opt(key.as_ref(), &readopts)
     }
@@ -718,7 +718,7 @@ impl<'a> Snapshot<'a> {
         cf: &ColumnFamily,
         key: K,
         mut readopts: ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
+    ) -> Result<Option<Vec<u8>>, Error> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key.as_ref(), &readopts)
     }
@@ -945,39 +945,12 @@ impl DB {
         &self,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
-        if readopts.inner.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
-                    .to_owned(),
-            ));
-        }
-
-        let key = key.as_ref();
-
-        unsafe {
-            let mut val_len: size_t = 0;
-            let val = ffi_try!(ffi::rocksdb_get(
-                self.inner,
-                readopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                &mut val_len,
-            )) as *mut u8;
-            if val.is_null() {
-                Ok(None)
-            } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
-            }
-        }
+    ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_opt(key, readopts).map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Return the bytes associated with a key value
-    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBVector>, Error> {
+    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.get_opt(key.as_ref(), &ReadOptions::default())
     }
 
@@ -986,43 +959,15 @@ impl DB {
         cf: &ColumnFamily,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBVector>, Error> {
-        if readopts.inner.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
-                    .to_owned(),
-            ));
-        }
-
-        let key = key.as_ref();
-
-        unsafe {
-            let mut val_len: size_t = 0;
-            let val = ffi_try!(ffi::rocksdb_get_cf(
-                self.inner,
-                readopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                &mut val_len,
-            )) as *mut u8;
-            if val.is_null() {
-                Ok(None)
-            } else {
-                Ok(Some(DBVector::from_c(val, val_len)))
-            }
-        }
+    ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_cf_opt(cf, key, readopts).map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
         key: K,
-    ) -> Result<Option<DBVector>, Error> {
+    ) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
     }
 
@@ -2020,69 +1965,6 @@ unsafe impl Send for ReadOptions {}
 unsafe impl<'a> Sync for DBRawIterator<'a> {}
 unsafe impl Sync for ReadOptions {}
 
-/// Vector of bytes stored in the database.
-///
-/// This is a `C` allocated byte array and a length value.
-/// Normal usage would be to utilize the fact it implements `Deref<[u8]>` and use it as
-/// a slice.
-pub struct DBVector {
-    base: *mut u8,
-    len: usize,
-}
-
-impl Deref for DBVector {
-    type Target = [u8];
-
-    fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.base, self.len) }
-    }
-}
-
-impl AsRef<[u8]> for DBVector {
-    fn as_ref(&self) -> &[u8] {
-        // Implement this via Deref so as not to repeat ourselves
-        &*self
-    }
-}
-
-impl Drop for DBVector {
-    fn drop(&mut self) {
-        unsafe {
-            libc::free(self.base as *mut c_void);
-        }
-    }
-}
-
-impl DBVector {
-    /// Used internally to create a DBVector from a `C` memory block
-    ///
-    /// # Unsafe
-    /// Requires that the ponter be allocated by a `malloc` derivative (all C libraries), and
-    /// `val_len` be the length of the C array to be safe (since `sizeof(u8) = 1`).
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let buf_len: libc::size_t = unsafe { mem::uninitialized() };
-    /// // Assume the function fills buf_len with the length of the returned array
-    /// let buf: *mut u8 = unsafe { ffi_function_returning_byte_array(&buf_len) };
-    /// DBVector::from_c(buf, buf_len)
-    /// ```
-    pub unsafe fn from_c(val: *mut u8, val_len: size_t) -> DBVector {
-        DBVector {
-            base: val,
-            len: val_len as usize,
-        }
-    }
-
-    /// Convenience function to attempt to reinterperet value as string.
-    ///
-    /// implemented as `str::from_utf8(&self[..])`
-    pub fn to_utf8(&self) -> Option<&str> {
-        str::from_utf8(self.deref()).ok()
-    }
-}
-
 fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
         Ok(c) => Ok(c),
@@ -2134,22 +2016,12 @@ impl<'a> DBPinnableSlice<'a> {
     ///
     /// # Unsafe
     /// Requires that the pointer must be generated by rocksdb_get_pinned
-    pub unsafe fn from_c(ptr: *mut ffi::rocksdb_pinnableslice_t) -> DBPinnableSlice<'a> {
+    unsafe fn from_c(ptr: *mut ffi::rocksdb_pinnableslice_t) -> DBPinnableSlice<'a> {
         DBPinnableSlice {
             ptr,
             db: PhantomData,
         }
     }
-}
-
-#[test]
-fn test_db_vector() {
-    use std::mem;
-    let len: size_t = 4;
-    let data = unsafe { libc::calloc(len, mem::size_of::<u8>()) as *mut u8 };
-    let v = unsafe { DBVector::from_c(data, len) };
-    let ctrl = [0u8, 0, 0, 0];
-    assert_eq!(&*v, &ctrl[..]);
 }
 
 #[test]
@@ -2159,8 +2031,8 @@ fn external() {
         let db = DB::open_default(path).unwrap();
         let p = db.put(b"k1", b"v1111");
         assert!(p.is_ok());
-        let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+        assert_eq!(r.unwrap().unwrap(), b"v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
@@ -2209,8 +2081,8 @@ fn writebatch_works() {
             assert!(db.get(b"k1").unwrap().is_none());
             let p = db.write(batch);
             assert!(p.is_ok());
-            let r: Result<Option<DBVector>, Error> = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+            let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+            assert_eq!(r.unwrap().unwrap(), b"v1111");
         }
         {
             // test delete
@@ -2313,8 +2185,8 @@ fn snapshot_test() {
         assert!(p.is_ok());
 
         let snap = db.snapshot();
-        let r: Result<Option<DBVector>, Error> = snap.get(b"k1");
-        assert!(r.unwrap().unwrap().to_utf8().unwrap() == "v1111");
+        let r: Result<Option<Vec<u8>>, Error> = snap.get(b"k1");
+        assert_eq!(r.unwrap().unwrap(), b"v1111");
 
         let p = db.put(b"k2", b"v2222");
         assert!(p.is_ok());
