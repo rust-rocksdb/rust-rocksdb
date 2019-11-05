@@ -949,7 +949,8 @@ impl DB {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_pinned_opt(key, readopts).map(|x| x.map(|v| v.as_ref().to_vec()))
+        self.get_pinned_opt(key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Return the bytes associated with a key value. If you only intend to use the vector returned
@@ -968,7 +969,8 @@ impl DB {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_pinned_cf_opt(cf, key, readopts).map(|x| x.map(|v| v.as_ref().to_vec()))
+        self.get_pinned_cf_opt(cf, key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Return the bytes associated with a key value and the given column family. If you only

@@ -50,7 +50,7 @@
 //!         db.merge(b"k1", b"d");
 //!         db.merge(b"k1", b"efg");
 //!         let r = db.get(b"k1");
-//!         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+//!         assert_eq!(r.unwrap().unwrap(), b"abcdefg");
 //!    }
 //!    let _ = DB::destroy(&opts, path);
 //! }
