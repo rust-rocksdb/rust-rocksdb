@@ -1995,6 +1995,15 @@ pub struct DBPinnableSlice<'a> {
     db: PhantomData<&'a DB>,
 }
 
+// Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
+// pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
+// rocksdb internally does not rely on thread-local information for its user-exposed types.
+unsafe impl<'a> Send for DBPinnableSlice<'a> {}
+
+// Sync is similarly safe for many types because they do not expose interior mutability, and their
+// use within the rocksdb library is generally behind a const reference
+unsafe impl<'a> Sync for DBPinnableSlice<'a> {}
+
 impl<'a> AsRef<[u8]> for DBPinnableSlice<'a> {
     fn as_ref(&self) -> &[u8] {
         // Implement this via Deref so as not to repeat ourselves
