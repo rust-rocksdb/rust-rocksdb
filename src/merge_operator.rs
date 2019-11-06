@@ -50,7 +50,7 @@
 //!         db.merge(b"k1", b"d");
 //!         db.merge(b"k1", b"efg");
 //!         let r = db.get(b"k1");
-//!         assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefg");
+//!         assert_eq!(r.unwrap().unwrap(), b"abcdefg");
 //!    }
 //!    let _ = DB::destroy(&opts, path);
 //! }
@@ -242,9 +242,9 @@ mod test {
             let m = db.merge(b"k1", b"h");
             assert!(m.is_ok());
             match db.get(b"k1") {
-                Ok(Some(value)) => match value.to_utf8() {
-                    Some(v) => println!("retrieved utf8 value: {}", v),
-                    None => println!("did not read valid utf-8 out of the db"),
+                Ok(Some(value)) => match std::str::from_utf8(&value) {
+                    Ok(v) => println!("retrieved utf8 value: {}", v),
+                    Err(_) => println!("did not read valid utf-8 out of the db"),
                 },
                 Err(_) => println!("error reading value"),
                 _ => panic!("value not present"),
@@ -252,7 +252,7 @@ mod test {
 
             assert!(m.is_ok());
             let r = db.get(b"k1");
-            assert!(r.unwrap().unwrap().to_utf8().unwrap() == "abcdefgh");
+            assert_eq!(r.unwrap().unwrap(), b"abcdefgh");
             assert!(db.delete(b"k1").is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
         }

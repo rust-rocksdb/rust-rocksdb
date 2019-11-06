@@ -146,7 +146,7 @@ fn test_merge_operator() {
         };
         let cf1 = db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert!(db.get_cf(cf1, b"k1").unwrap().unwrap().to_utf8().unwrap() == "v1");
+        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
         let p = db.put_cf(cf1, b"k1", b"a");
         assert!(p.is_ok());
         db.merge_cf(cf1, b"k1", b"b").unwrap();
@@ -157,16 +157,16 @@ fn test_merge_operator() {
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
         match db.get(b"k1") {
-            Ok(Some(value)) => match value.to_utf8() {
-                Some(v) => println!("retrieved utf8 value: {}", v),
-                None => println!("did not read valid utf-8 out of the db"),
+            Ok(Some(value)) => match std::str::from_utf8(&value) {
+                Ok(v) => println!("retrieved utf8 value: {}", v),
+                Err(_) => println!("did not read valid utf-8 out of the db"),
             },
             Err(_) => println!("error reading value"),
             _ => panic!("value not present!"),
         }
 
         let _ = db.get_cf(cf1, b"k1");
-        // TODO assert!(r.unwrap().to_utf8().unwrap() == "abcdefgh");
+        // TODO assert!(r.unwrap().as_ref() == b"abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }

@@ -25,7 +25,7 @@
 //!    let db = DB::open_default(path).unwrap();
 //!    db.put(b"my key", b"my value").unwrap();
 //!    match db.get(b"my key") {
-//!        Ok(Some(value)) => println!("retrieved value {}", value.to_utf8().unwrap()),
+//!        Ok(Some(value)) => println!("retrieved value {}", String::from_utf8(value).unwrap()),
 //!        Ok(None) => println!("value not found"),
 //!        Err(e) => println!("operational problem encountered: {}", e),
 //!    }
@@ -72,8 +72,8 @@ mod slice_transform;
 pub use compaction_filter::Decision as CompactionDecision;
 pub use db::{
     DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
-    DBRecoveryMode, DBVector, DBWALIterator, Direction, IteratorMode, ReadOptions, Snapshot,
-    WriteBatch, WriteBatchIterator,
+    DBRecoveryMode, DBWALIterator, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
+    WriteBatchIterator,
 };
 
 pub use slice_transform::SliceTransform;
