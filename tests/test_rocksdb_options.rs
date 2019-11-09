@@ -15,7 +15,7 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::{Options, DB};
+use rocksdb::{Options, ReadOptions, DB};
 use util::DBPath;
 
 #[test]
@@ -49,4 +49,10 @@ fn test_set_level_compaction_dynamic_level_bytes() {
         opts.set_level_compaction_dynamic_level_bytes(true);
         let _db = DB::open(&opts, &n).unwrap();
     }
+}
+
+#[test]
+fn test_read_options() {
+    let mut read_opts = ReadOptions::default();
+    read_opts.set_verify_checksums(false);
 }
