@@ -330,12 +330,14 @@ impl Options {
         }
     }
 
-    /// Allow RocksDB to pick dynamic base of bytes for levels. 
-    /// With this feature turned on, RocksDB will automatically adjust max bytes for each level. 
+    /// Allow RocksDB to pick dynamic base of bytes for levels.
+    /// With this feature turned on, RocksDB will automatically adjust max bytes for each level.
     /// The goal of this feature is to have lower bound on size amplification.
+    ///
+    /// Default: false.
     pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
-        unsafe { 
-            ffi::rocksdb_set_level_compaction_dynamic_level_bytes(self.inner, v as c_uchar)
+        unsafe {
+            ffi::rocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v as c_uchar);
         }
     }
 
