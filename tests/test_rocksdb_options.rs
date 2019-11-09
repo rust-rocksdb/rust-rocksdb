@@ -39,3 +39,14 @@ fn test_increase_parallelism() {
         let _db = DB::open(&opts, &n).unwrap();
     }
 }
+
+#[test]
+fn test_set_level_compaction_dynamic_level_bytes() {
+    let n = DBPath::new("_rust_rocksdb_test_set_level_compaction_dynamic_level_bytes");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_level_compaction_dynamic_level_bytes(true);
+        let _db = DB::open(&opts, &n).unwrap();
+    }
+}
