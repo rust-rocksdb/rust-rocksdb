@@ -1930,6 +1930,10 @@ impl ReadOptions {
         unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
     }
 
+    /// If true, all data read from underlying storage will be
+    /// verified against corresponding checksums.
+    ///
+    /// Default: true
     pub fn set_verify_checksums(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_verify_checksums(self.inner, v as c_uchar);
