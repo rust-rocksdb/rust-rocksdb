@@ -135,6 +135,18 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_index_type(self.inner, index);
         }
     }
+
+    /// If cache_index_and_filter_blocks is true and the below is true, then
+    /// filter and index blocks are stored in the cache, but a reference is
+    /// held in the "table reader" object so the blocks are pinned and only
+    /// evicted from cache when the table reader is freed.
+    ///
+    /// Default: false.
+    pub fn set_pin_l0_filter_and_index_blocks_in_cache(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(self.inner, v as c_uchar);
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
