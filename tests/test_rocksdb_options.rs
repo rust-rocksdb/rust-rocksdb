@@ -60,7 +60,7 @@ fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
         let mut block_opts = BlockBasedOptions::default();
         block_opts.set_cache_index_and_filter_blocks(true);
         block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-    	opts.set_block_based_table_factory(&block_opts);
+        opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).unwrap();
     }
 }
