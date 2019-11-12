@@ -899,7 +899,7 @@ impl DB {
         Ok(())
     }
 
-    pub fn repair<P: AsRef<Path>>(opts: Options, path: P) -> Result<(), Error> {
+    pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = to_cpath(path)?;
         unsafe {
             ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
