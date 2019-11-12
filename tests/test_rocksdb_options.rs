@@ -15,7 +15,7 @@
 extern crate rocksdb;
 mod util;
 
-use rocksdb::{Options, DB};
+use rocksdb::{BlockBasedOptions, Options, ReadOptions, DB};
 use util::DBPath;
 
 #[test]
@@ -38,4 +38,35 @@ fn test_increase_parallelism() {
         opts.increase_parallelism(4);
         let _db = DB::open(&opts, &n).unwrap();
     }
+}
+
+#[test]
+fn test_set_level_compaction_dynamic_level_bytes() {
+    let n = DBPath::new("_rust_rocksdb_test_set_level_compaction_dynamic_level_bytes");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_level_compaction_dynamic_level_bytes(true);
+        let _db = DB::open(&opts, &n).unwrap();
+    }
+}
+
+#[test]
+fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
+    let n = DBPath::new("_rust_rocksdb_test_set_pin_l0_filter_and_index_blocks_in_cache");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let mut block_opts = BlockBasedOptions::default();
+        block_opts.set_cache_index_and_filter_blocks(true);
+        block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+        opts.set_block_based_table_factory(&block_opts);
+        let _db = DB::open(&opts, &n).unwrap();
+    }
+}
+
+#[test]
+fn test_read_options() {
+    let mut read_opts = ReadOptions::default();
+    read_opts.set_verify_checksums(false);
 }

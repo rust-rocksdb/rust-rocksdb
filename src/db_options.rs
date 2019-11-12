@@ -135,6 +135,21 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_index_type(self.inner, index);
         }
     }
+
+    /// If cache_index_and_filter_blocks is true and the below is true, then
+    /// filter and index blocks are stored in the cache, but a reference is
+    /// held in the "table reader" object so the blocks are pinned and only
+    /// evicted from cache when the table reader is freed.
+    ///
+    /// Default: false.
+    pub fn set_pin_l0_filter_and_index_blocks_in_cache(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
+                self.inner,
+                v as c_uchar,
+            );
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
@@ -327,6 +342,17 @@ impl Options {
                 self.inner,
                 compaction_readahead_size as usize,
             );
+        }
+    }
+
+    /// Allow RocksDB to pick dynamic base of bytes for levels.
+    /// With this feature turned on, RocksDB will automatically adjust max bytes for each level.
+    /// The goal of this feature is to have lower bound on size amplification.
+    ///
+    /// Default: false.
+    pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v as c_uchar);
         }
     }
 
