@@ -2095,6 +2095,15 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_encode_blob_index(
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_disable_background_gc(
     ctitandb_options_t* options, unsigned char disable);
 
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_level_merge(ctitandb_options_t* options,
+                                                unsigned char enable);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_range_merge(ctitandb_options_t* options,
+                                                unsigned char enable);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_max_sorted_runs(ctitandb_options_t* options,
+                                            int size);
+
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_max_gc_batch_size(
     ctitandb_options_t* options, uint64_t size);
 

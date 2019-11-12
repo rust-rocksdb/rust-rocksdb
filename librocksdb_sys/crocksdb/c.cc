@@ -5254,6 +5254,21 @@ void ctitandb_options_set_disable_background_gc(ctitandb_options_t* options,
   options->rep.disable_background_gc = disable;
 }
 
+void ctitandb_options_set_level_merge(ctitandb_options_t* options,
+                                                unsigned char enable) {
+  options->rep.level_merge = enable;
+}
+
+void ctitandb_options_set_range_merge(ctitandb_options_t* options,
+                                                unsigned char enable) {
+  options->rep.range_merge = enable;
+}
+
+void ctitandb_options_set_max_sorted_runs(ctitandb_options_t* options,
+                                            int size) {
+  options->rep.max_sorted_runs = size;
+}
+
 void ctitandb_options_set_max_gc_batch_size(ctitandb_options_t* options,
                                             uint64_t size) {
   options->rep.max_gc_batch_size = size;

@@ -3196,7 +3196,7 @@ mod test {
 
         let mut opts = DBOptions::new();
         opts.create_if_missing(true);
-        let mut db = DB::open(opts, dbpath).unwrap();
+        let db = DB::open(opts, dbpath).unwrap();
 
         let cf_handle = db.cf_handle("default").unwrap();
         let mp = db.get_map_property_cf(cf_handle, "rocksdb.cfstats");

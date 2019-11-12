@@ -12,7 +12,7 @@
 // limitations under the License.
 
 use crocksdb_ffi::{self, DBTablePropertiesCollector, DBTablePropertiesCollectorFactory};
-use libc::{c_char, c_void, uint32_t};
+use libc::{c_char, c_void};
 use std::ffi::CString;
 use table_properties_collector::{new_table_properties_collector, TablePropertiesCollector};
 
@@ -55,7 +55,7 @@ extern "C" fn destruct(handle: *mut c_void) {
 
 extern "C" fn create_table_properties_collector(
     handle: *mut c_void,
-    cf: uint32_t,
+    cf: u32,
 ) -> *mut DBTablePropertiesCollector {
     unsafe {
         let handle = &mut *(handle as *mut TablePropertiesCollectorFactoryHandle);

@@ -12,7 +12,7 @@
 // limitations under the License.
 
 use crocksdb_ffi::{self, DBEntryType, DBTablePropertiesCollector, DBUserCollectedProperties};
-use libc::{c_char, c_int, c_void, size_t, uint64_t, uint8_t};
+use libc::{c_char, c_int, c_void, size_t};
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::mem;
@@ -62,13 +62,13 @@ extern "C" fn destruct(handle: *mut c_void) {
 
 pub extern "C" fn add(
     handle: *mut c_void,
-    key: *const uint8_t,
+    key: *const u8,
     key_len: size_t,
-    value: *const uint8_t,
+    value: *const u8,
     value_len: size_t,
     entry_type: c_int,
-    seq: uint64_t,
-    file_size: uint64_t,
+    seq: u64,
+    file_size: u64,
 ) {
     unsafe {
         let handle = &mut *(handle as *mut TablePropertiesCollectorHandle);
