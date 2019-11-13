@@ -16,8 +16,8 @@
 * Added lifetimes for `DBIterator` return types (ngotchac) 
 * Bumped rocksdb up to 6.2.4 (aleksuss)
 * Disabled trait derivation for librocksdb-sys (EyeOfPython)
-* `DB::get_updates_since()` to iterate write batches in a given sequence (nlfiedler)
-* `ReadOptions::set_tailing()` to create a tailing iterator that continues to 
+* Added `DB::get_updates_since()` to iterate write batches in a given sequence (nlfiedler)
+* Added `ReadOptions::set_tailing()` to create a tailing iterator that continues to 
   iterate over the database as new records are added (cjbradfield)
 * Changed column families storing (aleksuss)
 * Exposed the `status` method on iterators (rnarubin)
