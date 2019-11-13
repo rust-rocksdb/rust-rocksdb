@@ -1022,6 +1022,12 @@ impl DBOptions {
         }
     }
 
+    pub fn enable_unordered_write(&self, v: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_unordered_write(self.inner, v);
+        }
+    }
+
     pub fn allow_concurrent_memtable_write(&self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_allow_concurrent_memtable_write(self.inner, v);
