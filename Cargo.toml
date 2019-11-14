@@ -1,11 +1,11 @@
 [package]
 name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
-version = "0.12.3"
+version = "0.13.0"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
-homepage = "https://github.com/spacejam/rust-rocksdb"
+homepage = "https://github.com/rust-rocksdb/rust-rocksdb"
 exclude = [
     ".gitignore",
     ".travis.yml",
