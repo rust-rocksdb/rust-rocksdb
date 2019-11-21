@@ -282,7 +282,8 @@ mod vendor {
             .iter()
             .map(|pattern| glob::glob(pattern).unwrap())
             .flatten()
-            .for_each(|path| build.file(path.unwrap()));
+            .map(|p| p.unwrap())
+            .fold(&mut build, cc::Build::file);
 
         build.compile("libz.a");
     }
@@ -311,7 +312,8 @@ mod vendor {
             .iter()
             .map(|pattern| glob::glob(pattern).unwrap())
             .flatten()
-            .for_each(|path| build.file(path.unwrap()));
+            .map(|p| p.unwrap())
+            .fold(&mut build, cc::Build::file);
 
         build.compile("libzstd.a");
     }
