@@ -353,7 +353,16 @@ mod vendor {
 }
 
 #[cfg(not(feature = "vendored"))]
-mod link {}
+mod link {
+    pub fn link_dependencies() {
+        let dependencies = &[
+            "libz",
+            "libzstd",
+            "lib"
+        ];
+
+    }
+}
 
 // fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 //     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
