@@ -1,7 +1,7 @@
 extern crate bindgen;
 
-fn bindgen_rocksdb() {
-    let bindings = bindgen::Builder::default()
+fn bindgen_builder_rocksdb() -> bindgen::Builder {
+    bindgen::Builder::default()
         .header("wrapper.h")
         .derive_debug(false)
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
@@ -9,12 +9,17 @@ fn bindgen_rocksdb() {
         .size_t_is_usize(true)
         .generate()
         .expect("Unable to generate rocksdb bindings");
+}
 
+fn bindgen_write_bindings(builder: bindgen::Builder) {
+    let bindings = builder
+        .generate()
+        .expect("Unable to generate RocksDB bindings");
     let out_path = std::env::var("OUT_DIR").unwrap();
     let out_path = std::path::PathBuf::from(out_path);
     bindings
         .write_to_file(out_path.join("bindings.rs"))
-        .expect("Unable to write rocksdb bindings");
+        .expect("Couldn't write RocksDB bindings!");
 }
 
 #[cfg(feature = "vendored")]
@@ -341,6 +346,9 @@ mod vendor {
 
         #[cfg(feature = "zstd")]
         build_zstd();
+
+        let binding_builder = super::bindgen_builder_rocksdb();
+        super::bindgen_write_bindings(binding_builder);
     }
 }
 
@@ -364,5 +372,6 @@ fn main() {
     #[cfg(feature = "vendored")]
     vendor::vendor_dependencies();
 
-    bindgen_rocksdb();
+    #[cfg(not(feature = "vendored"))]
+    link::link_dependencies();
 }
