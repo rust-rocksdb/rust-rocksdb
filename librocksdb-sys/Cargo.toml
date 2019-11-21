@@ -32,3 +32,4 @@ uuid = { version = "0.8", features = ["v4"] }
 cc = { version = "^1.0", features = ["parallel"] }
 bindgen = "0.53"
 glob = "0.3"
+pkg-config = "0.3.17"
