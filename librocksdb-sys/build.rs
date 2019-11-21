@@ -285,6 +285,10 @@ mod vendor {
     use std::fs;
     use std::path::Path;
 
+    fn enforce_rerun<P: AsRef<Path>>(path: P) {
+        println!("cargo:rerun-if-changed={}", path.as_ref().to_string_lossy());
+    }
+
     fn check_submodule<P: AsRef<Path>>(path: P) {
         let path = path
             .as_ref()
