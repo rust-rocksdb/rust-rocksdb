@@ -325,7 +325,9 @@ mod vendor {
         vendored_paths.iter().for_each(|p| {
             enforce_rerun(p);
             check_submodule(p);
-        })
+        });
+
+        super::bindgen_rocksdb();
     }
 }
 
