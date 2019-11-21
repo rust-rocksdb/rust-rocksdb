@@ -172,28 +172,6 @@ fn build_rocksdb() {
     config.compile("librocksdb.a");
 }
 
-fn build_snappy() {
-    let target = env::var("TARGET").unwrap();
-
-    let mut config = cc::Build::new();
-    config.include("snappy/");
-    config.include(".");
-
-    config.define("NDEBUG", Some("1"));
-
-    if target.contains("msvc") {
-        config.flag("-EHsc");
-    } else {
-        config.flag("-std=c++11");
-    }
-
-    config.file("snappy/snappy.cc");
-    config.file("snappy/snappy-sinksource.cc");
-    config.file("snappy/snappy-c.cc");
-    config.cpp(true);
-    config.compile("libsnappy.a");
-}
-
 fn build_lz4() {
     let mut compiler = cc::Build::new();
 
@@ -282,6 +260,7 @@ fn build_bzip2() {
 
 #[cfg(feature = "vendored")]
 mod vendor {
+    use std::env;
     use std::fs;
     use std::path::Path;
 
@@ -307,6 +286,31 @@ mod vendor {
                 path.file_name().unwrap().to_string_lossy()
             )
         }
+    }
+
+    #[cfg(feature = "snappy")]
+    fn build_snappy() {
+        let target = env::var("TARGET").expect("No TARGET in environment");
+        let mut build = cc::Build::new();
+
+        build.include("./snappy/").include("./");
+
+        build.define("NDEBUG", Some("1"));
+
+        if target.contains("msvc") {
+            build.flag("-EHsc");
+        } else {
+            build.flag("-std=c++11");
+        }
+
+        build
+            .file("./snappy/snappy.cc")
+            .file("./snappy/snappy-sinksource.cc")
+            .file("snappy/snappy-c.cc");
+
+        build.cpp(true);
+
+        build.compile("libsnappy.a");
     }
 
     pub fn vendor_dependencies() {
