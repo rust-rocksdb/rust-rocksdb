@@ -174,27 +174,6 @@ fn build_rocksdb() {
     config.compile("librocksdb.a");
 }
 
-fn build_bzip2() {
-    let mut compiler = cc::Build::new();
-
-    compiler
-        .file("bzip2/blocksort.c")
-        .file("bzip2/bzlib.c")
-        .file("bzip2/compress.c")
-        .file("bzip2/crctable.c")
-        .file("bzip2/decompress.c")
-        .file("bzip2/huffman.c")
-        .file("bzip2/randtable.c");
-
-    compiler
-        .define("_FILE_OFFSET_BITS", Some("64"))
-        .define("BZ_NO_STDIO", None);
-
-    compiler.extra_warnings(false);
-    compiler.opt_level(3);
-    compiler.compile("libbz2.a");
-}
-
 #[cfg(feature = "vendored")]
 mod vendor {
     extern crate cc;
@@ -226,6 +205,29 @@ mod vendor {
                 path.file_name().unwrap().to_string_lossy()
             )
         }
+    }
+
+    #[cfg(feature = "bzip2")]
+    fn build_bzip2() {
+        let mut build = cc::Build::new();
+
+        build.extra_warnings(false);
+        build.opt_level(3);
+
+        build
+            .define("_FILE_OFFSET_BITS", Some("64"))
+            .define("BZ_NO_STDIO", None);
+
+        build
+            .file("./bzip2/blocksort.c")
+            .file("./bzip2/bzlib.c")
+            .file("./bzip2/compress.c")
+            .file("./bzip2/crctable.c")
+            .file("./bzip2/decompress.c")
+            .file("./bzip2/huffman.c")
+            .file("./bzip2/randtable.c");
+
+        build.compile("libbz2.a");
     }
 
     #[cfg(feature = "lz4")]
