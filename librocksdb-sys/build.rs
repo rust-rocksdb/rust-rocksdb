@@ -309,7 +309,20 @@ mod vendor {
         }
     }
 
-    pub fn vendor_dependencies() {}
+    pub fn vendor_dependencies() {
+        let vendored_paths = vec![
+            "./rocksdb/",
+            "./snappy/",
+            "./lz4/",
+            "./zstd/",
+            "./zlib/",
+            "./bzip2/",
+        ];
+        vendored_paths.iter().for_each(|p| {
+            enforce_rerun(p);
+            check_submodule(p);
+        })
+    }
 }
 
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
