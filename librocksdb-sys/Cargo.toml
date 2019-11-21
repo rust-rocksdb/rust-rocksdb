@@ -12,8 +12,8 @@ keywords = [ "bindings", "ffi", "rocksdb" ]
 links = "rocksdb"
 
 [features]
-default = [ "static" ]
-static = []
+default = [ "vendored" ]
+vendored = []
 snappy = []
 lz4 = []
 zstd = []
