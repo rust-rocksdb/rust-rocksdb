@@ -280,6 +280,9 @@ fn build_bzip2() {
     compiler.compile("libbz2.a");
 }
 
+#[cfg(feature = "vendored")]
+mod vendor {}
+
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
