@@ -44,136 +44,6 @@ fn bindgen_rocksdb() {
         .expect("Unable to write rocksdb bindings");
 }
 
-fn build_rocksdb() {
-    let target = env::var("TARGET").unwrap();
-
-    let mut config = cc::Build::new();
-    config.include("rocksdb/include/");
-    config.include("rocksdb/");
-    config.include("rocksdb/third-party/gtest-1.8.1/fused-src/");
-
-    if cfg!(feature = "snappy") {
-        config.define("SNAPPY", Some("1"));
-        config.include("snappy/");
-    }
-
-    if cfg!(feature = "lz4") {
-        config.define("LZ4", Some("1"));
-        config.include("lz4/lib/");
-    }
-
-    if cfg!(feature = "zstd") {
-        config.define("ZSTD", Some("1"));
-        config.include("zstd/lib/");
-        config.include("zstd/lib/dictBuilder/");
-    }
-
-    if cfg!(feature = "zlib") {
-        config.define("ZLIB", Some("1"));
-        config.include("zlib/");
-    }
-
-    if cfg!(feature = "bzip2") {
-        config.define("BZIP2", Some("1"));
-        config.include("bzip2/");
-    }
-
-    config.include(".");
-    config.define("NDEBUG", Some("1"));
-
-    let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
-        .trim()
-        .split('\n')
-        .map(str::trim)
-        .collect::<Vec<&'static str>>();
-
-    // We have a pregenerated a version of build_version.cc in the local directory
-    lib_sources = lib_sources
-        .iter()
-        .cloned()
-        .filter(|file| *file != "util/build_version.cc")
-        .collect::<Vec<&'static str>>();
-
-    if target.contains("x86_64") {
-        // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
-        // only available since Intel Nehalem (about 2010) and AMD Bulldozer
-        // (about 2011).
-        config.define("HAVE_PCLMUL", Some("1"));
-        config.define("HAVE_SSE42", Some("1"));
-        config.flag_if_supported("-msse2");
-        config.flag_if_supported("-msse4.1");
-        config.flag_if_supported("-msse4.2");
-        config.flag_if_supported("-mpclmul");
-    }
-
-    if target.contains("darwin") {
-        config.define("OS_MACOSX", Some("1"));
-        config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
-        config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-    } else if target.contains("android") {
-        config.define("OS_ANDROID", Some("1"));
-        config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
-        config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-    } else if target.contains("linux") {
-        config.define("OS_LINUX", Some("1"));
-        config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
-        config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-    } else if target.contains("freebsd") {
-        config.define("OS_FREEBSD", Some("1"));
-        config.define("ROCKSDB_PLATFORM_POSIX", Some("1"));
-        config.define("ROCKSDB_LIB_IO_POSIX", Some("1"));
-    } else if target.contains("windows") {
-        link("rpcrt4", false);
-        link("shlwapi", false);
-        config.define("OS_WIN", Some("1"));
-        config.define("ROCKSDB_WINDOWS_UTF8_FILENAMES", Some("1"));
-        if &target == "x86_64-pc-windows-gnu" {
-            // Tell MinGW to create localtime_r wrapper of localtime_s function.
-            config.define("_POSIX_C_SOURCE", None);
-            // Tell MinGW to use at least Windows Vista headers instead of the ones of Windows XP.
-            // (This is minimum supported version of rocksdb)
-            config.define("_WIN32_WINNT", Some("0x0600"));
-        }
-
-        // Remove POSIX-specific sources
-        lib_sources = lib_sources
-            .iter()
-            .cloned()
-            .filter(|file| match *file {
-                "port/port_posix.cc" | "env/env_posix.cc" | "env/io_posix.cc" => false,
-                _ => true,
-            })
-            .collect::<Vec<&'static str>>();
-
-        // Add Windows-specific sources
-        lib_sources.push("port/win/port_win.cc");
-        lib_sources.push("port/win/env_win.cc");
-        lib_sources.push("port/win/env_default.cc");
-        lib_sources.push("port/win/win_logger.cc");
-        lib_sources.push("port/win/io_win.cc");
-        lib_sources.push("port/win/win_thread.cc");
-    }
-
-    if target.contains("msvc") {
-        config.flag("-EHsc");
-    } else {
-        config.flag("-std=c++11");
-        // this was breaking the build on travis due to
-        // > 4mb of warnings emitted.
-        config.flag("-Wno-unused-parameter");
-    }
-
-    for file in lib_sources {
-        let file = "rocksdb/".to_string() + file;
-        config.file(&file);
-    }
-
-    config.file("build_version.cc");
-
-    config.cpp(true);
-    config.compile("librocksdb.a");
-}
-
 #[cfg(feature = "vendored")]
 mod vendor {
     extern crate cc;
@@ -207,6 +77,153 @@ mod vendor {
         }
     }
 
+    fn windows_link(lib_name: &str) {
+        println!("cargo:rustc-link-lib=dylib={}", lib_name);
+    }
+
+    fn build_rocksdb() {
+        let target = env::var("TARGET").unwrap();
+        let mut build = cc::Build::new();
+
+        build
+            .include("./rocksdb/include/")
+            .include("./rocksdb/")
+            .include("./rocksdb/third-party/gtest-1.7.0/fused-src/");
+
+        #[cfg(feature = "bzip2")]
+        {
+            build.define("BZIP2", Some("1"));
+            build.include("./bzip2/");
+        }
+
+        #[cfg(feature = "lz4")]
+        {
+            build.define("LZ4", Some("1"));
+            build.include("./lz4/lib/");
+        }
+
+        #[cfg(feature = "snappy")]
+        {
+            build.define("SNAPPY", Some("1"));
+            build.include("./snappy/");
+        }
+
+        #[cfg(feature = "zlib")]
+        {
+            build.define("ZLIB", Some("1"));
+            build.include("./zlib/");
+        }
+
+        #[cfg(feature = "zstd")]
+        {
+            build.define("ZSTD", Some("1"));
+            build
+                .include("./zstd/lib/")
+                .include("./zstd/lib/dictBuilder/");
+        }
+
+        build.include(".");
+        build.define("NDEBUG", Some("1"));
+
+        let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
+            .trim()
+            .split("\n")
+            .map(str::trim)
+            .collect::<Vec<&'static str>>();
+
+        // We have a pregenerated a version of build_version.cc in the local directory
+        lib_sources = lib_sources
+            .iter()
+            .cloned()
+            .filter(|file| *file != "util/build_version.cc")
+            .collect::<Vec<&'static str>>();
+
+        if target.contains("x86_64") {
+            // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
+            // only available since Intel Nehalem (about 2010) and AMD Bulldozer
+            // (about 2011).
+            build
+                .define("HAVE_PCLMUL", Some("1"))
+                .define("HAVE_SSE42", Some("1"))
+                .flag_if_supported("-msse2")
+                .flag_if_supported("-msse4.1")
+                .flag_if_supported("-msse4.2")
+                .flag_if_supported("-mpclmul");
+        }
+
+        if target.contains("darwin") {
+            build
+                .define("OS_MACOSX", Some("1"))
+                .define("ROCKSDB_PLATFORM_POSIX", Some("1"))
+                .define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+        } else if target.contains("android") {
+            build
+                .define("OS_ANDROID", Some("1"))
+                .define("ROCKSDB_PLATFORM_POSIX", Some("1"))
+                .define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+        } else if target.contains("linux") {
+            build
+                .define("OS_LINUX", Some("1"))
+                .define("ROCKSDB_PLATFORM_POSIX", Some("1"))
+                .define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+        } else if target.contains("freebsd") {
+            build
+                .define("OS_FREEBSD", Some("1"))
+                .define("ROCKSDB_PLATFORM_POSIX", Some("1"))
+                .define("ROCKSDB_LIB_IO_POSIX", Some("1"));
+        } else if target.contains("windows") {
+            windows_link("rpcrt4");
+            windows_link("shlwapi");
+            build
+                .define("OS_WIN", Some("1"))
+                .define("ROCKSDB_WINDOWS_UTF8_FILENAMES", Some("1"));
+            if &target == "x86_64-pc-windows-gnu" {
+                // Tell MinGW to create localtime_r wrapper of localtime_s function.
+                build.define("_POSIX_C_SOURCE", None);
+                // Tell MinGW to use at least Windows Vista headers instead of the ones of Windows XP.
+                // (This is minimum supported version of rocksdb)
+                build.define("_WIN32_WINNT", Some("0x0600"));
+            }
+
+            // Remove POSIX-specific sources
+            lib_sources = lib_sources
+                .iter()
+                .cloned()
+                .filter(|file| match *file {
+                    "port/port_posix.cc" | "env/env_posix.cc" | "env/io_posix.cc" => false,
+                    _ => true,
+                })
+                .collect::<Vec<&'static str>>();
+
+            // Add Windows-specific sources
+            lib_sources.push("port/win/port_win.cc");
+            lib_sources.push("port/win/env_win.cc");
+            lib_sources.push("port/win/env_default.cc");
+            lib_sources.push("port/win/win_logger.cc");
+            lib_sources.push("port/win/io_win.cc");
+            lib_sources.push("port/win/win_thread.cc");
+        }
+
+        if target.contains("msvc") {
+            build.flag("-EHsc");
+        } else {
+            build.flag("-std=c++11");
+            // this was breaking the build on travis due to
+            // > 4mb of warnings emitted.
+            build.flag("-Wno-unused-parameter");
+        }
+
+        for file in lib_sources {
+            let file = "rocksdb/".to_string() + file;
+            build.file(&file);
+        }
+
+        build.file("build_version.cc");
+
+        build.cpp(true);
+        build.compile("librocksdb.a");
+    }
+
     #[cfg(feature = "bzip2")]
     fn build_bzip2() {
         let mut build = cc::Build::new();
@@ -232,7 +249,7 @@ mod vendor {
 
     #[cfg(feature = "lz4")]
     fn build_lz4() {
-        let target = env::var("TARGET").expect("No TARGET in environment");
+        let target = env::var("TARGET").unwrap();
         let mut build = cc::Build::new();
 
         build.opt_level(3);
