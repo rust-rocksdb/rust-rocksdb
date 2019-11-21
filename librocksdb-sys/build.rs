@@ -288,6 +288,26 @@ mod vendor {
         }
     }
 
+    #[cfg(feature = "lz4")]
+    fn build_lz4() {
+        let target = env::var("TARGET").expect("No TARGET in environment");
+        let mut build = cc::Build::new();
+
+        build.opt_level(3);
+
+        if target.contains("i686-pc-windows-gnu") {
+            build.flag("-fno-tree-vectorize");
+        }
+
+        build
+            .file("./lz4/lib/lz4.c")
+            .file("./lz4/lib/lz4frame.c")
+            .file("./lz4/lib/lz4hc.c")
+            .file("./lz4/lib/xxhash.c");
+
+        build.compile("liblz4.a");
+    }
+
     #[cfg(feature = "snappy")]
     fn build_snappy() {
         let target = env::var("TARGET").expect("No TARGET in environment");
