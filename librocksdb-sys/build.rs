@@ -283,11 +283,13 @@ fn build_bzip2() {
 #[cfg(feature = "vendored")]
 mod vendor {
     use std::fs;
+    use std::path::Path;
 
-    fn check_submodule(path: std::path::PathBuf) {
+    fn check_submodule<P: AsRef<Path>>(path: P) {
         let path = path
+            .as_ref()
             .canonicalize()
-            .unwrap_or_else(|_| panic!("Failed to canonicalize {:?}", path));
+            .unwrap_or_else(|_| panic!("Failed to canonicalize {:?}", path.as_ref()));
         let dir =
             fs::read_dir(&path).unwrap_or_else(|_| panic!("Failed to open directory {:?}", path));
         if dir.count() == 0 {
