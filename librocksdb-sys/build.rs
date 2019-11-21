@@ -174,54 +174,6 @@ fn build_rocksdb() {
     config.compile("librocksdb.a");
 }
 
-fn build_lz4() {
-    let mut compiler = cc::Build::new();
-
-    compiler
-        .file("lz4/lib/lz4.c")
-        .file("lz4/lib/lz4frame.c")
-        .file("lz4/lib/lz4hc.c")
-        .file("lz4/lib/xxhash.c");
-
-    compiler.opt_level(3);
-
-    let target = env::var("TARGET").unwrap();
-
-    if &target == "i686-pc-windows-gnu" {
-        compiler.flag("-fno-tree-vectorize");
-    }
-
-    compiler.compile("liblz4.a");
-}
-
-fn build_zstd() {
-    let mut compiler = cc::Build::new();
-
-    compiler.include("zstd/lib/");
-    compiler.include("zstd/lib/common");
-    compiler.include("zstd/lib/legacy");
-
-    let globs = &[
-        "zstd/lib/common/*.c",
-        "zstd/lib/compress/*.c",
-        "zstd/lib/decompress/*.c",
-        "zstd/lib/dictBuilder/*.c",
-        "zstd/lib/legacy/*.c",
-    ];
-
-    for pattern in globs {
-        for path in glob::glob(pattern).unwrap() {
-            let path = path.unwrap();
-            compiler.file(path);
-        }
-    }
-
-    compiler.opt_level(3);
-
-    compiler.define("ZSTD_LIB_DEPRECATED", Some("0"));
-    compiler.compile("libzstd.a");
-}
-
 fn build_zlib() {
     let mut compiler = cc::Build::new();
 
@@ -336,6 +288,35 @@ mod vendor {
         build.cpp(true);
 
         build.compile("libsnappy.a");
+    }
+
+    #[cfg(feature = "zstd")]
+    fn build_zstd() {
+        let mut build = cc::Build::new();
+
+        build
+            .include("./zstd/lib/")
+            .include("./zstd/lib/common/")
+            .include("./zstd/lib/legacy/");
+
+        build.define("ZSTD_LIB_DEPRECATED", Some("0"));
+
+        build.opt_level(3);
+
+        let globs = &[
+            "./zstd/lib/common/*.c",
+            "./zstd/lib/compress/*.c",
+            "./zstd/lib/decompress/*.c",
+            "./zstd/lib/dictBuilder/*.c",
+            "./zstd/lib/legacy/*.c",
+        ];
+        globs
+            .iter()
+            .map(|pattern| glob::glob(pattern).unwrap())
+            .flatten()
+            .for_each(|path| build.file(path.unwrap()));
+
+        build.compile("libzstd.a");
     }
 
     pub fn vendor_dependencies() {
