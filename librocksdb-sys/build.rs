@@ -339,39 +339,25 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 }
 
 fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=rocksdb/");
-    println!("cargo:rerun-if-changed=snappy/");
-    println!("cargo:rerun-if-changed=lz4/");
-    println!("cargo:rerun-if-changed=zstd/");
-    println!("cargo:rerun-if-changed=zlib/");
-    println!("cargo:rerun-if-changed=bzip2/");
 
-    fail_on_empty_directory("rocksdb");
-    fail_on_empty_directory("snappy");
-    fail_on_empty_directory("lz4");
-    fail_on_empty_directory("zstd");
-    fail_on_empty_directory("zlib");
-    fail_on_empty_directory("bzip2");
+    // bindgen_rocksdb();
 
-    bindgen_rocksdb();
-
-    if !try_to_find_and_link_lib("ROCKSDB") {
-        build_rocksdb();
-    }
-    if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
-        build_snappy();
-    }
-    if cfg!(feature = "lz4") && !try_to_find_and_link_lib("LZ4") {
-        build_lz4();
-    }
-    if cfg!(feature = "zstd") && !try_to_find_and_link_lib("ZSTD") {
-        build_zstd();
-    }
-    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("ZLIB") {
-        build_zlib();
-    }
-    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZIP2") {
-        build_bzip2();
-    }
+    // if !try_to_find_and_link_lib("ROCKSDB") {
+    //     build_rocksdb();
+    // }
+    // if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
+    //     build_snappy();
+    // }
+    // if cfg!(feature = "lz4") && !try_to_find_and_link_lib("LZ4") {
+    //     build_lz4();
+    // }
+    // if cfg!(feature = "zstd") && !try_to_find_and_link_lib("ZSTD") {
+    //     build_zstd();
+    // }
+    // if cfg!(feature = "zlib") && !try_to_find_and_link_lib("ZLIB") {
+    //     build_zlib();
+    // }
+    // if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZIP2") {
+    //     build_bzip2();
+    // }
 }
