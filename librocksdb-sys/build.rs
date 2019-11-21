@@ -339,6 +339,8 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 }
 
 fn main() {
+    #[cfg(feature = "vendored")]
+    vendor::vendor_dependencies();
 
     // bindgen_rocksdb();
 
