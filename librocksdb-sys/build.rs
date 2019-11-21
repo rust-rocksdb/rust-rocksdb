@@ -258,7 +258,7 @@ mod vendor {
         build
             .file("./snappy/snappy.cc")
             .file("./snappy/snappy-sinksource.cc")
-            .file("snappy/snappy-c.cc");
+            .file("./snappy/snappy-c.cc");
 
         build.cpp(true);
 
