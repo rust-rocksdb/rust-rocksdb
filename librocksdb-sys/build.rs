@@ -325,6 +325,23 @@ mod vendor {
             check_submodule(p);
         });
 
+        build_rocksdb();
+
+        #[cfg(feature = "bzip2")]
+        build_bzip2();
+
+        #[cfg(feature = "lz4")]
+        build_lz4();
+
+        #[cfg(feature = "snappy")]
+        build_snappy();
+
+        #[cfg(feature = "zlib")]
+        build_zlib();
+
+        #[cfg(feature = "zstd")]
+        build_zstd();
+
         super::bindgen_rocksdb();
     }
 }
