@@ -1,3 +1,5 @@
+extern crate bindgen;
+
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -260,6 +262,9 @@ fn build_bzip2() {
 
 #[cfg(feature = "vendored")]
 mod vendor {
+    extern crate cc;
+    extern crate glob;
+
     use std::env;
     use std::fs;
     use std::path::Path;
