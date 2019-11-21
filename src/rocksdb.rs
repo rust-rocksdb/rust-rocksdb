@@ -823,6 +823,7 @@ impl DB {
             } else {
                 ffi_try!(ctitandb_create_column_family(
                     self.inner,
+                    cfd.options.inner,
                     cfd.options.titan_inner,
                     cname_ptr
                 ))

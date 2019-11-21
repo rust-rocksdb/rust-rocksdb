@@ -5136,7 +5136,7 @@ crocksdb_t* ctitandb_open_column_families(
     crocksdb_column_family_handle_t** column_family_handles, char** errptr) {
   std::vector<TitanCFDescriptor> column_families;
   for (int i = 0; i < num_column_families; i++) {
-    *(ColumnFamilyOptions*)&titan_column_family_options[i]->rep =
+    *((ColumnFamilyOptions*)(&titan_column_family_options[i]->rep)) =
         column_family_options[i]->rep;
     column_families.push_back(
         TitanCFDescriptor(std::string(column_family_names[i]),
@@ -5168,11 +5168,15 @@ crocksdb_t* ctitandb_open_column_families(
 // use ctitandb_t for titan specific functions.
 crocksdb_column_family_handle_t* ctitandb_create_column_family(
     crocksdb_t* db,
+    const crocksdb_options_t* column_family_options,
     const ctitandb_options_t* titan_column_family_options,
     const char* column_family_name,
     char** errptr) {
   // Blindly cast db into TitanDB.
   TitanDB* titan_db = reinterpret_cast<TitanDB*>(db->rep);
+  // Copy the ColumnFamilyOptions part of `column_family_options` into `titan_column_family_options`
+  *((ColumnFamilyOptions*)(&titan_column_family_options->rep)) = 
+      column_family_options->rep;
   crocksdb_column_family_handle_t* handle = new crocksdb_column_family_handle_t;
   SaveError(errptr,
       titan_db->CreateColumnFamily(

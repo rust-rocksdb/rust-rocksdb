@@ -123,7 +123,7 @@ fn test_titandb() {
     cf_opts.add_table_properties_collector_factory("titan-collector", Box::new(f));
     cf_opts.set_titandb_options(&tdb_opts);
 
-    let db = DB::open_cf(
+    let mut db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
         vec![("default", cf_opts)],
@@ -139,6 +139,13 @@ fn test_titandb() {
         }
         db.flush(true).unwrap();
     }
+
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_num_levels(4);
+    cf_opts.set_titandb_options(&tdb_opts);
+    db.create_cf(("cf1", cf_opts)).unwrap();
+    let cf1 = db.cf_handle("cf1").unwrap();
+    assert_eq!(db.get_options_cf(cf1).get_num_levels(), 4);
 
     let mut iter = db.iter();
     iter.seek(SeekKey::Start);

@@ -1929,6 +1929,7 @@ extern "C" {
 
     pub fn ctitandb_create_column_family(
         db: *mut DBInstance,
+        column_family_options: *const Options,
         titan_column_family_options: *const DBTitanDBOptions,
         column_family_name: *const c_char,
         err: *mut *mut c_char,

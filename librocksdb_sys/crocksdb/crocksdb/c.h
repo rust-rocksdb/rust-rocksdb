@@ -2052,6 +2052,7 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_t* ctitandb_open_column_families(
 extern C_ROCKSDB_LIBRARY_API
 crocksdb_column_family_handle_t* ctitandb_create_column_family(
     crocksdb_t* db,
+    const crocksdb_options_t* column_family_options,
     const ctitandb_options_t* titan_column_family_options,
     const char* column_family_name,
     char** errptr);
