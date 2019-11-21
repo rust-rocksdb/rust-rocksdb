@@ -281,7 +281,28 @@ fn build_bzip2() {
 }
 
 #[cfg(feature = "vendored")]
-mod vendor {}
+mod vendor {
+    use std::fs;
+
+    fn check_submodule(path: std::path::PathBuf) {
+        let path = path
+            .canonicalize()
+            .unwrap_or_else(|_| panic!("Failed to canonicalize {:?}", path));
+        let dir =
+            fs::read_dir(&path).unwrap_or_else(|_| panic!("Failed to open directory {:?}", path));
+        if dir.count() == 0 {
+            println!(
+                "The `{:?}` directory is empty, did you forget to pull the submodules?",
+                path
+            );
+            println!("Try `git submodule update --init --recursive`");
+            panic!(
+                "Missing submodule {}",
+                path.file_name().unwrap().to_string_lossy()
+            )
+        }
+    }
+}
 
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
