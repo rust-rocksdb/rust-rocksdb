@@ -174,23 +174,6 @@ fn build_rocksdb() {
     config.compile("librocksdb.a");
 }
 
-fn build_zlib() {
-    let mut compiler = cc::Build::new();
-
-    let globs = &["zlib/*.c"];
-
-    for pattern in globs {
-        for path in glob::glob(pattern).unwrap() {
-            let path = path.unwrap();
-            compiler.file(path);
-        }
-    }
-
-    compiler.flag_if_supported("-Wno-implicit-function-declaration");
-    compiler.opt_level(3);
-    compiler.compile("libz.a");
-}
-
 fn build_bzip2() {
     let mut compiler = cc::Build::new();
 
@@ -288,6 +271,23 @@ mod vendor {
         build.cpp(true);
 
         build.compile("libsnappy.a");
+    }
+
+    #[cfg(feature = "zlib")]
+    fn build_zlib() {
+        let mut build = cc::Build::new();
+
+        build.opt_level(3);
+        build.flag_if_supported("-Wno-implicit-function-declaration");
+
+        let globs = &["./zlib/*.c"];
+        globs
+            .iter()
+            .map(|pattern| glob::glob(pattern).unwrap())
+            .flatten()
+            .for_each(|path| build.file(path.unwrap()));
+
+        build.compile("libz.a");
     }
 
     #[cfg(feature = "zstd")]
