@@ -1,9 +1,5 @@
 extern crate bindgen;
 
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
@@ -14,7 +10,8 @@ fn bindgen_rocksdb() {
         .generate()
         .expect("Unable to generate rocksdb bindings");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = std::env::var("OUT_DIR").unwrap();
+    let out_path = std::path::PathBuf::from(out_path);
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Unable to write rocksdb bindings");
