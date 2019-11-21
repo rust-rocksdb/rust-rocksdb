@@ -334,7 +334,7 @@ mod vendor {
     }
 
     pub fn vendor_dependencies() {
-        let vendored_paths = vec![
+        let vendored_paths = &[
             "./rocksdb/",
             "./snappy/",
             "./lz4/",
