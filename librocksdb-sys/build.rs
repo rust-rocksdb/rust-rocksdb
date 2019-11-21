@@ -304,6 +304,8 @@ mod vendor {
             )
         }
     }
+
+    pub fn vendor_dependencies() {}
 }
 
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
