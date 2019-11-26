@@ -2,22 +2,24 @@
 
 ## Unreleased
 
+* Updated lz4 to v1.9.2 (ordian)
+
 ## 0.13.0 (2019-11-12)
 
 ### Changes
 
-* Added `ReadOptions::set_verify_checksums` and 
+* Added `ReadOptions::set_verify_checksums` and
   `Options::set_level_compaction_dynamic_level_bytes` methods (ordian)
 * Array of bytes has been changed for pinnable slice for get operations (nbdd0121)
 * Implemented `Sync` for `DBRawIterator` (nbdd0121)
 * Removed extra copy in DBRawIterator (nbdd0121)
 * Added `Options::max_dict_bytes` and `Options::zstd_max_training_bytes` methods(methyl)
 * Added Android support (rtsisyk)
-* Added lifetimes for `DBIterator` return types (ngotchac) 
+* Added lifetimes for `DBIterator` return types (ngotchac)
 * Bumped rocksdb up to 6.2.4 (aleksuss)
 * Disabled trait derivation for librocksdb-sys (EyeOfPython)
 * Added `DB::get_updates_since()` to iterate write batches in a given sequence (nlfiedler)
-* Added `ReadOptions::set_tailing()` to create a tailing iterator that continues to 
+* Added `ReadOptions::set_tailing()` to create a tailing iterator that continues to
   iterate over the database as new records are added (cjbradfield)
 * Changed column families storing (aleksuss)
 * Exposed the `status` method on iterators (rnarubin)
