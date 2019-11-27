@@ -17,6 +17,7 @@ mod util;
 
 use rocksdb::{BlockBasedOptions, Options, ReadOptions, DB};
 use util::DBPath;
+use std::{io::Read as _, fs};
 
 #[test]
 fn test_set_num_levels() {
@@ -52,16 +53,33 @@ fn test_set_level_compaction_dynamic_level_bytes() {
 }
 
 #[test]
-fn test_set_pin_l0_filter_and_index_blocks_in_cache() {
-    let n = DBPath::new("_rust_rocksdb_test_set_pin_l0_filter_and_index_blocks_in_cache");
+fn test_block_based_options() {
+    let path = "_rust_rocksdb_test_block_based_options";
+    let n = DBPath::new(path);
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
+
         let mut block_opts = BlockBasedOptions::default();
         block_opts.set_cache_index_and_filter_blocks(true);
         block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
+        block_opts.set_format_version(4);
+        block_opts.set_index_block_restart_interval(16);
+
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).unwrap();
+
+        // read the setting from the LOG file
+        let mut rocksdb_log = fs::File::open(format!("{}/LOG", n.as_ref().to_str().unwrap()))
+            .expect("rocksdb creates a LOG file");
+        let mut settings = String::new();
+        rocksdb_log.read_to_string(&mut settings).unwrap();
+
+        // check the settings are set in the LOG file
+        assert!(settings.contains("cache_index_and_filter_blocks: 1"));
+        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 1"));
+        assert!(settings.contains("format_version: 4"));
+        assert!(settings.contains("index_block_restart_interval: 16"));
     }
 }
 

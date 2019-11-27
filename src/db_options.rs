@@ -150,6 +150,40 @@ impl BlockBasedOptions {
             );
         }
     }
+
+    /// Format version, reserved for backward compatibility.
+    /// See https://github.com/facebook/rocksdb/blob/f059c7d9b96300091e07429a60f4ad55dac84859/include/rocksdb/table.h#L249-L274.
+    ///
+    /// Default: 2.
+    pub fn set_format_version(&mut self, version: i32) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_format_version(self.inner, version);
+        }
+    }
+
+    /// Number of keys between restart points for delta encoding of keys.
+    /// This parameter can be changed dynamically. Most clients should
+    /// leave this parameter alone. The minimum value allowed is 1. Any smaller
+    /// value will be silently overwritten with 1.
+    ///
+    /// Default: 16.
+    pub fn set_block_restart_interval(&mut self, interval: i32) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_block_restart_interval(self.inner, interval);
+        }
+    }
+
+    /// Same as block_restart_interval but used for the index block.
+    /// If you don't plan to run RocksDB before version 5.16 and you are
+    /// using `index_block_restart_interval` > 1, you should
+    /// probably set the `format_version` to >= 4 as it would reduce the index size.
+    ///
+    /// Default: 1.
+    pub fn set_index_block_restart_interval(&mut self, interval: i32) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_index_block_restart_interval(self.inner, interval);
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
