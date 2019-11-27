@@ -16,8 +16,8 @@ extern crate rocksdb;
 mod util;
 
 use rocksdb::{BlockBasedOptions, Options, ReadOptions, DB};
+use std::{fs, io::Read as _};
 use util::DBPath;
-use std::{io::Read as _, fs};
 
 #[test]
 fn test_set_num_levels() {
