@@ -150,13 +150,6 @@ impl BlockBasedOptions {
             );
         }
     }
-
-    /// Set the block file format version. Valid values are 2, 3 and 4.
-    pub fn set_format_version(version: i32) {
-        unsafe {
-            ffi::rocksdb_block_based_options_set_format_version(version)
-        }
-    }
 }
 
 impl Default for BlockBasedOptions {
