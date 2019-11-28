@@ -18,7 +18,7 @@ use crocksdb_ffi::{
 };
 use libc::c_void;
 use std::path::Path;
-use std::{mem, slice, str};
+use std::{slice, str};
 use {TableProperties, TablePropertiesCollectionView};
 
 macro_rules! fetch_str {
@@ -30,6 +30,7 @@ macro_rules! fetch_str {
     })
 }
 
+#[repr(transparent)]
 pub struct FlushJobInfo(DBFlushJobInfo);
 
 impl FlushJobInfo {
@@ -58,6 +59,7 @@ impl FlushJobInfo {
     }
 }
 
+#[repr(transparent)]
 pub struct CompactionJobInfo(DBCompactionJobInfo);
 
 impl CompactionJobInfo {
@@ -128,6 +130,7 @@ impl CompactionJobInfo {
     }
 }
 
+#[repr(transparent)]
 pub struct IngestionInfo(DBIngestionInfo);
 
 impl IngestionInfo {
@@ -152,6 +155,7 @@ impl IngestionInfo {
     }
 }
 
+#[repr(transparent)]
 pub struct WriteStallInfo(DBWriteStallInfo);
 
 impl WriteStallInfo {
@@ -199,7 +203,7 @@ extern "C" fn on_flush_completed(
     let (ctx, info) = unsafe {
         (
             &*(ctx as *mut Box<dyn EventListener>),
-            mem::transmute(&*info),
+            &*(info as *const FlushJobInfo),
         )
     };
     ctx.on_flush_completed(info);
@@ -213,7 +217,7 @@ extern "C" fn on_compaction_completed(
     let (ctx, info) = unsafe {
         (
             &*(ctx as *mut Box<dyn EventListener>),
-            mem::transmute(&*info),
+            &*(info as *const CompactionJobInfo),
         )
     };
     ctx.on_compaction_completed(info);
@@ -227,7 +231,7 @@ extern "C" fn on_external_file_ingested(
     let (ctx, info) = unsafe {
         (
             &*(ctx as *mut Box<dyn EventListener>),
-            mem::transmute(&*info),
+            &*(info as *const IngestionInfo),
         )
     };
     ctx.on_external_file_ingested(info);
@@ -254,7 +258,7 @@ extern "C" fn on_stall_conditions_changed(ctx: *mut c_void, info: *const DBWrite
     let (ctx, info) = unsafe {
         (
             &*(ctx as *mut Box<dyn EventListener>),
-            mem::transmute(&*info),
+            &*(info as *const WriteStallInfo),
         )
     };
     ctx.on_stall_conditions_changed(info);

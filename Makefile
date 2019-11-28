@@ -14,6 +14,14 @@ clean:
 	@cargo clean
 	@cd librocksdb_sys && cargo clean
 
+# TODO it could be worth fixing some of these lints
+clippy:
+	@cargo clippy --all -- \
+	-D warnings \
+	-A clippy::redundant_field_names -A clippy::single_match \
+	-A clippy::assign_op_pattern -A clippy::new_without_default -A clippy::useless_let_if_seq \
+	-A clippy::needless_return -A clippy::len_zero
+
 update_titan:
 	@if [ -n "${TITAN_REPO}" ]; then \
 		git config --file=.gitmodules submodule.titan.url https://github.com/${TITAN_REPO}/titan.git; \

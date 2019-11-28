@@ -31,7 +31,6 @@ use rocksdb::Env;
 use rocksdb::{Cache, MemoryAllocator};
 use slice_transform::{new_slice_transform, SliceTransform};
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
@@ -454,9 +453,10 @@ impl ReadOptions {
     pub fn set_table_filter(&mut self, filter: Box<dyn TableFilter>) {
         unsafe {
             let f = Box::into_raw(Box::new(filter));
+            let f = f as *mut c_void;
             crocksdb_ffi::crocksdb_readoptions_set_table_filter(
                 self.inner,
-                mem::transmute(f),
+                f,
                 table_filter,
                 destroy_table_filter,
             );
@@ -1276,10 +1276,11 @@ impl ColumnFamilyOptions {
             name: CString::new(name.as_bytes()).unwrap(),
             merge_fn: merge_fn,
         });
+        let cb = Box::into_raw(cb) as *mut c_void;
 
         unsafe {
             let mo = crocksdb_ffi::crocksdb_mergeoperator_create(
-                mem::transmute(cb),
+                cb,
                 merge_operator::destructor_callback,
                 full_merge_callback,
                 partial_merge_callback,
@@ -1295,10 +1296,11 @@ impl ColumnFamilyOptions {
             name: CString::new(name.as_bytes()).unwrap(),
             f: compare_fn,
         });
+        let cb = Box::into_raw(cb) as *mut c_void;
 
         unsafe {
             let cmp = crocksdb_ffi::crocksdb_comparator_create(
-                mem::transmute(cb),
+                cb,
                 comparator::destructor_callback,
                 compare_callback,
                 comparator::name_callback,
@@ -1340,7 +1342,8 @@ impl ColumnFamilyOptions {
     pub fn set_max_bytes_for_level_multiplier(&mut self, mul: i32) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_bytes_for_level_multiplier(
-                self.inner, mul as f64,
+                self.inner,
+                f64::from(mul),
             );
         }
     }
@@ -1674,7 +1677,7 @@ impl CColumnFamilyDescriptor {
         CColumnFamilyDescriptor { inner }
     }
 
-    pub fn name<'a>(&'a self) -> &'a str {
+    pub fn name(&self) -> &str {
         unsafe {
             let raw_cf_name = crocksdb_ffi::crocksdb_name_from_column_family_descriptor(self.inner);
             CStr::from_ptr(raw_cf_name).to_str().unwrap()

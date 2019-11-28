@@ -18,16 +18,16 @@ use crocksdb_ffi::{
 use libc::size_t;
 use std::marker::PhantomData;
 use std::ops::{Deref, Index};
-use std::{mem, slice, str};
+use std::{slice, str};
 
+#[repr(transparent)]
 pub struct TablePropertiesCollectionView(DBTablePropertiesCollection);
 
 impl TablePropertiesCollectionView {
     pub unsafe fn from_ptr<'a>(
         collection: *const DBTablePropertiesCollection,
     ) -> &'a TablePropertiesCollectionView {
-        let c = &*collection;
-        mem::transmute(c)
+        &*(collection as *const TablePropertiesCollectionView)
     }
 
     pub fn iter(&self) -> TablePropertiesCollectionIter {
@@ -130,14 +130,14 @@ impl Deref for TablePropertiesCollection {
     }
 }
 
+#[repr(transparent)]
 pub struct TableProperties {
     inner: DBTableProperties,
 }
 
 impl TableProperties {
     pub unsafe fn from_ptr<'a>(ptr: *const DBTableProperties) -> &'a TableProperties {
-        let res = &*ptr;
-        mem::transmute(res)
+        &*(ptr as *const TableProperties)
     }
 
     fn get_u64(&self, prop: DBTableProperty) -> u64 {
@@ -229,14 +229,14 @@ impl TableProperties {
     }
 }
 
+#[repr(transparent)]
 pub struct UserCollectedProperties {
     inner: DBUserCollectedProperties,
 }
 
 impl UserCollectedProperties {
     unsafe fn from_ptr<'a>(ptr: *const DBUserCollectedProperties) -> &'a UserCollectedProperties {
-        let prop = &*ptr;
-        mem::transmute(prop)
+        &*(ptr as *const UserCollectedProperties)
     }
 
     pub fn get<Q: AsRef<[u8]>>(&self, index: Q) -> Option<&[u8]> {

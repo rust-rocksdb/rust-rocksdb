@@ -24,8 +24,10 @@ cache: false
 before_script:
   - rustup default nightly-2019-09-05
   - rustup component add rustfmt-preview
+  - rustup component add clippy
 
 script:
+  - make clippy
   - cargo fmt --all -- --check
   - cargo build
   - cargo test --all
