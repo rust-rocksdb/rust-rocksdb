@@ -26,8 +26,8 @@ use merge_operator::{
 };
 use slice_transform::SliceTransform;
 use {
-    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
-    FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
+    BlockBasedIndexType, BlockBasedOptions, DataBlockIndexType, DBCompactionStyle, DBCompressionType,
+    DBRecoveryMode,FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
 };
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -148,6 +148,49 @@ impl BlockBasedOptions {
                 self.inner,
                 v as c_uchar,
             );
+        }
+    }
+
+    /// Set the data block index type for point lookups:
+    ///     `DataBlockIndexType::BinarySearch` to use binary search within the data block.
+    ///     `DataBlockIndexType::BinaryAndHash` to use the data block hash index in combination with
+    ///     the normal binary search.
+    ///
+    /// The hash table utilization ratio is adjustable using `set_data_block_hash_ratio()`, which is
+    /// valid only when using `DataBlockIndexType::BinaryAndHash`.
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options};
+    ///
+    /// let mut opts = Options::default();
+    /// let mut block_opts = BlockBasedOptions::default();
+    /// block_opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
+    /// block_opts.set_data_block_hash_ratio(0.85);
+    /// ```
+    pub fn set_data_block_index_type(&mut self, index_type: DataBlockIndexType) {
+        let index_t = index_type as i32;
+        unsafe {
+            ffi::rocksdb_block_based_options_set_data_block_index_type(
+                self.inner,
+                index_t,
+            )
+        }
+    }
+
+    /// Set the data block hash index utilization ratio.
+    ///
+    /// The smaller the utilization ratio is, less hash collisions happen, and smaller risk for a
+    /// point lookup to fall back to binary seek due to the collisions. A small ratio means faster
+    /// lookup at the price of reduce the CPU time at the price of more space overhead.
+    ///
+    /// Default: 0.75
+    pub fn set_data_block_hash_ratio(&mut self, ratio: f64) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_data_block_hash_ratio(
+                self.inner,
+                ratio,
+            )
         }
     }
 }

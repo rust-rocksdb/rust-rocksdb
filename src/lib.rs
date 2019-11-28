@@ -161,6 +161,18 @@ pub enum BlockBasedIndexType {
     TwoLevelIndexSearch,
 }
 
+/// Used by BlockBasedOptions::set_data_block_index_type.
+pub enum DataBlockIndexType {
+    /// Use binary search when performing point lookup for keys in data blocks.
+    /// This is the default.
+    BinarySearch,
+
+    /// Appends a compact hash table to the end of the data block for efficient indexing. Backwards
+    /// compatible with databases created without this feature. Once turned on, existing data will
+    /// be gradually converted to the hash index format.
+    BinaryAndHash,
+}
+
 /// Defines the underlying memtable implementation.
 /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
 pub enum MemtableFactory {
