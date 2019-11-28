@@ -186,11 +186,11 @@ impl BlockBasedOptions {
     }
 
     /// Set the data block index type for point lookups:
-    ///     `DataBlockIndexType::BinarySearch` to use binary search within the data block.
-    ///     `DataBlockIndexType::BinaryAndHash` to use the data block hash index in combination with
-    ///     the normal binary search.
+    ///  `DataBlockIndexType::BinarySearch` to use binary search within the data block.
+    ///  `DataBlockIndexType::BinaryAndHash` to use the data block hash index in combination with
+    ///  the normal binary search.
     ///
-    /// The hash table utilization ratio is adjustable using `set_data_block_hash_ratio()`, which is
+    /// The hash table utilization ratio is adjustable using [`set_data_block_hash_ratio`](#method.set_data_block_hash_ratio), which is
     /// valid only when using `DataBlockIndexType::BinaryAndHash`.
     ///
     /// Default: `BinarySearch`
@@ -216,9 +216,9 @@ impl BlockBasedOptions {
 
     /// Set the data block hash index utilization ratio.
     ///
-    /// The smaller the utilization ratio is, less hash collisions happen, and smaller risk for a
-    /// point lookup to fall back to binary seek due to the collisions. A small ratio means faster
-    /// lookup at the price of reduce the CPU time at the price of more space overhead.
+    /// The smaller the utilization ratio, the less hash collisions happen, and so reduce the risk for a
+    /// point lookup to fall back to binary search due to the collisions. A small ratio means faster
+    /// lookup at the price of more space overhead.
     ///
     /// Default: 0.75
     pub fn set_data_block_hash_ratio(&mut self, ratio: f64) {
