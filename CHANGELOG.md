@@ -3,6 +3,7 @@
 ## Unreleased
 
 * Updated lz4 to v1.9.2 (ordian)
+* BlockBasedOptions: expose `format_version`, `[index_]block_restart_interval` (ordian)
 
 ## 0.13.0 (2019-11-12)
 
