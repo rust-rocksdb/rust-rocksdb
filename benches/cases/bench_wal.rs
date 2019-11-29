@@ -12,12 +12,10 @@
 // limitations under the License.
 
 use super::rocksdb::{ColumnFamilyOptions, DBOptions, WriteOptions, DB};
-use super::tempdir::TempDir;
-
 use super::test::Bencher;
 
 fn run_bench_wal(b: &mut Bencher, name: &str, mut opts: DBOptions, wopts: WriteOptions) {
-    let path = TempDir::new(name).expect("");
+    let path = tempfile::Builder::new().prefix(name).tempdir().expect("");
     let path_str = path.path().to_str().unwrap();
     opts.create_if_missing(true);
     opts.set_max_background_jobs(6);

@@ -10,7 +10,7 @@ libc = "0.2.11"
 libtitan_sys = { path = "libtitan_sys" }
 
 [dev-dependencies]
-tempdir = "0.3"
+tempfile = "3.1"
 
 [features]
 default = []

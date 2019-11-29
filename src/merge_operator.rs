@@ -145,10 +145,11 @@ impl<'a> Iterator for &'a mut MergeOperands {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use rocksdb::{DBVector, Writable, DB};
     use rocksdb_options::{ColumnFamilyOptions, DBOptions};
-    use tempdir::TempDir;
+
+    use super::*;
+    use crate::tempdir_with_prefix;
 
     #[allow(unused_variables)]
     #[allow(dead_code)]
@@ -175,7 +176,7 @@ mod test {
     #[allow(dead_code)]
     #[test]
     fn mergetest() {
-        let path = TempDir::new("_rust_rocksdb_mergetest").expect("");
+        let path = tempdir_with_prefix("_rust_rocksdb_mergetest");
         let mut opts = DBOptions::new();
         opts.create_if_missing(true);
         let mut cf_opts = ColumnFamilyOptions::new();

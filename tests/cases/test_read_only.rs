@@ -1,5 +1,6 @@
 use rocksdb::{DBOptions, Writable, DB};
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 macro_rules! check_kv {
     ($db:expr, $key:expr, $val:expr) => {
@@ -12,7 +13,7 @@ macro_rules! check_kv {
 
 #[test]
 fn test_open_for_read_only() {
-    let temp = TempDir::new("_rust_rocksdb_test_open_for_read_only").expect("");
+    let temp = tempdir_with_prefix("_rust_rocksdb_test_open_for_read_only");
     let path = temp.path().to_str().unwrap();
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
@@ -48,7 +49,7 @@ fn test_open_for_read_only() {
 
 #[test]
 fn test_open_cf_for_read_only() {
-    let temp = TempDir::new("_rust_rocksdb_test_open_cf_for_read_only").expect("");
+    let temp = tempdir_with_prefix("_rust_rocksdb_test_open_cf_for_read_only");
     let path = temp.path().to_str().unwrap();
 
     {

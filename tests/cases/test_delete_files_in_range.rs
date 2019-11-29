@@ -13,9 +13,10 @@
 
 use std::ops;
 
-use rand::{self, Rng};
+use rand::{self, RngCore};
 use rocksdb::*;
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 fn initial_data(path: &str) -> DB {
     let mut opts = DBOptions::new();
@@ -54,7 +55,7 @@ fn generate_file_bottom_level(db: &DB, handle: &CFHandle, range: ops::Range<u32>
 
 #[test]
 fn test_delete_files_in_range_with_iter() {
-    let path = TempDir::new("_rust_rocksdb_test_delete_files_in_range_with_iter").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_test_delete_files_in_range_with_iter");
     let path_str = path.path().to_str().unwrap();
     let db = initial_data(path_str);
 
@@ -77,7 +78,7 @@ fn test_delete_files_in_range_with_iter() {
 
 #[test]
 fn test_delete_files_in_range_with_snap() {
-    let path = TempDir::new("_rust_rocksdb_test_delete_files_in_range_with_snap").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_test_delete_files_in_range_with_snap");
     let path_str = path.path().to_str().unwrap();
     let db = initial_data(path_str);
 
@@ -103,7 +104,7 @@ fn test_delete_files_in_range_with_snap() {
 #[test]
 fn test_delete_files_in_range_with_delete_range() {
     // Regression test for https://github.com/facebook/rocksdb/issues/2833.
-    let path = TempDir::new("_rocksdb_test_delete_files_in_range_with_delete_range").expect("");
+    let path = tempdir_with_prefix("_rocksdb_test_delete_files_in_range_with_delete_range");
     let path_str = path.path().to_str().unwrap();
 
     let sst_size = 1 << 10;
@@ -168,7 +169,7 @@ fn test_delete_files_in_range_with_delete_range() {
 
 #[test]
 fn test_delete_files_in_ranges() {
-    let path = TempDir::new("_rust_rocksdb_test_delete_files_in_multi_ranges").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_test_delete_files_in_multi_ranges");
     let path_str = path.path().to_str().unwrap();
     let db = initial_data(path_str);
 

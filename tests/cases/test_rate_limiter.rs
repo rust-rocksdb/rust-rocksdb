@@ -11,8 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::RateLimiter;
 use std::thread;
+
+use rocksdb::RateLimiter;
 
 #[test]
 fn test_rate_limiter() {

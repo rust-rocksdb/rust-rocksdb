@@ -396,16 +396,15 @@ impl IOStatsContext {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
-    use tempdir::TempDir;
-
     use rocksdb::{SeekKey, Writable, DB};
     use rocksdb_options::{DBOptions, WriteOptions};
 
+    use super::*;
+    use crate::tempdir_with_prefix;
+
     #[test]
     fn test_perf_context() {
-        let temp_dir = TempDir::new("test_perf_context").unwrap();
+        let temp_dir = tempdir_with_prefix("test_perf_context");
         let mut opts = DBOptions::new();
         opts.create_if_missing(true);
         let db = DB::open(opts, temp_dir.path().to_str().unwrap()).unwrap();
@@ -451,7 +450,7 @@ mod test {
 
     #[test]
     fn test_iostats_context() {
-        let temp_dir = TempDir::new("test_iostats_context").unwrap();
+        let temp_dir = tempdir_with_prefix("test_iostats_context");
         let mut opts = DBOptions::new();
         opts.create_if_missing(true);
         let db = DB::open(opts, temp_dir.path().to_str().unwrap()).unwrap();

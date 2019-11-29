@@ -14,7 +14,8 @@
 use rocksdb::{
     BlockBasedOptions, ColumnFamilyOptions, DBOptions, SeekKey, SliceTransform, Writable, DB,
 };
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 struct FixedPostfixTransform {
     pub postfix_len: usize,
@@ -33,7 +34,7 @@ impl SliceTransform for FixedPostfixTransform {
 
 #[test]
 fn test_slice_transform() {
-    let path = TempDir::new("_rust_rocksdb_slice_transform_test").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_slice_transform_test");
     let mut opts = DBOptions::new();
     let mut cf_opts = ColumnFamilyOptions::new();
 

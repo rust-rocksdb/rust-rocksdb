@@ -14,11 +14,12 @@
 //
 
 use rocksdb::{ColumnFamilyOptions, DBOptions, MergeOperands, Writable, DB};
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 #[test]
 pub fn test_column_family() {
-    let path = TempDir::new("_rust_rocksdb_cftest").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_cftest");
     let path_str = path.path().to_str().unwrap();
 
     // should be able to create column families

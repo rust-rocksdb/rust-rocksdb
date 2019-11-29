@@ -12,12 +12,13 @@
 // limitations under the License.
 
 use rocksdb::{ColumnFamilyOptions, DBCompressionType, DBOptions, DB};
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 #[test]
 // Make sure all compression types are supported.
 fn test_compression() {
-    let path = TempDir::new("_rust_rocksdb_test_metadata").unwrap();
+    let path = tempdir_with_prefix("_rust_rocksdb_test_metadata");
     let compression_types = [
         DBCompressionType::Snappy,
         DBCompressionType::Zlib,

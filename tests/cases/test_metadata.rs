@@ -14,11 +14,12 @@
 use rocksdb::{
     CFHandle, ColumnFamilyOptions, CompactionOptions, DBCompressionType, DBOptions, Writable, DB,
 };
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 #[test]
 fn test_metadata() {
-    let path = TempDir::new("_rust_rocksdb_test_metadata").unwrap();
+    let path = tempdir_with_prefix("_rust_rocksdb_test_metadata");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let mut cf_opts = ColumnFamilyOptions::new();
@@ -72,7 +73,7 @@ fn get_files_cf(db: &DB, cf: &CFHandle, max_level: usize) -> Vec<String> {
 
 #[test]
 fn test_compact_files() {
-    let path = TempDir::new("_rust_rocksdb_test_metadata").unwrap();
+    let path = tempdir_with_prefix("_rust_rocksdb_test_metadata");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let mut cf_opts = ColumnFamilyOptions::new();

@@ -1,9 +1,10 @@
 use rocksdb::{ColumnFamilyOptions, DBOptions, Writable, DB};
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 #[test]
 pub fn test_ttl() {
-    let path = TempDir::new("_rust_rocksdb_ttl_test").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_ttl_test");
     let path_str = path.path().to_str().unwrap();
 
     // should be able to open db with ttl

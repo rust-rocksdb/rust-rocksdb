@@ -11,16 +11,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::{Writable, DB};
 use std::sync::Arc;
 use std::thread;
-use tempdir::TempDir;
+
+use rocksdb::{Writable, DB};
+
+use super::tempdir_with_prefix;
 
 const N: usize = 100_000;
 
 #[test]
 pub fn test_multithreaded() {
-    let path = TempDir::new("_rust_rocksdb_multithreadtest").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_multithreadtest");
 
     let db = DB::open_default(path.path().to_str().unwrap()).unwrap();
     let db = Arc::new(db);

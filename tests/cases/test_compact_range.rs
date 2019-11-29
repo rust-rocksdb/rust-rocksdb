@@ -15,11 +15,12 @@ use rocksdb::{
     ColumnFamilyOptions, CompactOptions, DBBottommostLevelCompaction, DBOptions, Range, Writable,
     DB,
 };
-use tempdir::TempDir;
+
+use super::tempdir_with_prefix;
 
 #[test]
 fn test_compact_range() {
-    let path = TempDir::new("_rust_rocksdb_test_compact_range").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_test_compact_range");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
@@ -50,7 +51,7 @@ fn test_compact_range() {
 
 #[test]
 fn test_compact_range_change_level() {
-    let path = TempDir::new("_rust_rocksdb_test_compact_range_change_level").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_test_compact_range_change_level");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
     let mut cf_opts = ColumnFamilyOptions::new();
@@ -85,7 +86,7 @@ fn test_compact_range_change_level() {
 
 #[test]
 fn test_compact_range_bottommost_level_compaction() {
-    let path = TempDir::new("test_compact_range_bottommost_level_compaction").expect("");
+    let path = tempdir_with_prefix("test_compact_range_bottommost_level_compaction");
     let mut opts = DBOptions::new();
     opts.create_if_missing(true);
 

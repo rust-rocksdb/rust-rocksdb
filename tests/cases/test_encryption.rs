@@ -11,10 +11,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rocksdb::Env;
-use rocksdb::{DBOptions, Writable, DB};
 use std::sync::Arc;
-use tempdir::TempDir;
+
+use rocksdb::{DBOptions, Env, Writable, DB};
+
+use super::tempdir_with_prefix;
 
 #[test]
 fn test_ctr_encrypted_env() {
@@ -36,7 +37,7 @@ fn test_ctr_encrypted_env() {
 }
 
 fn test_ctr_encrypted_env_impl(encrypted_env: Arc<Env>) {
-    let path = TempDir::new("_rust_rocksdb_cryption_env").expect("");
+    let path = tempdir_with_prefix("_rust_rocksdb_cryption_env");
     let path_str = path.path().to_str().unwrap();
 
     let mut opts = DBOptions::new();

@@ -1,9 +1,3 @@
-extern crate byteorder;
-extern crate crc;
-extern crate rand;
-extern crate rocksdb;
-extern crate tempdir;
-
 mod test_column_family;
 mod test_compact_range;
 mod test_compaction_filter;
@@ -25,3 +19,7 @@ mod test_statistics;
 mod test_table_properties;
 mod test_titan;
 mod test_ttl;
+
+fn tempdir_with_prefix(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new().prefix(prefix).tempdir().expect("")
+}
