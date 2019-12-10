@@ -746,7 +746,7 @@ crocksdb_t* crocksdb_open_column_families_with_ttl(
     const char** column_family_names,
     const crocksdb_options_t** column_family_options,
     const int32_t* ttl_array,
-    bool read_only,
+    unsigned char read_only,
     crocksdb_column_family_handle_t** column_family_handles,
     char** errptr) {
   std::vector<ColumnFamilyDescriptor> column_families;
@@ -1139,7 +1139,7 @@ void crocksdb_destroy_map_property(crocksdb_map_property_t* info) {
   delete info;
 }
 
-bool crocksdb_get_map_property_cf(
+unsigned char crocksdb_get_map_property_cf(
     crocksdb_t* db,
     crocksdb_column_family_handle_t* column_family,
     const char* property,
@@ -1916,11 +1916,11 @@ const crocksdb_table_properties_t* crocksdb_flushjobinfo_table_properties(
       &info->rep.table_properties);
 }
 
-bool crocksdb_flushjobinfo_triggered_writes_slowdown(const crocksdb_flushjobinfo_t* info) {
+unsigned char crocksdb_flushjobinfo_triggered_writes_slowdown(const crocksdb_flushjobinfo_t* info) {
   return info->rep.triggered_writes_slowdown;
 }
 
-bool crocksdb_flushjobinfo_triggered_writes_stop(const crocksdb_flushjobinfo_t* info) {
+unsigned char crocksdb_flushjobinfo_triggered_writes_stop(const crocksdb_flushjobinfo_t* info) {
   return info->rep.triggered_writes_stop;
 }
 
@@ -2895,11 +2895,11 @@ void crocksdb_options_set_vector_memtable_factory(crocksdb_options_t* opt, uint6
   opt->rep.memtable_factory.reset(new VectorRepFactory(reserved_bytes));
 }
 
-bool crocksdb_load_latest_options(const char* dbpath, crocksdb_env_t* env,
+unsigned char crocksdb_load_latest_options(const char* dbpath, crocksdb_env_t* env,
                                   crocksdb_options_t* db_options,
                                   crocksdb_column_family_descriptor*** cf_descs,
                                   size_t* cf_descs_len,
-                                  bool ignore_unknown_options, char** errptr) {
+                                  unsigned char ignore_unknown_options, char** errptr) {
   std::vector<ColumnFamilyDescriptor> tmp_cf_descs;
   Status s = rocksdb::LoadLatestOptions(dbpath, env->rep, &db_options->rep,
                                         &tmp_cf_descs, ignore_unknown_options);
@@ -2934,7 +2934,7 @@ crocksdb_ratelimiter_t* crocksdb_ratelimiter_create_with_auto_tuned(
     int64_t refill_period_us,
     int32_t fairness,
     crocksdb_ratelimiter_mode_t mode,
-    bool auto_tuned) {
+    unsigned char auto_tuned) {
     crocksdb_ratelimiter_t* rate_limiter = new crocksdb_ratelimiter_t;
     RateLimiter::Mode m = RateLimiter::Mode::kWritesOnly;
     switch (mode) {
@@ -3437,7 +3437,7 @@ void crocksdb_lru_cache_options_set_num_shard_bits(
 }
 
 void crocksdb_lru_cache_options_set_strict_capacity_limit(
-    crocksdb_lru_cache_options_t* opt, bool strict_capacity_limit) {
+    crocksdb_lru_cache_options_t* opt, unsigned char strict_capacity_limit) {
   opt->rep.strict_capacity_limit = strict_capacity_limit;
 }
 
@@ -3785,7 +3785,7 @@ void crocksdb_ingest_external_file_cf(
   SaveError(errptr, db->rep->IngestExternalFile(handle->rep, files, opt->rep));
 }
 
-bool crocksdb_ingest_external_file_optimized(
+unsigned char crocksdb_ingest_external_file_optimized(
     crocksdb_t* db, crocksdb_column_family_handle_t* handle,
     const char* const* file_list, const size_t list_len,
     const crocksdb_ingestexternalfileoptions_t* opt, char** errptr) {
@@ -3947,7 +3947,7 @@ void crocksdb_fifo_compaction_options_set_max_table_files_size(
 }
 
 void crocksdb_fifo_compaction_options_set_allow_compaction(
-    crocksdb_fifo_compaction_options_t* fifo_opts, bool allow_compaction) {
+    crocksdb_fifo_compaction_options_t* fifo_opts, unsigned char allow_compaction) {
   fifo_opts->rep.allow_compaction = allow_compaction;
 }
 
@@ -4026,7 +4026,7 @@ void crocksdb_delete_files_in_range(
     crocksdb_t* db,
     const char* start_key, size_t start_key_len,
     const char* limit_key, size_t limit_key_len,
-    bool include_end, char** errptr) {
+    unsigned char include_end, char** errptr) {
   Slice a, b;
   SaveError(
       errptr,
@@ -4041,7 +4041,7 @@ void crocksdb_delete_files_in_range_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
     const char* start_key, size_t start_key_len,
     const char* limit_key, size_t limit_key_len,
-    bool include_end, char** errptr) {
+    unsigned char include_end, char** errptr) {
   Slice a, b;
   SaveError(
       errptr,
@@ -4056,7 +4056,7 @@ void crocksdb_delete_files_in_ranges_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* cf,
     const char* const* start_keys, const size_t* start_keys_lens,
     const char* const* limit_keys, const size_t* limit_keys_lens,
-    size_t num_ranges, bool include_end, char** errptr) {
+    size_t num_ranges, unsigned char include_end, char** errptr) {
   std::vector<Slice> starts(num_ranges);
   std::vector<Slice> limits(num_ranges);
   std::vector<RangePtr> ranges(num_ranges);
@@ -5246,12 +5246,12 @@ void ctitandb_decode_blob_index(const char* value, size_t value_size,
   index->blob_size = bi.blob_handle.size;
 }
 
-void ctitandb_encode_blob_index(const ctitandb_blob_index_t& index,
+void ctitandb_encode_blob_index(const ctitandb_blob_index_t* index,
                                 char** value, size_t* value_size) {
   BlobIndex bi;
-  bi.file_number = index.file_number;
-  bi.blob_handle.offset = index.blob_offset;
-  bi.blob_handle.size = index.blob_size;
+  bi.file_number = index->file_number;
+  bi.blob_handle.offset = index->blob_offset;
+  bi.blob_handle.size = index->blob_size;
   std::string result;
   bi.EncodeTo(&result);
   *value = CopyString(result);
@@ -5372,12 +5372,12 @@ void ctitandb_readoptions_destroy(ctitandb_readoptions_t* opts) {
   delete opts;
 }
 
-bool ctitandb_readoptions_key_only(ctitandb_readoptions_t* opts) {
+unsigned char ctitandb_readoptions_key_only(ctitandb_readoptions_t* opts) {
   return opts->rep.key_only;
 }
 
 void ctitandb_readoptions_set_key_only(ctitandb_readoptions_t* opts,
-                                        bool v) {
+                                        unsigned char v) {
   opts->rep.key_only = v;
 }
 
@@ -5449,7 +5449,7 @@ void ctitandb_delete_files_in_range(
     crocksdb_t* db,
     const char* start_key, size_t start_key_len,
     const char* limit_key, size_t limit_key_len,
-    bool include_end, char** errptr) {
+    unsigned char include_end, char** errptr) {
   Slice a, b;
   RangePtr range(
     start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr,
@@ -5467,7 +5467,7 @@ void ctitandb_delete_files_in_range_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
     const char* start_key, size_t start_key_len,
     const char* limit_key, size_t limit_key_len,
-    bool include_end, char** errptr) {
+    unsigned char include_end, char** errptr) {
   Slice a, b;
   RangePtr range(
     start_key ? (a = Slice(start_key, start_key_len), &a) : nullptr,
@@ -5485,7 +5485,7 @@ void ctitandb_delete_files_in_ranges_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* cf,
     const char* const* start_keys, const size_t* start_keys_lens,
     const char* const* limit_keys, const size_t* limit_keys_lens,
-    size_t num_ranges, bool include_end, char** errptr) {
+    size_t num_ranges, unsigned char include_end, char** errptr) {
   std::vector<Slice> starts(num_ranges);
   std::vector<Slice> limits(num_ranges);
   std::vector<RangePtr> ranges(num_ranges);
