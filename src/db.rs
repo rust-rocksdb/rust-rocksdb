@@ -609,8 +609,8 @@ impl<'a> Iterator for DBIterator<'a> {
         if self.raw.valid() {
             // .key() and .value() only ever return None if valid == false, which we've just cheked
             Some((
-                self.raw.key().unwrap().to_vec().into_boxed_slice(),
-                self.raw.value().unwrap().to_vec().into_boxed_slice(),
+                Box::from(self.raw.key().unwrap()),
+                Box::from(self.raw.value().unwrap()),
             ))
         } else {
             None
