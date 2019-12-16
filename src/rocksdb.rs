@@ -38,7 +38,9 @@ use std::rc::Rc;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::{fs, ptr, slice};
+
 use table_properties::{TableProperties, TablePropertiesCollection};
+use titan::TitanDBOptions;
 
 pub struct CFHandle {
     inner: *mut DBCFHandle,
@@ -58,10 +60,18 @@ impl Drop for CFHandle {
     }
 }
 
-fn ensure_default_cf_exists<'a>(list: &mut Vec<ColumnFamilyDescriptor<'a>>, ttls: &mut Vec<i32>) {
+fn ensure_default_cf_exists<'a>(
+    list: &mut Vec<ColumnFamilyDescriptor<'a>>,
+    ttls: &mut Vec<i32>,
+    is_titan: bool,
+) {
     let contains = list.iter().any(|ref cf| cf.is_default());
     if !contains {
-        list.push(ColumnFamilyDescriptor::default());
+        let mut desc = ColumnFamilyDescriptor::default();
+        if is_titan {
+            desc.options.set_titandb_options(&TitanDBOptions::new());
+        }
+        list.push(desc);
         if ttls.len() > 0 {
             ttls.push(0);
         }
@@ -541,7 +551,7 @@ impl DB {
 
         let mut descs = cfds.into_iter().map(|t| t.into()).collect();
         let mut ttls_vec = ttls.to_vec();
-        ensure_default_cf_exists(&mut descs, &mut ttls_vec);
+        ensure_default_cf_exists(&mut descs, &mut ttls_vec, !opts.titan_inner.is_null());
 
         let (names, options) = split_descriptors(descs);
         let cstrings = build_cstring_list(&names);

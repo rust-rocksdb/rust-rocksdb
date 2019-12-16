@@ -196,6 +196,29 @@ fn test_titandb() {
 }
 
 #[test]
+fn test_titan_sequence_number() {
+    let path = tempdir_with_prefix("test_titan_sequence_number");
+
+    let tdb_path = path.path().join("titandb");
+    let mut tdb_opts = TitanDBOptions::new();
+    tdb_opts.set_dirname(tdb_path.to_str().unwrap());
+
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_titandb_options(&tdb_opts);
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+
+    let snap = db.snapshot();
+    let snap_seq = snap.get_sequence_number();
+    let seq1 = db.get_latest_sequence_number();
+    assert_eq!(snap_seq, seq1);
+
+    db.put(b"key", b"value").unwrap();
+    let seq2 = db.get_latest_sequence_number();
+    assert!(seq2 > seq1);
+}
+
+#[test]
 fn test_titan_blob_index() {
     let mut index = TitanBlobIndex::default();
     let mut rng = rand::thread_rng();
