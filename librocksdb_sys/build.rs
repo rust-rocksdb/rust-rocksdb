@@ -11,6 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate bindgen;
 extern crate cc;
 extern crate cmake;
 
@@ -24,7 +25,52 @@ use std::{env, str};
 // See https://github.com/gnzlbg/jemallocator/blob/bfc89192971e026e6423d9ee5aaa02bc56585c58/jemalloc-sys/build.rs#L45
 const NO_JEMALLOC_TARGETS: &[&str] = &["android", "dragonfly", "musl", "darwin"];
 
+// Generate the bindings to rocksdb C-API.
+// Try to disable the generation of platform-related bindings.
+fn bindgen_rocksdb(file_path: &PathBuf) {
+    let bindings = bindgen::Builder::default()
+        .header("crocksdb/crocksdb/c.h")
+        .ctypes_prefix("libc")
+        .generate()
+        .expect("unable to generate rocksdb bindings");
+
+    bindings
+        .write_to_file(file_path)
+        .expect("unable to write rocksdb bindings");
+}
+
+// Determine if need to update bindings. Supported platforms do not
+// need to be updated by default unless the UPDATE_BIND is specified.
+// Other platforms use bindgen to generate the bindings every time.
+fn config_binding_path() {
+    let file_path: PathBuf;
+
+    match env::var("TARGET").unwrap_or("".to_owned()).as_str() {
+        "x86_64-unknown-linux-gnu" => {
+            file_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+                .join("bindings")
+                .join("x86_64-unknown-linux-gnu-bindings.rs");
+            if env::var("UPDATE_BIND")
+                .map(|s| s == "1".to_owned())
+                .unwrap_or(false)
+            {
+                bindgen_rocksdb(&file_path);
+            }
+        }
+        _ => {
+            file_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("rocksdb-bindings.rs");
+            bindgen_rocksdb(&file_path);
+        }
+    };
+    println!(
+        "cargo:rustc-env=BINDING_PATH={}",
+        file_path.to_str().unwrap()
+    );
+}
+
 fn main() {
+    println!("cargo:rerun-if-env-changed=UPDATE_BIND");
+
     let mut build = build_rocksdb();
 
     build.cpp(true).file("crocksdb/c.cc");
@@ -133,6 +179,8 @@ fn build_rocksdb() -> Build {
     } else if cfg!(target_os = "freebsd") {
         build.define("OS_FREEBSD", None);
     }
+
+    config_binding_path();
 
     let cur_dir = env::current_dir().unwrap();
     build.include(cur_dir.join("rocksdb").join("include"));

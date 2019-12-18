@@ -34,6 +34,14 @@ $ git submodule update --init --recursive # if you just cloned the repository
 $ cargo build
 ```
 
+Bindings are pre-generated for x86_64 Linux. For other platforms, bindings are generated at compile time.
+
+If the content in librocksdb_sys/crocksdb/crocksdb/c.h is updated, you may need to regenerate bindings:
+
+```
+$ ./scripts/generate-bindings.sh
+```
+
 ## Running
 
 ###### Cargo.toml
