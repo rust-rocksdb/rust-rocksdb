@@ -23,7 +23,7 @@ sse = ["libtitan_sys/sse"]
 [build-dependencies]
 cc = "1.0.3"
 cmake = "0.1"
-bindgen = "0.52"
+bindgen = "0.51"
 
 [dependencies.jemalloc-sys]
 version = "0.1.8"
