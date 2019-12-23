@@ -283,7 +283,7 @@ fn test_table_properties_with_table_filter() {
     let mut iter = db.iter_opt(ropts);
     let key = b"key";
     let key5 = b"key5";
-    assert!(iter.seek(SeekKey::from(key.as_ref())));
+    assert!(iter.seek(SeekKey::from(key.as_ref())).unwrap());
     // First sst will be skipped
     assert_eq!(iter.key(), key5.as_ref());
 }

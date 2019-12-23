@@ -44,10 +44,10 @@ fn gen_sst_from_db(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str, 
     };
     writer.open(path).unwrap();
     let mut iter = db.iter();
-    iter.seek(SeekKey::Start);
-    while iter.valid() {
+    iter.seek(SeekKey::Start).unwrap();
+    while iter.valid().unwrap() {
         writer.put(iter.key(), iter.value()).unwrap();
-        iter.next();
+        iter.next().unwrap();
     }
     writer.finish().unwrap();
 }
@@ -55,11 +55,11 @@ fn gen_sst_from_db(opt: ColumnFamilyOptions, cf: Option<&CFHandle>, path: &str, 
 fn gen_crc32_from_db(db: &DB) -> u32 {
     let mut digest = Digest::new(crc32::IEEE);
     let mut iter = db.iter();
-    iter.seek(SeekKey::Start);
-    while iter.valid() {
+    iter.seek(SeekKey::Start).unwrap();
+    while iter.valid().unwrap() {
         digest.write(iter.key());
         digest.write(iter.value());
-        iter.next();
+        iter.next().unwrap();
     }
     digest.sum32()
 }
@@ -67,14 +67,14 @@ fn gen_crc32_from_db(db: &DB) -> u32 {
 fn gen_crc32_from_db_in_range(db: &DB, start_key: &[u8], end_key: &[u8]) -> u32 {
     let mut digest = Digest::new(crc32::IEEE);
     let mut iter = db.iter();
-    iter.seek(SeekKey::Key(start_key));
-    while iter.valid() {
+    iter.seek(SeekKey::Key(start_key)).unwrap();
+    while iter.valid().unwrap() {
         if iter.key() >= end_key {
             break;
         }
         digest.write(iter.key());
         digest.write(iter.value());
-        iter.next();
+        iter.next().unwrap();
     }
     digest.sum32()
 }

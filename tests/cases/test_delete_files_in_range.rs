@@ -66,9 +66,9 @@ fn test_delete_files_in_range_with_iter() {
     db.delete_files_in_range(b"key2", b"key7", false).unwrap();
 
     let mut count = 0;
-    assert!(iter.seek(SeekKey::Start));
-    while iter.valid() {
-        iter.next();
+    assert!(iter.seek(SeekKey::Start).unwrap());
+    while iter.valid().unwrap() {
+        iter.next().unwrap();
         count = count + 1;
     }
 
@@ -89,11 +89,11 @@ fn test_delete_files_in_range_with_snap() {
     db.delete_files_in_range(b"key2", b"key7", false).unwrap();
 
     let mut iter = snap.iter();
-    assert!(iter.seek(SeekKey::Start));
+    assert!(iter.seek(SeekKey::Start).unwrap());
 
     let mut count = 0;
-    while iter.valid() {
-        iter.next();
+    while iter.valid().unwrap() {
+        iter.next().unwrap();
         count = count + 1;
     }
 
@@ -159,12 +159,12 @@ fn test_delete_files_in_range_with_delete_range() {
     db.compact_range(None, None);
 
     let mut it = db.iter();
-    it.seek(SeekKey::Start);
-    assert!(it.valid());
+    it.seek(SeekKey::Start).unwrap();
+    assert!(it.valid().unwrap());
     assert_eq!(it.key(), b"4");
-    assert!(it.next());
+    assert!(it.next().unwrap());
     assert_eq!(it.key(), b"5");
-    assert!(!it.next());
+    assert!(!it.next().unwrap());
 }
 
 #[test]
@@ -186,19 +186,18 @@ fn test_delete_files_in_ranges() {
 
     // Check that ["key0", "key5"] have been deleted, but ["key6", "key8"] still exist.
     let mut iter = db.iter();
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     for i in 6..9 {
-        assert!(iter.valid());
+        assert!(iter.valid().unwrap());
         let k = format!("key{}", i);
         assert_eq!(iter.key(), k.as_bytes());
-        iter.next();
+        iter.next().unwrap();
     }
-    assert!(!iter.valid());
+    assert!(!iter.valid().unwrap());
 
     // Delete the last file.
     let ranges = vec![Range::new(b"key6", b"key8")];
     db.delete_files_in_ranges_cf(cf, &ranges, true).unwrap();
     let mut iter = db.iter();
-    iter.seek(SeekKey::Start);
-    assert!(!iter.valid());
+    assert!(!iter.seek(SeekKey::Start).unwrap());
 }

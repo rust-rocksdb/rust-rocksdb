@@ -87,13 +87,13 @@ fn test_prefix_extractor_compatibility() {
         db.put_opt(b"k1-8", b"c", &wopts).unwrap();
 
         let mut iter = db.iter();
-        iter.seek(SeekKey::Key(b"k1-0"));
+        iter.seek(SeekKey::Key(b"k1-0")).unwrap();
         let mut key_count = 0;
-        while iter.valid() {
+        while iter.valid().unwrap() {
             // If sst file has no prefix bloom, don't use prefix seek model.
             assert_eq!(keys[key_count], iter.key());
             key_count = key_count + 1;
-            iter.next();
+            iter.next().unwrap();
         }
         assert!(key_count == 9);
     }

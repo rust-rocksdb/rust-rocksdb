@@ -422,10 +422,8 @@ mod test {
         let mut ctx = PerfContext::get();
 
         let mut iter = db.iter();
-        assert!(iter.seek(SeekKey::Start));
-        while iter.valid() {
-            iter.next();
-        }
+        assert!(iter.seek(SeekKey::Start).unwrap());
+        while iter.next().unwrap() {}
         assert_eq!(ctx.internal_key_skipped_count(), n);
         assert_eq!(ctx.internal_delete_skipped_count(), n / 2);
         assert_eq!(ctx.seek_internal_seek_time(), 0);
@@ -439,9 +437,9 @@ mod test {
         assert_eq!(get_perf_level(), PerfLevel::EnableTime);
 
         let mut iter = db.iter();
-        assert!(iter.seek(SeekKey::End));
-        while iter.valid() {
-            iter.prev();
+        assert!(iter.seek(SeekKey::End).unwrap());
+        while iter.valid().unwrap() {
+            iter.prev().unwrap();
         }
         assert_eq!(ctx.internal_key_skipped_count(), n + n / 2);
         assert_eq!(ctx.internal_delete_skipped_count(), n / 2);

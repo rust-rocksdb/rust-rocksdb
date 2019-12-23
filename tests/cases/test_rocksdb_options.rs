@@ -703,12 +703,12 @@ fn test_read_options() {
 
     let keys = vec![b"k1", b"k2", b"k3"];
     let mut iter = db.iter_opt(read_opts);
-    iter.seek(SeekKey::Key(b"k1"));
+    iter.seek(SeekKey::Key(b"k1")).unwrap();
     let mut key_count = 0;
-    while iter.valid() {
+    while iter.valid().unwrap() {
         assert_eq!(keys[key_count], iter.key());
         key_count = key_count + 1;
-        iter.next();
+        iter.next().unwrap();
     }
     assert!(key_count == 3);
 }
@@ -726,11 +726,11 @@ fn test_readoptions_lower_bound() {
     let lower_bound = b"k2".to_vec();
     read_opts.set_iterate_lower_bound(lower_bound);
     let mut iter = db.iter_opt(read_opts);
-    iter.seek(SeekKey::Key(b"k3"));
+    iter.seek(SeekKey::Key(b"k3")).unwrap();
     let mut count = 0;
-    while iter.valid() {
+    while iter.valid().unwrap() {
         count += 1;
-        iter.prev();
+        iter.prev().unwrap();
     }
     assert_eq!(count, 2);
 }
@@ -807,15 +807,15 @@ fn test_vector_memtable_factory_options() {
     db.flush(true).unwrap();
 
     let mut iter = db.iter();
-    iter.seek(SeekKey::Start);
-    assert!(iter.valid());
+    iter.seek(SeekKey::Start).unwrap();
+    assert!(iter.valid().unwrap());
     assert_eq!(iter.key(), b"k1");
     assert_eq!(iter.value(), b"v1");
-    assert!(iter.next());
+    assert!(iter.next().unwrap());
     assert_eq!(iter.key(), b"k2");
     assert_eq!(iter.value(), b"v2");
-    assert!(!iter.next());
-    assert!(!iter.valid());
+    assert!(!iter.next().unwrap());
+    assert!(!iter.valid().unwrap());
 }
 
 #[test]

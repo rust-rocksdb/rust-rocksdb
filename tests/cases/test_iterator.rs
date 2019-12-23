@@ -48,20 +48,25 @@ impl SliceTransform for FixedSuffixTransform {
     }
 }
 
+#[allow(deprecated)]
 fn prev_collect<D: Deref<Target = DB>>(iter: &mut DBIterator<D>) -> Vec<Kv> {
     let mut buf = vec![];
-    while iter.valid() {
-        buf.push(iter.kv().unwrap());
-        iter.prev();
+    while iter.valid().unwrap() {
+        let k = iter.key().to_vec();
+        let v = iter.value().to_vec();
+        buf.push((k, v));
+        let _ = iter.prev();
     }
     buf
 }
 
-fn next_collect<D: Deref<Target = DB>>(iter: &mut DBIterator<D>) -> Vec<Kv> {
+fn next_collect<D: Deref<Target = DB>>(iter: &mut DBIterator<D>) -> Vec<(Vec<u8>, Vec<u8>)> {
     let mut buf = vec![];
-    while iter.valid() {
-        buf.push(iter.kv().unwrap());
-        iter.next();
+    while iter.valid().unwrap() {
+        let k = iter.key().to_vec();
+        let v = iter.value().to_vec();
+        buf.push((k, v));
+        let _ = iter.next();
     }
     buf
 }
@@ -93,33 +98,33 @@ pub fn test_iterator() {
 
     let mut iter = db.iter();
 
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     // Test that it's idempotent
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     // Test it in reverse a few times
-    iter.seek(SeekKey::End);
+    iter.seek(SeekKey::End).unwrap();
     let mut tmp_vec = prev_collect(&mut iter);
     tmp_vec.reverse();
     assert_eq!(tmp_vec, expected);
 
-    iter.seek(SeekKey::End);
+    iter.seek(SeekKey::End).unwrap();
     let mut tmp_vec = prev_collect(&mut iter);
     tmp_vec.reverse();
     assert_eq!(tmp_vec, expected);
 
     // Try it forward again
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
     let mut old_iterator = db.iter();
-    old_iterator.seek(SeekKey::Start);
+    old_iterator.seek(SeekKey::Start).unwrap();
     let p = db.put(&*k4, &*v4);
     assert!(p.is_ok());
     let expected2 = vec![
@@ -131,10 +136,10 @@ pub fn test_iterator() {
     assert_eq!(old_iterator.collect::<Vec<_>>(), expected);
 
     iter = db.iter();
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
-    iter.seek(SeekKey::Key(k2));
+    iter.seek(SeekKey::Key(k2)).unwrap();
     let expected = vec![
         (k2.to_vec(), v2.to_vec()),
         (k3.to_vec(), v3.to_vec()),
@@ -142,35 +147,23 @@ pub fn test_iterator() {
     ];
     assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-    iter.seek(SeekKey::Key(k2));
+    iter.seek(SeekKey::Key(k2)).unwrap();
     let expected = vec![(k2.to_vec(), v2.to_vec()), (k1.to_vec(), v1.to_vec())];
     assert_eq!(prev_collect(&mut iter), expected);
 
-    iter.seek(SeekKey::Key(b"k0"));
-    assert!(iter.valid());
-    iter.seek(SeekKey::Key(b"k1"));
-    assert!(iter.valid());
-    iter.seek(SeekKey::Key(b"k11"));
-    assert!(iter.valid());
-    iter.seek(SeekKey::Key(b"k5"));
-    assert!(!iter.valid());
-    iter.seek(SeekKey::Key(b"k0"));
-    assert!(iter.valid());
-    iter.seek(SeekKey::Key(b"k1"));
-    assert!(iter.valid());
-    iter.seek(SeekKey::Key(b"k11"));
-    assert!(iter.valid());
-    iter.seek(SeekKey::Key(b"k5"));
-    assert!(!iter.valid());
+    assert!(iter.seek(SeekKey::Key(b"k0")).unwrap());
+    assert!(iter.seek(SeekKey::Key(b"k1")).unwrap());
+    assert!(iter.seek(SeekKey::Key(b"k11")).unwrap());
+    assert!(!iter.seek(SeekKey::Key(b"k5")).unwrap());
+    assert!(iter.seek(SeekKey::Key(b"k0")).unwrap());
+    assert!(iter.seek(SeekKey::Key(b"k1")).unwrap());
+    assert!(iter.seek(SeekKey::Key(b"k11")).unwrap());
+    assert!(!iter.seek(SeekKey::Key(b"k5")).unwrap());
 
-    iter.seek(SeekKey::Key(b"k4"));
-    assert!(iter.valid());
-    iter.prev();
-    assert!(iter.valid());
-    iter.next();
-    assert!(iter.valid());
-    iter.next();
-    assert!(!iter.valid());
+    assert!(iter.seek(SeekKey::Key(b"k4")).unwrap());
+    assert!(iter.prev().unwrap());
+    assert!(iter.next().unwrap());
+    assert!(!iter.next().unwrap());
     // Once iterator is invalid, it can't be reverted.
     //iter.prev();
     //assert!(!iter.valid());
@@ -190,7 +183,7 @@ fn test_send_iterator() {
         let (tx, rx) = mpsc::channel();
         let j = thread::spawn(move || {
             rx.recv().unwrap();
-            iter.seek(SeekKey::Start);
+            iter.seek(SeekKey::Start).unwrap();
             assert_eq!(iter.key(), b"k1");
             assert_eq!(iter.value(), b"v1");
         });
@@ -232,36 +225,36 @@ fn test_seek_for_prev() {
         db.put_opt(b"k1-3", b"d", &writeopts).unwrap();
 
         let mut iter = db.iter();
-        iter.seek_for_prev(SeekKey::Key(b"k1-2"));
-        assert!(iter.valid());
+        iter.seek_for_prev(SeekKey::Key(b"k1-2")).unwrap();
+        assert!(iter.valid().unwrap());
         assert_eq!(iter.key(), b"k1-1");
         assert_eq!(iter.value(), b"b");
 
         let mut iter = db.iter();
-        iter.seek_for_prev(SeekKey::Key(b"k1-3"));
-        assert!(iter.valid());
+        iter.seek_for_prev(SeekKey::Key(b"k1-3")).unwrap();
+        assert!(iter.valid().unwrap());
         assert_eq!(iter.key(), b"k1-3");
         assert_eq!(iter.value(), b"d");
 
         let mut iter = db.iter();
-        iter.seek_for_prev(SeekKey::Start);
-        assert!(iter.valid());
+        iter.seek_for_prev(SeekKey::Start).unwrap();
+        assert!(iter.valid().unwrap());
         assert_eq!(iter.key(), b"k1-0");
         assert_eq!(iter.value(), b"a");
 
         let mut iter = db.iter();
-        iter.seek_for_prev(SeekKey::End);
-        assert!(iter.valid());
+        iter.seek_for_prev(SeekKey::End).unwrap();
+        assert!(iter.valid().unwrap());
         assert_eq!(iter.key(), b"k1-3");
         assert_eq!(iter.value(), b"d");
 
         let mut iter = db.iter();
-        iter.seek_for_prev(SeekKey::Key(b"k0-0"));
-        assert!(!iter.valid());
+        iter.seek_for_prev(SeekKey::Key(b"k0-0")).unwrap();
+        assert!(!iter.valid().unwrap());
 
         let mut iter = db.iter();
-        iter.seek_for_prev(SeekKey::Key(b"k2-0"));
-        assert!(iter.valid());
+        iter.seek_for_prev(SeekKey::Key(b"k2-0")).unwrap();
+        assert!(iter.valid().unwrap());
         assert_eq!(iter.key(), b"k1-3");
         assert_eq!(iter.value(), b"d");
     }
@@ -284,7 +277,7 @@ fn read_with_upper_bound() {
         readopts.set_iterate_upper_bound(upper_bound);
         assert_eq!(readopts.iterate_upper_bound(), b"k2");
         let mut iter = db.iter_opt(readopts);
-        iter.seek(SeekKey::Start);
+        iter.seek(SeekKey::Start).unwrap();
         let vec = next_collect(&mut iter);
         assert_eq!(vec.len(), 2);
     }
@@ -342,12 +335,12 @@ fn test_total_order_seek() {
     let mut iter = db.iter_opt(ropts);
     // only iterate sst files and memtables that contain keys with the same prefix as b"k1"
     // and the keys is iterated as valid when prefixed as b"k1"
-    iter.seek(SeekKey::Key(b"k1-0"));
+    iter.seek(SeekKey::Key(b"k1-0")).unwrap();
     let mut key_count = 0;
-    while iter.valid() {
+    while iter.valid().unwrap() {
         assert_eq!(keys[key_count], iter.key());
         key_count = key_count + 1;
-        iter.next();
+        iter.next().unwrap();
     }
     assert!(key_count == 3);
 
@@ -355,25 +348,25 @@ fn test_total_order_seek() {
     // only iterate sst files and memtables that contain keys with the same prefix as b"k1"
     // but it still can next/prev to the keys which is not prefixed as b"k1" with
     // prefix_same_as_start
-    iter.seek(SeekKey::Key(b"k1-0"));
+    iter.seek(SeekKey::Key(b"k1-0")).unwrap();
     let mut key_count = 0;
-    while iter.valid() {
+    while iter.valid().unwrap() {
         assert_eq!(keys[key_count], iter.key());
         key_count = key_count + 1;
-        iter.next();
+        iter.next().unwrap();
     }
     assert!(key_count == 4);
 
     let mut ropts = ReadOptions::new();
     ropts.set_total_order_seek(true);
     let mut iter = db.iter_opt(ropts);
-    iter.seek(SeekKey::Key(b"k1-0"));
+    iter.seek(SeekKey::Key(b"k1-0")).unwrap();
     let mut key_count = 0;
-    while iter.valid() {
+    while iter.valid().unwrap() {
         // iterator all sst files and memtables
         assert_eq!(keys[key_count], iter.key());
         key_count = key_count + 1;
-        iter.next();
+        iter.next().unwrap();
     }
     assert!(key_count == 9);
 }
@@ -407,12 +400,12 @@ fn test_fixed_suffix_seek() {
     db.flush(true).unwrap();
 
     let mut iter = db.iter();
-    iter.seek(SeekKey::Key(b"k-24yfae-8"));
+    iter.seek(SeekKey::Key(b"k-24yfae-8")).unwrap();
     let vec = prev_collect(&mut iter);
     assert!(vec.len() == 2);
 
     let mut iter = db.iter();
-    iter.seek(SeekKey::Key(b"k-24yfa-9"));
+    iter.seek(SeekKey::Key(b"k-24yfa-9")).unwrap();
     let vec = prev_collect(&mut iter);
     assert!(vec.len() == 0);
 }

@@ -282,16 +282,16 @@ fn gen_sst_from_cf(opt: ColumnFamilyOptions, db: &DB, cf: &CFHandle, path: &str)
     let mut writer = SstFileWriter::new_cf(env_opt, opt, cf);
     writer.open(path).unwrap();
     let mut iter = db.iter_cf(cf);
-    iter.seek(SeekKey::Start);
-    while iter.valid() {
+    iter.seek(SeekKey::Start).unwrap();
+    while iter.valid().unwrap() {
         writer.put(iter.key(), iter.value()).unwrap();
-        iter.next();
+        iter.next().unwrap();
     }
     let info = writer.finish().unwrap();
     assert_eq!(info.file_path().to_str().unwrap(), path);
-    iter.seek(SeekKey::Start);
+    iter.seek(SeekKey::Start).unwrap();
     assert_eq!(info.smallest_key(), iter.key());
-    iter.seek(SeekKey::End);
+    iter.seek(SeekKey::End).unwrap();
     assert_eq!(info.largest_key(), iter.key());
     assert_eq!(info.sequence_number(), 0);
     assert!(info.file_size() > 0);
@@ -522,7 +522,7 @@ fn test_read_sst() {
         assert_eq!(props.num_entries(), 3);
     });
     let mut it = reader.iter();
-    it.seek(SeekKey::Start);
+    it.seek(SeekKey::Start).unwrap();
     assert_eq!(
         it.collect::<Vec<_>>(),
         vec![
