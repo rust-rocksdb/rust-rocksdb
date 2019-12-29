@@ -1179,6 +1179,27 @@ impl Options {
         }
     }
 
+    /// Once write-ahead logs exceed this size, we will start forcing the flush of
+    /// column families whose memtables are backed by the oldest live WAL file
+    /// (i.e. the ones that are causing all the space amplification).
+    ///
+    /// Default: `0`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// // Set max total wal size to 1G.
+    /// opts.set_max_total_wal_size(1 << 30);
+    /// ```
+    pub fn set_max_total_wal_size(&mut self, size: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_max_total_wal_size(self.inner, size);
+        }
+    }
+
     /// Recovery mode to control the consistency while replaying WAL.
     ///
     /// Default: DBRecoveryMode::PointInTime
