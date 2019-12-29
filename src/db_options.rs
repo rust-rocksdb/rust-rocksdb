@@ -1346,6 +1346,30 @@ impl Options {
             ffi::rocksdb_options_set_allow_mmap_reads(self.inner, is_enabled as c_uchar);
         }
     }
+
+    /// Use to control write rate of flush and compaction. Flush has higher
+    /// priority than compaction.
+    /// If rate limiter is enabled, bytes_per_sync is set to 1MB by default.
+    ///
+    /// Default: disable
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_ratelimiter(1024 * 1024, 100 * 1000, 10);
+    /// ```
+    pub fn set_ratelimiter(rate_bytes_per_sec: i64, refill_period_us: i64, fairness: i32) {
+        unsafe {
+            let ratelimiter = ffi::rocksdb_ratelimiter_create(
+                rate_bytes_per_sec, refill_period_us, fairness);
+            // Since limiter is wrapped in shared_ptr, we don't need to
+            // call rocksdb_ratelimiter_destroy explicitly.
+            ffi::rocksdb_options_set_ratelimiter(ratelimiter);
+        }
+    }
 }
 
 impl Default for Options {
