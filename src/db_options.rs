@@ -1367,7 +1367,7 @@ impl Options {
                 rate_bytes_per_sec, refill_period_us, fairness);
             // Since limiter is wrapped in shared_ptr, we don't need to
             // call rocksdb_ratelimiter_destroy explicitly.
-            ffi::rocksdb_options_set_ratelimiter(ratelimiter);
+            ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
         }
     }
 }
