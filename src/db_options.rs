@@ -1361,10 +1361,15 @@ impl Options {
     /// let mut options = Options::default();
     /// options.set_ratelimiter(1024 * 1024, 100 * 1000, 10);
     /// ```
-    pub fn set_ratelimiter(rate_bytes_per_sec: i64, refill_period_us: i64, fairness: i32) {
+    pub fn set_ratelimiter(
+        &mut self,
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+    ) {
         unsafe {
-            let ratelimiter = ffi::rocksdb_ratelimiter_create(
-                rate_bytes_per_sec, refill_period_us, fairness);
+            let ratelimiter =
+                ffi::rocksdb_ratelimiter_create(rate_bytes_per_sec, refill_period_us, fairness);
             // Since limiter is wrapped in shared_ptr, we don't need to
             // call rocksdb_ratelimiter_destroy explicitly.
             ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
