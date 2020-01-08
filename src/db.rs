@@ -2000,7 +2000,7 @@ fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
 /// Wrapper around RocksDB PinnableSlice struct.
 ///
 /// With a pinnable slice, we can directly leverage in-memory data within
-/// RocksDB toa void unnecessary memory copies. The struct here wraps the
+/// RocksDB to avoid unnecessary memory copies. The struct here wraps the
 /// returned raw pointer and ensures proper finalization work.
 pub struct DBPinnableSlice<'a> {
     ptr: *mut ffi::rocksdb_pinnableslice_t,
