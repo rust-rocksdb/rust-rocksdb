@@ -38,7 +38,7 @@ impl Checkpoint {
     pub fn new(db: &DB) -> Result<Checkpoint, Error> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
-        unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner,)) };
+        unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner)) };
 
         if checkpoint.is_null() {
             return Err(Error::new("Could not create checkpoint object.".to_owned()));

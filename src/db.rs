@@ -192,7 +192,7 @@ impl DBWALIterator {
     /// called.
     pub fn status(&self) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_wal_iter_status(self.inner,));
+            ffi_try!(ffi::rocksdb_wal_iter_status(self.inner));
         }
         Ok(())
     }
@@ -314,7 +314,7 @@ impl<'a> DBRawIterator<'a> {
     /// Performing a seek will discard the current status.
     pub fn status(&self) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_iter_get_error(self.inner,));
+            ffi_try!(ffi::rocksdb_iter_get_error(self.inner));
         }
         Ok(())
     }
@@ -806,7 +806,7 @@ impl DB {
 
         if cfs.is_empty() {
             unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _,));
+                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
             }
         } else {
             let mut cfs_v = cfs;
@@ -894,7 +894,7 @@ impl DB {
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = to_cpath(path)?;
         unsafe {
-            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(),));
+            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -902,7 +902,7 @@ impl DB {
     pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = to_cpath(path)?;
         unsafe {
-            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
+            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -914,7 +914,7 @@ impl DB {
     /// Flush database memtable to SST files on disk (with options).
     pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner,));
+            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
         }
         Ok(())
     }
@@ -926,7 +926,7 @@ impl DB {
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner,));
+            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
         }
         Ok(())
     }
@@ -1100,7 +1100,7 @@ impl DB {
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         if let Some(cf) = self.cfs.remove(name) {
             unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
             }
             Ok(())
         } else {
@@ -1601,7 +1601,7 @@ impl DB {
             // for creating and destroying it; fortunately we can pass a nullptr
             // here to get the default behavior
             let opts: *const ffi::rocksdb_wal_readoptions_t = ptr::null();
-            let iter = ffi_try!(ffi::rocksdb_get_updates_since(self.inner, seq_number, opts,));
+            let iter = ffi_try!(ffi::rocksdb_get_updates_since(self.inner, seq_number, opts));
             Ok(DBWALIterator { inner: iter })
         }
     }
