@@ -924,6 +924,19 @@ impl DB {
         self.flush_opt(&FlushOptions::default())
     }
 
+    /// Flush database memtable to SST files on disk for given column family.
+    pub fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush_cf(self.inner, flushopts.inner, cf.inner));
+        }
+        Ok(())
+    }
+
+    /// Flush database memtable to SST files on disk for given column family using default option.
+    pub fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error> {
+        self.flush_cf_opt(cf, &FlushOptions::default())
+    }
+
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
