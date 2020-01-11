@@ -782,17 +782,7 @@ impl DB {
     {
         let cfs: Vec<_> = cfs.into_iter().collect();
 
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening DB."
-                        .to_owned(),
-                ));
-            }
-        };
+        let cpath = to_cpath(&path)?;
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
@@ -848,9 +838,7 @@ impl DB {
             for handle in &cfhandles {
                 if handle.is_null() {
                     return Err(Error::new(
-                        "Received null column family \
-                         handle from DB."
-                            .to_owned(),
+                        "Received null column family handle from DB.".to_owned(),
                     ));
                 }
             }
@@ -867,7 +855,7 @@ impl DB {
         Ok(DB {
             inner: db,
             cfs: cf_map,
-            path: path.to_path_buf(),
+            path: path.as_ref().to_path_buf(),
         })
     }
 
@@ -993,11 +981,8 @@ impl DB {
     ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
                     .to_owned(),
             ));
         }
@@ -1036,11 +1021,8 @@ impl DB {
     ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
                     .to_owned(),
             ));
         }
@@ -1078,9 +1060,7 @@ impl DB {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening rocksdb"
-                        .to_owned(),
+                    "Failed to convert path to CString when creating cf".to_owned(),
                 ));
             }
         };
@@ -1991,9 +1971,10 @@ unsafe impl Sync for ReadOptions {}
 fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
         Ok(c) => Ok(c),
-        Err(_) => Err(Error::new(
-            "Failed to convert path to CString when opening DB.".to_owned(),
-        )),
+        Err(e) => Err(Error::new(format!(
+            "Failed to convert path to CString: {}",
+            e,
+        ))),
     }
 }
 
