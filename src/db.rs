@@ -595,6 +595,10 @@ impl<'a> Iterator for DBIterator<'a> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
+        if !self.raw.valid() {
+            return None;
+        }
+
         // Initial call to next() after seeking should not move the iterator
         // or the first item will not be returned
         if !self.just_seeked {
@@ -2167,6 +2171,21 @@ fn iterator_test() {
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
+fn iterator_test_past_end() {
+    let path = "_rust_rocksdb_iteratortest_past_end";
+    {
+        let db = DB::open_default(path).unwrap();
+        db.put(b"k1", b"v1111").unwrap();
+        let mut iter = db.iterator(IteratorMode::Start);
+        assert!(iter.next().is_some());
+        assert!(iter.next().is_none());
+        assert!(iter.next().is_none());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
 }
 
 #[test]
