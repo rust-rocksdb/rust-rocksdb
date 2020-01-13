@@ -911,7 +911,7 @@ impl DB {
         &self.path.as_path()
     }
 
-    /// Flush database memtable to SST files on disk (with options).
+    /// Flushes database memtables to SST files on the disk.
     pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
@@ -919,9 +919,23 @@ impl DB {
         Ok(())
     }
 
-    /// Flush database memtable to SST files on disk.
+    /// Flushes database memtables to SST files on the disk using default options.
     pub fn flush(&self) -> Result<(), Error> {
         self.flush_opt(&FlushOptions::default())
+    }
+
+    /// Flushes database memtables to SST files on the disk for a given column family.
+    pub fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush_cf(self.inner, flushopts.inner, cf.inner));
+        }
+        Ok(())
+    }
+
+    /// Flushes database memtables to SST files on the disk for a given column family using default
+    /// options.
+    pub fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error> {
+        self.flush_cf_opt(cf, &FlushOptions::default())
     }
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
