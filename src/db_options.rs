@@ -18,14 +18,14 @@ use std::path::Path;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t};
 
-use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
-use comparator::{self, ComparatorCallback, CompareFn};
-use ffi;
-use merge_operator::{
-    self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
-};
-use slice_transform::SliceTransform;
-use {
+use crate::{
+    compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn},
+    comparator::{self, ComparatorCallback, CompareFn},
+    ffi,
+    merge_operator::{
+        self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
+    },
+    slice_transform::SliceTransform,
     BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
     FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
 };
@@ -1474,8 +1474,7 @@ impl Default for WriteOptions {
 
 #[cfg(test)]
 mod tests {
-    use MemtableFactory;
-    use Options;
+    use crate::{MemtableFactory, Options};
 
     #[test]
     fn test_enable_statistics() {

@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-extern crate rocksdb;
+
 mod util;
 
+use crate::util::DBPath;
 use rocksdb::{BlockBasedOptions, Options, ReadOptions, DB};
 use std::{fs, io::Read as _};
-use util::DBPath;
 
 #[test]
 fn test_set_num_levels() {

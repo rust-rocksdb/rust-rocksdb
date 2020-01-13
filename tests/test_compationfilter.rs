@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate rocksdb;
-
 mod util;
 
+use crate::util::DBPath;
 use rocksdb::{CompactionDecision, Options, DB};
-use util::DBPath;
 
 #[cfg(test)]
 #[allow(unused_variables)]
@@ -32,7 +30,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> CompactionDecision {
 
 #[test]
 fn compaction_filter_test() {
-    use {Options, DB};
+    use crate::{Options, DB};
 
     let path = DBPath::new("_rust_rocksdb_filtertest");
     let mut opts = Options::default();

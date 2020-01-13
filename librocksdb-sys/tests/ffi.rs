@@ -23,13 +23,7 @@
     unused_variables
 )]
 
-#[macro_use]
-extern crate const_cstr;
-extern crate libc;
-extern crate librocksdb_sys as ffi;
-extern crate uuid;
-
-use ffi::*;
+use crate::ffi::*;
 use libc::*;
 use std::borrow::Cow;
 use std::env;
@@ -44,10 +38,6 @@ use uuid::Uuid;
 
 macro_rules! err_println {
     ($($arg:tt)*) => (writeln!(&mut ::std::io::stderr(), $($arg)*).expect("failed printing to stderr"));
-}
-
-macro_rules! cstr {
-    ($($arg:tt)*) => (const_cstr!($($arg)*));
 }
 
 macro_rules! cstrp {

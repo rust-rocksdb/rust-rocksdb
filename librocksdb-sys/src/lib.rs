@@ -16,8 +16,6 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-extern crate libc;
-
 use libc::c_int;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

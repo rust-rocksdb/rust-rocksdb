@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate libc;
-extern crate rocksdb;
-
 mod util;
 
+use crate::util::DBPath;
 use rocksdb::{Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
 use std::sync::Arc;
 use std::{mem, thread};
-use util::DBPath;
 
 #[test]
 fn external() {
