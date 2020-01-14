@@ -16,12 +16,10 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-use libc::c_int;
-
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[cfg(feature = "bzip2")]
 #[no_mangle]
-pub fn bz_internal_error(errcode: c_int) {
+pub fn bz_internal_error(errcode: libc::c_int) {
     panic!("bz internal error: {}", errcode);
 }
