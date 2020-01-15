@@ -13,9 +13,10 @@
 // limitations under the License.
 //
 
-use ffi;
-use ffi_util::opt_bytes_to_ptr;
-use {ColumnFamily, ColumnFamilyDescriptor, Error, FlushOptions, Options, WriteOptions, DB};
+use crate::{
+    ffi, ffi_util::opt_bytes_to_ptr, ColumnFamily, ColumnFamilyDescriptor, Error, FlushOptions,
+    Options, WriteOptions, DB,
+};
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
