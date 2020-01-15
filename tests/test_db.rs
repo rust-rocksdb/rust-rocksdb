@@ -300,8 +300,8 @@ fn test_get_updates_since_one_batch() {
     let seq1 = db.latest_sequence_number();
     assert_eq!(seq1, 1);
     let mut batch = WriteBatch::default();
-    batch.put(b"key1", b"value1").unwrap();
-    batch.delete(b"key2").unwrap();
+    batch.put(b"key1", b"value1");
+    batch.delete(b"key2");
     db.write(batch).unwrap();
     assert_eq!(db.latest_sequence_number(), 3);
     let mut iter = db.get_updates_since(seq1).unwrap();

@@ -285,16 +285,12 @@ impl<'a> DBRawIterator<'a> {
         }
     }
 
-    fn new_cf(
-        db: &DB,
-        cf_handle: &ColumnFamily,
-        readopts: &ReadOptions,
-    ) -> Result<DBRawIterator<'a>, Error> {
+    fn new_cf(db: &DB, cf_handle: &ColumnFamily, readopts: &ReadOptions) -> DBRawIterator<'a> {
         unsafe {
-            Ok(DBRawIterator {
+            DBRawIterator {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
                 db: PhantomData,
-            })
+            }
         }
     }
 
@@ -548,14 +544,14 @@ impl<'a> DBIterator<'a> {
         cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator<'a>, Error> {
+    ) -> DBIterator<'a> {
         let mut rv = DBIterator {
-            raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
+            raw: DBRawIterator::new_cf(db, cf_handle, readopts),
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };
         rv.set_mode(mode);
-        Ok(rv)
+        rv
     }
 
     pub fn set_mode(&mut self, mode: IteratorMode) {
@@ -643,11 +639,7 @@ impl<'a> Snapshot<'a> {
         self.iterator_opt(mode, readopts)
     }
 
-    pub fn iterator_cf(
-        &self,
-        cf_handle: &ColumnFamily,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
         let readopts = ReadOptions::default();
         self.iterator_cf_opt(cf_handle, readopts, mode)
     }
@@ -662,7 +654,7 @@ impl<'a> Snapshot<'a> {
         cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator {
         readopts.set_snapshot(self);
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
@@ -674,7 +666,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Opens a raw iterator over the data in this snapshot under the given column family, using the default read options.
-    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
@@ -690,7 +682,7 @@ impl<'a> Snapshot<'a> {
         &self,
         cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
+    ) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
@@ -1134,7 +1126,7 @@ impl DB {
         cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator {
         DBIterator::new_cf(self, cf_handle, &readopts, mode)
     }
 
@@ -1157,20 +1149,12 @@ impl DB {
         )
     }
 
-    pub fn iterator_cf(
-        &self,
-        cf_handle: &ColumnFamily,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
         let opts = ReadOptions::default();
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
-    pub fn full_iterator_cf(
-        &self,
-        cf_handle: &ColumnFamily,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    pub fn full_iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
         DBIterator::new_cf(self, cf_handle, &opts, mode)
@@ -1180,7 +1164,7 @@ impl DB {
         &self,
         cf_handle: &ColumnFamily,
         prefix: P,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
         DBIterator::new_cf(
@@ -1198,7 +1182,7 @@ impl DB {
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
-    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, &opts)
     }
@@ -1213,7 +1197,7 @@ impl DB {
         &self,
         cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
+    ) -> DBRawIterator {
         DBRawIterator::new_cf(self, cf_handle, readopts)
     }
 
@@ -1683,7 +1667,7 @@ impl WriteBatch {
     }
 
     /// Insert a value into the database under the given key.
-    pub fn put<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
+    pub fn put<K, V>(&mut self, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1699,11 +1683,10 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn put_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn put_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1720,11 +1703,10 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn merge<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
+    pub fn merge<K, V>(&mut self, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1740,11 +1722,10 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn merge_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn merge_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1761,12 +1742,11 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
     /// Removes the database entry for key. Does nothing if the key was not found.
-    pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), Error> {
+    pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
 
         unsafe {
@@ -1775,11 +1755,10 @@ impl WriteBatch {
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, key: K) {
         let key = key.as_ref();
 
         unsafe {
@@ -1789,7 +1768,6 @@ impl WriteBatch {
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
-            Ok(())
         }
     }
 
@@ -1798,7 +1776,7 @@ impl WriteBatch {
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
-    pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) -> Result<(), Error> {
+    pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
@@ -1809,7 +1787,6 @@ impl WriteBatch {
                 end_key.as_ptr() as *const c_char,
                 end_key.len() as size_t,
             );
-            Ok(())
         }
     }
 
@@ -1818,12 +1795,7 @@ impl WriteBatch {
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
-    pub fn delete_range_cf<K: AsRef<[u8]>>(
-        &mut self,
-        cf: &ColumnFamily,
-        from: K,
-        to: K,
-    ) -> Result<(), Error> {
+    pub fn delete_range_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
@@ -1835,16 +1807,14 @@ impl WriteBatch {
                 end_key.as_ptr() as *const c_char,
                 end_key.len() as size_t,
             );
-            Ok(())
         }
     }
 
     /// Clear all updates buffered in this batch.
-    pub fn clear(&mut self) -> Result<(), Error> {
+    pub fn clear(&mut self) {
         unsafe {
             ffi::rocksdb_writebatch_clear(self.inner);
         }
-        Ok(())
     }
 }
 
