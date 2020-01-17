@@ -1491,6 +1491,26 @@ impl Options {
         }
     }
 
+    /// Guarantee that all column families are flushed together atomically.
+    /// This option applies to both manual flushes (`db.flush()`) and automatic
+    /// background flushes caused when memtables are filled.
+    ///
+    /// Default: false
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_atomic_flush(true);
+    /// ```
+    pub fn set_atomic_flush(&mut self, atomic_flush: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_atomic_flush(self.inner, atomic_flush as c_uchar);
+        }
+    }
+
     /// Use to control write rate of flush and compaction. Flush has higher
     /// priority than compaction.
     /// If rate limiter is enabled, bytes_per_sync is set to 1MB by default.
