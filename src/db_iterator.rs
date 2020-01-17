@@ -67,14 +67,21 @@ use std::slice;
 /// ```
 pub struct DBRawIterator<'a> {
     inner: *mut ffi::rocksdb_iterator_t,
+
+    /// When iterate_upper_bound is set, the inner C iterator keeps a pointer to the upper bound
+    /// inside `_readopts`. Storing this makes sure the upper bound is always alive when the
+    /// iterator is being used.
+    _readopts: ReadOptions,
+
     db: PhantomData<&'a DB>,
 }
 
 impl<'a> DBRawIterator<'a> {
-    pub(crate) fn new(db: &DB, readopts: &ReadOptions) -> DBRawIterator<'a> {
+    pub(crate) fn new(db: &DB, readopts: ReadOptions) -> DBRawIterator<'a> {
         unsafe {
             DBRawIterator {
                 inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
+                _readopts: readopts,
                 db: PhantomData,
             }
         }
@@ -83,11 +90,12 @@ impl<'a> DBRawIterator<'a> {
     pub(crate) fn new_cf(
         db: &DB,
         cf_handle: &ColumnFamily,
-        readopts: &ReadOptions,
+        readopts: ReadOptions,
     ) -> DBRawIterator<'a> {
         unsafe {
             DBRawIterator {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
+                _readopts: readopts,
                 db: PhantomData,
             }
         }
@@ -381,7 +389,7 @@ pub enum IteratorMode<'a> {
 }
 
 impl<'a> DBIterator<'a> {
-    pub(crate) fn new(db: &DB, readopts: &ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
+    pub(crate) fn new(db: &DB, readopts: ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
         let mut rv = DBIterator {
             raw: DBRawIterator::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
@@ -394,7 +402,7 @@ impl<'a> DBIterator<'a> {
     pub(crate) fn new_cf(
         db: &DB,
         cf_handle: &ColumnFamily,
-        readopts: &ReadOptions,
+        readopts: ReadOptions,
         mode: IteratorMode,
     ) -> DBIterator<'a> {
         let mut rv = DBIterator {

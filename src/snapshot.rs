@@ -54,7 +54,7 @@ impl<'a> Snapshot<'a> {
 
     pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator<'a> {
         readopts.set_snapshot(self);
-        DBIterator::new(self.db, &readopts, mode)
+        DBIterator::new(self.db, readopts, mode)
     }
 
     pub fn iterator_cf_opt(
@@ -64,7 +64,7 @@ impl<'a> Snapshot<'a> {
         mode: IteratorMode,
     ) -> DBIterator {
         readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
+        DBIterator::new_cf(self.db, cf_handle, readopts, mode)
     }
 
     /// Opens a raw iterator over the data in this snapshot, using the default read options.
@@ -82,7 +82,7 @@ impl<'a> Snapshot<'a> {
     /// Opens a raw iterator over the data in this snapshot, using the given read options.
     pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
-        DBRawIterator::new(self.db, &readopts)
+        DBRawIterator::new(self.db, readopts)
     }
 
     /// Opens a raw iterator over the data in this snapshot under the given column family, using the given read options.
@@ -92,7 +92,7 @@ impl<'a> Snapshot<'a> {
         mut readopts: ReadOptions,
     ) -> DBRawIterator {
         readopts.set_snapshot(self);
-        DBRawIterator::new_cf(self.db, cf_handle, &readopts)
+        DBRawIterator::new_cf(self.db, cf_handle, readopts)
     }
 
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
