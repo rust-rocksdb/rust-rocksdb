@@ -2524,6 +2524,8 @@ impl SequentialFile {
     }
 }
 
+unsafe impl Send for SequentialFile {}
+
 impl io::Read for SequentialFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         unsafe {
