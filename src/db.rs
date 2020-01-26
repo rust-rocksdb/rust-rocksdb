@@ -1765,9 +1765,7 @@ impl WriteBatch {
         }
     }
 
-    /// Remove the database entry for key.
-    ///
-    /// Returns an error if the key was not found.
+    /// Removes the database entry for key. Does nothing if the key was not found.
     pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), Error> {
         let key = key.as_ref();
 
