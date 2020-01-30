@@ -41,7 +41,8 @@
 //!    let path = "_rust_path_to_rocksdb";
 //!    let mut opts = Options::default();
 //!    opts.create_if_missing(true);
-//!    opts.set_merge_operator("test operator", concat_merge, None);
+//!    opts.set_merge_operator_associative("test operator", concat_merge);
+//!    // opts.set_merge_operator("test operator", concat_merge, partial_concat_merge); // if your merge is not associative
 //!    {
 //!        let db = DB::open(&opts, path).unwrap();
 //!         let p = db.put(b"k1", b"a");
@@ -62,24 +63,26 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>>;
+//pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>>;
+pub trait MergeFn: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> {}
+impl<F> MergeFn for F where F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync {}
 
-pub struct MergeOperatorCallback {
+pub struct MergeOperatorCallback<F: MergeFn, PF: MergeFn> {
     pub name: CString,
-    pub full_merge_fn: MergeFn,
-    pub partial_merge_fn: MergeFn,
+    pub full_merge_fn: F,
+    pub partial_merge_fn: PF,
 }
 
-pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
-    let _: Box<MergeOperatorCallback> = mem::transmute(raw_cb);
+pub unsafe extern "C" fn destructor_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) {
+    let _: Box<MergeOperatorCallback<F, PF>> = Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>);
 }
 
-pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
-    let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
+pub unsafe extern "C" fn name_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) -> *const c_char {
+    let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     cb.name.as_ptr()
 }
 
-pub unsafe extern "C" fn full_merge_callback(
+pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
     raw_cb: *mut c_void,
     raw_key: *const c_char,
     key_len: size_t,
@@ -91,7 +94,7 @@ pub unsafe extern "C" fn full_merge_callback(
     success: *mut u8,
     new_value_length: *mut size_t,
 ) -> *mut c_char {
-    let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
+    let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
     let oldval = if existing_value.is_null() {
@@ -117,7 +120,7 @@ pub unsafe extern "C" fn full_merge_callback(
     }
 }
 
-pub unsafe extern "C" fn partial_merge_callback(
+pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
     raw_cb: *mut c_void,
     raw_key: *const c_char,
     key_len: size_t,
@@ -127,7 +130,7 @@ pub unsafe extern "C" fn partial_merge_callback(
     success: *mut u8,
     new_value_length: *mut size_t,
 ) -> *mut c_char {
-    let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
+    let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
     if let Some(mut result) = (cb.partial_merge_fn)(key, None, operands) {
@@ -230,7 +233,7 @@ mod test {
         let path = "_rust_rocksdb_mergetest";
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        opts.set_merge_operator("test operator", test_provided_merge, None);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
         {
             let db = DB::open(&opts, path).unwrap();
             let p = db.put(b"k1", b"a");
@@ -342,7 +345,7 @@ mod test {
         opts.set_merge_operator(
             "sort operator",
             test_counting_full_merge,
-            Some(test_counting_partial_merge),
+            test_counting_partial_merge,
         );
         {
             let db = Arc::new(DB::open(&opts, path).unwrap());
