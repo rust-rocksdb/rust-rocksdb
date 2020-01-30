@@ -64,9 +64,9 @@ use std::ptr;
 use std::slice;
 
 //pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>>;
-pub trait MergeFn: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> {}
+pub trait MergeFn: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static {}
 impl<F> MergeFn for F where
-    F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync
+    F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
 {
 }
 
