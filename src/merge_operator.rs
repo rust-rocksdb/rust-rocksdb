@@ -65,7 +65,10 @@ use std::slice;
 
 //pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>>;
 pub trait MergeFn: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> {}
-impl<F> MergeFn for F where F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync {}
+impl<F> MergeFn for F where
+    F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync
+{
+}
 
 pub struct MergeOperatorCallback<F: MergeFn, PF: MergeFn> {
     pub name: CString,
@@ -74,10 +77,13 @@ pub struct MergeOperatorCallback<F: MergeFn, PF: MergeFn> {
 }
 
 pub unsafe extern "C" fn destructor_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) {
-    let _: Box<MergeOperatorCallback<F, PF>> = Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>);
+    let _: Box<MergeOperatorCallback<F, PF>> =
+        Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>);
 }
 
-pub unsafe extern "C" fn name_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) -> *const c_char {
+pub unsafe extern "C" fn name_callback<F: MergeFn, PF: MergeFn>(
+    raw_cb: *mut c_void,
+) -> *const c_char {
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     cb.name.as_ptr()
 }
@@ -447,6 +453,76 @@ mod test {
                 Err(e) => panic!("error reading value {:?}", e),
                 _ => panic!("value not present"),
             }
+        }
+        assert!(DB::destroy(&opts, path).is_ok());
+    }
+
+    fn make_merge_max_with_limit(limit: u64) -> impl MergeFn + Clone {
+        move |_key: &[u8], first: Option<&[u8]>, rest: &mut MergeOperands| {
+            let max = first
+                .into_iter()
+                .chain(rest)
+                .map(|slice| {
+                    let mut bytes: [u8; 8] = Default::default();
+                    bytes.clone_from_slice(slice);
+                    u64::from_ne_bytes(bytes)
+                })
+                .fold(0, u64::max);
+            let new_value = max.min(limit);
+            Some(Vec::from(new_value.to_ne_bytes().as_ref()))
+        }
+    }
+
+    #[test]
+    fn test_merge_state() {
+        use {Options, DB};
+
+        let path = "_rust_rocksdb_mergetest_state";
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator_associative("max-limit-12", make_merge_max_with_limit(12));
+        {
+            let db = DB::open(&opts, path).unwrap();
+            let p = db.put(b"k1", 1u64.to_ne_bytes());
+            assert!(p.is_ok());
+            let _ = db.merge(b"k1", 7u64.to_ne_bytes());
+            let m = db.merge(b"k1", 64u64.to_ne_bytes());
+            assert!(m.is_ok());
+            match db.get(b"k1") {
+                Ok(Some(value)) => {
+                    let mut bytes: [u8; 8] = Default::default();
+                    bytes.copy_from_slice(&value);
+                    assert_eq!(u64::from_ne_bytes(bytes), 12);
+                }
+                Err(_) => println!("error reading value"),
+                _ => panic!("value not present"),
+            }
+
+            assert!(db.delete(b"k1").is_ok());
+            assert!(db.get(b"k1").unwrap().is_none());
+        }
+        assert!(DB::destroy(&opts, path).is_ok());
+
+        opts.set_merge_operator_associative("max-limit-128", make_merge_max_with_limit(128));
+        {
+            let db = DB::open(&opts, path).unwrap();
+            let p = db.put(b"k1", 1u64.to_ne_bytes());
+            assert!(p.is_ok());
+            let _ = db.merge(b"k1", 7u64.to_ne_bytes());
+            let m = db.merge(b"k1", 64u64.to_ne_bytes());
+            assert!(m.is_ok());
+            match db.get(b"k1") {
+                Ok(Some(value)) => {
+                    let mut bytes: [u8; 8] = Default::default();
+                    bytes.copy_from_slice(&value);
+                    assert_eq!(u64::from_ne_bytes(bytes), 64);
+                }
+                Err(_) => println!("error reading value"),
+                _ => panic!("value not present"),
+            }
+
+            assert!(db.delete(b"k1").is_ok());
+            assert!(db.get(b"k1").unwrap().is_none());
         }
         assert!(DB::destroy(&opts, path).is_ok());
     }
