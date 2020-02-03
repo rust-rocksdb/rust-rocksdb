@@ -369,7 +369,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                mem::transmute(cb),
+                Box::into_raw(cb) as _,
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
