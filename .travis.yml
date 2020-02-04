@@ -13,6 +13,7 @@ rust:
 matrix:
   include:
   - os: osx
+    osx_image: xcode11.3
     rust: stable
 
 env:
