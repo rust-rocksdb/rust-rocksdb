@@ -70,6 +70,8 @@ mod table_filter;
 mod table_properties;
 mod table_properties_collector;
 mod table_properties_collector_factory;
+pub mod table_properties_rc;
+mod table_properties_rc_handles;
 mod titan;
 
 #[cfg(test)]

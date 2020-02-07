@@ -15,7 +15,7 @@
 use crocksdb_ffi::{
     self, DBBackupEngine, DBCFHandle, DBCache, DBCompressionType, DBEnv, DBInstance, DBMapProperty,
     DBPinnableSlice, DBSequentialFile, DBStatisticsHistogramType, DBStatisticsTickerType,
-    DBTitanDBOptions, DBWriteBatch,
+    DBTablePropertiesCollection, DBTitanDBOptions, DBWriteBatch,
 };
 use libc::{self, c_char, c_int, c_void, size_t};
 use librocksdb_sys::DBMemoryAllocator;
@@ -40,6 +40,7 @@ use std::sync::Arc;
 use std::{fs, ptr, slice};
 
 use table_properties::{TableProperties, TablePropertiesCollection};
+use table_properties_rc::TablePropertiesCollection as RcTablePropertiesCollection;
 use titan::TitanDBOptions;
 
 pub struct CFHandle {
@@ -1667,6 +1668,13 @@ impl DB {
         }
     }
 
+    pub fn get_properties_of_all_tables_rc(&self) -> Result<RcTablePropertiesCollection, String> {
+        unsafe {
+            let props = ffi_try!(crocksdb_get_properties_of_all_tables(self.inner));
+            Ok(RcTablePropertiesCollection::new(props))
+        }
+    }
+
     pub fn get_properties_of_all_tables_cf(
         &self,
         cf: &CFHandle,
@@ -1684,6 +1692,34 @@ impl DB {
         cf: &CFHandle,
         ranges: &[Range],
     ) -> Result<TablePropertiesCollection, String> {
+        // Safety: transfers ownership of new non-null pointer
+        unsafe {
+            let props = self.get_properties_of_tables_in_range_common(cf, ranges)?;
+            Ok(TablePropertiesCollection::from_raw(props))
+        }
+    }
+
+    /// Like `get_properties_of_table_in_range` but the returned family
+    /// of types don't contain any lifetimes. This is suitable for wrapping
+    /// in further abstractions without needing abstract associated lifetime
+    /// parameters. Used by tikv's `engine_rocks`.
+    pub fn get_properties_of_tables_in_range_rc(
+        &self,
+        cf: &CFHandle,
+        ranges: &[Range],
+    ) -> Result<RcTablePropertiesCollection, String> {
+        // Safety: transfers ownership of new non-null pointer
+        unsafe {
+            let props = self.get_properties_of_tables_in_range_common(cf, ranges)?;
+            Ok(RcTablePropertiesCollection::new(props))
+        }
+    }
+
+    fn get_properties_of_tables_in_range_common(
+        &self,
+        cf: &CFHandle,
+        ranges: &[Range],
+    ) -> Result<*mut DBTablePropertiesCollection, String> {
         let start_keys: Vec<*const u8> = ranges.iter().map(|x| x.start_key.as_ptr()).collect();
         let start_keys_lens: Vec<_> = ranges.iter().map(|x| x.start_key.len()).collect();
         let limit_keys: Vec<*const u8> = ranges.iter().map(|x| x.end_key.as_ptr()).collect();
@@ -1698,7 +1734,7 @@ impl DB {
                 limit_keys.as_ptr(),
                 limit_keys_lens.as_ptr()
             ));
-            Ok(TablePropertiesCollection::from_raw(props))
+            Ok(props)
         }
     }
 
