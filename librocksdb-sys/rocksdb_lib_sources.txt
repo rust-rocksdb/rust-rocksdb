@@ -1,6 +1,7 @@
 cache/clock_cache.cc
 cache/lru_cache.cc
 cache/sharded_cache.cc
+db/arena_wrapped_db_iter.cc
 db/builder.cc
 db/c.cc
 db/column_family.cc
@@ -51,6 +52,7 @@ db/snapshot_impl.cc
 db/table_cache.cc
 db/table_properties_collector.cc
 db/transaction_log_impl.cc
+db/trim_history_scheduler.cc
 db/version_builder.cc
 db/version_edit.cc
 db/version_set.cc
@@ -67,9 +69,15 @@ env/env_posix.cc
 env/io_posix.cc
 env/mock_env.cc
 file/delete_scheduler.cc
+file/file_prefetch_buffer.cc
 file/file_util.cc
 file/filename.cc
+file/random_access_file_reader.cc
+file/read_write_util.cc
+file/readahead_raf.cc
+file/sequence_file_reader.cc
 file/sst_file_manager_impl.cc
+file/writable_file_writer.cc
 logging/auto_roll_logger.cc
 logging/event_logger.cc
 logging/log_buffer.cc
@@ -115,13 +123,14 @@ table/block_based/block_prefix_index.cc
 table/block_based/data_block_hash_index.cc
 table/block_based/data_block_footer.cc
 table/block_based/filter_block_reader_common.cc
+table/block_based/filter_policy.cc
 table/block_based/flush_block_policy.cc
 table/block_based/full_filter_block.cc
 table/block_based/index_builder.cc
+table/block_based/parsed_full_filter_block.cc
 table/block_based/partitioned_filter_block.cc
 table/block_based/uncompression_dict_reader.cc
 table/block_fetcher.cc
-table/bloom_block.cc
 table/cuckoo/cuckoo_table_builder.cc
 table/cuckoo/cuckoo_table_factory.cc
 table/cuckoo/cuckoo_table_reader.cc
@@ -131,6 +140,7 @@ table/iterator.cc
 table/merging_iterator.cc
 table/meta_blocks.cc
 table/persistent_cache_helper.cc
+table/plain/plain_table_bloom.cc
 table/plain/plain_table_builder.cc
 table/plain/plain_table_factory.cc
 table/plain/plain_table_index.cc
@@ -146,7 +156,6 @@ test_util/transaction_test_util.cc
 tools/dump/db_dump_tool.cc
 trace_replay/trace_replay.cc
 trace_replay/block_cache_tracer.cc
-util/bloom.cc
 util/build_version.cc
 util/coding.cc
 util/compaction_job_stats_impl.cc
@@ -155,8 +164,6 @@ util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
 util/dynamic_bloom.cc
-util/file_reader_writer.cc
-util/filter_policy.cc
 util/hash.cc
 util/murmurhash.cc
 util/random.cc
@@ -189,6 +196,7 @@ utilities/leveldb_options/leveldb_options.cc
 utilities/memory/memory_util.cc
 utilities/merge_operators/max.cc
 utilities/merge_operators/put.cc
+utilities/merge_operators/sortlist.cc
 utilities/merge_operators/string_append/stringappend.cc
 utilities/merge_operators/string_append/stringappend2.cc
 utilities/merge_operators/uint64add.cc
@@ -221,4 +229,3 @@ utilities/transactions/write_unprepared_txn_db.cc
 utilities/ttl/db_ttl_impl.cc
 utilities/write_batch_with_index/write_batch_with_index.cc
 utilities/write_batch_with_index/write_batch_with_index_internal.cc
-
