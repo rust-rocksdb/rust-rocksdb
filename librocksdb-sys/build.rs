@@ -32,6 +32,7 @@ fn bindgen_rocksdb() {
         .derive_debug(false)
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
+        .size_t_is_usize(true)
         .generate()
         .expect("unable to generate rocksdb bindings");
 
