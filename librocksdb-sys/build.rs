@@ -81,7 +81,7 @@ fn build_rocksdb() {
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .trim()
-        .split("\n")
+        .split('\n')
         .map(str::trim)
         .collect::<Vec<&'static str>>();
 
@@ -205,11 +205,10 @@ fn build_lz4() {
 
     compiler.opt_level(3);
 
-    match env::var("TARGET").unwrap().as_str() {
-        "i686-pc-windows-gnu" => {
-            compiler.flag("-fno-tree-vectorize");
-        }
-        _ => {}
+    let target = env::var("TARGET").unwrap();
+
+    if &target == "i686-pc-windows-gnu" {
+        compiler.flag("-fno-tree-vectorize");
     }
 
     compiler.compile("liblz4.a");
