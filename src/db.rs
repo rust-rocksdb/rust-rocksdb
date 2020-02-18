@@ -1184,7 +1184,7 @@ impl DB {
     }
 
     /// Opens a raw iterator over the database, using the default read options
-    pub fn raw_iterator<'a: 'b, 'b>(&self) -> DBRawIterator<'b> {
+    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
         DBRawIterator::new(self, &opts)
     }
