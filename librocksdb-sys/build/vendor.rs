@@ -305,8 +305,6 @@ pub fn vendor_dependencies() {
         check_submodule(p);
     });
 
-    build_rocksdb();
-
     #[cfg(feature = "bzip2")]
     build_bzip2();
 
@@ -321,6 +319,8 @@ pub fn vendor_dependencies() {
 
     #[cfg(feature = "zstd")]
     build_zstd();
+
+    build_rocksdb();
 
     let binding_builder = super::bindgen_builder_rocksdb();
     super::bindgen_write_bindings(binding_builder);
