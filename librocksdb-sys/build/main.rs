@@ -7,8 +7,6 @@ fn bindgen_builder_rocksdb() -> bindgen::Builder {
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
         .size_t_is_usize(true)
-        .generate()
-        .expect("Unable to generate rocksdb bindings");
 }
 
 fn bindgen_write_bindings(builder: bindgen::Builder) {

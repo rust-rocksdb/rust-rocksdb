@@ -39,7 +39,7 @@ fn build_rocksdb() {
     build
         .include("./rocksdb/include/")
         .include("./rocksdb/")
-        .include("./rocksdb/third-party/gtest-1.7.0/fused-src/");
+        .include("./rocksdb/third-party/gtest-1.8.1/fused-src/");
 
     #[cfg(feature = "bzip2")]
     {
