@@ -20,10 +20,10 @@ fn bindgen_write_bindings(builder: bindgen::Builder) {
         .expect("Couldn't write RocksDB bindings!");
 }
 
-#[cfg(feature = "vendored")]
+#[cfg(feature = "vendor")]
 mod vendor;
 
-#[cfg(not(feature = "vendored"))]
+#[cfg(not(feature = "vendor"))]
 mod system;
 
 // fn try_to_find_and_link_lib(lib_name: &str) -> bool {
@@ -40,9 +40,9 @@ mod system;
 // }
 
 fn main() {
-    #[cfg(feature = "vendored")]
+    #[cfg(feature = "vendor")]
     vendor::vendor_dependencies();
 
-    #[cfg(not(feature = "vendored"))]
+    #[cfg(not(feature = "vendor"))]
     system::link_dependencies();
 }

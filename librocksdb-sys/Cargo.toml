@@ -13,13 +13,13 @@ build = "build/main.rs"
 links = "rocksdb"
 
 [features]
-default = [ "vendored" ]
-vendored = []
-snappy = []
-lz4 = []
-zstd = []
-zlib = []
-bzip2 = []
+default = ["vendor"]
+vendor = []
+snappy = ["vendor"]
+lz4 = ["vendor"]
+zstd = ["vendor"]
+zlib = ["vendor"]
+bzip2 = ["vendor"]
 
 
 [dependencies]
