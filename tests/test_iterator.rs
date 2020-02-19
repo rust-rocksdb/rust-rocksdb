@@ -299,7 +299,7 @@ fn test_full_iterator() {
     assert!(DB::destroy(&opts, path).is_ok());
 }
 
-fn custom_iter(db: &DB) -> impl Iterator<Item = usize> {
+fn custom_iter<'a>(db: &'a DB) -> impl Iterator<Item = usize> + 'a {
     db.iterator(IteratorMode::Start)
         .map(|(_, db_value)| db_value.len())
 }
@@ -315,4 +315,10 @@ fn test_custom_iterator() {
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
+fn test_iterator_outlive_db() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/iterator_outlive_db.rs");
 }
