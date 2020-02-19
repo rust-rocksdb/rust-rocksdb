@@ -15,11 +15,11 @@ links = "rocksdb"
 [features]
 default = ["vendor"]
 vendor = []
-snappy = ["vendor"]
-lz4 = ["vendor"]
-zstd = ["vendor"]
-zlib = ["vendor"]
-bzip2 = ["vendor"]
+bzip2 = []
+lz4 = []
+snappy = []
+zlib = []
+zstd = []
 
 
 [dependencies]
