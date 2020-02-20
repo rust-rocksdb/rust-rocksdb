@@ -13,8 +13,9 @@ build = "build/main.rs"
 links = "rocksdb"
 
 [features]
-default = ["vendor"]
-vendor = []
+default = []
+vendor = ["cc", "glob"]
+static = []
 bzip2 = []
 lz4 = []
 snappy = []
@@ -30,6 +31,6 @@ const-cstr = "0.3"
 uuid = { version = "0.8", features = ["v4"] }
 
 [build-dependencies]
-cc = { version = "^1.0", features = ["parallel"] }
+cc = { version = "^1.0", features = ["parallel"], optional = true }
 bindgen = "0.53"
-glob = "0.3"
+glob = { version = "0.3", optional = true }
