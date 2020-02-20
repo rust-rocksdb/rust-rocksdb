@@ -25,27 +25,33 @@ fn get_lib_dir(lib_name: &str) -> String {
 
 // Use `alt_name` when the project and its library have different names, such as bzip2 which has
 // `libbz2` as opposed to `libbzip2`.
-fn dyn_link_lib(lib_name: &str, alt_name: Option<&str>) {
+fn link_lib(lib_name: &str, alt_name: Option<&str>) {
+    #[cfg(feature = "static")]
+    const LINK_TYPE: &str = "static";
+    #[cfg(not(feature = "static"))]
+    const LINK_TYPE: &str = "dylib";
+
     let lib_dir = get_lib_dir(lib_name);
     verify_lib_dir(&lib_dir);
     println!("cargo:rustc-link-search=native={}", lib_dir);
     println!(
-        "cargo:rustc-link-lib=dylib={}",
+        "cargo:rustc-link-lib={}={}",
+        LINK_TYPE,
         alt_name.unwrap_or(lib_name)
     );
 }
 
 pub fn link_dependencies() {
     #[cfg(feature = "bzip2")]
-    dyn_link_lib("bzip2", Some("bz2"));
+    link_lib("bzip2", Some("bz2"));
     #[cfg(feature = "lz4")]
-    dyn_link_lib("lz4", None);
+    link_lib("lz4", None);
     #[cfg(feature = "snappy")]
-    dyn_link_lib("snappy", None);
+    link_lib("snappy", None);
     #[cfg(feature = "zlib")]
-    dyn_link_lib("zlib", Some("z"));
+    link_lib("zlib", Some("z"));
     #[cfg(feature = "zstd")]
-    dyn_link_lib("zstd", None);
+    link_lib("zstd", None);
 
-    dyn_link_lib("rocksdb", None);
+    link_lib("rocksdb", None);
 }
