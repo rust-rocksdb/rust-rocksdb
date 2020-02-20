@@ -1,14 +1,10 @@
-fn bindgen_builder_rocksdb() -> bindgen::Builder {
-    bindgen::Builder::default()
-        .header("./rocksdb/include/rocksdb/c.h")
+fn bindgen_rocksdb() {
+    let bindings = bindgen::Builder::default()
+        .header("rocksdb/include/rocksdb/c.h")
         .derive_debug(false)
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
         .size_t_is_usize(true)
-}
-
-fn bindgen_write_bindings(builder: bindgen::Builder) {
-    let bindings = builder
         .generate()
         .expect("Unable to generate RocksDB bindings");
     let out_path = std::env::var("OUT_DIR").unwrap();
@@ -43,4 +39,6 @@ fn main() {
 
     #[cfg(not(feature = "vendor"))]
     system::link_dependencies();
+
+    bindgen_rocksdb();
 }

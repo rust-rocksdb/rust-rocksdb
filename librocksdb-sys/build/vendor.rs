@@ -318,7 +318,4 @@ pub fn vendor_dependencies() {
     build_zstd();
 
     build_rocksdb();
-
-    let binding_builder = super::bindgen_builder_rocksdb();
-    super::bindgen_write_bindings(binding_builder);
 }
