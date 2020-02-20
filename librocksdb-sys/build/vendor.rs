@@ -1,17 +1,18 @@
 use std::env;
-use std::fs;
-use std::path::Path;
 
-fn enforce_rerun<P: AsRef<Path>>(path: P) {
+#[cfg(any(bzip2, lz4, snappy, zlib, zstd))]
+fn enforce_rerun<P: AsRef<std::path::Path>>(path: P) {
     println!("cargo:rerun-if-changed={}", path.as_ref().to_string_lossy());
 }
 
-fn check_submodule<P: AsRef<Path>>(path: P) {
+#[cfg(any(bzip2, lz4, snappy, zlib, zstd))]
+fn check_submodule<P: AsRef<std::path::Path>>(path: P) {
     let path = path
         .as_ref()
         .canonicalize()
         .unwrap_or_else(|_| panic!("Failed to canonicalize {:?}", path.as_ref()));
-    let dir = fs::read_dir(&path).unwrap_or_else(|_| panic!("Failed to open directory {:?}", path));
+    let dir =
+        std::fs::read_dir(&path).unwrap_or_else(|_| panic!("Failed to open directory {:?}", path));
     if dir.count() == 0 {
         println!(
             "The `{:?}` directory is empty, did you forget to pull the submodules?",
@@ -174,6 +175,8 @@ fn build_rocksdb() {
 
 #[cfg(feature = "bzip2")]
 fn build_bzip2() {
+    enforce_rerun("./bzip2");
+    check_submodule("./bzip2");
     let mut build = cc::Build::new();
 
     build.extra_warnings(false);
@@ -197,6 +200,8 @@ fn build_bzip2() {
 
 #[cfg(feature = "lz4")]
 fn build_lz4() {
+    enforce_rerun("./lz4");
+    check_submodule("./lz4");
     let target = env::var("TARGET").unwrap();
     let mut build = cc::Build::new();
 
@@ -217,6 +222,8 @@ fn build_lz4() {
 
 #[cfg(feature = "snappy")]
 fn build_snappy() {
+    enforce_rerun("./snappy");
+    check_submodule("./snappy");
     let target = env::var("TARGET").expect("No TARGET in environment");
     let mut build = cc::Build::new();
 
@@ -242,6 +249,8 @@ fn build_snappy() {
 
 #[cfg(feature = "zlib")]
 fn build_zlib() {
+    enforce_rerun("./zlib");
+    check_submodule("./zlib");
     let mut build = cc::Build::new();
 
     build.opt_level(3);
@@ -260,6 +269,8 @@ fn build_zlib() {
 
 #[cfg(feature = "zstd")]
 fn build_zstd() {
+    enforce_rerun("./zstd");
+    check_submodule("./zstd");
     let mut build = cc::Build::new();
 
     build
@@ -289,19 +300,6 @@ fn build_zstd() {
 }
 
 pub fn vendor_dependencies() {
-    let vendored_paths = &[
-        "./rocksdb/",
-        "./snappy/",
-        "./lz4/",
-        "./zstd/",
-        "./zlib/",
-        "./bzip2/",
-    ];
-    vendored_paths.iter().for_each(|p| {
-        enforce_rerun(p);
-        check_submodule(p);
-    });
-
     #[cfg(feature = "bzip2")]
     build_bzip2();
 
