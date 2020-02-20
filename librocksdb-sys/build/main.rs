@@ -1,5 +1,3 @@
-extern crate bindgen;
-
 fn bindgen_builder_rocksdb() -> bindgen::Builder {
     bindgen::Builder::default()
         .header("./rocksdb/include/rocksdb/c.h")
