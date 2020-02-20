@@ -1,11 +1,11 @@
 use std::env;
 
-#[cfg(any(bzip2, lz4, snappy, zlib, zstd))]
+#[cfg(any(feature = "bzip2", feature = "lz4", feature = "snappy", feature = "zlib", feature = "zstd"))]
 fn enforce_rerun<P: AsRef<std::path::Path>>(path: P) {
     println!("cargo:rerun-if-changed={}", path.as_ref().to_string_lossy());
 }
 
-#[cfg(any(bzip2, lz4, snappy, zlib, zstd))]
+#[cfg(any(feature = "bzip2", feature = "lz4", feature = "snappy", feature = "zlib", feature = "zstd"))]
 fn check_submodule<P: AsRef<std::path::Path>>(path: P) {
     let path = path
         .as_ref()
