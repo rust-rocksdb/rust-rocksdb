@@ -7,7 +7,8 @@ fn verify_lib_dir<P: AsRef<std::path::Path>>(lib_dir: P) {
         .unwrap_or_else(|_| panic!("Failed to open library dir {:?}", lib_dir));
     if dir_lst.count() == 0 {
         panic!(
-            "Library dir {:?} is empty and is probably incorrect. Verify it is the correct path."
+            "Library dir {:?} is empty and is probably incorrect. Verify it is the correct path.",
+            lib_dir
         )
     }
 }
