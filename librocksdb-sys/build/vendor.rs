@@ -26,11 +26,11 @@ fn check_submodule<P: AsRef<std::path::Path>>(path: P) {
     let dir =
         std::fs::read_dir(&path).unwrap_or_else(|_| panic!("Failed to open directory {:?}", path));
     if dir.count() == 0 {
-        println!(
+        eprintln!(
             "The `{:?}` directory is empty, did you forget to pull the submodules?",
             path
         );
-        println!("Try `git submodule update --init --recursive`");
+        eprintln!("Try `git submodule update --init --recursive`");
         panic!(
             "Missing submodule {}",
             path.file_name().unwrap().to_string_lossy()
