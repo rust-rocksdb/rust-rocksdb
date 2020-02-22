@@ -13,7 +13,6 @@ build = "build/build.rs"
 links = "rocksdb"
 
 [features]
-default = ["vendor"]
 vendor = ["cc", "glob"]
 static = []
 bzip2 = []
