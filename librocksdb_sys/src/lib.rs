@@ -751,6 +751,9 @@ extern "C" {
         target_size: *const u64,
         num_paths: c_int,
     );
+    pub fn crocksdb_options_get_db_paths_num(options: *mut Options) -> usize;
+    pub fn crocksdb_options_get_db_path(options: *mut Options, idx: size_t) -> *const c_char;
+    pub fn crocksdb_options_get_path_target_size(options: *mut Options, idx: size_t) -> u64;
     pub fn crocksdb_options_set_vector_memtable_factory(options: *mut Options, reserved_bytes: u64);
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
@@ -1212,6 +1215,7 @@ extern "C" {
     );
     pub fn crocksdb_compactoptions_set_change_level(opt: *mut DBCompactOptions, v: bool);
     pub fn crocksdb_compactoptions_set_target_level(opt: *mut DBCompactOptions, v: i32);
+    pub fn crocksdb_compactoptions_set_target_path_id(opt: *mut DBCompactOptions, v: i32);
     pub fn crocksdb_compactoptions_set_max_subcompactions(opt: *mut DBCompactOptions, v: i32);
     pub fn crocksdb_compactoptions_set_bottommost_level_compaction(
         opt: *mut DBCompactOptions,

@@ -2502,6 +2502,18 @@ void crocksdb_options_set_db_paths(crocksdb_options_t *opt,
   opt->rep.db_paths = db_paths;
 }
 
+size_t crocksdb_options_get_db_paths_num(crocksdb_options_t *opt) {
+  return opt->rep.db_paths.size();
+}
+
+const char* crocksdb_options_get_db_path(crocksdb_options_t* opt, size_t index) {
+  return opt->rep.db_paths[index].path.data();
+}
+
+uint64_t crocksdb_options_get_path_target_size(crocksdb_options_t* opt, size_t index) {
+  return opt->rep.db_paths[index].target_size;
+}
+
 void crocksdb_options_set_db_log_dir(
     crocksdb_options_t* opt, const char* db_log_dir) {
   opt->rep.db_log_dir = db_log_dir;
@@ -3375,6 +3387,11 @@ void crocksdb_compactoptions_set_change_level(crocksdb_compactoptions_t* opt,
 void crocksdb_compactoptions_set_target_level(crocksdb_compactoptions_t* opt,
                                              int n) {
   opt->rep.target_level = n;
+}
+
+void crocksdb_compactoptions_set_target_path_id(crocksdb_compactoptions_t* opt,
+                                             int n) {
+  opt->rep.target_path_id = n;
 }
 
 void crocksdb_compactoptions_set_max_subcompactions(

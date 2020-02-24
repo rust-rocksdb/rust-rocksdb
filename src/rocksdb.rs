@@ -3262,4 +3262,17 @@ mod test {
         let mp = db.get_map_property_cf(cf_handle, "rocksdb.cfstats");
         assert!(mp.is_some());
     }
+
+    #[test]
+    fn test_get_db_path_from_option() {
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let dir = tempdir_with_prefix("_rust_rocksdb_get_db_path_from_option");
+        let path = dir.path().to_str().unwrap();
+        let db = DB::open(opts, path).unwrap();
+        let path_num = db.get_db_options().get_db_paths_num();
+        assert_eq!(1, path_num);
+        let first_path = db.get_db_options().get_db_path(0).unwrap();
+        assert_eq!(path, first_path.as_str());
+    }
 }

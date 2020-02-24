@@ -1012,6 +1012,13 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_use_fsync(
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_db_paths(crocksdb_options_t *, const char *const *,
                               const size_t *, const uint64_t *, int);
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_options_get_db_paths_num(crocksdb_options_t *);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_options_get_db_path(crocksdb_options_t *, size_t index);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_options_get_path_target_size(crocksdb_options_t*, size_t index);
+
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_db_log_dir(
     crocksdb_options_t*, const char*);
@@ -1342,6 +1349,8 @@ crocksdb_compactoptions_set_exclusive_manual_compaction(
 extern C_ROCKSDB_LIBRARY_API void crocksdb_compactoptions_set_change_level(
     crocksdb_compactoptions_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_compactoptions_set_target_level(
+    crocksdb_compactoptions_t*, int);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_compactoptions_set_target_path_id(
     crocksdb_compactoptions_t*, int);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_compactoptions_set_max_subcompactions(crocksdb_compactoptions_t*, int);
