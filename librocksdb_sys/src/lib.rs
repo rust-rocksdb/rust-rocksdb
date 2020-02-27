@@ -560,6 +560,7 @@ extern "C" {
     pub fn crocksdb_options_set_use_fsync(options: *mut Options, v: c_int);
     pub fn crocksdb_options_set_bytes_per_sync(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_set_enable_pipelined_write(options: *mut Options, v: bool);
+    pub fn crocksdb_options_set_enable_multi_batch_write(options: *mut Options, v: bool);
     pub fn crocksdb_options_set_unordered_write(options: *mut Options, v: bool);
     pub fn crocksdb_options_set_allow_concurrent_memtable_write(options: *mut Options, v: bool);
     pub fn crocksdb_options_set_manual_wal_flush(options: *mut Options, v: bool);
@@ -988,6 +989,13 @@ extern "C" {
         db: *mut DBInstance,
         writeopts: *const DBWriteOptions,
         batch: *mut DBWriteBatch,
+        err: *mut *mut c_char,
+    );
+    pub fn crocksdb_write_multi_batch(
+        db: *mut DBInstance,
+        writeopts: *const DBWriteOptions,
+        batch: *const *mut DBWriteBatch,
+        batchlen: size_t,
         err: *mut *mut c_char,
     );
     pub fn crocksdb_writebatch_create() -> *mut DBWriteBatch;
