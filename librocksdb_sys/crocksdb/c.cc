@@ -4969,6 +4969,14 @@ uint64_t crocksdb_perf_context_db_mutex_lock_nanos(crocksdb_perf_context_t* ctx)
   return ctx->rep.db_mutex_lock_nanos;
 }
 
+uint64_t crocksdb_perf_context_write_thread_wait_nanos(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.write_thread_wait_nanos;
+}
+
+uint64_t crocksdb_perf_context_write_scheduling_flushes_compactions_time(crocksdb_perf_context_t* ctx) {
+  return ctx->rep.write_scheduling_flushes_compactions_time;
+}
+
 uint64_t crocksdb_perf_context_db_condition_wait_nanos(crocksdb_perf_context_t* ctx) {
   return ctx->rep.db_condition_wait_nanos;
 }

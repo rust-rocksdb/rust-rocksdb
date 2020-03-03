@@ -1947,6 +1947,10 @@ extern "C" {
     pub fn crocksdb_perf_context_write_delay_time(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_write_pre_and_post_process_time(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_db_mutex_lock_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_write_thread_wait_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_write_scheduling_flushes_compactions_time(
+        ctx: *mut DBPerfContext,
+    ) -> u64;
     pub fn crocksdb_perf_context_db_condition_wait_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_merge_operator_time_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_read_index_block_nanos(ctx: *mut DBPerfContext) -> u64;

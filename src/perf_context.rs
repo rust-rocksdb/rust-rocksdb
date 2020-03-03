@@ -19,6 +19,7 @@ pub enum PerfLevel {
     Disable,
     EnableCount,
     EnableTimeExceptForMutex,
+    EnableTimeAndCPUTimeExceptForMutex,
     EnableTime,
     OutOfBounds,
 }
@@ -30,8 +31,9 @@ pub fn get_perf_level() -> PerfLevel {
         1 => PerfLevel::Disable,
         2 => PerfLevel::EnableCount,
         3 => PerfLevel::EnableTimeExceptForMutex,
-        4 => PerfLevel::EnableTime,
-        5 => PerfLevel::OutOfBounds,
+        4 => PerfLevel::EnableTimeAndCPUTimeExceptForMutex,
+        5 => PerfLevel::EnableTime,
+        6 => PerfLevel::OutOfBounds,
         _ => unreachable!(),
     }
 }
@@ -42,8 +44,9 @@ pub fn set_perf_level(level: PerfLevel) {
         PerfLevel::Disable => 1,
         PerfLevel::EnableCount => 2,
         PerfLevel::EnableTimeExceptForMutex => 3,
-        PerfLevel::EnableTime => 4,
-        PerfLevel::OutOfBounds => 5,
+        PerfLevel::EnableTimeAndCPUTimeExceptForMutex => 4,
+        PerfLevel::EnableTime => 5,
+        PerfLevel::OutOfBounds => 6,
     };
     unsafe {
         crocksdb_ffi::crocksdb_set_perf_level(v);
@@ -201,6 +204,18 @@ impl PerfContext {
 
     pub fn db_mutex_lock_nanos(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_perf_context_db_mutex_lock_nanos(self.inner) }
+    }
+
+    pub fn write_thread_wait_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_write_thread_wait_nanos(self.inner) }
+    }
+
+    pub fn write_scheduling_flushes_compactions_time(&self) -> u64 {
+        unsafe {
+            crocksdb_ffi::crocksdb_perf_context_write_scheduling_flushes_compactions_time(
+                self.inner,
+            )
+        }
     }
 
     pub fn db_condition_wait_nanos(&self) -> u64 {
