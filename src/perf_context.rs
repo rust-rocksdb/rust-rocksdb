@@ -57,6 +57,8 @@ pub struct PerfContext {
     inner: *mut DBPerfContext,
 }
 
+impl !Send for PerfContext {}
+
 impl PerfContext {
     pub fn get() -> PerfContext {
         unsafe {
