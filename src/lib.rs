@@ -13,7 +13,6 @@
 // limitations under the License.
 //
 
-#![feature(optin_builtin_traits)]
 extern crate core;
 extern crate libc;
 #[macro_use]
