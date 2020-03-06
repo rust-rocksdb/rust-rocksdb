@@ -323,10 +323,10 @@ fn main() {
     if cfg!(feature = "zstd") && !try_to_find_and_link_lib("ZSTD") {
         build_zstd();
     }
-    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("ZLIB") {
+    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("Z") {
         build_zlib();
     }
-    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZIP2") {
+    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZ2") {
         build_bzip2();
     }
 }
