@@ -5,5 +5,8 @@
 # The generated bindings will overwrite librocksdb_sys/bindings/*
 
 export UPDATE_BIND=1
-cargo build  --target x86_64-unknown-linux-gnu
+if [ "$ARCH" == "" ]; then
+    ARCH=`uname -p`
+fi
+cargo build  --target ${ARCH}-unknown-linux-gnu
 rustfmt librocksdb_sys/bindings/*

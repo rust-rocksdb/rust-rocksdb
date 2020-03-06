@@ -13,6 +13,10 @@
 // limitations under the License.
 //
 
+// FIXME: we should remove this line after we add safe doc to all the unsafe functions
+// see: https://rust-lang.github.io/rust-clippy/master/index.html#missing_safety_doc
+#![allow(clippy::missing_safety_doc)]
+
 extern crate core;
 extern crate libc;
 #[macro_use]

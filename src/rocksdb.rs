@@ -887,7 +887,7 @@ impl DB {
     pub fn drop_cf(&mut self, name: &str) -> Result<(), String> {
         let cf = self.cfs.remove(name);
         if cf.is_none() {
-            return Err(format!("Invalid column family: {}", name).clone());
+            return Err(format!("Invalid column family: {}", name));
         }
 
         unsafe {

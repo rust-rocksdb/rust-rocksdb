@@ -15,6 +15,9 @@ matrix:
   - os: osx
     osx_image: xcode11.3
     rust: stable
+  - os: linux
+    arch: arm64
+    rust: stable
 
 env:
   global:
@@ -23,12 +26,13 @@ env:
 cache: false
 
 before_script:
-  - rustup default nightly-2019-09-05
+  - rustup default nightly-2019-12-20
   - rustup component add rustfmt-preview
   - rustup component add clippy
 
 script:
-  - make clippy
+  # copile rocksdb may cost more than 10 minutes, see https://docs.travis-ci.com/user/common-build-problems/#build-times-out-because-no-output-was-received
+  - travis_wait make clippy
   - cargo fmt --all -- --check
   - cargo build
   - cargo test --all
