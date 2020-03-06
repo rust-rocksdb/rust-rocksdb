@@ -13,7 +13,10 @@
 // limitations under the License.
 //
 
-use compaction_filter::{new_compaction_filter, CompactionFilter, CompactionFilterHandle};
+use compaction_filter::{
+    new_compaction_filter, new_compaction_filter_factory, CompactionFilter,
+    CompactionFilterFactory, CompactionFilterHandle,
+};
 use comparator::{self, compare_callback, ComparatorCallback};
 use crocksdb_ffi::{
     self, DBBlockBasedTableOptions, DBBottommostLevelCompaction, DBCompactOptions,
@@ -1226,16 +1229,12 @@ impl ColumnFamilyOptions {
     /// set.
     ///
     /// By default, compaction will only pass keys written after the most
-    /// recent call to GetSnapshot() to filter. However, if `ignore_snapshots`
-    /// is set to true, even if the keys were written before the last snapshot
-    /// will be passed to filter too. For more details please checkout
-    /// rocksdb's documentation.
+    /// recent call to GetSnapshot() to filter.
     ///
     /// See also `CompactionFilter`.
     pub fn set_compaction_filter<S>(
         &mut self,
         name: S,
-        ignore_snapshots: bool,
         filter: Box<dyn CompactionFilter>,
     ) -> Result<(), String>
     where
@@ -1246,11 +1245,32 @@ impl ColumnFamilyOptions {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            self.filter = Some(new_compaction_filter(c_name, ignore_snapshots, filter)?);
-            crocksdb_ffi::crocksdb_options_set_compaction_filter(
-                self.inner,
-                self.filter.as_ref().unwrap().inner,
-            );
+            let filter = new_compaction_filter(c_name, filter);
+            crocksdb_ffi::crocksdb_options_set_compaction_filter(self.inner, filter.inner);
+            self.filter = Some(filter);
+            Ok(())
+        }
+    }
+
+    /// Set compaction filter factory.
+    ///
+    /// See also `CompactionFilterFactory`.
+    pub fn set_compaction_filter_factory<S>(
+        &mut self,
+        name: S,
+        factory: Box<dyn CompactionFilterFactory>,
+    ) -> Result<(), String>
+    where
+        S: Into<Vec<u8>>,
+    {
+        let c_name = match CString::new(name) {
+            Ok(s) => s,
+            Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
+        };
+        unsafe {
+            let factory = new_compaction_filter_factory(c_name, factory)?;
+            crocksdb_ffi::crocksdb_options_set_compaction_filter_factory(self.inner, factory.inner);
+            std::mem::forget(factory); // Deconstructor will be called after `self` is dropped.
             Ok(())
         }
     }
