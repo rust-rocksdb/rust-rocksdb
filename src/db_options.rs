@@ -217,6 +217,22 @@ impl Options {
         }
     }
 
+    /// Optimize level style compaction.
+    ///
+    /// Default values for some parameters in `Options` are not optimized for heavy
+    /// workloads and big datasets, which means you might observe write stalls under
+    /// some conditions.
+    ///
+    /// This can be used as one of the starting points for tuning RocksDB options in
+    /// such cases.
+    ///
+    /// Internally, it sets `write_buffer_size`, `min_write_buffer_number_to_merge`,
+    /// `max_write_buffer_number`, `level0_file_num_compaction_trigger`,
+    /// `target_file_size_base`, `max_bytes_for_level_base`, so it can override if those
+    /// parameters were set before.
+    ///
+    /// It sets buffer sizes so that memory consumption would be constrained by
+    /// `memtable_memory_budget`.
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: usize) {
         unsafe {
             ffi::rocksdb_options_optimize_level_style_compaction(
