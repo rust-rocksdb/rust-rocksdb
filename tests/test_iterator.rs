@@ -253,7 +253,7 @@ fn test_prefix_iterator_uses_full_prefix() {
 
 #[test]
 fn test_full_iterator() {
-    let path = "_rust_rocksdb_fulliteratortest";
+    let path = DBPath::new("fulliteratortest");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");
@@ -273,7 +273,7 @@ fn test_full_iterator() {
         opts.set_allow_concurrent_memtable_write(false);
         opts.set_memtable_factory(factory);
 
-        let db = DB::open(&opts, path).unwrap();
+        let db = DB::open(&opts, &path).unwrap();
 
         assert!(db.put(&*a1, &*a1).is_ok());
         assert!(db.put(&*a2, &*a2).is_ok());
@@ -295,8 +295,6 @@ fn test_full_iterator() {
         let a_iterator = db.full_iterator(IteratorMode::Start);
         assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 fn custom_iter<'a>(db: &'a DB) -> impl Iterator<Item = usize> + 'a {
@@ -313,8 +311,6 @@ fn test_custom_iterator() {
         let db = DB::open(&opts, &path).unwrap();
         let _data = custom_iter(&db).collect::<Vec<usize>>();
     }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
 }
 
 #[test]
