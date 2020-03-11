@@ -201,5 +201,6 @@ pub enum DBStatisticsHistogramType {
     BlobDbDecompressionMicros = 45,
     FlushTime = 46,
     SstBatchSize = 47,
-    HistogramEnumMax = 48,
+    DbWriteWalTime = 48,
+    HistogramEnumMax = 49,
 }
