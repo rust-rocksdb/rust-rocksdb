@@ -2621,6 +2621,10 @@ void crocksdb_options_set_enable_multi_batch_write(crocksdb_options_t *opt,
   opt->rep.enable_multi_thread_write = v;
 }
 
+unsigned char crocksdb_options_is_enable_multi_batch_write(crocksdb_options_t *opt) {
+  return opt->rep.enable_multi_thread_write;
+}
+
 void crocksdb_options_set_unordered_write(crocksdb_options_t* opt,
                                                 unsigned char v) {
   opt->rep.unordered_write = v;
@@ -5277,6 +5281,11 @@ int ctitandb_options_blob_file_compression(ctitandb_options_t* opts) {
 void ctitandb_options_set_blob_file_compression(ctitandb_options_t* opts,
                                                 int type) {
   opts->rep.blob_file_compression = static_cast<CompressionType>(type);
+}
+
+void ctitandb_options_set_gc_merge_rewrite(ctitandb_options_t* opts,
+                                               unsigned char enable) {
+  opts->rep.gc_merge_rewrite = enable;
 }
 
 void ctitandb_decode_blob_index(const char* value, size_t value_size,

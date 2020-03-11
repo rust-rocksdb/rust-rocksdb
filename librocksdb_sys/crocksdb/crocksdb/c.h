@@ -1057,6 +1057,8 @@ crocksdb_options_set_enable_pipelined_write(crocksdb_options_t *, unsigned char)
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_enable_multi_batch_write(crocksdb_options_t *opt,
                                              unsigned char v);
+extern C_ROCKSDB_LIBRARY_API unsigned char
+crocksdb_options_is_enable_multi_batch_write(crocksdb_options_t *opt);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_unordered_write(crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
@@ -2102,6 +2104,9 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_min_blob_size(
 
 extern C_ROCKSDB_LIBRARY_API int ctitandb_options_blob_file_compression(
     ctitandb_options_t*);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_gc_merge_rewrite(
+    ctitandb_options_t*, unsigned char);
 
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_blob_file_compression(
     ctitandb_options_t*, int type);

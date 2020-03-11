@@ -1037,6 +1037,10 @@ impl DBOptions {
         }
     }
 
+    pub fn is_enable_multi_batch_write(&self) -> bool {
+        unsafe { crocksdb_ffi::crocksdb_options_is_enable_multi_batch_write(self.inner) }
+    }
+
     pub fn enable_unordered_write(&self, v: bool) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_unordered_write(self.inner, v);
