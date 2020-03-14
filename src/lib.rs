@@ -68,18 +68,20 @@ mod db_options;
 mod db_pinnable_slice;
 pub mod merge_operator;
 mod slice_transform;
+mod snapshot;
 
 pub use crate::{
     column_family::{ColumnFamily, ColumnFamilyDescriptor},
     compaction_filter::Decision as CompactionDecision,
     db::{
-        DBCompactionStyle, DBCompressionType, DBRecoveryMode, ReadOptions, Snapshot, WriteBatch,
+        DBCompactionStyle, DBCompressionType, DBRecoveryMode, ReadOptions, WriteBatch,
         WriteBatchIterator,
     },
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
     slice_transform::SliceTransform,
+    snapshot::Snapshot,
 };
 
 use librocksdb_sys as ffi;
