@@ -14,9 +14,11 @@
 //
 
 use crate::{
-    ffi, ffi_util::opt_bytes_to_ptr, ColumnFamily, ColumnFamilyDescriptor, DBIterator,
-    DBPinnableSlice, DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IteratorMode,
-    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
+    ffi,
+    ffi_util::{opt_bytes_to_ptr, to_cpath},
+    ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBPinnableSlice, DBRawIterator,
+    DBWALIterator, Direction, Error, FlushOptions, IteratorMode, Options, ReadOptions, Snapshot,
+    WriteBatch, WriteOptions,
 };
 
 use libc::{self, c_char, c_int, c_void, size_t};
@@ -918,16 +920,6 @@ impl Drop for DB {
 impl fmt::Debug for DB {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
-    }
-}
-
-fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
-    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
-        Ok(c) => Ok(c),
-        Err(e) => Err(Error::new(format!(
-            "Failed to convert path to CString: {}",
-            e,
-        ))),
     }
 }
 
