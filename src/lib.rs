@@ -59,6 +59,7 @@ mod ffi_util;
 
 pub mod backup;
 pub mod checkpoint;
+mod column_family;
 pub mod compaction_filter;
 mod comparator;
 mod db;
@@ -67,6 +68,7 @@ pub mod merge_operator;
 mod slice_transform;
 
 pub use crate::{
+    column_family::{ColumnFamily, ColumnFamilyDescriptor},
     compaction_filter::Decision as CompactionDecision,
     db::{
         DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
@@ -91,14 +93,6 @@ pub struct DB {
     inner: *mut ffi::rocksdb_t,
     cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
-}
-
-/// A descriptor for a RocksDB column family.
-///
-/// A description of the column family, containing the name and `Options`.
-pub struct ColumnFamilyDescriptor {
-    name: String,
-    options: Options,
 }
 
 /// A simple wrapper round a string, used for errors reported from
@@ -279,14 +273,6 @@ pub struct FlushOptions {
 pub struct WriteOptions {
     inner: *mut ffi::rocksdb_writeoptions_t,
 }
-
-/// An opaque type used to represent a column family. Returned from some functions, and used
-/// in others
-pub struct ColumnFamily {
-    inner: *mut ffi::rocksdb_column_family_handle_t,
-}
-
-unsafe impl Send for ColumnFamily {}
 
 #[cfg(test)]
 mod test {
