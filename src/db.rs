@@ -16,7 +16,7 @@
 use crate::{
     ffi, ffi_util::opt_bytes_to_ptr, ColumnFamily, ColumnFamilyDescriptor, DBIterator,
     DBPinnableSlice, DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IteratorMode,
-    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DB,
+    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
 };
 
 use libc::{self, c_char, c_int, c_void, size_t};
@@ -25,9 +25,19 @@ use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::ptr;
 use std::slice;
 use std::str;
+
+/// A RocksDB database.
+///
+/// See crate level documentation for a simple usage example.
+pub struct DB {
+    pub(crate) inner: *mut ffi::rocksdb_t,
+    cfs: BTreeMap<String, ColumnFamily>,
+    path: PathBuf,
+}
 
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and

@@ -74,6 +74,7 @@ mod write_batch;
 pub use crate::{
     column_family::{ColumnFamily, ColumnFamilyDescriptor},
     compaction_filter::Decision as CompactionDecision,
+    db::DB,
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType,
@@ -89,19 +90,8 @@ pub use crate::{
 
 use librocksdb_sys as ffi;
 
-use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::path::PathBuf;
-
-/// A RocksDB database.
-///
-/// See crate level documentation for a simple usage example.
-pub struct DB {
-    inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, ColumnFamily>,
-    path: PathBuf,
-}
 
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
