@@ -65,6 +65,7 @@ mod comparator;
 mod db;
 mod db_iterator;
 mod db_options;
+mod db_pinnable_slice;
 pub mod merge_operator;
 mod slice_transform;
 
@@ -72,10 +73,11 @@ pub use crate::{
     column_family::{ColumnFamily, ColumnFamilyDescriptor},
     compaction_filter::Decision as CompactionDecision,
     db::{
-        DBCompactionStyle, DBCompressionType, DBPinnableSlice, DBRecoveryMode, ReadOptions,
-        Snapshot, WriteBatch, WriteBatchIterator,
+        DBCompactionStyle, DBCompressionType, DBRecoveryMode, ReadOptions, Snapshot, WriteBatch,
+        WriteBatchIterator,
     },
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
+    db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
     slice_transform::SliceTransform,
 };
