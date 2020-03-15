@@ -26,9 +26,16 @@ fn fail_on_empty_directory(name: &str) {
     }
 }
 
+fn rocksdb_include_dir() -> std::string::String {
+    match env::var("ROCKSDB_INCLUDE_DIR") {
+        Ok(val) => return val,
+        Err(_) => return "rocksdb/include".to_string(),
+    };
+}
+
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
-        .header("rocksdb/include/rocksdb/c.h")
+        .header(rocksdb_include_dir() + "/rocksdb/c.h")
         .derive_debug(false)
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
