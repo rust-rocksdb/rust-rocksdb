@@ -40,4 +40,4 @@ update_rocksdb:
 		git config --file=.gitmodules submodule.rocksdb.branch ${ROCKSDB_BRANCH}; \
 	fi
 	@git submodule sync
-	@git submodule update --remote librocksdb_sys/rocksdb
+	@git submodule update --init --remote librocksdb_sys/rocksdb
