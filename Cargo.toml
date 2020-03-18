@@ -23,12 +23,9 @@ valgrind = []
 
 [dependencies]
 libc = "0.2.11"
-
-[dependencies.librocksdb_sys]
-path = "librocksdb_sys"
+librocksdb_sys = { path = "librocksdb_sys" }
 
 [dev-dependencies]
-rand = "0.7"
 crc = "1.8"
+rand = "0.7"
 tempfile = "3.1"
-tempdir = "0.3"

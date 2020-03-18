@@ -250,7 +250,10 @@ mod tests {
         drop(cf_opts);
         assert!(rx.recv_timeout(Duration::from_secs(1)).is_ok());
 
-        let dir = tempdir::TempDir::new("compaction_filter").unwrap();
+        let dir = tempfile::Builder::new()
+            .prefix("compaction_filter")
+            .tempdir()
+            .unwrap();
         let path = dir.path().to_str().unwrap();
         let (tx, rx) = mpsc::sync_channel(1);
 
@@ -281,7 +284,10 @@ mod tests {
         drop(cf_opts);
         assert!(rx.recv_timeout(Duration::from_secs(1)).is_ok());
 
-        let dir = tempdir::TempDir::new("compaction_filter").unwrap();
+        let dir = tempfile::Builder::new()
+            .prefix("compaction_filter")
+            .tempdir()
+            .unwrap();
         let path = dir.path().to_str().unwrap();
         let (tx, rx) = mpsc::sync_channel(1);
 

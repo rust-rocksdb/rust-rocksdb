@@ -5,7 +5,10 @@ build = "build.rs"
 links = "titan"
 
 [dependencies]
+bzip2-sys = "0.1.8+1.0.8"
 libc = "0.2.11"
+libz-sys = { version = "1.0.25", features = ["static"] }
+zstd-sys = "1.4.15+zstd.1.4.4"
 
 [features]
 default = []
@@ -18,19 +21,9 @@ sse = []
 cc = "1.0.3"
 cmake = "0.1"
 
-[dependencies.libz-sys]
-version = "1.0.25"
-features = ["static"]
-
-[dependencies.bzip2-sys]
-git = "https://github.com/alexcrichton/bzip2-rs.git"
-
 [dependencies.lz4-sys]
 git = "https://github.com/busyjay/lz4-rs.git"
 branch = "adjust-build"
-
-[dependencies.zstd-sys]
-git = "https://github.com/gyscos/zstd-rs.git"
 
 [dependencies.snappy-sys]
 git = "https://github.com/busyjay/rust-snappy.git"
