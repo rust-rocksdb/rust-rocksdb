@@ -41,7 +41,7 @@
 # access directly without any path.
 if [ -z $CLANG_FORMAT_DIFF ]
 then
-CLANG_FORMAT_DIFF="clang-format-diff.py"
+CLANG_FORMAT_DIFF="clang-format-diff"
 fi
 
 # Check clang-format-diff.py
@@ -99,10 +99,10 @@ LAST_MASTER=`git merge-base master HEAD`
 if [ -z "$uncommitted_code" ]
 then
   # Check the format of last commit
-  diffs=$(git diff -U0 $LAST_MASTER^ | $CLANG_FORMAT_DIFF -p 1)
+  diffs=$(git diff -U0 $LAST_MASTER^ | $CLANG_FORMAT_DIFF -p1)
 else
   # Check the format of uncommitted lines,
-  diffs=$(git diff -U0 HEAD | $CLANG_FORMAT_DIFF -p 1)
+  diffs=$(git diff -U0 HEAD | $CLANG_FORMAT_DIFF -p1)
 fi
 
 if [ -z "$diffs" ]
@@ -141,9 +141,9 @@ fi
 # Do in-place format adjustment.
 if [ -z "$uncommitted_code" ]
 then
-  git diff -U0 $LAST_MASTER^ | $CLANG_FORMAT_DIFF -i -p 1
+  git diff -U0 $LAST_MASTER^ | $CLANG_FORMAT_DIFF -i -p1
 else
-  git diff -U0 HEAD^ | $CLANG_FORMAT_DIFF -i -p 1
+  git diff -U0 HEAD^ | $CLANG_FORMAT_DIFF -i -p1
 fi
 echo "Files reformatted!"
 

@@ -39,6 +39,8 @@ use std::str::from_utf8;
 use std::sync::Arc;
 use std::{fs, ptr, slice};
 
+#[cfg(feature = "encryption")]
+use encryption::{DBEncryptionKeyManager, EncryptionKeyManager};
 use table_properties::{TableProperties, TablePropertiesCollection};
 use table_properties_rc::TablePropertiesCollection as RcTablePropertiesCollection;
 use titan::TitanDBOptions;
@@ -2523,6 +2525,25 @@ impl Env {
     // Create a ctr encrypted env with the default env
     pub fn new_default_ctr_encrypted_env(ciphertext: &[u8]) -> Result<Env, String> {
         Env::new_ctr_encrypted_env(Arc::new(Env::default()), ciphertext)
+    }
+
+    // Create an encrypted env that accepts an external key manager.
+    #[cfg(feature = "encryption")]
+    pub fn new_key_managed_encrypted_env(
+        base_env: Arc<Env>,
+        key_manager: Arc<dyn EncryptionKeyManager>,
+    ) -> Result<Env, String> {
+        let db_key_manager = DBEncryptionKeyManager::new(key_manager);
+        let env = unsafe {
+            crocksdb_ffi::crocksdb_key_managed_encrypted_env_create(
+                base_env.inner,
+                db_key_manager.inner,
+            )
+        };
+        Ok(Env {
+            inner: env,
+            base: Some(base_env),
+        })
     }
 
     pub fn new_sequential_file(

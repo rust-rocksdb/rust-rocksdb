@@ -18,6 +18,9 @@ matrix:
   - os: linux
     arch: arm64
     rust: stable
+  - os: linux
+    rust: nightly
+    env: FEATURES="encryption,jemalloc,portable,sse"
 
 env:
   global:
@@ -34,5 +37,5 @@ script:
   # copile rocksdb may cost more than 10 minutes, see https://docs.travis-ci.com/user/common-build-problems/#build-times-out-because-no-output-was-received
   - travis_wait make clippy
   - cargo fmt --all -- --check
-  - cargo build
-  - cargo test --all
+  - cargo build --features=$FEATURES
+  - cargo test --all --features=$FEATURES

@@ -181,6 +181,19 @@ typedef enum crocksdb_backgrounderrorreason_t {
   kMemTable = 4,
 } crocksdb_backgrounderrorreason_t;
 
+#ifdef OPENSSL
+typedef enum crocksdb_encryption_method_t {
+  kUnknown = 0,
+  kPlaintext = 1,
+  kAES128_CTR = 2,
+  kAES192_CTR = 3,
+  kAES256_CTR = 4,
+} crocksdb_encryption_method_t;
+
+typedef struct crocksdb_file_encryption_info_t crocksdb_file_encryption_info_t;
+typedef struct crocksdb_encryption_key_manager_t crocksdb_encryption_key_manager_t;
+#endif
+
 /* DB operations */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open(
@@ -1438,6 +1451,72 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_sequential_file_skip(
     crocksdb_sequential_file_t*, size_t n, char** errptr);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_sequential_file_destroy(
     crocksdb_sequential_file_t*);
+
+/* KeyManagedEncryptedEnv */
+
+#ifdef OPENSSL
+extern C_ROCKSDB_LIBRARY_API crocksdb_file_encryption_info_t*
+crocksdb_file_encryption_info_create();
+extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_destroy(
+    crocksdb_file_encryption_info_t* file_info);
+extern C_ROCKSDB_LIBRARY_API crocksdb_encryption_method_t
+crocksdb_file_encryption_info_method(crocksdb_file_encryption_info_t* file_info);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_file_encryption_info_key(
+    crocksdb_file_encryption_info_t* file_info, size_t* keylen);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_file_encryption_info_iv(
+    crocksdb_file_encryption_info_t* file_info, size_t* ivlen);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_set_method(
+    crocksdb_file_encryption_info_t* file_info, crocksdb_encryption_method_t method);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_set_key(
+    crocksdb_file_encryption_info_t* file_info, const char* key, size_t keylen);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_set_iv(
+    crocksdb_file_encryption_info_t* file_info, const char* iv, size_t ivlen);
+
+typedef const char* (*crocksdb_encryption_key_manager_get_file_cb)(
+    void* state, const char* fname, crocksdb_file_encryption_info_t* file_info);
+typedef const char* (*crocksdb_encryption_key_manager_new_file_cb)(
+    void* state, const char* fname, crocksdb_file_encryption_info_t* file_info);
+typedef const char* (*crocksdb_encryption_key_manager_delete_file_cb)(
+    void* state, const char* fname);
+typedef const char* (*crocksdb_encryption_key_manager_link_file_cb)(
+    void* state, const char* src_fname, const char* dst_fname);
+typedef const char* (*crocksdb_encryption_key_manager_rename_file_cb)(
+    void* state, const char* src_fname, const char* dst_fname);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_encryption_key_manager_t*
+crocksdb_encryption_key_manager_create(
+    void* state, void (*destructor)(void*),
+    crocksdb_encryption_key_manager_get_file_cb get_file,
+    crocksdb_encryption_key_manager_new_file_cb new_file,
+    crocksdb_encryption_key_manager_delete_file_cb delete_file,
+    crocksdb_encryption_key_manager_link_file_cb link_file,
+    crocksdb_encryption_key_manager_rename_file_cb rename_file);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_encryption_key_manager_destroy(
+    crocksdb_encryption_key_manager_t*);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_encryption_key_manager_get_file(
+    crocksdb_encryption_key_manager_t* key_manager, const char* fname,
+    crocksdb_file_encryption_info_t* file_info);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_encryption_key_manager_new_file(
+    crocksdb_encryption_key_manager_t* key_manager, const char* fname,
+    crocksdb_file_encryption_info_t* file_info);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_encryption_key_manager_delete_file(
+    crocksdb_encryption_key_manager_t* key_manager, const char* fname);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_encryption_key_manager_link_file(
+    crocksdb_encryption_key_manager_t* key_manager, const char* src_fname,
+    const char* dst_fname);
+extern C_ROCKSDB_LIBRARY_API const char*
+crocksdb_encryption_key_manager_rename_file(
+    crocksdb_encryption_key_manager_t* key_manager, const char* src_fname,
+    const char* dst_fname);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_env_t*
+crocksdb_key_managed_encrypted_env_create(
+    crocksdb_env_t*, crocksdb_encryption_key_manager_t*);
+#endif
 
 /* SstFile */
 
