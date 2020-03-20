@@ -774,11 +774,7 @@ impl DB {
         writeopts: &WriteOptions,
     ) -> Result<(), String> {
         unsafe {
-            let b: Vec<*mut DBWriteBatch> = batches
-                .iter()
-                .filter(|w| w.count() > 0)
-                .map(|w| w.inner)
-                .collect();
+            let b: Vec<*mut DBWriteBatch> = batches.iter().map(|w| w.inner).collect();
             if !b.is_empty() {
                 ffi_try!(crocksdb_write_multi_batch(
                     self.inner,
