@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-extern crate rocksdb;
+
 mod util;
 
+use crate::util::DBPath;
 use rocksdb::{BlockBasedOptions, Options, ReadOptions, DB};
 use std::{fs, io::Read as _};
-use util::DBPath;
 
 #[test]
 fn test_set_num_levels() {
@@ -70,7 +69,7 @@ fn test_block_based_options() {
         let _db = DB::open(&opts, &n).unwrap();
 
         // read the setting from the LOG file
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", n.as_ref().to_str().unwrap()))
+        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
             .expect("rocksdb creates a LOG file");
         let mut settings = String::new();
         rocksdb_log.read_to_string(&mut settings).unwrap();

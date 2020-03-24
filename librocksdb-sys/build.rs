@@ -1,7 +1,3 @@
-extern crate bindgen;
-extern crate cc;
-extern crate glob;
-
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -36,6 +32,7 @@ fn bindgen_rocksdb() {
         .derive_debug(false)
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
+        .size_t_is_usize(true)
         .generate()
         .expect("unable to generate rocksdb bindings");
 
@@ -51,7 +48,7 @@ fn build_rocksdb() {
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
-    config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
+    config.include("rocksdb/third-party/gtest-1.8.1/fused-src/");
 
     if cfg!(feature = "snappy") {
         config.define("SNAPPY", Some("1"));
@@ -84,7 +81,7 @@ fn build_rocksdb() {
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .trim()
-        .split("\n")
+        .split('\n')
         .map(str::trim)
         .collect::<Vec<&'static str>>();
 
@@ -208,11 +205,10 @@ fn build_lz4() {
 
     compiler.opt_level(3);
 
-    match env::var("TARGET").unwrap().as_str() {
-        "i686-pc-windows-gnu" => {
-            compiler.flag("-fno-tree-vectorize");
-        }
-        _ => {}
+    let target = env::var("TARGET").unwrap();
+
+    if &target == "i686-pc-windows-gnu" {
+        compiler.flag("-fno-tree-vectorize");
     }
 
     compiler.compile("liblz4.a");

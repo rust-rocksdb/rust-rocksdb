@@ -18,16 +18,16 @@ use std::path::Path;
 
 use libc::{self, c_int, c_uchar, c_uint, c_void, size_t};
 
-use compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn};
-use comparator::{self, ComparatorCallback, CompareFn};
-use ffi;
-use merge_operator::{
-    self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
-};
-use slice_transform::SliceTransform;
-use {
-    BlockBasedIndexType, BlockBasedOptions, DataBlockIndexType, DBCompactionStyle, DBCompressionType,
-    DBRecoveryMode,FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
+use crate::{
+    compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn},
+    comparator::{self, ComparatorCallback, CompareFn},
+    ffi,
+    merge_operator::{
+        self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
+    },
+    slice_transform::SliceTransform,
+    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DataBlockIndexType, DBCompressionType,
+    DBRecoveryMode, FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
 };
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -262,6 +262,22 @@ impl Options {
         }
     }
 
+    /// Optimize level style compaction.
+    ///
+    /// Default values for some parameters in `Options` are not optimized for heavy
+    /// workloads and big datasets, which means you might observe write stalls under
+    /// some conditions.
+    ///
+    /// This can be used as one of the starting points for tuning RocksDB options in
+    /// such cases.
+    ///
+    /// Internally, it sets `write_buffer_size`, `min_write_buffer_number_to_merge`,
+    /// `max_write_buffer_number`, `level0_file_num_compaction_trigger`,
+    /// `target_file_size_base`, `max_bytes_for_level_base`, so it can override if those
+    /// parameters were set before.
+    ///
+    /// It sets buffer sizes so that memory consumption would be constrained by
+    /// `memtable_memory_budget`.
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: usize) {
         unsafe {
             ffi::rocksdb_options_optimize_level_style_compaction(
@@ -1224,6 +1240,27 @@ impl Options {
         }
     }
 
+    /// Once write-ahead logs exceed this size, we will start forcing the flush of
+    /// column families whose memtables are backed by the oldest live WAL file
+    /// (i.e. the ones that are causing all the space amplification).
+    ///
+    /// Default: `0`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// // Set max total wal size to 1G.
+    /// opts.set_max_total_wal_size(1 << 30);
+    /// ```
+    pub fn set_max_total_wal_size(&mut self, size: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_max_total_wal_size(self.inner, size);
+        }
+    }
+
     /// Recovery mode to control the consistency while replaying WAL.
     ///
     /// Default: DBRecoveryMode::PointInTime
@@ -1391,6 +1428,35 @@ impl Options {
             ffi::rocksdb_options_set_allow_mmap_reads(self.inner, is_enabled as c_uchar);
         }
     }
+
+    /// Use to control write rate of flush and compaction. Flush has higher
+    /// priority than compaction.
+    /// If rate limiter is enabled, bytes_per_sync is set to 1MB by default.
+    ///
+    /// Default: disable
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_ratelimiter(1024 * 1024, 100 * 1000, 10);
+    /// ```
+    pub fn set_ratelimiter(
+        &mut self,
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+    ) {
+        unsafe {
+            let ratelimiter =
+                ffi::rocksdb_ratelimiter_create(rate_bytes_per_sec, refill_period_us, fairness);
+            // Since limiter is wrapped in shared_ptr, we don't need to
+            // call rocksdb_ratelimiter_destroy explicitly.
+            ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+        }
+    }
 }
 
 impl Default for Options {
@@ -1469,8 +1535,7 @@ impl Default for WriteOptions {
 
 #[cfg(test)]
 mod tests {
-    use MemtableFactory;
-    use Options;
+    use crate::{MemtableFactory, Options};
 
     #[test]
     fn test_enable_statistics() {

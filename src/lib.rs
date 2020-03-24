@@ -54,9 +54,6 @@
 //! ```
 //!
 
-extern crate libc;
-extern crate librocksdb_sys as ffi;
-
 #[macro_use]
 mod ffi_util;
 
@@ -69,16 +66,19 @@ mod db_options;
 pub mod merge_operator;
 mod slice_transform;
 
-pub use compaction_filter::Decision as CompactionDecision;
-pub use db::{
-    DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
-    DBRecoveryMode, DBWALIterator, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
-    WriteBatchIterator,
+pub use crate::{
+    compaction_filter::Decision as CompactionDecision,
+    db::{
+        DBCompactionStyle, DBCompressionType, DBIterator, DBPinnableSlice, DBRawIterator,
+        DBRecoveryMode, DBWALIterator, Direction, IteratorMode, ReadOptions, Snapshot, WriteBatch,
+        WriteBatchIterator,
+    },
+    merge_operator::MergeOperands,
+    slice_transform::SliceTransform,
 };
 
-pub use slice_transform::SliceTransform;
+use librocksdb_sys as ffi;
 
-pub use merge_operator::MergeOperands;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;

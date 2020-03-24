@@ -225,7 +225,7 @@ mod test {
 
     #[test]
     fn mergetest() {
-        use {Options, DB};
+        use crate::{Options, DB};
 
         let path = "_rust_rocksdb_mergetest";
         let mut opts = Options::default();
@@ -329,9 +329,9 @@ mod test {
 
     #[test]
     fn counting_mergetest() {
+        use crate::{DBCompactionStyle, Options, DB};
         use std::sync::Arc;
         use std::thread;
-        use {DBCompactionStyle, Options, DB};
 
         let path = "_rust_rocksdb_partial_mergetest";
         let mut opts = Options::default();
