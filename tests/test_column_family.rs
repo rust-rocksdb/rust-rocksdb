@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-extern crate rocksdb;
+
 mod util;
 
+use crate::util::DBPath;
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB};
-use util::DBPath;
 
 #[test]
 fn test_column_family() {

@@ -13,13 +13,13 @@
 // limitations under the License.
 //
 
-use ffi;
+//! Implementation of bindings to RocksDB Checkpoint[1] API
+//!
+//! [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
+
+use crate::{ffi, Error, DB};
 use std::ffi::CString;
 use std::path::Path;
-///! Implementation of bindings to RocksDB Checkpoint[1] API
-///
-/// [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
-use {Error, DB};
 
 /// Undocumented parameter for `ffi::rocksdb_checkpoint_create` function. Zero by default.
 const LOG_SIZE_FOR_FLUSH: u64 = 0_u64;
@@ -38,7 +38,7 @@ impl Checkpoint {
     pub fn new(db: &DB) -> Result<Checkpoint, Error> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
-        unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner,)) };
+        unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner)) };
 
         if checkpoint.is_null() {
             return Err(Error::new("Could not create checkpoint object.".to_owned()));

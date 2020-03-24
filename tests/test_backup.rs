@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-extern crate rocksdb;
+
+mod util;
+use crate::util::DBPath;
 
 use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
@@ -22,12 +23,12 @@ use rocksdb::{
 #[test]
 fn backup_restore() {
     // create backup
-    let path = "_rust_rocksdb_backup_test";
-    let restore_path = "_rust_rocksdb_restore_from_backup_path";
+    let path = DBPath::new("backup_test");
+    let restore_path = DBPath::new("restore_from_backup_path");
     let mut opts = Options::default();
     opts.create_if_missing(true);
     {
-        let db = DB::open(&opts, path).unwrap();
+        let db = DB::open(&opts, &path).unwrap();
         assert!(db.put(b"k1", b"v1111").is_ok());
         let value = db.get(b"k1");
         assert_eq!(value.unwrap().unwrap(), b"v1111");
@@ -46,11 +47,9 @@ fn backup_restore() {
             );
             assert!(restore_status.is_ok());
 
-            let db_restore = DB::open_default(restore_path).unwrap();
+            let db_restore = DB::open_default(&restore_path).unwrap();
             let value = db_restore.get(b"k1");
             assert_eq!(value.unwrap().unwrap(), b"v1111");
         }
     }
-    assert!(DB::destroy(&opts, restore_path).is_ok());
-    assert!(DB::destroy(&opts, path).is_ok());
 }

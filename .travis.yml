@@ -1,6 +1,5 @@
 language: rust
-dist: xenial
-sudo: false
+dist: bionic
 
 os:
 - linux
@@ -10,18 +9,9 @@ os:
 rust:
   - stable
 
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-      - llvm-toolchain-trusty
-    packages:
-      - g++
-      - llvm-dev
-      - libclang-dev
-      - clang
-
-cache: cargo
+jobs:
+  allow_failures:
+    - os: windows
 
 install:
   - rustup component add rustfmt

@@ -13,9 +13,10 @@
 // limitations under the License.
 //
 
-use ffi;
-use ffi_util::opt_bytes_to_ptr;
-use {ColumnFamily, ColumnFamilyDescriptor, Error, FlushOptions, Options, WriteOptions, DB};
+use crate::{
+    ffi, ffi_util::opt_bytes_to_ptr, ColumnFamily, ColumnFamilyDescriptor, Error, FlushOptions,
+    Options, WriteOptions, DB,
+};
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
@@ -192,7 +193,7 @@ impl DBWALIterator {
     /// called.
     pub fn status(&self) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_wal_iter_status(self.inner,));
+            ffi_try!(ffi::rocksdb_wal_iter_status(self.inner));
         }
         Ok(())
     }
@@ -284,16 +285,12 @@ impl<'a> DBRawIterator<'a> {
         }
     }
 
-    fn new_cf(
-        db: &DB,
-        cf_handle: &ColumnFamily,
-        readopts: &ReadOptions,
-    ) -> Result<DBRawIterator<'a>, Error> {
+    fn new_cf(db: &DB, cf_handle: &ColumnFamily, readopts: &ReadOptions) -> DBRawIterator<'a> {
         unsafe {
-            Ok(DBRawIterator {
+            DBRawIterator {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
                 db: PhantomData,
-            })
+            }
         }
     }
 
@@ -314,7 +311,7 @@ impl<'a> DBRawIterator<'a> {
     /// Performing a seek will discard the current status.
     pub fn status(&self) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_iter_get_error(self.inner,));
+            ffi_try!(ffi::rocksdb_iter_get_error(self.inner));
         }
         Ok(())
     }
@@ -547,14 +544,14 @@ impl<'a> DBIterator<'a> {
         cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator<'a>, Error> {
+    ) -> DBIterator<'a> {
         let mut rv = DBIterator {
-            raw: DBRawIterator::new_cf(db, cf_handle, readopts)?,
+            raw: DBRawIterator::new_cf(db, cf_handle, readopts),
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };
         rv.set_mode(mode);
-        Ok(rv)
+        rv
     }
 
     pub fn set_mode(&mut self, mode: IteratorMode) {
@@ -595,6 +592,10 @@ impl<'a> Iterator for DBIterator<'a> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
+        if !self.raw.valid() {
+            return None;
+        }
+
         // Initial call to next() after seeking should not move the iterator
         // or the first item will not be returned
         if !self.just_seeked {
@@ -609,8 +610,8 @@ impl<'a> Iterator for DBIterator<'a> {
         if self.raw.valid() {
             // .key() and .value() only ever return None if valid == false, which we've just cheked
             Some((
-                self.raw.key().unwrap().to_vec().into_boxed_slice(),
-                self.raw.value().unwrap().to_vec().into_boxed_slice(),
+                Box::from(self.raw.key().unwrap()),
+                Box::from(self.raw.value().unwrap()),
             ))
         } else {
             None
@@ -638,11 +639,7 @@ impl<'a> Snapshot<'a> {
         self.iterator_opt(mode, readopts)
     }
 
-    pub fn iterator_cf(
-        &self,
-        cf_handle: &ColumnFamily,
-        mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
         let readopts = ReadOptions::default();
         self.iterator_cf_opt(cf_handle, readopts, mode)
     }
@@ -657,7 +654,7 @@ impl<'a> Snapshot<'a> {
         cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator {
         readopts.set_snapshot(self);
         DBIterator::new_cf(self.db, cf_handle, &readopts, mode)
     }
@@ -669,7 +666,7 @@ impl<'a> Snapshot<'a> {
     }
 
     /// Opens a raw iterator over the data in this snapshot under the given column family, using the default read options.
-    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
@@ -685,7 +682,7 @@ impl<'a> Snapshot<'a> {
         &self,
         cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
+    ) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new_cf(self.db, cf_handle, &readopts)
     }
@@ -782,17 +779,7 @@ impl DB {
     {
         let cfs: Vec<_> = cfs.into_iter().collect();
 
-        let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening DB."
-                        .to_owned(),
-                ));
-            }
-        };
+        let cpath = to_cpath(&path)?;
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
@@ -806,7 +793,7 @@ impl DB {
 
         if cfs.is_empty() {
             unsafe {
-                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _,));
+                db = ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _));
             }
         } else {
             let mut cfs_v = cfs;
@@ -848,9 +835,7 @@ impl DB {
             for handle in &cfhandles {
                 if handle.is_null() {
                     return Err(Error::new(
-                        "Received null column family \
-                         handle from DB."
-                            .to_owned(),
+                        "Received null column family handle from DB.".to_owned(),
                     ));
                 }
             }
@@ -867,7 +852,7 @@ impl DB {
         Ok(DB {
             inner: db,
             cfs: cf_map,
-            path: path.to_path_buf(),
+            path: path.as_ref().to_path_buf(),
         })
     }
 
@@ -894,7 +879,7 @@ impl DB {
     pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = to_cpath(path)?;
         unsafe {
-            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr(),));
+            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -902,7 +887,7 @@ impl DB {
     pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
         let cpath = to_cpath(path)?;
         unsafe {
-            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr(),));
+            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
         }
         Ok(())
     }
@@ -911,22 +896,36 @@ impl DB {
         &self.path.as_path()
     }
 
-    /// Flush database memtable to SST files on disk (with options).
+    /// Flushes database memtables to SST files on the disk.
     pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner,));
+            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
         }
         Ok(())
     }
 
-    /// Flush database memtable to SST files on disk.
+    /// Flushes database memtables to SST files on the disk using default options.
     pub fn flush(&self) -> Result<(), Error> {
         self.flush_opt(&FlushOptions::default())
     }
 
+    /// Flushes database memtables to SST files on the disk for a given column family.
+    pub fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush_cf(self.inner, flushopts.inner, cf.inner));
+        }
+        Ok(())
+    }
+
+    /// Flushes database memtables to SST files on the disk for a given column family using default
+    /// options.
+    pub fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error> {
+        self.flush_cf_opt(cf, &FlushOptions::default())
+    }
+
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner,));
+            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
         }
         Ok(())
     }
@@ -993,11 +992,8 @@ impl DB {
     ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
                     .to_owned(),
             ));
         }
@@ -1036,11 +1032,8 @@ impl DB {
     ) -> Result<Option<DBPinnableSlice>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
-                "Unable to create RocksDB read options. \
-                 This is a fairly trivial call, and its \
-                 failure may be indicative of a \
-                 mis-compiled or mis-loaded RocksDB \
-                 library."
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
                     .to_owned(),
             ));
         }
@@ -1078,9 +1071,7 @@ impl DB {
             Ok(c) => c,
             Err(_) => {
                 return Err(Error::new(
-                    "Failed to convert path to CString \
-                     when opening rocksdb"
-                        .to_owned(),
+                    "Failed to convert path to CString when creating cf".to_owned(),
                 ));
             }
         };
@@ -1100,7 +1091,7 @@ impl DB {
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         if let Some(cf) = self.cfs.remove(name) {
             unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner,));
+                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
             }
             Ok(())
         } else {
@@ -1115,12 +1106,12 @@ impl DB {
         self.cfs.get(name)
     }
 
-    pub fn iterator<'a, 'b: 'a>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
+    pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, &readopts)
     }
 
-    pub fn iterator_opt<'a, 'b: 'a>(
+    pub fn iterator_opt<'a: 'b, 'b>(
         &'a self,
         mode: IteratorMode,
         readopts: &ReadOptions,
@@ -1130,25 +1121,25 @@ impl DB {
 
     /// Opens an iterator using the provided ReadOptions.
     /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
-    pub fn iterator_cf_opt(
-        &self,
+    pub fn iterator_cf_opt<'a: 'b, 'b>(
+        &'a self,
         cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator<'b> {
         DBIterator::new_cf(self, cf_handle, &readopts, mode)
     }
 
     /// Opens an iterator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
-    pub fn full_iterator<'a, 'b: 'a>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
+    pub fn full_iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
         DBIterator::new(self, &opts, mode)
     }
 
-    pub fn prefix_iterator<'a, 'b: 'a, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
+    pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
         DBIterator::new(
@@ -1158,30 +1149,30 @@ impl DB {
         )
     }
 
-    pub fn iterator_cf(
-        &self,
+    pub fn iterator_cf<'a: 'b, 'b>(
+        &'a self,
         cf_handle: &ColumnFamily,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator<'b> {
         let opts = ReadOptions::default();
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
-    pub fn full_iterator_cf(
-        &self,
+    pub fn full_iterator_cf<'a: 'b, 'b>(
+        &'a self,
         cf_handle: &ColumnFamily,
         mode: IteratorMode,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
         DBIterator::new_cf(self, cf_handle, &opts, mode)
     }
 
-    pub fn prefix_iterator_cf<P: AsRef<[u8]>>(
-        &self,
+    pub fn prefix_iterator_cf<'a: 'b, 'b, P: AsRef<[u8]>>(
+        &'a self,
         cf_handle: &ColumnFamily,
         prefix: P,
-    ) -> Result<DBIterator, Error> {
+    ) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
         DBIterator::new_cf(
@@ -1193,28 +1184,28 @@ impl DB {
     }
 
     /// Opens a raw iterator over the database, using the default read options
-    pub fn raw_iterator(&self) -> DBRawIterator {
+    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
         DBRawIterator::new(self, &opts)
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
-    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> Result<DBRawIterator, Error> {
+    pub fn raw_iterator_cf<'a: 'b, 'b>(&'a self, cf_handle: &ColumnFamily) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
         DBRawIterator::new_cf(self, cf_handle, &opts)
     }
 
     /// Opens a raw iterator over the database, using the given read options
-    pub fn raw_iterator_opt(&self, readopts: &ReadOptions) -> DBRawIterator {
+    pub fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: &ReadOptions) -> DBRawIterator<'b> {
         DBRawIterator::new(self, readopts)
     }
 
     /// Opens a raw iterator over the given column family, using the given read options
-    pub fn raw_iterator_cf_opt(
-        &self,
+    pub fn raw_iterator_cf_opt<'a: 'b, 'b>(
+        &'a self,
         cf_handle: &ColumnFamily,
         readopts: &ReadOptions,
-    ) -> Result<DBRawIterator, Error> {
+    ) -> DBRawIterator<'b> {
         DBRawIterator::new_cf(self, cf_handle, readopts)
     }
 
@@ -1601,7 +1592,7 @@ impl DB {
             // for creating and destroying it; fortunately we can pass a nullptr
             // here to get the default behavior
             let opts: *const ffi::rocksdb_wal_readoptions_t = ptr::null();
-            let iter = ffi_try!(ffi::rocksdb_get_updates_since(self.inner, seq_number, opts,));
+            let iter = ffi_try!(ffi::rocksdb_get_updates_since(self.inner, seq_number, opts));
             Ok(DBWALIterator { inner: iter })
         }
     }
@@ -1684,7 +1675,7 @@ impl WriteBatch {
     }
 
     /// Insert a value into the database under the given key.
-    pub fn put<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
+    pub fn put<K, V>(&mut self, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1700,11 +1691,10 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn put_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn put_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1721,11 +1711,10 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn merge<K, V>(&mut self, key: K, value: V) -> Result<(), Error>
+    pub fn merge<K, V>(&mut self, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1741,11 +1730,10 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn merge_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn merge_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1762,14 +1750,11 @@ impl WriteBatch {
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    /// Remove the database entry for key.
-    ///
-    /// Returns an error if the key was not found.
-    pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) -> Result<(), Error> {
+    /// Removes the database entry for key. Does nothing if the key was not found.
+    pub fn delete<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
 
         unsafe {
@@ -1778,11 +1763,10 @@ impl WriteBatch {
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
-            Ok(())
         }
     }
 
-    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, key: K) {
         let key = key.as_ref();
 
         unsafe {
@@ -1792,7 +1776,6 @@ impl WriteBatch {
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
-            Ok(())
         }
     }
 
@@ -1801,7 +1784,7 @@ impl WriteBatch {
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
-    pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) -> Result<(), Error> {
+    pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
@@ -1812,7 +1795,6 @@ impl WriteBatch {
                 end_key.as_ptr() as *const c_char,
                 end_key.len() as size_t,
             );
-            Ok(())
         }
     }
 
@@ -1821,12 +1803,7 @@ impl WriteBatch {
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
-    pub fn delete_range_cf<K: AsRef<[u8]>>(
-        &mut self,
-        cf: &ColumnFamily,
-        from: K,
-        to: K,
-    ) -> Result<(), Error> {
+    pub fn delete_range_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
@@ -1838,16 +1815,14 @@ impl WriteBatch {
                 end_key.as_ptr() as *const c_char,
                 end_key.len() as size_t,
             );
-            Ok(())
         }
     }
 
     /// Clear all updates buffered in this batch.
-    pub fn clear(&mut self) -> Result<(), Error> {
+    pub fn clear(&mut self) {
         unsafe {
             ffi::rocksdb_writebatch_clear(self.inner);
         }
-        Ok(())
     }
 }
 
@@ -1991,16 +1966,17 @@ unsafe impl Sync for ReadOptions {}
 fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
         Ok(c) => Ok(c),
-        Err(_) => Err(Error::new(
-            "Failed to convert path to CString when opening DB.".to_owned(),
-        )),
+        Err(e) => Err(Error::new(format!(
+            "Failed to convert path to CString: {}",
+            e,
+        ))),
     }
 }
 
 /// Wrapper around RocksDB PinnableSlice struct.
 ///
 /// With a pinnable slice, we can directly leverage in-memory data within
-/// RocksDB toa void unnecessary memory copies. The struct here wraps the
+/// RocksDB to avoid unnecessary memory copies. The struct here wraps the
 /// returned raw pointer and ensures proper finalization work.
 pub struct DBPinnableSlice<'a> {
     ptr: *mut ffi::rocksdb_pinnableslice_t,
@@ -2172,6 +2148,21 @@ fn iterator_test() {
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
+fn iterator_test_past_end() {
+    let path = "_rust_rocksdb_iteratortest_past_end";
+    {
+        let db = DB::open_default(path).unwrap();
+        db.put(b"k1", b"v1111").unwrap();
+        let mut iter = db.iterator(IteratorMode::Start);
+        assert!(iter.next().is_some());
+        assert!(iter.next().is_none());
+        assert!(iter.next().is_none());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
 }
 
 #[test]
