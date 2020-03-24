@@ -1,39 +1,40 @@
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use tempfile;
 
 use rocksdb::{Options, DB};
 
-/// Ensures that DB::Destroy is called for this database when DBPath is dropped.
+/// Temporary database path which calls DB::Destroy when DBPath is dropped.
 pub struct DBPath {
+    #[allow(dead_code)]
+    dir: tempfile::TempDir, // kept for cleaning up during drop
     path: PathBuf,
 }
 
 impl DBPath {
-    /// Suffixes the given `prefix` with a timestamp to ensure that subsequent test runs don't reuse
-    /// an old database in case of panics prior to Drop being called.
+    /// Produces a fresh (non-existent) temporary path which will be DB::destroy'ed automatically.
     pub fn new(prefix: &str) -> DBPath {
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let path = format!(
-            "{}.{}.{}",
-            prefix,
-            current_time.as_secs(),
-            current_time.subsec_nanos()
-        );
+        let dir = tempfile::Builder::new()
+            .prefix(prefix)
+            .tempdir()
+            .expect("Failed to create temporary path for db.");
+        let path = dir.path().join("db");
 
-        DBPath {
-            path: PathBuf::from(path),
-        }
+        DBPath { dir, path }
     }
 }
 
 impl Drop for DBPath {
     fn drop(&mut self) {
         let opts = Options::default();
-        DB::destroy(&opts, &self.path).unwrap();
+        DB::destroy(&opts, &self.path).expect("Failed to destroy temporary DB");
     }
 }
 
-impl AsRef<Path> for DBPath {
+/// Convert a DBPath ref to a Path ref.
+/// We don't implement this for DBPath values because we want them to
+/// exist until the end of their scope, not get passed in to functions and
+/// dropped early.
+impl AsRef<Path> for &DBPath {
     fn as_ref(&self) -> &Path {
         &self.path
     }

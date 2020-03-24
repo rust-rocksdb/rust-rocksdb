@@ -69,7 +69,7 @@ fn test_block_based_options() {
         let _db = DB::open(&opts, &n).unwrap();
 
         // read the setting from the LOG file
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", n.as_ref().to_str().unwrap()))
+        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
             .expect("rocksdb creates a LOG file");
         let mut settings = String::new();
         rocksdb_log.read_to_string(&mut settings).unwrap();
