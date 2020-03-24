@@ -174,6 +174,7 @@ fn build_rocksdb() {
 
 fn build_snappy() {
     let target = env::var("TARGET").unwrap();
+    let endianness = env::var("CARGO_CFG_TARGET_ENDIAN").unwrap();
 
     let mut config = cc::Build::new();
     config.include("snappy/");
@@ -185,6 +186,10 @@ fn build_snappy() {
         config.flag("-EHsc");
     } else {
         config.flag("-std=c++11");
+    }
+
+    if endianness == "big" {
+        config.define("WORDS_BIGENDIAN", Some("1"));
     }
 
     config.file("snappy/snappy.cc");
