@@ -162,6 +162,7 @@ pub enum BlockBasedIndexType {
 }
 
 /// Used by BlockBasedOptions::set_data_block_index_type.
+#[repr(C)]
 pub enum DataBlockIndexType {
     /// Use binary search when performing point lookup for keys in data blocks.
     /// This is the default.
