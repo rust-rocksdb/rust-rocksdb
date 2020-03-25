@@ -171,7 +171,7 @@ pub enum DataBlockIndexType {
     /// Appends a compact hash table to the end of the data block for efficient indexing. Backwards
     /// compatible with databases created without this feature. Once turned on, existing data will
     /// be gradually converted to the hash index format.
-    BinaryAndHash,
+    BinaryAndHash = 1,
 }
 
 /// Defines the underlying memtable implementation.
