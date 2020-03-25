@@ -166,7 +166,7 @@ pub enum BlockBasedIndexType {
 pub enum DataBlockIndexType {
     /// Use binary search when performing point lookup for keys in data blocks.
     /// This is the default.
-    BinarySearch,
+    BinarySearch = 0,
 
     /// Appends a compact hash table to the end of the data block for efficient indexing. Backwards
     /// compatible with databases created without this feature. Once turned on, existing data will
