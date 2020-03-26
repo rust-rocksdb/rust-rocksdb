@@ -26,8 +26,9 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
-    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DataBlockIndexType, DBCompressionType,
-    DBRecoveryMode, FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions, WriteOptions,
+    BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType, DBRecoveryMode,
+    DataBlockIndexType, FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions,
+    WriteOptions,
 };
 
 pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -206,12 +207,7 @@ impl BlockBasedOptions {
     /// ```
     pub fn set_data_block_index_type(&mut self, index_type: DataBlockIndexType) {
         let index_t = index_type as i32;
-        unsafe {
-            ffi::rocksdb_block_based_options_set_data_block_index_type(
-                self.inner,
-                index_t,
-            )
-        }
+        unsafe { ffi::rocksdb_block_based_options_set_data_block_index_type(self.inner, index_t) }
     }
 
     /// Set the data block hash index utilization ratio.
@@ -222,12 +218,7 @@ impl BlockBasedOptions {
     ///
     /// Default: 0.75
     pub fn set_data_block_hash_ratio(&mut self, ratio: f64) {
-        unsafe {
-            ffi::rocksdb_block_based_options_set_data_block_hash_ratio(
-                self.inner,
-                ratio,
-            )
-        }
+        unsafe { ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio) }
     }
 }
 
