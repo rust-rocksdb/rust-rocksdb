@@ -25,7 +25,7 @@ bzip2 = ["librocksdb-sys/bzip2"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "6.7.0-alpha.1" }
+librocksdb-sys = { path = "librocksdb-sys", version = "6.7.3" }
 
 [dev-dependencies]
 trybuild = "1.0.21"
