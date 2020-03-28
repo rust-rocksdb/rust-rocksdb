@@ -1495,6 +1495,9 @@ impl Options {
     /// This option applies to both manual flushes (`db.flush()`) and automatic
     /// background flushes caused when memtables are filled.
     ///
+    /// Note that this is only useful when the WAL is disabled. When using the
+    /// WAL, writes are always consistent across column families.
+    ///
     /// Default: false
     ///
     /// # Example
