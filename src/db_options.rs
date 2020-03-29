@@ -192,12 +192,27 @@ impl BlockBasedOptions {
         }
     }
 
+    pub fn set_metadata_block_size(&mut self, size: usize) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_metadata_block_size(self.inner, size as u64);
+        }
+    }
+
     pub fn set_lru_cache(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
             // Since cache is wrapped in shared_ptr, we don't need to
             // call rocksdb_cache_destroy explicitly.
             ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
+        }
+    }
+
+    pub fn set_lru_cache_compressed(&mut self, size: size_t) {
+        let cache = new_cache(size);
+        unsafe {
+            // Since cache is wrapped in shared_ptr, we don't need to
+            // call rocksdb_cache_destroy explicitly.
+            ffi::rocksdb_block_based_options_set_block_cache_compressed(self.inner, cache);
         }
     }
 
@@ -252,6 +267,22 @@ impl BlockBasedOptions {
     pub fn set_pin_l0_filter_and_index_blocks_in_cache(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
+                self.inner,
+                v as c_uchar,
+            );
+        }
+    }
+
+    /// If cache_index_and_filter_blocks is true and the below is true, then
+    /// the top-level index of partitioned filter and index blocks are stored in
+    /// the cache, but a reference is held in the "table reader" object so the
+    /// blocks are pinned and only evicted from cache when the table reader is
+    /// freed. This is not limited to l0 in LSM tree.
+    ///
+    /// Default: false.
+    pub fn set_pin_top_level_index_and_filter(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_pin_top_level_index_and_filter(
                 self.inner,
                 v as c_uchar,
             );
@@ -343,6 +374,31 @@ impl Options {
     pub fn optimize_level_style_compaction(&mut self, memtable_memory_budget: usize) {
         unsafe {
             ffi::rocksdb_options_optimize_level_style_compaction(
+                self.inner,
+                memtable_memory_budget as u64,
+            );
+        }
+    }
+
+    /// Optimize universal style compaction.
+    ///
+    /// Default values for some parameters in `Options` are not optimized for heavy
+    /// workloads and big datasets, which means you might observe write stalls under
+    /// some conditions.
+    ///
+    /// This can be used as one of the starting points for tuning RocksDB options in
+    /// such cases.
+    ///
+    /// Internally, it sets `write_buffer_size`, `min_write_buffer_number_to_merge`,
+    /// `max_write_buffer_number`, `level0_file_num_compaction_trigger`,
+    /// `target_file_size_base`, `max_bytes_for_level_base`, so it can override if those
+    /// parameters were set before.
+    ///
+    /// It sets buffer sizes so that memory consumption would be constrained by
+    /// `memtable_memory_budget`.
+    pub fn optimize_universal_style_compaction(&mut self, memtable_memory_budget: usize) {
+        unsafe {
+            ffi::rocksdb_options_optimize_universal_style_compaction(
                 self.inner,
                 memtable_memory_budget as u64,
             );
@@ -1209,6 +1265,39 @@ impl Options {
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe { ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int) }
     }
+
+    /// SetMemtableHugePageSize sets the page size for huge page for
+    /// arena used by the memtable.
+    /// If <=0, it won't allocate from huge page but from malloc.
+    /// Users are responsible to reserve huge pages for it to be allocated. For
+    /// example:
+    ///      sysctl -w vm.nr_hugepages=20
+    /// See linux doc Documentation/vm/hugetlbpage.txt
+    /// If there isn't enough free huge page available, it will fall back to
+    /// malloc.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_memtable_huge_page_size(&mut self, size: size_t) {
+        unsafe { ffi::rocksdb_options_set_memtable_huge_page_size(self.inner, size) }
+    }
+
+    /// By default, a single write thread queue is maintained. The thread gets
+    /// to the head of the queue becomes write batch group leader and responsible
+    /// for writing to WAL and memtable for the batch group.
+    ///
+    /// If enable_pipelined_write is true, separate write thread queue is
+    /// maintained for WAL write and memtable write. A write thread first enter WAL
+    /// writer queue and then memtable writer queue. Pending thread on the WAL
+    /// writer queue thus only have to wait for previous writers to finish their
+    /// WAL writing but not the memtable writing. Enabling the feature may improve
+    /// write throughput and reduce latency of the prepare phase of two-phase
+    /// commit.
+    ///
+    /// Default: false
+    pub fn set_enable_pipelined_write(&mut self, value: bool) {
+        unsafe { ffi::rocksdb_options_set_enable_pipelined_write(self.inner, value as c_uchar) }
+    }
+
 
     /// Defines the underlying memtable implementation.
     /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
