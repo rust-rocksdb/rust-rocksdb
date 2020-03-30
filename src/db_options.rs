@@ -187,9 +187,9 @@ impl Drop for ReadOptions {
 
 impl BlockBasedOptions {
     /// Approximate size of user data packed per block.  Note that the
-    /// block size specified here corresponds to uncompressed data.  The
+    /// block size specified here corresponds to uncompressed data. The
     /// actual size of the unit read from disk may be smaller if
-    /// compression is enabled.  This parameter can be changed dynamically.
+    /// compression is enabled. This parameter can be changed dynamically.
     pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             ffi::rocksdb_block_based_options_set_block_size(self.inner, size);
@@ -211,6 +211,7 @@ impl BlockBasedOptions {
 
     /// Note: currently this option requires kTwoLevelIndexSearch to be set as
     /// well.
+    /// 
     /// Use partitioned full filters for each SST file. This option is
     /// incompatible with block-based filters.
     pub fn set_partition_filters(&mut self, size: bool) {
