@@ -1298,7 +1298,6 @@ impl Options {
         unsafe { ffi::rocksdb_options_set_enable_pipelined_write(self.inner, value as c_uchar) }
     }
 
-
     /// Defines the underlying memtable implementation.
     /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
     /// Defaults to using a skiplist.
