@@ -186,18 +186,41 @@ impl Drop for ReadOptions {
 }
 
 impl BlockBasedOptions {
+    /// Approximate size of user data packed per block.  Note that the
+    /// block size specified here corresponds to uncompressed data.  The
+    /// actual size of the unit read from disk may be smaller if
+    /// compression is enabled.  This parameter can be changed dynamically.
     pub fn set_block_size(&mut self, size: usize) {
         unsafe {
             ffi::rocksdb_block_based_options_set_block_size(self.inner, size);
         }
     }
 
+    /// Block size for partitioned metadata. Currently applied to indexes when
+    /// kTwoLevelIndexSearch is used and to filters when partition_filters is used.
+    /// Note: Since in the current implementation the filters and index partitions
+    /// are aligned, an index/filter block is created when either index or filter
+    /// block size reaches the specified limit.
+    /// Note: this limit is currently applied to only index blocks; a filter
+    /// partition is cut right after an index block is cut
     pub fn set_metadata_block_size(&mut self, size: usize) {
         unsafe {
             ffi::rocksdb_block_based_options_set_metadata_block_size(self.inner, size as u64);
         }
     }
 
+    /// Note: currently this option requires kTwoLevelIndexSearch to be set as
+    /// well.
+    /// Use partitioned full filters for each SST file. This option is
+    /// incompatible with block-based filters.
+    pub fn set_partition_filters(&mut self, size: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_partition_filters(self.inner, size as c_uchar);
+        }
+    }
+
+    /// When provided: use the specified cache for blocks.
+    /// Otherwise rocksdb will automatically create and use an 8MB internal cache.
     pub fn set_lru_cache(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
@@ -207,6 +230,10 @@ impl BlockBasedOptions {
         }
     }
 
+    /// When configured: use the specified cache for compressed blocks.
+    /// Otherwise rocksdb will not use a compressed block cache.
+    /// Note: though it looks similar to `block_cache`, RocksDB doesn't put the
+    ///       same type of object there.
     pub fn set_lru_cache_compressed(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
