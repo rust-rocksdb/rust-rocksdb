@@ -234,7 +234,7 @@ impl BlockBasedOptions {
     /// When configured: use the specified cache for compressed blocks.
     /// Otherwise rocksdb will not use a compressed block cache.
     /// Note: though it looks similar to `block_cache`, RocksDB doesn't put the
-    ///       same type of object there.
+    /// same type of object there.
     pub fn set_lru_cache_compressed(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
