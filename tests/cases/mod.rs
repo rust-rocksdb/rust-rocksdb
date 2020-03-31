@@ -8,6 +8,7 @@ mod test_encryption;
 mod test_event_listener;
 mod test_ingest_external_file;
 mod test_iterator;
+mod test_logger;
 mod test_metadata;
 mod test_multithreaded;
 mod test_prefix_extractor;

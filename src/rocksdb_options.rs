@@ -28,6 +28,7 @@ use crocksdb_ffi::{
 };
 use event_listener::{new_event_listener, EventListener};
 use libc::{self, c_double, c_int, c_uchar, c_void, size_t};
+use logger::{new_logger, Logger};
 use merge_operator::MergeFn;
 use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOperatorCallback};
 use rocksdb::Env;
@@ -1023,6 +1024,14 @@ impl DBOptions {
         }
 
         Ok(())
+    }
+
+    // Set the logger to options.
+    pub fn set_info_log<L: Logger>(&self, l: L) {
+        let logger = new_logger(l);
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_info_log(self.inner, logger);
+        }
     }
 
     pub fn enable_pipelined_write(&self, v: bool) {

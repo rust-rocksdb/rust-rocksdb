@@ -91,6 +91,7 @@ typedef struct crocksdb_filterpolicy_t    crocksdb_filterpolicy_t;
 typedef struct crocksdb_flushoptions_t    crocksdb_flushoptions_t;
 typedef struct crocksdb_iterator_t        crocksdb_iterator_t;
 typedef struct crocksdb_logger_t          crocksdb_logger_t;
+typedef struct crocksdb_logger_impl_t crocksdb_logger_impl_t;
 typedef struct crocksdb_mergeoperator_t   crocksdb_mergeoperator_t;
 typedef struct crocksdb_options_t         crocksdb_options_t;
 typedef struct crocksdb_column_family_descriptor
@@ -191,7 +192,8 @@ typedef enum crocksdb_encryption_method_t {
 } crocksdb_encryption_method_t;
 
 typedef struct crocksdb_file_encryption_info_t crocksdb_file_encryption_info_t;
-typedef struct crocksdb_encryption_key_manager_t crocksdb_encryption_key_manager_t;
+typedef struct crocksdb_encryption_key_manager_t
+    crocksdb_encryption_key_manager_t;
 #endif
 
 /* DB operations */
@@ -807,6 +809,8 @@ typedef void (*on_external_file_ingested_cb)(
 typedef void (*on_background_error_cb)(void*, crocksdb_backgrounderrorreason_t,
                                        crocksdb_status_ptr_t*);
 typedef void (*on_stall_conditions_changed_cb)(void*, const crocksdb_writestallinfo_t*);
+typedef void (*crocksdb_logger_logv_cb)(void*, int log_level, const char*,
+                                        va_list);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_eventlistener_t*
 crocksdb_eventlistener_create(
@@ -892,6 +896,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_paranoid_checks(
     crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_env(crocksdb_options_t*,
                                                         crocksdb_env_t*);
+extern C_ROCKSDB_LIBRARY_API crocksdb_logger_t* crocksdb_logger_create(
+    void* rep, void (*destructor_)(void*), crocksdb_logger_logv_cb logv);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_info_log(crocksdb_options_t*,
                                                              crocksdb_logger_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_info_log_level(
@@ -1071,7 +1077,7 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_enable_multi_batch_write(crocksdb_options_t *opt,
                                              unsigned char v);
 extern C_ROCKSDB_LIBRARY_API unsigned char
-crocksdb_options_is_enable_multi_batch_write(crocksdb_options_t *opt);
+crocksdb_options_is_enable_multi_batch_write(crocksdb_options_t* opt);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_unordered_write(crocksdb_options_t*, unsigned char);
 extern C_ROCKSDB_LIBRARY_API void
@@ -1460,13 +1466,15 @@ crocksdb_file_encryption_info_create();
 extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_destroy(
     crocksdb_file_encryption_info_t* file_info);
 extern C_ROCKSDB_LIBRARY_API crocksdb_encryption_method_t
-crocksdb_file_encryption_info_method(crocksdb_file_encryption_info_t* file_info);
+crocksdb_file_encryption_info_method(
+    crocksdb_file_encryption_info_t* file_info);
 extern C_ROCKSDB_LIBRARY_API const char* crocksdb_file_encryption_info_key(
     crocksdb_file_encryption_info_t* file_info, size_t* keylen);
 extern C_ROCKSDB_LIBRARY_API const char* crocksdb_file_encryption_info_iv(
     crocksdb_file_encryption_info_t* file_info, size_t* ivlen);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_set_method(
-    crocksdb_file_encryption_info_t* file_info, crocksdb_encryption_method_t method);
+    crocksdb_file_encryption_info_t* file_info,
+    crocksdb_encryption_method_t method);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_set_key(
     crocksdb_file_encryption_info_t* file_info, const char* key, size_t keylen);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_file_encryption_info_set_iv(
@@ -1514,8 +1522,8 @@ crocksdb_encryption_key_manager_rename_file(
     const char* dst_fname);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_env_t*
-crocksdb_key_managed_encrypted_env_create(
-    crocksdb_env_t*, crocksdb_encryption_key_manager_t*);
+crocksdb_key_managed_encrypted_env_create(crocksdb_env_t*,
+                                          crocksdb_encryption_key_manager_t*);
 #endif
 
 /* SstFile */
@@ -1725,6 +1733,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_delete_files_in_ranges_cf(
 // to free memory that was malloc()ed
 extern C_ROCKSDB_LIBRARY_API void crocksdb_free(void* ptr);
 
+extern C_ROCKSDB_LIBRARY_API crocksdb_logger_t* crocksdb_create_env_logger(
+    const char* fname, crocksdb_env_t* env);
 extern C_ROCKSDB_LIBRARY_API crocksdb_logger_t *
 crocksdb_create_log_from_options(const char *path, crocksdb_options_t *opts,
                                  char **errptr);

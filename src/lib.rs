@@ -16,6 +16,7 @@
 // FIXME: we should remove this line after we add safe doc to all the unsafe functions
 // see: https://rust-lang.github.io/rust-clippy/master/index.html#missing_safety_doc
 #![allow(clippy::missing_safety_doc)]
+#![feature(c_variadic)]
 
 extern crate core;
 extern crate libc;
@@ -40,6 +41,7 @@ pub use librocksdb_sys::{
     DBEntryType, DBInfoLogLevel, DBRateLimiterMode, DBRecoveryMode, DBStatisticsHistogramType,
     DBStatisticsTickerType, DBStatusPtr, DBTitanDBBlobRunMode, IndexType, WriteStallCondition,
 };
+pub use logger::Logger;
 pub use merge_operator::MergeOperands;
 pub use metadata::{ColumnFamilyMetaData, LevelMetaData, SstFileMetaData};
 pub use perf_context::{get_perf_level, set_perf_level, IOStatsContext, PerfContext, PerfLevel};
@@ -72,6 +74,7 @@ pub mod comparator;
 #[cfg(feature = "encryption")]
 mod encryption;
 mod event_listener;
+pub mod logger;
 pub mod merge_operator;
 mod metadata;
 mod perf_context;

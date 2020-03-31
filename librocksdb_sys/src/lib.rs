@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![feature(c_variadic)]
 
 extern crate bzip2_sys;
 extern crate libc;
@@ -18,6 +19,7 @@ extern crate libc;
 extern crate tempfile;
 
 use std::ffi::CStr;
+use std::ffi::VaList;
 use std::fmt;
 
 use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t};
@@ -1710,13 +1712,24 @@ extern "C" {
         name: extern "C" fn(*mut c_void) -> *const c_char,
     ) -> *mut DBSliceTransform;
     pub fn crocksdb_slicetransform_destroy(transform: *mut DBSliceTransform);
+    pub fn crocksdb_logger_create(
+        state: *mut c_void,
+        destructor: extern "C" fn(*mut c_void),
+        logv: extern "C" fn(
+            ctx: *mut c_void,
+            log_level: DBInfoLogLevel,
+            format: *const c_char,
+            ap: VaList,
+        ),
+    ) -> *mut DBLogger;
+    pub fn crocksdb_create_env_logger(fname: *const libc::c_char, env: *mut DBEnv)
+        -> *mut DBLogger;
     pub fn crocksdb_create_log_from_options(
         path: *const c_char,
         options: *mut Options,
         err: *mut *mut c_char,
     ) -> *mut DBLogger;
     pub fn crocksdb_log_destroy(logger: *mut DBLogger);
-
     pub fn crocksdb_get_pinned(
         db: *mut DBInstance,
         readopts: *const DBReadOptions,
