@@ -111,10 +111,13 @@ fn link_cpp(build: &mut Build) {
         return;
     }
     // remove lib prefix and .a postfix.
-    println!(
-        "cargo:rustc-link-lib=static={}",
-        &stdlib[3..stdlib.len() - 2]
-    );
+    let libname = &stdlib[3..stdlib.len() - 2];
+    // optional static linking
+    if cfg!(feature = "static_libcpp") {
+        println!("cargo:rustc-link-lib=static={}", &libname);
+    } else {
+        println!("cargo:rustc-link-lib=dylib={}", &libname);
+    }
     println!(
         "cargo:rustc-link-search=native={}",
         path.parent().unwrap().display()

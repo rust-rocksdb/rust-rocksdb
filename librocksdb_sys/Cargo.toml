@@ -18,6 +18,7 @@ tempfile = "3.1"
 
 [features]
 default = []
+static_libcpp = []
 encryption = ["openssl-sys"]
 jemalloc = ["jemalloc-sys"]
 # portable doesn't require static link, though it's meaningless
