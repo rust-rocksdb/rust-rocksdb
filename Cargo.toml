@@ -20,6 +20,7 @@ encryption = ["librocksdb_sys/encryption"]
 jemalloc = ["librocksdb_sys/jemalloc"]
 portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
+static_libcpp = ["librocksdb_sys/static_libcpp"]
 valgrind = []
 
 [dependencies]

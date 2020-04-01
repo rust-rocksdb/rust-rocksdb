@@ -16,9 +16,6 @@ matrix:
     osx_image: xcode11.3
     rust: stable
   - os: linux
-    arch: arm64
-    rust: stable
-  - os: linux
     rust: nightly
     env: FEATURES="encryption,jemalloc,portable,sse"
 
