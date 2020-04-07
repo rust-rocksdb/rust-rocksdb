@@ -13,8 +13,10 @@
 // limitations under the License.
 //
 
+use crate::Error;
 use libc::{self, c_char, c_void};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
+use std::path::Path;
 use std::ptr;
 
 pub fn error_message(ptr: *const c_char) -> String {
@@ -30,6 +32,16 @@ pub fn opt_bytes_to_ptr<T: AsRef<[u8]>>(opt: Option<T>) -> *const c_char {
     match opt {
         Some(v) => v.as_ref().as_ptr() as *const c_char,
         None => ptr::null(),
+    }
+}
+
+pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
+    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
+        Ok(c) => Ok(c),
+        Err(e) => Err(Error::new(format!(
+            "Failed to convert path to CString: {}",
+            e,
+        ))),
     }
 }
 
