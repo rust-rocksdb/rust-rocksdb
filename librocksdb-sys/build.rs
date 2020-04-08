@@ -189,7 +189,7 @@ fn build_snappy() {
     }
 
     if endianness == "big" {
-        config.define("WORDS_BIGENDIAN", Some("1"));
+        config.define("SNAPPY_IS_BIG_ENDIAN", Some("1"));
     }
 
     config.file("snappy/snappy.cc");
