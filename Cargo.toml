@@ -5,6 +5,7 @@ version = "0.14.0-alpha.1"
 edition = "2018"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
+categories = [ "database" ]
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
 homepage = "https://github.com/rust-rocksdb/rust-rocksdb"
 exclude = [
@@ -26,7 +27,7 @@ bzip2 = ["librocksdb-sys/bzip2"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "6.7.0-alpha.1" }
+librocksdb-sys = { path = "librocksdb-sys", version = "6.7.3" }
 
 [dev-dependencies]
 trybuild = "1.0.21"
