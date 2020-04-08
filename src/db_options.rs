@@ -130,6 +130,7 @@ pub struct BlockBasedOptions {
 
 pub struct ReadOptions {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    iterate_upper_bound: Option<Vec<u8>>,
 }
 
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
@@ -1635,21 +1636,22 @@ impl ReadOptions {
         }
     }
 
-    /// Set the upper bound for an iterator.
+    /// Sets the upper bound for an iterator.
     /// The upper bound itself is not included on the iteration result.
-    ///
-    /// # Safety
-    ///
-    /// This function will store a clone of key and will give a raw pointer of it to the
-    /// underlying C++ API, therefore, when given to any other [`DB`] method you must ensure
-    /// that this [`ReadOptions`] value does not leave the scope too early (e.g. `DB::iterator_cf_opt`).
-    pub unsafe fn set_iterate_upper_bound<K: AsRef<[u8]>>(&mut self, key: K) {
-        let key = key.as_ref();
-        ffi::rocksdb_readoptions_set_iterate_upper_bound(
-            self.inner,
-            key.as_ptr() as *const c_char,
-            key.len() as size_t,
-        );
+    pub fn set_iterate_upper_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
+        self.iterate_upper_bound = Some(key.into());
+        let upper_bound = self
+            .iterate_upper_bound
+            .as_ref()
+            .expect("iterate_upper_bound must exist.");
+
+        unsafe {
+            ffi::rocksdb_readoptions_set_iterate_upper_bound(
+                self.inner,
+                upper_bound.as_ptr() as *const c_char,
+                upper_bound.len() as size_t,
+            );
+        }
     }
 
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
@@ -1702,6 +1704,7 @@ impl Default for ReadOptions {
         unsafe {
             ReadOptions {
                 inner: ffi::rocksdb_readoptions_create(),
+                iterate_upper_bound: None,
             }
         }
     }

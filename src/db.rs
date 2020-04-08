@@ -416,15 +416,15 @@ impl DB {
 
     pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let readopts = ReadOptions::default();
-        self.iterator_opt(mode, &readopts)
+        self.iterator_opt(mode, readopts)
     }
 
     pub fn iterator_opt<'a: 'b, 'b>(
         &'a self,
         mode: IteratorMode,
-        readopts: &ReadOptions,
+        readopts: ReadOptions,
     ) -> DBIterator<'b> {
-        DBIterator::new(self, &readopts, mode)
+        DBIterator::new(self, readopts, mode)
     }
 
     /// Opens an iterator using the provided ReadOptions.
@@ -432,10 +432,10 @@ impl DB {
     pub fn iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &ColumnFamily,
-        readopts: &ReadOptions,
+        readopts: ReadOptions,
         mode: IteratorMode,
     ) -> DBIterator<'b> {
-        DBIterator::new_cf(self, cf_handle, &readopts, mode)
+        DBIterator::new_cf(self, cf_handle, readopts, mode)
     }
 
     /// Opens an iterator with `set_total_order_seek` enabled.
@@ -444,7 +444,7 @@ impl DB {
     pub fn full_iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
-        DBIterator::new(self, &opts, mode)
+        DBIterator::new(self, opts, mode)
     }
 
     pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
@@ -452,7 +452,7 @@ impl DB {
         opts.set_prefix_same_as_start(true);
         DBIterator::new(
             self,
-            &opts,
+            opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
@@ -463,7 +463,7 @@ impl DB {
         mode: IteratorMode,
     ) -> DBIterator<'b> {
         let opts = ReadOptions::default();
-        DBIterator::new_cf(self, cf_handle, &opts, mode)
+        DBIterator::new_cf(self, cf_handle, opts, mode)
     }
 
     pub fn full_iterator_cf<'a: 'b, 'b>(
@@ -473,7 +473,7 @@ impl DB {
     ) -> DBIterator<'b> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
-        DBIterator::new_cf(self, cf_handle, &opts, mode)
+        DBIterator::new_cf(self, cf_handle, opts, mode)
     }
 
     pub fn prefix_iterator_cf<'a: 'b, 'b, P: AsRef<[u8]>>(
@@ -486,7 +486,7 @@ impl DB {
         DBIterator::new_cf(
             self,
             cf_handle,
-            &opts,
+            opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
@@ -494,17 +494,17 @@ impl DB {
     /// Opens a raw iterator over the database, using the default read options
     pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
-        DBRawIterator::new(self, &opts)
+        DBRawIterator::new(self, opts)
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
     pub fn raw_iterator_cf<'a: 'b, 'b>(&'a self, cf_handle: &ColumnFamily) -> DBRawIterator<'b> {
         let opts = ReadOptions::default();
-        DBRawIterator::new_cf(self, cf_handle, &opts)
+        DBRawIterator::new_cf(self, cf_handle, opts)
     }
 
     /// Opens a raw iterator over the database, using the given read options
-    pub fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: &ReadOptions) -> DBRawIterator<'b> {
+    pub fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: ReadOptions) -> DBRawIterator<'b> {
         DBRawIterator::new(self, readopts)
     }
 
@@ -512,7 +512,7 @@ impl DB {
     pub fn raw_iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &ColumnFamily,
-        readopts: &ReadOptions,
+        readopts: ReadOptions,
     ) -> DBRawIterator<'b> {
         DBRawIterator::new_cf(self, cf_handle, readopts)
     }
@@ -1057,6 +1057,31 @@ fn iterator_test_past_end() {
 }
 
 #[test]
+fn iterator_test_upper_bound() {
+    let path = "_rust_rocksdb_iteratortest_upper_bound";
+    {
+        let db = DB::open_default(path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        let mut readopts = ReadOptions::default();
+        readopts.set_iterate_upper_bound(b"k4".to_vec());
+
+        let iter = db.iterator_opt(IteratorMode::Start, readopts);
+        let expected: Vec<_> = vec![(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")]
+            .into_iter()
+            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
+            .collect();
+        assert_eq!(expected, iter.collect::<Vec<_>>());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
+}
+
+#[test]
 fn iterator_test_tailing() {
     let path = "_rust_rocksdb_iteratortest_tailing";
     {
@@ -1070,7 +1095,7 @@ fn iterator_test_tailing() {
         let r = db.put(k, v);
         assert!(r.is_ok());
 
-        let tail_iter = db.iterator_opt(IteratorMode::Start, &ro);
+        let tail_iter = db.iterator_opt(IteratorMode::Start, ro);
         for (k, v) in data_iter {
             let r = db.put(k, v);
             assert!(r.is_ok());
