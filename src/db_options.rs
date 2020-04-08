@@ -201,8 +201,9 @@ impl BlockBasedOptions {
     /// Note: Since in the current implementation the filters and index partitions
     /// are aligned, an index/filter block is created when either index or filter
     /// block size reaches the specified limit.
+    ///
     /// Note: this limit is currently applied to only index blocks; a filter
-    /// partition is cut right after an index block is cut
+    /// partition is cut right after an index block is cut.
     pub fn set_metadata_block_size(&mut self, size: usize) {
         unsafe {
             ffi::rocksdb_block_based_options_set_metadata_block_size(self.inner, size as u64);
@@ -211,7 +212,7 @@ impl BlockBasedOptions {
 
     /// Note: currently this option requires kTwoLevelIndexSearch to be set as
     /// well.
-    /// 
+    ///
     /// Use partitioned full filters for each SST file. This option is
     /// incompatible with block-based filters.
     pub fn set_partition_filters(&mut self, size: bool) {
@@ -233,6 +234,7 @@ impl BlockBasedOptions {
 
     /// When configured: use the specified cache for compressed blocks.
     /// Otherwise rocksdb will not use a compressed block cache.
+    ///
     /// Note: though it looks similar to `block_cache`, RocksDB doesn't put the
     /// same type of object there.
     pub fn set_lru_cache_compressed(&mut self, size: size_t) {
