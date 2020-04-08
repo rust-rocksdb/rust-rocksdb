@@ -292,6 +292,41 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_index_block_restart_interval(self.inner, interval);
         }
     }
+
+    /// Set the data block index type for point lookups:
+    ///  `DataBlockIndexType::BinarySearch` to use binary search within the data block.
+    ///  `DataBlockIndexType::BinaryAndHash` to use the data block hash index in combination with
+    ///  the normal binary search.
+    ///
+    /// The hash table utilization ratio is adjustable using [`set_data_block_hash_ratio`](#method.set_data_block_hash_ratio), which is
+    /// valid only when using `DataBlockIndexType::BinaryAndHash`.
+    ///
+    /// Default: `BinarySearch`
+    /// # Example
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options};
+    ///
+    /// let mut opts = Options::default();
+    /// let mut block_opts = BlockBasedOptions::default();
+    /// block_opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
+    /// block_opts.set_data_block_hash_ratio(0.85);
+    /// ```
+    pub fn set_data_block_index_type(&mut self, index_type: DataBlockIndexType) {
+        let index_t = index_type as i32;
+        unsafe { ffi::rocksdb_block_based_options_set_data_block_index_type(self.inner, index_t) }
+    }
+
+    /// Set the data block hash index utilization ratio.
+    ///
+    /// The smaller the utilization ratio, the less hash collisions happen, and so reduce the risk for a
+    /// point lookup to fall back to binary search due to the collisions. A small ratio means faster
+    /// lookup at the price of more space overhead.
+    ///
+    /// Default: 0.75
+    pub fn set_data_block_hash_ratio(&mut self, ratio: f64) {
+        unsafe { ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio) }
+    }
 }
 
 impl Default for BlockBasedOptions {
@@ -1722,6 +1757,19 @@ pub enum BlockBasedIndexType {
 
     /// A two-level index implementation. Both levels are binary search indexes.
     TwoLevelIndexSearch,
+}
+
+/// Used by BlockBasedOptions::set_data_block_index_type.
+#[repr(C)]
+pub enum DataBlockIndexType {
+    /// Use binary search when performing point lookup for keys in data blocks.
+    /// This is the default.
+    BinarySearch = 0,
+
+    /// Appends a compact hash table to the end of the data block for efficient indexing. Backwards
+    /// compatible with databases created without this feature. Once turned on, existing data will
+    /// be gradually converted to the hash index format.
+    BinaryAndHash = 1,
 }
 
 /// Defines the underlying memtable implementation.

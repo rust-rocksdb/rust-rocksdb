@@ -15,7 +15,7 @@
 mod util;
 
 use crate::util::DBPath;
-use rocksdb::{BlockBasedOptions, Options, ReadOptions, DB};
+use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options, ReadOptions, DB};
 use std::{fs, io::Read as _};
 
 #[test]
@@ -86,4 +86,50 @@ fn test_block_based_options() {
 fn test_read_options() {
     let mut read_opts = ReadOptions::default();
     read_opts.set_verify_checksums(false);
+}
+
+#[test]
+fn test_set_data_block_index_type() {
+    let path = "_rust_rocksdb_test_set_data_block_index_type";
+    let n = DBPath::new(path);
+
+    // Default is `BinarySearch`
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+
+        let block_opts = BlockBasedOptions::default();
+        opts.set_block_based_table_factory(&block_opts);
+        let _db = DB::open(&opts, &n).expect("open a db works");
+
+        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
+            .expect("rocksdb creates a LOG file");
+        let mut settings = String::new();
+        rocksdb_log
+            .read_to_string(&mut settings)
+            .expect("can read the LOG file");
+        assert!(settings.contains("data_block_index_type: 0"));
+        assert!(settings.contains("data_block_hash_table_util_ratio: 0.750000"));
+    }
+
+    // Setting the index type and hash table utilization ratio works
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(false);
+
+        let mut block_opts = BlockBasedOptions::default();
+        block_opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
+        block_opts.set_data_block_hash_ratio(0.35);
+        opts.set_block_based_table_factory(&block_opts);
+        let _db = DB::open(&opts, &n).expect("open a db works");
+
+        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
+            .expect("rocksdb creates a LOG file");
+        let mut settings = String::new();
+        rocksdb_log
+            .read_to_string(&mut settings)
+            .expect("can read the LOG file");
+        assert!(settings.contains("data_block_index_type: 1"));
+        assert!(settings.contains("data_block_hash_table_util_ratio: 0.350000"));
+    }
 }

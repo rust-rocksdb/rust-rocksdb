@@ -78,8 +78,8 @@ pub use crate::{
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType,
-        DBRecoveryMode, FlushOptions, MemtableFactory, Options, PlainTableFactoryOptions,
-        ReadOptions, WriteOptions,
+        DBRecoveryMode, DataBlockIndexType, FlushOptions, MemtableFactory, Options,
+        PlainTableFactoryOptions, ReadOptions, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
