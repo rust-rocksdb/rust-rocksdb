@@ -1,11 +1,10 @@
 use std::ffi::VaList;
-use std::sync::atomic::*;
-use std::sync::Arc;
-use std::thread;
+use std::sync::{atomic::*, Arc};
 use std::time::Duration;
+use std::{str, thread};
 
 use super::tempdir_with_prefix;
-use libc::c_char;
+
 use rocksdb::{DBInfoLogLevel as InfoLogLevel, DBOptions, Logger, DB};
 
 #[derive(Default, Clone)]
@@ -26,7 +25,7 @@ struct TestLogger {
 }
 
 impl Logger for TestLogger {
-    fn logv(&self, _log_level: InfoLogLevel, _format: *const c_char, _ap: VaList) {
+    fn logv(&self, _log_level: InfoLogLevel, _format: &str, _ap: VaList) {
         self.print.fetch_add(1, Ordering::SeqCst);
     }
 }

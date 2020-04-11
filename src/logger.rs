@@ -3,10 +3,11 @@
 use crocksdb_ffi;
 use libc::{c_char, c_void};
 use librocksdb_sys::{DBEnv, DBInfoLogLevel as InfoLogLevel, DBLogger};
-use std::ffi::{CString, VaList};
+use std::ffi::{CStr, CString, VaList};
+use std::str;
 
 pub trait Logger: Send + Sync {
-    fn logv(&self, log_level: InfoLogLevel, format: *const c_char, ap: VaList);
+    fn logv(&self, log_level: InfoLogLevel, format: &str, ap: VaList);
 }
 
 extern "C" fn destructor(ctx: *mut c_void) {
@@ -18,7 +19,8 @@ extern "C" fn destructor(ctx: *mut c_void) {
 extern "C" fn logv(ctx: *mut c_void, log_level: InfoLogLevel, format: *const c_char, ap: VaList) {
     unsafe {
         let logger = &*(ctx as *mut Box<dyn Logger>);
-        logger.logv(log_level, format, ap);
+        let format = CStr::from_ptr(format);
+        logger.logv(log_level, format.to_str().unwrap(), ap);
     }
 }
 
