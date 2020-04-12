@@ -657,6 +657,31 @@ impl DB {
         }
     }
 
+    /// Removes the database entries in the range `["from", "to")` using given write options.
+    pub fn delete_range_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        from: K,
+        to: K,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_range_cf(
+                self.inner,
+                writeopts.inner,
+                cf.inner,
+                from.as_ptr() as *const c_char,
+                from.len() as size_t,
+                to.as_ptr() as *const c_char,
+                to.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
     pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -695,6 +720,16 @@ impl DB {
 
     pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
         self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
+    }
+
+    /// Removes the database entries in the range `["from", "to")` using default write options.
+    pub fn delete_range_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        from: K,
+        to: K,
+    ) -> Result<(), Error> {
+        self.delete_range_cf_opt(cf, from, to, &WriteOptions::default())
     }
 
     pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
@@ -1173,4 +1208,33 @@ fn set_option_test() {
         db.set_options(&multiple_options).unwrap();
     }
     assert!(DB::destroy(&Options::default(), path).is_ok());
+}
+
+#[test]
+fn delete_range_test() {
+    let path = "_rust_rocksdb_delete_range_test";
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, path, cfs).unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+
+        db.delete_range_cf(cf1, b"k2", b"k4").unwrap();
+        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert_eq!(db.get_cf(cf1, b"k4").unwrap().unwrap(), b"v4");
+        assert_eq!(db.get_cf(cf1, b"k5").unwrap().unwrap(), b"v5");
+        assert!(db.get_cf(cf1, b"k2").unwrap().is_none());
+        assert!(db.get_cf(cf1, b"k3").unwrap().is_none());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
 }
