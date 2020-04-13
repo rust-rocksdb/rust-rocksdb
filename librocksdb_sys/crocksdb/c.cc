@@ -26,6 +26,7 @@
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/iterator.h"
 #include "rocksdb/ldb_tool.h"
+#include "rocksdb/sst_dump_tool.h"
 #include "rocksdb/listener.h"
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/merge_operator.h"
@@ -163,6 +164,7 @@ using rocksdb::PerfContext;
 using rocksdb::IOStatsContext;
 using rocksdb::BottommostLevelCompaction;
 using rocksdb::LDBTool;
+using rocksdb::SSTDumpTool;
 
 using rocksdb::kMaxSequenceNumber;
 
@@ -5486,6 +5488,10 @@ uint64_t crocksdb_iostats_context_logger_nanos(crocksdb_iostats_context_t* ctx) 
 
 void crocksdb_run_ldb_tool(int argc, char** argv, const crocksdb_options_t* opts) {
   LDBTool().Run(argc, argv, opts->rep);
+}
+
+void crocksdb_run_sst_dump_tool(int argc, char** argv, const crocksdb_options_t* opts) {
+  SSTDumpTool().Run(argc, argv, opts->rep);
 }
 
 /* Titan */

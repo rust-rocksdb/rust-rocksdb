@@ -2747,6 +2747,21 @@ pub fn run_ldb_tool(ldb_args: &[String], opts: &DBOptions) {
     }
 }
 
+pub fn run_sst_dump_tool(sst_dump_args: &[String], opts: &DBOptions) {
+    unsafe {
+        let sst_dump_args_cstrs: Vec<_> = sst_dump_args
+            .iter()
+            .map(|s| CString::new(s.as_bytes()).unwrap())
+            .collect();
+        let args: Vec<_> = sst_dump_args_cstrs.iter().map(|s| s.as_ptr()).collect();
+        crocksdb_ffi::crocksdb_run_sst_dump_tool(
+            args.len() as i32,
+            args.as_ptr() as *const *const c_char,
+            opts.inner,
+        );
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fs;
