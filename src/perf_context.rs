@@ -349,6 +349,14 @@ impl PerfContext {
     pub fn env_new_logger_nanos(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_perf_context_env_new_logger_nanos(self.inner) }
     }
+
+    pub fn encrypt_data_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_encrypt_data_nanos(self.inner) }
+    }
+
+    pub fn decrypt_data_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_decrypt_data_nanos(self.inner) }
+    }
 }
 
 pub struct IOStatsContext {

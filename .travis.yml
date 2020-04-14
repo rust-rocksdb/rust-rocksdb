@@ -1,20 +1,17 @@
 dist: trusty
-sudo: required
 language: rust
 
 os:
   - linux
 
 rust:
-  - stable
-  - beta
   - nightly
 
-matrix:
+jobs:
   include:
   - os: osx
     osx_image: xcode11.3
-    rust: stable
+    rust: nightly
   - os: linux
     rust: nightly
     env: FEATURES="encryption,jemalloc,portable,sse"
@@ -26,7 +23,6 @@ env:
 cache: false
 
 before_script:
-  - rustup default nightly-2019-12-20
   - rustup component add rustfmt-preview
   - rustup component add clippy
 
