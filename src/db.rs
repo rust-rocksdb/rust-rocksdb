@@ -50,26 +50,26 @@ unsafe impl Send for DB {}
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for DB {}
 
-// Option that specifies whether open DB for read only.
-enum RWOption {
+// Specifies whether open DB for read only.
+enum AccessType {
     ReadWrite,
     ReadOnly { error_if_log_file_exist: bool },
 }
 
 impl DB {
-    /// Open a database with default options.
+    /// Opens a database with default options.
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         DB::open(&opts, path)
     }
 
-    /// Open the database with the specified options.
+    /// Opens the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
         DB::open_cf(opts, path, None::<&str>)
     }
 
-    /// Open the database for read only with the specified options.
+    /// Opens the database for read only with the specified options.
     pub fn open_for_read_only<P: AsRef<Path>>(
         opts: &Options,
         path: P,
@@ -78,7 +78,7 @@ impl DB {
         DB::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
     }
 
-    /// Open a database with the given database options and column family names.
+    /// Opens a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
     pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
@@ -91,10 +91,10 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_internal(opts, path, cfs, RWOption::ReadWrite)
+        DB::open_cf_descriptors_internal(opts, path, cfs, AccessType::ReadWrite)
     }
 
-    /// Open a database for read only with the given database options and column family names.
+    /// Opens a database for read only with the given database options and column family names.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
         path: P,
@@ -114,19 +114,19 @@ impl DB {
             opts,
             path,
             cfs,
-            RWOption::ReadOnly {
+            AccessType::ReadOnly {
                 error_if_log_file_exist,
             },
         )
     }
 
-    /// Open a database with the given database options and column family descriptors.
+    /// Opens a database with the given database options and column family descriptors.
     pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        DB::open_cf_descriptors_internal(opts, path, cfs, RWOption::ReadWrite)
+        DB::open_cf_descriptors_internal(opts, path, cfs, AccessType::ReadWrite)
     }
 
     /// Internal implementation for opening RocksDB.
@@ -134,7 +134,7 @@ impl DB {
         opts: &Options,
         path: P,
         cfs: I,
-        rwopt: RWOption,
+        access_type: AccessType,
     ) -> Result<DB, Error>
     where
         P: AsRef<Path>,
@@ -155,7 +155,7 @@ impl DB {
         let mut cf_map = BTreeMap::new();
 
         if cfs.is_empty() {
-            db = DB::open_raw(opts, cpath, rwopt)?;
+            db = DB::open_raw(opts, cpath, access_type)?;
         } else {
             let mut cfs_v = cfs;
             // Always open the default column family.
@@ -189,7 +189,7 @@ impl DB {
                 &cfnames,
                 &cfopts,
                 &mut cfhandles,
-                rwopt,
+                access_type,
             )?;
             for handle in &cfhandles {
                 if handle.is_null() {
@@ -218,18 +218,18 @@ impl DB {
     fn open_raw(
         opts: &Options,
         cpath: CString,
-        rwopt: RWOption,
+        access_type: AccessType,
     ) -> Result<*mut ffi::rocksdb_t, Error> {
         let db = unsafe {
-            match rwopt {
-                RWOption::ReadOnly {
+            match access_type {
+                AccessType::ReadOnly {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only(
                     opts.inner,
                     cpath.as_ptr() as *const _,
                     error_if_log_file_exist as c_uchar,
                 )),
-                RWOption::ReadWrite => {
+                AccessType::ReadWrite => {
                     ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
                 }
             }
@@ -244,11 +244,11 @@ impl DB {
         cfnames: &[*const c_char],
         cfopts: &[*const ffi::rocksdb_options_t],
         cfhandles: &mut Vec<*mut ffi::rocksdb_column_family_handle_t>,
-        rwopt: RWOption,
+        access_type: AccessType,
     ) -> Result<*mut ffi::rocksdb_t, Error> {
         let db = unsafe {
-            match rwopt {
-                RWOption::ReadOnly {
+            match access_type {
+                AccessType::ReadOnly {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only_column_families(
                     opts.inner,
@@ -259,7 +259,7 @@ impl DB {
                     cfhandles.as_mut_ptr(),
                     error_if_log_file_exist as c_uchar,
                 )),
-                RWOption::ReadWrite => ffi_try!(ffi::rocksdb_open_column_families(
+                AccessType::ReadWrite => ffi_try!(ffi::rocksdb_open_column_families(
                     opts.inner,
                     cpath.as_ptr(),
                     cfs_v.len() as c_int,
