@@ -275,8 +275,6 @@ impl<'a> DBRawIterator<'a> {
     }
 
     /// Seeks to the next key.
-    ///
-    /// Returns true if the iterator is valid after this operation.
     pub fn next(&mut self) {
         unsafe {
             ffi::rocksdb_iter_next(self.inner);
@@ -284,8 +282,6 @@ impl<'a> DBRawIterator<'a> {
     }
 
     /// Seeks to the previous key.
-    ///
-    /// Returns true if the iterator is valid after this operation.
     pub fn prev(&mut self) {
         unsafe {
             ffi::rocksdb_iter_prev(self.inner);
