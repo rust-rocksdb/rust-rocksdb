@@ -51,9 +51,10 @@ unsafe impl Send for DB {}
 unsafe impl Sync for DB {}
 
 // Specifies whether open DB for read only.
-enum AccessType {
+enum AccessType<'a> {
     ReadWrite,
     ReadOnly { error_if_log_file_exist: bool },
+    Secondary { secondary_path: &'a Path },
 }
 
 impl DB {
@@ -76,6 +77,15 @@ impl DB {
         error_if_log_file_exist: bool,
     ) -> Result<DB, Error> {
         DB::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
+    }
+
+    /// Opens the database as a secondary.
+    pub fn open_as_secondary<P: AsRef<Path>>(
+        opts: &Options,
+        primary_path: P,
+        secondary_path: P,
+    ) -> Result<DB, Error> {
+        DB::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
     }
 
     /// Opens a database with the given database options and column family names.
@@ -116,6 +126,32 @@ impl DB {
             cfs,
             AccessType::ReadOnly {
                 error_if_log_file_exist,
+            },
+        )
+    }
+
+    /// Opens the database as a secondary with the given database options and column family names.
+    pub fn open_cf_as_secondary<P, I, N>(
+        opts: &Options,
+        primary_path: P,
+        secondary_path: P,
+        cfs: I,
+    ) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+
+        DB::open_cf_descriptors_internal(
+            opts,
+            primary_path,
+            cfs,
+            AccessType::Secondary {
+                secondary_path: secondary_path.as_ref(),
             },
         )
     }
@@ -232,6 +268,13 @@ impl DB {
                 AccessType::ReadWrite => {
                     ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
                 }
+                AccessType::Secondary { secondary_path } => {
+                    ffi_try!(ffi::rocksdb_open_as_secondary(
+                        opts.inner,
+                        cpath.as_ptr() as *const _,
+                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                    ))
+                }
             }
         };
         Ok(db)
@@ -267,6 +310,17 @@ impl DB {
                     cfopts.as_ptr(),
                     cfhandles.as_mut_ptr(),
                 )),
+                AccessType::Secondary { secondary_path } => {
+                    ffi_try!(ffi::rocksdb_open_as_secondary_column_families(
+                        opts.inner,
+                        cpath.as_ptr() as *const _,
+                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cfs_v.len() as c_int,
+                        cfnames.as_ptr(),
+                        cfopts.as_ptr(),
+                        cfhandles.as_mut_ptr(),
+                    ))
+                }
             }
         };
         Ok(db)
@@ -1046,6 +1100,15 @@ impl DB {
             let iter = ffi_try!(ffi::rocksdb_get_updates_since(self.inner, seq_number, opts));
             Ok(DBWALIterator { inner: iter })
         }
+    }
+
+    /// Tries to catch up with the primary by reading as much as possible from the
+    /// log files.
+    pub fn try_catch_up_with_primary(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_try_catch_up_with_primary(self.inner));
+        }
+        Ok(())
     }
 }
 
