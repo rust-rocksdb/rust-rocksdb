@@ -28,9 +28,9 @@ fn fail_on_empty_directory(name: &str) {
 
 fn rocksdb_include_dir() -> String {
     match env::var("ROCKSDB_INCLUDE_DIR") {
-        Ok(val) => return val,
-        Err(_) => return "rocksdb/include".to_string(),
-    };
+        Ok(val) => val,
+        Err(_) => "rocksdb/include".to_string(),
+    }
 }
 
 fn bindgen_rocksdb() {
