@@ -337,3 +337,28 @@ fn test_get_updates_since_out_of_range() {
     let result = db.get_updates_since(1000);
     assert!(result.is_err());
 }
+
+#[test]
+fn test_open_as_secondary() {
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_as_secondary_primary");
+
+    let db = DB::open_default(&primary_path).unwrap();
+    db.put(b"key1", b"value1").unwrap();
+
+    let mut opts = Options::default();
+    opts.set_max_open_files(-1);
+
+    let secondary_path = DBPath::new("_rust_rocksdb_test_open_as_secondary_secondary");
+    let secondary = DB::open_as_secondary(&opts, &primary_path, &secondary_path).unwrap();
+
+    let result = secondary.get(b"key1");
+    let vector = result.unwrap().unwrap();
+    assert!(get_byte_slice(&vector) == b"value1");
+
+    db.put(b"key1", b"value2").unwrap();
+    assert!(secondary.try_catch_up_with_primary().is_ok());
+
+    let result = secondary.get(b"key1");
+    let vector = result.unwrap().unwrap();
+    assert!(get_byte_slice(&vector) == b"value2");
+}
