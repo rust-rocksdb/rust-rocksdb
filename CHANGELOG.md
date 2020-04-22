@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.14.0 (2020-04-23)
+## 0.14.0 (2020-04-22)
 
 * Updated lz4 to v1.9.2 (ordian)
 * BlockBasedOptions: expose `format_version`, `[index_]block_restart_interval` (ordian)
