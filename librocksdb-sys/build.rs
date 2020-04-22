@@ -1,7 +1,3 @@
-extern crate bindgen;
-extern crate cc;
-extern crate glob;
-
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -30,12 +26,20 @@ fn fail_on_empty_directory(name: &str) {
     }
 }
 
+fn rocksdb_include_dir() -> String {
+    match env::var("ROCKSDB_INCLUDE_DIR") {
+        Ok(val) => return val,
+        Err(_) => return "rocksdb/include".to_string(),
+    };
+}
+
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
-        .header("rocksdb/include/rocksdb/c.h")
+        .header(rocksdb_include_dir() + "/rocksdb/c.h")
         .derive_debug(false)
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
+        .size_t_is_usize(true)
         .generate()
         .expect("unable to generate rocksdb bindings");
 
@@ -51,7 +55,7 @@ fn build_rocksdb() {
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
     config.include("rocksdb/");
-    config.include("rocksdb/third-party/gtest-1.7.0/fused-src/");
+    config.include("rocksdb/third-party/gtest-1.8.1/fused-src/");
 
     if cfg!(feature = "snappy") {
         config.define("SNAPPY", Some("1"));
@@ -84,7 +88,7 @@ fn build_rocksdb() {
 
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .trim()
-        .split("\n")
+        .split('\n')
         .map(str::trim)
         .collect::<Vec<&'static str>>();
 
@@ -177,6 +181,7 @@ fn build_rocksdb() {
 
 fn build_snappy() {
     let target = env::var("TARGET").unwrap();
+    let endianness = env::var("CARGO_CFG_TARGET_ENDIAN").unwrap();
 
     let mut config = cc::Build::new();
     config.include("snappy/");
@@ -188,6 +193,10 @@ fn build_snappy() {
         config.flag("-EHsc");
     } else {
         config.flag("-std=c++11");
+    }
+
+    if endianness == "big" {
+        config.define("SNAPPY_IS_BIG_ENDIAN", Some("1"));
     }
 
     config.file("snappy/snappy.cc");
@@ -208,11 +217,10 @@ fn build_lz4() {
 
     compiler.opt_level(3);
 
-    match env::var("TARGET").unwrap().as_str() {
-        "i686-pc-windows-gnu" => {
-            compiler.flag("-fno-tree-vectorize");
-        }
-        _ => {}
+    let target = env::var("TARGET").unwrap();
+
+    if &target == "i686-pc-windows-gnu" {
+        compiler.flag("-fno-tree-vectorize");
     }
 
     compiler.compile("liblz4.a");
@@ -299,38 +307,37 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=rocksdb/");
-    println!("cargo:rerun-if-changed=snappy/");
-    println!("cargo:rerun-if-changed=lz4/");
-    println!("cargo:rerun-if-changed=zstd/");
-    println!("cargo:rerun-if-changed=zlib/");
-    println!("cargo:rerun-if-changed=bzip2/");
-
-    fail_on_empty_directory("rocksdb");
-    fail_on_empty_directory("snappy");
-    fail_on_empty_directory("lz4");
-    fail_on_empty_directory("zstd");
-    fail_on_empty_directory("zlib");
-    fail_on_empty_directory("bzip2");
 
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
+        println!("cargo:rerun-if-changed=rocksdb/");
+        fail_on_empty_directory("rocksdb");
         build_rocksdb();
     }
     if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
+        println!("cargo:rerun-if-changed=snappy/");
+        fail_on_empty_directory("snappy");
         build_snappy();
     }
     if cfg!(feature = "lz4") && !try_to_find_and_link_lib("LZ4") {
+        println!("cargo:rerun-if-changed=lz4/");
+        fail_on_empty_directory("lz4");
         build_lz4();
     }
     if cfg!(feature = "zstd") && !try_to_find_and_link_lib("ZSTD") {
+        println!("cargo:rerun-if-changed=zstd/");
+        fail_on_empty_directory("zstd");
         build_zstd();
     }
-    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("ZLIB") {
+    if cfg!(feature = "zlib") && !try_to_find_and_link_lib("Z") {
+        println!("cargo:rerun-if-changed=zlib/");
+        fail_on_empty_directory("zlib");
         build_zlib();
     }
-    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZIP2") {
+    if cfg!(feature = "bzip2") && !try_to_find_and_link_lib("BZ2") {
+        println!("cargo:rerun-if-changed=bzip2/");
+        fail_on_empty_directory("bzip2");
         build_bzip2();
     }
 }

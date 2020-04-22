@@ -1,0 +1,10 @@
+error[E0597]: `db` does not live long enough
+ --> $DIR/iterator_outlive_db.rs:6:9
+  |
+4 |     let _iter = {
+  |         ----- borrow later stored here
+5 |         let db = DB::open_default("foo").unwrap();
+6 |         db.iterator(IteratorMode::Start)
+  |         ^^ borrowed value does not live long enough
+7 |     };
+  |     - `db` dropped here while still borrowed

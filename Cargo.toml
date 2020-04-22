@@ -2,8 +2,10 @@
 name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.13.0"
+edition = "2018"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 license = "Apache-2.0"
+categories = [ "database" ]
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
 homepage = "https://github.com/rust-rocksdb/rust-rocksdb"
 exclude = [
@@ -22,7 +24,10 @@ zstd = ["librocksdb-sys/zstd"]
 zlib = ["librocksdb-sys/zlib"]
 bzip2 = ["librocksdb-sys/bzip2"]
 
-
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "6.2.4" }
+librocksdb-sys = { path = "librocksdb-sys", version = "6.7.3" }
+
+[dev-dependencies]
+trybuild = "1.0.21"
+tempfile = "3.1.0"

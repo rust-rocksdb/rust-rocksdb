@@ -13,8 +13,10 @@
 // limitations under the License.
 //
 
+use crate::Error;
 use libc::{self, c_char, c_void};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
+use std::path::Path;
 use std::ptr;
 
 pub fn error_message(ptr: *const c_char) -> String {
@@ -33,13 +35,33 @@ pub fn opt_bytes_to_ptr<T: AsRef<[u8]>>(opt: Option<T>) -> *const c_char {
     }
 }
 
+pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
+    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
+        Ok(c) => Ok(c),
+        Err(e) => Err(Error::new(format!(
+            "Failed to convert path to CString: {}",
+            e,
+        ))),
+    }
+}
+
 macro_rules! ffi_try {
-    ( $($function:ident)::*( $( $arg:expr,)* ) ) => ({
+    ( $($function:ident)::*() ) => {
+        ffi_try_impl!($($function)::*())
+    };
+
+    ( $($function:ident)::*( $arg1:expr $(, $arg:expr)* $(,)? ) ) => {
+        ffi_try_impl!($($function)::*($arg1 $(, $arg)* ,))
+    };
+}
+
+macro_rules! ffi_try_impl {
+    ( $($function:ident)::*( $($arg:expr,)*) ) => {{
         let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
-        let result = $($function)::*($($arg),*, &mut err);
+        let result = $($function)::*($($arg,)* &mut err);
         if !err.is_null() {
             return Err(Error::new($crate::ffi_util::error_message(err)));
         }
         result
-    })
+    }};
 }
