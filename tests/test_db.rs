@@ -45,10 +45,9 @@ fn db_vector_as_ref_byte_slice() {
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
-        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
-        let vector = r.unwrap().unwrap();
+        let result = db.get(b"k1").unwrap().unwrap();
 
-        assert!(get_byte_slice(&vector) == b"v1111");
+        assert_eq!(get_byte_slice(&result), b"v1111");
     }
 }
 
@@ -351,14 +350,12 @@ fn test_open_as_secondary() {
     let secondary_path = DBPath::new("_rust_rocksdb_test_open_as_secondary_secondary");
     let secondary = DB::open_as_secondary(&opts, &primary_path, &secondary_path).unwrap();
 
-    let result = secondary.get(b"key1");
-    let vector = result.unwrap().unwrap();
-    assert!(get_byte_slice(&vector) == b"value1");
+    let result = secondary.get(b"key1").unwrap().unwrap();
+    assert_eq!(get_byte_slice(&result), b"value1");
 
     db.put(b"key1", b"value2").unwrap();
     assert!(secondary.try_catch_up_with_primary().is_ok());
 
-    let result = secondary.get(b"key1");
-    let vector = result.unwrap().unwrap();
-    assert!(get_byte_slice(&vector) == b"value2");
+    let result = secondary.get(b"key1").unwrap().unwrap();
+    assert_eq!(get_byte_slice(&result), b"value2");
 }
