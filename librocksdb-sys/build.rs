@@ -145,7 +145,8 @@ fn build_rocksdb() {
             .iter()
             .cloned()
             .filter(|file| match *file {
-                "port/port_posix.cc" | "env/env_posix.cc" | "env/io_posix.cc" => false,
+                "port/port_posix.cc" | "env/env_posix.cc" | "env/fs_posix.cc"
+                | "env/io_posix.cc" => false,
                 _ => true,
             })
             .collect::<Vec<&'static str>>();
