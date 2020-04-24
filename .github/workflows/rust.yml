@@ -4,11 +4,12 @@ on: [push, pull_request]
 
 jobs:
   test-librocksdb-sys:
+    name: Test librocksdb-sys crate
     runs-on:
       - windows-latest
     steps:
       - name: Checkout sources
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
         with:
           submodules: true
 
@@ -16,17 +17,18 @@ jobs:
         run: choco install llvm -y
 
       - name: Run librocksdb-sys tests
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --manifest-path=librocksdb-sys/Cargo.toml
 
-  test-ocksdb:
+  test-rocksdb:
+    name: Test rocksdb crate
     runs-on:
       - windows-latest
     steps:
       - name: Checkout sources
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
         with:
           submodules: true
 
@@ -34,6 +36,6 @@ jobs:
         run: choco install llvm -y
 
       - name: Run rocksdb tests
-      - uses: actions-rs/cargo@v1
+        uses: actions-rs/cargo@v1
         with:
           command: test
