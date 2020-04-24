@@ -1,4 +1,4 @@
-// Copyright 2014 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 
 mod util;
 
-use crate::util::DBPath;
 use rocksdb::DB;
 use std::sync::Arc;
 use std::thread;
+use util::DBPath;
 
 const N: usize = 100_000;
 
@@ -44,17 +44,10 @@ pub fn test_multithreaded() {
             }
         });
 
-        let db3 = db.clone();
         let j3 = thread::spawn(move || {
             for _ in 1..N {
-                let result = match db3.get(b"key") {
-                    Ok(Some(v)) => {
-                        if &v[..] != b"value1" && &v[..] != b"value2" {
-                            false
-                        } else {
-                            true
-                        }
-                    }
+                let result = match db.get(b"key") {
+                    Ok(Some(v)) => !(&v[..] != b"value1" && &v[..] != b"value2"),
                     _ => false,
                 };
                 assert!(result);

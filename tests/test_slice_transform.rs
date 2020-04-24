@@ -1,11 +1,25 @@
+// Copyright 2020 Tyler Neely
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 mod util;
 
-use crate::util::DBPath;
 use rocksdb::{Options, SliceTransform, DB};
+use util::DBPath;
 
 #[test]
 pub fn test_slice_transform() {
-    let db_path = DBPath::new("_rust_rocksdb_slicetransform_test");
+    let db_path = DBPath::new("_rust_rocksdb_slice_transform_test");
     {
         let a1: Box<[u8]> = key(b"aaa1");
         let a2: Box<[u8]> = key(b"aaa2");

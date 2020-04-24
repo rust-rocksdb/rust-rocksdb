@@ -50,13 +50,12 @@ impl Checkpoint {
     /// Creates new physical DB checkpoint in directory specified by `path`.
     pub fn create_checkpoint<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString when creating DB checkpoint".to_owned(),
-                ));
-            }
+        let cpath = if let Ok(c) = CString::new(path.to_string_lossy().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(
+                "Failed to convert path to CString when creating DB checkpoint".to_owned(),
+            ));
         };
 
         unsafe {

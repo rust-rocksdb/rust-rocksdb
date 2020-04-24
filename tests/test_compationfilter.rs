@@ -1,4 +1,4 @@
-// Copyright 2019 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 mod util;
 
-use crate::util::DBPath;
 use rocksdb::{CompactionDecision, Options, DB};
+use util::DBPath;
 
 #[cfg(test)]
 #[allow(unused_variables)]
@@ -30,7 +30,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> CompactionDecision {
 
 #[test]
 fn compaction_filter_test() {
-    let path = DBPath::new("_rust_rocksdb_filtertest");
+    let path = DBPath::new("_rust_rocksdb_filter_test");
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_compaction_filter("test", test_filter);

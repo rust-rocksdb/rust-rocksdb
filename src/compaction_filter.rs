@@ -1,4 +1,4 @@
-// Copyright 2016 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,12 +41,7 @@ pub enum Decision {
 ///
 ///  [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
 pub trait CompactionFilterFn: FnMut(u32, &[u8], &[u8]) -> Decision {}
-impl<F> CompactionFilterFn for F
-where
-    F: FnMut(u32, &[u8], &[u8]) -> Decision,
-    F: Send + 'static,
-{
-}
+impl<F> CompactionFilterFn for F where F: FnMut(u32, &[u8], &[u8]) -> Decision + Send + 'static {}
 
 pub struct CompactionFilterCallback<F>
 where
@@ -85,7 +80,7 @@ pub unsafe extern "C" fn filter_callback<F>(
 where
     F: CompactionFilterFn,
 {
-    use self::Decision::*;
+    use self::Decision::{Change, Keep, Remove};
 
     let cb = &mut *(raw_cb as *mut CompactionFilterCallback<F>);
     let key = slice::from_raw_parts(raw_key as *const u8, key_length as usize);
@@ -106,7 +101,7 @@ where
 #[cfg(test)]
 #[allow(unused_variables)]
 fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
-    use self::Decision::*;
+    use self::Decision::{Change, Keep, Remove};
     match key.first() {
         Some(&b'_') => Remove,
         Some(&b'%') => Change(b"secret"),
