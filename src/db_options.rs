@@ -511,11 +511,10 @@ impl Options {
         }
     }
 
-    /// Sets the compression algorithm that will be used for the bottommost level that
-    /// contain files. If level-compaction is used, this option will only affect
-    /// levels after base level.
+    /// Sets the compression algorithm that will be used for compressing blocks.
     ///
-    /// Default: DBCompressionType::None
+    /// Default: `DBCompressionType::Snappy` (`DBCompressionType::None` if
+    /// snappy feature is not enabled).
     ///
     /// # Example
     ///
