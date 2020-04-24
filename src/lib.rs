@@ -54,6 +54,23 @@
 //! ```
 //!
 
+#![warn(clippy::pedantic)]
+#![allow(
+    // Next `cast_*` lints don't give alternatives.
+    clippy::cast_possible_wrap, clippy::cast_possible_truncation, clippy::cast_sign_loss,
+    // Next lints produce too much noise/false positives.
+    clippy::module_name_repetitions, clippy::similar_names, clippy::must_use_candidate,
+    clippy::pub_enum_variant_names,
+    // '... may panic' lints.
+    clippy::indexing_slicing,
+    // Too much work to fix.
+    clippy::missing_errors_doc,
+    // False positive: WebSocket
+    clippy::doc_markdown,
+    clippy::missing_safety_doc,
+    clippy::needless_pass_by_value
+)]
+
 #[macro_use]
 mod ffi_util;
 

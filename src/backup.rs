@@ -38,15 +38,14 @@ impl BackupEngine {
         path: P,
     ) -> Result<BackupEngine, Error> {
         let path = path.as_ref();
-        let cpath = match CString::new(path.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString \
+        let cpath = if let Ok(e) = CString::new(path.to_string_lossy().as_bytes()) {
+            e
+        } else {
+            return Err(Error::new(
+                "Failed to convert path to CString \
                      when opening backup engine"
-                        .to_owned(),
-                ));
-            }
+                    .to_owned(),
+            ));
         };
 
         let be: *mut ffi::rocksdb_backup_engine_t;
@@ -107,27 +106,25 @@ impl BackupEngine {
         opts: &RestoreOptions,
     ) -> Result<(), Error> {
         let db_dir = db_dir.as_ref();
-        let c_db_dir = match CString::new(db_dir.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert db_dir to CString \
+        let c_db_dir = if let Ok(c) = CString::new(db_dir.to_string_lossy().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(
+                "Failed to convert db_dir to CString \
                      when restoring from latest backup"
-                        .to_owned(),
-                ));
-            }
+                    .to_owned(),
+            ));
         };
 
         let wal_dir = wal_dir.as_ref();
-        let c_wal_dir = match CString::new(wal_dir.to_string_lossy().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert wal_dir to CString \
+        let c_wal_dir = if let Ok(c) = CString::new(wal_dir.to_string_lossy().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(
+                "Failed to convert wal_dir to CString \
                      when restoring from latest backup"
-                        .to_owned(),
-                ));
-            }
+                    .to_owned(),
+            ));
         };
 
         unsafe {

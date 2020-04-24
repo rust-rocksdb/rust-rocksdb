@@ -4,20 +4,16 @@ dist: bionic
 os:
 - linux
 - osx
-- windows
 
 rust:
   - stable
 
-jobs:
-  allow_failures:
-    - os: windows
-
 install:
   - rustup component add rustfmt
   - rustfmt -V
+  - rustup component add clippy
+  - cargo clippy --version
 
 script:
-  - cargo fmt --all -- --check
-  - cargo test --manifest-path=librocksdb-sys/Cargo.toml
-  - cargo test -- --skip test_iterator_outlive_db
+  - .travis/lints.sh
+  - .travis/tests.sh

@@ -101,7 +101,7 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_internal(opts, path, cfs, AccessType::ReadWrite)
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
     /// Opens a database for read only with the given database options and column family names.
@@ -124,7 +124,7 @@ impl DB {
             opts,
             path,
             cfs,
-            AccessType::ReadOnly {
+            &AccessType::ReadOnly {
                 error_if_log_file_exist,
             },
         )
@@ -150,7 +150,7 @@ impl DB {
             opts,
             primary_path,
             cfs,
-            AccessType::Secondary {
+            &AccessType::Secondary {
                 secondary_path: secondary_path.as_ref(),
             },
         )
@@ -162,7 +162,7 @@ impl DB {
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        DB::open_cf_descriptors_internal(opts, path, cfs, AccessType::ReadWrite)
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
     /// Internal implementation for opening RocksDB.
@@ -170,7 +170,7 @@ impl DB {
         opts: &Options,
         path: P,
         cfs: I,
-        access_type: AccessType,
+        access_type: &AccessType,
     ) -> Result<DB, Error>
     where
         P: AsRef<Path>,
@@ -191,7 +191,7 @@ impl DB {
         let mut cf_map = BTreeMap::new();
 
         if cfs.is_empty() {
-            db = DB::open_raw(opts, cpath, access_type)?;
+            db = DB::open_raw(opts, &cpath, access_type)?;
         } else {
             let mut cfs_v = cfs;
             // Always open the default column family.
@@ -220,12 +220,12 @@ impl DB {
 
             db = DB::open_cf_raw(
                 opts,
-                cpath,
+                &cpath,
                 &cfs_v,
                 &cfnames,
                 &cfopts,
                 &mut cfhandles,
-                access_type,
+                &access_type,
             )?;
             for handle in &cfhandles {
                 if handle.is_null() {
@@ -253,11 +253,11 @@ impl DB {
 
     fn open_raw(
         opts: &Options,
-        cpath: CString,
-        access_type: AccessType,
+        cpath: &CString,
+        access_type: &AccessType,
     ) -> Result<*mut ffi::rocksdb_t, Error> {
         let db = unsafe {
-            match access_type {
+            match *access_type {
                 AccessType::ReadOnly {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only(
@@ -282,15 +282,15 @@ impl DB {
 
     fn open_cf_raw(
         opts: &Options,
-        cpath: CString,
+        cpath: &CString,
         cfs_v: &[ColumnFamilyDescriptor],
         cfnames: &[*const c_char],
         cfopts: &[*const ffi::rocksdb_options_t],
         cfhandles: &mut Vec<*mut ffi::rocksdb_column_family_handle_t>,
-        access_type: AccessType,
+        access_type: &AccessType,
     ) -> Result<*mut ffi::rocksdb_t, Error> {
         let db = unsafe {
-            match access_type {
+            match *access_type {
                 AccessType::ReadOnly {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only_column_families(
@@ -537,19 +537,18 @@ impl DB {
     }
 
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
-        let cname = match CString::new(name.as_ref().as_bytes()) {
-            Ok(c) => c,
-            Err(_) => {
-                return Err(Error::new(
-                    "Failed to convert path to CString when creating cf".to_owned(),
-                ));
-            }
+        let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(
+                "Failed to convert path to CString when creating cf".to_owned(),
+            ));
         };
         unsafe {
             let inner = ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
                 opts.inner,
-                cname.as_ptr(),
+                cf_name.as_ptr(),
             ));
 
             self.cfs
@@ -565,9 +564,7 @@ impl DB {
             }
             Ok(())
         } else {
-            Err(Error::new(
-                format!("Invalid column family: {}", name).to_owned(),
-            ))
+            Err(Error::new(format!("Invalid column family: {}", name)))
         }
     }
 
@@ -896,8 +893,8 @@ impl DB {
 
     pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
         unsafe {
-            let start = start.as_ref().map(|s| s.as_ref());
-            let end = end.as_ref().map(|e| e.as_ref());
+            let start = start.as_ref().map(AsRef::as_ref);
+            let end = end.as_ref().map(AsRef::as_ref);
 
             ffi::rocksdb_compact_range(
                 self.inner,
@@ -916,8 +913,8 @@ impl DB {
         end: Option<E>,
     ) {
         unsafe {
-            let start = start.as_ref().map(|s| s.as_ref());
-            let end = end.as_ref().map(|e| e.as_ref());
+            let start = start.as_ref().map(AsRef::as_ref);
+            let end = end.as_ref().map(AsRef::as_ref);
 
             ffi::rocksdb_compact_range_cf(
                 self.inner,

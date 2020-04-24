@@ -41,12 +41,7 @@ pub enum Decision {
 ///
 ///  [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
 pub trait CompactionFilterFn: FnMut(u32, &[u8], &[u8]) -> Decision {}
-impl<F> CompactionFilterFn for F
-where
-    F: FnMut(u32, &[u8], &[u8]) -> Decision,
-    F: Send + 'static,
-{
-}
+impl<F> CompactionFilterFn for F where F: FnMut(u32, &[u8], &[u8]) -> Decision + Send + 'static {}
 
 pub struct CompactionFilterCallback<F>
 where
@@ -85,7 +80,7 @@ pub unsafe extern "C" fn filter_callback<F>(
 where
     F: CompactionFilterFn,
 {
-    use self::Decision::*;
+    use self::Decision::{Change, Keep, Remove};
 
     let cb = &mut *(raw_cb as *mut CompactionFilterCallback<F>);
     let key = slice::from_raw_parts(raw_key as *const u8, key_length as usize);

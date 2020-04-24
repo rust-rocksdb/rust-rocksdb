@@ -454,13 +454,13 @@ impl<'a> Iterator for DBIterator<'a> {
 
         // Initial call to next() after seeking should not move the iterator
         // or the first item will not be returned
-        if !self.just_seeked {
+        if self.just_seeked {
+            self.just_seeked = false;
+        } else {
             match self.direction {
                 Direction::Forward => self.raw.next(),
                 Direction::Reverse => self.raw.prev(),
             }
-        } else {
-            self.just_seeked = false;
         }
 
         if self.raw.valid() {
