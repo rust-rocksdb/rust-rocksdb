@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use tempfile;
 
 use rocksdb::{Options, DB};
 

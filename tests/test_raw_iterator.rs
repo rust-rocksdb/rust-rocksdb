@@ -1,4 +1,4 @@
-// Copyright 2014 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 mod util;
 
-use crate::util::DBPath;
 use rocksdb::DB;
+use util::DBPath;
 
 #[test]
 pub fn test_forwards_iteration() {

@@ -1,4 +1,4 @@
-// Copyright 2014 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -153,7 +153,10 @@ impl fmt::Display for Error {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{
+        BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
+        Options, PlainTableFactoryOptions, ReadOptions, Snapshot, WriteOptions, DB,
+    };
 
     #[test]
     fn is_send() {

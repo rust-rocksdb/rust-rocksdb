@@ -1,4 +1,4 @@
-// Copyright 2019 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 
 mod util;
 
-use crate::util::DBPath;
 use rocksdb::{Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
 use std::sync::Arc;
 use std::{mem, thread};
+use util::DBPath;
 
 #[test]
 fn external() {
@@ -83,7 +83,7 @@ fn writebatch_works() {
             assert!(db.get(b"k1").unwrap().is_none());
             assert_eq!(batch.len(), 0);
             assert!(batch.is_empty());
-            let _ = batch.put(b"k1", b"v1111");
+            batch.put(b"k1", b"v1111");
             assert_eq!(batch.len(), 1);
             assert!(!batch.is_empty());
             assert!(db.get(b"k1").unwrap().is_none());
@@ -94,7 +94,7 @@ fn writebatch_works() {
         {
             // test delete
             let mut batch = WriteBatch::default();
-            let _ = batch.delete(b"k1");
+            batch.delete(b"k1");
             assert_eq!(batch.len(), 1);
             assert!(!batch.is_empty());
             assert!(db.write(batch).is_ok());
@@ -104,7 +104,7 @@ fn writebatch_works() {
             // test size_in_bytes
             let mut batch = WriteBatch::default();
             let before = batch.size_in_bytes();
-            let _ = batch.put(b"k1", b"v1234567890");
+            batch.put(b"k1", b"v1234567890");
             let after = batch.size_in_bytes();
             assert!(before + 10 <= after);
         }
@@ -180,9 +180,7 @@ fn sync_snapshot_test() {
     let wrapper = SnapshotWrapper::new(&db);
     let wrapper_1 = wrapper.clone();
     let handler_1 = thread::spawn(move || wrapper_1.check("k1", b"v1"));
-
-    let wrapper_2 = wrapper.clone();
-    let handler_2 = thread::spawn(move || wrapper_2.check("k2", b"v2"));
+    let handler_2 = thread::spawn(move || wrapper.check("k2", b"v2"));
 
     assert!(handler_1.join().unwrap());
     assert!(handler_2.join().unwrap());

@@ -1,4 +1,4 @@
-// Copyright 2016 Tyler Neely
+// Copyright 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ where
 #[cfg(test)]
 #[allow(unused_variables)]
 fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
-    use self::Decision::*;
+    use self::Decision::{Change, Keep, Remove};
     match key.first() {
         Some(&b'_') => Remove,
         Some(&b'%') => Change(b"secret"),

@@ -1,4 +1,4 @@
-// Copyright 2019 Tyler Neely, Alex Regueiro
+// Copyright 2020 Tyler Neely, Alex Regueiro
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

@@ -4,5 +4,5 @@
 
 if [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     cargo fmt --all -- --check
-    cargo clippy -- -D warnings
+    cargo clippy --all --tests -- -D warnings
 fi
