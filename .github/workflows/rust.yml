@@ -3,16 +3,37 @@ name: RocksDB build
 on: [push, pull_request]
 
 jobs:
-  build:
+  test-librocksdb-sys:
     runs-on:
       - windows-latest
     steps:
+      - name: Checkout sources
       - uses: actions/checkout@v2
         with:
           submodules: true
+
       - name: Install dependencies
         run: choco install llvm -y
+
       - name: Run librocksdb-sys tests
-        run: cargo test --manifest-path=librocksdb-sys/Cargo.toml
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=librocksdb-sys/Cargo.toml
+
+  test-ocksdb:
+    runs-on:
+      - windows-latest
+    steps:
+      - name: Checkout sources
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: choco install llvm -y
+
       - name: Run rocksdb tests
-        run: cargo test
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
