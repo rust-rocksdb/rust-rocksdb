@@ -183,12 +183,12 @@ fn build_rocksdb() {
 fn build_snappy() {
     let target = env::var("TARGET").unwrap();
     let endianness = env::var("CARGO_CFG_TARGET_ENDIAN").unwrap();
-
     let mut config = cc::Build::new();
+
     config.include("snappy/");
     config.include(".");
-
     config.define("NDEBUG", Some("1"));
+    config.extra_warnings(false);
 
     if target.contains("msvc") {
         config.flag("-EHsc");
