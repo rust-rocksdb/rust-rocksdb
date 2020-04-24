@@ -250,6 +250,7 @@ fn build_zstd() {
     }
 
     compiler.opt_level(3);
+    compiler.extra_warnings(false);
 
     compiler.define("ZSTD_LIB_DEPRECATED", Some("0"));
     compiler.compile("libzstd.a");
@@ -269,6 +270,7 @@ fn build_zlib() {
 
     compiler.flag_if_supported("-Wno-implicit-function-declaration");
     compiler.opt_level(3);
+    compiler.extra_warnings(false);
     compiler.compile("libz.a");
 }
 
@@ -290,6 +292,7 @@ fn build_bzip2() {
 
     compiler.extra_warnings(false);
     compiler.opt_level(3);
+    compiler.extra_warnings(false);
     compiler.compile("libbz2.a");
 }
 
