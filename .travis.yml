@@ -20,4 +20,4 @@ install:
 script:
   - cargo fmt --all -- --check
   - cargo test --manifest-path=librocksdb-sys/Cargo.toml
-  - cargo test
+  - cargo test -- --skip test_iterator_outlive_db
