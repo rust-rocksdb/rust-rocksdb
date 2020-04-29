@@ -4,6 +4,7 @@ description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.14.0"
 edition = "2018"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
+repository = "https://github.com/rust-rocksdb/rust-rocksdb"
 license = "Apache-2.0"
 categories = [ "database" ]
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
