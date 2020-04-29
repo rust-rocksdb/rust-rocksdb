@@ -16,7 +16,7 @@ mod util;
 
 use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
-    Options, DB,
+    DB,
 };
 use util::DBPath;
 
@@ -25,15 +25,13 @@ fn backup_restore() {
     // create backup
     let path = DBPath::new("backup_test");
     let restore_path = DBPath::new("restore_from_backup_path");
-    let mut opts = Options::default();
-    opts.create_if_missing(true);
     {
-        let db = DB::open(&opts, &path).unwrap();
+        let db = DB::open_default(&path).unwrap();
         assert!(db.put(b"k1", b"v1111").is_ok());
         let value = db.get(b"k1");
         assert_eq!(value.unwrap().unwrap(), b"v1111");
         {
-            let backup_path = "_rust_rocksdb_backup_path";
+            let backup_path = DBPath::new("backup_path");
             let backup_opts = BackupEngineOptions::default();
             let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
             assert!(backup_engine.create_new_backup(&db).is_ok());
