@@ -3,7 +3,6 @@ target
 Cargo.lock
 *.orig
 *.bk
-_rust_rocksdb*
 *rlib
 tags
 path
