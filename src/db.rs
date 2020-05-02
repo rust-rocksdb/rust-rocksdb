@@ -17,8 +17,8 @@ use crate::{
     ffi,
     ffi_util::{opt_bytes_to_ptr, to_cpath},
     ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBPinnableSlice, DBRawIterator,
-    DBWALIterator, Direction, Error, FlushOptions, IteratorMode, Options, ReadOptions, Snapshot,
-    WriteBatch, WriteOptions,
+    DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
+    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -1106,6 +1106,86 @@ impl DB {
             ffi_try!(ffi::rocksdb_try_catch_up_with_primary(self.inner));
         }
         Ok(())
+    }
+
+    pub fn ingest_external_file<P: AsRef<Path>>(&self, paths: Vec<P>) -> Result<(), Error> {
+        let opts = IngestExternalFileOptions::default();
+        self.ingest_external_file_opts(&opts, paths)
+    }
+
+    pub fn ingest_external_file_opts<P: AsRef<Path>>(
+        &self,
+        opts: &IngestExternalFileOptions,
+        paths: Vec<P>,
+    ) -> Result<(), Error> {
+        let paths_v: Vec<CString> = paths
+            .iter()
+            .map(|path| to_cpath(&path))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
+
+        self.ingest_external_file_raw(&opts, &paths_v, &cpaths)
+    }
+
+    pub fn ingest_external_file_cf_default<P: AsRef<Path>>(
+        &self,
+        cf: &ColumnFamily,
+        paths: Vec<P>,
+    ) -> Result<(), Error> {
+        let opts = IngestExternalFileOptions::default();
+        self.ingest_external_file_cf(&cf, &opts, paths)
+    }
+
+    pub fn ingest_external_file_cf<P: AsRef<Path>>(
+        &self,
+        cf: &ColumnFamily,
+        opts: &IngestExternalFileOptions,
+        paths: Vec<P>,
+    ) -> Result<(), Error> {
+        let paths_v: Vec<CString> = paths
+            .iter()
+            .map(|path| to_cpath(&path))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
+
+        self.ingest_external_file_raw_cf(&cf, &opts, &paths_v, &cpaths)
+    }
+
+    pub fn ingest_external_file_raw(
+        &self,
+        opts: &IngestExternalFileOptions,
+        paths_v: &[CString],
+        cpaths: &[*const c_char],
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_ingest_external_file(
+                self.inner,
+                cpaths.as_ptr(),
+                paths_v.len(),
+                opts.inner as *const _
+            ));
+            Ok(())
+        }
+    }
+    pub fn ingest_external_file_raw_cf(
+        &self,
+        cf: &ColumnFamily,
+        opts: &IngestExternalFileOptions,
+        paths_v: &[CString],
+        cpaths: &[*const c_char],
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_ingest_external_file_cf(
+                self.inner,
+                cf.inner,
+                cpaths.as_ptr(),
+                paths_v.len(),
+                opts.inner as *const _
+            ));
+            Ok(())
+        }
     }
 }
 

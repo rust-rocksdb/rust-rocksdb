@@ -86,6 +86,7 @@ mod db_pinnable_slice;
 pub mod merge_operator;
 mod slice_transform;
 mod snapshot;
+mod sst_file_writer;
 mod write_batch;
 
 pub use crate::{
@@ -95,13 +96,14 @@ pub use crate::{
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType,
-        DBRecoveryMode, DataBlockIndexType, FlushOptions, MemtableFactory, Options,
-        PlainTableFactoryOptions, ReadOptions, WriteOptions,
+        DBRecoveryMode, DataBlockIndexType, FlushOptions, IngestExternalFileOptions,
+        MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
     slice_transform::SliceTransform,
     snapshot::Snapshot,
+    sst_file_writer::SstFileWriter,
     write_batch::{WriteBatch, WriteBatchIterator},
 };
 
@@ -155,7 +157,8 @@ impl fmt::Display for Error {
 mod test {
     use super::{
         BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
-        Options, PlainTableFactoryOptions, ReadOptions, Snapshot, WriteOptions, DB,
+        IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
+        SstFileWriter, WriteOptions, DB,
     };
 
     #[test]
@@ -174,10 +177,12 @@ mod test {
         is_send::<Options>();
         is_send::<ReadOptions>();
         is_send::<WriteOptions>();
+        is_send::<IngestExternalFileOptions>();
         is_send::<BlockBasedOptions>();
         is_send::<PlainTableFactoryOptions>();
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
+        is_send::<SstFileWriter>();
     }
 
     #[test]
@@ -193,8 +198,10 @@ mod test {
         is_sync::<Options>();
         is_sync::<ReadOptions>();
         is_sync::<WriteOptions>();
+        is_sync::<IngestExternalFileOptions>();
         is_sync::<BlockBasedOptions>();
         is_sync::<PlainTableFactoryOptions>();
         is_sync::<ColumnFamilyDescriptor>();
+        is_sync::<SstFileWriter>();
     }
 }

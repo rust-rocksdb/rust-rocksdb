@@ -133,6 +133,10 @@ pub struct ReadOptions {
     iterate_upper_bound: Option<Vec<u8>>,
 }
 
+pub struct IngestExternalFileOptions {
+    pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,
+}
+
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
@@ -140,6 +144,7 @@ unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for ReadOptions {}
+unsafe impl Send for IngestExternalFileOptions {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -147,6 +152,7 @@ unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for ReadOptions {}
+unsafe impl Sync for IngestExternalFileOptions {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -183,6 +189,12 @@ impl Drop for WriteOptions {
 impl Drop for ReadOptions {
     fn drop(&mut self) {
         unsafe { ffi::rocksdb_readoptions_destroy(self.inner) }
+    }
+}
+
+impl Drop for IngestExternalFileOptions {
+    fn drop(&mut self) {
+        unsafe { ffi::rocksdb_ingestexternalfileoptions_destroy(self.inner) }
     }
 }
 
@@ -1857,6 +1869,50 @@ impl Default for ReadOptions {
             ReadOptions {
                 inner: ffi::rocksdb_readoptions_create(),
                 iterate_upper_bound: None,
+            }
+        }
+    }
+}
+
+impl IngestExternalFileOptions {
+    pub fn set_move_files(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_ingestexternalfileoptions_set_move_files(self.inner, v as c_uchar);
+        }
+    }
+    pub fn set_snapshot_consistency(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_ingestexternalfileoptions_set_snapshot_consistency(
+                self.inner,
+                v as c_uchar,
+            );
+        }
+    }
+    pub fn set_allow_global_seqno(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_ingestexternalfileoptions_set_allow_global_seqno(self.inner, v as c_uchar);
+        }
+    }
+    pub fn set_allow_blocking_flush(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_ingestexternalfileoptions_set_allow_blocking_flush(
+                self.inner,
+                v as c_uchar,
+            );
+        }
+    }
+    pub fn set_ingest_behind(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_ingestexternalfileoptions_set_ingest_behind(self.inner, v as c_uchar);
+        }
+    }
+}
+
+impl Default for IngestExternalFileOptions {
+    fn default() -> IngestExternalFileOptions {
+        unsafe {
+            IngestExternalFileOptions {
+                inner: ffi::rocksdb_ingestexternalfileoptions_create(),
             }
         }
     }
