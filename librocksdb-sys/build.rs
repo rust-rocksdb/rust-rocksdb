@@ -163,7 +163,7 @@ fn build_rocksdb() {
     if target.contains("msvc") {
         config.flag("-EHsc");
     } else {
-        config.flag("-std=c++11");
+        config.flag(&stdlib_flag());
         // this was breaking the build on travis due to
         // > 4mb of warnings emitted.
         config.flag("-Wno-unused-parameter");
@@ -193,6 +193,8 @@ fn build_snappy() {
     if target.contains("msvc") {
         config.flag("-EHsc");
     } else {
+        // Snappy requires C++11.
+        // See: https://github.com/google/snappy/blob/master/CMakeLists.txt#L32-L38
         config.flag("-std=c++11");
     }
 
@@ -307,6 +309,15 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
         return true;
     }
     false
+}
+
+fn stdlib_flag() -> String {
+    let lib = env::var("ROCKSDB_CXX_STDLIB").unwrap_or_else(|_| "-std=c++11".to_owned());
+    if !lib.starts_with("-std=") {
+        return format!("-std={}", lib);
+    }
+
+    lib
 }
 
 fn main() {
