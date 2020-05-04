@@ -19,7 +19,6 @@ extern crate libc;
 extern crate tempfile;
 
 use std::ffi::CStr;
-use std::ffi::VaList;
 use std::fmt;
 
 use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t};
@@ -1715,12 +1714,7 @@ extern "C" {
     pub fn crocksdb_logger_create(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
-        logv: extern "C" fn(
-            ctx: *mut c_void,
-            log_level: DBInfoLogLevel,
-            format: *const c_char,
-            ap: VaList,
-        ),
+        logv: extern "C" fn(ctx: *mut c_void, log_level: DBInfoLogLevel, log: *const c_char),
     ) -> *mut DBLogger;
     pub fn crocksdb_create_env_logger(fname: *const libc::c_char, env: *mut DBEnv)
         -> *mut DBLogger;

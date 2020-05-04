@@ -1,4 +1,3 @@
-use std::ffi::VaList;
 use std::sync::{atomic::*, Arc};
 use std::time::Duration;
 use std::{str, thread};
@@ -25,7 +24,8 @@ struct TestLogger {
 }
 
 impl Logger for TestLogger {
-    fn logv(&self, _log_level: InfoLogLevel, _format: &str, _ap: VaList) {
+    fn logv(&self, _log_level: InfoLogLevel, log: &str) {
+        assert!(log.len() > 0);
         self.print.fetch_add(1, Ordering::SeqCst);
     }
 }

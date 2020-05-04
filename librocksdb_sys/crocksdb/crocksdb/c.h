@@ -808,9 +808,9 @@ typedef void (*on_external_file_ingested_cb)(
     void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
 typedef void (*on_background_error_cb)(void*, crocksdb_backgrounderrorreason_t,
                                        crocksdb_status_ptr_t*);
-typedef void (*on_stall_conditions_changed_cb)(void*, const crocksdb_writestallinfo_t*);
-typedef void (*crocksdb_logger_logv_cb)(void*, int log_level, const char*,
-                                        va_list);
+typedef void (*on_stall_conditions_changed_cb)(
+    void*, const crocksdb_writestallinfo_t*);
+typedef void (*crocksdb_logger_logv_cb)(void*, int log_level, const char*);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_eventlistener_t*
 crocksdb_eventlistener_create(
