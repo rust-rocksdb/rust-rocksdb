@@ -312,12 +312,16 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 }
 
 fn cxx_standard() -> String {
-    let lib = env::var("ROCKSDB_CXX_STDLIB").unwrap_or_else(|_| "-std=c++11".to_owned());
-    if !lib.starts_with("-std=") {
-        return format!("-std={}", lib);
-    }
-
-    lib
+    env::var("ROCKSDB_CXX_STDLIB").map_or_else(
+        |_| "-std=c++11".to_owned(),
+        |lib| {
+            if !lib.starts_with("-std=") {
+                format!("-std={}", lib)
+            } else {
+                lib
+            }
+        },
+    )
 }
 
 fn main() {
