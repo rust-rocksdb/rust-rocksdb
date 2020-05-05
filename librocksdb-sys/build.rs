@@ -163,7 +163,7 @@ fn build_rocksdb() {
     if target.contains("msvc") {
         config.flag("-EHsc");
     } else {
-        config.flag(&stdlib_flag());
+        config.flag(&cxx_standard());
         // this was breaking the build on travis due to
         // > 4mb of warnings emitted.
         config.flag("-Wno-unused-parameter");
@@ -311,7 +311,7 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     false
 }
 
-fn stdlib_flag() -> String {
+fn cxx_standard() -> String {
     let lib = env::var("ROCKSDB_CXX_STDLIB").unwrap_or_else(|_| "-std=c++11".to_owned());
     if !lib.starts_with("-std=") {
         return format!("-std={}", lib);
