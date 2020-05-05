@@ -223,10 +223,10 @@ mod test {
     }
 
     #[test]
-    fn mergetest() {
+    fn merge_test() {
         use crate::{Options, DB};
 
-        let path = "_rust_rocksdb_mergetest";
+        let path = "_rust_rocksdb_merge_test";
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_provided_merge, None);
@@ -331,7 +331,7 @@ mod test {
 
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn counting_mergetest() {
+    fn counting_merge_test() {
         use crate::{DBCompactionStyle, Options, DB};
         use std::sync::Arc;
         use std::thread;
