@@ -1093,23 +1093,44 @@ impl DB {
     }
 
     /// Flush all memtable data.
-    /// If sync, the flush will wait until the flush is done.
-    pub fn flush(&self, sync: bool) -> Result<(), String> {
+    /// If wait, the flush will wait until the flush is done.
+    pub fn flush(&self, wait: bool) -> Result<(), String> {
         unsafe {
             let mut opts = FlushOptions::new();
-            opts.set_wait(sync);
+            opts.set_wait(wait);
             ffi_try!(crocksdb_flush(self.inner, opts.inner));
             Ok(())
         }
     }
 
     /// Flush all memtable data for specified cf.
-    /// If sync, the flush will wait until the flush is done.
-    pub fn flush_cf(&self, cf: &CFHandle, sync: bool) -> Result<(), String> {
+    /// If wait, the flush will wait until the flush is done.
+    pub fn flush_cf(&self, cf: &CFHandle, wait: bool) -> Result<(), String> {
         unsafe {
             let mut opts = FlushOptions::new();
-            opts.set_wait(sync);
+            opts.set_wait(wait);
             ffi_try!(crocksdb_flush_cf(self.inner, cf.inner, opts.inner));
+            Ok(())
+        }
+    }
+
+    /// Flushes multiple column families.
+    /// If atomic flush is not enabled, flush_cfs is equivalent to
+    /// calling flush_cf multiple times.
+    /// If atomic flush is enabled, flush_cfs will flush all column families
+    /// specified in `cfs` up to the latest sequence number at the time
+    /// when flush is requested.
+    pub fn flush_cfs(&self, cfs: &[&CFHandle], wait: bool) -> Result<(), String> {
+        unsafe {
+            let cfs: Vec<*mut _> = cfs.iter().map(|cf| cf.inner).collect();
+            let mut opts = FlushOptions::new();
+            opts.set_wait(wait);
+            ffi_try!(crocksdb_flush_cfs(
+                self.inner,
+                cfs.as_ptr(),
+                cfs.len(),
+                opts.inner
+            ));
             Ok(())
         }
     }
@@ -3302,6 +3323,48 @@ mod test {
         db.put(b"key", b"value").unwrap();
         let seq2 = db.get_latest_sequence_number();
         assert!(seq2 > seq1);
+    }
+
+    #[test]
+    fn test_atomic_flush() {
+        let path = tempdir_with_prefix("_rust_rocksdb_test_atomic_flush");
+        let cfs = ["default", "cf1", "cf2", "cf3"];
+        let mut cfs_opts = vec![];
+        for _ in 0..cfs.len() {
+            cfs_opts.push(ColumnFamilyOptions::new());
+        }
+
+        {
+            let mut opts = DBOptions::new();
+            opts.create_if_missing(true);
+            opts.set_atomic_flush(true);
+            let mut db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+            let wb = WriteBatch::new();
+            for (cf, cf_opts) in cfs.iter().zip(cfs_opts.iter().cloned()) {
+                if *cf != "default" {
+                    db.create_cf((*cf, cf_opts)).unwrap();
+                }
+                let handle = db.cf_handle(cf).unwrap();
+                wb.put_cf(handle, b"k", cf.as_bytes()).unwrap();
+            }
+            let mut options = WriteOptions::new();
+            options.disable_wal(true);
+            db.write_opt(&wb, &options).unwrap();
+            let handles: Vec<_> = cfs.iter().map(|name| db.cf_handle(name).unwrap()).collect();
+            db.flush_cfs(&handles, true).unwrap();
+        }
+
+        let opts = DBOptions::new();
+        let db = DB::open_cf(
+            opts,
+            path.path().to_str().unwrap(),
+            cfs.iter().map(|cf| *cf).zip(cfs_opts).collect(),
+        )
+        .unwrap();
+        for cf in &cfs {
+            let handle = db.cf_handle(cf).unwrap();
+            assert_eq!(db.get_cf(handle, b"k").unwrap().unwrap(), cf.as_bytes());
+        }
     }
 
     #[test]

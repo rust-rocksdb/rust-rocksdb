@@ -495,6 +495,10 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_flush_cf(
     crocksdb_t* db, crocksdb_column_family_handle_t* column_family,
     const crocksdb_flushoptions_t* options, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_flush_cfs(
+  crocksdb_t* db, const crocksdb_column_family_handle_t** column_familys,
+  int num_handles, const crocksdb_flushoptions_t* options, char** errptr);
+
 extern C_ROCKSDB_LIBRARY_API void crocksdb_flush_wal(
     crocksdb_t* db, unsigned char sync, char** errptr);
 
@@ -1176,6 +1180,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_ratelimiter(
     crocksdb_options_t* opt, crocksdb_ratelimiter_t* limiter);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_vector_memtable_factory(
     crocksdb_options_t* opt, uint64_t reserved_bytes);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_atomic_flush(
+    crocksdb_options_t* opt, unsigned char enable);
 
 enum {
   compaction_by_compensated_size = 0,
