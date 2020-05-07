@@ -959,8 +959,8 @@ impl DB {
 
     /// Retrieves a RocksDB property by name.
     ///
-    /// For a full list of properties, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
         let prop_name = match CString::new(name) {
             Ok(c) => c,
@@ -995,8 +995,8 @@ impl DB {
 
     /// Retrieves a RocksDB property by name, for a specific column family.
     ///
-    /// For a full list of properties, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value_cf(
         &self,
         cf: &ColumnFamily,
@@ -1035,8 +1035,8 @@ impl DB {
 
     /// Retrieves a RocksDB property and casts it to an integer.
     ///
-    /// For a full list of properties that return int values, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    /// Full list of properties that return int values could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
         match self.property_value(name) {
             Ok(Some(value)) => match value.parse::<u64>() {
@@ -1053,8 +1053,8 @@ impl DB {
 
     /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
     ///
-    /// For a full list of properties that return int values, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    /// Full list of properties that return int values could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value_cf(
         &self,
         cf: &ColumnFamily,
