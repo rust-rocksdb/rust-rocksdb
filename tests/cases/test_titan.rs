@@ -17,9 +17,10 @@ use std::ops;
 use rand::Rng;
 use rocksdb::{
     CFHandle, ColumnFamilyOptions, CompactOptions, DBBottommostLevelCompaction, DBCompressionType,
-    DBEntryType, DBOptions, Range, ReadOptions, SeekKey, TablePropertiesCollector,
+    DBEntryType, DBOptions, DBStatisticsHistogramType as HistogramType,
+    DBStatisticsTickerType as TickerType, Range, ReadOptions, SeekKey, TablePropertiesCollector,
     TablePropertiesCollectorFactory, TitanBlobIndex, TitanDBOptions, UserCollectedProperties,
-    Writable, DB,
+    Writable, WriteOptions, DB,
 };
 
 use super::tempdir_with_prefix;
@@ -141,7 +142,6 @@ fn test_titandb() {
 
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.set_num_levels(4);
-    cf_opts.set_titandb_options(&tdb_opts);
     db.create_cf(("cf1", cf_opts)).unwrap();
     let cf1 = db.cf_handle("cf1").unwrap();
     assert_eq!(db.get_options_cf(cf1).get_num_levels(), 4);
@@ -372,4 +372,65 @@ fn test_blob_cache_capacity() {
     opt.set_blob_cache_capacity(32 * 1024 * 1024).unwrap();
 
     assert_eq!(db.get_options().get_blob_cache_capacity(), 32 * 1024 * 1024);
+}
+
+#[test]
+fn test_titan_statistics() {
+    let path = tempdir_with_prefix("_rust_rocksdb_statistics");
+    let mut tdb_opts = TitanDBOptions::new();
+    tdb_opts.set_min_blob_size(0);
+    let mut opts = DBOptions::new();
+    opts.enable_statistics(true);
+    opts.create_if_missing(true);
+    opts.set_titandb_options(&tdb_opts);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_titandb_options(&tdb_opts);
+
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+    let wopts = WriteOptions::new();
+
+    db.put_opt(b"k0", b"a", &wopts).unwrap();
+    db.put_opt(b"k1", b"b", &wopts).unwrap();
+    db.put_opt(b"k2", b"c", &wopts).unwrap();
+    db.flush(true /* sync */).unwrap(); // flush memtable to sst file.
+    assert_eq!(db.get(b"k0").unwrap().unwrap(), b"a");
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"b");
+    assert_eq!(db.get(b"k2").unwrap().unwrap(), b"c");
+
+    assert!(db.get_statistics_ticker_count(TickerType::TitanNumGet) > 0);
+    assert!(db.get_and_reset_statistics_ticker_count(TickerType::TitanNumGet) > 0);
+    assert_eq!(db.get_statistics_ticker_count(TickerType::TitanNumGet), 0);
+    assert!(db
+        .get_statistics_histogram_string(HistogramType::TitanGetMicros)
+        .is_some());
+    assert!(db
+        .get_statistics_histogram(HistogramType::TitanGetMicros)
+        .is_some());
+
+    let get_micros = db
+        .get_statistics_histogram(HistogramType::TitanGetMicros)
+        .unwrap();
+    assert!(get_micros.max > 0.0);
+    db.reset_statistics();
+    let get_micros = db
+        .get_statistics_histogram(HistogramType::TitanGetMicros)
+        .unwrap();
+    assert_eq!(
+        db.get_property_int("rocksdb.titandb.num-discardable-ratio-le0-file")
+            .unwrap(),
+        1
+    );
+
+    assert_eq!(
+        db.get_property_int("rocksdb.titandb.num-blob-files-at-level0")
+            .unwrap(),
+        1
+    );
+
+    assert_eq!(get_micros.max, 0.0);
 }

@@ -2183,11 +2183,9 @@ extern "C" {
 extern "C" {
     pub fn ctitandb_open_column_families(
         path: *const c_char,
-        options: *const Options,
         titan_options: *const DBTitanDBOptions,
         num_column_families: c_int,
         column_family_names: *const *const c_char,
-        column_family_options: *const *const Options,
         titan_column_family_options: *const *const DBTitanDBOptions,
         column_family_handles: *const *mut DBCFHandle,
         err: *mut *mut c_char,
@@ -2195,7 +2193,6 @@ extern "C" {
 
     pub fn ctitandb_create_column_family(
         db: *mut DBInstance,
-        column_family_options: *const Options,
         titan_column_family_options: *const DBTitanDBOptions,
         column_family_name: *const c_char,
         err: *mut *mut c_char,
@@ -2204,10 +2201,15 @@ extern "C" {
     pub fn ctitandb_options_create() -> *mut DBTitanDBOptions;
     pub fn ctitandb_options_destroy(opts: *mut DBTitanDBOptions);
     pub fn ctitandb_options_copy(opts: *mut DBTitanDBOptions) -> *mut DBTitanDBOptions;
+    pub fn ctitandb_options_set_rocksdb_options(
+        opts: *mut DBTitanDBOptions,
+        rocksdb_opts: *const Options,
+    );
     pub fn ctitandb_get_titan_options_cf(
         db: *mut DBInstance,
         cf: *mut DBCFHandle,
     ) -> *mut DBTitanDBOptions;
+    pub fn ctitandb_get_titan_db_options(db: *mut DBInstance) -> *mut DBTitanDBOptions;
     pub fn ctitandb_options_dirname(opts: *mut DBTitanDBOptions) -> *const c_char;
     pub fn ctitandb_options_set_dirname(opts: *mut DBTitanDBOptions, name: *const c_char);
     pub fn ctitandb_options_min_blob_size(opts: *mut DBTitanDBOptions) -> u64;

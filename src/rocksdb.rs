@@ -83,11 +83,15 @@ fn ensure_default_cf_exists<'a>(
 
 fn split_descriptors<'a>(
     list: Vec<ColumnFamilyDescriptor<'a>>,
+    is_titan: bool,
 ) -> (Vec<&'a str>, Vec<ColumnFamilyOptions>) {
     let mut v1 = Vec::with_capacity(list.len());
     let mut v2 = Vec::with_capacity(list.len());
-    for d in list {
+    for mut d in list {
         v1.push(d.name);
+        if is_titan && d.options.titan_inner.is_null() {
+            d.options.set_titandb_options(&TitanDBOptions::new());
+        }
         v2.push(d.options);
     }
     (v1, v2)
@@ -541,7 +545,7 @@ impl DB {
     }
 
     fn open_cf_internal<'a, T>(
-        opts: DBOptions,
+        mut opts: DBOptions,
         path: &str,
         cfds: Vec<T>,
         ttls: &[i32],
@@ -570,7 +574,7 @@ impl DB {
         let mut ttls_vec = ttls.to_vec();
         ensure_default_cf_exists(&mut descs, &mut ttls_vec, !opts.titan_inner.is_null());
 
-        let (names, options) = split_descriptors(descs);
+        let (names, options) = split_descriptors(descs, !opts.titan_inner.is_null());
         let cstrings = build_cstring_list(&names);
 
         let cf_names: Vec<*const _> = cstrings.iter().map(|cs| cs.as_ptr()).collect();
@@ -642,11 +646,9 @@ impl DB {
                     unsafe {
                         ffi_try!(ctitandb_open_column_families(
                             db_path,
-                            db_options,
                             titan_options,
                             db_cfs_count,
                             db_cf_ptrs,
-                            db_cf_opts,
                             titan_cf_opts,
                             db_cf_handles
                         ))
@@ -675,6 +677,16 @@ impl DB {
         }
         if db.is_null() {
             return Err(ERR_NULL_DB_ONINIT.to_owned());
+        }
+
+        unsafe {
+            // the options provided when opening db may sanitized, so get the latest options.
+            crocksdb_ffi::crocksdb_options_destroy(opts.inner);
+            opts.inner = crocksdb_ffi::crocksdb_get_db_options(db);
+            if !opts.titan_inner.is_null() {
+                crocksdb_ffi::ctitandb_options_destroy(opts.titan_inner);
+                opts.titan_inner = crocksdb_ffi::ctitandb_get_titan_db_options(db);
+            }
         }
 
         let cfs = names
@@ -847,7 +859,7 @@ impl DB {
     where
         T: Into<ColumnFamilyDescriptor<'a>>,
     {
-        let cfd = cfd.into();
+        let mut cfd = cfd.into();
         let cname = match CString::new(cfd.name.as_bytes()) {
             Ok(c) => c,
             Err(_) => {
@@ -863,9 +875,11 @@ impl DB {
                     cname_ptr
                 ))
             } else {
+                if cfd.options.titan_inner.is_null() {
+                    cfd.options.set_titandb_options(&TitanDBOptions::new());
+                }
                 ffi_try!(ctitandb_create_column_family(
                     self.inner,
-                    cfd.options.inner,
                     cfd.options.titan_inner,
                     cname_ptr
                 ))

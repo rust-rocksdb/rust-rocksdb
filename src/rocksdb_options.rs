@@ -696,7 +696,10 @@ impl DBOptions {
     }
 
     pub fn set_titandb_options(&mut self, opts: &TitanDBOptions) {
-        self.titan_inner = unsafe { crocksdb_ffi::ctitandb_options_copy(opts.inner) }
+        unsafe {
+            self.titan_inner = crocksdb_ffi::ctitandb_options_copy(opts.inner);
+            crocksdb_ffi::ctitandb_options_set_rocksdb_options(self.titan_inner, self.inner);
+        }
     }
 
     pub fn increase_parallelism(&mut self, parallelism: i32) {
@@ -1221,8 +1224,9 @@ impl ColumnFamilyOptions {
     }
 
     pub fn set_titandb_options(&mut self, opts: &TitanDBOptions) {
-        if !opts.inner.is_null() {
-            self.titan_inner = unsafe { crocksdb_ffi::ctitandb_options_copy(opts.inner) }
+        unsafe {
+            self.titan_inner = crocksdb_ffi::ctitandb_options_copy(opts.inner);
+            crocksdb_ffi::ctitandb_options_set_rocksdb_options(self.titan_inner, self.inner);
         }
     }
 

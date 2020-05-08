@@ -2164,17 +2164,15 @@ typedef struct ctitandb_readoptions_t ctitandb_readoptions_t;
 typedef struct ctitandb_blob_index_t ctitandb_blob_index_t;
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* ctitandb_open_column_families(
-    const char* name, const crocksdb_options_t* options,
+    const char* name, 
     const ctitandb_options_t* tdb_options, int num_column_families,
     const char** column_family_names,
-    const crocksdb_options_t** column_family_options,
     const ctitandb_options_t** titan_column_family_options,
     crocksdb_column_family_handle_t** column_family_handles, char** errptr);
 
 extern C_ROCKSDB_LIBRARY_API
 crocksdb_column_family_handle_t* ctitandb_create_column_family(
     crocksdb_t* db,
-    const crocksdb_options_t* column_family_options,
     const ctitandb_options_t* titan_column_family_options,
     const char* column_family_name,
     char** errptr);
@@ -2188,8 +2186,12 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_destroy(ctitandb_options_t*);
 extern C_ROCKSDB_LIBRARY_API ctitandb_options_t* ctitandb_options_copy(
     ctitandb_options_t*);
 
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_rocksdb_options(ctitandb_options_t* opts, const crocksdb_options_t* rocksdb_opts);
+
 extern C_ROCKSDB_LIBRARY_API ctitandb_options_t* ctitandb_get_titan_options_cf(
     const crocksdb_t* db, crocksdb_column_family_handle_t* column_family);
+
+extern C_ROCKSDB_LIBRARY_API ctitandb_options_t* ctitandb_get_titan_db_options(crocksdb_t* db);
 
 extern C_ROCKSDB_LIBRARY_API const char* ctitandb_options_dirname(
     ctitandb_options_t*);
