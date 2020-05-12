@@ -30,8 +30,8 @@ pub struct SstFileWriter<'a> {
 unsafe impl<'a> Send for SstFileWriter<'a> {}
 unsafe impl<'a> Sync for SstFileWriter<'a> {}
 
-pub struct EnvOptions {
-    pub(crate) inner: *mut ffi::rocksdb_envoptions_t,
+struct EnvOptions {
+    inner: *mut ffi::rocksdb_envoptions_t,
 }
 
 impl Drop for EnvOptions {
