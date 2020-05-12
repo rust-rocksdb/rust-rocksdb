@@ -698,7 +698,6 @@ impl DBOptions {
     pub fn set_titandb_options(&mut self, opts: &TitanDBOptions) {
         unsafe {
             self.titan_inner = crocksdb_ffi::ctitandb_options_copy(opts.inner);
-            crocksdb_ffi::ctitandb_options_set_rocksdb_options(self.titan_inner, self.inner);
         }
     }
 
@@ -1226,7 +1225,6 @@ impl ColumnFamilyOptions {
     pub fn set_titandb_options(&mut self, opts: &TitanDBOptions) {
         unsafe {
             self.titan_inner = crocksdb_ffi::ctitandb_options_copy(opts.inner);
-            crocksdb_ffi::ctitandb_options_set_rocksdb_options(self.titan_inner, self.inner);
         }
     }
 

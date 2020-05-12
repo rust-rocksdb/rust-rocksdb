@@ -585,7 +585,14 @@ impl DB {
             .collect();
         let titan_cf_options: Vec<_> = options
             .iter()
-            .map(|x| x.titan_inner as *const crocksdb_ffi::DBTitanDBOptions)
+            .map(|x| {
+                if !x.titan_inner.is_null() {
+                    unsafe {
+                        crocksdb_ffi::ctitandb_options_set_rocksdb_options(x.titan_inner, x.inner);
+                    }
+                }
+                x.titan_inner as *const crocksdb_ffi::DBTitanDBOptions
+            })
             .collect();
 
         let readonly = error_if_log_file_exist.is_some();
@@ -611,6 +618,9 @@ impl DB {
 
             let titan_options = opts.titan_inner;
             if !titan_options.is_null() {
+                unsafe {
+                    crocksdb_ffi::ctitandb_options_set_rocksdb_options(titan_options, db_options);
+                }
                 if error_if_log_file_exist.is_some() {
                     return Err("TitanDB doesn't support read only mode.".to_owned());
                 } else if with_ttl {
@@ -878,6 +888,10 @@ impl DB {
                 if cfd.options.titan_inner.is_null() {
                     cfd.options.set_titandb_options(&TitanDBOptions::new());
                 }
+                crocksdb_ffi::ctitandb_options_set_rocksdb_options(
+                    cfd.options.titan_inner,
+                    cfd.options.inner,
+                );
                 ffi_try!(ctitandb_create_column_family(
                     self.inner,
                     cfd.options.titan_inner,

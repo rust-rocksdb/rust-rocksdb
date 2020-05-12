@@ -120,8 +120,8 @@ fn test_titandb() {
     opts.set_titandb_options(&tdb_opts);
     let mut cf_opts = ColumnFamilyOptions::new();
     let f = TitanCollectorFactory::default();
-    cf_opts.add_table_properties_collector_factory("titan-collector", Box::new(f));
     cf_opts.set_titandb_options(&tdb_opts);
+    cf_opts.add_table_properties_collector_factory("titan-collector", Box::new(f));
 
     let mut db = DB::open_cf(
         opts,
@@ -380,9 +380,9 @@ fn test_titan_statistics() {
     let mut tdb_opts = TitanDBOptions::new();
     tdb_opts.set_min_blob_size(0);
     let mut opts = DBOptions::new();
+    opts.set_titandb_options(&tdb_opts);
     opts.enable_statistics(true);
     opts.create_if_missing(true);
-    opts.set_titandb_options(&tdb_opts);
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.set_titandb_options(&tdb_opts);
 
