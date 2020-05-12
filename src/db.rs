@@ -1108,11 +1108,13 @@ impl DB {
         Ok(())
     }
 
+    /// Loads a list of external SST files created with SstFileWriter into the DB with default opts
     pub fn ingest_external_file<P: AsRef<Path>>(&self, paths: Vec<P>) -> Result<(), Error> {
         let opts = IngestExternalFileOptions::default();
         self.ingest_external_file_opts(&opts, paths)
     }
 
+    /// Loads a list of external SST files created with SstFileWriter into the DB
     pub fn ingest_external_file_opts<P: AsRef<Path>>(
         &self,
         opts: &IngestExternalFileOptions,
@@ -1128,16 +1130,19 @@ impl DB {
         self.ingest_external_file_raw(&opts, &paths_v, &cpaths)
     }
 
-    pub fn ingest_external_file_cf_default<P: AsRef<Path>>(
+    /// Loads a list of external SST files created with SstFileWriter into the DB for given Column Family
+    /// with default opts
+    pub fn ingest_external_file_cf<P: AsRef<Path>>(
         &self,
         cf: &ColumnFamily,
         paths: Vec<P>,
     ) -> Result<(), Error> {
         let opts = IngestExternalFileOptions::default();
-        self.ingest_external_file_cf(&cf, &opts, paths)
+        self.ingest_external_file_cf_opts(&cf, &opts, paths)
     }
 
-    pub fn ingest_external_file_cf<P: AsRef<Path>>(
+    /// Loads a list of external SST files created with SstFileWriter into the DB for given Column Family
+    pub fn ingest_external_file_cf_opts<P: AsRef<Path>>(
         &self,
         cf: &ColumnFamily,
         opts: &IngestExternalFileOptions,
