@@ -16,9 +16,7 @@
 use crate::{ffi, ffi_util::to_cpath, Error, Options};
 
 use libc::{self, c_char, size_t};
-use std::ffi::CString;
-use std::marker::PhantomData;
-use std::path::Path;
+use std::{ffi::CString, marker::PhantomData, path::Path};
 
 pub struct SstFileWriter<'a> {
     pub(crate) inner: *mut ffi::rocksdb_sstfilewriter_t,
