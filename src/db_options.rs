@@ -1873,13 +1873,16 @@ impl Default for ReadOptions {
         }
     }
 }
-
 impl IngestExternalFileOptions {
+    /// Can be set to true to move the files instead of copying them.
     pub fn set_move_files(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_move_files(self.inner, v as c_uchar);
         }
     }
+
+    /// If set to false, an ingested file keys could appear in existing snapshots
+    /// that where created before the file was ingested.
     pub fn set_snapshot_consistency(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_snapshot_consistency(
@@ -1888,11 +1891,17 @@ impl IngestExternalFileOptions {
             );
         }
     }
+
+    /// If set to false, IngestExternalFile() will fail if the file key range
+    /// overlaps with existing keys or tombstones in the DB.
     pub fn set_allow_global_seqno(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_allow_global_seqno(self.inner, v as c_uchar);
         }
     }
+
+    /// If set to false and the file key range overlaps with the memtable key range
+    /// (memtable flush required), IngestExternalFile will fail.
     pub fn set_allow_blocking_flush(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_allow_blocking_flush(
@@ -1901,6 +1910,14 @@ impl IngestExternalFileOptions {
             );
         }
     }
+
+    /// Set to true if you would like duplicate keys in the file being ingested
+    /// to be skipped rather than overwriting existing data under that key.
+    /// Usecase: back-fill of some historical data in the database without
+    /// over-writing existing newer version of data.
+    /// This option could only be used if the DB has been running
+    /// with allow_ingest_behind=true since the dawn of time.
+    /// All files will be ingested at the bottommost level with seqno=0.
     pub fn set_ingest_behind(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_ingest_behind(self.inner, v as c_uchar);
