@@ -1873,6 +1873,7 @@ impl Default for ReadOptions {
         }
     }
 }
+
 impl IngestExternalFileOptions {
     /// Can be set to true to move the files instead of copying them.
     pub fn set_move_files(&mut self, v: bool) {
