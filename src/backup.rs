@@ -85,7 +85,7 @@ impl BackupEngine {
     /// * `wal_dir` - A path to the wal directory
     /// * `opts` - Restore options
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```ignore
     /// use rocksdb::backup::{BackupEngine, BackupEngineOptions};

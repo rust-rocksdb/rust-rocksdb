@@ -16,6 +16,8 @@ use crate::{ffi, ColumnFamily, DBIterator, DBRawIterator, Error, IteratorMode, R
 
 /// A consistent view of the database at the point of creation.
 ///
+/// # Examples
+///
 /// ```
 /// use rocksdb::{DB, IteratorMode, Options};
 ///
@@ -34,6 +36,7 @@ pub struct Snapshot<'a> {
 }
 
 impl<'a> Snapshot<'a> {
+    /// Creates a new `Snapshot` of the database `db`.
     pub fn new(db: &DB) -> Snapshot {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
         Snapshot {
@@ -42,21 +45,27 @@ impl<'a> Snapshot<'a> {
         }
     }
 
+    /// Creates an iterator over the data in this snapshot, using the default read options.
     pub fn iterator(&self, mode: IteratorMode) -> DBIterator<'a> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, readopts)
     }
 
+    /// Creates an iterator over the data in this snapshot under the given column family, using
+    /// the default read options.
     pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
         let readopts = ReadOptions::default();
         self.iterator_cf_opt(cf_handle, readopts, mode)
     }
 
+    /// Creates an iterator over the data in this snapshot, using the given read options.
     pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator<'a> {
         readopts.set_snapshot(self);
         DBIterator::new(self.db, readopts, mode)
     }
 
+    /// Creates an iterator over the data in this snapshot under the given column family, using
+    /// the given read options.
     pub fn iterator_cf_opt(
         &self,
         cf_handle: &ColumnFamily,
@@ -67,25 +76,27 @@ impl<'a> Snapshot<'a> {
         DBIterator::new_cf(self.db, cf_handle, readopts, mode)
     }
 
-    /// Opens a raw iterator over the data in this snapshot, using the default read options.
+    /// Creates a raw iterator over the data in this snapshot, using the default read options.
     pub fn raw_iterator(&self) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_opt(readopts)
     }
 
-    /// Opens a raw iterator over the data in this snapshot under the given column family, using the default read options.
+    /// Creates a raw iterator over the data in this snapshot under the given column family, using
+    /// the default read options.
     pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
 
-    /// Opens a raw iterator over the data in this snapshot, using the given read options.
+    /// Creates a raw iterator over the data in this snapshot, using the given read options.
     pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
         readopts.set_snapshot(self);
         DBRawIterator::new(self.db, readopts)
     }
 
-    /// Opens a raw iterator over the data in this snapshot under the given column family, using the given read options.
+    /// Creates a raw iterator over the data in this snapshot under the given column family, using
+    /// the given read options.
     pub fn raw_iterator_cf_opt(
         &self,
         cf_handle: &ColumnFamily,
@@ -95,11 +106,14 @@ impl<'a> Snapshot<'a> {
         DBRawIterator::new_cf(self.db, cf_handle, readopts)
     }
 
+    /// Returns the bytes associated with a key value with default read options.
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         let readopts = ReadOptions::default();
         self.get_opt(key, readopts)
     }
 
+    /// Returns the bytes associated with a key value and given column family with default read
+    /// options.
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -109,6 +123,7 @@ impl<'a> Snapshot<'a> {
         self.get_cf_opt(cf, key.as_ref(), readopts)
     }
 
+    /// Returns the bytes associated with a key value and given read options.
     pub fn get_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -118,6 +133,7 @@ impl<'a> Snapshot<'a> {
         self.db.get_opt(key.as_ref(), &readopts)
     }
 
+    /// Returns the bytes associated with a key value, given column family and read options.
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,

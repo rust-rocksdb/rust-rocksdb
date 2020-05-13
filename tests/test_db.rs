@@ -16,6 +16,7 @@ mod util;
 
 use rocksdb::{Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
 use std::sync::Arc;
+use std::time::Duration;
 use std::{mem, thread};
 use util::DBPath;
 
@@ -356,4 +357,20 @@ fn test_open_as_secondary() {
 
     let result = secondary.get(b"key1").unwrap().unwrap();
     assert_eq!(get_byte_slice(&result), b"value2");
+}
+
+#[test]
+fn test_open_with_ttl() {
+    let path = DBPath::new("_rust_rocksdb_test_open_with_ttl");
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open_with_ttl(&opts, &path, Duration::from_secs(1)).unwrap();
+    db.put(b"key1", b"value1").unwrap();
+
+    thread::sleep(Duration::from_secs(2));
+    // Trigger a manual compaction, this will check the TTL filter
+    // in the database and drop all expired entries.
+    db.compact_range(None::<&[u8]>, None::<&[u8]>);
+    assert!(db.get(b"key1").unwrap().is_none());
 }

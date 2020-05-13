@@ -29,13 +29,14 @@ use crate::{
     Snapshot,
 };
 
-pub fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
+fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
 
 /// Database-wide options around performance and behavior.
 ///
-/// Please read [the official tuning guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide), and most importantly, measure performance under realistic workloads with realistic hardware.
+/// Please read the official tuning [guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide)
+/// and most importantly, measure performance under realistic workloads with realistic hardware.
 ///
 /// # Examples
 ///
@@ -285,7 +286,7 @@ impl BlockBasedOptions {
 
     /// Defines the index type to be used for SS-table lookups.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{BlockBasedOptions, BlockBasedIndexType, Options};
@@ -333,7 +334,9 @@ impl BlockBasedOptions {
     }
 
     /// Format version, reserved for backward compatibility.
-    /// See https://github.com/facebook/rocksdb/blob/f059c7d9b96300091e07429a60f4ad55dac84859/include/rocksdb/table.h#L249-L274.
+    ///
+    /// See full [list](https://github.com/facebook/rocksdb/blob/f059c7d9b96300091e07429a60f4ad55dac84859/include/rocksdb/table.h#L249-L274)
+    /// of the supported versions.
     ///
     /// Default: 2.
     pub fn set_format_version(&mut self, version: i32) {
@@ -375,7 +378,7 @@ impl BlockBasedOptions {
     /// valid only when using `DataBlockIndexType::BinaryAndHash`.
     ///
     /// Default: `BinarySearch`
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options};
@@ -419,7 +422,7 @@ impl Options {
     /// cores. You almost definitely want to call this function if your system is
     /// bottlenecked by RocksDB.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -487,7 +490,7 @@ impl Options {
     ///
     /// Default: `false`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -506,7 +509,7 @@ impl Options {
     ///
     /// Default: `false`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -528,7 +531,7 @@ impl Options {
     /// Default: `DBCompressionType::Snappy` (`DBCompressionType::None` if
     /// snappy feature is not enabled).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, DBCompressionType};
@@ -550,7 +553,7 @@ impl Options {
     /// each level of the database; these override the value specified in
     /// the previous field 'compression'.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, DBCompressionType};
@@ -592,7 +595,7 @@ impl Options {
     ///
     /// Default: `0`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -754,7 +757,7 @@ impl Options {
     ///
     /// Default: `false`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -779,7 +782,7 @@ impl Options {
     ///
     /// Default: `-1`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -800,7 +803,7 @@ impl Options {
     ///
     /// Default: `false`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -826,7 +829,7 @@ impl Options {
     ///
     /// This option applies to table files
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -849,7 +852,7 @@ impl Options {
     ///
     /// Default: true
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -873,7 +876,7 @@ impl Options {
     ///
     /// Default: false
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -897,7 +900,7 @@ impl Options {
     ///
     /// Default: false
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -933,7 +936,7 @@ impl Options {
     ///
     /// Default: true
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// #[allow(deprecated)]
@@ -955,7 +958,7 @@ impl Options {
     ///
     /// Default: `6`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -979,7 +982,7 @@ impl Options {
     ///
     /// Default: `1`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1003,7 +1006,7 @@ impl Options {
     ///
     /// Default: `2`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1034,7 +1037,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1059,7 +1062,7 @@ impl Options {
     ///
     /// Default: 0 (disabled)
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1086,7 +1089,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1102,7 +1105,7 @@ impl Options {
 
     /// Default: `10`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1120,7 +1123,7 @@ impl Options {
     /// The older manifest file be deleted.
     /// The default value is MAX_INT so that roll-over does not take place.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1147,7 +1150,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1171,7 +1174,7 @@ impl Options {
     ///
     /// Default: `1`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1192,7 +1195,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1214,7 +1217,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1234,7 +1237,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1252,7 +1255,7 @@ impl Options {
     ///
     /// Default: DBCompactionStyle::Level
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, DBCompactionStyle};
@@ -1279,7 +1282,7 @@ impl Options {
     ///
     /// Default: `1`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1310,7 +1313,7 @@ impl Options {
     ///
     /// Default: `1`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1331,7 +1334,7 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1376,10 +1379,10 @@ impl Options {
     }
 
     /// Defines the underlying memtable implementation.
-    /// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+    /// See official [wiki](https://github.com/facebook/rocksdb/wiki/MemTable) for more information.
     /// Defaults to using a skiplist.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, MemtableFactory};
@@ -1422,7 +1425,15 @@ impl Options {
         }
     }
 
-    /// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+    // This is a factory that provides TableFactory objects.
+    // Default: a block-based table factory that provides a default
+    // implementation of TableBuilder and TableReader with default
+    // BlockBasedTableOptions.
+    /// Sets the factory as plain table.
+    /// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
+    /// information.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, PlainTableFactoryOptions};
@@ -1453,7 +1464,7 @@ impl Options {
     ///
     /// Default: `false`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1473,7 +1484,7 @@ impl Options {
     ///
     /// Default: `0`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1492,7 +1503,7 @@ impl Options {
     ///
     /// Default: DBRecoveryMode::PointInTime
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, DBRecoveryMode};
@@ -1530,7 +1541,7 @@ impl Options {
     ///
     /// Default: `600` (10 mins)
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1566,7 +1577,7 @@ impl Options {
     ///
     /// Default: `0`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::{Options, SliceTransform};
@@ -1587,7 +1598,7 @@ impl Options {
     ///
     /// Default: same directory as the database
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1624,7 +1635,7 @@ impl Options {
     ///
     /// Default: false
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1642,7 +1653,7 @@ impl Options {
     ///
     /// Default: false
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1665,7 +1676,7 @@ impl Options {
     ///
     /// Default: false
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1685,7 +1696,7 @@ impl Options {
     ///
     /// Default: disable
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::Options;
@@ -1730,7 +1741,7 @@ impl FlushOptions {
     ///
     /// Default: true
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use rocksdb::FlushOptions;
@@ -1964,7 +1975,7 @@ pub enum DataBlockIndexType {
 }
 
 /// Defines the underlying memtable implementation.
-/// See https://github.com/facebook/rocksdb/wiki/MemTable for more information.
+/// See official [wiki](https://github.com/facebook/rocksdb/wiki/MemTable) for more information.
 pub enum MemtableFactory {
     Vector,
     HashSkipList {
@@ -1978,7 +1989,8 @@ pub enum MemtableFactory {
 }
 
 /// Used with DBOptions::set_plain_table_factory.
-/// See https://github.com/facebook/rocksdb/wiki/PlainTable-Format.
+/// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
+/// information.
 ///
 /// Defaults:
 ///  user_key_length: 0 (variable length)

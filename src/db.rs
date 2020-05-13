@@ -31,6 +31,7 @@ use std::path::PathBuf;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::time::Duration;
 
 /// A RocksDB database.
 ///
@@ -55,6 +56,7 @@ enum AccessType<'a> {
     ReadWrite,
     ReadOnly { error_if_log_file_exist: bool },
     Secondary { secondary_path: &'a Path },
+    WithTTL { ttl: Duration },
 }
 
 impl DB {
@@ -86,6 +88,25 @@ impl DB {
         secondary_path: P,
     ) -> Result<DB, Error> {
         DB::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
+    }
+
+    /// Opens the database with a Time to Live compaction filter.
+    pub fn open_with_ttl<P: AsRef<Path>>(
+        opts: &Options,
+        path: P,
+        ttl: Duration,
+    ) -> Result<DB, Error> {
+        let c_path = to_cpath(&path)?;
+        let db = DB::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
+        if db.is_null() {
+            return Err(Error::new("Could not initialize database.".to_owned()));
+        }
+
+        Ok(DB {
+            inner: db,
+            cfs: BTreeMap::new(),
+            path: path.as_ref().to_path_buf(),
+        })
     }
 
     /// Opens a database with the given database options and column family names.
@@ -275,6 +296,11 @@ impl DB {
                         to_cpath(secondary_path)?.as_ptr() as *const _,
                     ))
                 }
+                AccessType::WithTTL { ttl } => ffi_try!(ffi::rocksdb_open_with_ttl(
+                    opts.inner,
+                    cpath.as_ptr() as *const _,
+                    ttl.as_secs() as c_int,
+                )),
             }
         };
         Ok(db)
@@ -321,6 +347,7 @@ impl DB {
                         cfhandles.as_mut_ptr(),
                     ))
                 }
+                _ => return Err(Error::new("Unsupported access type".to_owned())),
             }
         };
         Ok(db)
@@ -959,8 +986,8 @@ impl DB {
 
     /// Retrieves a RocksDB property by name.
     ///
-    /// For a full list of properties, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
         let prop_name = match CString::new(name) {
             Ok(c) => c,
@@ -995,8 +1022,8 @@ impl DB {
 
     /// Retrieves a RocksDB property by name, for a specific column family.
     ///
-    /// For a full list of properties, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value_cf(
         &self,
         cf: &ColumnFamily,
@@ -1035,8 +1062,8 @@ impl DB {
 
     /// Retrieves a RocksDB property and casts it to an integer.
     ///
-    /// For a full list of properties that return int values, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    /// Full list of properties that return int values could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
         match self.property_value(name) {
             Ok(Some(value)) => match value.parse::<u64>() {
@@ -1053,8 +1080,8 @@ impl DB {
 
     /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
     ///
-    /// For a full list of properties that return int values, see
-    /// https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689
+    /// Full list of properties that return int values could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value_cf(
         &self,
         cf: &ColumnFamily,
