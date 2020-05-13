@@ -1158,7 +1158,7 @@ impl DB {
         self.ingest_external_file_raw_cf(&cf, &opts, &paths_v, &cpaths)
     }
 
-    pub fn ingest_external_file_raw(
+    fn ingest_external_file_raw(
         &self,
         opts: &IngestExternalFileOptions,
         paths_v: &[CString],
@@ -1174,7 +1174,7 @@ impl DB {
             Ok(())
         }
     }
-    pub fn ingest_external_file_raw_cf(
+    fn ingest_external_file_raw_cf(
         &self,
         cf: &ColumnFamily,
         opts: &IngestExternalFileOptions,
