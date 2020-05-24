@@ -17,15 +17,9 @@ use crate::{
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     handle::Handle,
-<<<<<<< HEAD
-    ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBRawIterator,
-    DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
-    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
-=======
-    ops, ColumnFamily, ColumnFamilyDescriptor, DBWALIterator, Error, FlushOptions,
+    ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBWALIterator, Error,
     IngestExternalFileOptions, Options, Snapshot, WriteBatch, WriteOptions,
     DEFAULT_COLUMN_FAMILY_NAME,
->>>>>>> 58be97d... Add iterator operations
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -406,33 +400,6 @@ impl DB {
 
     pub fn path(&self) -> &Path {
         &self.path.as_path()
-    }
-
-    /// Flushes database memtables to SST files on the disk.
-    pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_flush(self.inner, flushopts.inner));
-        }
-        Ok(())
-    }
-
-    /// Flushes database memtables to SST files on the disk using default options.
-    pub fn flush(&self) -> Result<(), Error> {
-        self.flush_opt(&FlushOptions::default())
-    }
-
-    /// Flushes database memtables to SST files on the disk for a given column family.
-    pub fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_flush_cf(self.inner, flushopts.inner, cf.inner));
-        }
-        Ok(())
-    }
-
-    /// Flushes database memtables to SST files on the disk for a given column family using default
-    /// options.
-    pub fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error> {
-        self.flush_cf_opt(cf, &FlushOptions::default())
     }
 
     pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
