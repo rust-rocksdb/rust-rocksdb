@@ -17,7 +17,8 @@ use crate::{
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     handle::Handle,
-    ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBWALIterator, Error,
+    ops::{self, GetColumnFamilies},
+    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBWALIterator, Error,
     IngestExternalFileOptions, Options, Snapshot, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
@@ -399,43 +400,6 @@ impl DB {
 
     pub fn path(&self) -> &Path {
         &self.path.as_path()
-    }
-
-    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
-        let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
-                "Failed to convert path to CString when creating cf".to_owned(),
-            ));
-        };
-        unsafe {
-            let inner = ffi_try!(ffi::rocksdb_create_column_family(
-                self.inner,
-                opts.inner,
-                cf_name.as_ptr(),
-            ));
-
-            self.cfs
-                .insert(name.as_ref().to_string(), ColumnFamily { inner });
-        };
-        Ok(())
-    }
-
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.remove(name) {
-            unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
-            }
-            Ok(())
-        } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
-        }
-    }
-
-    /// Return the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
-        self.cfs.get(name)
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -925,6 +889,16 @@ impl DB {
         unsafe {
             ffi::rocksdb_cancel_all_background_work(self.inner, wait as u8);
         }
+    }
+}
+
+impl GetColumnFamilies for DB {
+    fn get_cfs(&self) -> &BTreeMap<String, ColumnFamily> {
+        &self.cfs
+    }
+
+    fn get_mut_cfs(&mut self) -> &mut BTreeMap<String, ColumnFamily> {
+        &mut self.cfs
     }
 }
 

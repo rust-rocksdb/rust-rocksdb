@@ -14,6 +14,7 @@
 //
 
 // PIGMED operations (Put, Iterate, Get, Merge, Delete)
+mod column_family;
 mod delete;
 mod flush;
 mod get;
@@ -23,6 +24,8 @@ mod merge;
 mod put;
 mod write_batch;
 
+pub(crate) use self::column_family::GetColumnFamilies;
+pub use self::column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily};
 pub use self::delete::{Delete, DeleteCF, DeleteCFOpt, DeleteOpt};
 pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
 pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};
