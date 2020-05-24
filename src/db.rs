@@ -18,8 +18,8 @@ use crate::{
     ffi_util::{from_cstr, raw_data, to_cpath},
     handle::Handle,
     ops::{self, GetColumnFamilies},
-    ColumnFamily, ColumnFamilyDescriptor, DBWALIterator, Error,
-    IngestExternalFileOptions, Options, Snapshot, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+    ColumnFamily, ColumnFamilyDescriptor, DBWALIterator, Error, IngestExternalFileOptions, Options,
+    Snapshot, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -404,41 +404,6 @@ impl DB {
 
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::new(self)
-    }
-
-    /// Removes the database entries in the range `["from", "to")` using given write options.
-    pub fn delete_range_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        from: K,
-        to: K,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error> {
-        let from = from.as_ref();
-        let to = to.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_delete_range_cf(
-                self.inner,
-                writeopts.inner,
-                cf.inner,
-                from.as_ptr() as *const c_char,
-                from.len() as size_t,
-                to.as_ptr() as *const c_char,
-                to.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    /// Removes the database entries in the range `["from", "to")` using default write options.
-    pub fn delete_range_cf<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        from: K,
-        to: K,
-    ) -> Result<(), Error> {
-        self.delete_range_cf_opt(cf, from, to, &WriteOptions::default())
     }
 
     pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {

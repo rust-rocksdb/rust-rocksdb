@@ -17,6 +17,7 @@
 mod column_family;
 mod compact_range;
 mod delete;
+mod delete_range;
 mod flush;
 mod get;
 mod get_pinned;
@@ -32,6 +33,7 @@ pub use self::delete::{Delete, DeleteCF, DeleteCFOpt, DeleteOpt};
 pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
 pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};
 pub use self::get_pinned::{GetPinned, GetPinnedCF, GetPinnedCFOpt, GetPinnedOpt};
+pub use self::delete_range::{DeleteRangeCF, DeleteRangeCFOpt};
 pub use self::iterate::{Iterate, IterateCF};
 pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
