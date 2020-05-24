@@ -25,6 +25,7 @@ mod iterate;
 mod merge;
 mod property;
 mod put;
+mod set_options;
 mod write_batch;
 
 pub(crate) use self::column_family::GetColumnFamilies;
@@ -39,6 +40,7 @@ pub use self::iterate::{Iterate, IterateCF};
 pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
 pub use self::property::{GetProperty, GetPropertyCF};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
+pub use self::set_options::SetOptions;
 pub use self::write_batch::{WriteBatchWrite, WriteBatchWriteOpt};
 
 /// Marker trait for operations that leave DB
