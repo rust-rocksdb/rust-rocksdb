@@ -17,10 +17,9 @@ use crate::{
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     handle::Handle,
-    ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
-    DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions,
-    IteratorMode, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBRawIterator,
+    DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
+    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -455,6 +454,8 @@ impl DB {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        use ops::GetPinnedOpt;
+
         self.get_pinned_opt(key, readopts)
             .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
@@ -475,6 +476,8 @@ impl DB {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        use ops::GetPinnedCFOpt;
+
         self.get_pinned_cf_opt(cf, key, readopts)
             .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
@@ -488,89 +491,6 @@ impl DB {
         key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
-    }
-
-    /// Return the value associated with a key using RocksDB's PinnableSlice
-    /// so as to avoid unnecessary memory copy.
-    pub fn get_pinned_opt<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-        readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
-        if readopts.inner.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
-                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
-                    .to_owned(),
-            ));
-        }
-
-        let key = key.as_ref();
-        unsafe {
-            let val = ffi_try!(ffi::rocksdb_get_pinned(
-                self.inner,
-                readopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            ));
-            if val.is_null() {
-                Ok(None)
-            } else {
-                Ok(Some(DBPinnableSlice::from_c(val)))
-            }
-        }
-    }
-
-    /// Return the value associated with a key using RocksDB's PinnableSlice
-    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
-    /// leverages default options.
-    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
-        self.get_pinned_opt(key, &ReadOptions::default())
-    }
-
-    /// Return the value associated with a key using RocksDB's PinnableSlice
-    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
-    /// allows specifying ColumnFamily
-    pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-        readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
-        if readopts.inner.is_null() {
-            return Err(Error::new(
-                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
-                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
-                    .to_owned(),
-            ));
-        }
-
-        let key = key.as_ref();
-        unsafe {
-            let val = ffi_try!(ffi::rocksdb_get_pinned_cf(
-                self.inner,
-                readopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-            ));
-            if val.is_null() {
-                Ok(None)
-            } else {
-                Ok(Some(DBPinnableSlice::from_c(val)))
-            }
-        }
-    }
-
-    /// Return the value associated with a key using RocksDB's PinnableSlice
-    /// so as to avoid unnecessary memory copy. Similar to get_pinned_cf_opt but
-    /// leverages default options.
-    pub fn get_pinned_cf<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
-        self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
