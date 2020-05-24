@@ -446,53 +446,6 @@ impl DB {
         self.write_opt(batch, &wo)
     }
 
-    /// Return the bytes associated with a key value with read options. If you only intend to use
-    /// the vector returned temporarily, consider using [`get_pinned_opt`](#method.get_pinned_opt)
-    /// to avoid unnecessary memory copy.
-    pub fn get_opt<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-        readopts: &ReadOptions,
-    ) -> Result<Option<Vec<u8>>, Error> {
-        use ops::GetPinnedOpt;
-
-        self.get_pinned_opt(key, readopts)
-            .map(|x| x.map(|v| v.as_ref().to_vec()))
-    }
-
-    /// Return the bytes associated with a key value. If you only intend to use the vector returned
-    /// temporarily, consider using [`get_pinned`](#method.get_pinned) to avoid unnecessary memory
-    /// copy.
-    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
-        self.get_opt(key.as_ref(), &ReadOptions::default())
-    }
-
-    /// Return the bytes associated with a key value and the given column family with read options.
-    /// If you only intend to use the vector returned temporarily, consider using
-    /// [`get_pinned_cf_opt`](#method.get_pinned_cf_opt) to avoid unnecessary memory.
-    pub fn get_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-        readopts: &ReadOptions,
-    ) -> Result<Option<Vec<u8>>, Error> {
-        use ops::GetPinnedCFOpt;
-
-        self.get_pinned_cf_opt(cf, key, readopts)
-            .map(|x| x.map(|v| v.as_ref().to_vec()))
-    }
-
-    /// Return the bytes associated with a key value and the given column family. If you only
-    /// intend to use the vector returned temporarily, consider using
-    /// [`get_pinned_cf`](#method.get_pinned_cf) to avoid unnecessary memory.
-    pub fn get_cf<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-    ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
-    }
-
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
             c

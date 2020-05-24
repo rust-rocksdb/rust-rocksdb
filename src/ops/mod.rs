@@ -14,9 +14,11 @@
 //
 
 // PIGMED operations (Put, Iterate, Get, Merge, Delete)
+mod get;
 mod get_pinned;
 mod put;
 
+pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};
 pub use self::get_pinned::{GetPinned, GetPinnedCF, GetPinnedCFOpt, GetPinnedOpt};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
 

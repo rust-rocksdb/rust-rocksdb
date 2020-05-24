@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ffi, ColumnFamily, DBIterator, DBRawIterator, Error, IteratorMode, ReadOptions, DB};
+use crate::{
+    ffi,
+    ops::{Get, GetCF, GetCFOpt, GetOpt},
+    ColumnFamily, DBIterator, DBRawIterator, Error, IteratorMode, ReadOptions, DB,
+};
 
 /// A consistent view of the database at the point of creation.
 ///
@@ -106,12 +110,6 @@ impl<'a> Snapshot<'a> {
         DBRawIterator::new_cf(self.db, cf_handle, readopts)
     }
 
-    /// Returns the bytes associated with a key value with default read options.
-    pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
-        let readopts = ReadOptions::default();
-        self.get_opt(key, readopts)
-    }
-
     /// Returns the bytes associated with a key value and given column family with default read
     /// options.
     pub fn get_cf<K: AsRef<[u8]>>(
@@ -123,16 +121,6 @@ impl<'a> Snapshot<'a> {
         self.get_cf_opt(cf, key.as_ref(), readopts)
     }
 
-    /// Returns the bytes associated with a key value and given read options.
-    pub fn get_opt<K: AsRef<[u8]>>(
-        &self,
-        key: K,
-        mut readopts: ReadOptions,
-    ) -> Result<Option<Vec<u8>>, Error> {
-        readopts.set_snapshot(self);
-        self.db.get_opt(key.as_ref(), &readopts)
-    }
-
     /// Returns the bytes associated with a key value, given column family and read options.
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
@@ -142,6 +130,41 @@ impl<'a> Snapshot<'a> {
     ) -> Result<Option<Vec<u8>>, Error> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key.as_ref(), &readopts)
+    }
+}
+
+impl<'a> Get for Snapshot<'a> {
+    fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
+        self.get_opt(key, ReadOptions::default())
+    }
+}
+
+impl<'a> GetOpt<ReadOptions> for Snapshot<'a> {
+    fn get_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        mut readopts: ReadOptions,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        readopts.set_snapshot(self);
+        self.db.get_opt(key, &readopts)
+    }
+}
+
+impl<'a> GetCF for Snapshot<'a> {
+    fn get_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<Option<Vec<u8>>, Error> {
+        self.get_cf_opt(cf, key, ReadOptions::default())
+    }
+}
+
+impl<'a> GetCFOpt<ReadOptions> for Snapshot<'a> {
+    fn get_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        key: K,
+        mut readopts: ReadOptions,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        readopts.set_snapshot(self);
+        self.db.get_cf_opt(cf, key, &readopts)
     }
 }
 
