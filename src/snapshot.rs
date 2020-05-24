@@ -14,8 +14,8 @@
 
 use crate::{
     ffi,
-    ops::{Get, GetCF, GetCFOpt, GetOpt},
-    ColumnFamily, DBIterator, DBRawIterator, Error, IteratorMode, ReadOptions, DB,
+    ops::{Get, GetCF, GetCFOpt, GetOpt, Iterate, IterateCF},
+    ColumnFamily, DBRawIterator, Error, ReadOptions, DB,
 };
 
 /// A consistent view of the database at the point of creation.
@@ -47,89 +47,6 @@ impl<'a> Snapshot<'a> {
             db,
             inner: snapshot,
         }
-    }
-
-    /// Creates an iterator over the data in this snapshot, using the default read options.
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator<'a> {
-        let readopts = ReadOptions::default();
-        self.iterator_opt(mode, readopts)
-    }
-
-    /// Creates an iterator over the data in this snapshot under the given column family, using
-    /// the default read options.
-    pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator {
-        let readopts = ReadOptions::default();
-        self.iterator_cf_opt(cf_handle, readopts, mode)
-    }
-
-    /// Creates an iterator over the data in this snapshot, using the given read options.
-    pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator<'a> {
-        readopts.set_snapshot(self);
-        DBIterator::new(self.db, readopts, mode)
-    }
-
-    /// Creates an iterator over the data in this snapshot under the given column family, using
-    /// the given read options.
-    pub fn iterator_cf_opt(
-        &self,
-        cf_handle: &ColumnFamily,
-        mut readopts: ReadOptions,
-        mode: IteratorMode,
-    ) -> DBIterator {
-        readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle, readopts, mode)
-    }
-
-    /// Creates a raw iterator over the data in this snapshot, using the default read options.
-    pub fn raw_iterator(&self) -> DBRawIterator {
-        let readopts = ReadOptions::default();
-        self.raw_iterator_opt(readopts)
-    }
-
-    /// Creates a raw iterator over the data in this snapshot under the given column family, using
-    /// the default read options.
-    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator {
-        let readopts = ReadOptions::default();
-        self.raw_iterator_cf_opt(cf_handle, readopts)
-    }
-
-    /// Creates a raw iterator over the data in this snapshot, using the given read options.
-    pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator {
-        readopts.set_snapshot(self);
-        DBRawIterator::new(self.db, readopts)
-    }
-
-    /// Creates a raw iterator over the data in this snapshot under the given column family, using
-    /// the given read options.
-    pub fn raw_iterator_cf_opt(
-        &self,
-        cf_handle: &ColumnFamily,
-        mut readopts: ReadOptions,
-    ) -> DBRawIterator {
-        readopts.set_snapshot(self);
-        DBRawIterator::new_cf(self.db, cf_handle, readopts)
-    }
-
-    /// Returns the bytes associated with a key value and given column family with default read
-    /// options.
-    pub fn get_cf<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-    ) -> Result<Option<Vec<u8>>, Error> {
-        let readopts = ReadOptions::default();
-        self.get_cf_opt(cf, key.as_ref(), readopts)
-    }
-
-    /// Returns the bytes associated with a key value, given column family and read options.
-    pub fn get_cf_opt<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-        mut readopts: ReadOptions,
-    ) -> Result<Option<Vec<u8>>, Error> {
-        readopts.set_snapshot(self);
-        self.db.get_cf_opt(cf, key.as_ref(), &readopts)
     }
 }
 
@@ -165,6 +82,24 @@ impl<'a> GetCFOpt<ReadOptions> for Snapshot<'a> {
     ) -> Result<Option<Vec<u8>>, Error> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key, &readopts)
+    }
+}
+
+impl<'s> Iterate for Snapshot<'s> {
+    fn raw_iterator_opt<'a: 'b, 'b>(&'a self, mut readopts: ReadOptions) -> DBRawIterator<'b> {
+        readopts.set_snapshot(self);
+        self.db.raw_iterator_opt(readopts)
+    }
+}
+
+impl<'s> IterateCF for Snapshot<'s> {
+    fn raw_iterator_cf_opt<'a: 'b, 'b>(
+        &'a self,
+        cf_handle: &ColumnFamily,
+        mut readopts: ReadOptions,
+    ) -> DBRawIterator<'b> {
+        readopts.set_snapshot(self);
+        self.db.raw_iterator_cf_opt(cf_handle, readopts)
     }
 }
 

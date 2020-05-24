@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ffi, ColumnFamily, Error, ReadOptions, WriteBatch, DB};
+use crate::{ffi, Error, ReadOptions, WriteBatch};
 use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
 use std::slice;
@@ -73,31 +73,18 @@ pub struct DBRawIterator<'a> {
     /// iterator is being used.
     _readopts: ReadOptions,
 
-    db: PhantomData<&'a DB>,
+    db: PhantomData<&'a ()>,
 }
 
 impl<'a> DBRawIterator<'a> {
-    pub(crate) fn new(db: &DB, readopts: ReadOptions) -> DBRawIterator<'a> {
-        unsafe {
-            DBRawIterator {
-                inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
-                _readopts: readopts,
-                db: PhantomData,
-            }
-        }
-    }
-
-    pub(crate) fn new_cf(
-        db: &DB,
-        cf_handle: &ColumnFamily,
+    pub(crate) fn new(
+        inner: *mut ffi::rocksdb_iterator_t,
         readopts: ReadOptions,
     ) -> DBRawIterator<'a> {
-        unsafe {
-            DBRawIterator {
-                inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
-                _readopts: readopts,
-                db: PhantomData,
-            }
+        DBRawIterator {
+            inner,
+            _readopts: readopts,
+            db: PhantomData,
         }
     }
 
@@ -385,24 +372,9 @@ pub enum IteratorMode<'a> {
 }
 
 impl<'a> DBIterator<'a> {
-    pub(crate) fn new(db: &DB, readopts: ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
+    pub(crate) fn new(raw: DBRawIterator<'a>, mode: IteratorMode) -> DBIterator<'a> {
         let mut rv = DBIterator {
-            raw: DBRawIterator::new(db, readopts),
-            direction: Direction::Forward, // blown away by set_mode()
-            just_seeked: false,
-        };
-        rv.set_mode(mode);
-        rv
-    }
-
-    pub(crate) fn new_cf(
-        db: &DB,
-        cf_handle: &ColumnFamily,
-        readopts: ReadOptions,
-        mode: IteratorMode,
-    ) -> DBIterator<'a> {
-        let mut rv = DBIterator {
-            raw: DBRawIterator::new_cf(db, cf_handle, readopts),
+            raw,
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };

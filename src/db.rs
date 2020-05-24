@@ -17,9 +17,15 @@ use crate::{
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     handle::Handle,
+<<<<<<< HEAD
     ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBRawIterator,
     DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
     Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+=======
+    ops, ColumnFamily, ColumnFamilyDescriptor, DBWALIterator, Error, FlushOptions,
+    IngestExternalFileOptions, Options, Snapshot, WriteBatch, WriteOptions,
+    DEFAULT_COLUMN_FAMILY_NAME,
+>>>>>>> 58be97d... Add iterator operations
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -481,109 +487,6 @@ impl DB {
     /// Return the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
         self.cfs.get(name)
-    }
-
-    pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
-        let readopts = ReadOptions::default();
-        self.iterator_opt(mode, readopts)
-    }
-
-    pub fn iterator_opt<'a: 'b, 'b>(
-        &'a self,
-        mode: IteratorMode,
-        readopts: ReadOptions,
-    ) -> DBIterator<'b> {
-        DBIterator::new(self, readopts, mode)
-    }
-
-    /// Opens an iterator using the provided ReadOptions.
-    /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
-    pub fn iterator_cf_opt<'a: 'b, 'b>(
-        &'a self,
-        cf_handle: &ColumnFamily,
-        readopts: ReadOptions,
-        mode: IteratorMode,
-    ) -> DBIterator<'b> {
-        DBIterator::new_cf(self, cf_handle, readopts, mode)
-    }
-
-    /// Opens an iterator with `set_total_order_seek` enabled.
-    /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
-    /// with a Hash-based implementation.
-    pub fn full_iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
-        let mut opts = ReadOptions::default();
-        opts.set_total_order_seek(true);
-        DBIterator::new(self, opts, mode)
-    }
-
-    pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
-        let mut opts = ReadOptions::default();
-        opts.set_prefix_same_as_start(true);
-        DBIterator::new(
-            self,
-            opts,
-            IteratorMode::From(prefix.as_ref(), Direction::Forward),
-        )
-    }
-
-    pub fn iterator_cf<'a: 'b, 'b>(
-        &'a self,
-        cf_handle: &ColumnFamily,
-        mode: IteratorMode,
-    ) -> DBIterator<'b> {
-        let opts = ReadOptions::default();
-        DBIterator::new_cf(self, cf_handle, opts, mode)
-    }
-
-    pub fn full_iterator_cf<'a: 'b, 'b>(
-        &'a self,
-        cf_handle: &ColumnFamily,
-        mode: IteratorMode,
-    ) -> DBIterator<'b> {
-        let mut opts = ReadOptions::default();
-        opts.set_total_order_seek(true);
-        DBIterator::new_cf(self, cf_handle, opts, mode)
-    }
-
-    pub fn prefix_iterator_cf<'a: 'b, 'b, P: AsRef<[u8]>>(
-        &'a self,
-        cf_handle: &ColumnFamily,
-        prefix: P,
-    ) -> DBIterator<'b> {
-        let mut opts = ReadOptions::default();
-        opts.set_prefix_same_as_start(true);
-        DBIterator::new_cf(
-            self,
-            cf_handle,
-            opts,
-            IteratorMode::From(prefix.as_ref(), Direction::Forward),
-        )
-    }
-
-    /// Opens a raw iterator over the database, using the default read options
-    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b> {
-        let opts = ReadOptions::default();
-        DBRawIterator::new(self, opts)
-    }
-
-    /// Opens a raw iterator over the given column family, using the default read options
-    pub fn raw_iterator_cf<'a: 'b, 'b>(&'a self, cf_handle: &ColumnFamily) -> DBRawIterator<'b> {
-        let opts = ReadOptions::default();
-        DBRawIterator::new_cf(self, cf_handle, opts)
-    }
-
-    /// Opens a raw iterator over the database, using the given read options
-    pub fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: ReadOptions) -> DBRawIterator<'b> {
-        DBRawIterator::new(self, readopts)
-    }
-
-    /// Opens a raw iterator over the given column family, using the given read options
-    pub fn raw_iterator_cf_opt<'a: 'b, 'b>(
-        &'a self,
-        cf_handle: &ColumnFamily,
-        readopts: ReadOptions,
-    ) -> DBRawIterator<'b> {
-        DBRawIterator::new_cf(self, cf_handle, readopts)
     }
 
     pub fn snapshot(&self) -> Snapshot {
