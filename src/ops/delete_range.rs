@@ -37,7 +37,7 @@ pub trait DeleteRangeCFOpt {
 
 impl<T> DeleteRangeCF for T
 where
-    T: DeleteRangeCFOpt
+    T: DeleteRangeCFOpt,
 {
     fn delete_range_cf<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,

@@ -23,6 +23,7 @@ mod get;
 mod get_pinned;
 mod iterate;
 mod merge;
+mod property;
 mod put;
 mod write_batch;
 
@@ -30,12 +31,13 @@ pub(crate) use self::column_family::GetColumnFamilies;
 pub use self::column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily};
 pub use self::compact_range::{CompactRange, CompactRangeCF, CompactRangeCFOpt, CompactRangeOpt};
 pub use self::delete::{Delete, DeleteCF, DeleteCFOpt, DeleteOpt};
+pub use self::delete_range::{DeleteRangeCF, DeleteRangeCFOpt};
 pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
 pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};
 pub use self::get_pinned::{GetPinned, GetPinnedCF, GetPinnedCFOpt, GetPinnedOpt};
-pub use self::delete_range::{DeleteRangeCF, DeleteRangeCFOpt};
 pub use self::iterate::{Iterate, IterateCF};
 pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
+pub use self::property::{GetProperty, GetPropertyCF};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
 pub use self::write_batch::{WriteBatchWrite, WriteBatchWriteOpt};
 
