@@ -19,6 +19,7 @@ mod flush;
 mod get;
 mod get_pinned;
 mod iterate;
+mod merge;
 mod put;
 
 pub use self::delete::{Delete, DeleteCF, DeleteCFOpt, DeleteOpt};
@@ -26,6 +27,7 @@ pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
 pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};
 pub use self::get_pinned::{GetPinned, GetPinnedCF, GetPinnedCFOpt, GetPinnedOpt};
 pub use self::iterate::{Iterate, IterateCF};
+pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
 
 /// Marker trait for operations that leave DB

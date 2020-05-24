@@ -460,55 +460,6 @@ impl DB {
         Snapshot::new(self)
     }
 
-    pub fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_merge(
-                self.inner,
-                writeopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    pub fn merge_cf_opt<K, V>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-        value: V,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_merge_cf(
-                self.inner,
-                writeopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     /// Removes the database entries in the range `["from", "to")` using given write options.
     pub fn delete_range_cf_opt<K: AsRef<[u8]>>(
         &self,
@@ -532,22 +483,6 @@ impl DB {
             ));
             Ok(())
         }
-    }
-
-    pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.merge_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn merge_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.merge_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
     /// Removes the database entries in the range `["from", "to")` using default write options.
