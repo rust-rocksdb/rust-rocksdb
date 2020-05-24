@@ -13,4 +13,8 @@
 // limitations under the License.
 //
 
-pub use crate::{ops::*, ColumnFamily, Error, Options, ReadOptions, WriteOptions, DB};
+/// Provides access to underlying handles for
+/// database operations
+pub trait Handle<T> {
+    fn handle(&self) -> *mut T;
+}

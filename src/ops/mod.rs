@@ -13,4 +13,15 @@
 // limitations under the License.
 //
 
-pub use crate::{ops::*, ColumnFamily, Error, Options, ReadOptions, WriteOptions, DB};
+// PIGMED operations (Put, Iterate, Get, Merge, Delete)
+mod put;
+
+pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
+
+/// Marker trait for operations that leave DB
+/// state unchanged
+pub trait Read {}
+
+/// Marker trait for operations that mutate
+/// DB state
+pub trait Write {}

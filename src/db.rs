@@ -16,7 +16,8 @@
 use crate::{
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
-    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
+    handle::Handle,
+    ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
     DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions,
     IteratorMode, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
     DEFAULT_COLUMN_FAMILY_NAME,
@@ -50,6 +51,15 @@ unsafe impl Send for DB {}
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for DB {}
+
+impl Handle<ffi::rocksdb_t> for DB {
+    fn handle(&self) -> *mut ffi::rocksdb_t {
+        self.inner
+    }
+}
+
+impl ops::Read for DB {}
+impl ops::Write for DB {}
 
 // Specifies whether open DB for read only.
 enum AccessType<'a> {
@@ -707,55 +717,6 @@ impl DB {
         Snapshot::new(self)
     }
 
-    pub fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_put(
-                self.inner,
-                writeopts.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    pub fn put_cf_opt<K, V>(
-        &self,
-        cf: &ColumnFamily,
-        key: K,
-        value: V,
-        writeopts: &WriteOptions,
-    ) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let key = key.as_ref();
-        let value = value.as_ref();
-
-        unsafe {
-            ffi_try!(ffi::rocksdb_put_cf(
-                self.inner,
-                writeopts.inner,
-                cf.inner,
-                key.as_ptr() as *const c_char,
-                key.len() as size_t,
-                value.as_ptr() as *const c_char,
-                value.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     pub fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -866,22 +827,6 @@ impl DB {
             ));
             Ok(())
         }
-    }
-
-    pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.put_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
-    }
-
-    pub fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        self.put_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
     pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
