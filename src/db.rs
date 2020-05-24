@@ -18,8 +18,7 @@ use crate::{
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     handle::Handle,
     ops, ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBWALIterator, Error,
-    IngestExternalFileOptions, Options, Snapshot, WriteBatch, WriteOptions,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    IngestExternalFileOptions, Options, Snapshot, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -400,23 +399,6 @@ impl DB {
 
     pub fn path(&self) -> &Path {
         &self.path.as_path()
-    }
-
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_write(self.inner, writeopts.inner, batch.inner));
-        }
-        Ok(())
-    }
-
-    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
-        self.write_opt(batch, &WriteOptions::default())
-    }
-
-    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error> {
-        let mut wo = WriteOptions::new();
-        wo.disable_wal(true);
-        self.write_opt(batch, &wo)
     }
 
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {

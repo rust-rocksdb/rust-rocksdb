@@ -21,6 +21,7 @@ mod get_pinned;
 mod iterate;
 mod merge;
 mod put;
+mod write_batch;
 
 pub use self::delete::{Delete, DeleteCF, DeleteCFOpt, DeleteOpt};
 pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
@@ -29,6 +30,7 @@ pub use self::get_pinned::{GetPinned, GetPinnedCF, GetPinnedCFOpt, GetPinnedOpt}
 pub use self::iterate::{Iterate, IterateCF};
 pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
+pub use self::write_batch::{WriteBatchWrite, WriteBatchWriteOpt};
 
 /// Marker trait for operations that leave DB
 /// state unchanged
