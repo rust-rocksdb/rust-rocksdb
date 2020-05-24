@@ -15,10 +15,10 @@
 
 use crate::{
     ffi,
-    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
+    ffi_util::{from_cstr, raw_data, to_cpath},
     handle::Handle,
     ops::{self, GetColumnFamilies},
-    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBWALIterator, Error,
+    ColumnFamily, ColumnFamilyDescriptor, DBWALIterator, Error,
     IngestExternalFileOptions, Options, Snapshot, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
@@ -439,91 +439,6 @@ impl DB {
         to: K,
     ) -> Result<(), Error> {
         self.delete_range_cf_opt(cf, from, to, &WriteOptions::default())
-    }
-
-    /// Runs a manual compaction on the Range of keys given. This is not likely to be needed for typical usage.
-    pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
-        unsafe {
-            let start = start.as_ref().map(AsRef::as_ref);
-            let end = end.as_ref().map(AsRef::as_ref);
-
-            ffi::rocksdb_compact_range(
-                self.inner,
-                opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
-                opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
-            );
-        }
-    }
-
-    /// Same as `compact_range` but with custom options.
-    pub fn compact_range_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
-        &self,
-        start: Option<S>,
-        end: Option<E>,
-        opts: &CompactOptions,
-    ) {
-        unsafe {
-            let start = start.as_ref().map(AsRef::as_ref);
-            let end = end.as_ref().map(AsRef::as_ref);
-
-            ffi::rocksdb_compact_range_opt(
-                self.inner,
-                opts.inner,
-                opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
-                opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
-            );
-        }
-    }
-
-    /// Runs a manual compaction on the Range of keys given on the
-    /// given column family. This is not likely to be needed for typical usage.
-    pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        start: Option<S>,
-        end: Option<E>,
-    ) {
-        unsafe {
-            let start = start.as_ref().map(AsRef::as_ref);
-            let end = end.as_ref().map(AsRef::as_ref);
-
-            ffi::rocksdb_compact_range_cf(
-                self.inner,
-                cf.inner,
-                opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
-                opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
-            );
-        }
-    }
-
-    /// Same as `compact_range_cf` but with custom options.
-    pub fn compact_range_cf_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        start: Option<S>,
-        end: Option<E>,
-        opts: &CompactOptions,
-    ) {
-        unsafe {
-            let start = start.as_ref().map(AsRef::as_ref);
-            let end = end.as_ref().map(AsRef::as_ref);
-
-            ffi::rocksdb_compact_range_cf_opt(
-                self.inner,
-                cf.inner,
-                opts.inner,
-                opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
-                opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
-            );
-        }
     }
 
     pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
