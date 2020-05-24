@@ -181,8 +181,7 @@ impl Env {
 /// # Examples
 ///
 /// ```
-/// use rocksdb::{Options, DB};
-/// use rocksdb::DBCompactionStyle;
+/// use rocksdb::{prelude::*, DBCompactionStyle};
 ///
 /// fn badly_tuned_for_somebody_elses_disk() -> DB {
 ///    let path = "path/for/rocksdb/storageX";
@@ -218,7 +217,7 @@ pub struct Options {
 /// Making an unsafe write of a batch:
 ///
 /// ```
-/// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
+/// use rocksdb::{prelude::*, WriteBatch};
 ///
 /// let path = "_path_for_rocksdb_storageY1";
 /// {
@@ -247,7 +246,7 @@ pub struct WriteOptions {
 /// Manually flushing the memtable:
 ///
 /// ```
-/// use rocksdb::{DB, Options, FlushOptions};
+/// use rocksdb::{prelude::*, FlushOptions};
 ///
 /// let path = "_path_for_rocksdb_storageY2";
 /// {

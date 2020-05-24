@@ -18,7 +18,7 @@
 //! # Examples
 //!
 //! ```
-//! use rocksdb::{DB, Options};
+//! use rocksdb::prelude::*;
 //! // NB: db is automatically closed at end of lifetime
 //! let path = "_path_for_rocksdb_storage";
 //! {
@@ -37,7 +37,7 @@
 //! Opening a database and a single column family with custom options:
 //!
 //! ```
-//! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//! use rocksdb::{prelude::*, ColumnFamilyDescriptor};
 //!
 //! let path = "_path_for_rocksdb_storage_with_cfs";
 //! let mut cf_opts = Options::default();
@@ -86,6 +86,7 @@ mod db_options;
 mod db_pinnable_slice;
 pub mod merge_operator;
 pub mod perf;
+pub mod prelude;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
@@ -161,9 +162,8 @@ impl fmt::Display for Error {
 #[cfg(test)]
 mod test {
     use super::{
-        BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
-        IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
-        SstFileWriter, WriteBatch, WriteOptions, DB,
+        prelude::*, BlockBasedOptions, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
+        IngestExternalFileOptions, PlainTableFactoryOptions, Snapshot, SstFileWriter, WriteBatch,
     };
 
     #[test]

@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{checkpoint::Checkpoint, Options, DB};
+use rocksdb::{checkpoint::Checkpoint, prelude::*};
 use util::DBPath;
 
 #[test]

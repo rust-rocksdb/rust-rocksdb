@@ -18,7 +18,7 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
-    DB,
+    prelude::*,
 };
 use util::DBPath;
 

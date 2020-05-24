@@ -19,7 +19,7 @@ use crate::{ffi, ColumnFamily, DBIterator, DBRawIterator, Error, IteratorMode, R
 /// # Examples
 ///
 /// ```
-/// use rocksdb::{DB, IteratorMode, Options};
+/// use rocksdb::{prelude::*, IteratorMode};
 ///
 /// let path = "_path_for_rocksdb_storage3";
 /// {

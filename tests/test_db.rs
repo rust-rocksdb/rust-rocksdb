@@ -19,10 +19,10 @@ use std::{mem, sync::Arc, thread, time::Duration};
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, DBCompactionStyle, Env, Error, FifoCompactOptions, IteratorMode, Options,
-    PerfContext, PerfMetric, ReadOptions, SliceTransform, Snapshot, UniversalCompactOptions,
-    UniversalCompactionStopStyle, WriteBatch, DB,
+    perf::get_memory_usage_stats, prelude::*, BlockBasedOptions, BottommostLevelCompaction, Cache,
+    CompactOptions, DBCompactionStyle, Env, FifoCompactOptions, IteratorMode, PerfContext,
+    PerfMetric, SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle,
+    WriteBatch,
 };
 use util::DBPath;
 

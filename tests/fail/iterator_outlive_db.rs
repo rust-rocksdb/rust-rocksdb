@@ -1,4 +1,4 @@
-use rocksdb::{IteratorMode, DB};
+use rocksdb::{prelude::*, IteratorMode};
 
 fn main() {
     let _iter = {

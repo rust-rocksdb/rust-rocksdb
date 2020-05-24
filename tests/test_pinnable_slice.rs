@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Options, DB};
+use rocksdb::prelude::*;
 use util::DBPath;
 
 #[test]

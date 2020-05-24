@@ -88,7 +88,7 @@ where
 mod tests {
     use super::*;
     use crate::compaction_filter::Decision;
-    use crate::{Options, DB};
+    use crate::prelude::*;
     use std::ffi::CString;
 
     struct CountFilter(u16, CString);

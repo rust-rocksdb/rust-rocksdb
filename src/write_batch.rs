@@ -21,7 +21,7 @@ use std::slice;
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, Options, WriteBatch};
+/// use rocksdb::{prelude::*, WriteBatch};
 ///
 /// let path = "_path_for_rocksdb_storage1";
 /// {

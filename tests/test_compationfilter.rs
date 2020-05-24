@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{CompactionDecision, Options, DB};
+use rocksdb::{prelude::*, CompactionDecision};
 use util::DBPath;
 
 #[cfg(test)]

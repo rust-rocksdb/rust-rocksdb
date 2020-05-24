@@ -26,7 +26,7 @@ use std::slice;
 /// widely recognised Rust idioms.
 ///
 /// ```
-/// use rocksdb::{DB, Options};
+/// use rocksdb::prelude::*;
 ///
 /// let path = "_path_for_rocksdb_storage4";
 /// {
@@ -128,7 +128,7 @@ impl<'a> DBRawIterator<'a> {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::{DB, Options};
+    /// use rocksdb::prelude::*;
     ///
     /// let path = "_path_for_rocksdb_storage5";
     /// {
@@ -165,7 +165,7 @@ impl<'a> DBRawIterator<'a> {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::{DB, Options};
+    /// use rocksdb::prelude::*;
     ///
     /// let path = "_path_for_rocksdb_storage6";
     /// {
@@ -205,7 +205,7 @@ impl<'a> DBRawIterator<'a> {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::{DB, Options};
+    /// use rocksdb::prelude::*;
     ///
     /// let path = "_path_for_rocksdb_storage7";
     /// {
@@ -244,7 +244,7 @@ impl<'a> DBRawIterator<'a> {
     /// # Examples
     ///
     /// ```rust
-    /// use rocksdb::{DB, Options};
+    /// use rocksdb::prelude::*;
     ///
     /// let path = "_path_for_rocksdb_storage8";
     /// {
@@ -338,7 +338,7 @@ unsafe impl<'a> Sync for DBRawIterator<'a> {}
 /// ranges and direction.
 ///
 /// ```
-/// use rocksdb::{DB, Direction, IteratorMode, Options};
+/// use rocksdb::{prelude::*, Direction, IteratorMode};
 ///
 /// let path = "_path_for_rocksdb_storage2";
 /// {

@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
+use rocksdb::{prelude::*, Direction, IteratorMode, MemtableFactory};
 use util::DBPath;
 
 fn cba(input: &[u8]) -> Box<[u8]> {

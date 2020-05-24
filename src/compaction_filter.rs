@@ -156,7 +156,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
 
 #[test]
 fn compaction_filter_test() {
-    use crate::{Options, DB};
+    use crate::prelude::*;
 
     let path = "_rust_rocksdb_filtertest";
     let mut opts = Options::default();

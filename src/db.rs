@@ -31,7 +31,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::ptr;
 use std::slice;
-use std::str;
 use std::time::Duration;
 
 /// A RocksDB database.

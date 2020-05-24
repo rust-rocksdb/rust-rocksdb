@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{DBCompactionStyle, MergeOperands, Options, DB};
+use rocksdb::{prelude::*, DBCompactionStyle, MergeOperands};
 use util::DBPath;
 
 fn test_provided_merge(
