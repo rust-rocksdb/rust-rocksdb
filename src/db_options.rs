@@ -141,7 +141,7 @@ pub struct ReadOptions {
 /// Move files instead of copying them:
 ///
 /// ```
-/// use rocksdb::{DB, Options, FlushOptions};
+/// use rocksdb::{DB, IngestExternalFileOptions};
 ///
 /// let path = "_path_for_rocksdb_storageY";
 /// let db = DB::open_default(&path).unwrap();
