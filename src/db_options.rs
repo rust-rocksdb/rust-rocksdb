@@ -134,6 +134,21 @@ pub struct ReadOptions {
     iterate_upper_bound: Option<Vec<u8>>,
 }
 
+/// For configuring external files ingestion.
+///
+/// # Examples
+///
+/// Move files instead of copying them:
+///
+/// ```
+/// use rocksdb::{DB, Options, FlushOptions};
+///
+/// let path = "_path_for_rocksdb_storageY";
+/// let db = DB::open_default(&path).unwrap();
+/// let mut ingest_opts = IngestExternalFileOptions::default();
+/// ingest_opts.set_move_files(true);
+/// db.ingest_external_file_opts(&ingest_opts, vec!["path/to/file.sst"]).unwrap();
+/// ```
 pub struct IngestExternalFileOptions {
     pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,
 }
