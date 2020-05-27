@@ -1646,6 +1646,17 @@ impl Options {
     }
 
     /// Specify the maximal number of info log files to be kept.
+    ///
+    /// Default: 1000
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_keep_log_file_num(100);
+    /// ```
     pub fn set_keep_log_file_num(&mut self, nfiles: usize) {
         unsafe {
             ffi::rocksdb_options_set_keep_log_file_num(self.inner, nfiles);
@@ -1737,6 +1748,52 @@ impl Options {
             // Since limiter is wrapped in shared_ptr, we don't need to
             // call rocksdb_ratelimiter_destroy explicitly.
             ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+        }
+    }
+
+    /// Sets the maximal size of the info log file.
+    ///
+    /// If the log file is larger than `max_log_file_size`, a new info log file
+    /// will be created. If `max_log_file_size` is equal to zero, all logs will
+    /// be written to one log file.
+    ///
+    /// Default: 0
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_max_log_file_size(0);
+    /// ```
+    pub fn set_max_log_file_size(&mut self, size: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_max_log_file_size(self.inner, size);
+        }
+    }
+
+    /// Controls the recycling of log files.
+    ///
+    /// If non-zero, previously written log files will be reused for new logs,
+    /// overwriting the old data. The value indicates how many such files we will
+    /// keep around at any point in time for later use. This is more efficient
+    /// because the blocks are already allocated and fdatasync does not need to
+    /// update the inode after each write.
+    ///
+    /// Default: 0
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_recycle_log_file_num(5);
+    /// ```
+    pub fn set_recycle_log_file_num(&mut self, num: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_recycle_log_file_num(self.inner, num);
         }
     }
 }
