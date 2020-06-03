@@ -3151,6 +3151,11 @@ unsigned char crocksdb_compactionfiltercontext_is_manual_compaction(
   return context->rep.is_manual_compaction;
 }
 
+unsigned char crocksdb_compactionfiltercontext_is_bottommost_level(
+    crocksdb_compactionfiltercontext_t* context) {
+  return context->rep.is_bottommost_level;
+}
+
 crocksdb_compactionfilterfactory_t* crocksdb_compactionfilterfactory_create(
     void* state, void (*destructor)(void*),
     crocksdb_compactionfilter_t* (*create_compaction_filter)(

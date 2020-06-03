@@ -127,6 +127,11 @@ impl CompactionFilterContext {
         let ctx = &self.0 as *const DBCompactionFilterContext;
         unsafe { crocksdb_ffi::crocksdb_compactionfiltercontext_is_manual_compaction(ctx) }
     }
+
+    pub fn is_bottommost_level(&self) -> bool {
+        let ctx = &self.0 as *const DBCompactionFilterContext;
+        unsafe { crocksdb_ffi::crocksdb_compactionfiltercontext_is_bottommost_level(ctx) }
+    }
 }
 
 pub trait CompactionFilterFactory {
