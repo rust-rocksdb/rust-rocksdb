@@ -18,7 +18,7 @@ use crate::{
     ffi_util::{opt_bytes_to_ptr, to_cpath},
     ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBPinnableSlice, DBRawIterator,
     DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
-    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
+    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -216,9 +216,9 @@ impl DB {
         } else {
             let mut cfs_v = cfs;
             // Always open the default column family.
-            if !cfs_v.iter().any(|cf| cf.name == "default") {
+            if !cfs_v.iter().any(|cf| cf.name == DEFAULT_COLUMN_FAMILY_NAME) {
                 cfs_v.push(ColumnFamilyDescriptor {
-                    name: String::from("default"),
+                    name: String::from(DEFAULT_COLUMN_FAMILY_NAME),
                     options: Options::default(),
                 });
             }

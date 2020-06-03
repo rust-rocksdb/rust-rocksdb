@@ -14,6 +14,12 @@
 
 use crate::{ffi, Options};
 
+/// The name of the default column family.
+///
+/// The column family with this name is created implicitly whenever column
+/// families are used.
+pub const DEFAULT_COLUMN_FAMILY_NAME: &str = "default";
+
 /// A descriptor for a RocksDB column family.
 ///
 /// A description of the column family, containing the name and `Options`.

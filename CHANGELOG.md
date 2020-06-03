@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+* Export the `DEFAULT_COLUMN_FAMILY_NAME` constant.
+
 ## 0.14.0 (2020-04-22)
 
 * Updated lz4 to v1.9.2 (ordian)
