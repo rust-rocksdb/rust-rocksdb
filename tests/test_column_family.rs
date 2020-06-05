@@ -14,7 +14,7 @@
 
 mod util;
 
-use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB};
+use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
 use util::DBPath;
 
 #[test]
@@ -68,7 +68,7 @@ fn test_column_family() {
         let opts = Options::default();
         let vec = DB::list_cf(&opts, &n);
         match vec {
-            Ok(vec) => assert_eq!(vec, vec!["default", "cf1"]),
+            Ok(vec) => assert_eq!(vec, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf1"]),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
     }

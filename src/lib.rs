@@ -90,7 +90,7 @@ mod sst_file_writer;
 mod write_batch;
 
 pub use crate::{
-    column_family::{ColumnFamily, ColumnFamilyDescriptor},
+    column_family::{ColumnFamily, ColumnFamilyDescriptor, DEFAULT_COLUMN_FAMILY_NAME},
     compaction_filter::Decision as CompactionDecision,
     db::DB,
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
