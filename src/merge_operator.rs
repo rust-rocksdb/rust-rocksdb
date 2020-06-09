@@ -111,6 +111,7 @@ pub unsafe extern "C" fn full_merge_callback(
         ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
         buf as *mut c_char
     } else {
+        *new_value_length = 0;
         *success = 0 as u8;
         ptr::null_mut() as *mut c_char
     }
@@ -139,6 +140,7 @@ pub unsafe extern "C" fn partial_merge_callback(
         ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
         buf as *mut c_char
     } else {
+        *new_value_length = 0;
         *success = 0 as u8;
         ptr::null_mut::<c_char>()
     }
@@ -199,8 +201,9 @@ impl<'a> Iterator for &'a mut MergeOperands {
 
 #[cfg(test)]
 mod test {
-
     use super::MergeOperands;
+
+    use std::fs;
 
     fn test_provided_merge(
         _new_key: &[u8],
@@ -450,5 +453,37 @@ mod test {
             }
         }
         assert!(DB::destroy(&opts, path).is_ok());
+    }
+
+    #[test]
+    fn failed_merge_test() {
+        use crate::{Options, DB};
+
+        let path = "_rust_rocksdb_failed_merge_test";
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator("test operator", test_failing_merge, None);
+        {
+            let db = DB::open(&opts, path).expect("open with a merge operator");
+            db.put(b"key", b"value").expect("put_ok");
+            let res = db.merge(b"key", b"new value");
+            match res.and_then(|_e| db.get(b"key")) {
+                Ok(val) => panic!("expected merge failure to propogate, got: {:?}", val),
+                Err(e) => {
+                    assert!(e.into_string().contains("Could not perform merge."));
+                }
+            }
+            // We can't DB::destroy, because that will detect the
+            // corruption and fail.
+            assert!(fs::remove_dir_all(path).is_ok());
+        }
+    }
+
+    fn test_failing_merge(
+        _key: &[u8],
+        _val: Option<&[u8]>,
+        _operands: &mut MergeOperands,
+    ) -> Option<Vec<u8>> {
+        None
     }
 }
