@@ -121,3 +121,40 @@ pub unsafe extern "C" fn in_domain_callback(
     let in_domain = cb.in_domain_fn.unwrap();
     in_domain(key) as u8
 }
+
+#[cfg(test)]
+mod test {
+    use super::SliceTransform;
+
+    fn extract_suffix<'a>(slice: &'a [u8]) -> &'a [u8] {
+        if slice.len() > 4 {
+            &slice[slice.len() - 4..slice.len()]
+        } else {
+            slice
+        }
+    }
+
+    #[test]
+    fn prefix_test() {
+        use crate::{Options, DB};
+
+        let path = "_rust_rocksdb_prefix_test";
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_prefix_extractor(SliceTransform::create(
+            "test slice transform",
+            extract_suffix,
+            None,
+        ));
+        opts.set_memtable_prefix_bloom_ratio(0.1);
+
+        {
+            let db = DB::open(&opts, path).unwrap();
+            db.put(b"key_sfx1", b"a").unwrap();
+            db.put(b"key_sfx2", b"b").unwrap();
+
+            assert!(db.get(b"key_sfx1").unwrap().unwrap() == b"a");
+        }
+        assert!(DB::destroy(&opts, path).is_ok());
+    }
+}
