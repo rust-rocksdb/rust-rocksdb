@@ -50,14 +50,7 @@ impl SliceTransform {
                 cb as *mut c_void,
                 Some(slice_transform_destructor_callback),
                 Some(transform_callback),
-                // this is ugly, but I can't get the compiler
-                // not to barf with "expected fn pointer, found fn item"
-                // without this. sorry.
-                if in_domain_fn.is_some() {
-                    Some(in_domain_callback)
-                } else {
-                    None
-                },
+                Some(in_domain_callback),
                 // this None points to the deprecated InRange callback
                 None,
                 Some(slice_transform_name_callback),
@@ -118,8 +111,11 @@ pub unsafe extern "C" fn in_domain_callback(
 ) -> u8 {
     let cb = &mut *(raw_cb as *mut TransformCallback);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    let in_domain = cb.in_domain_fn.unwrap();
-    in_domain(key) as u8
+    if let Some(in_domain) = cb.in_domain_fn {
+        in_domain(key) as u8
+    } else {
+        0xff_u8
+    }
 }
 
 #[cfg(test)]
