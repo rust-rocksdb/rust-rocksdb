@@ -1,4 +1,4 @@
-dist: trusty
+dist: bionic
 language: rust
 
 os:
@@ -7,14 +7,25 @@ os:
 rust:
   - nightly
 
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-bionic-7
+    packages:
+      - clang-format-7
+
 jobs:
   include:
-  - os: osx
-    osx_image: xcode11.3
-    rust: nightly
   - os: linux
     rust: nightly
     env: FEATURES="encryption,jemalloc,portable,sse"
+  - os: linux
+    arch: arm64
+    rust: nightly
+  - os: osx
+    osx_image: xcode11.5
+    rust: nightly
+  - env: TASK="clang-format"
 
 env:
   global:
@@ -28,7 +39,11 @@ before_script:
 
 script:
   # copile rocksdb may cost more than 10 minutes, see https://docs.travis-ci.com/user/common-build-problems/#build-times-out-because-no-output-was-received
-  - travis_wait make clippy
-  - cargo fmt --all -- --check
-  - cargo build --features=$FEATURES
-  - cargo test --all --features=$FEATURES
+  - if [ "${TASK}" == "clang-format" ]; then
+      bash ./travis-build/travis-format.sh;
+    else
+      travis_wait make clippy;
+      cargo fmt --all -- --check;
+      cargo build --features=$FEATURES;
+      cargo test --all --features=$FEATURES;
+    fi
