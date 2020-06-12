@@ -457,6 +457,13 @@ mod test {
 
     #[test]
     fn failed_merge_test() {
+        fn test_failing_merge(
+            _key: &[u8],
+            _val: Option<&[u8]>,
+            _operands: &mut MergeOperands,
+        ) -> Option<Vec<u8>> {
+            None
+        }
         use crate::{Options, DB};
 
         let path = "_rust_rocksdb_failed_merge_test";
@@ -477,13 +484,5 @@ mod test {
             // corruption and fail.
             assert!(fs::remove_dir_all(path).is_ok());
         }
-    }
-
-    fn test_failing_merge(
-        _key: &[u8],
-        _val: Option<&[u8]>,
-        _operands: &mut MergeOperands,
-    ) -> Option<Vec<u8>> {
-        None
     }
 }
