@@ -114,7 +114,7 @@ pub unsafe extern "C" fn in_domain_callback(
     if let Some(in_domain) = cb.in_domain_fn {
         in_domain(key) as u8
     } else {
-        0xff_u8
+        0xff
     }
 }
 
@@ -122,7 +122,7 @@ pub unsafe extern "C" fn in_domain_callback(
 mod test {
     use super::SliceTransform;
 
-    fn extract_suffix<'a>(slice: &'a [u8]) -> &'a [u8] {
+    fn extract_suffix(slice: &[u8]) -> &[u8] {
         if slice.len() > 4 {
             &slice[slice.len() - 4..slice.len()]
         } else {
