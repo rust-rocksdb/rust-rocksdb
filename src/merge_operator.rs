@@ -468,7 +468,7 @@ mod test {
             db.put(b"key", b"value").expect("put_ok");
             let res = db.merge(b"key", b"new value");
             match res.and_then(|_e| db.get(b"key")) {
-                Ok(val) => panic!("expected merge failure to propogate, got: {:?}", val),
+                Ok(val) => panic!("expected merge failure to propagate, got: {:?}", val),
                 Err(e) => {
                     assert!(e.into_string().contains("Could not perform merge."));
                 }
