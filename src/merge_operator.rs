@@ -480,8 +480,13 @@ mod test {
                     assert!(e.into_string().contains("Could not perform merge."));
                 }
             }
-            // We can't DB::destroy, because that will detect the
-            // corruption and fail.
+            // DB::destroy detects the corruption and returns an error
+            // without deleting all of the files, so we ignore its
+            // return value and then call `fs::remove_dir_all` to be
+            // sure we've cleaned up.
+            match DB::destroy(&opts, path) {
+                _ => (),
+            };
             fs::remove_dir_all(path).expect("deleting test database");
         }
     }
