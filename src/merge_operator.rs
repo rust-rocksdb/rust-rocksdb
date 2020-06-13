@@ -482,7 +482,7 @@ mod test {
             }
             // We can't DB::destroy, because that will detect the
             // corruption and fail.
-            assert!(fs::remove_dir_all(path).is_ok());
+            fs::remove_dir_all(path).expect("deleting test database");
         }
     }
 }
