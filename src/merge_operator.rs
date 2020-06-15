@@ -203,8 +203,6 @@ impl<'a> Iterator for &'a mut MergeOperands {
 mod test {
     use super::MergeOperands;
 
-    use std::fs;
-
     fn test_provided_merge(
         _new_key: &[u8],
         existing_val: Option<&[u8]>,
@@ -466,12 +464,16 @@ mod test {
         }
         use crate::{Options, DB};
 
-        let path = "_rust_rocksdb_failed_merge_test";
+        let tmpdir = tempfile::Builder::new()
+            .prefix("_rust_rocksdb_failed_merge_test")
+            .tempdir()
+            .expect("Failed to create temporary path");
+        let path = tmpdir.path().join("db");
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator("test operator", test_failing_merge, None);
         {
-            let db = DB::open(&opts, path).expect("open with a merge operator");
+            let db = DB::open(&opts, &path).expect("open with a merge operator");
             db.put(b"key", b"value").expect("put_ok");
             let res = db.merge(b"key", b"new value");
             match res.and_then(|_e| db.get(b"key")) {
@@ -480,14 +482,7 @@ mod test {
                     assert!(e.into_string().contains("Could not perform merge."));
                 }
             }
-            // DB::destroy detects the corruption and returns an error
-            // without deleting all of the files, so we ignore its
-            // return value and then call `fs::remove_dir_all` to be
-            // sure we've cleaned up.
-            match DB::destroy(&opts, path) {
-                _ => (),
-            };
-            fs::remove_dir_all(path).expect("deleting test database");
         }
+        DB::destroy(&opts, &path).expect("destroying DB");
     }
 }
