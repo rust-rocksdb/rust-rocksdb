@@ -1012,8 +1012,13 @@ impl DBOptions {
             return Err("Failed to get rate limiter".to_owned());
         }
 
+        let rate_limiter = RateLimiter { inner: limiter };
+
         unsafe {
-            crocksdb_ffi::crocksdb_ratelimiter_set_bytes_per_second(limiter, rate_bytes_per_sec);
+            crocksdb_ffi::crocksdb_ratelimiter_set_bytes_per_second(
+                rate_limiter.inner,
+                rate_bytes_per_sec,
+            );
         }
         Ok(())
     }
@@ -1021,10 +1026,12 @@ impl DBOptions {
     pub fn get_rate_bytes_per_sec(&self) -> Option<i64> {
         let limiter = unsafe { crocksdb_ffi::crocksdb_options_get_ratelimiter(self.inner) };
         if limiter.is_null() {
-            return None
+            return None;
         }
 
-        let rate = unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_bytes_per_second(limiter) };
+        let rate_limiter = RateLimiter { inner: limiter };
+        let rate =
+            unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_bytes_per_second(rate_limiter.inner) };
         Some(rate)
     }
 

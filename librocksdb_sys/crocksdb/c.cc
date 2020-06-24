@@ -319,7 +319,7 @@ struct crocksdb_externalsstfileinfo_t {
   ExternalSstFileInfo rep;
 };
 struct crocksdb_ratelimiter_t {
-  RateLimiter* rep;
+  std::shared_ptr<RateLimiter> rep;
 };
 struct crocksdb_histogramdata_t {
   HistogramData rep;
@@ -2903,7 +2903,7 @@ unsigned char crocksdb_options_statistics_get_histogram(
 
 void crocksdb_options_set_ratelimiter(crocksdb_options_t* opt,
                                       crocksdb_ratelimiter_t* limiter) {
-  opt->rep.rate_limiter.reset(limiter->rep);
+  opt->rep.rate_limiter = limiter->rep;
   limiter->rep = nullptr;
 }
 
@@ -2911,7 +2911,7 @@ crocksdb_ratelimiter_t* crocksdb_options_get_ratelimiter(
     crocksdb_options_t* opt) {
   if (opt->rep.rate_limiter != nullptr) {
     crocksdb_ratelimiter_t* limiter = new crocksdb_ratelimiter_t;
-    limiter->rep = opt->rep.rate_limiter.get();
+    limiter->rep = opt->rep.rate_limiter;
     return limiter;
   }
   return nullptr;
@@ -2954,8 +2954,8 @@ crocksdb_ratelimiter_t* crocksdb_ratelimiter_create(int64_t rate_bytes_per_sec,
                                                     int64_t refill_period_us,
                                                     int32_t fairness) {
   crocksdb_ratelimiter_t* rate_limiter = new crocksdb_ratelimiter_t;
-  rate_limiter->rep =
-      NewGenericRateLimiter(rate_bytes_per_sec, refill_period_us, fairness);
+  rate_limiter->rep = std::shared_ptr<RateLimiter>(
+      NewGenericRateLimiter(rate_bytes_per_sec, refill_period_us, fairness));
   return rate_limiter;
 }
 
@@ -2975,14 +2975,14 @@ crocksdb_ratelimiter_t* crocksdb_ratelimiter_create_with_auto_tuned(
       m = RateLimiter::Mode::kAllIo;
       break;
   }
-  rate_limiter->rep = NewGenericRateLimiter(
-      rate_bytes_per_sec, refill_period_us, fairness, m, auto_tuned);
+  rate_limiter->rep = std::shared_ptr<RateLimiter>(NewGenericRateLimiter(
+      rate_bytes_per_sec, refill_period_us, fairness, m, auto_tuned));
   return rate_limiter;
 }
 
 void crocksdb_ratelimiter_destroy(crocksdb_ratelimiter_t* limiter) {
   if (limiter->rep) {
-    delete limiter->rep;
+    limiter->rep.reset();
   }
   delete limiter;
 }
