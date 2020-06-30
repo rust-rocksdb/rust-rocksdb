@@ -2583,6 +2583,12 @@ impl FifoCompactionOptions {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum UniversalCompactionStopStyle {
+    Similar = ffi::rocksdb_similar_size_compaction_stop_style as isize,
+    Total = ffi::rocksdb_total_size_compaction_stop_style as isize,
+}
+
 pub struct UniversalCompactionOptions {
     pub(crate) inner: *mut ffi::rocksdb_universal_compaction_options_t,
 }
@@ -2603,12 +2609,6 @@ impl Drop for UniversalCompactionOptions {
             ffi::rocksdb_universal_compaction_options_destroy(self.inner);
         }
     }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum UniversalCompactionStopStyle {
-    Similar = ffi::rocksdb_similar_size_compaction_stop_style as isize,
-    Total = ffi::rocksdb_total_size_compaction_stop_style as isize,
 }
 
 impl UniversalCompactionOptions {
