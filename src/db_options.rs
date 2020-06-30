@@ -795,6 +795,30 @@ impl Options {
         }
     }
 
+    /// Sets the periodicity when obsolete files get deleted.
+    ///
+    /// The files that get out of scope by compaction
+    /// process will still get automatically delete on every compaction,
+    /// regardless of this setting.
+    ///
+    /// Default: 6 hours
+    pub fn set_delete_obsolete_files_period_micros(&mut self, micros: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_delete_obsolete_files_period_micros(self.inner, micros);
+        }
+    }
+
+    /// Prepare the DB for bulk loading.
+    ///
+    /// All data will be in level 0 without any automatic compaction.
+    /// It's recommended to manually call CompactRange(NULL, NULL) before reading
+    /// from the database, because otherwise the read can be very slow.
+    pub fn rocksdb_options_prepare_for_bulk_load(&mut self) {
+        unsafe {
+            ffi::rocksdb_options_prepare_for_bulk_load(self.inner);
+        }
+    }
+
     /// Sets the number of open files that can be used by the DB. You may need to
     /// increase this if your database has a large working set. Value `-1` means
     /// files opened are always kept open. You can estimate number of files based
@@ -890,6 +914,22 @@ impl Options {
         }
     }
 
+    /// Sets the maximum buffer size that is used by WritableFileWriter.
+    ///
+    /// On Windows, we need to maintain an aligned buffer for writes.
+    /// We allow the buffer to grow until it's size hits the limit in buffered
+    /// IO and fix the buffer size when using direct IO to ensure alignment of
+    /// write requests if the logical sector size is unusual
+    ///
+    /// Default: 1024 * 1024 (1 MB)
+    ///
+    /// Dynamically changeable through SetDBOptions() API.
+    pub fn set_writable_file_max_buffer_size(&mut self, nbytes: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_writable_file_max_buffer_size(self.inner, nbytes);
+        }
+    }
+
     /// If true, allow multi-writers to update mem tables in parallel.
     /// Only some memtable_factory-s support concurrent writes; currently it
     /// is implemented only for SkipListFactory.  Concurrent memtable writes
@@ -910,6 +950,33 @@ impl Options {
     pub fn set_allow_concurrent_memtable_write(&mut self, allow: bool) {
         unsafe {
             ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner, allow as c_uchar)
+        }
+    }
+
+    /// If true, threads synchronizing with the write batch group leader will wait for up to
+    /// write_thread_max_yield_usec before blocking on a mutex. This can substantially improve
+    /// throughput for concurrent workloads, regardless of whether allow_concurrent_memtable_write
+    /// is enabled.
+    ///
+    /// Default: true
+    pub fn set_enable_write_thread_adaptive_yield(&mut self, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_write_thread_adaptive_yield(
+                self.inner,
+                enabled as c_uchar,
+            );
+        }
+    }
+
+    /// Specifies whether an iteration->Next() sequentially skips over keys with the same user-key or not.
+    ///
+    /// This number specifies the number of keys (with the same userkey)
+    /// that will be sequentially skipped before a reseek is issued.
+    ///
+    /// Default: 8
+    pub fn set_max_sequential_skip_in_iterations(&mut self, num: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_max_sequential_skip_in_iterations(self.inner, num);
         }
     }
 
@@ -1582,6 +1649,13 @@ impl Options {
         }
     }
 
+    /// Sets the start level to use compression.
+    pub fn set_min_level_to_compress(&mut self, lvl: c_int) {
+        unsafe {
+            ffi::rocksdb_options_set_min_level_to_compress(self.inner, lvl);
+        }
+    }
+
     /// Measure IO stats in compactions and flushes, if `true`.
     ///
     /// Default: `false`
@@ -1736,6 +1810,19 @@ impl Options {
     pub fn set_memtable_prefix_bloom_ratio(&mut self, ratio: f64) {
         unsafe {
             ffi::rocksdb_options_set_memtable_prefix_bloom_size_ratio(self.inner, ratio);
+        }
+    }
+
+    /// Sets the maximum number of bytes in all compacted files.
+    /// We try to limit number of bytes in one compaction to be lower than this
+    /// threshold. But it's not guaranteed.
+    ///
+    /// Value 0 will be sanitized.
+    ///
+    /// Default: target_file_size_base * 25
+    pub fn set_max_compaction_bytes(&mut self, nbytes: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_max_compaction_bytes(self.inner, nbytes);
         }
     }
 
