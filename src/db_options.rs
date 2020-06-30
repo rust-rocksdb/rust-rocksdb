@@ -1550,6 +1550,61 @@ impl Options {
         unsafe { ffi::rocksdb_options_set_memtable_huge_page_size(self.inner, size) }
     }
 
+    /// Sets the maximum number of successive merge operations on a key in the memtable.
+    ///
+    /// When a merge operation is added to the memtable and the maximum number of
+    /// successive merges is reached, the value of the key will be calculated and
+    /// inserted into the memtable instead of the merge operation. This will
+    /// ensure that there are never more than max_successive_merges merge
+    /// operations in the memtable.
+    ///
+    /// Default: 0 (disabled)
+    pub fn set_max_successive_merges(&mut self, num: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_max_successive_merges(self.inner, num);
+        }
+    }
+
+    /// Control locality of bloom filter probes to improve cache miss rate.
+    /// This option only applies to memtable prefix bloom and plaintable
+    /// prefix bloom. It essentially limits the max number of cache lines each
+    /// bloom filter check can touch.
+    ///
+    /// This optimization is turned off when set to 0. The number should never
+    /// be greater than number of probes. This option can boost performance
+    /// for in-memory workload but should use with care since it can cause
+    /// higher false positive rate.
+    ///
+    /// Default: 0
+    pub fn set_bloom_locality(&mut self, v: u32) {
+        unsafe {
+            ffi::rocksdb_options_set_bloom_locality(self.inner, v);
+        }
+    }
+
+    /// Enable/disable thread-safe inplace updates.
+    ///
+    /// Requires updates if
+    /// * key exists in current memtable
+    /// * new sizeof(new_value) <= sizeof(old_value)
+    /// * old_value for that key is a put i.e. kTypeValue
+    ///
+    /// Default: false.
+    pub fn set_inplace_update_support(&mut self, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_inplace_update_support(self.inner, enabled as c_uchar);
+        }
+    }
+
+    /// Sets the number of locks used for inplace update.
+    ///
+    /// Default: 10000 when inplace_update_support = true, otherwise 0.
+    pub fn set_inplace_update_locks(&mut self, num: usize) {
+        unsafe {
+            ffi::rocksdb_options_set_inplace_update_num_locks(self.inner, num);
+        }
+    }
+
     /// By default, a single write thread queue is maintained. The thread gets
     /// to the head of the queue becomes write batch group leader and responsible
     /// for writing to WAL and memtable for the batch group.
