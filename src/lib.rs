@@ -84,6 +84,7 @@ mod db;
 mod db_iterator;
 mod db_options;
 mod db_pinnable_slice;
+pub mod global;
 pub mod merge_operator;
 mod slice_transform;
 mod snapshot;
