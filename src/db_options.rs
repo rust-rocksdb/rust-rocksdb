@@ -2281,15 +2281,62 @@ impl WriteOptions {
         WriteOptions::default()
     }
 
+    /// Sets the sync mode. If true, the write will be flushed
+    /// from the operating system buffer cache before the write is considered complete.
+    /// If this flag is true, writes will be slower.
+    ///
+    /// Default: false
     pub fn set_sync(&mut self, sync: bool) {
         unsafe {
             ffi::rocksdb_writeoptions_set_sync(self.inner, sync as c_uchar);
         }
     }
 
+    /// Sets whether WAL should be active or not.
+    /// If true, writes will not first go to the write ahead log,
+    /// and the write may got lost after a crash.
+    ///
+    /// Default: false
     pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
             ffi::rocksdb_writeoptions_disable_WAL(self.inner, disable as c_int);
+        }
+    }
+
+    /// If true and if user is trying to write to column families that don't exist (they were dropped),
+    /// ignore the write (don't return an error). If there are multiple writes in a WriteBatch,
+    /// other writes will succeed.
+    ///
+    /// Default: false
+    pub fn set_ignore_missing_column_families(&mut self, ignore: bool) {
+        unsafe {
+            ffi::rocksdb_writeoptions_set_ignore_missing_column_families(
+                self.inner,
+                ignore as c_uchar,
+            );
+        }
+    }
+
+    /// If true and we need to wait or sleep for the write request, fails
+    /// immediately with Status::Incomplete().
+    ///
+    /// Default: false
+    pub fn set_no_slowdown(&mut self, no_slowdown: bool) {
+        unsafe {
+            ffi::rocksdb_writeoptions_set_no_slowdown(self.inner, no_slowdown as c_uchar);
+        }
+    }
+
+    /// If true, this write request is of lower priority if compaction is
+    /// behind. In this case, no_slowdown = true, the request will be cancelled
+    /// immediately with Status::Incomplete() returned. Otherwise, it will be
+    /// slowed down. The slowdown value is determined by RocksDB to guarantee
+    /// it introduces minimum impacts to high priority writes.
+    ///
+    /// Default: false
+    pub fn set_low_pri(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_writeoptions_set_low_pri(self.inner, v as c_uchar);
         }
     }
 }
