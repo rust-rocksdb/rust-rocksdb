@@ -2339,6 +2339,19 @@ impl WriteOptions {
             ffi::rocksdb_writeoptions_set_low_pri(self.inner, v as c_uchar);
         }
     }
+
+    /// If true, writebatch will maintain the last insert positions of each
+    /// memtable as hints in concurrent write. It can improve write performance
+    /// in concurrent writes if keys in one writebatch are sequential. In
+    /// non-concurrent writes (when concurrent_memtable_writes is false) this
+    /// option will be ignored.
+    ///
+    /// Default: false
+    pub fn set_memtable_insert_hint_per_batch(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_writeoptions_set_memtable_insert_hint_per_batch(self.inner, v as c_uchar);
+        }
+    }
 }
 
 impl Default for WriteOptions {
