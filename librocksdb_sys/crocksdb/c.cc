@@ -268,19 +268,30 @@ struct crocksdb_logger_impl_t : public Logger {
   void (*logv_internal_)(void* logger, int log_level, const char* log);
 
   void log_help_(void* logger, int log_level, const char* format, va_list ap) {
-    constexpr int kBufferSize = 1024;
+    // Try twice, first with buffer on stack, second with buffer on heap.
+    constexpr int kBufferSize = 500;
     char buffer[kBufferSize];
-    vsnprintf(buffer, kBufferSize, format, ap);
-    logv_internal_(rep, log_level, buffer);
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int num = vsnprintf(buffer, kBufferSize, format, ap_copy);
+    va_end(ap_copy);
+    if (num < kBufferSize) {
+      logv_internal_(rep, log_level, buffer);
+    } else {
+      char* large_buffer = new char[num + 1];
+      vsnprintf(large_buffer, static_cast<size_t>(num) + 1, format, ap);
+      logv_internal_(rep, log_level, large_buffer);
+      delete[] large_buffer;
+    }
   }
 
   void Logv(const char* format, va_list ap) override {
-    log_help_(rep, InfoLogLevel::INFO_LEVEL, format, ap);
+    log_help_(rep, static_cast<int>(InfoLogLevel::HEADER_LEVEL), format, ap);
   }
 
   void Logv(const InfoLogLevel log_level, const char* format,
             va_list ap) override {
-    log_help_(rep, log_level, format, ap);
+    log_help_(rep, static_cast<int>(log_level), format, ap);
   }
 
   virtual ~crocksdb_logger_impl_t() { (*destructor_)(rep); }
