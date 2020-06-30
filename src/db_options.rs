@@ -2376,6 +2376,12 @@ impl ReadOptions {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
+
+    /// Specify whether the "data block"/"index block"/"filter block"
+    /// read for this iteration should be cached in memory?
+    /// Callers may wish to set this field to false for bulk scans.
+    ///
+    /// Default: true
     #[allow(dead_code)]
     fn fill_cache(&mut self, v: bool) {
         unsafe {
@@ -2383,6 +2389,9 @@ impl ReadOptions {
         }
     }
 
+    /// Sets the snapshot which should be used for the read.
+    /// The snapshot must belong to the DB that is being read and must
+    /// not have been released.
     pub(crate) fn set_snapshot(&mut self, snapshot: &Snapshot) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
@@ -2854,6 +2863,78 @@ impl UniversalCompactionOptions {
     pub fn set_stop_style(&mut self, style: UniversalCompactionStopStyle) {
         unsafe {
             ffi::rocksdb_universal_compaction_options_set_stop_style(self.inner, style as c_int);
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum BottommostLevelCompaction {
+    /// Skip bottommost level compaction
+    Skip = 0 as isize,
+    /// Only compact bottommost level if there is a compaction filter
+    /// This is the default option
+    IfHaveCompactionFilter = 1 as isize,
+    /// Always compact bottommost level
+    Force = 2 as isize,
+    /// Always compact bottommost level but in bottommost level avoid
+    /// double-compacting files created in the same compaction
+    ForceOptimized = 3 as isize,
+}
+
+pub struct CompactOptions {
+    pub(crate) inner: *mut ffi::rocksdb_compactoptions_t,
+}
+
+impl Default for CompactOptions {
+    fn default() -> CompactOptions {
+        let opts = unsafe { ffi::rocksdb_compactoptions_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB Compact Options");
+        }
+        CompactOptions { inner: opts }
+    }
+}
+
+impl Drop for CompactOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_compactoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl CompactOptions {
+    /// If more than one thread calls manual compaction,
+    /// only one will actually schedule it while the other threads will simply wait
+    /// for the scheduled manual compaction to complete. If exclusive_manual_compaction
+    /// is set to true, the call will disable scheduling of automatic compaction jobs
+    /// and wait for existing automatic compaction jobs to finish.
+    pub fn set_exclusive_manual_compaction(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_compactoptions_set_exclusive_manual_compaction(self.inner, v as c_uchar);
+        }
+    }
+
+    /// Sets bottommost level compaction.
+    pub fn set_bottommost_level_compaction(&mut self, lvl: BottommostLevelCompaction) {
+        unsafe {
+            ffi::rocksdb_compactoptions_set_bottommost_level_compaction(self.inner, lvl as c_uchar);
+        }
+    }
+
+    /// If true, compacted files will be moved to the minimum level capable
+    /// of holding the data or given level (specified non-negative target_level).
+    pub fn set_change_level(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_compactoptions_set_change_level(self.inner, v as c_uchar);
+        }
+    }
+
+    /// If change_level is true and target_level have non-negative value, compacted
+    /// files will be moved to target_level.
+    pub fn set_target_level(&mut self, lvl: c_int) {
+        unsafe {
+            ffi::rocksdb_compactoptions_set_target_level(self.inner, lvl);
         }
     }
 }
