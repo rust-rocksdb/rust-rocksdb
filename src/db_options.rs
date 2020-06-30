@@ -1402,6 +1402,20 @@ impl Options {
         }
     }
 
+    /// Sets the options needed to support Universal Style compactions.
+    pub fn set_universal_compaction_options(&mut self, uco: &UniversalCompactionOptions) {
+        unsafe {
+            ffi::rocksdb_options_set_universal_compaction_options(self.inner, uco.inner);
+        }
+    }
+
+    /// Sets the options for FIFO compaction style.
+    pub fn set_fifo_compaction_options(&mut self, fco: &FifoCompactionOptions) {
+        unsafe {
+            ffi::rocksdb_options_set_fifo_compaction_options(self.inner, fco.inner);
+        }
+    }
+
     /// Sets unordered_write to true trades higher write throughput with
     /// relaxing the immutability guarantee of snapshots. This violates the
     /// repeatability one expects from ::Get from a snapshot, as well as
@@ -2517,6 +2531,155 @@ pub enum CompactionAccessPattern {
     Normal = 1 as isize,
     Sequential = 2 as isize,
     WillNeed = 3 as isize,
+}
+
+pub struct FifoCompactionOptions {
+    pub(crate) inner: *mut ffi::rocksdb_fifo_compaction_options_t,
+}
+
+impl Default for FifoCompactionOptions {
+    fn default() -> FifoCompactionOptions {
+        let opts = unsafe { ffi::rocksdb_fifo_compaction_options_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB Fifo Compaction Options");
+        }
+        FifoCompactionOptions { inner: opts }
+    }
+}
+
+impl Drop for FifoCompactionOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_fifo_compaction_options_destroy(self.inner);
+        }
+    }
+}
+
+impl FifoCompactionOptions {
+    /// Sets the max table file size.
+    ///
+    /// Once the total sum of table files reaches this, we will delete the oldest
+    /// table file
+    ///
+    /// Default: 1GB
+    pub fn set_max_table_files_size(&mut self, nbytes: u64) {
+        unsafe {
+            ffi::rocksdb_fifo_compaction_options_set_max_table_files_size(self.inner, nbytes);
+        }
+    }
+}
+
+pub struct UniversalCompactionOptions {
+    pub(crate) inner: *mut ffi::rocksdb_universal_compaction_options_t,
+}
+
+impl Default for UniversalCompactionOptions {
+    fn default() -> UniversalCompactionOptions {
+        let opts = unsafe { ffi::rocksdb_universal_compaction_options_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB Universal Compaction Options");
+        }
+        UniversalCompactionOptions { inner: opts }
+    }
+}
+
+impl Drop for UniversalCompactionOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_destroy(self.inner);
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum UniversalCompactionStopStyle {
+    Similar = ffi::rocksdb_similar_size_compaction_stop_style as isize,
+    Total = ffi::rocksdb_total_size_compaction_stop_style as isize,
+}
+
+impl UniversalCompactionOptions {
+    /// Sets the percentage flexibility while comparing file size.
+    /// If the candidate file(s) size is 1% smaller than the next file's size,
+    /// then include next file into this candidate set.
+    ///
+    /// Default: 1
+    pub fn set_size_ratio(&mut self, ratio: c_int) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_set_size_ratio(self.inner, ratio);
+        }
+    }
+
+    /// Sets the minimum number of files in a single compaction run.
+    ///
+    /// Default: 2
+    pub fn set_min_merge_width(&mut self, num: c_int) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_set_min_merge_width(self.inner, num);
+        }
+    }
+
+    /// Sets the maximum number of files in a single compaction run.
+    ///
+    /// Default: UINT_MAX
+    pub fn set_max_merge_width(&mut self, num: c_int) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_set_max_merge_width(self.inner, num);
+        }
+    }
+
+    /// sets the size amplification.
+    ///
+    /// It is defined as the amount (in percentage) of
+    /// additional storage needed to store a single byte of data in the database.
+    /// For example, a size amplification of 2% means that a database that
+    /// contains 100 bytes of user-data may occupy upto 102 bytes of
+    /// physical storage. By this definition, a fully compacted database has
+    /// a size amplification of 0%. Rocksdb uses the following heuristic
+    /// to calculate size amplification: it assumes that all files excluding
+    /// the earliest file contribute to the size amplification.
+    ///
+    /// Default: 200, which means that a 100 byte database could require upto 300 bytes of storage.
+    pub fn set_max_size_amplification_percent(&mut self, v: c_int) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_set_max_size_amplification_percent(
+                self.inner, v,
+            );
+        }
+    }
+
+    /// Sets the percentage of compression size.
+    ///
+    /// If this option is set to be -1, all the output files
+    /// will follow compression type specified.
+    ///
+    /// If this option is not negative, we will try to make sure compressed
+    /// size is just above this value. In normal cases, at least this percentage
+    /// of data will be compressed.
+    /// When we are compacting to a new file, here is the criteria whether
+    /// it needs to be compressed: assuming here are the list of files sorted
+    /// by generation time:
+    ///    A1...An B1...Bm C1...Ct
+    /// where A1 is the newest and Ct is the oldest, and we are going to compact
+    /// B1...Bm, we calculate the total size of all the files as total_size, as
+    /// well as  the total size of C1...Ct as total_C, the compaction output file
+    /// will be compressed iff
+    ///   total_C / total_size < this percentage
+    ///
+    /// Default: -1
+    pub fn set_compression_size_percent(&mut self, v: c_int) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_set_compression_size_percent(self.inner, v);
+        }
+    }
+
+    /// Sets the algorithm used to stop picking files into a single compaction run.
+    ///
+    /// Default: ::Total
+    pub fn set_stop_style(&mut self, style: UniversalCompactionStopStyle) {
+        unsafe {
+            ffi::rocksdb_universal_compaction_options_set_stop_style(self.inner, style as c_int);
+        }
+    }
 }
 
 #[cfg(test)]
