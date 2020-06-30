@@ -14,7 +14,7 @@
 //
 
 use libc::{c_char, c_int, c_uchar, c_void, size_t};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::mem;
 use std::slice;
 
@@ -30,6 +30,11 @@ pub enum Decision {
     Remove,
     /// Change the value for the key
     Change(&'static [u8]),
+}
+
+pub trait CompactionFilter {
+    fn filter(&mut self, level: u32, key: &[u8], value: &[u8]) -> Decision;
+    fn name(&self) -> &CStr;
 }
 
 /// Function to filter compaction with.
@@ -51,19 +56,32 @@ where
     pub filter_fn: F,
 }
 
-pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
+impl<F> CompactionFilter for CompactionFilterCallback<F>
 where
     F: CompactionFilterFn,
 {
-    let _: Box<CompactionFilterCallback<F>> = mem::transmute(raw_cb);
+    fn name(&self) -> &CStr {
+        self.name.as_c_str()
+    }
+
+    fn filter(&mut self, level: u32, key: &[u8], value: &[u8]) -> Decision {
+        (self.filter_fn)(level, key, value)
+    }
+}
+
+pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
+where
+    F: CompactionFilter,
+{
+    let _: Box<F> = mem::transmute(raw_cb as *mut F);
 }
 
 pub unsafe extern "C" fn name_callback<F>(raw_cb: *mut c_void) -> *const c_char
 where
-    F: CompactionFilterFn,
+    F: CompactionFilter,
 {
-    let cb = &*(raw_cb as *mut CompactionFilterCallback<F>);
-    cb.name.as_ptr()
+    let cb = &*(raw_cb as *mut F);
+    cb.name().as_ptr()
 }
 
 pub unsafe extern "C" fn filter_callback<F>(
@@ -78,14 +96,14 @@ pub unsafe extern "C" fn filter_callback<F>(
     value_changed: *mut c_uchar,
 ) -> c_uchar
 where
-    F: CompactionFilterFn,
+    F: CompactionFilter,
 {
     use self::Decision::{Change, Keep, Remove};
 
-    let cb = &mut *(raw_cb as *mut CompactionFilterCallback<F>);
+    let cb = &mut *(raw_cb as *mut F);
     let key = slice::from_raw_parts(raw_key as *const u8, key_length as usize);
     let oldval = slice::from_raw_parts(existing_value as *const u8, value_length as usize);
-    let result = (cb.filter_fn)(level as u32, key, oldval);
+    let result = cb.filter(level as u32, key, oldval);
     match result {
         Keep => 0,
         Remove => 1,
