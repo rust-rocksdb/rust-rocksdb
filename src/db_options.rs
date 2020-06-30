@@ -1046,6 +1046,7 @@ impl Options {
     /// losing most recent changes)
     ///
     /// Default: false
+    #[deprecated(since = "0.15.0", note = "This option is no longer used")]
     pub fn set_skip_log_error_on_recovery(&mut self, enabled: bool) {
         unsafe {
             ffi::rocksdb_options_set_skip_log_error_on_recovery(self.inner, enabled as c_uchar);
@@ -1453,6 +1454,7 @@ impl Options {
     /// Sets maximum number of threads that will
     /// concurrently perform a compaction job by breaking it into multiple,
     /// smaller ones that are run simultaneously.
+    ///
     /// Default: 1 (i.e. no subcompactions)
     pub fn set_max_subcompactions(&mut self, num: u32) {
         unsafe {
@@ -1528,6 +1530,10 @@ impl Options {
     /// let mut opts = Options::default();
     /// opts.set_max_background_flushes(2);
     /// ```
+    #[deprecated(
+        since = "0.15.0",
+        note = "RocksDB automatically decides this based on the value of max_background_jobs"
+    )]
     pub fn set_max_background_flushes(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_max_background_flushes(self.inner, n);
