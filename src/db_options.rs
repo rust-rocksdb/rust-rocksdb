@@ -879,6 +879,17 @@ impl Options {
         }
     }
 
+    /// Same as bytes_per_sync, but applies to WAL files.
+    ///
+    /// Default: 0, turned off
+    ///
+    /// Dynamically changeable through SetDBOptions() API.
+    pub fn set_wal_bytes_per_sync(&mut self, nbytes: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_wal_bytes_per_sync(self.inner, nbytes);
+        }
+    }
+
     /// If true, allow multi-writers to update mem tables in parallel.
     /// Only some memtable_factory-s support concurrent writes; currently it
     /// is implemented only for SkipListFactory.  Concurrent memtable writes
@@ -1404,17 +1415,6 @@ impl Options {
     pub fn set_max_background_compactions(&mut self, n: c_int) {
         unsafe {
             ffi::rocksdb_options_set_max_background_compactions(self.inner, n);
-        }
-    }
-
-    /// Set base background compactions.
-    #[deprecated(
-        since = "0.15.0",
-        note = "RocksDB automatically decides this based on the value of max_background_jobs. This option is ignored"
-    )]
-    pub fn set_base_background_compactions(&mut self, n: c_int) {
-        unsafe {
-            ffi::rocksdb_options_set_base_background_compactions(self.inner, n);
         }
     }
 
@@ -2043,23 +2043,6 @@ impl Options {
     pub fn set_rate_limit_delay_max_milliseconds(&mut self, millis: c_uint) {
         unsafe {
             ffi::rocksdb_options_set_rate_limit_delay_max_milliseconds(self.inner, millis);
-        }
-    }
-
-    /// Sets the count limit during a scan.
-    ///
-    /// During data eviction of table's LRU cache, it would be inefficient
-    /// to strictly follow LRU because this piece of memory will not really
-    /// be released unless its refcount falls to zero. Instead, make two
-    /// passes: the first pass will release items with refcount = 1,
-    /// and if not enough space releases after scanning the number of
-    /// elements specified by this parameter, we will remove items in LRU order.
-    ///
-    /// Default: 16
-    #[deprecated(since = "0.15.0", note = "This option is no longer used")]
-    pub fn set_table_cache_remove_scan_count_limit(&mut self, limit: c_int) {
-        unsafe {
-            ffi::rocksdb_options_set_table_cache_remove_scan_count_limit(self.inner, limit);
         }
     }
 
