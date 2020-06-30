@@ -2868,6 +2868,7 @@ impl UniversalCompactionOptions {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum BottommostLevelCompaction {
     /// Skip bottommost level compaction
     Skip = 0 as isize,
@@ -2903,6 +2904,7 @@ impl Drop for CompactOptions {
     }
 }
 
+#[allow(dead_code)]
 impl CompactOptions {
     /// If more than one thread calls manual compaction,
     /// only one will actually schedule it while the other threads will simply wait

@@ -21,6 +21,7 @@ pub struct Cache {
     pub(crate) inner: *mut ffi::rocksdb_cache_t,
 }
 
+#[allow(dead_code)]
 impl Cache {
     /// Create a lru cache with capacity
     fn new_lru_cache(capacity: size_t) -> Cache {
