@@ -133,6 +133,7 @@ pub struct BlockBasedOptions {
 pub struct ReadOptions {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
     iterate_upper_bound: Option<Vec<u8>>,
+    iterate_lower_bound: Option<Vec<u8>>,
 }
 
 /// For configuring external files ingestion.
@@ -2303,6 +2304,14 @@ impl Default for WriteOptions {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ReadTier {
+    /// Reads data in memtable, block cache, OS cache or storage.
+    All = 0 as isize,
+    /// Reads data in memtable or block cache.
+    BlockCache = 1 as isize,
+}
+
 impl ReadOptions {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
@@ -2338,12 +2347,90 @@ impl ReadOptions {
         }
     }
 
+    /// Sets the lower bound for an iterator.
+    pub fn set_iterate_lower_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
+        self.iterate_lower_bound = Some(key.into());
+        let lower_bound = self
+            .iterate_lower_bound
+            .as_ref()
+            .expect("iterate_lower_bound must exist.");
+
+        unsafe {
+            ffi::rocksdb_readoptions_set_iterate_lower_bound(
+                self.inner,
+                lower_bound.as_ptr() as *const c_char,
+                lower_bound.len() as size_t,
+            );
+        }
+    }
+
+    /// Specify if this read request should process data that ALREADY
+    /// resides on a particular cache. If the required data is not
+    /// found at the specified cache, then Status::Incomplete is returned.
+    ///
+    /// Default: ::All
+    pub fn set_read_tier(&mut self, tier: ReadTier) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_read_tier(self.inner, tier as c_int);
+        }
+    }
+
+    /// Enforce that the iterator only iterates over the same
+    /// prefix as the seek.
+    /// This option is effective only for prefix seeks, i.e. prefix_extractor is
+    /// non-null for the column family and total_order_seek is false.  Unlike
+    /// iterate_upper_bound, prefix_same_as_start only works within a prefix
+    /// but in both directions.
+    ///
+    /// Default: false
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
         unsafe { ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar) }
     }
 
+    /// Enable a total order seek regardless of index format (e.g. hash index)
+    /// used in the table. Some table format (e.g. plain table) may not support
+    /// this option.
+    ///
+    /// If true when calling Get(), we also skip prefix bloom when reading from
+    /// block based table. It provides a way to read existing data after
+    /// changing implementation of prefix extractor.
     pub fn set_total_order_seek(&mut self, v: bool) {
         unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
+    }
+
+    /// Sets a threshold for the number of keys that can be skipped
+    /// before failing an iterator seek as incomplete. The default value of 0 should be used to
+    /// never fail a request as incomplete, even on skipping too many keys.
+    ///
+    /// Default: 0
+    pub fn set_max_skippable_internal_keys(&mut self, num: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_max_skippable_internal_keys(self.inner, num);
+        }
+    }
+
+    /// If true, when PurgeObsoleteFile is called in CleanupIteratorState, we schedule a background job
+    /// in the flush job queue and delete obsolete files in background.
+    ///
+    /// Default: false
+    pub fn set_background_purge_on_interator_cleanup(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_background_purge_on_iterator_cleanup(
+                self.inner,
+                v as c_uchar,
+            );
+        }
+    }
+
+    /// If true, keys deleted using the DeleteRange() API will be visible to
+    /// readers until they are naturally deleted during compaction. This improves
+    /// read performance in DBs with many range deletions.
+    ///
+    /// Default: false
+    pub fn set_ignore_range_deletions(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, v as c_uchar);
+        }
     }
 
     /// If true, all data read from underlying storage will be
@@ -2381,6 +2468,20 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_tailing(self.inner, v as c_uchar);
         }
     }
+
+    /// Specifies the value of "pin_data". If true, it keeps the blocks
+    /// loaded by the iterator pinned in memory as long as the iterator is not deleted,
+    /// If used when reading from tables created with
+    /// BlockBasedTableOptions::use_delta_encoding = false,
+    /// Iterator's property "rocksdb.iterator.is-key-pinned" is guaranteed to
+    /// return 1.
+    ///
+    /// Default: false
+    pub fn rocksdb_readoptions_set_pin_data(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_pin_data(self.inner, v as c_uchar);
+        }
+    }
 }
 
 impl Default for ReadOptions {
@@ -2389,6 +2490,7 @@ impl Default for ReadOptions {
             ReadOptions {
                 inner: ffi::rocksdb_readoptions_create(),
                 iterate_upper_bound: None,
+                iterate_lower_bound: None,
             }
         }
     }
