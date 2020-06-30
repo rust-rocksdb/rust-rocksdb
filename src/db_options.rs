@@ -18,6 +18,7 @@ use std::path::Path;
 
 use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
 
+use super::cache::Cache;
 use crate::{
     compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn},
     comparator::{self, ComparatorCallback, CompareFn},
@@ -1403,16 +1404,18 @@ impl Options {
     }
 
     /// Sets the options needed to support Universal Style compactions.
-    pub fn set_universal_compaction_options(&mut self, uco: &UniversalCompactionOptions) {
+    pub fn set_universal_compaction_options(&mut self, mut uco: UniversalCompactionOptions) {
         unsafe {
             ffi::rocksdb_options_set_universal_compaction_options(self.inner, uco.inner);
+            uco.inner = std::ptr::null_mut();
         }
     }
 
     /// Sets the options for FIFO compaction style.
-    pub fn set_fifo_compaction_options(&mut self, fco: &FifoCompactionOptions) {
+    pub fn set_fifo_compaction_options(&mut self, mut fco: FifoCompactionOptions) {
         unsafe {
             ffi::rocksdb_options_set_fifo_compaction_options(self.inner, fco.inner);
+            fco.inner = std::ptr::null_mut();
         }
     }
 
@@ -2057,6 +2060,17 @@ impl Options {
     pub fn set_atomic_flush(&mut self, atomic_flush: bool) {
         unsafe {
             ffi::rocksdb_options_set_atomic_flush(self.inner, atomic_flush as c_uchar);
+        }
+    }
+
+    /// Sets global cache for table-level rows.
+    ///
+    /// Default: null (disabled)
+    /// Not supported in ROCKSDB_LITE mode!
+    pub fn set_row_cache(&mut self, mut cache: Cache) {
+        unsafe {
+            ffi::rocksdb_options_set_row_cache(self.inner, cache.inner);
+            cache.inner = std::ptr::null_mut();
         }
     }
 

@@ -75,6 +75,7 @@
 mod ffi_util;
 
 pub mod backup;
+pub mod cache;
 pub mod checkpoint;
 mod column_family;
 pub mod compaction_filter;
