@@ -24,7 +24,7 @@ pub struct Cache {
 #[allow(dead_code)]
 impl Cache {
     /// Create a lru cache with capacity
-    fn new_lru_cache(capacity: size_t) -> Cache {
+    pub fn new_lru_cache(capacity: size_t) -> Cache {
         let cache = unsafe { ffi::rocksdb_cache_create_lru(capacity) };
         if cache.is_null() {
             panic!("Could not create Cache");
@@ -33,17 +33,17 @@ impl Cache {
     }
 
     /// Returns the Cache memory usage
-    fn get_usage(&self) -> usize {
+    pub fn get_usage(&self) -> usize {
         unsafe { ffi::rocksdb_cache_get_usage(self.inner) }
     }
 
     /// Returns pinned memory usage
-    fn pinned_usafe(&self) -> usize {
+    pub fn pinned_usafe(&self) -> usize {
         unsafe { ffi::rocksdb_cache_get_pinned_usage(self.inner) }
     }
 
     /// Sets cache capacity
-    fn set_capacity(&mut self, capacity: size_t) {
+    pub fn set_capacity(&mut self, capacity: size_t) {
         unsafe {
             ffi::rocksdb_cache_set_capacity(self.inner, capacity);
         }

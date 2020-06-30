@@ -2383,7 +2383,7 @@ impl ReadOptions {
     ///
     /// Default: true
     #[allow(dead_code)]
-    fn fill_cache(&mut self, v: bool) {
+    pub fn fill_cache(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
         }
