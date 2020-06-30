@@ -32,12 +32,12 @@ impl Cache {
     }
 
     /// Returns the Cache memory usage
-    fn get_usage(&mut self) -> usize {
+    fn get_usage(&self) -> usize {
         unsafe { ffi::rocksdb_cache_get_usage(self.inner) }
     }
 
     /// Returns pinned memory usage
-    fn pinned_usafe(&mut self) -> usize {
+    fn pinned_usafe(&self) -> usize {
         unsafe { ffi::rocksdb_cache_get_pinned_usage(self.inner) }
     }
 
