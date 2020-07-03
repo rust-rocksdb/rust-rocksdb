@@ -15,7 +15,6 @@
 
 use libc::{c_char, c_int, c_uchar, c_void, size_t};
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::slice;
 
 /// Decision about how to handle compacting an object
@@ -73,7 +72,7 @@ pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
 where
     F: CompactionFilter,
 {
-    let _: Box<F> = mem::transmute(raw_cb as *mut F);
+    let _: Box<F> = Box::from_raw(raw_cb as *mut F);
 }
 
 pub unsafe extern "C" fn name_callback<F>(raw_cb: *mut c_void) -> *const c_char

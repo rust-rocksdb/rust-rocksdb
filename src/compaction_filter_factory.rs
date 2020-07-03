@@ -73,13 +73,13 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::compaction_filter::Decision;
     use crate::{Options, DB};
     use std::ffi::CString;
 
-    struct CountFilter(u16);
+    struct CountFilter(u16, CString);
     impl CompactionFilter for CountFilter {
         fn filter(&mut self, _level: u32, _key: &[u8], _value: &[u8]) -> crate::CompactionDecision {
             self.0 += 1;
@@ -91,20 +91,20 @@ mod test {
         }
 
         fn name(&self) -> &CStr {
-            Box::leak(CString::new("CountFilter").unwrap().into_boxed_c_str())
+            &self.1
         }
     }
 
-    struct TestFactory;
+    struct TestFactory(CString);
     impl CompactionFilterFactory for TestFactory {
         type Filter = CountFilter;
 
         fn create(&mut self, _context: CompactionFilterContext) -> Self::Filter {
-            CountFilter(0)
+            CountFilter(0, CString::new("CountFilter").unwrap())
         }
 
         fn name(&self) -> &CStr {
-            Box::leak(CString::new("TestFactory").unwrap().into_boxed_c_str())
+            &self.0
         }
     }
 
@@ -113,7 +113,7 @@ mod test {
         let path = "_rust_rocksdb_filterfactorytest";
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        opts.set_compaction_filter_factory(TestFactory);
+        opts.set_compaction_filter_factory(TestFactory(CString::new("TestFactory").unwrap()));
         {
             let db = DB::open(&opts, path).unwrap();
             let _ = db.put(b"k1", b"a");
