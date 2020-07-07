@@ -18,22 +18,97 @@ use std::ffi::CStr;
 use crate::ffi;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(i32)]
 pub enum PerfStatsLevel {
     /// Unknown settings
-    Uninitialized = 0 as isize,
+    Uninitialized = 0,
     /// Disable perf stats
-    Disable = 1 as isize,
+    Disable,
     /// Enables only count stats
-    EnableCount = 2 as isize,
+    EnableCount,
     /// Count stats and enable time stats except for mutexes
-    EnableTimeExceptForMutex = 3 as isize,
+    EnableTimeExceptForMutex,
     /// Other than time, also measure CPU time counters. Still don't measure
     /// time (neither wall time nor CPU time) for mutexes
-    EnableTimeAndCPUTimeExceptForMutex = 4 as isize,
+    EnableTimeAndCPUTimeExceptForMutex,
     /// Enables count and time stats
-    EnableTime = 5 as isize,
+    EnableTime,
     /// N.B must always be the last value!
-    OutOfBound = 6 as isize,
+    OutOfBound,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(i32)]
+pub enum PerfMetric {
+    UserKeyComparisonCount = 0,
+    BlockCacheHitCount = 1,
+    BlockReadCount = 2,
+    BlockReadByte = 3,
+    BlockReadTime = 4,
+    BlockChecksumTime = 5,
+    BlockDecompressTime = 6,
+    GetReadBytes = 7,
+    MultigetReadBytes = 8,
+    IterReadBytes = 9,
+    InternalKeySkippedCount = 10,
+    InternalDeleteSkippedCount = 11,
+    InternalRecentSkippedCount = 12,
+    InternalMergeCount = 13,
+    GetSnapshotTime = 14,
+    GetFromMemtableTime = 15,
+    GetFromMemtableCount = 16,
+    GetPostProcessTime = 17,
+    GetFromOutputFilesTime = 18,
+    SeekOnMemtableTime = 19,
+    SeekOnMemtableCount = 20,
+    NextOnMemtableCount = 21,
+    PrevOnMemtableCount = 22,
+    SeekChildSeekTime = 23,
+    SeekChildSeekCount = 24,
+    SeekMinHeapTime = 25,
+    SeekMaxHeapTime = 26,
+    SeekInternalSeekTime = 27,
+    FindNextUserEntryTime = 28,
+    WriteWalTime = 29,
+    WriteMemtableTime = 30,
+    WriteDelayTime = 31,
+    WritePreAndPostProcessTime = 32,
+    DbMutexLockNanos = 33,
+    DbConditionWaitNanos = 34,
+    MergeOperatorTimeNanos = 35,
+    ReadIndexBlockNanos = 36,
+    ReadFilterBlockNanos = 37,
+    NewTableBlockIterNanos = 38,
+    NewTableIteratorNanos = 39,
+    BlockSeekNanos = 40,
+    FindTableNanos = 41,
+    BloomMemtableHitCount = 42,
+    BloomMemtableMissCount = 43,
+    BloomSstHitCount = 44,
+    BloomSstMissCount = 45,
+    KeyLockWaitTime = 46,
+    KeyLockWaitCount = 47,
+    EnvNewSequentialFileNanos = 48,
+    EnvNewRandomAccessFileNanos = 49,
+    EnvNewWritableFileNanos = 50,
+    EnvReuseWritableFileNanos = 51,
+    EnvNewRandomRwFileNanos = 52,
+    EnvNewDirectoryNanos = 53,
+    EnvFileExistsNanos = 54,
+    EnvGetChildrenNanos = 55,
+    EnvGetChildrenFileAttributesNanos = 56,
+    EnvDeleteFileNanos = 57,
+    EnvCreateDirNanos = 58,
+    EnvCreateDirIfMissingNanos = 59,
+    EnvDeleteDirNanos = 60,
+    EnvGetFileSizeNanos = 61,
+    EnvGetFileModificationTimeNanos = 62,
+    EnvRenameFileNanos = 63,
+    EnvLinkFileNanos = 64,
+    EnvLockFileNanos = 65,
+    EnvUnlockFileNanos = 66,
+    EnvNewLoggerNanos = 67,
+    TotalMetricCount = 68,
 }
 
 /// Sets the perf stats level for current thread.
@@ -94,82 +169,8 @@ impl PerfContext {
         }
     }
 
-    // Metric returns value of a metric by its id.
-    //
-    // Id is one of:
-    //
-    // enum {
-    // 	rocksdb_user_key_comparison_count = 0,
-    // 	rocksdb_block_cache_hit_count,
-    // 	rocksdb_block_read_count,
-    // 	rocksdb_block_read_byte,
-    // 	rocksdb_block_read_time,
-    // 	rocksdb_block_checksum_time,
-    // 	rocksdb_block_decompress_time,
-    // 	rocksdb_get_read_bytes,
-    // 	rocksdb_multiget_read_bytes,
-    // 	rocksdb_iter_read_bytes,
-    // 	rocksdb_internal_key_skipped_count,
-    // 	rocksdb_internal_delete_skipped_count,
-    // 	rocksdb_internal_recent_skipped_count,
-    // 	rocksdb_internal_merge_count,
-    // 	rocksdb_get_snapshot_time,
-    // 	rocksdb_get_from_memtable_time,
-    // 	rocksdb_get_from_memtable_count,
-    // 	rocksdb_get_post_process_time,
-    // 	rocksdb_get_from_output_files_time,
-    // 	rocksdb_seek_on_memtable_time,
-    // 	rocksdb_seek_on_memtable_count,
-    // 	rocksdb_next_on_memtable_count,
-    // 	rocksdb_prev_on_memtable_count,
-    // 	rocksdb_seek_child_seek_time,
-    // 	rocksdb_seek_child_seek_count,
-    // 	rocksdb_seek_min_heap_time,
-    // 	rocksdb_seek_max_heap_time,
-    // 	rocksdb_seek_internal_seek_time,
-    // 	rocksdb_find_next_user_entry_time,
-    // 	rocksdb_write_wal_time,
-    // 	rocksdb_write_memtable_time,
-    // 	rocksdb_write_delay_time,
-    // 	rocksdb_write_pre_and_post_process_time,
-    // 	rocksdb_db_mutex_lock_nanos,
-    // 	rocksdb_db_condition_wait_nanos,
-    // 	rocksdb_merge_operator_time_nanos,
-    // 	rocksdb_read_index_block_nanos,
-    // 	rocksdb_read_filter_block_nanos,
-    // 	rocksdb_new_table_block_iter_nanos,
-    // 	rocksdb_new_table_iterator_nanos,
-    // 	rocksdb_block_seek_nanos,
-    // 	rocksdb_find_table_nanos,
-    // 	rocksdb_bloom_memtable_hit_count,
-    // 	rocksdb_bloom_memtable_miss_count,
-    // 	rocksdb_bloom_sst_hit_count,
-    // 	rocksdb_bloom_sst_miss_count,
-    // 	rocksdb_key_lock_wait_time,
-    // 	rocksdb_key_lock_wait_count,
-    // 	rocksdb_env_new_sequential_file_nanos,
-    // 	rocksdb_env_new_random_access_file_nanos,
-    // 	rocksdb_env_new_writable_file_nanos,
-    // 	rocksdb_env_reuse_writable_file_nanos,
-    // 	rocksdb_env_new_random_rw_file_nanos,
-    // 	rocksdb_env_new_directory_nanos,
-    // 	rocksdb_env_file_exists_nanos,
-    // 	rocksdb_env_get_children_nanos,
-    // 	rocksdb_env_get_children_file_attributes_nanos,
-    // 	rocksdb_env_delete_file_nanos,
-    // 	rocksdb_env_create_dir_nanos,
-    // 	rocksdb_env_create_dir_if_missing_nanos,
-    // 	rocksdb_env_delete_dir_nanos,
-    // 	rocksdb_env_get_file_size_nanos,
-    // 	rocksdb_env_get_file_modification_time_nanos,
-    // 	rocksdb_env_rename_file_nanos,
-    // 	rocksdb_env_link_file_nanos,
-    // 	rocksdb_env_lock_file_nanos,
-    // 	rocksdb_env_unlock_file_nanos,
-    // 	rocksdb_env_new_logger_nanos,
-    // 	rocksdb_total_metric_count = 68
-    // }
-    pub fn metric(&self, id: c_int) -> u64 {
-        unsafe { ffi::rocksdb_perfcontext_metric(self.inner, id) }
+    /// Returns value of a metric
+    pub fn metric(&self, id: PerfMetric) -> u64 {
+        unsafe { ffi::rocksdb_perfcontext_metric(self.inner, id as c_int) }
     }
 }

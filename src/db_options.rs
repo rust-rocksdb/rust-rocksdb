@@ -1843,8 +1843,8 @@ impl Options {
     ///
     /// It will be applied to all input files of a compaction.
     ///
-    /// Default: NormalCompactionAccessPattern
-    pub fn set_access_hint_on_compaction_start(&mut self, pattern: CompactionAccessPattern) {
+    /// Default: Normal
+    pub fn set_access_hint_on_compaction_start(&mut self, pattern: AccessHint) {
         unsafe {
             ffi::rocksdb_options_set_access_hint_on_compaction_start(self.inner, pattern as c_int);
         }
@@ -2371,11 +2371,12 @@ impl Default for WriteOptions {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(i32)]
 pub enum ReadTier {
     /// Reads data in memtable, block cache, OS cache or storage.
-    All = 0 as isize,
+    All = 0,
     /// Reads data in memtable or block cache.
-    BlockCache = 1 as isize,
+    BlockCache,
 }
 
 impl ReadOptions {
@@ -2388,7 +2389,6 @@ impl ReadOptions {
     /// Callers may wish to set this field to false for bulk scans.
     ///
     /// Default: true
-    #[allow(dead_code)]
     pub fn fill_cache(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
@@ -2716,12 +2716,14 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
 }
 
+/// File access pattern once a compaction has started
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum CompactionAccessPattern {
-    None = 0 as isize,
-    Normal = 1 as isize,
-    Sequential = 2 as isize,
-    WillNeed = 3 as isize,
+#[repr(i32)]
+pub enum AccessHint {
+    None = 0,
+    Normal,
+    Sequential,
+    WillNeed,
 }
 
 pub struct FifoCompactionOptions {
@@ -2874,18 +2876,18 @@ impl UniversalCompactionOptions {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(dead_code)]
+#[repr(u8)]
 pub enum BottommostLevelCompaction {
     /// Skip bottommost level compaction
-    Skip = 0 as isize,
+    Skip = 0,
     /// Only compact bottommost level if there is a compaction filter
     /// This is the default option
-    IfHaveCompactionFilter = 1 as isize,
+    IfHaveCompactionFilter,
     /// Always compact bottommost level
-    Force = 2 as isize,
+    Force,
     /// Always compact bottommost level but in bottommost level avoid
     /// double-compacting files created in the same compaction
-    ForceOptimized = 3 as isize,
+    ForceOptimized,
 }
 
 pub struct CompactOptions {

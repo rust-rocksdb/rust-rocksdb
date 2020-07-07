@@ -14,6 +14,7 @@
 
 use libc::{self, size_t};
 
+use super::Error;
 use crate::ffi;
 
 // Cache is a cache used to store data read from data in memory.
@@ -21,15 +22,15 @@ pub struct Cache {
     pub(crate) inner: *mut ffi::rocksdb_cache_t,
 }
 
-#[allow(dead_code)]
 impl Cache {
     /// Create a lru cache with capacity
-    pub fn new_lru_cache(capacity: size_t) -> Cache {
+    pub fn new_lru_cache(capacity: size_t) -> Result<Cache, Error> {
         let cache = unsafe { ffi::rocksdb_cache_create_lru(capacity) };
         if cache.is_null() {
-            panic!("Could not create Cache");
+            Err(Error::new("Could not create Cache".to_owned()))
+        } else {
+            Ok(Cache { inner: cache })
         }
-        Cache { inner: cache }
     }
 
     /// Returns the Cache memory usage
