@@ -2912,7 +2912,6 @@ impl Drop for CompactOptions {
     }
 }
 
-#[allow(dead_code)]
 impl CompactOptions {
     /// If more than one thread calls manual compaction,
     /// only one will actually schedule it while the other threads will simply wait
