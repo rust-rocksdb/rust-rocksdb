@@ -38,6 +38,7 @@ pub enum PerfStatsLevel {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[non_exhaustive]
 #[repr(i32)]
 pub enum PerfMetric {
     UserKeyComparisonCount = 0,
