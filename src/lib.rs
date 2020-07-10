@@ -104,6 +104,7 @@ pub use crate::{
     },
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
+    perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
     snapshot::Snapshot,
     sst_file_writer::SstFileWriter,

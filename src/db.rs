@@ -1756,7 +1756,7 @@ fn compact_range_test() {
 
 #[test]
 fn fifo_compaction_test() {
-    use crate::{DBCompactionStyle, FifoCompactOptions};
+    use crate::{DBCompactionStyle, FifoCompactOptions, PerfContext, PerfMetric};
 
     let path = "_rust_rocksdb_fifo_compaction_test";
     {
@@ -1780,6 +1780,15 @@ fn fifo_compaction_test() {
         db.put_cf(cf1, b"k4", b"v4").unwrap();
         db.put_cf(cf1, b"k5", b"v5").unwrap();
         db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
+
+        // check stats
+        let ctx = PerfContext::default();
+
+        let block_cache_hit_count = ctx.metric(PerfMetric::BlockCacheHitCount);
+        assert!(block_cache_hit_count > 0);
+
+        let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
+        assert!(ctx.report(true).contains(&expect));
     }
     let opts = Options::default();
     DB::destroy(&opts, path).unwrap();
