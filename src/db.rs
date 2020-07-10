@@ -919,6 +919,7 @@ impl DB {
         self.delete_range_cf_opt(cf, from, to, &WriteOptions::default())
     }
 
+    /// Runs a manual compaction on the Range of keys given. This is not likely to be needed for typical usage.
     pub fn compact_range<S: AsRef<[u8]>, E: AsRef<[u8]>>(&self, start: Option<S>, end: Option<E>) {
         unsafe {
             let start = start.as_ref().map(AsRef::as_ref);
@@ -934,6 +935,7 @@ impl DB {
         }
     }
 
+    /// Same as `compact_range` but with custom options.
     pub fn compact_range_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         start: Option<S>,
@@ -955,6 +957,8 @@ impl DB {
         }
     }
 
+    /// Runs a manual compaction on the Range of keys given on the
+    /// given column family. This is not likely to be needed for typical usage.
     pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -976,6 +980,7 @@ impl DB {
         }
     }
 
+    /// Same as `compact_range_cf` but with custom options.
     pub fn compact_range_cf_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -1568,6 +1573,40 @@ fn iterator_test_lower_bound() {
 
         let iter = db.iterator_opt(IteratorMode::Start, readopts);
         let expected: Vec<_> = vec![(b"k4", b"v4"), (b"k5", b"v5")]
+            .into_iter()
+            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
+            .collect();
+        assert_eq!(expected, iter.collect::<Vec<_>>());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
+}
+
+#[test]
+fn prefix_extract_and_iterate_test() {
+    use crate::SliceTransform;
+
+    let path = "_rust_rocksdb_prefix_extract_and_iterate";
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(2));
+
+        let db = DB::open(&opts, path).unwrap();
+        db.put(b"p1_k1", b"v1").unwrap();
+        db.put(b"p2_k2", b"v2").unwrap();
+        db.put(b"p1_k3", b"v3").unwrap();
+        db.put(b"p1_k4", b"v4").unwrap();
+        db.put(b"p2_k5", b"v5").unwrap();
+
+        let mut readopts = ReadOptions::default();
+        readopts.set_prefix_same_as_start(true);
+        readopts.set_iterate_lower_bound(b"p1".to_vec());
+        readopts.set_pin_data(true);
+
+        let iter = db.iterator_opt(IteratorMode::Start, readopts);
+        let expected: Vec<_> = vec![(b"p1_k1", b"v1"), (b"p1_k3", b"v3"), (b"p1_k4", b"v4")]
             .into_iter()
             .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
             .collect();

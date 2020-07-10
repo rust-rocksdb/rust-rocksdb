@@ -2618,7 +2618,7 @@ impl ReadOptions {
     /// return 1.
     ///
     /// Default: false
-    pub fn rocksdb_readoptions_set_pin_data(&mut self, v: bool) {
+    pub fn set_pin_data(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_pin_data(self.inner, v as c_uchar);
         }
