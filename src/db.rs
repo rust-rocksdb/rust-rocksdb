@@ -1861,7 +1861,6 @@ fn env_and_dbpaths_test() {
         paths.push(DBPath::new(path2, 30 << 20).unwrap());
         opts.set_db_paths(&paths);
 
-        // put and compact default column family
         let db = DB::open(&opts, path).unwrap();
         db.put(b"k1", b"v1").unwrap();
         assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
