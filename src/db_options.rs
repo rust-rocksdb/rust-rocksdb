@@ -300,8 +300,10 @@ impl BlockBasedOptions {
 
     /// When provided: use the specified cache for blocks.
     /// Otherwise rocksdb will automatically create and use an 8MB internal cache.
-    ///
-    /// Note: this func will be deprecated in next release, use `set_block_cache` instead.
+    #[deprecated(
+        since = "0.15.0",
+        note = "This function will be removed in next release. Use set_block_cache instead"
+    )]
     pub fn set_lru_cache(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
@@ -315,8 +317,11 @@ impl BlockBasedOptions {
     /// Otherwise rocksdb will not use a compressed block cache.
     ///
     /// Note: though it looks similar to `block_cache`, RocksDB doesn't put the
-    /// same type of object there. This func will be deprecated in next release,
-    /// use `set_block_cache_compressed` instead.
+    /// same type of object there.
+    #[deprecated(
+        since = "0.15.0",
+        note = "This function will be removed in next release. Use set_block_cache_compressed instead"
+    )]
     pub fn set_lru_cache_compressed(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
@@ -879,7 +884,7 @@ impl Options {
     /// All data will be in level 0 without any automatic compaction.
     /// It's recommended to manually call CompactRange(NULL, NULL) before reading
     /// from the database, because otherwise the read can be very slow.
-    pub fn rocksdb_options_prepare_for_bulk_load(&mut self) {
+    pub fn prepare_for_bulk_load(&mut self) {
         unsafe {
             ffi::rocksdb_options_prepare_for_bulk_load(self.inner);
         }
@@ -1470,18 +1475,16 @@ impl Options {
     }
 
     /// Sets the options needed to support Universal Style compactions.
-    pub fn set_universal_compaction_options(&mut self, mut uco: UniversalCompactionOptions) {
+    pub fn set_universal_compaction_options(&mut self, uco: &UniversalCompactOptions) {
         unsafe {
             ffi::rocksdb_options_set_universal_compaction_options(self.inner, uco.inner);
-            uco.inner = std::ptr::null_mut();
         }
     }
 
     /// Sets the options for FIFO compaction style.
-    pub fn set_fifo_compaction_options(&mut self, mut fco: FifoCompactionOptions) {
+    pub fn set_fifo_compaction_options(&mut self, fco: &FifoCompactOptions) {
         unsafe {
             ffi::rocksdb_options_set_fifo_compaction_options(self.inner, fco.inner);
-            fco.inner = std::ptr::null_mut();
         }
     }
 
@@ -2138,10 +2141,9 @@ impl Options {
     ///
     /// Default: null (disabled)
     /// Not supported in ROCKSDB_LITE mode!
-    pub fn set_row_cache(&mut self, mut cache: Cache) {
+    pub fn set_row_cache(&mut self, cache: &Cache) {
         unsafe {
             ffi::rocksdb_options_set_row_cache(self.inner, cache.inner);
-            cache.inner = std::ptr::null_mut();
         }
     }
 
@@ -2790,21 +2792,21 @@ pub enum AccessHint {
     WillNeed,
 }
 
-pub struct FifoCompactionOptions {
+pub struct FifoCompactOptions {
     pub(crate) inner: *mut ffi::rocksdb_fifo_compaction_options_t,
 }
 
-impl Default for FifoCompactionOptions {
-    fn default() -> FifoCompactionOptions {
+impl Default for FifoCompactOptions {
+    fn default() -> FifoCompactOptions {
         let opts = unsafe { ffi::rocksdb_fifo_compaction_options_create() };
         if opts.is_null() {
             panic!("Could not create RocksDB Fifo Compaction Options");
         }
-        FifoCompactionOptions { inner: opts }
+        FifoCompactOptions { inner: opts }
     }
 }
 
-impl Drop for FifoCompactionOptions {
+impl Drop for FifoCompactOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_fifo_compaction_options_destroy(self.inner);
@@ -2812,7 +2814,7 @@ impl Drop for FifoCompactionOptions {
     }
 }
 
-impl FifoCompactionOptions {
+impl FifoCompactOptions {
     /// Sets the max table file size.
     ///
     /// Once the total sum of table files reaches this, we will delete the oldest
@@ -2832,21 +2834,21 @@ pub enum UniversalCompactionStopStyle {
     Total = ffi::rocksdb_total_size_compaction_stop_style as isize,
 }
 
-pub struct UniversalCompactionOptions {
+pub struct UniversalCompactOptions {
     pub(crate) inner: *mut ffi::rocksdb_universal_compaction_options_t,
 }
 
-impl Default for UniversalCompactionOptions {
-    fn default() -> UniversalCompactionOptions {
+impl Default for UniversalCompactOptions {
+    fn default() -> UniversalCompactOptions {
         let opts = unsafe { ffi::rocksdb_universal_compaction_options_create() };
         if opts.is_null() {
             panic!("Could not create RocksDB Universal Compaction Options");
         }
-        UniversalCompactionOptions { inner: opts }
+        UniversalCompactOptions { inner: opts }
     }
 }
 
-impl Drop for UniversalCompactionOptions {
+impl Drop for UniversalCompactOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_universal_compaction_options_destroy(self.inner);
@@ -2854,7 +2856,7 @@ impl Drop for UniversalCompactionOptions {
     }
 }
 
-impl UniversalCompactionOptions {
+impl UniversalCompactOptions {
     /// Sets the percentage flexibility while comparing file size.
     /// If the candidate file(s) size is 1% smaller than the next file's size,
     /// then include next file into this candidate set.

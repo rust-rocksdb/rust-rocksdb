@@ -1421,6 +1421,76 @@ fn writebatch_works() {
 }
 
 #[test]
+fn get_with_cache_and_bulkload_test() {
+    use crate::{BlockBasedOptions, Cache};
+
+    let path = "_rust_rocksdb_get_with_cache_and_bulkload_test";
+    let log_path = "_rust_rocksdb_log_path_test";
+    {
+        // create options
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_wal_bytes_per_sync(8 << 10); // 8KB
+        opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
+        opts.set_enable_write_thread_adaptive_yield(true);
+        opts.set_unordered_write(true);
+        opts.set_max_subcompactions(2);
+        opts.set_max_background_jobs(4);
+        opts.set_use_adaptive_mutex(true);
+
+        // set block based table and cache
+        let cache = Cache::new_lru_cache(64 << 10).unwrap();
+        let mut block_based_opts = BlockBasedOptions::default();
+        block_based_opts.set_block_cache(&cache);
+        block_based_opts.set_cache_index_and_filter_blocks(true);
+        opts.set_block_based_table_factory(&block_based_opts);
+
+        // open db
+        let db = DB::open(&opts, path).unwrap();
+
+        // write a lot
+        let mut batch = WriteBatch::default();
+        for i in 0..1_000 {
+            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+        }
+        assert!(db.write(batch).is_ok());
+
+        // flush memory table to sst, trigger cache usage on `get`
+        assert!(db.flush().is_ok());
+
+        // get -> trigger caching
+        let _ = db.get(b"1");
+        assert!(cache.get_usage() > 0);
+    }
+
+    // bulk loading
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.set_delete_obsolete_files_period_micros(100_000);
+        opts.prepare_for_bulk_load();
+        opts.set_db_log_dir(log_path);
+        opts.set_max_sequential_skip_in_iterations(16);
+
+        // open db
+        let db = DB::open(&opts, path).unwrap();
+
+        // try to get key
+        let iter = db.iterator(IteratorMode::Start);
+        let mut expected = 0;
+        for (k, _) in iter {
+            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            expected += 1;
+        }
+    }
+
+    let opts = Options::default();
+    assert!(DB::destroy(&opts, path).is_ok());
+    assert!(DB::destroy(&opts, log_path).is_ok());
+}
+
+#[test]
 fn iterator_test() {
     let path = "_rust_rocksdb_iteratortest";
     {
@@ -1439,46 +1509,6 @@ fn iterator_test() {
                 str::from_utf8(&*v).unwrap()
             );
         }
-    }
-    let opts = Options::default();
-    assert!(DB::destroy(&opts, path).is_ok());
-}
-
-#[test]
-fn get_with_cache_test() {
-    use crate::BlockBasedOptions;
-    use crate::Cache;
-
-    let path = "_rust_rocksdb_get_with_cache_test";
-    {
-        // create new options
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.create_missing_column_families(true);
-
-        // set block based table and cache
-        let cache = Cache::new_lru_cache(64 << 10).unwrap();
-        let mut block_based_opts = BlockBasedOptions::default();
-        block_based_opts.set_block_cache(&cache);
-        block_based_opts.set_cache_index_and_filter_blocks(true);
-        opts.set_block_based_table_factory(&block_based_opts);
-
-        // open db
-        let db = DB::open(&opts, path).unwrap();
-
-        // write a lot
-        let mut batch = WriteBatch::default();
-        for i in 0..1_000 {
-            batch.put(i.to_string().as_bytes(), b"v");
-        }
-        assert!(db.write(batch).is_ok());
-
-        // flush memory table to sst, trigger cache usage on `get`
-        assert!(db.flush().is_ok());
-
-        // get -> trigger caching
-        let _ = db.get(b"1");
-        assert!(cache.get_usage() > 0);
     }
     let opts = Options::default();
     assert!(DB::destroy(&opts, path).is_ok());
@@ -1674,13 +1704,30 @@ fn delete_range_test() {
 
 #[test]
 fn compact_range_test() {
-    use crate::BottommostLevelCompaction;
+    use crate::{
+        BottommostLevelCompaction, DBCompactionStyle, UniversalCompactOptions,
+        UniversalCompactionStopStyle,
+    };
 
     let path = "_rust_rocksdb_compact_range_test";
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
+
+        // set compaction style
+        let mut uni_co_opts = UniversalCompactOptions::default();
+        uni_co_opts.set_size_ratio(2);
+        uni_co_opts.set_stop_style(UniversalCompactionStopStyle::Total);
+        opts.set_compaction_style(DBCompactionStyle::Universal);
+        opts.set_universal_compaction_options(&uni_co_opts);
+
+        // set compaction options
+        let mut compact_opts = CompactOptions::default();
+        compact_opts.set_exclusive_manual_compaction(true);
+        compact_opts.set_target_level(1);
+        compact_opts.set_change_level(true);
+        compact_opts.set_bottommost_level_compaction(BottommostLevelCompaction::ForceOptimized);
 
         // put and compact column family cf1
         let cfs = vec!["cf1"];
@@ -1692,6 +1739,7 @@ fn compact_range_test() {
         db.put_cf(cf1, b"k4", b"v4").unwrap();
         db.put_cf(cf1, b"k5", b"v5").unwrap();
         db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
+        db.compact_range_cf_opt(cf1, Some(b"k1"), None::<&str>, &compact_opts);
 
         // put and compact default column family
         db.put(b"k1", b"v1").unwrap();
@@ -1700,13 +1748,38 @@ fn compact_range_test() {
         db.put(b"k4", b"v4").unwrap();
         db.put(b"k5", b"v5").unwrap();
         db.compact_range(Some(b"k3"), None::<&str>);
+        db.compact_range_opt(None::<&str>, Some(b"k5"), &compact_opts);
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
+}
 
-        let mut compact_opts = CompactOptions::default();
-        compact_opts.set_exclusive_manual_compaction(true);
-        compact_opts.set_target_level(1);
-        compact_opts.set_change_level(true);
-        compact_opts.set_bottommost_level_compaction(BottommostLevelCompaction::ForceOptimized);
-        db.compact_range(None::<&str>, Some(b"k4"));
+#[test]
+fn fifo_compaction_test() {
+    use crate::{DBCompactionStyle, FifoCompactOptions};
+
+    let path = "_rust_rocksdb_fifo_compaction_test";
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // set compaction style
+        let mut fifo_co_opts = FifoCompactOptions::default();
+        fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
+        opts.set_compaction_style(DBCompactionStyle::Fifo);
+        opts.set_fifo_compaction_options(&fifo_co_opts);
+
+        // put and compact column family cf1
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+        db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
     }
     let opts = Options::default();
     DB::destroy(&opts, path).unwrap();

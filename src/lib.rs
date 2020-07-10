@@ -97,9 +97,10 @@ pub use crate::{
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
-        DBCompactionStyle, DBCompressionType, DBRecoveryMode, DataBlockIndexType, FlushOptions,
-        IngestExternalFileOptions, MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions,
-        WriteOptions,
+        DBCompactionStyle, DBCompressionType, DBRecoveryMode, DataBlockIndexType,
+        FifoCompactOptions, FlushOptions, IngestExternalFileOptions, MemtableFactory, Options,
+        PlainTableFactoryOptions, ReadOptions, UniversalCompactOptions,
+        UniversalCompactionStopStyle, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
