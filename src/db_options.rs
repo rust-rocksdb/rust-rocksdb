@@ -74,6 +74,94 @@ impl Drop for Cache {
     }
 }
 
+pub struct Env {
+    pub(crate) inner: *mut ffi::rocksdb_env_t,
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_destroy(self.inner);
+        }
+    }
+}
+
+impl Env {
+    /// Returns default env
+    pub fn default() -> Result<Env, Error> {
+        let env = unsafe { ffi::rocksdb_create_default_env() };
+        if env.is_null() {
+            Err(Error::new("Could not create mem env".to_owned()))
+        } else {
+            Ok(Env { inner: env })
+        }
+    }
+
+    /// Returns a new environment that stores its data in memory and delegates
+    /// all non-file-storage tasks to base_env.
+    pub fn mem_env() -> Result<Env, Error> {
+        let env = unsafe { ffi::rocksdb_create_mem_env() };
+        if env.is_null() {
+            Err(Error::new("Could not create mem env".to_owned()))
+        } else {
+            Ok(Env { inner: env })
+        }
+    }
+
+    /// Sets the number of background worker threads of a specific thread pool for this environment.
+    /// `LOW` is the default pool.
+    ///
+    /// Default: 1
+    pub fn set_background_threads(&mut self, num_threads: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_background_threads(self.inner, num_threads);
+        }
+    }
+
+    /// Sets the size of the high priority thread pool that can be used to
+    /// prevent compactions from stalling memtable flushes.
+    pub fn set_high_priority_background_threads(&mut self, n: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_high_priority_background_threads(self.inner, n);
+        }
+    }
+
+    /// Wait for all threads started by StartThread to terminate.
+    pub fn join_all_threads(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_join_all_threads(self.inner);
+        }
+    }
+
+    /// Lowering IO priority for threads from the specified pool.
+    pub fn lower_thread_pool_io_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_thread_pool_io_priority(self.inner);
+        }
+    }
+
+    /// Lowering IO priority for high priority thread pool.
+    pub fn lower_high_priority_thread_pool_io_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_high_priority_thread_pool_io_priority(self.inner);
+        }
+    }
+
+    /// Lowering CPU priority for threads from the specified pool.
+    pub fn lower_thread_pool_cpu_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_thread_pool_cpu_priority(self.inner);
+        }
+    }
+
+    /// Lowering CPU priority for high priority thread pool.
+    pub fn lower_high_priority_thread_pool_cpu_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_high_priority_thread_pool_cpu_priority(self.inner);
+        }
+    }
+}
+
 /// Database-wide options around performance and behavior.
 ///
 /// Please read the official tuning [guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide)
@@ -678,6 +766,18 @@ impl Options {
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
+        }
+    }
+
+    /// Use the specified object to interact with the environment,
+    /// e.g. to read/write files, schedule background work, etc. In the near
+    /// future, support for doing storage operations such as read/write files
+    /// through env will be deprecated in favor of file_system.
+    ///
+    /// Default: Env::default()
+    pub fn set_env(&mut self, env: &Env) {
+        unsafe {
+            ffi::rocksdb_options_set_env(self.inner, env.inner);
         }
     }
 

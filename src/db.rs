@@ -1841,8 +1841,8 @@ fn fifo_compaction_test() {
 }
 
 #[test]
-fn dbpaths_test() {
-    use crate::DBPath;
+fn env_and_dbpaths_test() {
+    use crate::{DBPath, Env};
 
     let path = "_rust_rocksdb_dbpath_test";
     let path1 = "_rust_rocksdb_dbpath_test_1";
@@ -1851,6 +1851,10 @@ fn dbpaths_test() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
+
+        let mut env = Env::default().unwrap();
+        env.lower_high_priority_thread_pool_cpu_priority();
+        opts.set_env(&env);
 
         let mut paths = Vec::new();
         paths.push(DBPath::new(path1, 20 << 20).unwrap());
