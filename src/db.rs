@@ -16,9 +16,10 @@
 use crate::{
     ffi,
     ffi_util::{opt_bytes_to_ptr, to_cpath},
-    ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBPinnableSlice, DBRawIterator,
-    DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
-    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
+    DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions,
+    IteratorMode, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
+    DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -933,6 +934,27 @@ impl DB {
         }
     }
 
+    pub fn compact_range_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
+        &self,
+        start: Option<S>,
+        end: Option<E>,
+        opts: &CompactOptions,
+    ) {
+        unsafe {
+            let start = start.as_ref().map(AsRef::as_ref);
+            let end = end.as_ref().map(AsRef::as_ref);
+
+            ffi::rocksdb_compact_range_opt(
+                self.inner,
+                opts.inner,
+                opt_bytes_to_ptr(start),
+                start.map_or(0, |s| s.len()) as size_t,
+                opt_bytes_to_ptr(end),
+                end.map_or(0, |e| e.len()) as size_t,
+            );
+        }
+    }
+
     pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -946,6 +968,29 @@ impl DB {
             ffi::rocksdb_compact_range_cf(
                 self.inner,
                 cf.inner,
+                opt_bytes_to_ptr(start),
+                start.map_or(0, |s| s.len()) as size_t,
+                opt_bytes_to_ptr(end),
+                end.map_or(0, |e| e.len()) as size_t,
+            );
+        }
+    }
+
+    pub fn compact_range_cf_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        start: Option<S>,
+        end: Option<E>,
+        opts: &CompactOptions,
+    ) {
+        unsafe {
+            let start = start.as_ref().map(AsRef::as_ref);
+            let end = end.as_ref().map(AsRef::as_ref);
+
+            ffi::rocksdb_compact_range_cf_opt(
+                self.inner,
+                cf.inner,
+                opts.inner,
                 opt_bytes_to_ptr(start),
                 start.map_or(0, |s| s.len()) as size_t,
                 opt_bytes_to_ptr(end),
@@ -1400,6 +1445,46 @@ fn iterator_test() {
 }
 
 #[test]
+fn get_with_cache_test() {
+    use crate::BlockBasedOptions;
+    use crate::Cache;
+
+    let path = "_rust_rocksdb_get_with_cache_test";
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // set block based table and cache
+        let cache = Cache::new_lru_cache(64 << 10).unwrap();
+        let mut block_based_opts = BlockBasedOptions::default();
+        block_based_opts.set_block_cache(&cache);
+        block_based_opts.set_cache_index_and_filter_blocks(true);
+        opts.set_block_based_table_factory(&block_based_opts);
+
+        // open db
+        let db = DB::open(&opts, path).unwrap();
+
+        // write a lot
+        let mut batch = WriteBatch::default();
+        for i in 0..1_000 {
+            batch.put(i.to_string().as_bytes(), b"v");
+        }
+        assert!(db.write(batch).is_ok());
+
+        // flush memory table to sst, trigger cache usage on `get`
+        assert!(db.flush().is_ok());
+
+        // get -> trigger caching
+        let _ = db.get(b"1");
+        assert!(cache.get_usage() > 0);
+    }
+    let opts = Options::default();
+    assert!(DB::destroy(&opts, path).is_ok());
+}
+
+#[test]
 fn iterator_test_past_end() {
     let path = "_rust_rocksdb_iteratortest_past_end";
     {
@@ -1430,6 +1515,31 @@ fn iterator_test_upper_bound() {
 
         let iter = db.iterator_opt(IteratorMode::Start, readopts);
         let expected: Vec<_> = vec![(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")]
+            .into_iter()
+            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
+            .collect();
+        assert_eq!(expected, iter.collect::<Vec<_>>());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
+}
+
+#[test]
+fn iterator_test_lower_bound() {
+    let path = "_rust_rocksdb_iteratortest_lower_bound";
+    {
+        let db = DB::open_default(path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        let mut readopts = ReadOptions::default();
+        readopts.set_iterate_lower_bound(b"k4".to_vec());
+
+        let iter = db.iterator_opt(IteratorMode::Start, readopts);
+        let expected: Vec<_> = vec![(b"k4", b"v4"), (b"k5", b"v5")]
             .into_iter()
             .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
             .collect();
@@ -1557,6 +1667,46 @@ fn delete_range_test() {
         assert_eq!(db.get_cf(cf1, b"k5").unwrap().unwrap(), b"v5");
         assert!(db.get_cf(cf1, b"k2").unwrap().is_none());
         assert!(db.get_cf(cf1, b"k3").unwrap().is_none());
+    }
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
+}
+
+#[test]
+fn compact_range_test() {
+    use crate::BottommostLevelCompaction;
+
+    let path = "_rust_rocksdb_compact_range_test";
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // put and compact column family cf1
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+        db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
+
+        // put and compact default column family
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+        db.compact_range(Some(b"k3"), None::<&str>);
+
+        let mut compact_opts = CompactOptions::default();
+        compact_opts.set_exclusive_manual_compaction(true);
+        compact_opts.set_target_level(1);
+        compact_opts.set_change_level(true);
+        compact_opts.set_bottommost_level_compaction(BottommostLevelCompaction::ForceOptimized);
+        db.compact_range(None::<&str>, Some(b"k4"));
     }
     let opts = Options::default();
     DB::destroy(&opts, path).unwrap();

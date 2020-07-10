@@ -75,7 +75,6 @@
 mod ffi_util;
 
 pub mod backup;
-pub mod cache;
 pub mod checkpoint;
 mod column_family;
 pub mod compaction_filter;
@@ -97,9 +96,10 @@ pub use crate::{
     db::DB,
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
-        BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType,
-        DBRecoveryMode, DataBlockIndexType, FlushOptions, IngestExternalFileOptions,
-        MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
+        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
+        DBCompactionStyle, DBCompressionType, DBRecoveryMode, DataBlockIndexType, FlushOptions,
+        IngestExternalFileOptions, MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions,
+        WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,

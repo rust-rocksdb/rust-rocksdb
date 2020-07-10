@@ -18,7 +18,6 @@ use std::path::Path;
 
 use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
 
-use super::cache::Cache;
 use crate::{
     compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn},
     comparator::{self, ComparatorCallback, CompareFn},
@@ -27,11 +26,52 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
-    Snapshot,
+    Error, Snapshot,
 };
 
 fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
+}
+
+pub struct Cache {
+    pub(crate) inner: *mut ffi::rocksdb_cache_t,
+}
+
+impl Cache {
+    /// Create a lru cache with capacity
+    pub fn new_lru_cache(capacity: size_t) -> Result<Cache, Error> {
+        let cache = new_cache(capacity);
+        if cache.is_null() {
+            Err(Error::new("Could not create Cache".to_owned()))
+        } else {
+            Ok(Cache { inner: cache })
+        }
+    }
+
+    /// Returns the Cache memory usage
+    pub fn get_usage(&self) -> usize {
+        unsafe { ffi::rocksdb_cache_get_usage(self.inner) }
+    }
+
+    /// Returns pinned memory usage
+    pub fn get_pinned_usage(&self) -> usize {
+        unsafe { ffi::rocksdb_cache_get_pinned_usage(self.inner) }
+    }
+
+    /// Sets cache capacity
+    pub fn set_capacity(&mut self, capacity: size_t) {
+        unsafe {
+            ffi::rocksdb_cache_set_capacity(self.inner, capacity);
+        }
+    }
+}
+
+impl Drop for Cache {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_cache_destroy(self.inner);
+        }
+    }
 }
 
 /// Database-wide options around performance and behavior.
@@ -260,6 +300,8 @@ impl BlockBasedOptions {
 
     /// When provided: use the specified cache for blocks.
     /// Otherwise rocksdb will automatically create and use an 8MB internal cache.
+    ///
+    /// Note: this func will be deprecated in next release, use `set_block_cache` instead.
     pub fn set_lru_cache(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
@@ -273,7 +315,8 @@ impl BlockBasedOptions {
     /// Otherwise rocksdb will not use a compressed block cache.
     ///
     /// Note: though it looks similar to `block_cache`, RocksDB doesn't put the
-    /// same type of object there.
+    /// same type of object there. This func will be deprecated in next release,
+    /// use `set_block_cache_compressed` instead.
     pub fn set_lru_cache_compressed(&mut self, size: size_t) {
         let cache = new_cache(size);
         unsafe {
@@ -283,12 +326,33 @@ impl BlockBasedOptions {
         }
     }
 
+    /// Sets the control over blocks (user data is stored in a set of blocks, and
+    /// a block is the unit of reading from disk).
+    ///
+    /// If set, use the specified cache for blocks.
+    /// By default, rocksdb will automatically create and use an 8MB internal cache.
+    pub fn set_block_cache(&mut self, cache: &Cache) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache.inner);
+        }
+    }
+
+    /// Sets the cache for compressed blocks.
+    /// By default, rocksdb will not use a compressed block cache.
+    pub fn set_block_cache_compressed(&mut self, cache: &Cache) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_block_cache_compressed(self.inner, cache.inner);
+        }
+    }
+
+    /// Disable block cache
     pub fn disable_cache(&mut self) {
         unsafe {
             ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, true as c_uchar);
         }
     }
 
+    /// Sets the filter policy to reduce disk reads
     pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
         unsafe {
             let bloom = if block_based {
