@@ -84,6 +84,7 @@ mod db_iterator;
 mod db_options;
 mod db_pinnable_slice;
 pub mod merge_operator;
+pub mod perf;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
@@ -95,12 +96,15 @@ pub use crate::{
     db::DB,
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
-        BlockBasedIndexType, BlockBasedOptions, DBCompactionStyle, DBCompressionType,
-        DBRecoveryMode, DataBlockIndexType, FlushOptions, IngestExternalFileOptions,
-        MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions, WriteOptions,
+        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
+        DBCompactionStyle, DBCompressionType, DBRecoveryMode, DataBlockIndexType,
+        FifoCompactOptions, FlushOptions, IngestExternalFileOptions, MemtableFactory, Options,
+        PlainTableFactoryOptions, ReadOptions, UniversalCompactOptions,
+        UniversalCompactionStopStyle, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
     merge_operator::MergeOperands,
+    perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
     snapshot::Snapshot,
     sst_file_writer::SstFileWriter,
