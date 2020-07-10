@@ -1478,10 +1478,8 @@ fn get_with_cache_and_bulkload_test() {
 
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
-        let mut expected = 0;
-        for (k, _) in iter {
+        for (expected, (k, _)) in iter.enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
-            expected += 1;
         }
     }
 
