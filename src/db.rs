@@ -1477,6 +1477,7 @@ fn get_with_cache_and_bulkload_test() {
         opts.prepare_for_bulk_load();
         opts.set_db_log_dir(log_path);
         opts.set_max_sequential_skip_in_iterations(16);
+        opts.set_paranoid_checks(true);
 
         // open db
         let db = DB::open(&opts, path).unwrap();
@@ -1486,6 +1487,14 @@ fn get_with_cache_and_bulkload_test() {
         for (expected, (k, _)) in iter.enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
+    }
+
+    // raise error when db exists
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.set_error_if_exists(true);
+        assert!(DB::open(&opts, path).is_err());
     }
 
     let opts = Options::default();
@@ -1829,4 +1838,33 @@ fn fifo_compaction_test() {
     }
     let opts = Options::default();
     DB::destroy(&opts, path).unwrap();
+}
+
+#[test]
+fn dbpaths_test() {
+    use crate::DBPath;
+
+    let path = "_rust_rocksdb_dbpath_test";
+    let path1 = "_rust_rocksdb_dbpath_test_1";
+    let path2 = "_rust_rocksdb_dbpath_test_2";
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut paths = Vec::new();
+        paths.push(DBPath::new(path1, 20 << 20).unwrap());
+        paths.push(DBPath::new(path2, 30 << 20).unwrap());
+        opts.set_db_paths(&paths);
+
+        // put and compact default column family
+        let db = DB::open(&opts, path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+    }
+
+    let opts = Options::default();
+    DB::destroy(&opts, path).unwrap();
+    DB::destroy(&opts, path1).unwrap();
+    DB::destroy(&opts, path2).unwrap();
 }
