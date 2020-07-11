@@ -17,8 +17,8 @@ mod util;
 use rocksdb::{
     BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions, DBCompactionStyle, Env,
     Error, FifoCompactOptions, IteratorMode, Options, PerfContext, PerfMetric, ReadOptions,
-    SSTPath, SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle,
-    WriteBatch, DB,
+    SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
+    DB,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -488,7 +488,7 @@ fn test_open_with_ttl() {
 
 #[test]
 fn compact_range_test() {
-    let path = util::DBPath::new("_rust_rocksdb_compact_range_test");
+    let path = DBPath::new("_rust_rocksdb_compact_range_test");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -582,8 +582,8 @@ fn env_and_dbpaths_test() {
         opts.set_env(&env);
 
         let mut paths = Vec::new();
-        paths.push(SSTPath::new(&path1, 20 << 20).unwrap());
-        paths.push(SSTPath::new(&path2, 30 << 20).unwrap());
+        paths.push(rocksdb::DBPath::new(&path1, 20 << 20).unwrap());
+        paths.push(rocksdb::DBPath::new(&path2, 30 << 20).unwrap());
         opts.set_db_paths(&paths);
 
         let db = DB::open(&opts, &path).unwrap();

@@ -758,7 +758,7 @@ impl Options {
     /// opening the DB.
     ///
     /// Default: empty
-    pub fn set_db_paths(&mut self, paths: &[SSTPath]) {
+    pub fn set_db_paths(&mut self, paths: &[DBPath]) {
         let mut paths: Vec<_> = paths
             .iter()
             .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
@@ -3178,13 +3178,13 @@ impl CompactOptions {
 }
 
 /// Represents a path where sst files can be put into
-pub struct SSTPath {
+pub struct DBPath {
     pub(crate) inner: *mut ffi::rocksdb_dbpath_t,
 }
 
-impl SSTPath {
+impl DBPath {
     /// Create a new path
-    pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<SSTPath, Error> {
+    pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<Self, Error> {
         let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         let dbpath = unsafe { ffi::rocksdb_dbpath_create(p.as_ptr(), target_size) };
         if dbpath.is_null() {
@@ -3193,12 +3193,12 @@ impl SSTPath {
                 path.as_ref().to_string_lossy()
             )))
         } else {
-            Ok(SSTPath { inner: dbpath })
+            Ok(DBPath { inner: dbpath })
         }
     }
 }
 
-impl Drop for SSTPath {
+impl Drop for DBPath {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_dbpath_destroy(self.inner);
