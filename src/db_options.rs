@@ -752,13 +752,13 @@ impl Options {
     /// be placed to the last path anyway, despite to the target size.
     ///
     /// Placing newer data to earlier paths is also best-efforts. User should
-    // expect user files to be placed in higher levels in some extreme cases.
+    /// expect user files to be placed in higher levels in some extreme cases.
     ///
     /// If left empty, only one path will be used, which is `path` passed when
     /// opening the DB.
     ///
     /// Default: empty
-    pub fn set_db_paths(&mut self, paths: &[DBPath]) {
+    pub fn set_db_paths(&mut self, paths: &[SSTPath]) {
         let mut paths: Vec<_> = paths
             .iter()
             .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
@@ -3177,14 +3177,14 @@ impl CompactOptions {
     }
 }
 
-/// Represents a db path where sst files can be put into
-pub struct DBPath {
+/// Represents a path where sst files can be put into
+pub struct SSTPath {
     pub(crate) inner: *mut ffi::rocksdb_dbpath_t,
 }
 
-impl DBPath {
-    /// Create a new dbpath
-    pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<DBPath, Error> {
+impl SSTPath {
+    /// Create a new path
+    pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<SSTPath, Error> {
         let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         let dbpath = unsafe { ffi::rocksdb_dbpath_create(p.as_ptr(), target_size) };
         if dbpath.is_null() {
@@ -3193,12 +3193,12 @@ impl DBPath {
                 path.as_ref().to_string_lossy()
             )))
         } else {
-            Ok(DBPath { inner: dbpath })
+            Ok(SSTPath { inner: dbpath })
         }
     }
 }
 
-impl Drop for DBPath {
+impl Drop for SSTPath {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_dbpath_destroy(self.inner);

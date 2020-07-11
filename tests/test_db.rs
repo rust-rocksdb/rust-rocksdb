@@ -14,7 +14,12 @@
 
 mod util;
 
-use rocksdb::{Error, IteratorMode, Options, Snapshot, WriteBatch, DB};
+use rocksdb::{
+    BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions, DBCompactionStyle, Env,
+    Error, FifoCompactOptions, IteratorMode, Options, PerfContext, PerfMetric, ReadOptions,
+    SSTPath, SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle,
+    WriteBatch, DB,
+};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{mem, thread};
@@ -79,16 +84,19 @@ fn writebatch_works() {
     {
         let db = DB::open_default(&path).unwrap();
         {
-            // test put
+            // test putx
             let mut batch = WriteBatch::default();
             assert!(db.get(b"k1").unwrap().is_none());
             assert_eq!(batch.len(), 0);
             assert!(batch.is_empty());
             batch.put(b"k1", b"v1111");
-            assert_eq!(batch.len(), 1);
+            batch.put(b"k2", b"v2222");
+            batch.put(b"k3", b"v3333");
+            assert_eq!(batch.len(), 3);
             assert!(!batch.is_empty());
             assert!(db.get(b"k1").unwrap().is_none());
-            assert!(db.write(batch).is_ok());
+            let p = db.write(batch);
+            assert!(p.is_ok());
             let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
             assert_eq!(r.unwrap().unwrap(), b"v1111");
         }
@@ -98,8 +106,20 @@ fn writebatch_works() {
             batch.delete(b"k1");
             assert_eq!(batch.len(), 1);
             assert!(!batch.is_empty());
-            assert!(db.write(batch).is_ok());
+            let p = db.write(batch);
+            assert!(p.is_ok());
             assert!(db.get(b"k1").unwrap().is_none());
+        }
+        {
+            // test delete_range
+            let mut batch = WriteBatch::default();
+            batch.delete_range(b"k2", b"k4");
+            assert_eq!(batch.len(), 1);
+            assert!(!batch.is_empty());
+            let p = db.write(batch);
+            assert!(p.is_ok());
+            assert!(db.get(b"k2").unwrap().is_none());
+            assert!(db.get(b"k3").unwrap().is_none());
         }
         {
             // test size_in_bytes
@@ -129,6 +149,97 @@ fn iterator_test() {
             let (key, value) = data[idx];
             assert_eq!((&key[..], &value[..]), (db_key.as_ref(), db_value.as_ref()));
         }
+    }
+}
+
+#[test]
+fn iterator_test_past_end() {
+    let path = DBPath::new("_rust_rocksdb_iteratortest_past_end");
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"k1", b"v1111").unwrap();
+        let mut iter = db.iterator(IteratorMode::Start);
+        assert!(iter.next().is_some());
+        assert!(iter.next().is_none());
+        assert!(iter.next().is_none());
+    }
+}
+
+#[test]
+fn iterator_test_tailing() {
+    let path = DBPath::new("_rust_rocksdb_iteratortest_tailing");
+    {
+        let data = [(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")];
+        let mut ro = ReadOptions::default();
+        ro.set_tailing(true);
+        let db = DB::open_default(&path).unwrap();
+
+        let mut data_iter = data.iter();
+        let (k, v) = data_iter.next().unwrap();
+        let r = db.put(k, v);
+        assert!(r.is_ok());
+
+        let tail_iter = db.iterator_opt(IteratorMode::Start, ro);
+        for (k, v) in data_iter {
+            let r = db.put(k, v);
+            assert!(r.is_ok());
+        }
+
+        let mut tot = 0;
+        for (i, (k, v)) in tail_iter.enumerate() {
+            assert_eq!(
+                (k.to_vec(), v.to_vec()),
+                (data[i].0.to_vec(), data[i].1.to_vec())
+            );
+            tot += 1;
+        }
+        assert_eq!(tot, data.len());
+    }
+}
+
+#[test]
+fn iterator_test_upper_bound() {
+    let path = DBPath::new("_rust_rocksdb_iteratortest_upper_bound");
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        let mut readopts = ReadOptions::default();
+        readopts.set_iterate_upper_bound(b"k4".to_vec());
+
+        let iter = db.iterator_opt(IteratorMode::Start, readopts);
+        let expected: Vec<_> = vec![(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")]
+            .into_iter()
+            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
+            .collect();
+        assert_eq!(expected, iter.collect::<Vec<_>>());
+    }
+}
+
+#[test]
+fn iterator_test_lower_bound() {
+    let path = DBPath::new("_rust_rocksdb_iteratortest_lower_bound");
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        let mut readopts = ReadOptions::default();
+        readopts.set_iterate_lower_bound(b"k4".to_vec());
+
+        let iter = db.iterator_opt(IteratorMode::Start, readopts);
+        let expected: Vec<_> = vec![(b"k4", b"v4"), (b"k5", b"v5")]
+            .into_iter()
+            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
+            .collect();
+        assert_eq!(expected, iter.collect::<Vec<_>>());
     }
 }
 
@@ -373,4 +484,276 @@ fn test_open_with_ttl() {
     // in the database and drop all expired entries.
     db.compact_range(None::<&[u8]>, None::<&[u8]>);
     assert!(db.get(b"key1").unwrap().is_none());
+}
+
+#[test]
+fn compact_range_test() {
+    let path = util::DBPath::new("_rust_rocksdb_compact_range_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // set compaction style
+        let mut uni_co_opts = UniversalCompactOptions::default();
+        uni_co_opts.set_size_ratio(2);
+        uni_co_opts.set_stop_style(UniversalCompactionStopStyle::Total);
+        opts.set_compaction_style(DBCompactionStyle::Universal);
+        opts.set_universal_compaction_options(&uni_co_opts);
+
+        // set compaction options
+        let mut compact_opts = CompactOptions::default();
+        compact_opts.set_exclusive_manual_compaction(true);
+        compact_opts.set_target_level(1);
+        compact_opts.set_change_level(true);
+        compact_opts.set_bottommost_level_compaction(BottommostLevelCompaction::ForceOptimized);
+
+        // put and compact column family cf1
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+        db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
+        db.compact_range_cf_opt(cf1, Some(b"k1"), None::<&str>, &compact_opts);
+
+        // put and compact default column family
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+        db.compact_range(Some(b"k3"), None::<&str>);
+        db.compact_range_opt(None::<&str>, Some(b"k5"), &compact_opts);
+    }
+}
+
+#[test]
+fn fifo_compaction_test() {
+    let path = DBPath::new("_rust_rocksdb_fifo_compaction_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // set compaction style
+        let mut fifo_co_opts = FifoCompactOptions::default();
+        fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
+        opts.set_compaction_style(DBCompactionStyle::Fifo);
+        opts.set_fifo_compaction_options(&fifo_co_opts);
+
+        // put and compact column family cf1
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+        db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
+
+        // check stats
+        let ctx = PerfContext::default();
+
+        let block_cache_hit_count = ctx.metric(PerfMetric::BlockCacheHitCount);
+        assert!(block_cache_hit_count > 0);
+
+        let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
+        assert!(ctx.report(true).contains(&expect));
+    }
+}
+
+#[test]
+fn env_and_dbpaths_test() {
+    let path = DBPath::new("_rust_rocksdb_dbpath_test");
+    let path1 = DBPath::new("_rust_rocksdb_dbpath_test_1");
+    let path2 = DBPath::new("_rust_rocksdb_dbpath_test_2");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut env = Env::default().unwrap();
+        env.lower_high_priority_thread_pool_cpu_priority();
+        opts.set_env(&env);
+
+        let mut paths = Vec::new();
+        paths.push(SSTPath::new(&path1, 20 << 20).unwrap());
+        paths.push(SSTPath::new(&path2, 30 << 20).unwrap());
+        opts.set_db_paths(&paths);
+
+        let db = DB::open(&opts, &path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+    }
+}
+
+#[test]
+fn prefix_extract_and_iterate_test() {
+    let path = DBPath::new("_rust_rocksdb_prefix_extract_and_iterate");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(2));
+
+        let db = DB::open(&opts, &path).unwrap();
+        db.put(b"p1_k1", b"v1").unwrap();
+        db.put(b"p2_k2", b"v2").unwrap();
+        db.put(b"p1_k3", b"v3").unwrap();
+        db.put(b"p1_k4", b"v4").unwrap();
+        db.put(b"p2_k5", b"v5").unwrap();
+
+        let mut readopts = ReadOptions::default();
+        readopts.set_prefix_same_as_start(true);
+        readopts.set_iterate_lower_bound(b"p1".to_vec());
+        readopts.set_pin_data(true);
+
+        let iter = db.iterator_opt(IteratorMode::Start, readopts);
+        let expected: Vec<_> = vec![(b"p1_k1", b"v1"), (b"p1_k3", b"v3"), (b"p1_k4", b"v4")]
+            .into_iter()
+            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
+            .collect();
+        assert_eq!(expected, iter.collect::<Vec<_>>());
+    }
+}
+
+#[test]
+fn get_with_cache_and_bulkload_test() {
+    let path = DBPath::new("_rust_rocksdb_get_with_cache_and_bulkload_test");
+    let log_path = DBPath::new("_rust_rocksdb_log_path_test");
+    {
+        // create options
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_wal_bytes_per_sync(8 << 10); // 8KB
+        opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
+        opts.set_enable_write_thread_adaptive_yield(true);
+        opts.set_unordered_write(true);
+        opts.set_max_subcompactions(2);
+        opts.set_max_background_jobs(4);
+        opts.set_use_adaptive_mutex(true);
+
+        // set block based table and cache
+        let cache = Cache::new_lru_cache(64 << 10).unwrap();
+        let mut block_based_opts = BlockBasedOptions::default();
+        block_based_opts.set_block_cache(&cache);
+        block_based_opts.set_cache_index_and_filter_blocks(true);
+        opts.set_block_based_table_factory(&block_based_opts);
+
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // write a lot
+        let mut batch = WriteBatch::default();
+        for i in 0..1_000 {
+            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+        }
+        assert!(db.write(batch).is_ok());
+
+        // flush memory table to sst, trigger cache usage on `get`
+        assert!(db.flush().is_ok());
+
+        // get -> trigger caching
+        let _ = db.get(b"1");
+        assert!(cache.get_usage() > 0);
+    }
+
+    // bulk loading
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.set_delete_obsolete_files_period_micros(100_000);
+        opts.prepare_for_bulk_load();
+        opts.set_db_log_dir(&log_path);
+        opts.set_max_sequential_skip_in_iterations(16);
+        opts.set_paranoid_checks(true);
+
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // try to get key
+        let iter = db.iterator(IteratorMode::Start);
+        for (expected, (k, _)) in iter.enumerate() {
+            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+        }
+    }
+
+    // raise error when db exists
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.set_error_if_exists(true);
+        assert!(DB::open(&opts, &path).is_err());
+    }
+}
+
+#[test]
+fn test_open_for_read_only() {
+    let path = DBPath::new("_rust_rocksdb_test_open_for_read_only");
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+    }
+    {
+        let opts = Options::default();
+        let error_if_log_file_exist = false;
+        let db = DB::open_for_read_only(&opts, &path, error_if_log_file_exist).unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.put(b"k2", b"v2").is_err());
+    }
+}
+
+#[test]
+fn test_open_cf_for_read_only() {
+    let path = DBPath::new("_rust_rocksdb_test_open_cf_for_read_only");
+    let cfs = vec!["cf1"];
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, cfs.clone()).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+    }
+    {
+        let opts = Options::default();
+        let error_if_log_file_exist = false;
+        let db = DB::open_cf_for_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.put_cf(cf1, b"k2", b"v2").is_err());
+    }
+}
+
+#[test]
+fn delete_range_test() {
+    let path = DBPath::new("_rust_rocksdb_delete_range_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+
+        db.delete_range_cf(cf1, b"k2", b"k4").unwrap();
+        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert_eq!(db.get_cf(cf1, b"k4").unwrap().unwrap(), b"v4");
+        assert_eq!(db.get_cf(cf1, b"k5").unwrap().unwrap(), b"v5");
+        assert!(db.get_cf(cf1, b"k2").unwrap().is_none());
+        assert!(db.get_cf(cf1, b"k3").unwrap().is_none());
+    }
 }
