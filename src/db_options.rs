@@ -74,6 +74,16 @@ impl Drop for Cache {
     }
 }
 
+/// An Env is an interface used by the rocksdb implementation to access
+/// operating system functionality like the filesystem etc.  Callers
+/// may wish to provide a custom Env object when opening a database to
+/// get fine gain control; e.g., to rate limit file system operations.
+///
+/// All Env implementations are safe for concurrent access from
+/// multiple threads without any external synchronization.
+///
+/// Note: currently, C API behinds C++ API for various settings.
+/// See also: `rocksdb/include/env.h`
 pub struct Env {
     pub(crate) inner: *mut ffi::rocksdb_env_t,
 }
