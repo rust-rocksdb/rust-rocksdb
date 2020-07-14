@@ -219,7 +219,7 @@ pub struct Options {
 /// ```
 /// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY";
+/// let path = "_path_for_rocksdb_storageY1";
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatch::default();
@@ -248,7 +248,7 @@ pub struct WriteOptions {
 /// ```
 /// use rocksdb::{DB, Options, FlushOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY";
+/// let path = "_path_for_rocksdb_storageY2";
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///
@@ -289,11 +289,14 @@ pub struct ReadOptions {
 /// writer.put(b"k1", b"v1").unwrap();
 /// writer.finish().unwrap();
 ///
-/// let path = "_path_for_rocksdb_storageY";
-/// let db = DB::open_default(&path).unwrap();
-/// let mut ingest_opts = IngestExternalFileOptions::default();
-/// ingest_opts.set_move_files(true);
-/// db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
+/// let path = "_path_for_rocksdb_storageY3";
+/// {
+///   let db = DB::open_default(&path).unwrap();
+///   let mut ingest_opts = IngestExternalFileOptions::default();
+///   ingest_opts.set_move_files(true);
+///   db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct IngestExternalFileOptions {
     pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,

@@ -84,7 +84,7 @@ fn writebatch_works() {
     {
         let db = DB::open_default(&path).unwrap();
         {
-            // test putx
+            // test put
             let mut batch = WriteBatch::default();
             assert!(db.get(b"k1").unwrap().is_none());
             assert_eq!(batch.len(), 0);
