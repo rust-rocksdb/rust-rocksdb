@@ -74,6 +74,104 @@ impl Drop for Cache {
     }
 }
 
+/// An Env is an interface used by the rocksdb implementation to access
+/// operating system functionality like the filesystem etc.  Callers
+/// may wish to provide a custom Env object when opening a database to
+/// get fine gain control; e.g., to rate limit file system operations.
+///
+/// All Env implementations are safe for concurrent access from
+/// multiple threads without any external synchronization.
+///
+/// Note: currently, C API behinds C++ API for various settings.
+/// See also: `rocksdb/include/env.h`
+pub struct Env {
+    pub(crate) inner: *mut ffi::rocksdb_env_t,
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_destroy(self.inner);
+        }
+    }
+}
+
+impl Env {
+    /// Returns default env
+    pub fn default() -> Result<Env, Error> {
+        let env = unsafe { ffi::rocksdb_create_default_env() };
+        if env.is_null() {
+            Err(Error::new("Could not create mem env".to_owned()))
+        } else {
+            Ok(Env { inner: env })
+        }
+    }
+
+    /// Returns a new environment that stores its data in memory and delegates
+    /// all non-file-storage tasks to base_env.
+    pub fn mem_env() -> Result<Env, Error> {
+        let env = unsafe { ffi::rocksdb_create_mem_env() };
+        if env.is_null() {
+            Err(Error::new("Could not create mem env".to_owned()))
+        } else {
+            Ok(Env { inner: env })
+        }
+    }
+
+    /// Sets the number of background worker threads of a specific thread pool for this environment.
+    /// `LOW` is the default pool.
+    ///
+    /// Default: 1
+    pub fn set_background_threads(&mut self, num_threads: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_background_threads(self.inner, num_threads);
+        }
+    }
+
+    /// Sets the size of the high priority thread pool that can be used to
+    /// prevent compactions from stalling memtable flushes.
+    pub fn set_high_priority_background_threads(&mut self, n: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_high_priority_background_threads(self.inner, n);
+        }
+    }
+
+    /// Wait for all threads started by StartThread to terminate.
+    pub fn join_all_threads(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_join_all_threads(self.inner);
+        }
+    }
+
+    /// Lowering IO priority for threads from the specified pool.
+    pub fn lower_thread_pool_io_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_thread_pool_io_priority(self.inner);
+        }
+    }
+
+    /// Lowering IO priority for high priority thread pool.
+    pub fn lower_high_priority_thread_pool_io_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_high_priority_thread_pool_io_priority(self.inner);
+        }
+    }
+
+    /// Lowering CPU priority for threads from the specified pool.
+    pub fn lower_thread_pool_cpu_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_thread_pool_cpu_priority(self.inner);
+        }
+    }
+
+    /// Lowering CPU priority for high priority thread pool.
+    pub fn lower_high_priority_thread_pool_cpu_priority(&mut self) {
+        unsafe {
+            ffi::rocksdb_env_lower_high_priority_thread_pool_cpu_priority(self.inner);
+        }
+    }
+}
+
 /// Database-wide options around performance and behavior.
 ///
 /// Please read the official tuning [guide](https://github.com/facebook/rocksdb/wiki/RocksDB-Tuning-Guide)
@@ -121,7 +219,7 @@ pub struct Options {
 /// ```
 /// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY";
+/// let path = "_path_for_rocksdb_storageY1";
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatch::default();
@@ -150,7 +248,7 @@ pub struct WriteOptions {
 /// ```
 /// use rocksdb::{DB, Options, FlushOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY";
+/// let path = "_path_for_rocksdb_storageY2";
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///
@@ -191,11 +289,14 @@ pub struct ReadOptions {
 /// writer.put(b"k1", b"v1").unwrap();
 /// writer.finish().unwrap();
 ///
-/// let path = "_path_for_rocksdb_storageY";
-/// let db = DB::open_default(&path).unwrap();
-/// let mut ingest_opts = IngestExternalFileOptions::default();
-/// ingest_opts.set_move_files(true);
-/// db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
+/// let path = "_path_for_rocksdb_storageY3";
+/// {
+///   let db = DB::open_default(&path).unwrap();
+///   let mut ingest_opts = IngestExternalFileOptions::default();
+///   ingest_opts.set_move_files(true);
+///   db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
 pub struct IngestExternalFileOptions {
     pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,
@@ -615,6 +716,81 @@ impl Options {
                 self.inner,
                 create_missing_cfs as c_uchar,
             );
+        }
+    }
+
+    /// Specifies whether an error should be raised if the database already exists.
+    ///
+    /// Default: false
+    pub fn set_error_if_exists(&mut self, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_error_if_exists(self.inner, enabled as c_uchar);
+        }
+    }
+
+    /// Enable/disable paranoid checks.
+    ///
+    /// If true, the implementation will do aggressive checking of the
+    /// data it is processing and will stop early if it detects any
+    /// errors. This may have unforeseen ramifications: for example, a
+    /// corruption of one DB entry may cause a large number of entries to
+    /// become unreadable or for the entire DB to become unopenable.
+    /// If any of the  writes to the database fails (Put, Delete, Merge, Write),
+    /// the database will switch to read-only mode and fail all other
+    /// Write operations.
+    ///
+    /// Default: false
+    pub fn set_paranoid_checks(&mut self, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_paranoid_checks(self.inner, enabled as c_uchar);
+        }
+    }
+
+    /// A list of paths where SST files can be put into, with its target size.
+    /// Newer data is placed into paths specified earlier in the vector while
+    /// older data gradually moves to paths specified later in the vector.
+    ///
+    /// For example, you have a flash device with 10GB allocated for the DB,
+    /// as well as a hard drive of 2TB, you should config it to be:
+    ///   [{"/flash_path", 10GB}, {"/hard_drive", 2TB}]
+    ///
+    /// The system will try to guarantee data under each path is close to but
+    /// not larger than the target size. But current and future file sizes used
+    /// by determining where to place a file are based on best-effort estimation,
+    /// which means there is a chance that the actual size under the directory
+    /// is slightly more than target size under some workloads. User should give
+    /// some buffer room for those cases.
+    ///
+    /// If none of the paths has sufficient room to place a file, the file will
+    /// be placed to the last path anyway, despite to the target size.
+    ///
+    /// Placing newer data to earlier paths is also best-efforts. User should
+    /// expect user files to be placed in higher levels in some extreme cases.
+    ///
+    /// If left empty, only one path will be used, which is `path` passed when
+    /// opening the DB.
+    ///
+    /// Default: empty
+    pub fn set_db_paths(&mut self, paths: &[DBPath]) {
+        let mut paths: Vec<_> = paths
+            .iter()
+            .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
+            .collect();
+        let num_paths = paths.len();
+        unsafe {
+            ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
+        }
+    }
+
+    /// Use the specified object to interact with the environment,
+    /// e.g. to read/write files, schedule background work, etc. In the near
+    /// future, support for doing storage operations such as read/write files
+    /// through env will be deprecated in favor of file_system.
+    ///
+    /// Default: Env::default()
+    pub fn set_env(&mut self, env: &Env) {
+        unsafe {
+            ffi::rocksdb_options_set_env(self.inner, env.inner);
         }
     }
 
@@ -3010,6 +3186,35 @@ impl CompactOptions {
     pub fn set_target_level(&mut self, lvl: c_int) {
         unsafe {
             ffi::rocksdb_compactoptions_set_target_level(self.inner, lvl);
+        }
+    }
+}
+
+/// Represents a path where sst files can be put into
+pub struct DBPath {
+    pub(crate) inner: *mut ffi::rocksdb_dbpath_t,
+}
+
+impl DBPath {
+    /// Create a new path
+    pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<Self, Error> {
+        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let dbpath = unsafe { ffi::rocksdb_dbpath_create(p.as_ptr(), target_size) };
+        if dbpath.is_null() {
+            Err(Error::new(format!(
+                "Could not create path for storing sst files at location: {}",
+                path.as_ref().to_string_lossy()
+            )))
+        } else {
+            Ok(DBPath { inner: dbpath })
+        }
+    }
+}
+
+impl Drop for DBPath {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_dbpath_destroy(self.inner);
         }
     }
 }
