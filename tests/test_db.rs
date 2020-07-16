@@ -685,7 +685,7 @@ fn get_with_cache_and_bulkload_test() {
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
             assert_eq!(f.level, 2);
-            assert!(f.name.len() > 0);
+            assert!(!f.name.is_empty());
             assert_eq!(
                 f.start_key.as_ref().unwrap().as_slice(),
                 format!("{:0>4}", 0).as_bytes()
