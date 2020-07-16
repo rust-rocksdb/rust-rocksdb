@@ -1316,6 +1316,51 @@ impl DB {
             }
         }
     }
+
+    /// Delete sst files whose keys are entirely in the given range.
+    ///
+    /// Could leave some keys in the range which are in files which are not
+    /// entirely in the range.
+    ///
+    /// Note: L0 files are left regardless of whether they're in the range.
+    ///  
+    /// Snapshots before the delete might not see the data in the given range.
+    pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_file_in_range(
+                self.inner,
+                from.as_ptr() as *const c_char,
+                from.len() as size_t,
+                to.as_ptr() as *const c_char,
+                to.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Same as `delete_file_in_range` but only for specific column family
+    pub fn delete_file_in_range_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        from: K,
+        to: K,
+    ) -> Result<(), Error> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_file_in_range_cf(
+                self.inner,
+                cf.inner,
+                from.as_ptr() as *const c_char,
+                from.len() as size_t,
+                to.as_ptr() as *const c_char,
+                to.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
 }
 
 impl Drop for DB {

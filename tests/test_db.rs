@@ -626,38 +626,43 @@ fn prefix_extract_and_iterate_test() {
 fn get_with_cache_and_bulkload_test() {
     let path = DBPath::new("_rust_rocksdb_get_with_cache_and_bulkload_test");
     let log_path = DBPath::new("_rust_rocksdb_log_path_test");
-    {
-        // create options
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.create_missing_column_families(true);
-        opts.set_wal_bytes_per_sync(8 << 10); // 8KB
-        opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
-        opts.set_enable_write_thread_adaptive_yield(true);
-        opts.set_unordered_write(true);
-        opts.set_max_subcompactions(2);
-        opts.set_max_background_jobs(4);
-        opts.set_use_adaptive_mutex(true);
 
+    // create options
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    opts.set_wal_bytes_per_sync(8 << 10); // 8KB
+    opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
+    opts.set_enable_write_thread_adaptive_yield(true);
+    opts.set_unordered_write(true);
+    opts.set_max_subcompactions(2);
+    opts.set_max_background_jobs(4);
+    opts.set_use_adaptive_mutex(true);
+    opts.set_db_log_dir(&log_path);
+
+    // trigger all sst files in L1/2 instead of L0
+    opts.set_max_bytes_for_level_base(64 << 10); // 64KB
+
+    {
         // set block based table and cache
-        let cache = Cache::new_lru_cache(64 << 10).unwrap();
+        let cache = Cache::new_lru_cache(512 << 10).unwrap();
         let mut block_based_opts = BlockBasedOptions::default();
         block_based_opts.set_block_cache(&cache);
         block_based_opts.set_cache_index_and_filter_blocks(true);
         opts.set_block_based_table_factory(&block_based_opts);
 
-        // open db
         let db = DB::open(&opts, &path).unwrap();
 
         // write a lot
         let mut batch = WriteBatch::default();
-        for i in 0..1_000 {
+        for i in 0..10_000 {
             batch.put(format!("{:0>4}", i).as_bytes(), b"v");
         }
         assert!(db.write(batch).is_ok());
 
-        // flush memory table to sst, trigger cache usage on `get`
+        // flush memory table to sst and manual compaction
         assert!(db.flush().is_ok());
+        db.compact_range(Some(format!("{:0>4}", 0).as_bytes()), None::<Vec<u8>>);
 
         // get -> trigger caching
         let _ = db.get(b"1");
@@ -666,14 +671,6 @@ fn get_with_cache_and_bulkload_test() {
 
     // bulk loading
     {
-        // create new options
-        let mut opts = Options::default();
-        opts.set_delete_obsolete_files_period_micros(100_000);
-        opts.prepare_for_bulk_load();
-        opts.set_db_log_dir(&log_path);
-        opts.set_max_sequential_skip_in_iterations(16);
-        opts.set_paranoid_checks(true);
-
         // open db
         let db = DB::open(&opts, &path).unwrap();
 
@@ -687,6 +684,7 @@ fn get_with_cache_and_bulkload_test() {
         let livefiles = db.livefiles().unwrap();
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
+            assert_eq!(f.level, 2);
             assert!(f.name.len() > 0);
             assert_eq!(
                 f.start_key.as_ref().unwrap().as_slice(),
@@ -694,16 +692,28 @@ fn get_with_cache_and_bulkload_test() {
             );
             assert_eq!(
                 f.end_key.as_ref().unwrap().as_slice(),
-                format!("{:0>4}", 999).as_bytes()
+                format!("{:0>4}", 9999).as_bytes()
             );
-            assert_eq!(f.num_entries, 1000);
+            assert_eq!(f.num_entries, 10000);
+            assert_eq!(f.num_deletions, 0);
         });
+
+        // delete sst file in range (except L0)
+        assert!(db
+            .delete_file_in_range(
+                format!("{:0>4}", 0).as_bytes(),
+                format!("{:0>4}", 9999).as_bytes()
+            )
+            .is_ok());
+        let livefiles = db.livefiles().unwrap();
+        assert_eq!(livefiles.len(), 0);
+
+        // try to get a deleted key
+        assert!(db.get(format!("{:0>4}", 123).as_bytes()).unwrap().is_none());
     }
 
     // raise error when db exists
     {
-        // create new options
-        let mut opts = Options::default();
         opts.set_error_if_exists(true);
         assert!(DB::open(&opts, &path).is_err());
     }
