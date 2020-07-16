@@ -36,11 +36,11 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
 }
 
 pub fn error_message(ptr: *const c_char) -> String {
-    let s = unsafe { from_cstr(ptr) };
     unsafe {
+        let s = from_cstr(ptr);
         libc::free(ptr as *mut c_void);
+        s
     }
-    s
 }
 
 pub fn opt_bytes_to_ptr<T: AsRef<[u8]>>(opt: Option<T>) -> *const c_char {
