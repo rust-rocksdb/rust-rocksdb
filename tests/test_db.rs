@@ -639,6 +639,8 @@ fn get_with_cache_and_bulkload_test() {
     opts.set_max_background_jobs(4);
     opts.set_use_adaptive_mutex(true);
     opts.set_db_log_dir(&log_path);
+    opts.set_memtable_whole_key_filtering(true);
+    opts.set_dump_malloc_stats(true);
 
     // trigger all sst files in L1/2 instead of L0
     opts.set_max_bytes_for_level_base(64 << 10); // 64KB

@@ -2476,6 +2476,31 @@ impl Options {
             ffi::rocksdb_options_set_arena_block_size(self.inner, size);
         }
     }
+
+    /// If true, then print malloc stats together with rocksdb.stats when printing to LOG.
+    ///
+    /// Default: false
+    pub fn set_dump_malloc_stats(&mut self, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_dump_malloc_stats(self.inner, enabled as c_uchar);
+        }
+    }
+
+    /// Enable whole key bloom filter in memtable. Note this will only take effect
+    /// if memtable_prefix_bloom_size_ratio is not 0. Enabling whole key filtering
+    /// can potentially reduce CPU usage for point-look-ups.
+    ///
+    /// Default: false (disable)
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_memtable_whole_key_filtering(&mut self, whole_key_filter: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_memtable_whole_key_filtering(
+                self.inner,
+                whole_key_filter as c_uchar,
+            );
+        }
+    }
 }
 
 impl Default for Options {
