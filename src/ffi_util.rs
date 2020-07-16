@@ -19,9 +19,24 @@ use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
 
+pub(crate) unsafe fn from_cstr(ptr: *const c_char) -> String {
+    let cstr = CStr::from_ptr(ptr as *const _);
+    String::from_utf8_lossy(cstr.to_bytes()).into_owned()
+}
+
+pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>> {
+    if ptr.is_null() {
+        None
+    } else {
+        let mut dst = Vec::with_capacity(size);
+        dst.set_len(size);
+        ptr::copy(ptr as *const u8, dst.as_mut_ptr(), size);
+        Some(dst)
+    }
+}
+
 pub fn error_message(ptr: *const c_char) -> String {
-    let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
-    let s = String::from_utf8_lossy(cstr.to_bytes()).into_owned();
+    let s = unsafe { from_cstr(ptr) };
     unsafe {
         libc::free(ptr as *mut c_void);
     }

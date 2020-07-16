@@ -560,10 +560,10 @@ fn fifo_compaction_test() {
         let ctx = PerfContext::default();
 
         let block_cache_hit_count = ctx.metric(PerfMetric::BlockCacheHitCount);
-        assert!(block_cache_hit_count > 0);
-
-        let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
-        assert!(ctx.report(true).contains(&expect));
+        if block_cache_hit_count > 0 {
+            let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
+            assert!(ctx.report(true).contains(&expect));
+        }
     }
 }
 
@@ -682,6 +682,22 @@ fn get_with_cache_and_bulkload_test() {
         for (expected, (k, _)) in iter.enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
+
+        // check live files (sst files meta)
+        let livefiles = db.livefiles().unwrap();
+        assert_eq!(livefiles.len(), 1);
+        livefiles.iter().for_each(|f| {
+            assert!(f.name.len() > 0);
+            assert_eq!(
+                f.start_key.as_ref().unwrap().as_slice(),
+                format!("{:0>4}", 0).as_bytes()
+            );
+            assert_eq!(
+                f.end_key.as_ref().unwrap().as_slice(),
+                format!("{:0>4}", 999).as_bytes()
+            );
+            assert_eq!(f.num_entries, 1000);
+        });
     }
 
     // raise error when db exists
