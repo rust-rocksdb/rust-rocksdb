@@ -268,14 +268,11 @@ pub fn get_memory_usage_stats(
     caches: Option<&[&Cache]>,
 ) -> Result<MemoryUsageStats, Error> {
     let mut builder = MemoryUsageBuilder::new()?;
-    if dbs.is_some() {
-        dbs.unwrap().iter().for_each(|db| builder.add_db(db));
+    if let Some(dbs_) = dbs {
+        dbs_.iter().for_each(|db| builder.add_db(db));
     }
-    if caches.is_some() {
-        caches
-            .unwrap()
-            .iter()
-            .for_each(|cache| builder.add_cache(cache));
+    if let Some(caches_) = caches {
+        caches_.iter().for_each(|cache| builder.add_cache(cache));
     }
 
     let mu = builder.build()?;
