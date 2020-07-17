@@ -7,10 +7,22 @@ use crate::{
     ffi,
 };
 
+/// Each compaction will create a new CompactionFilter allowing the
+/// application to know about different compactions.
+///
+///  See [compaction_filter::CompactionFilter][CompactionFilter] and
+///  [Options::set_compaction_filter_factory][set_compaction_filter_factory]
+///  for more details
+///
+///  [CompactionFilter]: ../compaction_filter/trait.CompactionFilter.html
+///  [set_compaction_filter_factory]: ../struct.Options.html#method.set_compaction_filter_factory
 pub trait CompactionFilterFactory {
     type Filter: CompactionFilter;
 
+    /// Returns a CompactionFilter for the compaction process
     fn create(&mut self, context: CompactionFilterContext) -> Self::Filter;
+
+    /// Returns a name that identifies this compaction filter factory.
     fn name(&self) -> &CStr;
 }
 
