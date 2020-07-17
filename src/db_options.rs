@@ -432,8 +432,8 @@ impl BlockBasedOptions {
         }
     }
 
-    /// Sets the control over blocks (user data is stored in a set of blocks, and
-    /// a block is the unit of reading from disk).
+    /// Sets global cache for blocks (user data is stored in a set of blocks, and
+    /// a block is the unit of reading from disk). Cache must outlive DB instance which uses it.
     ///
     /// If set, use the specified cache for blocks.
     /// By default, rocksdb will automatically create and use an 8MB internal cache.
@@ -443,7 +443,8 @@ impl BlockBasedOptions {
         }
     }
 
-    /// Sets the cache for compressed blocks.
+    /// Sets global cache for compressed blocks. Cache must outlive DB instance which uses it.
+    ///
     /// By default, rocksdb will not use a compressed block cache.
     pub fn set_block_cache_compressed(&mut self, cache: &Cache) {
         unsafe {
@@ -2313,7 +2314,7 @@ impl Options {
         }
     }
 
-    /// Sets global cache for table-level rows.
+    /// Sets global cache for table-level rows. Cache must outlive DB instance which uses it.
     ///
     /// Default: null (disabled)
     /// Not supported in ROCKSDB_LITE mode!

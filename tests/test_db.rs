@@ -495,11 +495,13 @@ fn compact_range_test() {
         opts.create_missing_column_families(true);
 
         // set compaction style
-        let mut uni_co_opts = UniversalCompactOptions::default();
-        uni_co_opts.set_size_ratio(2);
-        uni_co_opts.set_stop_style(UniversalCompactionStopStyle::Total);
-        opts.set_compaction_style(DBCompactionStyle::Universal);
-        opts.set_universal_compaction_options(&uni_co_opts);
+        {
+            let mut uni_co_opts = UniversalCompactOptions::default();
+            uni_co_opts.set_size_ratio(2);
+            uni_co_opts.set_stop_style(UniversalCompactionStopStyle::Total);
+            opts.set_compaction_style(DBCompactionStyle::Universal);
+            opts.set_universal_compaction_options(&uni_co_opts);
+        }
 
         // set compaction options
         let mut compact_opts = CompactOptions::default();
@@ -540,10 +542,12 @@ fn fifo_compaction_test() {
         opts.create_missing_column_families(true);
 
         // set compaction style
-        let mut fifo_co_opts = FifoCompactOptions::default();
-        fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
-        opts.set_compaction_style(DBCompactionStyle::Fifo);
-        opts.set_fifo_compaction_options(&fifo_co_opts);
+        {
+            let mut fifo_co_opts = FifoCompactOptions::default();
+            fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
+            opts.set_compaction_style(DBCompactionStyle::Fifo);
+            opts.set_fifo_compaction_options(&fifo_co_opts);
+        }
 
         // put and compact column family cf1
         let cfs = vec!["cf1"];
@@ -577,14 +581,18 @@ fn env_and_dbpaths_test() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let mut env = Env::default().unwrap();
-        env.lower_high_priority_thread_pool_cpu_priority();
-        opts.set_env(&env);
+        {
+            let mut env = Env::default().unwrap();
+            env.lower_high_priority_thread_pool_cpu_priority();
+            opts.set_env(&env);
+        }
 
-        let mut paths = Vec::new();
-        paths.push(rocksdb::DBPath::new(&path1, 20 << 20).unwrap());
-        paths.push(rocksdb::DBPath::new(&path2, 30 << 20).unwrap());
-        opts.set_db_paths(&paths);
+        {
+            let mut paths = Vec::new();
+            paths.push(rocksdb::DBPath::new(&path1, 20 << 20).unwrap());
+            paths.push(rocksdb::DBPath::new(&path2, 30 << 20).unwrap());
+            opts.set_db_paths(&paths);
+        }
 
         let db = DB::open(&opts, &path).unwrap();
         db.put(b"k1", b"v1").unwrap();
@@ -648,11 +656,13 @@ fn get_with_cache_and_bulkload_test() {
     {
         // set block based table and cache
         let cache = Cache::new_lru_cache(512 << 10).unwrap();
+        assert_eq!(cache.get_usage(), 0);
         let mut block_based_opts = BlockBasedOptions::default();
         block_based_opts.set_block_cache(&cache);
         block_based_opts.set_cache_index_and_filter_blocks(true);
         opts.set_block_based_table_factory(&block_based_opts);
 
+        // open db
         let db = DB::open(&opts, &path).unwrap();
 
         // write a lot

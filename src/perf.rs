@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use libc::{c_char, c_int, c_uchar, c_void};
-use std::ffi::CStr;
+use libc::{c_int, c_uchar, c_void};
 
-use crate::ffi;
+use crate::{ffi, ffi_util::from_cstr, Cache, Error, DB};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i32)]
@@ -143,15 +142,6 @@ impl Drop for PerfContext {
     }
 }
 
-fn convert(ptr: *const c_char) -> String {
-    let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
-    let s = String::from_utf8_lossy(cstr.to_bytes()).into_owned();
-    unsafe {
-        libc::free(ptr as *mut c_void);
-    }
-    s
-}
-
 impl PerfContext {
     /// Reset context
     pub fn reset(&mut self) {
@@ -163,10 +153,10 @@ impl PerfContext {
     /// Get the report on perf
     pub fn report(&self, exclude_zero_counters: bool) -> String {
         unsafe {
-            convert(ffi::rocksdb_perfcontext_report(
-                self.inner,
-                exclude_zero_counters as c_uchar,
-            ))
+            let ptr = ffi::rocksdb_perfcontext_report(self.inner, exclude_zero_counters as c_uchar);
+            let report = from_cstr(ptr);
+            libc::free(ptr as *mut c_void);
+            report
         }
     }
 
@@ -174,4 +164,125 @@ impl PerfContext {
     pub fn metric(&self, id: PerfMetric) -> u64 {
         unsafe { ffi::rocksdb_perfcontext_metric(self.inner, id as c_int) }
     }
+}
+
+/// Memory usage stats
+pub struct MemoryUsageStats {
+    /// Approximate memory usage of all the mem-tables
+    pub mem_table_total: u64,
+    /// Approximate memory usage of un-flushed mem-tables
+    pub mem_table_unflushed: u64,
+    /// Approximate memory usage of all the table readers
+    pub mem_table_readers_total: u64,
+    /// Approximate memory usage by cache
+    pub cache_total: u64,
+}
+
+/// Wrap over memory_usage_t. Hold current memory usage of the specified DB instances and caches
+struct MemoryUsage {
+    inner: *mut ffi::rocksdb_memory_usage_t,
+}
+
+impl Drop for MemoryUsage {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_approximate_memory_usage_destroy(self.inner);
+        }
+    }
+}
+
+impl MemoryUsage {
+    /// Approximate memory usage of all the mem-tables
+    fn approximate_mem_table_total(&self) -> u64 {
+        unsafe { ffi::rocksdb_approximate_memory_usage_get_mem_table_total(self.inner) }
+    }
+
+    /// Approximate memory usage of un-flushed mem-tables
+    fn approximate_mem_table_unflushed(&self) -> u64 {
+        unsafe { ffi::rocksdb_approximate_memory_usage_get_mem_table_unflushed(self.inner) }
+    }
+
+    /// Approximate memory usage of all the table readers
+    fn approximate_mem_table_readers_total(&self) -> u64 {
+        unsafe { ffi::rocksdb_approximate_memory_usage_get_mem_table_readers_total(self.inner) }
+    }
+
+    /// Approximate memory usage by cache
+    fn approximate_cache_total(&self) -> u64 {
+        unsafe { ffi::rocksdb_approximate_memory_usage_get_cache_total(self.inner) }
+    }
+}
+
+/// Builder for MemoryUsage
+struct MemoryUsageBuilder {
+    inner: *mut ffi::rocksdb_memory_consumers_t,
+}
+
+impl Drop for MemoryUsageBuilder {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_memory_consumers_destroy(self.inner);
+        }
+    }
+}
+
+impl MemoryUsageBuilder {
+    /// Create new instance
+    fn new() -> Result<Self, Error> {
+        let mc = unsafe { ffi::rocksdb_memory_consumers_create() };
+        if mc.is_null() {
+            Err(Error::new(
+                "Could not create MemoryUsage builder".to_owned(),
+            ))
+        } else {
+            Ok(Self { inner: mc })
+        }
+    }
+
+    /// Add a DB instance to collect memory usage from it and add up in total stats
+    fn add_db(&mut self, db: &DB) {
+        unsafe {
+            ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner);
+        }
+    }
+
+    /// Add a cache to collect memory usage from it and add up in total stats
+    fn add_cache(&mut self, cache: &Cache) {
+        unsafe {
+            ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.inner);
+        }
+    }
+
+    /// Build up MemoryUsage
+    fn build(&self) -> Result<MemoryUsage, Error> {
+        unsafe {
+            let mu = ffi_try!(ffi::rocksdb_approximate_memory_usage_create(self.inner));
+            Ok(MemoryUsage { inner: mu })
+        }
+    }
+}
+
+/// Get memory usage stats from DB instances and Cache instances
+pub fn get_memory_usage_stats(
+    dbs: Option<&[&DB]>,
+    caches: Option<&[&Cache]>,
+) -> Result<MemoryUsageStats, Error> {
+    let mut builder = MemoryUsageBuilder::new()?;
+    if dbs.is_some() {
+        dbs.unwrap().iter().for_each(|db| builder.add_db(db));
+    }
+    if caches.is_some() {
+        caches
+            .unwrap()
+            .iter()
+            .for_each(|cache| builder.add_cache(cache));
+    }
+
+    let mu = builder.build()?;
+    Ok(MemoryUsageStats {
+        mem_table_total: mu.approximate_mem_table_total(),
+        mem_table_unflushed: mu.approximate_mem_table_unflushed(),
+        mem_table_readers_total: mu.approximate_mem_table_readers_total(),
+        cache_total: mu.approximate_cache_total(),
+    })
 }
