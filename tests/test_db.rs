@@ -681,8 +681,12 @@ fn get_with_cache_and_bulkload_test() {
         assert!(cache.get_usage() > 0);
 
         // get approximated memory usage
-        let mem_usage = get_memory_usage_stats(Some(&vec![&db]), None).unwrap();
+        let mem_usage = get_memory_usage_stats(Some(&[&db]), None).unwrap();
         assert!(mem_usage.mem_table_total > 0);
+
+        // get approximated cache usage
+        let mem_usage = get_memory_usage_stats(None, Some(&[&cache])).unwrap();
+        assert!(mem_usage.cache_total > 0);
     }
 
     // bulk loading
