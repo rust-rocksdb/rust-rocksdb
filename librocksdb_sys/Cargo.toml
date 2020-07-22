@@ -19,7 +19,7 @@ tempfile = "3.1"
 [features]
 default = []
 encryption = ["openssl-sys"]
-jemalloc = ["jemalloc-sys"]
+jemalloc = ["tikv-jemalloc-sys"]
 # portable doesn't require static link, though it's meaningless
 # when not using with static-link right now in this crate.
 portable = ["libtitan_sys/portable"]
@@ -31,8 +31,8 @@ cc = "1.0.3"
 cmake = "0.1"
 bindgen = "0.51"
 
-[dependencies.jemalloc-sys]
-version = "0.1.7"
+[dependencies.tikv-jemalloc-sys]
+version = "0.4.0"
 optional = true
 features = ["unprefixed_malloc_on_supported_platforms"]
 
