@@ -701,7 +701,7 @@ fn get_with_cache_and_bulkload_test() {
         }
 
         // check live files (sst files meta)
-        let livefiles = db.livefiles().unwrap();
+        let livefiles = db.live_files().unwrap();
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
             assert_eq!(f.level, 2);
@@ -725,7 +725,7 @@ fn get_with_cache_and_bulkload_test() {
                 format!("{:0>4}", 9999).as_bytes()
             )
             .is_ok());
-        let livefiles = db.livefiles().unwrap();
+        let livefiles = db.live_files().unwrap();
         assert_eq!(livefiles.len(), 0);
 
         // try to get a deleted key

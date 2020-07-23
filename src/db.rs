@@ -1273,7 +1273,7 @@ impl DB {
 
     /// Returns a list of all table files with their level, start key
     /// and end key
-    pub fn livefiles(&self) -> Result<Vec<LiveFile>, Error> {
+    pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
         unsafe {
             let files = ffi::rocksdb_livefiles(self.inner);
             if files.is_null() {
