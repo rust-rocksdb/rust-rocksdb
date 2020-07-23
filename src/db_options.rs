@@ -19,7 +19,8 @@ use std::path::Path;
 use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::{
-    compaction_filter::{self, filter_callback, CompactionFilterCallback, CompactionFilterFn},
+    compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
+    compaction_filter_factory::{self, CompactionFilterFactory},
     comparator::{self, ComparatorCallback, CompareFn},
     ffi,
     merge_operator::{
@@ -973,11 +974,37 @@ impl Options {
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
                 mem::transmute(cb),
-                Some(compaction_filter::destructor_callback::<F>),
-                Some(filter_callback::<F>),
-                Some(compaction_filter::name_callback::<F>),
+                Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
+                Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
+                Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
             );
             ffi::rocksdb_options_set_compaction_filter(self.inner, cf);
+        }
+    }
+
+    /// This is a factory that provides compaction filter objects which allow
+    /// an application to modify/delete a key-value during background compaction.
+    ///
+    /// A new filter will be created on each compaction run.  If multithreaded
+    /// compaction is being used, each created CompactionFilter will only be used
+    /// from a single thread and so does not need to be thread-safe.
+    ///
+    /// Default: nullptr
+    pub fn set_compaction_filter_factory<F>(&mut self, factory: F)
+    where
+        F: CompactionFilterFactory + 'static,
+    {
+        let factory = Box::new(factory);
+
+        unsafe {
+            let cff = ffi::rocksdb_compactionfilterfactory_create(
+                Box::into_raw(factory) as *mut c_void,
+                Some(compaction_filter_factory::destructor_callback::<F>),
+                Some(compaction_filter_factory::create_compaction_filter_callback::<F>),
+                Some(compaction_filter_factory::name_callback::<F>),
+            );
+
+            ffi::rocksdb_options_set_compaction_filter_factory(self.inner, cff);
         }
     }
 
@@ -1086,6 +1113,15 @@ impl Options {
     pub fn set_max_open_files(&mut self, nfiles: c_int) {
         unsafe {
             ffi::rocksdb_options_set_max_open_files(self.inner, nfiles);
+        }
+    }
+
+    /// If max_open_files is -1, DB will open all files on DB::Open(). You can
+    /// use this option to increase the number of threads used to open the files.
+    /// Default: 16
+    pub fn set_max_file_opening_threads(&mut self, nthreads: c_int) {
+        unsafe {
+            ffi::rocksdb_options_set_max_file_opening_threads(self.inner, nthreads);
         }
     }
 
@@ -1351,6 +1387,16 @@ impl Options {
     pub fn set_table_cache_num_shard_bits(&mut self, nbits: c_int) {
         unsafe {
             ffi::rocksdb_options_set_table_cache_numshardbits(self.inner, nbits);
+        }
+    }
+
+    /// By default target_file_size_multiplier is 1, which means
+    /// by default files in different levels will have similar size.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_target_file_size_multiplier(&mut self, multiplier: i32) {
+        unsafe {
+            ffi::rocksdb_options_set_target_file_size_multiplier(self.inner, multiplier as c_int)
         }
     }
 
@@ -1871,6 +1917,75 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_inplace_update_num_locks(self.inner, num);
         }
+    }
+
+    /// Different max-size multipliers for different levels.
+    /// These are multiplied by max_bytes_for_level_multiplier to arrive
+    /// at the max-size of each level.
+    ///
+    /// Default: 1
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_max_bytes_for_level_multiplier_additional(&mut self, level_values: &[i32]) {
+        let count = level_values.len();
+        unsafe {
+            ffi::rocksdb_options_set_max_bytes_for_level_multiplier_additional(
+                self.inner,
+                level_values.as_ptr() as *mut c_int,
+                count,
+            )
+        }
+    }
+
+    /// If true, then DB::Open() will not fetch and check sizes of all sst files.
+    /// This may significantly speed up startup if there are many sst files,
+    /// especially when using non-default Env with expensive GetFileSize().
+    /// We'll still check that all required sst files exist.
+    /// If paranoid_checks is false, this option is ignored, and sst files are
+    /// not checked at all.
+    ///
+    /// Default: false
+    pub fn set_skip_checking_sst_file_sizes_on_db_open(&mut self, value: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
+                self.inner,
+                value as c_uchar,
+            )
+        }
+    }
+
+    /// The total maximum size(bytes) of write buffers to maintain in memory
+    /// including copies of buffers that have already been flushed. This parameter
+    /// only affects trimming of flushed buffers and does not affect flushing.
+    /// This controls the maximum amount of write history that will be available
+    /// in memory for conflict checking when Transactions are used. The actual
+    /// size of write history (flushed Memtables) might be higher than this limit
+    /// if further trimming will reduce write history total size below this
+    /// limit. For example, if max_write_buffer_size_to_maintain is set to 64MB,
+    /// and there are three flushed Memtables, with sizes of 32MB, 20MB, 20MB.
+    /// Because trimming the next Memtable of size 20MB will reduce total memory
+    /// usage to 52MB which is below the limit, RocksDB will stop trimming.
+    ///
+    /// When using an OptimisticTransactionDB:
+    /// If this value is too low, some transactions may fail at commit time due
+    /// to not being able to determine whether there were any write conflicts.
+    ///
+    /// When using a TransactionDB:
+    /// If Transaction::SetSnapshot is used, TransactionDB will read either
+    /// in-memory write buffers or SST files to do write-conflict checking.
+    /// Increasing this value can reduce the number of reads to SST files
+    /// done for conflict detection.
+    ///
+    /// Setting this value to 0 will cause write buffers to be freed immediately
+    /// after they are flushed. If this value is set to -1,
+    /// 'max_write_buffer_number * write_buffer_size' will be used.
+    ///
+    /// Default:
+    /// If using a TransactionDB/OptimisticTransactionDB, the default value will
+    /// be set to the value of 'max_write_buffer_number * write_buffer_size'
+    /// if it is not explicitly set by the user.  Otherwise, the default is 0.
+    pub fn set_max_write_buffer_size_to_maintain(&mut self, size: i64) {
+        unsafe { ffi::rocksdb_options_set_max_write_buffer_size_to_maintain(self.inner, size) }
     }
 
     /// By default, a single write thread queue is maintained. The thread gets
