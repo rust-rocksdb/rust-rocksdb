@@ -691,6 +691,26 @@ fn get_with_cache_and_bulkload_test() {
         opts.set_error_if_exists(true);
         assert!(DB::open(&opts, &path).is_err());
     }
+
+    // disable all threads 
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.max_background_jobs(0); 
+        opts.max_background_compactions(0);  
+        opts.max_background_flushes(0);  
+        opts.stats_dump_period_sec(0);  
+        opts.stats_persist_period_sec(0); 
+
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // try to get key
+        let iter = db.iterator(IteratorMode::Start);
+        for (expected, (k, _)) in iter.enumerate() {
+            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+        }
+    }
 }
 
 #[test]
