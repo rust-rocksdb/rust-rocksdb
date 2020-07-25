@@ -325,8 +325,6 @@ fn cxx_standard() -> String {
 }
 
 fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
