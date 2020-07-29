@@ -1,4 +1,4 @@
 #include "build_version.h"
-const char* rocksdb_build_git_sha = "rocksdb_build_git_sha:@1482c8697c260cc12f7fce9f15401a85330d2ff1@";
-const char* rocksdb_build_git_date = "rocksdb_build_git_date:@2020/05/23 13:48:40@";
+const char* rocksdb_build_git_sha = "rocksdb_build_git_sha:@50f206ad84fa6cd516bad1bea93c03ae0655b314@";
+const char* rocksdb_build_git_date = "rocksdb_build_git_date:@2020/07/29 16:07:40@";
 const char* rocksdb_build_compile_date = __DATE__;

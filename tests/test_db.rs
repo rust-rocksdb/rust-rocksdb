@@ -696,11 +696,9 @@ fn get_with_cache_and_bulkload_test() {
     {
         // create new options
         let mut opts = Options::default();
-        opts.max_background_jobs(0); 
-        opts.max_background_compactions(0);  
-        opts.max_background_flushes(0);  
-        opts.stats_dump_period_sec(0);  
-        opts.stats_persist_period_sec(0); 
+        opts.set_max_background_jobs(0);
+        opts.set_stats_dump_period_sec(0);
+        opts.set_stats_persist_period_sec(0);
 
         // open db
         let db = DB::open(&opts, &path).unwrap();
