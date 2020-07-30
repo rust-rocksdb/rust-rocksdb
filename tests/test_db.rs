@@ -700,6 +700,11 @@ fn get_with_cache_and_bulkload_test() {
         opts.set_stats_dump_period_sec(0);
         opts.set_stats_persist_period_sec(0);
 
+        // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
+        let mut env = Env::default().unwrap();
+        env.set_bottom_priority_background_threads(0);
+        opts.set_env(&env);
+
         // open db
         let db = DB::open(&opts, &path).unwrap();
 

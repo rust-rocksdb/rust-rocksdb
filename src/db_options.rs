@@ -137,6 +137,22 @@ impl Env {
         }
     }
 
+    /// Sets the size of the low priority thread pool that can be used to
+    /// prevent compactions from stalling memtable flushes.
+    pub fn set_low_priority_background_threads(&mut self, n: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_low_priority_background_threads(self.inner, n);
+        }
+    }
+
+    /// Sets the size of the bottom priority thread pool that can be used to
+    /// prevent compactions from stalling memtable flushes.
+    pub fn set_bottom_priority_background_threads(&mut self, n: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_bottom_priority_background_threads(self.inner, n);
+        }
+    }
+
     /// Wait for all threads started by StartThread to terminate.
     pub fn join_all_threads(&mut self) {
         unsafe {
