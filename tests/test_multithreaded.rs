@@ -14,9 +14,11 @@
 
 mod util;
 
+use std::{sync::Arc, thread};
+
+use pretty_assertions::assert_eq;
+
 use rocksdb::DB;
-use std::sync::Arc;
-use std::thread;
 use util::DBPath;
 
 const N: usize = 100_000;
