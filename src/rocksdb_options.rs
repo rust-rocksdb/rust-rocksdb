@@ -991,12 +991,13 @@ impl DBOptions {
     pub fn set_ratelimiter_with_auto_tuned(
         &mut self,
         rate_bytes_per_sec: i64,
+        refill_period_us: i64,
         mode: DBRateLimiterMode,
         auto_tuned: bool,
     ) {
         let rate_limiter = RateLimiter::new_with_auto_tuned(
             rate_bytes_per_sec,
-            DEFAULT_REFILL_PERIOD_US,
+            refill_period_us,
             DEFAULT_FAIRNESS,
             mode,
             auto_tuned,
