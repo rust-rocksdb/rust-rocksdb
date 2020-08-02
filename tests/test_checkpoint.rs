@@ -43,10 +43,10 @@ pub fn test_single_checkpoint() {
     // Verify checkpoint
     let cp = DB::open_default(&cp1_path).unwrap();
 
-    assert_eq!(*cp.get(b"k1").unwrap().unwrap(), *b"v1");
-    assert_eq!(*cp.get(b"k2").unwrap().unwrap(), *b"v2");
-    assert_eq!(*cp.get(b"k3").unwrap().unwrap(), *b"v3");
-    assert_eq!(*cp.get(b"k4").unwrap().unwrap(), *b"v4");
+    assert_eq!(cp.get(b"k1").unwrap().unwrap(), b"v1");
+    assert_eq!(cp.get(b"k2").unwrap().unwrap(), b"v2");
+    assert_eq!(cp.get(b"k3").unwrap().unwrap(), b"v3");
+    assert_eq!(cp.get(b"k4").unwrap().unwrap(), b"v4");
 }
 
 #[test]
@@ -73,10 +73,10 @@ pub fn test_multi_checkpoints() {
     // Verify checkpoint
     let cp = DB::open_default(&cp1_path).unwrap();
 
-    assert_eq!(*cp.get(b"k1").unwrap().unwrap(), *b"v1");
-    assert_eq!(*cp.get(b"k2").unwrap().unwrap(), *b"v2");
-    assert_eq!(*cp.get(b"k3").unwrap().unwrap(), *b"v3");
-    assert_eq!(*cp.get(b"k4").unwrap().unwrap(), *b"v4");
+    assert_eq!(cp.get(b"k1").unwrap().unwrap(), b"v1");
+    assert_eq!(cp.get(b"k2").unwrap().unwrap(), b"v2");
+    assert_eq!(cp.get(b"k3").unwrap().unwrap(), b"v3");
+    assert_eq!(cp.get(b"k4").unwrap().unwrap(), b"v4");
 
     // Change some existing keys
     db.put(b"k1", b"modified").unwrap();
@@ -94,8 +94,8 @@ pub fn test_multi_checkpoints() {
     // Verify second checkpoint
     let cp = DB::open_default(&cp2_path).unwrap();
 
-    assert_eq!(*cp.get(b"k1").unwrap().unwrap(), *b"modified");
-    assert_eq!(*cp.get(b"k2").unwrap().unwrap(), *b"changed");
-    assert_eq!(*cp.get(b"k5").unwrap().unwrap(), *b"v5");
-    assert_eq!(*cp.get(b"k6").unwrap().unwrap(), *b"v6");
+    assert_eq!(cp.get(b"k1").unwrap().unwrap(), b"modified");
+    assert_eq!(cp.get(b"k2").unwrap().unwrap(), b"changed");
+    assert_eq!(cp.get(b"k5").unwrap().unwrap(), b"v5");
+    assert_eq!(cp.get(b"k6").unwrap().unwrap(), b"v6");
 }
