@@ -15,10 +15,10 @@
 mod util;
 
 use rocksdb::{
-    BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions, DBCompactionStyle, Env,
-    Error, FifoCompactOptions, IteratorMode, Options, PerfContext, PerfMetric, ReadOptions,
-    SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
-    DB,
+    perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
+    CompactOptions, DBCompactionStyle, Env, Error, FifoCompactOptions, IteratorMode, Options,
+    PerfContext, PerfMetric, ReadOptions, SliceTransform, Snapshot, UniversalCompactOptions,
+    UniversalCompactionStopStyle, WriteBatch, DB,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -495,11 +495,13 @@ fn compact_range_test() {
         opts.create_missing_column_families(true);
 
         // set compaction style
-        let mut uni_co_opts = UniversalCompactOptions::default();
-        uni_co_opts.set_size_ratio(2);
-        uni_co_opts.set_stop_style(UniversalCompactionStopStyle::Total);
-        opts.set_compaction_style(DBCompactionStyle::Universal);
-        opts.set_universal_compaction_options(&uni_co_opts);
+        {
+            let mut uni_co_opts = UniversalCompactOptions::default();
+            uni_co_opts.set_size_ratio(2);
+            uni_co_opts.set_stop_style(UniversalCompactionStopStyle::Total);
+            opts.set_compaction_style(DBCompactionStyle::Universal);
+            opts.set_universal_compaction_options(&uni_co_opts);
+        }
 
         // set compaction options
         let mut compact_opts = CompactOptions::default();
@@ -540,10 +542,12 @@ fn fifo_compaction_test() {
         opts.create_missing_column_families(true);
 
         // set compaction style
-        let mut fifo_co_opts = FifoCompactOptions::default();
-        fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
-        opts.set_compaction_style(DBCompactionStyle::Fifo);
-        opts.set_fifo_compaction_options(&fifo_co_opts);
+        {
+            let mut fifo_co_opts = FifoCompactOptions::default();
+            fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
+            opts.set_compaction_style(DBCompactionStyle::Fifo);
+            opts.set_fifo_compaction_options(&fifo_co_opts);
+        }
 
         // put and compact column family cf1
         let cfs = vec!["cf1"];
@@ -560,10 +564,10 @@ fn fifo_compaction_test() {
         let ctx = PerfContext::default();
 
         let block_cache_hit_count = ctx.metric(PerfMetric::BlockCacheHitCount);
-        assert!(block_cache_hit_count > 0);
-
-        let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
-        assert!(ctx.report(true).contains(&expect));
+        if block_cache_hit_count > 0 {
+            let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
+            assert!(ctx.report(true).contains(&expect));
+        }
     }
 }
 
@@ -577,14 +581,18 @@ fn env_and_dbpaths_test() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let mut env = Env::default().unwrap();
-        env.lower_high_priority_thread_pool_cpu_priority();
-        opts.set_env(&env);
+        {
+            let mut env = Env::default().unwrap();
+            env.lower_high_priority_thread_pool_cpu_priority();
+            opts.set_env(&env);
+        }
 
-        let mut paths = Vec::new();
-        paths.push(rocksdb::DBPath::new(&path1, 20 << 20).unwrap());
-        paths.push(rocksdb::DBPath::new(&path2, 30 << 20).unwrap());
-        opts.set_db_paths(&paths);
+        {
+            let mut paths = Vec::new();
+            paths.push(rocksdb::DBPath::new(&path1, 20 << 20).unwrap());
+            paths.push(rocksdb::DBPath::new(&path2, 30 << 20).unwrap());
+            opts.set_db_paths(&paths);
+        }
 
         let db = DB::open(&opts, &path).unwrap();
         db.put(b"k1", b"v1").unwrap();
@@ -626,21 +634,29 @@ fn prefix_extract_and_iterate_test() {
 fn get_with_cache_and_bulkload_test() {
     let path = DBPath::new("_rust_rocksdb_get_with_cache_and_bulkload_test");
     let log_path = DBPath::new("_rust_rocksdb_log_path_test");
-    {
-        // create options
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.create_missing_column_families(true);
-        opts.set_wal_bytes_per_sync(8 << 10); // 8KB
-        opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
-        opts.set_enable_write_thread_adaptive_yield(true);
-        opts.set_unordered_write(true);
-        opts.set_max_subcompactions(2);
-        opts.set_max_background_jobs(4);
-        opts.set_use_adaptive_mutex(true);
 
+    // create options
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    opts.set_wal_bytes_per_sync(8 << 10); // 8KB
+    opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
+    opts.set_enable_write_thread_adaptive_yield(true);
+    opts.set_unordered_write(true);
+    opts.set_max_subcompactions(2);
+    opts.set_max_background_jobs(4);
+    opts.set_use_adaptive_mutex(true);
+    opts.set_db_log_dir(&log_path);
+    opts.set_memtable_whole_key_filtering(true);
+    opts.set_dump_malloc_stats(true);
+
+    // trigger all sst files in L1/2 instead of L0
+    opts.set_max_bytes_for_level_base(64 << 10); // 64KB
+
+    {
         // set block based table and cache
-        let cache = Cache::new_lru_cache(64 << 10).unwrap();
+        let cache = Cache::new_lru_cache(512 << 10).unwrap();
+        assert_eq!(cache.get_usage(), 0);
         let mut block_based_opts = BlockBasedOptions::default();
         block_based_opts.set_block_cache(&cache);
         block_based_opts.set_cache_index_and_filter_blocks(true);
@@ -651,29 +667,30 @@ fn get_with_cache_and_bulkload_test() {
 
         // write a lot
         let mut batch = WriteBatch::default();
-        for i in 0..1_000 {
+        for i in 0..10_000 {
             batch.put(format!("{:0>4}", i).as_bytes(), b"v");
         }
         assert!(db.write(batch).is_ok());
 
-        // flush memory table to sst, trigger cache usage on `get`
+        // flush memory table to sst and manual compaction
         assert!(db.flush().is_ok());
+        db.compact_range(Some(format!("{:0>4}", 0).as_bytes()), None::<Vec<u8>>);
 
         // get -> trigger caching
         let _ = db.get(b"1");
         assert!(cache.get_usage() > 0);
+
+        // get approximated memory usage
+        let mem_usage = get_memory_usage_stats(Some(&[&db]), None).unwrap();
+        assert!(mem_usage.mem_table_total > 0);
+
+        // get approximated cache usage
+        let mem_usage = get_memory_usage_stats(None, Some(&[&cache])).unwrap();
+        assert!(mem_usage.cache_total > 0);
     }
 
     // bulk loading
     {
-        // create new options
-        let mut opts = Options::default();
-        opts.set_delete_obsolete_files_period_micros(100_000);
-        opts.prepare_for_bulk_load();
-        opts.set_db_log_dir(&log_path);
-        opts.set_max_sequential_skip_in_iterations(16);
-        opts.set_paranoid_checks(true);
-
         // open db
         let db = DB::open(&opts, &path).unwrap();
 
@@ -682,12 +699,41 @@ fn get_with_cache_and_bulkload_test() {
         for (expected, (k, _)) in iter.enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
+
+        // check live files (sst files meta)
+        let livefiles = db.live_files().unwrap();
+        assert_eq!(livefiles.len(), 1);
+        livefiles.iter().for_each(|f| {
+            assert_eq!(f.level, 2);
+            assert!(!f.name.is_empty());
+            assert_eq!(
+                f.start_key.as_ref().unwrap().as_slice(),
+                format!("{:0>4}", 0).as_bytes()
+            );
+            assert_eq!(
+                f.end_key.as_ref().unwrap().as_slice(),
+                format!("{:0>4}", 9999).as_bytes()
+            );
+            assert_eq!(f.num_entries, 10000);
+            assert_eq!(f.num_deletions, 0);
+        });
+
+        // delete sst file in range (except L0)
+        assert!(db
+            .delete_file_in_range(
+                format!("{:0>4}", 0).as_bytes(),
+                format!("{:0>4}", 9999).as_bytes()
+            )
+            .is_ok());
+        let livefiles = db.live_files().unwrap();
+        assert_eq!(livefiles.len(), 0);
+
+        // try to get a deleted key
+        assert!(db.get(format!("{:0>4}", 123).as_bytes()).unwrap().is_none());
     }
 
     // raise error when db exists
     {
-        // create new options
-        let mut opts = Options::default();
         opts.set_error_if_exists(true);
         assert!(DB::open(&opts, &path).is_err());
     }

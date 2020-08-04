@@ -325,14 +325,20 @@ fn cxx_standard() -> String {
 }
 
 fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
         println!("cargo:rerun-if-changed=rocksdb/");
         fail_on_empty_directory("rocksdb");
         build_rocksdb();
+    } else {
+        let target = env::var("TARGET").unwrap();
+        // according to https://github.com/alexcrichton/cc-rs/blob/master/src/lib.rs#L2189
+        if target.contains("apple") || target.contains("freebsd") || target.contains("openbsd") {
+            println!("cargo:rustc-link-lib=dylib=c++");
+        } else if target.contains("linux") {
+            println!("cargo:rustc-link-lib=dylib=stdc++");
+        }
     }
     if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
         println!("cargo:rerun-if-changed=snappy/");

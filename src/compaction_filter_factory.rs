@@ -85,7 +85,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::wildcard_imports)]
 mod tests {
     use super::*;
     use crate::compaction_filter::Decision;

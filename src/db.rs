@@ -15,7 +15,7 @@
 
 use crate::{
     ffi,
-    ffi_util::{opt_bytes_to_ptr, to_cpath},
+    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
     DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions,
     IteratorMode, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
@@ -1270,6 +1270,97 @@ impl DB {
             Ok(())
         }
     }
+
+    /// Returns a list of all table files with their level, start key
+    /// and end key
+    pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
+        unsafe {
+            let files = ffi::rocksdb_livefiles(self.inner);
+            if files.is_null() {
+                Err(Error::new("Could not get live files".to_owned()))
+            } else {
+                let n = ffi::rocksdb_livefiles_count(files);
+
+                let mut livefiles = Vec::with_capacity(n as usize);
+                let mut key_size: usize = 0;
+
+                for i in 0..n {
+                    let name = from_cstr(ffi::rocksdb_livefiles_name(files, i));
+                    let size = ffi::rocksdb_livefiles_size(files, i);
+                    let level = ffi::rocksdb_livefiles_level(files, i) as i32;
+
+                    // get smallest key inside file
+                    let smallest_key = ffi::rocksdb_livefiles_smallestkey(files, i, &mut key_size);
+                    let smallest_key = raw_data(smallest_key, key_size);
+
+                    // get largest key inside file
+                    let largest_key = ffi::rocksdb_livefiles_largestkey(files, i, &mut key_size);
+                    let largest_key = raw_data(largest_key, key_size);
+
+                    livefiles.push(LiveFile {
+                        name,
+                        size,
+                        level,
+                        start_key: smallest_key,
+                        end_key: largest_key,
+                        num_entries: ffi::rocksdb_livefiles_entries(files, i),
+                        num_deletions: ffi::rocksdb_livefiles_deletions(files, i),
+                    })
+                }
+
+                // destroy livefiles metadata(s)
+                ffi::rocksdb_livefiles_destroy(files);
+
+                // return
+                Ok(livefiles)
+            }
+        }
+    }
+
+    /// Delete sst files whose keys are entirely in the given range.
+    ///
+    /// Could leave some keys in the range which are in files which are not
+    /// entirely in the range.
+    ///
+    /// Note: L0 files are left regardless of whether they're in the range.
+    ///  
+    /// Snapshots before the delete might not see the data in the given range.
+    pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_file_in_range(
+                self.inner,
+                from.as_ptr() as *const c_char,
+                from.len() as size_t,
+                to.as_ptr() as *const c_char,
+                to.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Same as `delete_file_in_range` but only for specific column family
+    pub fn delete_file_in_range_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &ColumnFamily,
+        from: K,
+        to: K,
+    ) -> Result<(), Error> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_file_in_range_cf(
+                self.inner,
+                cf.inner,
+                from.as_ptr() as *const c_char,
+                from.len() as size_t,
+                to.as_ptr() as *const c_char,
+                to.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
 }
 
 impl Drop for DB {
@@ -1287,4 +1378,23 @@ impl fmt::Debug for DB {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }
+}
+
+/// The metadata that describes a SST file
+#[derive(Debug, Clone)]
+pub struct LiveFile {
+    /// Name of the file
+    pub name: String,
+    /// Size of the file
+    pub size: usize,
+    /// Level at which this file resides
+    pub level: i32,
+    /// Smallest user defined key in the file
+    pub start_key: Option<Vec<u8>>,
+    /// Largest user defined key in the file
+    pub end_key: Option<Vec<u8>>,
+    /// Number of entries/alive keys in the file
+    pub num_entries: u64,
+    /// Number of deletions/tomb key(s) in the file
+    pub num_deletions: u64,
 }
