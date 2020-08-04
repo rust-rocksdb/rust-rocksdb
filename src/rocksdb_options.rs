@@ -1347,6 +1347,24 @@ impl ColumnFamilyOptions {
         unsafe { crocksdb_ffi::crocksdb_options_get_compression(self.inner) }
     }
 
+    pub fn set_compression_options(
+        &mut self,
+        window_bits: i32,
+        level: i32,
+        strategy: i32,
+        max_dict_bytes: i32,
+    ) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compression_options(
+                self.inner,
+                window_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+            )
+        }
+    }
+
     pub fn compression_per_level(&mut self, level_types: &[DBCompressionType]) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compression_per_level(
