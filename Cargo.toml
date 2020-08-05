@@ -22,6 +22,8 @@ portable = ["librocksdb_sys/portable"]
 sse = ["librocksdb_sys/sse"]
 static_libcpp = ["librocksdb_sys/static_libcpp"]
 valgrind = []
+# rocksdb-cloud integration
+cloud = ["librocksdb_sys/cloud"]
 
 [dependencies]
 libc = "0.2.11"

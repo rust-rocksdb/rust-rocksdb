@@ -24,6 +24,8 @@ pub extern crate librocksdb_sys;
 #[cfg(test)]
 extern crate tempfile;
 
+#[cfg(feature = "cloud")]
+pub use cloud::CloudEnvOptions;
 pub use compaction_filter::{
     new_compaction_filter, new_compaction_filter_factory, new_compaction_filter_raw,
     CompactionFilter, CompactionFilterContext, CompactionFilterFactory,
@@ -69,6 +71,8 @@ pub use titan::{TitanBlobIndex, TitanDBOptions};
 #[allow(deprecated)]
 pub use rocksdb::Kv;
 
+#[cfg(feature = "cloud")]
+mod cloud;
 mod compaction_filter;
 pub mod comparator;
 #[cfg(feature = "encryption")]

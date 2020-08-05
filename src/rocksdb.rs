@@ -39,6 +39,8 @@ use std::str::from_utf8;
 use std::sync::Arc;
 use std::{fs, ptr, slice};
 
+#[cfg(feature = "cloud")]
+use cloud::CloudEnvOptions;
 #[cfg(feature = "encryption")]
 use encryption::{DBEncryptionKeyManager, EncryptionKeyManager};
 use table_properties::{TableProperties, TablePropertiesCollection};
@@ -2543,6 +2545,47 @@ impl Env {
         }
     }
 
+    // Create an cloud env to operate with AWS S3.
+    #[cfg(feature = "cloud")]
+    pub fn new_aws_env(
+        base_env: Arc<Env>,
+        src_cloud_bucket: &str,
+        src_cloud_object: &str,
+        src_cloud_region: &str,
+        dest_cloud_bucket: &str,
+        dest_cloud_object: &str,
+        dest_cloud_region: &str,
+        opts: CloudEnvOptions,
+    ) -> Result<Env, String> {
+        let mut err = ptr::null_mut();
+        let src_cloud_bucket = CString::new(src_cloud_bucket).unwrap();
+        let src_cloud_object = CString::new(src_cloud_object).unwrap();
+        let src_cloud_region = CString::new(src_cloud_region).unwrap();
+        let dest_cloud_bucket = CString::new(dest_cloud_bucket).unwrap();
+        let dest_cloud_object = CString::new(dest_cloud_object).unwrap();
+        let dest_cloud_region = CString::new(dest_cloud_region).unwrap();
+        let env = unsafe {
+            crocksdb_ffi::crocksdb_cloud_aws_env_create(
+                base_env.inner,
+                src_cloud_bucket.as_ptr(),
+                src_cloud_object.as_ptr(),
+                src_cloud_region.as_ptr(),
+                dest_cloud_bucket.as_ptr(),
+                dest_cloud_object.as_ptr(),
+                dest_cloud_region.as_ptr(),
+                opts.inner,
+                &mut err,
+            )
+        };
+        if !err.is_null() {
+            return Err(unsafe { crocksdb_ffi::error_message(err) });
+        }
+        Ok(Env {
+            inner: env,
+            base: Some(base_env),
+        })
+    }
+
     // Create a ctr encrypted env with a given base env and a given ciper text.
     // The length of ciper text must be 2^n, and must be less or equal to 2048.
     // The recommanded block size are 1024, 512 and 256.
@@ -3443,5 +3486,23 @@ mod test {
         assert_eq!(1, path_num);
         let first_path = db.get_db_options().get_db_path(0).unwrap();
         assert_eq!(path, first_path.as_str());
+    }
+
+    #[cfg(feature = "cloud")]
+    #[test]
+    fn test_cloud_aws_env_creation() {
+        let k_db_path = "/tmp/rocksdb_main_db";
+        let k_bucket_suffix = "cloud.clone.example.";
+        let k_region = "us-west-2";
+        let _db = Env::new_aws_env(
+            Arc::new(Env::default()),
+            &k_bucket_suffix,
+            &k_db_path,
+            &k_region,
+            &k_bucket_suffix,
+            &k_db_path,
+            &k_region,
+            CloudEnvOptions::new(),
+        );
     }
 }

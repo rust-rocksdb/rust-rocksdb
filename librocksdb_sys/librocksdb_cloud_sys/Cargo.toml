@@ -1,0 +1,13 @@
+[package]
+name = "librocksdb_cloud_sys"
+version = "0.1.0"
+edition = "2018"
+build = "build.rs"
+links = "rocksdb-cloud"
+
+[features]
+cloud = []
+
+[build-dependencies]
+cc = "1.0.3"
+cmake = "0.1"

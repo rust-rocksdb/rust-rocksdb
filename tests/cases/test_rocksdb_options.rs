@@ -175,7 +175,7 @@ fn test_set_ratelimiter_with_auto_tuned() {
         100 * 1024 * 1024,
         10 * 100000,
         DBRateLimiterMode::AllIo,
-        true
+        true,
     );
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
     drop(db);
