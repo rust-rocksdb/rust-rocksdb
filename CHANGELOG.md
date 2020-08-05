@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 * Export the `DEFAULT_COLUMN_FAMILY_NAME` constant.
+* Added `Sync` and `Send` implementations to `WriteBatch`.
 
 ## 0.14.0 (2020-04-22)
 

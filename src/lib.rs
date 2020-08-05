@@ -163,7 +163,7 @@ mod test {
     use super::{
         BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
         IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
-        SstFileWriter, WriteOptions, DB,
+        SstFileWriter, WriteBatch, WriteOptions, DB,
     };
 
     #[test]
@@ -188,6 +188,7 @@ mod test {
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
         is_send::<SstFileWriter>();
+        is_send::<WriteBatch>();
     }
 
     #[test]
@@ -208,5 +209,6 @@ mod test {
         is_sync::<PlainTableFactoryOptions>();
         is_sync::<ColumnFamilyDescriptor>();
         is_sync::<SstFileWriter>();
+        is_sync::<WriteBatch>();
     }
 }

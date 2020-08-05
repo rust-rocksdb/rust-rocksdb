@@ -279,3 +279,6 @@ impl Drop for WriteBatch {
         unsafe { ffi::rocksdb_writebatch_destroy(self.inner) }
     }
 }
+
+unsafe impl Send for WriteBatch {}
+unsafe impl Sync for WriteBatch {}
