@@ -111,9 +111,6 @@ pub unsafe extern "C" fn in_domain_callback(
 ) -> u8 {
     let cb = &mut *(raw_cb as *mut TransformCallback);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    if let Some(in_domain) = cb.in_domain_fn {
-        in_domain(key) as u8
-    } else {
-        0xff
-    }
+    cb.in_domain_fn
+        .map_or(0xff, |in_domain| in_domain(key) as u8)
 }
