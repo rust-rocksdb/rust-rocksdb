@@ -209,6 +209,5 @@ mod test {
         is_sync::<PlainTableFactoryOptions>();
         is_sync::<ColumnFamilyDescriptor>();
         is_sync::<SstFileWriter>();
-        is_sync::<WriteBatch>();
     }
 }

@@ -281,4 +281,3 @@ impl Drop for WriteBatch {
 }
 
 unsafe impl Send for WriteBatch {}
-unsafe impl Sync for WriteBatch {}
