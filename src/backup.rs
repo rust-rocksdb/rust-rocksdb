@@ -15,9 +15,16 @@
 
 use crate::{ffi, Error, DB};
 
-use libc::c_int;
+use libc::{c_int, c_uchar};
 use std::ffi::CString;
 use std::path::Path;
+
+pub struct BackupEngineInfo {
+    pub timestamp: i64,
+    pub backup_id: u32,
+    pub size: u64,
+    pub num_files: u32,
+}
 
 pub struct BackupEngine {
     inner: *mut ffi::rocksdb_backup_engine_t,
@@ -58,10 +65,28 @@ impl BackupEngine {
         Ok(BackupEngine { inner: be })
     }
 
+    /// Captures the state of the database in the latest backup.
+    ///
+    /// Note: no flush before backup is performed. User might want to
+    /// use `create_new_backup_flush` instead.
     pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
+        self.create_new_backup_flush(db, false)
+    }
+
+    /// Captures the state of the database in the latest backup.
+    ///
+    /// Set flush_before_backup=true to avoid losing unflushed key/value
+    /// pairs from the memtable.
+    pub fn create_new_backup_flush(
+        &mut self,
+        db: &DB,
+        flush_before_backup: bool,
+    ) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_backup_engine_create_new_backup(
-                self.inner, db.inner,
+            ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
+                self.inner,
+                db.inner,
+                flush_before_backup as c_uchar,
             ));
             Ok(())
         }
@@ -136,6 +161,49 @@ impl BackupEngine {
             ));
         }
         Ok(())
+    }
+
+    /// Checks that each file exists and that the size of the file matches our
+    /// expectations. it does not check file checksum.
+    ///
+    /// If this BackupEngine created the backup, it compares the files' current
+    /// sizes against the number of bytes written to them during creation.
+    /// Otherwise, it compares the files' current sizes against their sizes when
+    /// the BackupEngine was opened.
+    pub fn verify_backup(&self, backup_id: u32) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_backup_engine_verify_backup(
+                self.inner, backup_id,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Returns info about backups.
+    ///
+    /// You can perform this function safely, even with other BackupEngine performing
+    /// backups on the same directory
+    pub fn get_backup_info(&self) -> Vec<BackupEngineInfo> {
+        unsafe {
+            let i = ffi::rocksdb_backup_engine_get_backup_info(self.inner);
+
+            let n = ffi::rocksdb_backup_engine_info_count(i);
+
+            let mut info = Vec::with_capacity(n as usize);
+            for index in 0..n {
+                info.push(BackupEngineInfo {
+                    timestamp: ffi::rocksdb_backup_engine_info_timestamp(i, index),
+                    backup_id: ffi::rocksdb_backup_engine_info_backup_id(i, index),
+                    size: ffi::rocksdb_backup_engine_info_size(i, index),
+                    num_files: ffi::rocksdb_backup_engine_info_number_files(i, index),
+                })
+            }
+
+            // destroy backup info object
+            ffi::rocksdb_backup_engine_info_destroy(i);
+
+            info
+        }
     }
 }
 
