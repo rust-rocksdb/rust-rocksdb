@@ -14,15 +14,16 @@
 
 mod util;
 
+use std::{mem, sync::Arc, thread, time::Duration};
+
+use pretty_assertions::assert_eq;
+
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     CompactOptions, DBCompactionStyle, Env, Error, FifoCompactOptions, IteratorMode, Options,
     PerfContext, PerfMetric, ReadOptions, SliceTransform, Snapshot, UniversalCompactOptions,
     UniversalCompactionStopStyle, WriteBatch, DB,
 };
-use std::sync::Arc;
-use std::time::Duration;
-use std::{mem, thread};
 use util::DBPath;
 
 #[test]
