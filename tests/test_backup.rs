@@ -14,6 +14,8 @@
 
 mod util;
 
+use pretty_assertions::assert_eq;
+
 use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
     DB,
