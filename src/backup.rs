@@ -19,10 +19,18 @@ use libc::{c_int, c_uchar};
 use std::ffi::CString;
 use std::path::Path;
 
+/// Represents information of a backup including timestamp of the backup
+/// and the size (please note that sum of all backups' sizes is bigger than the actual
+/// size of the backup directory because some data is shared by multiple backups).
+/// Backups are identified by their always-increasing IDs.
 pub struct BackupEngineInfo {
+    /// Timestamp of the backup
     pub timestamp: i64,
+    /// ID of the backup
     pub backup_id: u32,
+    /// Size of the backup
     pub size: u64,
+    /// Number of files related to the backup
     pub num_files: u32,
 }
 
@@ -179,7 +187,10 @@ impl BackupEngine {
         Ok(())
     }
 
-    /// Returns info about backups.
+    /// Get a list of all backups together with information on timestamp of the backup
+    /// and the size (please note that sum of all backups' sizes is bigger than the actual
+    /// size of the backup directory because some data is shared by multiple backups).
+    /// Backups are identified by their always-increasing IDs.
     ///
     /// You can perform this function safely, even with other BackupEngine performing
     /// backups on the same directory

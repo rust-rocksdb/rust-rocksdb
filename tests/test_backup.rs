@@ -40,7 +40,7 @@ fn backup_restore() {
 
             // check backup info
             let info = backup_engine.get_backup_info();
-            assert!(info.len() > 0);
+            assert!(!info.is_empty());
             info.iter().for_each(|i| {
                 assert!(backup_engine.verify_backup(i.backup_id).is_ok());
                 assert!(i.size > 0);
