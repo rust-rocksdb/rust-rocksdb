@@ -13,9 +13,11 @@
 // limitations under the License.
 
 use crate::{
+    db::GetDBHandle,
     ffi,
+    handle::Handle,
     ops::{Get, GetCF, GetCFOpt, GetOpt, Iterate, IterateCF},
-    ColumnFamily, DBRawIterator, Error, ReadOptions, DB,
+    ColumnFamily, DBRawIterator, Error, ReadOptions,
 };
 
 /// A consistent view of the database at the point of creation.
@@ -34,15 +36,21 @@ use crate::{
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
-pub struct Snapshot<'a> {
-    db: &'a DB,
+pub struct Snapshot<'a, T>
+where
+    T: GetDBHandle,
+{
+    db: &'a T,
     pub(crate) inner: *const ffi::rocksdb_snapshot_t,
 }
 
-impl<'a> Snapshot<'a> {
+impl<'a, T> Snapshot<'a, T>
+where
+    T: GetDBHandle,
+{
     /// Creates a new `Snapshot` of the database `db`.
-    pub fn new(db: &DB) -> Snapshot {
-        let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner) };
+    pub fn new(db: &'a T) -> Snapshot<'a, T> {
+        let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.get_db_handle().handle()) };
         Snapshot {
             db,
             inner: snapshot,
@@ -50,13 +58,19 @@ impl<'a> Snapshot<'a> {
     }
 }
 
-impl<'a> Get for Snapshot<'a> {
+impl<'a, T> Get for Snapshot<'a, T>
+where
+    for<'o> T: GetOpt<&'o ReadOptions> + GetDBHandle,
+{
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.get_opt(key, ReadOptions::default())
     }
 }
 
-impl<'a> GetOpt<ReadOptions> for Snapshot<'a> {
+impl<'a, T> GetOpt<ReadOptions> for Snapshot<'a, T>
+where
+    for<'o> T: GetOpt<&'o ReadOptions> + GetDBHandle,
+{
     fn get_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -67,13 +81,19 @@ impl<'a> GetOpt<ReadOptions> for Snapshot<'a> {
     }
 }
 
-impl<'a> GetCF for Snapshot<'a> {
+impl<'a, T> GetCF for Snapshot<'a, T>
+where
+    for<'o> T: GetCFOpt<&'o ReadOptions> + GetDBHandle,
+{
     fn get_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key, ReadOptions::default())
     }
 }
 
-impl<'a> GetCFOpt<ReadOptions> for Snapshot<'a> {
+impl<'a, T> GetCFOpt<ReadOptions> for Snapshot<'a, T>
+where
+    for<'o> T: GetCFOpt<&'o ReadOptions> + GetDBHandle,
+{
     fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,
@@ -85,14 +105,20 @@ impl<'a> GetCFOpt<ReadOptions> for Snapshot<'a> {
     }
 }
 
-impl<'s> Iterate for Snapshot<'s> {
+impl<'s, T> Iterate for Snapshot<'s, T>
+where
+    T: Iterate + GetDBHandle,
+{
     fn raw_iterator_opt<'a: 'b, 'b>(&'a self, mut readopts: ReadOptions) -> DBRawIterator<'b> {
         readopts.set_snapshot(self);
         self.db.raw_iterator_opt(readopts)
     }
 }
 
-impl<'s> IterateCF for Snapshot<'s> {
+impl<'s, T> IterateCF for Snapshot<'s, T>
+where
+    T: IterateCF + GetDBHandle,
+{
     fn raw_iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &ColumnFamily,
@@ -103,15 +129,18 @@ impl<'s> IterateCF for Snapshot<'s> {
     }
 }
 
-impl<'a> Drop for Snapshot<'a> {
+impl<'a, T> Drop for Snapshot<'a, T>
+where
+    T: GetDBHandle,
+{
     fn drop(&mut self) {
         unsafe {
-            ffi::rocksdb_release_snapshot(self.db.inner, self.inner);
+            ffi::rocksdb_release_snapshot(self.db.get_db_handle().handle(), self.inner);
         }
     }
 }
 
 /// `Send` and `Sync` implementations for `Snapshot` are safe, because `Snapshot` is
 /// immutable and can be safely shared between threads.
-unsafe impl<'a> Send for Snapshot<'a> {}
-unsafe impl<'a> Sync for Snapshot<'a> {}
+unsafe impl<'a, T> Send for Snapshot<'a, T> where T: GetDBHandle {}
+unsafe impl<'a, T> Sync for Snapshot<'a, T> where T: GetDBHandle {}

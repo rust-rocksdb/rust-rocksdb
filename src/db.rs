@@ -27,6 +27,7 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 use std::ptr;
@@ -402,8 +403,8 @@ impl DB {
         &self.path.as_path()
     }
 
-    pub fn snapshot(&self) -> Snapshot {
-        Snapshot::new(self)
+    pub fn snapshot(&self) -> Snapshot<Self> {
+        Snapshot::<Self>::new(self)
     }
 
     /// The sequence number of the most recent transaction.
@@ -670,4 +671,30 @@ pub struct LiveFile {
     pub num_entries: u64,
     /// Number of deletions/tomb key(s) in the file
     pub num_deletions: u64,
+}
+
+// This is an opaque wrapper to the database handle
+// to avoid to expose it in the public API.
+pub struct DBHandle<'a> {
+    inner: *mut ffi::rocksdb_t,
+    _db: PhantomData<&'a ()>,
+}
+
+impl<'a> Handle<ffi::rocksdb_t> for DBHandle<'a> {
+    fn handle(&self) -> *mut ffi::rocksdb_t {
+        self.inner
+    }
+}
+
+pub trait GetDBHandle {
+    fn get_db_handle(&self) -> DBHandle;
+}
+
+impl GetDBHandle for DB {
+    fn get_db_handle(&self) -> DBHandle {
+        DBHandle {
+            inner: self.inner,
+            _db: PhantomData,
+        }
+    }
 }

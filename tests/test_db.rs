@@ -264,7 +264,7 @@ fn snapshot_test() {
 
 #[derive(Clone)]
 struct SnapshotWrapper {
-    snapshot: Arc<Snapshot<'static>>,
+    snapshot: Arc<Snapshot<'static, DB>>,
 }
 
 impl SnapshotWrapper {

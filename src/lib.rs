@@ -180,7 +180,7 @@ mod test {
         is_send::<DB>();
         is_send::<DBIterator<'_>>();
         is_send::<DBRawIterator<'_>>();
-        is_send::<Snapshot>();
+        is_send::<Snapshot<DB>>();
         is_send::<Options>();
         is_send::<ReadOptions>();
         is_send::<WriteOptions>();
@@ -202,7 +202,7 @@ mod test {
         }
 
         is_sync::<DB>();
-        is_sync::<Snapshot>();
+        is_sync::<Snapshot<DB>>();
         is_sync::<Options>();
         is_sync::<ReadOptions>();
         is_sync::<WriteOptions>();
