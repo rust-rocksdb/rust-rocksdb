@@ -13,14 +13,18 @@
 // limitations under the License.
 //
 
+use ambassador::delegatable_trait;
+
 use crate::{ffi, handle::Handle, Error, WriteBatch, WriteOptions};
 
+#[delegatable_trait]
 pub trait WriteBatchWrite {
     fn write(&self, batch: WriteBatch) -> Result<(), Error>;
 
     fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait WriteBatchWriteOpt {
     fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error>;
 }

@@ -12,14 +12,17 @@
 //
 
 use crate::{ffi, ffi_util::opt_bytes_to_ptr, handle::Handle, ColumnFamily, CompactOptions};
+use ambassador::delegatable_trait;
 use libc::size_t;
 
+#[delegatable_trait]
 pub trait CompactRange {
     /// Runs a manual compaction on the Range of keys given.
     /// This us bit likely to be needed for typical usage.
     fn compact_range<B: AsRef<[u8]>, E: AsRef<[u8]>>(&self, begin: Option<B>, end: Option<E>);
 }
 
+#[delegatable_trait]
 pub trait CompactRangeOpt {
     /// Same as `compact_range` but with custom options.
     fn compact_range_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
@@ -30,6 +33,7 @@ pub trait CompactRangeOpt {
     );
 }
 
+#[delegatable_trait]
 pub trait CompactRangeCF {
     /// Runs a manual compaction on the Range of keys given on the given column family.
     /// This us bit likely to be needed for typical usage.
@@ -41,6 +45,7 @@ pub trait CompactRangeCF {
     );
 }
 
+#[delegatable_trait]
 pub trait CompactRangeCFOpt {
     /// Same as `compact_range_cf` but with custom options.
     fn compact_range_cf_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(

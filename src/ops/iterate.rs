@@ -11,11 +11,14 @@
 // limitations under the License.
 //
 
+use ambassador::delegatable_trait;
+
 use crate::{
     ffi, handle::Handle, ColumnFamily, DBIterator, DBRawIterator, Direction, IteratorMode,
     ReadOptions,
 };
 
+#[delegatable_trait]
 pub trait Iterate {
     /// Opens a raw iterator over the database, using the given read options
     fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: ReadOptions) -> DBRawIterator<'b>;
@@ -58,6 +61,7 @@ pub trait Iterate {
     }
 }
 
+#[delegatable_trait]
 pub trait IterateCF {
     /// Opens a raw iterator over the given column family, using the given read options
     fn raw_iterator_cf_opt<'a: 'b, 'b>(

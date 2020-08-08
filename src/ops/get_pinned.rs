@@ -13,10 +13,12 @@
 // limitations under the License.
 //
 
+use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
 use crate::{ffi, handle::Handle, ColumnFamily, DBPinnableSlice, Error, ReadOptions};
 
+#[delegatable_trait]
 pub trait GetPinned {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
@@ -24,6 +26,7 @@ pub trait GetPinned {
     fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error>;
 }
 
+#[delegatable_trait]
 pub trait GetPinnedOpt {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy.
@@ -34,6 +37,7 @@ pub trait GetPinnedOpt {
     ) -> Result<Option<DBPinnableSlice>, Error>;
 }
 
+#[delegatable_trait]
 pub trait GetPinnedCF {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy.
@@ -44,6 +48,7 @@ pub trait GetPinnedCF {
     ) -> Result<Option<DBPinnableSlice>, Error>;
 }
 
+#[delegatable_trait]
 pub trait GetPinnedCFOpt {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy.

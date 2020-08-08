@@ -14,19 +14,32 @@
 //
 
 // PIGMED operations (Put, Iterate, Get, Merge, Delete)
-mod column_family;
-mod compact_range;
-mod delete;
-mod delete_range;
-mod flush;
-mod get;
-mod get_pinned;
-mod iterate;
-mod merge;
-mod property;
-mod put;
-mod set_options;
-mod write_batch;
+#[macro_use]
+pub(crate) mod column_family;
+#[macro_use]
+pub(crate) mod compact_range;
+#[macro_use]
+pub(crate) mod delete;
+#[macro_use]
+pub(crate) mod delete_range;
+#[macro_use]
+pub(crate) mod flush;
+#[macro_use]
+pub(crate) mod get;
+#[macro_use]
+pub(crate) mod get_pinned;
+#[macro_use]
+pub(crate) mod iterate;
+#[macro_use]
+pub(crate) mod merge;
+#[macro_use]
+pub(crate) mod property;
+#[macro_use]
+pub(crate) mod put;
+#[macro_use]
+pub(crate) mod set_options;
+#[macro_use]
+pub(crate) mod write_batch;
 
 pub(crate) use self::column_family::GetColumnFamilies;
 pub use self::column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily};

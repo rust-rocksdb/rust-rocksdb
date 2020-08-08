@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, Error, DB};
+use crate::{db::GetDBHandle, ffi, handle::Handle, Error};
 
 use libc::{c_int, c_uchar};
 use std::ffi::CString;
@@ -77,23 +77,23 @@ impl BackupEngine {
     ///
     /// Note: no flush before backup is performed. User might want to
     /// use `create_new_backup_flush` instead.
-    pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
-        self.create_new_backup_flush(db, false)
+    pub fn create_new_backup<G: GetDBHandle>(&mut self, get_db: &G) -> Result<(), Error> {
+        self.create_new_backup_flush(get_db, false)
     }
 
     /// Captures the state of the database in the latest backup.
     ///
     /// Set flush_before_backup=true to avoid losing unflushed key/value
     /// pairs from the memtable.
-    pub fn create_new_backup_flush(
+    pub fn create_new_backup_flush<G: GetDBHandle>(
         &mut self,
-        db: &DB,
+        get_db: &G,
         flush_before_backup: bool,
     ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
                 self.inner,
-                db.inner,
+                get_db.get_db_handle().handle(),
                 flush_before_backup as c_uchar,
             ));
             Ok(())

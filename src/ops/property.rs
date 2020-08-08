@@ -12,9 +12,11 @@
 //
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error};
+use ambassador::delegatable_trait;
 use libc::{c_char, c_void};
 use std::ffi::{CStr, CString};
 
+#[delegatable_trait]
 pub trait GetProperty {
     /// Retrieves a RocksDB property by name.
     ///
@@ -31,6 +33,7 @@ pub trait GetProperty {
     }
 }
 
+#[delegatable_trait]
 pub trait GetPropertyCF {
     /// Retrieves a RocksDB property by name, for a specific column family.
     ///

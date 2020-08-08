@@ -73,6 +73,8 @@
 
 #[macro_use]
 mod ffi_util;
+#[macro_use]
+pub mod ops;
 
 pub mod backup;
 pub mod checkpoint;
@@ -86,7 +88,6 @@ mod db_options;
 mod db_pinnable_slice;
 mod handle;
 pub mod merge_operator;
-pub mod ops;
 pub mod perf;
 pub mod prelude;
 mod slice_transform;

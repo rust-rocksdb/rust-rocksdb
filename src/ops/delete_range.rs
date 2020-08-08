@@ -12,8 +12,10 @@
 //
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
+use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
+#[delegatable_trait]
 pub trait DeleteRangeCF {
     fn delete_range_cf<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
@@ -23,6 +25,7 @@ pub trait DeleteRangeCF {
     ) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait DeleteRangeCFOpt {
     /// Removes the database entries in the range `["begin", "end")`
     /// using given write options.

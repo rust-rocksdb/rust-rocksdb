@@ -17,11 +17,29 @@ use crate::{
     ffi,
     ffi_util::{from_cstr, raw_data, to_cpath},
     handle::Handle,
-    ops::{self, GetColumnFamilies},
-    ColumnFamily, ColumnFamilyDescriptor, DBWALIterator, Error, IngestExternalFileOptions, Options,
-    Snapshot, DEFAULT_COLUMN_FAMILY_NAME,
+    ops::{
+        self,
+        column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily},
+        compact_range::{CompactRangeCFOpt, CompactRangeOpt},
+        delete::{DeleteCFOpt, DeleteOpt},
+        delete_range::DeleteRangeCFOpt,
+        flush::{FlushCFOpt, FlushOpt},
+        get_pinned::{GetPinnedCFOpt, GetPinnedOpt},
+        iterate::{Iterate, IterateCF},
+        merge::{MergeCFOpt, MergeOpt},
+        property::{GetProperty, GetPropertyCF},
+        put::{Put, PutCF, PutCFOpt, PutOpt},
+        set_options::SetOptions,
+        write_batch::WriteBatchWriteOpt,
+        GetColumnFamilies,
+    },
+    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
+    DBRawIterator, DBWALIterator, Error, FlushOptions, IngestExternalFileOptions, IteratorMode,
+    Options, ReadOptions, Snapshot, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
+use ambassador::Delegate;
+use delegate::delegate;
 use libc::{self, c_char, c_int, c_uchar, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
@@ -37,7 +55,7 @@ use std::time::Duration;
 /// A RocksDB database.
 ///
 /// See crate level documentation for a simple usage example.
-pub struct DB {
+pub struct DBInner {
     pub(crate) inner: *mut ffi::rocksdb_t,
     cfs: BTreeMap<String, ColumnFamily>,
     path: PathBuf,
@@ -46,20 +64,20 @@ pub struct DB {
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
-unsafe impl Send for DB {}
+unsafe impl Send for DBInner {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
-unsafe impl Sync for DB {}
+unsafe impl Sync for DBInner {}
 
-impl Handle<ffi::rocksdb_t> for DB {
+impl Handle<ffi::rocksdb_t> for DBInner {
     fn handle(&self) -> *mut ffi::rocksdb_t {
         self.inner
     }
 }
 
-impl ops::Read for DB {}
-impl ops::Write for DB {}
+impl ops::Read for DBInner {}
+impl ops::Write for DBInner {}
 
 // Specifies whether open DB for read only.
 enum AccessType<'a> {
@@ -69,140 +87,14 @@ enum AccessType<'a> {
     WithTTL { ttl: Duration },
 }
 
-impl DB {
-    /// Opens a database with default options.
-    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        DB::open(&opts, path)
-    }
-
-    /// Opens the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, None::<&str>)
-    }
-
-    /// Opens the database for read only with the specified options.
-    pub fn open_for_read_only<P: AsRef<Path>>(
-        opts: &Options,
-        path: P,
-        error_if_log_file_exist: bool,
-    ) -> Result<DB, Error> {
-        DB::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
-    }
-
-    /// Opens the database as a secondary.
-    pub fn open_as_secondary<P: AsRef<Path>>(
-        opts: &Options,
-        primary_path: P,
-        secondary_path: P,
-    ) -> Result<DB, Error> {
-        DB::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
-    }
-
-    /// Opens the database with a Time to Live compaction filter.
-    pub fn open_with_ttl<P: AsRef<Path>>(
-        opts: &Options,
-        path: P,
-        ttl: Duration,
-    ) -> Result<DB, Error> {
-        let c_path = to_cpath(&path)?;
-        let db = DB::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
-        if db.is_null() {
-            return Err(Error::new("Could not initialize database.".to_owned()));
-        }
-
-        Ok(DB {
-            inner: db,
-            cfs: BTreeMap::new(),
-            path: path.as_ref().to_path_buf(),
-        })
-    }
-
-    /// Opens a database with the given database options and column family names.
-    ///
-    /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = N>,
-        N: AsRef<str>,
-    {
-        let cfs = cfs
-            .into_iter()
-            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
-
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
-    }
-
-    /// Opens a database for read only with the given database options and column family names.
-    pub fn open_cf_for_read_only<P, I, N>(
-        opts: &Options,
-        path: P,
-        cfs: I,
-        error_if_log_file_exist: bool,
-    ) -> Result<DB, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = N>,
-        N: AsRef<str>,
-    {
-        let cfs = cfs
-            .into_iter()
-            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
-
-        DB::open_cf_descriptors_internal(
-            opts,
-            path,
-            cfs,
-            &AccessType::ReadOnly {
-                error_if_log_file_exist,
-            },
-        )
-    }
-
-    /// Opens the database as a secondary with the given database options and column family names.
-    pub fn open_cf_as_secondary<P, I, N>(
-        opts: &Options,
-        primary_path: P,
-        secondary_path: P,
-        cfs: I,
-    ) -> Result<DB, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = N>,
-        N: AsRef<str>,
-    {
-        let cfs = cfs
-            .into_iter()
-            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
-
-        DB::open_cf_descriptors_internal(
-            opts,
-            primary_path,
-            cfs,
-            &AccessType::Secondary {
-                secondary_path: secondary_path.as_ref(),
-            },
-        )
-    }
-
-    /// Opens a database with the given database options and column family descriptors.
-    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
-    }
-
+impl DBInner {
     /// Internal implementation for opening RocksDB.
     fn open_cf_descriptors_internal<P, I>(
         opts: &Options,
         path: P,
         cfs: I,
         access_type: &AccessType,
-    ) -> Result<DB, Error>
+    ) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
@@ -222,7 +114,7 @@ impl DB {
         let mut cf_map = BTreeMap::new();
 
         if cfs.is_empty() {
-            db = DB::open_raw(opts, &cpath, access_type)?;
+            db = Self::open_raw(opts, &cpath, access_type)?;
         } else {
             let mut cfs_v = cfs;
             // Always open the default column family.
@@ -249,7 +141,7 @@ impl DB {
                 .map(|cf| cf.options.inner as *const _)
                 .collect();
 
-            db = DB::open_cf_raw(
+            db = Self::open_cf_raw(
                 opts,
                 &cpath,
                 &cfs_v,
@@ -275,7 +167,7 @@ impl DB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        Ok(DB {
+        Ok(Self {
             inner: db,
             cfs: cf_map,
             path: path.as_ref().to_path_buf(),
@@ -363,48 +255,8 @@ impl DB {
         Ok(db)
     }
 
-    pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let cpath = to_cpath(path)?;
-        let mut length = 0;
-
-        unsafe {
-            let ptr = ffi_try!(ffi::rocksdb_list_column_families(
-                opts.inner,
-                cpath.as_ptr() as *const _,
-                &mut length,
-            ));
-
-            let vec = slice::from_raw_parts(ptr, length)
-                .iter()
-                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
-                .collect();
-            ffi::rocksdb_list_column_families_destroy(ptr, length);
-            Ok(vec)
-        }
-    }
-
-    pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = to_cpath(path)?;
-        unsafe {
-            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
-        }
-        Ok(())
-    }
-
-    pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = to_cpath(path)?;
-        unsafe {
-            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
-        }
-        Ok(())
-    }
-
     pub fn path(&self) -> &Path {
         &self.path.as_path()
-    }
-
-    pub fn snapshot(&self) -> Snapshot<Self> {
-        Snapshot::<Self>::new(self)
     }
 
     /// The sequence number of the most recent transaction.
@@ -627,7 +479,7 @@ impl DB {
     }
 }
 
-impl GetColumnFamilies for DB {
+impl GetColumnFamilies for DBInner {
     fn get_cfs(&self) -> &BTreeMap<String, ColumnFamily> {
         &self.cfs
     }
@@ -637,7 +489,7 @@ impl GetColumnFamilies for DB {
     }
 }
 
-impl Drop for DB {
+impl Drop for DBInner {
     fn drop(&mut self) {
         unsafe {
             for cf in self.cfs.values() {
@@ -648,7 +500,7 @@ impl Drop for DB {
     }
 }
 
-impl fmt::Debug for DB {
+impl fmt::Debug for DBInner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }
@@ -690,11 +542,257 @@ pub trait GetDBHandle {
     fn get_db_handle(&self) -> DBHandle;
 }
 
-impl GetDBHandle for DB {
-    fn get_db_handle(&self) -> DBHandle {
-        DBHandle {
-            inner: self.inner,
-            _db: PhantomData,
+macro_rules! make_new_db_with_traits {
+    ($struct_name:ident, [$($d:ty),+])  => (
+        #[derive(Delegate)]
+        $(#[delegate($d)])+
+        pub struct $struct_name(DBInner);
+
+        impl $struct_name {
+            delegate! {
+                to self.0 {
+                    #[allow(clippy::inline_always)]
+                    pub fn path(&self) -> &Path;
+                    pub fn latest_sequence_number(&self) -> u64;
+                    pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error>;
+                    pub fn try_catch_up_with_primary(&self) -> Result<(), Error>;
+                    pub fn ingest_external_file<P: AsRef<Path>>(&self, paths: Vec<P>) -> Result<(), Error>;
+                    pub fn ingest_external_file_opts<P: AsRef<Path>>(
+                        &self,
+                        opts: &IngestExternalFileOptions,
+                        paths: Vec<P>,
+                    ) -> Result<(), Error>;
+                    pub fn ingest_external_file_cf<P: AsRef<Path>>(
+                        &self,
+                        cf: &ColumnFamily,
+                        paths: Vec<P>,
+                    ) -> Result<(), Error>;
+                    pub fn ingest_external_file_cf_opts<P: AsRef<Path>>(
+                        &self,
+                        cf: &ColumnFamily,
+                        opts: &IngestExternalFileOptions,
+                        paths: Vec<P>,
+                    ) -> Result<(), Error>;
+                    pub fn live_files(&self) -> Result<Vec<LiveFile>, Error>;
+                    pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error>;
+                    pub fn delete_file_in_range_cf<K: AsRef<[u8]>>(
+                        &self,
+                        cf: &ColumnFamily,
+                        from: K,
+                        to: K,
+                    ) -> Result<(), Error>;
+                    pub fn cancel_all_background_work(&self, wait: bool);
+                }
+            }
+
+            pub fn snapshot(&self) -> Snapshot<Self> {
+                Snapshot::<Self>::new(self)
+            }
         }
+
+        impl GetDBHandle for $struct_name {
+            fn get_db_handle(&self) -> DBHandle {
+                DBHandle {
+                    inner: self.0.inner,
+                    _db: PhantomData,
+                }
+            }
+        }
+    )
+}
+
+make_new_db_with_traits!(
+    DB,
+    [
+        CreateColumnFamily,
+        DropColumnFamily,
+        GetColumnFamily,
+        CompactRangeCFOpt,
+        CompactRangeOpt,
+        DeleteCFOpt,
+        DeleteOpt,
+        DeleteRangeCFOpt,
+        FlushCFOpt,
+        FlushOpt,
+        GetPinnedCFOpt,
+        GetPinnedOpt,
+        Iterate,
+        IterateCF,
+        MergeCFOpt,
+        MergeOpt,
+        GetProperty,
+        GetPropertyCF,
+        Put,
+        PutCF,
+        PutCFOpt,
+        PutOpt,
+        SetOptions,
+        WriteBatchWriteOpt
+    ]
+);
+
+impl DB {
+    /// Opens a database with default options.
+    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        Self::open(&opts, path)
+    }
+
+    /// Opens the database with the specified options.
+    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Self, Error> {
+        Self::open_cf(opts, path, None::<&str>)
+    }
+
+    /// Opens the database for read only with the specified options.
+    pub fn open_for_read_only<P: AsRef<Path>>(
+        opts: &Options,
+        path: P,
+        error_if_log_file_exist: bool,
+    ) -> Result<Self, Error> {
+        Self::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
+    }
+
+    /// Opens the database as a secondary.
+    pub fn open_as_secondary<P: AsRef<Path>>(
+        opts: &Options,
+        primary_path: P,
+        secondary_path: P,
+    ) -> Result<Self, Error> {
+        Self::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
+    }
+
+    /// Opens the database with a Time to Live compaction filter.
+    pub fn open_with_ttl<P: AsRef<Path>>(
+        opts: &Options,
+        path: P,
+        ttl: Duration,
+    ) -> Result<Self, Error> {
+        let c_path = to_cpath(&path)?;
+        let db = DBInner::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
+        if db.is_null() {
+            return Err(Error::new("Could not initialize database.".to_owned()));
+        }
+
+        Ok(Self(DBInner {
+            inner: db,
+            cfs: BTreeMap::new(),
+            path: path.as_ref().to_path_buf(),
+        }))
+    }
+
+    /// Opens a database with the given database options and column family names.
+    ///
+    /// Column families opened using this function will be created with default `Options`.
+    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+
+        DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
+    }
+
+    /// Opens a database for read only with the given database options and column family names.
+    pub fn open_cf_for_read_only<P, I, N>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        error_if_log_file_exist: bool,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+
+        DBInner::open_cf_descriptors_internal(
+            opts,
+            path,
+            cfs,
+            &AccessType::ReadOnly {
+                error_if_log_file_exist,
+            },
+        )
+        .map(Self)
+    }
+
+    /// Opens the database as a secondary with the given database options and column family names.
+    pub fn open_cf_as_secondary<P, I, N>(
+        opts: &Options,
+        primary_path: P,
+        secondary_path: P,
+        cfs: I,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+
+        DBInner::open_cf_descriptors_internal(
+            opts,
+            primary_path,
+            cfs,
+            &AccessType::Secondary {
+                secondary_path: secondary_path.as_ref(),
+            },
+        )
+        .map(Self)
+    }
+
+    /// Opens a database with the given database options and column family descriptors.
+    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
+    }
+
+    pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
+        let cpath = to_cpath(path)?;
+        let mut length = 0;
+
+        unsafe {
+            let ptr = ffi_try!(ffi::rocksdb_list_column_families(
+                opts.inner,
+                cpath.as_ptr() as *const _,
+                &mut length,
+            ));
+
+            let vec = slice::from_raw_parts(ptr, length)
+                .iter()
+                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
+                .collect();
+            ffi::rocksdb_list_column_families_destroy(ptr, length);
+            Ok(vec)
+        }
+    }
+
+    pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
+        let cpath = to_cpath(path)?;
+        unsafe {
+            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
+        }
+        Ok(())
+    }
+
+    pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
+        let cpath = to_cpath(path)?;
+        unsafe {
+            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
+        }
+        Ok(())
     }
 }

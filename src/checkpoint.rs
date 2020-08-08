@@ -17,7 +17,7 @@
 //!
 //! [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
 
-use crate::{ffi, Error, DB};
+use crate::{db::GetDBHandle, ffi, handle::Handle, Error};
 use std::ffi::CString;
 use std::path::Path;
 
@@ -35,10 +35,14 @@ impl Checkpoint {
     ///
     /// Does not actually produce checkpoints, call `.create_checkpoint()` method to produce
     /// a DB checkpoint.
-    pub fn new(db: &DB) -> Result<Checkpoint, Error> {
+    pub fn new<G: GetDBHandle>(get_db: &G) -> Result<Checkpoint, Error> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
-        unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner)) };
+        unsafe {
+            checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(
+                get_db.get_db_handle().handle()
+            ))
+        };
 
         if checkpoint.is_null() {
             return Err(Error::new("Could not create checkpoint object.".to_owned()));

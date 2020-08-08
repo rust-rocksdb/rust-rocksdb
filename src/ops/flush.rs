@@ -12,23 +12,28 @@
 //
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error, FlushOptions};
+use ambassador::delegatable_trait;
 
+#[delegatable_trait]
 pub trait Flush {
     /// Flush database memtable to SST files on the disk using default options.
     fn flush(&self) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait FlushOpt {
     /// Flush database memtable to SST files on disk.
     fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait FlushCF {
     /// Flush database memtable to SST files on disk for a given column family
     /// using default options.
     fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait FlushCFOpt {
     /// Flush database memtable to SST files on disk for a given column family.
     fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error>;

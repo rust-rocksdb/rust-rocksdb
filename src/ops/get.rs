@@ -13,11 +13,14 @@
 // limitations under the License.
 //
 
+use ambassador::delegatable_trait;
+
 use crate::{
     ops::{GetPinnedCFOpt, GetPinnedOpt},
     ColumnFamily, Error, ReadOptions,
 };
 
+#[delegatable_trait]
 pub trait Get {
     /// Return the bytes associated with a key value.
     /// If you only intend to use the vector returned temporarily, consider
@@ -25,6 +28,7 @@ pub trait Get {
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error>;
 }
 
+#[delegatable_trait]
 pub trait GetOpt<ReadOpts> {
     /// Return the bytes associated with a key value with read options.
     /// If you only intend to use the vector returned temporarily, consider
@@ -33,6 +37,7 @@ pub trait GetOpt<ReadOpts> {
         -> Result<Option<Vec<u8>>, Error>;
 }
 
+#[delegatable_trait]
 pub trait GetCF {
     /// Return the bytes associated with a key value and the given column family.
     /// If you only  intend to use the vector returned temporarily, consider using
@@ -40,6 +45,7 @@ pub trait GetCF {
     fn get_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<Option<Vec<u8>>, Error>;
 }
 
+#[delegatable_trait]
 pub trait GetCFOpt<ReadOpts> {
     /// Return the bytes associated with a key value and the given column
     /// family with read options. If you only intend to use the vector returned

@@ -12,21 +12,26 @@
 //
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error, Options};
+use ambassador::delegatable_trait;
 use std::collections::BTreeMap;
 use std::ffi::CString;
 
+#[delegatable_trait]
 pub trait GetColumnFamily {
     fn cf_handle(&self, name: &str) -> Option<&ColumnFamily>;
 }
 
+#[delegatable_trait]
 pub trait CreateColumnFamily {
     fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait DropColumnFamily {
     fn drop_cf(&mut self, name: &str) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait GetColumnFamilies {
     fn get_cfs(&self) -> &BTreeMap<String, ColumnFamily>;
 

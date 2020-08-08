@@ -13,10 +13,12 @@
 // limitations under the License.
 //
 
+use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
 
+#[delegatable_trait]
 pub trait Put {
     fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
@@ -24,6 +26,7 @@ pub trait Put {
         V: AsRef<[u8]>;
 }
 
+#[delegatable_trait]
 pub trait PutOpt {
     fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
@@ -31,6 +34,7 @@ pub trait PutOpt {
         V: AsRef<[u8]>;
 }
 
+#[delegatable_trait]
 pub trait PutCF {
     fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
@@ -38,6 +42,7 @@ pub trait PutCF {
         V: AsRef<[u8]>;
 }
 
+#[delegatable_trait]
 pub trait PutCFOpt {
     fn put_cf_opt<K, V>(
         &self,

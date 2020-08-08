@@ -16,19 +16,24 @@
 use libc::{c_char, size_t};
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
+use ambassador::delegatable_trait;
 
+#[delegatable_trait]
 pub trait Delete {
     fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait DeleteOpt {
     fn delete_opt<K: AsRef<[u8]>>(&self, key: K, writeopts: &WriteOptions) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait DeleteCF {
     fn delete_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
 pub trait DeleteCFOpt {
     fn delete_cf_opt<K: AsRef<[u8]>>(
         &self,

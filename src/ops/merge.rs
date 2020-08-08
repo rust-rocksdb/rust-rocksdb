@@ -11,10 +11,12 @@
 // limitations under the License.
 //
 
+use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
 use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
 
+#[delegatable_trait]
 pub trait Merge {
     fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
@@ -22,6 +24,7 @@ pub trait Merge {
         V: AsRef<[u8]>;
 }
 
+#[delegatable_trait]
 pub trait MergeOpt {
     fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
@@ -29,6 +32,7 @@ pub trait MergeOpt {
         V: AsRef<[u8]>;
 }
 
+#[delegatable_trait]
 pub trait MergeCF {
     fn merge_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
@@ -36,6 +40,7 @@ pub trait MergeCF {
         V: AsRef<[u8]>;
 }
 
+#[delegatable_trait]
 pub trait MergeCFOpt {
     fn merge_cf_opt<K, V>(
         &self,

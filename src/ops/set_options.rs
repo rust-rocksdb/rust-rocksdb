@@ -12,9 +12,11 @@
 //
 
 use crate::{ffi, handle::Handle, Error};
+use ambassador::delegatable_trait;
 use libc::c_char;
 use std::ffi::CString;
 
+#[delegatable_trait]
 pub trait SetOptions {
     fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error>;
 }
