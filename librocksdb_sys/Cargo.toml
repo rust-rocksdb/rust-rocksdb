@@ -13,6 +13,7 @@ libtitan_sys = { path = "libtitan_sys" }
 libz-sys = { version = "1.0.25", features = ["static"] }
 openssl-sys = { version = "0.9.54", optional = true, features = ["vendored"] }
 zstd-sys = "1.4.15+zstd.1.4.4"
+lz4-sys = "1.9"
 
 [dev-dependencies]
 tempfile = "3.1"
@@ -37,10 +38,6 @@ bindgen = "0.51"
 version = "0.4.0"
 optional = true
 features = ["unprefixed_malloc_on_supported_platforms"]
-
-[dependencies.lz4-sys]
-git = "https://github.com/busyjay/lz4-rs.git"
-branch = "adjust-build"
 
 [dependencies.snappy-sys]
 git = "https://github.com/busyjay/rust-snappy.git"
