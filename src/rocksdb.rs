@@ -26,7 +26,6 @@ use rocksdb_options::{
     IngestExternalFileOptions, LRUCacheOptions, ReadOptions, RestoreOptions, UnsafeSnap,
     WriteOptions,
 };
-use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
@@ -46,6 +45,7 @@ use encryption::{DBEncryptionKeyManager, EncryptionKeyManager};
 use table_properties::{TableProperties, TablePropertiesCollection};
 use table_properties_rc::TablePropertiesCollection as RcTablePropertiesCollection;
 use titan::TitanDBOptions;
+use write_batch::WriteBatch;
 
 pub struct CFHandle {
     inner: *mut DBCFHandle,
@@ -147,7 +147,8 @@ impl MapProperty {
 
 pub struct DB {
     inner: *mut DBInstance,
-    cfs: BTreeMap<String, CFHandle>,
+    cfs_by_name: BTreeMap<String, usize>,
+    cfs: Vec<Option<(String, CFHandle)>>,
     path: String,
     opts: DBOptions,
     _cf_opts: Vec<ColumnFamilyOptions>,
@@ -168,12 +169,6 @@ impl DB {
         !self.opts.titan_inner.is_null()
     }
 }
-
-pub struct WriteBatch {
-    inner: *mut DBWriteBatch,
-}
-
-unsafe impl Send for WriteBatch {}
 
 pub struct Snapshot<D: Deref<Target = DB>> {
     db: D,
@@ -700,20 +695,25 @@ impl DB {
                 opts.titan_inner = crocksdb_ffi::ctitandb_get_titan_db_options(db);
             }
         }
-
-        let cfs = names
-            .into_iter()
-            .zip(cf_handles)
-            .map(|(s, h)| (s.to_owned(), CFHandle { inner: h }))
-            .collect();
-
+        let mut cfs = Vec::with_capacity(names.len());
+        let mut cfs_by_name = BTreeMap::new();
+        for (name, h) in names.into_iter().zip(cf_handles) {
+            let handle = CFHandle { inner: h };
+            let idx = handle.id() as usize;
+            while cfs.len() <= idx {
+                cfs.push(None);
+            }
+            cfs[idx] = Some((name.to_owned(), handle));
+            cfs_by_name.insert(name.to_owned(), idx);
+        }
         Ok(DB {
+            cfs,
+            opts,
+            readonly,
+            cfs_by_name,
             inner: db,
-            cfs: cfs,
             path: path.to_owned(),
-            opts: opts,
             _cf_opts: options,
-            readonly: readonly,
         })
     }
 
@@ -902,36 +902,56 @@ impl DB {
             };
             let handle = CFHandle { inner: cf_handler };
             self._cf_opts.push(cfd.options);
-            Ok(match self.cfs.entry(cfd.name.to_owned()) {
-                Entry::Occupied(mut e) => {
-                    e.insert(handle);
-                    e.into_mut()
-                }
-                Entry::Vacant(e) => e.insert(handle),
-            })
+            let idx = handle.id() as usize;
+            while idx >= self.cfs.len() {
+                self.cfs.push(None);
+            }
+            self.cfs[idx] = Some((cfd.name.to_owned(), handle));
+            self.cfs_by_name.insert(cfd.name.to_owned(), idx);
+            Ok(&self.cfs[idx].as_ref().unwrap().1)
         }
     }
 
     pub fn drop_cf(&mut self, name: &str) -> Result<(), String> {
-        let cf = self.cfs.remove(name);
-        if cf.is_none() {
-            return Err(format!("Invalid column family: {}", name));
-        }
+        let id = self.cfs_by_name.remove(name);
+        let cf = match id {
+            None => return Err(format!("Invalid column family: {}", name)),
+            Some(idx) => match self.cfs[idx].take() {
+                None => return Err(format!("Invalid column family: {}", name)),
+                Some((_, handle)) => handle,
+            },
+        };
 
         unsafe {
-            ffi_try!(crocksdb_drop_column_family(self.inner, cf.unwrap().inner));
+            ffi_try!(crocksdb_drop_column_family(self.inner, cf.inner));
         }
 
         Ok(())
     }
 
     pub fn cf_handle(&self, name: &str) -> Option<&CFHandle> {
-        self.cfs.get(name)
+        let idx = match self.cfs_by_name.get(name) {
+            None => return None,
+            Some(idx) => *idx,
+        };
+        self.cfs[idx].as_ref().map(|h| &h.1)
     }
 
     /// get all column family names, including 'default'.
     pub fn cf_names(&self) -> Vec<&str> {
-        self.cfs.iter().map(|(k, _)| k.as_str()).collect()
+        self.cfs
+            .iter()
+            .filter(|handle| handle.is_some())
+            .map(|handle| handle.as_ref().unwrap().0.as_str())
+            .collect()
+    }
+
+    /// get all column family names, including 'default'.
+    pub fn cf_handle_by_id(&self, id: usize) -> Option<&CFHandle> {
+        if id >= self.cfs.len() {
+            return None;
+        }
+        self.cfs[id].as_ref().map(|h| &h.1)
     }
 
     pub fn iter(&self) -> DBIterator<&DB> {
@@ -1924,74 +1944,6 @@ impl Writable for DB {
     }
 }
 
-impl Default for WriteBatch {
-    fn default() -> WriteBatch {
-        WriteBatch {
-            inner: unsafe { crocksdb_ffi::crocksdb_writebatch_create() },
-        }
-    }
-}
-
-impl WriteBatch {
-    pub fn new() -> WriteBatch {
-        WriteBatch::default()
-    }
-
-    pub fn with_capacity(cap: usize) -> WriteBatch {
-        WriteBatch {
-            inner: unsafe { crocksdb_ffi::crocksdb_writebatch_create_with_capacity(cap) },
-        }
-    }
-
-    pub fn count(&self) -> usize {
-        unsafe { crocksdb_ffi::crocksdb_writebatch_count(self.inner) as usize }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.count() == 0
-    }
-
-    pub fn data_size(&self) -> usize {
-        unsafe {
-            let mut data_size: usize = 0;
-            let _ = crocksdb_ffi::crocksdb_writebatch_data(self.inner, &mut data_size);
-            return data_size;
-        }
-    }
-
-    pub fn clear(&self) {
-        unsafe {
-            crocksdb_ffi::crocksdb_writebatch_clear(self.inner);
-        }
-    }
-
-    pub fn set_save_point(&mut self) {
-        unsafe {
-            crocksdb_ffi::crocksdb_writebatch_set_save_point(self.inner);
-        }
-    }
-
-    pub fn rollback_to_save_point(&mut self) -> Result<(), String> {
-        unsafe {
-            ffi_try!(crocksdb_writebatch_rollback_to_save_point(self.inner));
-        }
-        Ok(())
-    }
-
-    pub fn pop_save_point(&mut self) -> Result<(), String> {
-        unsafe {
-            ffi_try!(crocksdb_writebatch_pop_save_point(self.inner));
-        }
-        Ok(())
-    }
-}
-
-impl Drop for WriteBatch {
-    fn drop(&mut self) {
-        unsafe { crocksdb_ffi::crocksdb_writebatch_destroy(self.inner) }
-    }
-}
-
 impl Drop for DB {
     fn drop(&mut self) {
         // SyncWAL before call close.
@@ -2856,11 +2808,13 @@ pub fn run_sst_dump_tool(sst_dump_args: &[String], opts: &DBOptions) {
 
 #[cfg(test)]
 mod test {
+    use librocksdb_sys::DBValueType;
     use std::fs;
     use std::path::Path;
     use std::str;
     use std::string::String;
     use std::thread;
+    use write_batch::WriteBatchRef;
 
     use super::*;
     use crate::tempdir_with_prefix;
@@ -3504,5 +3458,131 @@ mod test {
             &k_region,
             CloudEnvOptions::new(),
         );
+    }
+
+    #[test]
+    fn test_write_append() {
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let path = tempdir_with_prefix("_rust_rocksdb_multi_batch");
+
+        let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+        let cf = db.cf_handle("default").unwrap();
+        let mut wb = WriteBatch::new();
+        for s in &[b"ab", b"cd", b"ef"] {
+            let w = WriteBatch::new();
+            w.put_cf(cf, s.to_vec().as_slice(), b"a").unwrap();
+            wb.append(w.data());
+        }
+        db.write(&wb).unwrap();
+        for s in &[b"ab", b"cd", b"ef"] {
+            let v = db.get_cf(cf, s.to_vec().as_slice()).unwrap();
+            assert!(v.is_some());
+            assert_eq!(v.unwrap().to_utf8().unwrap(), "a");
+        }
+    }
+
+    fn inner_test_write_batch_iter<F>(iter_fn: F)
+    where
+        F: FnOnce(&DB, &mut WriteBatch),
+    {
+        let temp_dir = tempdir_with_prefix("_rust_rocksdb_write_batch_iterate");
+        let path = temp_dir.path().to_str().unwrap();
+        let cfs = ["default", "cf1"];
+        let mut cfs_opts = vec![];
+        for _ in 0..cfs.len() {
+            cfs_opts.push(ColumnFamilyOptions::new());
+        }
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let mut db = DB::open(opts, path).unwrap();
+        for (cf, cf_opts) in cfs.iter().zip(cfs_opts.iter().cloned()) {
+            if *cf != "default" {
+                db.create_cf((*cf, cf_opts)).unwrap();
+            }
+        }
+
+        let mut wb = WriteBatch::new();
+        let default_cf = db.cf_handle("default").unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(default_cf, b"k1", b"v0").unwrap();
+        db.put_cf(cf1, b"k1", b"v0").unwrap();
+
+        wb.put_cf(default_cf, b"k2", b"v1").unwrap();
+        wb.put_cf(cf1, b"k2", b"v1").unwrap();
+        wb.delete_cf(default_cf, b"k1").unwrap();
+        wb.delete_cf(cf1, b"k1").unwrap();
+        iter_fn(&db, &mut wb);
+
+        for cf in &["default", "cf1"] {
+            let handle = db.cf_handle(cf).unwrap();
+            let v0 = db.get_cf(handle, b"k1").unwrap();
+            assert!(v0.is_none());
+
+            let v1 = db.get_cf(handle, b"k2").unwrap();
+            assert!(v1.is_some());
+            assert_eq!(v1.unwrap().to_utf8().unwrap(), "v1");
+        }
+    }
+
+    #[test]
+    fn test_write_batch_iterate() {
+        inner_test_write_batch_iter(|db, wb| {
+            let cf_names = db.cf_names();
+            wb.iterate(&cf_names, |cf, write_type, key, value| {
+                let handle = db.cf_handle(cf).unwrap();
+                match write_type {
+                    DBValueType::TypeValue => {
+                        db.put_cf(handle, key, value.unwrap()).unwrap();
+                    }
+                    DBValueType::TypeDeletion => {
+                        db.delete_cf(handle, key).unwrap();
+                    }
+                    _ => (),
+                }
+            });
+        });
+    }
+
+    #[test]
+    fn test_write_batch_ref_iter() {
+        inner_test_write_batch_iter(|db, wb| {
+            let wb_ref = WriteBatchRef::new(wb.data());
+            assert_eq!(wb.count(), wb_ref.count());
+            for (value_type, c, key, value) in wb_ref.iter() {
+                let handle = db.cf_handle_by_id(c as usize).unwrap();
+                match value_type {
+                    DBValueType::TypeValue => {
+                        db.put_cf(handle, key, value).unwrap();
+                    }
+                    DBValueType::TypeDeletion => {
+                        db.delete_cf(handle, key).unwrap();
+                    }
+                    _ => {
+                        println!("error type, cf: {}", c);
+                    }
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_write_batch_iter() {
+        inner_test_write_batch_iter(|db, wb| {
+            for (value_type, c, key, value) in wb.iter() {
+                let handle = db.cf_handle_by_id(c as usize).unwrap();
+                match value_type {
+                    DBValueType::TypeValue => {
+                        db.put_cf(handle, key, value).unwrap();
+                    }
+                    DBValueType::TypeDeletion => {
+                        db.delete_cf(handle, key).unwrap();
+                    }
+                    _ => {
+                        println!("error type, cf: {}", c);
+                    }
+                }
+            }
+        });
     }
 }

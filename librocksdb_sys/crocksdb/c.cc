@@ -623,6 +623,10 @@ struct crocksdb_universal_compaction_options_t {
   rocksdb::CompactionOptionsUniversal* rep;
 };
 
+struct crocksdb_writebatch_iterator_t {
+  rocksdb::WriteBatch::Iterator* rep;
+};
+
 #ifdef OPENSSL
 struct crocksdb_file_encryption_info_t {
   FileEncryptionInfo* rep;
@@ -1691,22 +1695,67 @@ void crocksdb_writebatch_iterate(crocksdb_writebatch_t* b, void* state,
                                              const char* v, size_t vlen),
                                  void (*deleted)(void*, const char* k,
                                                  size_t klen)) {
-  class H : public WriteBatch::Handler {
+  class HandlerWrapper : public WriteBatch::Handler {
    public:
     void* state_;
     void (*put_)(void*, const char* k, size_t klen, const char* v, size_t vlen);
     void (*deleted_)(void*, const char* k, size_t klen);
-    virtual void Put(const Slice& key, const Slice& value) override {
+    void Put(const Slice& key, const Slice& value) override {
       (*put_)(state_, key.data(), key.size(), value.data(), value.size());
     }
-    virtual void Delete(const Slice& key) override {
+    void Delete(const Slice& key) override {
       (*deleted_)(state_, key.data(), key.size());
     }
   };
-  H handler;
+  HandlerWrapper handler;
   handler.state_ = state;
   handler.put_ = put;
   handler.deleted_ = deleted;
+  b->rep.Iterate(&handler);
+}
+
+void crocksdb_writebatch_iterate_cf(
+    crocksdb_writebatch_t* b, void* state,
+    void (*put)(void*, const char* k, size_t klen, const char* v, size_t vlen),
+    void (*put_cf)(void*, uint32_t cf, const char* k, size_t klen,
+                   const char* v, size_t vlen),
+    void (*deleted)(void*, const char* k, size_t klen),
+    void (*deleted_cf)(void*, uint32_t cf, const char* k, size_t klen)) {
+  class HandlerWrapper : public WriteBatch::Handler {
+   public:
+    void* state_;
+    void (*put_)(void*, const char* k, size_t klen, const char* v, size_t vlen);
+    void (*put_cf_)(void*, uint32_t cf, const char* k, size_t klen,
+                    const char* v, size_t vlen);
+    void (*deleted_)(void*, const char* k, size_t klen);
+    void (*deleted_cf_)(void*, uint32_t cf, const char* k, size_t klen);
+
+    void Put(const Slice& key, const Slice& value) override {
+      (*put_)(state_, key.data(), key.size(), value.data(), value.size());
+    }
+
+    Status PutCF(uint32_t column_family_id, const Slice& key,
+                 const Slice& value) override {
+      (*put_cf_)(state_, column_family_id, key.data(), key.size(), value.data(),
+                 value.size());
+      return Status::OK();
+    }
+
+    void Delete(const Slice& key) override {
+      (*deleted_)(state_, key.data(), key.size());
+    }
+
+    Status DeleteCF(uint32_t column_family_id, const Slice& key) override {
+      (*deleted_cf_)(state_, column_family_id, key.data(), key.size());
+      return Status::OK();
+    }
+  };
+  HandlerWrapper handler;
+  handler.state_ = state;
+  handler.put_ = put;
+  handler.put_cf_ = put_cf;
+  handler.deleted_ = deleted;
+  handler.deleted_cf_ = deleted_cf;
   b->rep.Iterate(&handler);
 }
 
@@ -1727,6 +1776,76 @@ void crocksdb_writebatch_pop_save_point(crocksdb_writebatch_t* b,
 void crocksdb_writebatch_rollback_to_save_point(crocksdb_writebatch_t* b,
                                                 char** errptr) {
   SaveError(errptr, b->rep.RollbackToSavePoint());
+}
+
+void crocksdb_writebatch_set_content(crocksdb_writebatch_t* b, const char* data,
+                                     size_t dlen) {
+  rocksdb::WriteBatchInternal::SetContents(&b->rep, Slice(data, dlen));
+}
+
+void crocksdb_writebatch_append_content(crocksdb_writebatch_t* dest,
+                                        const char* data, size_t dlen) {
+  rocksdb::WriteBatchInternal::AppendContents(&dest->rep, Slice(data, dlen));
+}
+
+int crocksdb_writebatch_ref_count(const char* data, size_t dlen) {
+  Slice s(data, dlen);
+  rocksdb::WriteBatch::WriteBatchRef ref(s);
+  return ref.Count();
+}
+
+crocksdb_writebatch_iterator_t* crocksdb_writebatch_ref_iterator_create(
+    const char* data, size_t dlen) {
+  Slice input(data, dlen);
+  rocksdb::WriteBatch::WriteBatchRef ref(input);
+  auto it = new crocksdb_writebatch_iterator_t;
+  it->rep = ref.NewIterator();
+  it->rep->SeekToFirst();
+  return it;
+}
+
+crocksdb_writebatch_iterator_t* crocksdb_writebatch_iterator_create(
+    crocksdb_writebatch_t* dest) {
+  auto it = new crocksdb_writebatch_iterator_t;
+  it->rep = dest->rep.NewIterator();
+  it->rep->SeekToFirst();
+  return it;
+}
+
+void crocksdb_writebatch_iterator_destroy(crocksdb_writebatch_iterator_t* it) {
+  delete it->rep;
+  delete it;
+}
+
+unsigned char crocksdb_writebatch_iterator_valid(
+    crocksdb_writebatch_iterator_t* it) {
+  return it->rep->Valid();
+}
+
+void crocksdb_writebatch_iterator_next(crocksdb_writebatch_iterator_t* it) {
+  it->rep->Next();
+}
+
+const char* crocksdb_writebatch_iterator_key(crocksdb_writebatch_iterator_t* it,
+                                             size_t* klen) {
+  *klen = it->rep->Key().size();
+  return it->rep->Key().data();
+}
+
+const char* crocksdb_writebatch_iterator_value(
+    crocksdb_writebatch_iterator_t* it, size_t* klen) {
+  *klen = it->rep->Value().size();
+  return it->rep->Value().data();
+}
+
+int crocksdb_writebatch_iterator_value_type(
+    crocksdb_writebatch_iterator_t* it) {
+  return static_cast<int>(it->rep->GetValueType());
+}
+
+uint32_t crocksdb_writebatch_iterator_column_family_id(
+    crocksdb_writebatch_iterator_t* it) {
+  return it->rep->GetColumnFamilyId();
 }
 
 crocksdb_block_based_table_options_t* crocksdb_block_based_options_create() {

@@ -49,8 +49,7 @@ pub use perf_context::{get_perf_level, set_perf_level, IOStatsContext, PerfConte
 pub use rocksdb::{
     load_latest_options, run_ldb_tool, run_sst_dump_tool, set_external_sst_file_global_seq_no,
     BackupEngine, CFHandle, Cache, DBIterator, DBVector, Env, ExternalSstFileInfo, MapProperty,
-    MemoryAllocator, Range, SeekKey, SequentialFile, SstFileReader, SstFileWriter, Writable,
-    WriteBatch, DB,
+    MemoryAllocator, Range, SeekKey, SequentialFile, SstFileReader, SstFileWriter, Writable, DB,
 };
 pub use rocksdb_options::{
     BlockBasedOptions, CColumnFamilyDescriptor, ColumnFamilyOptions, CompactOptions,
@@ -67,6 +66,7 @@ pub use table_properties::{
 pub use table_properties_collector::TablePropertiesCollector;
 pub use table_properties_collector_factory::TablePropertiesCollectorFactory;
 pub use titan::{TitanBlobIndex, TitanDBOptions};
+pub use write_batch::{WriteBatch, WriteBatchRef};
 
 #[allow(deprecated)]
 pub use rocksdb::Kv;
@@ -92,6 +92,7 @@ mod table_properties_collector_factory;
 pub mod table_properties_rc;
 mod table_properties_rc_handles;
 mod titan;
+mod write_batch;
 
 #[cfg(test)]
 fn tempdir_with_prefix(prefix: &str) -> tempfile::TempDir {

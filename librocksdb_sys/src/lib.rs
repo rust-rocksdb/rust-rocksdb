@@ -163,6 +163,8 @@ pub struct DBFileEncryptionInfo(c_void);
 #[cfg(feature = "encryption")]
 #[repr(C)]
 pub struct DBEncryptionKeyManagerInstance(c_void);
+#[repr(C)]
+pub struct DBWriteBatchIterator(c_void);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
@@ -403,6 +405,23 @@ pub enum DBEncryptionMethod {
     Aes128Ctr = 2,
     Aes192Ctr = 3,
     Aes256Ctr = 4,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum DBValueType {
+    TypeDeletion = 0x0,
+    TypeValue = 0x1,
+    TypeMerge = 0x2,
+    TypeColumnFamilyDeletion = 0x4, // WAL only.
+    TypeColumnFamilyValue = 0x5,    // WAL only.
+    TypeColumnFamilyMerge = 0x6,    // WAL only.
+    TypeSingleDeletion = 0x7,
+    TypeColumnFamilyRangeDeletion = 0xE, // WAL only.
+    TypeRangeDeletion = 0xF,             // meta block
+    TypeColumnFamilyBlobIndex = 0x10,    // Blob DB only
+    TypeBlobIndex = 0x11,                // Blob DB only
+    MaxValue = 0x7F,
 }
 
 #[cfg(feature = "encryption")]
@@ -1129,6 +1148,32 @@ extern "C" {
         ),
         deleted_fn: extern "C" fn(state: *mut c_void, k: *const u8, klen: size_t),
     );
+    pub fn crocksdb_writebatch_iterate_cf(
+        batch: *mut DBWriteBatch,
+        state: *mut c_void,
+        put_fn: unsafe extern "C" fn(
+            state: *mut c_void,
+            k: *const u8,
+            klen: size_t,
+            v: *const u8,
+            vlen: size_t,
+        ) -> (),
+        put_cf_fn: unsafe extern "C" fn(
+            state: *mut c_void,
+            cf: u32,
+            k: *const u8,
+            klen: size_t,
+            v: *const u8,
+            vlen: size_t,
+        ) -> (),
+        delete_fn: unsafe extern "C" fn(state: *mut c_void, k: *const u8, klen: size_t) -> (),
+        delete_cf_fn: unsafe extern "C" fn(
+            state: *mut c_void,
+            cf: u32,
+            k: *const u8,
+            klen: size_t,
+        ) -> (),
+    );
     pub fn crocksdb_writebatch_data(batch: *mut DBWriteBatch, size: *mut size_t) -> *const u8;
     pub fn crocksdb_writebatch_set_save_point(batch: *mut DBWriteBatch);
     pub fn crocksdb_writebatch_pop_save_point(batch: *mut DBWriteBatch, err: *mut *mut c_char);
@@ -1136,7 +1181,35 @@ extern "C" {
         batch: *mut DBWriteBatch,
         err: *mut *mut c_char,
     );
+    pub fn crocksdb_writebatch_set_content(batch: *mut DBWriteBatch, data: *const u8, dlen: size_t);
 
+    pub fn crocksdb_writebatch_append_content(
+        dest: *mut DBWriteBatch,
+        data: *const u8,
+        dlen: size_t,
+    );
+    pub fn crocksdb_writebatch_ref_count(data: *const u8, dlen: size_t) -> c_int;
+    pub fn crocksdb_writebatch_ref_iterator_create(
+        data: *const u8,
+        dlen: size_t,
+    ) -> *mut DBWriteBatchIterator;
+    pub fn crocksdb_writebatch_iterator_create(
+        dest: *mut DBWriteBatch,
+    ) -> *mut DBWriteBatchIterator;
+    pub fn crocksdb_writebatch_iterator_destroy(it: *mut DBWriteBatchIterator);
+    pub fn crocksdb_writebatch_iterator_valid(it: *mut DBWriteBatchIterator) -> bool;
+    pub fn crocksdb_writebatch_iterator_next(it: *mut DBWriteBatchIterator);
+
+    pub fn crocksdb_writebatch_iterator_key(
+        it: *mut DBWriteBatchIterator,
+        klen: *mut size_t,
+    ) -> *mut u8;
+    pub fn crocksdb_writebatch_iterator_value(
+        it: *mut DBWriteBatchIterator,
+        vlen: *mut size_t,
+    ) -> *mut u8;
+    pub fn crocksdb_writebatch_iterator_value_type(it: *mut DBWriteBatchIterator) -> DBValueType;
+    pub fn crocksdb_writebatch_iterator_column_family_id(it: *mut DBWriteBatchIterator) -> u32;
     // Comparator
     pub fn crocksdb_options_set_comparator(options: *mut Options, cb: *mut DBComparator);
     pub fn crocksdb_comparator_create(

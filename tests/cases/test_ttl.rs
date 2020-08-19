@@ -33,7 +33,7 @@ pub fn test_ttl() {
                 panic!("could not create column family: {}", e);
             }
         }
-        assert_eq!(db.cf_names(), vec!["cf1", "default"]);
+        assert_eq!(db.cf_names(), vec!["default", "cf1"]);
 
         match db.create_cf("cf2") {
             Ok(_) => println!("cf2 created successfully"),
@@ -41,7 +41,7 @@ pub fn test_ttl() {
                 panic!("could not create column family: {}", e);
             }
         }
-        assert_eq!(db.cf_names(), vec!["cf1", "cf2", "default"]);
+        assert_eq!(db.cf_names(), vec!["default", "cf1", "cf2"]);
         drop(db);
     }
 
