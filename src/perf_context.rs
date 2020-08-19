@@ -90,6 +90,22 @@ impl PerfContext {
         unsafe { crocksdb_ffi::crocksdb_perf_context_block_read_time(self.inner) }
     }
 
+    pub fn block_cache_index_hit_count(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_block_cache_index_hit_count(self.inner) }
+    }
+
+    pub fn index_block_read_count(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_index_block_read_count(self.inner) }
+    }
+
+    pub fn block_cache_filter_hit_count(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_block_cache_filter_hit_count(self.inner) }
+    }
+
+    pub fn filter_block_read_count(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_filter_block_read_count(self.inner) }
+    }
+
     pub fn block_checksum_time(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_perf_context_block_checksum_time(self.inner) }
     }
@@ -348,6 +364,22 @@ impl PerfContext {
 
     pub fn env_new_logger_nanos(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_perf_context_env_new_logger_nanos(self.inner) }
+    }
+
+    pub fn get_cpu_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_get_cpu_nanos(self.inner) }
+    }
+
+    pub fn iter_next_cpu_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_iter_next_cpu_nanos(self.inner) }
+    }
+
+    pub fn iter_prev_cpu_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_iter_prev_cpu_nanos(self.inner) }
+    }
+
+    pub fn iter_seek_cpu_nanos(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_perf_context_iter_seek_cpu_nanos(self.inner) }
     }
 
     pub fn encrypt_data_nanos(&self) -> u64 {

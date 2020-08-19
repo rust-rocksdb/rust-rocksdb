@@ -2099,6 +2099,10 @@ extern "C" {
     pub fn crocksdb_perf_context_block_read_count(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_block_read_byte(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_block_read_time(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_block_cache_index_hit_count(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_index_block_read_count(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_block_cache_filter_hit_count(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_filter_block_read_count(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_block_checksum_time(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_block_decompress_time(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_get_read_bytes(ctx: *mut DBPerfContext) -> u64;
@@ -2168,6 +2172,10 @@ extern "C" {
     pub fn crocksdb_perf_context_env_lock_file_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_env_unlock_file_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_env_new_logger_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_get_cpu_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_iter_next_cpu_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_iter_prev_cpu_nanos(ctx: *mut DBPerfContext) -> u64;
+    pub fn crocksdb_perf_context_iter_seek_cpu_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_encrypt_data_nanos(ctx: *mut DBPerfContext) -> u64;
     pub fn crocksdb_perf_context_decrypt_data_nanos(ctx: *mut DBPerfContext) -> u64;
 
