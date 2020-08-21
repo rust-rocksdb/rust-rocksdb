@@ -334,7 +334,7 @@ impl Clone for Options {
         if inner.is_null() {
             panic!("Could not copy RocksDB options");
         }
-        Options { inner }
+        Self { inner }
     }
 }
 
