@@ -4,6 +4,7 @@
 
 * Export the `DEFAULT_COLUMN_FAMILY_NAME` constant.
 * Implement `Clone` trait for `Options`.
+* Added `Send` implementation to `WriteBatch`.
 
 ## 0.14.0 (2020-04-22)
 
