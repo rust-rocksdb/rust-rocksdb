@@ -328,6 +328,16 @@ impl Drop for Options {
     }
 }
 
+impl Clone for Options {
+    fn clone(&self) -> Self {
+        let inner = unsafe { ffi::rocksdb_options_create_copy(self.inner) };
+        if inner.is_null() {
+            panic!("Could not copy RocksDB options");
+        }
+        Self { inner }
+    }
+}
+
 impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
