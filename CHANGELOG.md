@@ -22,7 +22,6 @@
 * Add dbpath and env options (linxGnu)
 * Add compaction filter factory API (unrealhoang)
 * Add link stdlib when linking prebuilt rocksdb (unrealhoang)
-* Remove allow(clippy::wildcard_imports) (stanislav-tkach)
 * Support fetching sst files metadata, delete files in range, get mem usage (linxGnu)
 * Do not set rerun-if-changed=build.rs (xu-cheng)
 * Use pretty_assertions in tests (stanislav-tkach)
