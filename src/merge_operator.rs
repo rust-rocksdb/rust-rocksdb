@@ -73,6 +73,19 @@ pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
     let _: Box<MergeOperatorCallback> = mem::transmute(raw_cb);
 }
 
+pub unsafe extern "C" fn delete_callback(
+    _raw_cb: *mut c_void,
+    value: *const c_char,
+    value_length: size_t,
+) {
+    if !value.is_null() {
+        let _ = Box::from_raw(slice::from_raw_parts_mut(
+            value as *mut u8,
+            value_length as usize,
+        ));
+    }
+}
+
 pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
     cb.name.as_ptr()
@@ -101,18 +114,13 @@ pub unsafe extern "C" fn full_merge_callback(
             existing_value_len as usize,
         ))
     };
-    if let Some(mut result) = (cb.full_merge_fn)(key, oldval, operands) {
-        result.shrink_to_fit();
-        // TODO(tan) investigate zero-copy techniques to improve performance
-        let buf = libc::malloc(result.len() as size_t);
-        assert!(!buf.is_null());
+    if let Some(result) = (cb.full_merge_fn)(key, oldval, operands) {
         *new_value_length = result.len() as size_t;
-        *success = 1 as u8;
-        ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
-        buf as *mut c_char
+        *success = 1_u8;
+        Box::into_raw(result.into_boxed_slice()) as *mut c_char
     } else {
         *new_value_length = 0;
-        *success = 0 as u8;
+        *success = 0_u8;
         ptr::null_mut() as *mut c_char
     }
 }
@@ -130,18 +138,13 @@ pub unsafe extern "C" fn partial_merge_callback(
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    if let Some(mut result) = (cb.partial_merge_fn)(key, None, operands) {
-        result.shrink_to_fit();
-        // TODO(tan) investigate zero-copy techniques to improve performance
-        let buf = libc::malloc(result.len() as size_t);
-        assert!(!buf.is_null());
+    if let Some(result) = (cb.partial_merge_fn)(key, None, operands) {
         *new_value_length = result.len() as size_t;
-        *success = 1 as u8;
-        ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
-        buf as *mut c_char
+        *success = 1_u8;
+        Box::into_raw(result.into_boxed_slice()) as *mut c_char
     } else {
         *new_value_length = 0;
-        *success = 0 as u8;
+        *success = 0_u8;
         ptr::null_mut::<c_char>()
     }
 }
