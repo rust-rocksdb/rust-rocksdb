@@ -73,9 +73,16 @@ pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
     let _: Box<MergeOperatorCallback> = mem::transmute(raw_cb);
 }
 
-pub unsafe extern "C" fn delete_callback(_raw_cb: *mut c_void, value: *const c_char, value_length: size_t) {
+pub unsafe extern "C" fn delete_callback(
+    _raw_cb: *mut c_void,
+    value: *const c_char,
+    value_length: size_t,
+) {
     if !value.is_null() {
-        let _ = Box::from_raw(slice::from_raw_parts_mut(value as *mut u8, value_length as usize));
+        let _ = Box::from_raw(slice::from_raw_parts_mut(
+            value as *mut u8,
+            value_length as usize,
+        ));
     }
 }
 
@@ -109,11 +116,11 @@ pub unsafe extern "C" fn full_merge_callback(
     };
     if let Some(result) = (cb.full_merge_fn)(key, oldval, operands) {
         *new_value_length = result.len() as size_t;
-        *success = 1u8;
+        *success = 1_u8;
         Box::into_raw(result.into_boxed_slice()) as *mut c_char
     } else {
         *new_value_length = 0;
-        *success = 0u8;
+        *success = 0_u8;
         ptr::null_mut() as *mut c_char
     }
 }
@@ -133,11 +140,11 @@ pub unsafe extern "C" fn partial_merge_callback(
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
     if let Some(result) = (cb.partial_merge_fn)(key, None, operands) {
         *new_value_length = result.len() as size_t;
-        *success = 1u8;
+        *success = 1_u8;
         Box::into_raw(result.into_boxed_slice()) as *mut c_char
     } else {
         *new_value_length = 0;
-        *success = 0u8;
+        *success = 0_u8;
         ptr::null_mut::<c_char>()
     }
 }
