@@ -164,6 +164,14 @@ pub struct DBFileEncryptionInfo(c_void);
 #[repr(C)]
 pub struct DBEncryptionKeyManagerInstance(c_void);
 #[repr(C)]
+pub struct DBSstPartitioner(c_void);
+#[repr(C)]
+pub struct DBSstPartitionerRequest(c_void);
+#[repr(C)]
+pub struct DBSstPartitionerContext(c_void);
+#[repr(C)]
+pub struct DBSstPartitionerFactory(c_void);
+#[repr(C)]
 pub struct DBWriteBatchIterator(c_void);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -429,6 +437,13 @@ impl fmt::Display for DBEncryptionMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum DBSstPartitionerResult {
+    NotRequired = 0,
+    Required = 1,
 }
 
 /// # Safety
@@ -825,6 +840,13 @@ extern "C" {
     pub fn crocksdb_options_get_path_target_size(options: *mut Options, idx: size_t) -> u64;
     pub fn crocksdb_options_set_vector_memtable_factory(options: *mut Options, reserved_bytes: u64);
     pub fn crocksdb_options_set_atomic_flush(option: *mut Options, enable: bool);
+    pub fn crocksdb_options_get_sst_partitioner_factory(
+        option: *mut Options,
+    ) -> *mut DBSstPartitionerFactory;
+    pub fn crocksdb_options_set_sst_partitioner_factory(
+        option: *mut Options,
+        factory: *mut DBSstPartitionerFactory,
+    );
     pub fn crocksdb_filterpolicy_create_bloom_full(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_filterpolicy_create_bloom(bits_per_key: c_int) -> *mut DBFilterPolicy;
     pub fn crocksdb_open(
@@ -2264,6 +2286,122 @@ extern "C" {
     pub fn crocksdb_iostats_context_fsync_nanos(ctx: *mut DBIOStatsContext) -> u64;
     pub fn crocksdb_iostats_context_prepare_write_nanos(ctx: *mut DBIOStatsContext) -> u64;
     pub fn crocksdb_iostats_context_logger_nanos(ctx: *mut DBIOStatsContext) -> u64;
+
+    pub fn crocksdb_sst_partitioner_request_create() -> *mut DBSstPartitionerRequest;
+    pub fn crocksdb_sst_partitioner_request_destroy(state: *mut DBSstPartitionerRequest);
+    pub fn crocksdb_sst_partitioner_request_prev_user_key(
+        state: *mut DBSstPartitionerRequest,
+        len: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_sst_partitioner_request_current_user_key(
+        state: *mut DBSstPartitionerRequest,
+        len: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_sst_partitioner_request_current_output_file_size(
+        state: *mut DBSstPartitionerRequest,
+    ) -> u64;
+    pub fn crocksdb_sst_partitioner_request_set_prev_user_key(
+        state: *mut DBSstPartitionerRequest,
+        key: *const c_char,
+        len: size_t,
+    );
+    pub fn crocksdb_sst_partitioner_request_set_current_user_key(
+        state: *mut DBSstPartitionerRequest,
+        key: *const c_char,
+        len: size_t,
+    );
+    pub fn crocksdb_sst_partitioner_request_set_current_output_file_size(
+        state: *mut DBSstPartitionerRequest,
+        current_output_file_size: u64,
+    );
+
+    pub fn crocksdb_sst_partitioner_create(
+        underlying: *mut c_void,
+        destructor: extern "C" fn(*mut c_void),
+        should_partition_cb: extern "C" fn(
+            *mut c_void,
+            *mut DBSstPartitionerRequest,
+        ) -> DBSstPartitionerResult,
+        can_do_trivial_move_cb: extern "C" fn(
+            *mut c_void,
+            *const c_char,
+            size_t,
+            *const c_char,
+            size_t,
+        ) -> c_uchar,
+    ) -> *mut DBSstPartitioner;
+    pub fn crocksdb_sst_partitioner_destroy(partitioner: *mut DBSstPartitioner);
+    pub fn crocksdb_sst_partitioner_should_partition(
+        partitioner: *mut DBSstPartitioner,
+        req: *mut DBSstPartitionerRequest,
+    ) -> DBSstPartitionerResult;
+    pub fn crocksdb_sst_partitioner_can_do_trivial_move(
+        partitioner: *mut DBSstPartitioner,
+        smallest_key: *const c_char,
+        smallest_key_len: size_t,
+        largest_key: *const c_char,
+        largest_key_len: size_t,
+    ) -> bool;
+
+    pub fn crocksdb_sst_partitioner_context_create() -> *mut DBSstPartitionerContext;
+    pub fn crocksdb_sst_partitioner_context_destroy(context: *mut DBSstPartitionerContext);
+    pub fn crocksdb_sst_partitioner_context_is_full_compaction(
+        context: *mut DBSstPartitionerContext,
+    ) -> c_uchar;
+    pub fn crocksdb_sst_partitioner_context_is_manual_compaction(
+        context: *mut DBSstPartitionerContext,
+    ) -> c_uchar;
+    pub fn crocksdb_sst_partitioner_context_output_level(
+        context: *mut DBSstPartitionerContext,
+    ) -> c_int;
+    pub fn crocksdb_sst_partitioner_context_smallest_key(
+        context: *mut DBSstPartitionerContext,
+        key_len: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_sst_partitioner_context_largest_key(
+        context: *mut DBSstPartitionerContext,
+        key_len: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_sst_partitioner_context_set_is_full_compaction(
+        context: *mut DBSstPartitionerContext,
+        is_full_compaction: c_uchar,
+    );
+    pub fn crocksdb_sst_partitioner_context_set_is_manual_compaction(
+        context: *mut DBSstPartitionerContext,
+        is_manual_compaction: c_uchar,
+    );
+    pub fn crocksdb_sst_partitioner_context_set_output_level(
+        context: *mut DBSstPartitionerContext,
+        output_level: c_int,
+    );
+    pub fn crocksdb_sst_partitioner_context_set_smallest_key(
+        context: *mut DBSstPartitionerContext,
+        smallest_key: *const c_char,
+        key_len: size_t,
+    );
+    pub fn crocksdb_sst_partitioner_context_set_largest_key(
+        context: *mut DBSstPartitionerContext,
+        largest_key: *const c_char,
+        key_len: size_t,
+    );
+
+    pub fn crocksdb_sst_partitioner_factory_create(
+        underlying: *mut c_void,
+        destructor: extern "C" fn(*mut c_void),
+        name_cb: extern "C" fn(*mut c_void) -> *const c_char,
+        create_partitioner_cb: extern "C" fn(
+            *mut c_void,
+            *mut DBSstPartitionerContext,
+        ) -> *mut DBSstPartitioner,
+    ) -> *mut DBSstPartitionerFactory;
+    pub fn crocksdb_sst_partitioner_factory_destroy(factory: *mut DBSstPartitionerFactory);
+    pub fn crocksdb_sst_partitioner_factory_name(
+        factory: *mut DBSstPartitionerFactory,
+    ) -> *const c_char;
+    pub fn crocksdb_sst_partitioner_factory_create_partitioner(
+        factory: *mut DBSstPartitionerFactory,
+        context: *mut DBSstPartitionerContext,
+    ) -> *mut DBSstPartitioner;
 
     pub fn crocksdb_run_ldb_tool(argc: c_int, argv: *const *const c_char, opts: *const Options);
     pub fn crocksdb_run_sst_dump_tool(

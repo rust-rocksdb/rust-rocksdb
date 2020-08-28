@@ -34,6 +34,7 @@ use merge_operator::{self, full_merge_callback, partial_merge_callback, MergeOpe
 use rocksdb::Env;
 use rocksdb::{Cache, MemoryAllocator};
 use slice_transform::{new_slice_transform, SliceTransform};
+use sst_partitioner::{new_sst_partitioner_factory, SstPartitionerFactory};
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
@@ -1738,6 +1739,13 @@ impl ColumnFamilyOptions {
                 return None;
             }
             Some(CStr::from_ptr(memtable_name).to_str().unwrap())
+        }
+    }
+
+    pub fn set_sst_partitioner_factory<F: SstPartitionerFactory>(&mut self, factory: F) {
+        let f = new_sst_partitioner_factory(factory);
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_sst_partitioner_factory(self.inner, f);
         }
     }
 }

@@ -2,7 +2,7 @@ all: format build test
 
 format:
 	@cargo fmt --all
-	@librocksdb_sys/crocksdb/format-diff.sh > /dev/null || true
+	@scripts/format-diff.sh
 
 build:
 	@cargo build

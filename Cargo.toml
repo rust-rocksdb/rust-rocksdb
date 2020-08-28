@@ -31,5 +31,6 @@ librocksdb_sys = { path = "librocksdb_sys" }
 
 [dev-dependencies]
 crc = "1.8"
+lazy_static = "1.4.0"
 rand = "0.7"
 tempfile = "3.1"
