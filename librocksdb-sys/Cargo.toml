@@ -9,7 +9,6 @@ readme = "README.md"
 repository = "https://github.com/rust-rocksdb/rust-rocksdb"
 keywords = [ "bindings", "ffi", "rocksdb" ]
 categories = [ "api-bindings", "database", "external-ffi-bindings" ]
-
 links = "rocksdb"
 
 [features]
