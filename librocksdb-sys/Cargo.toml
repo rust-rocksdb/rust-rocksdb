@@ -30,5 +30,5 @@ uuid = { version = "0.8", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "^1.0", features = ["parallel"] }
-bindgen = "0.54"
+bindgen = "0.55"
 glob = "0.3"
