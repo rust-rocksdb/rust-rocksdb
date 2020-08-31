@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* Add `DB::cancel_all_background_work` method (stanislav-tkach)
+
 ## 0.15.0 (2020-08-25)
 
 * Fix building rocksdb library on windows host (aleksuss)

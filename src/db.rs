@@ -1361,6 +1361,13 @@ impl DB {
             Ok(())
         }
     }
+
+    /// Request stopping background work, if wait is true wait until it's done.
+    pub fn cancel_all_background_work(&self, wait: bool) {
+        unsafe {
+            ffi::rocksdb_cancel_all_background_work(self.inner, wait as u8);
+        }
+    }
 }
 
 impl Drop for DB {
