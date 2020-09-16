@@ -847,3 +847,49 @@ fn test_dboptions_set_env() {
     opts.set_env(Arc::new(Env::default()));
     let _db = DB::open(opts, path_str).unwrap();
 }
+
+#[test]
+fn test_compact_on_deletion() {
+    let num_keys = 1000;
+    let window_size = 100;
+    let dels_trigger = 90;
+
+    let mut opts = DBOptions::new();
+    let cf_opts = ColumnFamilyOptions::new();
+    opts.create_if_missing(true);
+    cf_opts.set_compact_on_deletion(window_size, dels_trigger);
+
+    let path = tempdir_with_prefix("_rust_rocksdb_compact_on_deletion_test");
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+
+    let cf = db.cf_handle("default").unwrap();
+    db.put(b"key0", b"value").unwrap();
+    db.flush(true).unwrap();
+    let mut opt = CompactOptions::new();
+    opt.set_change_level(true);
+    opt.set_target_level(1);
+    db.compact_range_cf_opt(cf, &opt, None, None);
+
+    let name = format!("rocksdb.num-files-at-level{}", 1);
+    assert_eq!(db.get_property_int(&name).unwrap(), 1);
+
+    for i in 0..num_keys {
+        if i >= num_keys - window_size && i < num_keys - window_size + dels_trigger {
+            db.delete(format!("key{}", i).as_ref()).unwrap();
+        } else {
+            db.put(format!("key{}", i).as_ref(), b"value").unwrap();
+        }
+    }
+    db.flush(true).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    let name = format!("rocksdb.num-files-at-level{}", 0);
+    assert_eq!(db.get_property_int(&name).unwrap(), 0);
+    let name = format!("rocksdb.num-files-at-level{}", 1);
+    assert_eq!(db.get_property_int(&name).unwrap(), 1);
+}

@@ -1748,6 +1748,16 @@ impl ColumnFamilyOptions {
             crocksdb_ffi::crocksdb_options_set_sst_partitioner_factory(self.inner, f);
         }
     }
+
+    pub fn set_compact_on_deletion(&self, sliding_window_size: usize, deletion_trigger: usize) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_compact_on_deletion(
+                self.inner,
+                sliding_window_size,
+                deletion_trigger,
+            );
+        }
+    }
 }
 
 // ColumnFamilyDescriptor is a pair of column family's name and options.

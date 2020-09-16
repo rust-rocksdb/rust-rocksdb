@@ -46,6 +46,7 @@
 #include "rocksdb/utilities/db_ttl.h"
 #include "rocksdb/utilities/debug.h"
 #include "rocksdb/utilities/options_util.h"
+#include "rocksdb/utilities/table_properties_collectors.h"
 #include "rocksdb/write_batch.h"
 #include "src/blob_format.h"
 #include "table/block_based/block_based_table_factory.h"
@@ -4901,6 +4902,14 @@ void crocksdb_options_add_table_properties_collector_factory(
     crocksdb_options_t* opt, crocksdb_table_properties_collector_factory_t* f) {
   opt->rep.table_properties_collector_factories.push_back(
       std::shared_ptr<TablePropertiesCollectorFactory>(f));
+}
+
+void crocksdb_options_set_compact_on_deletion(crocksdb_options_t* opt,
+                                              size_t sliding_window_size,
+                                              size_t deletion_trigger) {
+  opt->rep.table_properties_collector_factories.push_back(
+      rocksdb::NewCompactOnDeletionCollectorFactory(sliding_window_size,
+                                                    deletion_trigger));
 }
 
 /* Get Table Properties */

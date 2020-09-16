@@ -1954,6 +1954,10 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_add_table_properties_collector_factory(
     crocksdb_options_t* opt, crocksdb_table_properties_collector_factory_t* f);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_compact_on_deletion(
+    crocksdb_options_t* opt, size_t sliding_window_size,
+    size_t deletion_trigger);
+
 /* Get Table Properties */
 extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_collection_t*
 crocksdb_get_properties_of_all_tables(crocksdb_t* db, char** errptr);

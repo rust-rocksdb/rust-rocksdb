@@ -1991,6 +1991,12 @@ extern "C" {
         f: *mut DBTablePropertiesCollectorFactory,
     );
 
+    pub fn crocksdb_options_set_compact_on_deletion(
+        options: *mut Options,
+        sliding_window_size: size_t,
+        deletion_trigger: size_t,
+    );
+
     pub fn crocksdb_get_properties_of_all_tables(
         db: *mut DBInstance,
         errptr: *mut *mut c_char,
