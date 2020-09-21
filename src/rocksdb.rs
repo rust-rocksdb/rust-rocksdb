@@ -1446,6 +1446,79 @@ impl DB {
         Ok(())
     }
 
+    pub fn delete_blob_files_in_range(
+        &self,
+        start_key: &[u8],
+        end_key: &[u8],
+        include_end: bool,
+    ) -> Result<(), String> {
+        unsafe {
+            if self.is_titan() {
+                ffi_try!(ctitandb_delete_blob_files_in_range(
+                    self.inner,
+                    start_key.as_ptr(),
+                    start_key.len() as size_t,
+                    end_key.as_ptr(),
+                    end_key.len() as size_t,
+                    include_end
+                ));
+            }
+            Ok(())
+        }
+    }
+
+    pub fn delete_blob_files_in_range_cf(
+        &self,
+        cf: &CFHandle,
+        start_key: &[u8],
+        end_key: &[u8],
+        include_end: bool,
+    ) -> Result<(), String> {
+        unsafe {
+            if self.is_titan() {
+                ffi_try!(ctitandb_delete_blob_files_in_range_cf(
+                    self.inner,
+                    cf.inner,
+                    start_key.as_ptr(),
+                    start_key.len() as size_t,
+                    end_key.as_ptr(),
+                    end_key.len() as size_t,
+                    include_end
+                ));
+            }
+            Ok(())
+        }
+    }
+
+    pub fn delete_blob_files_in_ranges_cf(
+        &self,
+        cf: &CFHandle,
+        ranges: &[Range],
+        include_end: bool,
+    ) -> Result<(), String> {
+        unsafe {
+            if self.is_titan() {
+                let start_keys: Vec<*const u8> =
+                    ranges.iter().map(|x| x.start_key.as_ptr()).collect();
+                let start_keys_lens: Vec<_> = ranges.iter().map(|x| x.start_key.len()).collect();
+                let limit_keys: Vec<*const u8> =
+                    ranges.iter().map(|x| x.end_key.as_ptr()).collect();
+                let limit_keys_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
+                ffi_try!(ctitandb_delete_blob_files_in_ranges_cf(
+                    self.inner,
+                    cf.inner,
+                    start_keys.as_ptr(),
+                    start_keys_lens.as_ptr(),
+                    limit_keys.as_ptr(),
+                    limit_keys_lens.as_ptr(),
+                    ranges.len(),
+                    include_end
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn get_property_value(&self, name: &str) -> Option<String> {
         self.get_property_value_cf_opt(None, name)
     }

@@ -2543,6 +2543,36 @@ extern "C" {
         include_end: bool,
         errptr: *mut *mut c_char,
     );
+    pub fn ctitandb_delete_blob_files_in_range(
+        db: *mut DBInstance,
+        range_start_key: *const u8,
+        range_start_key_len: size_t,
+        range_limit_key: *const u8,
+        range_limit_key_len: size_t,
+        include_end: bool,
+        err: *mut *mut c_char,
+    );
+    pub fn ctitandb_delete_blob_files_in_range_cf(
+        db: *mut DBInstance,
+        cf: *mut DBCFHandle,
+        range_start_key: *const u8,
+        range_start_key_len: size_t,
+        range_limit_key: *const u8,
+        range_limit_key_len: size_t,
+        include_end: bool,
+        err: *mut *mut c_char,
+    );
+    pub fn ctitandb_delete_blob_files_in_ranges_cf(
+        db: *mut DBInstance,
+        cf: *mut DBCFHandle,
+        start_keys: *const *const u8,
+        start_keys_lens: *const size_t,
+        limit_keys: *const *const u8,
+        limit_keys_lens: *const size_t,
+        num_ranges: size_t,
+        include_end: bool,
+        errptr: *mut *mut c_char,
+    );
 }
 
 // RocksDB Cloud

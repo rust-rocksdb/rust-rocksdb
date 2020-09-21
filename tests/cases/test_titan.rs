@@ -287,6 +287,8 @@ fn test_titan_delete_files_in_ranges() {
 
     db.delete_files_in_ranges_cf(cf_handle, &ranges, false)
         .unwrap();
+    db.delete_blob_files_in_ranges_cf(cf_handle, &ranges, false)
+        .unwrap();
 
     // Check that ["key0", "key5"] have been deleted, but ["key6", "key8"] still exist.
     let mut readopts = ReadOptions::new();
@@ -304,6 +306,8 @@ fn test_titan_delete_files_in_ranges() {
     // Delete the last file.
     let ranges = vec![Range::new(b"key6", b"key8")];
     db.delete_files_in_ranges_cf(cf_handle, &ranges, true)
+        .unwrap();
+    db.delete_blob_files_in_ranges_cf(cf_handle, &ranges, true)
         .unwrap();
     let mut iter = db.iter();
     iter.seek(SeekKey::Start).unwrap();
