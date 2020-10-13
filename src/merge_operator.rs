@@ -114,15 +114,18 @@ pub unsafe extern "C" fn full_merge_callback(
             existing_value_len as usize,
         ))
     };
-    if let Some(result) = (cb.full_merge_fn)(key, oldval, operands) {
-        *new_value_length = result.len() as size_t;
-        *success = 1_u8;
-        Box::into_raw(result.into_boxed_slice()) as *mut c_char
-    } else {
-        *new_value_length = 0;
-        *success = 0_u8;
-        ptr::null_mut() as *mut c_char
-    }
+    (cb.full_merge_fn)(key, oldval, operands).map_or_else(
+        || {
+            *new_value_length = 0;
+            *success = 0_u8;
+            ptr::null_mut() as *mut c_char
+        },
+        |result| {
+            *new_value_length = result.len() as size_t;
+            *success = 1_u8;
+            Box::into_raw(result.into_boxed_slice()) as *mut c_char
+        },
+    )
 }
 
 pub unsafe extern "C" fn partial_merge_callback(
@@ -138,15 +141,18 @@ pub unsafe extern "C" fn partial_merge_callback(
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    if let Some(result) = (cb.partial_merge_fn)(key, None, operands) {
-        *new_value_length = result.len() as size_t;
-        *success = 1_u8;
-        Box::into_raw(result.into_boxed_slice()) as *mut c_char
-    } else {
-        *new_value_length = 0;
-        *success = 0_u8;
-        ptr::null_mut::<c_char>()
-    }
+    (cb.partial_merge_fn)(key, None, operands).map_or_else(
+        || {
+            *new_value_length = 0;
+            *success = 0_u8;
+            ptr::null_mut::<c_char>()
+        },
+        |result| {
+            *new_value_length = result.len() as size_t;
+            *success = 1_u8;
+            Box::into_raw(result.into_boxed_slice()) as *mut c_char
+        },
+    )
 }
 
 pub struct MergeOperands {
