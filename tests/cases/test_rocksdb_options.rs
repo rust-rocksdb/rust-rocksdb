@@ -182,6 +182,22 @@ fn test_set_ratelimiter_with_auto_tuned() {
 }
 
 #[test]
+fn test_set_writeampbasedratelimiter_with_auto_tuned() {
+    let path =
+        tempdir_with_prefix("_rust_rocksdb_test_set_write_amp_based_rate_limiter_with_auto_tuned");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_writeampbasedratelimiter_with_auto_tuned(
+        100 * 1024 * 1024,
+        10 * 100000,
+        DBRateLimiterMode::AllIo,
+        true,
+    );
+    let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    drop(db);
+}
+
+#[test]
 fn test_set_ratelimiter_bytes_per_second() {
     let path = tempdir_with_prefix("_rust_rocksdb_test_set_rate_limiter_bytes_per_second");
     let mut opts = DBOptions::new();
