@@ -587,6 +587,16 @@ fn test_set_max_background_jobs() {
 }
 
 #[test]
+fn test_set_max_background_compactions_and_flushes() {
+    let path = tempdir_with_prefix("_rust_rocksdb_max_background_compactions_and_flushes");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    opts.set_max_background_compactions(4);
+    opts.set_max_background_flushes(1);
+    DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
 fn test_set_compaction_pri() {
     let path = tempdir_with_prefix("_rust_rocksdb_compaction_pri");
     let mut opts = DBOptions::new();

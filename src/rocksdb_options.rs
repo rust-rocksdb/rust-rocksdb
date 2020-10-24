@@ -815,6 +815,26 @@ impl DBOptions {
         unsafe { crocksdb_ffi::crocksdb_options_get_max_background_jobs(self.inner) as i32 }
     }
 
+    pub fn set_max_background_compactions(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_background_compactions(self.inner, n);
+        }
+    }
+
+    pub fn get_max_background_compactions(&self) -> i32 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_max_background_compactions(self.inner) as i32 }
+    }
+
+    pub fn set_max_background_flushes(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_max_background_flushes(self.inner, n);
+        }
+    }
+
+    pub fn get_max_background_flushes(&self) -> i32 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_max_background_flushes(self.inner) as i32 }
+    }
+
     pub fn set_max_subcompactions(&mut self, n: u32) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_subcompactions(self.inner, n);
