@@ -52,7 +52,7 @@
 //!    let r = db.get(b"k1");
 //!    assert_eq!(r.unwrap().unwrap(), b"abcdefg");
 //!}
-//!let _ = DB::destroy(&opts, path);
+//!let _ = DBUtils::destroy(&opts, path);
 //! ```
 
 use libc::{self, c_char, c_int, c_void, size_t};

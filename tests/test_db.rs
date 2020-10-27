@@ -68,7 +68,7 @@ fn errors_do_stuff() {
     let _db = DB::open_default(&path).unwrap();
     let opts = Options::default();
     // The DB will still be open when we try to destroy it and the lock should fail.
-    match DB::destroy(&opts, &path) {
+    match DBUtils::destroy(&opts, &path) {
         Err(s) => {
             let message = s.to_string();
             assert!(message.find("IO error:").is_some());

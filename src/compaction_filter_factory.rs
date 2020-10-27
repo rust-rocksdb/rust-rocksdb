@@ -134,7 +134,7 @@ mod tests {
             db.compact_range(None::<&[u8]>, None::<&[u8]>);
             assert_eq!(db.get(b"%k1").unwrap(), None);
         }
-        let result = DB::destroy(&opts, path);
+        let result = DBUtils::destroy(&opts, path);
         assert!(result.is_ok());
     }
 }

@@ -31,7 +31,7 @@
 //!    }
 //!    db.delete(b"my key").unwrap();
 //! }
-//! let _ = DB::destroy(&Options::default(), path);
+//! let _ = DBUtils::destroy(&Options::default(), path);
 //! ```
 //!
 //! Opening a database and a single column family with custom options:
@@ -50,7 +50,7 @@
 //! {
 //!     let db = DB::open_cf_descriptors(&db_opts, path, vec![cf]).unwrap();
 //! }
-//! let _ = DB::destroy(&db_opts, path);
+//! let _ = DBUtils::destroy(&db_opts, path);
 //! ```
 //!
 
@@ -98,7 +98,7 @@ mod write_batch;
 pub use crate::{
     column_family::{ColumnFamily, ColumnFamilyDescriptor, DEFAULT_COLUMN_FAMILY_NAME},
     compaction_filter::Decision as CompactionDecision,
-    db::{LiveFile, DB},
+    db::{DBUtils, LiveFile, DB},
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,

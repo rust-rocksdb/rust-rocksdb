@@ -234,7 +234,7 @@ pub struct Options {
 ///
 ///     db.write_opt(batch, &write_options);
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DBUtils::destroy(&Options::default(), path);
 /// ```
 pub struct WriteOptions {
     pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,
@@ -258,7 +258,7 @@ pub struct WriteOptions {
 ///
 ///     db.flush_opt(&flush_options);
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DBUtils::destroy(&Options::default(), path);
 /// ```
 pub struct FlushOptions {
     pub(crate) inner: *mut ffi::rocksdb_flushoptions_t,
@@ -282,7 +282,7 @@ pub struct ReadOptions {
 /// Move files instead of copying them:
 ///
 /// ```
-/// use rocksdb::{DB, IngestExternalFileOptions, SstFileWriter, Options};
+/// use rocksdb::{prelude::*, IngestExternalFileOptions, SstFileWriter, Options};
 ///
 /// let writer_opts = Options::default();
 /// let mut writer = SstFileWriter::create(&writer_opts);
@@ -297,7 +297,7 @@ pub struct ReadOptions {
 ///   ingest_opts.set_move_files(true);
 ///   db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DBUtils::destroy(&Options::default(), path);
 /// ```
 pub struct IngestExternalFileOptions {
     pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,

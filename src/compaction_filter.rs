@@ -172,6 +172,6 @@ fn compaction_filter_test() {
         assert!(db.get(b"_k").unwrap().is_none());
         assert_eq!(&*db.get(b"%k").unwrap().unwrap(), b"secret");
     }
-    let result = DB::destroy(&opts, path);
+    let result = DBUtils::destroy(&opts, path);
     assert!(result.is_ok());
 }

@@ -63,7 +63,7 @@ use std::slice;
 ///         iter.prev();
 ///     }
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DBUtils::destroy(&Options::default(), path);
 /// ```
 pub struct DBRawIterator<'a> {
     inner: *mut ffi::rocksdb_iterator_t,
@@ -139,7 +139,7 @@ impl<'a> DBRawIterator<'a> {
     ///         // There are no keys in the database
     ///     }
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+    /// let _ = DBUtils::destroy(&Options::default(), path);
     /// ```
     pub fn seek_to_first(&mut self) {
         unsafe {
@@ -176,7 +176,7 @@ impl<'a> DBRawIterator<'a> {
     ///         // There are no keys in the database
     ///     }
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+    /// let _ = DBUtils::destroy(&Options::default(), path);
     /// ```
     pub fn seek_to_last(&mut self) {
         unsafe {
@@ -208,7 +208,7 @@ impl<'a> DBRawIterator<'a> {
     ///         // There are no keys in the database
     ///     }
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+    /// let _ = DBUtils::destroy(&Options::default(), path);
     /// ```
     pub fn seek<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
@@ -247,7 +247,7 @@ impl<'a> DBRawIterator<'a> {
     ///         // There are no keys in the database
     ///     }
     /// }
-    /// let _ = DB::destroy(&Options::default(), path);
+    /// let _ = DBUtils::destroy(&Options::default(), path);
     /// ```
     pub fn seek_for_prev<K: AsRef<[u8]>>(&mut self, key: K) {
         let key = key.as_ref();
@@ -350,7 +350,7 @@ unsafe impl<'a> Sync for DBRawIterator<'a> {}
 ///         println!("Saw {:?} {:?}", key, value);
 ///     }
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DBUtils::destroy(&Options::default(), path);
 /// ```
 pub struct DBIterator<'a> {
     raw: DBRawIterator<'a>,

@@ -13,4 +13,4 @@
 // limitations under the License.
 //
 
-pub use crate::{ops::*, ColumnFamily, Error, Options, ReadOptions, WriteOptions, DB};
+pub use crate::{ops::*, ColumnFamily, DBUtils, Error, Options, ReadOptions, WriteOptions, DB};

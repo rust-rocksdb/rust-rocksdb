@@ -542,6 +542,46 @@ pub trait GetDBHandle {
     fn get_db_handle(&self) -> DBHandle;
 }
 
+pub struct DBUtils;
+
+impl DBUtils {
+    pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
+        let cpath = to_cpath(path)?;
+        let mut length = 0;
+
+        unsafe {
+            let ptr = ffi_try!(ffi::rocksdb_list_column_families(
+                opts.inner,
+                cpath.as_ptr() as *const _,
+                &mut length,
+            ));
+
+            let vec = slice::from_raw_parts(ptr, length)
+                .iter()
+                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
+                .collect();
+            ffi::rocksdb_list_column_families_destroy(ptr, length);
+            Ok(vec)
+        }
+    }
+
+    pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
+        let cpath = to_cpath(path)?;
+        unsafe {
+            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
+        }
+        Ok(())
+    }
+
+    pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
+        let cpath = to_cpath(path)?;
+        unsafe {
+            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
+        }
+        Ok(())
+    }
+}
+
 macro_rules! make_new_db_with_traits {
     ($struct_name:ident, [$($d:ty),+])  => (
         #[derive(Delegate)]
@@ -758,41 +798,5 @@ impl DB {
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
         DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
-    }
-
-    pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
-        let cpath = to_cpath(path)?;
-        let mut length = 0;
-
-        unsafe {
-            let ptr = ffi_try!(ffi::rocksdb_list_column_families(
-                opts.inner,
-                cpath.as_ptr() as *const _,
-                &mut length,
-            ));
-
-            let vec = slice::from_raw_parts(ptr, length)
-                .iter()
-                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
-                .collect();
-            ffi::rocksdb_list_column_families_destroy(ptr, length);
-            Ok(vec)
-        }
-    }
-
-    pub fn destroy<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = to_cpath(path)?;
-        unsafe {
-            ffi_try!(ffi::rocksdb_destroy_db(opts.inner, cpath.as_ptr()));
-        }
-        Ok(())
-    }
-
-    pub fn repair<P: AsRef<Path>>(opts: &Options, path: P) -> Result<(), Error> {
-        let cpath = to_cpath(path)?;
-        unsafe {
-            ffi_try!(ffi::rocksdb_repair_db(opts.inner, cpath.as_ptr()));
-        }
-        Ok(())
     }
 }

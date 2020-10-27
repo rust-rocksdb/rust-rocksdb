@@ -33,7 +33,7 @@ use crate::{
 ///     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
 ///     let mut iter = snapshot.iterator(IteratorMode::Start); // Make as many iterators as you'd like from one snapshot
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DBUtils::destroy(&Options::default(), path);
 /// ```
 ///
 pub struct Snapshot<'a, T>

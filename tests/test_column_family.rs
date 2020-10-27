@@ -68,7 +68,7 @@ fn test_column_family() {
     // should be able to list a cf
     {
         let opts = Options::default();
-        let vec = DB::list_cf(&opts, &n);
+        let vec = DBUtils::list_cf(&opts, &n);
         match vec {
             Ok(vec) => assert_eq!(vec, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf1"]),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -106,7 +106,7 @@ fn test_can_open_db_with_results_of_list_cf() {
 
     {
         let options = Options::default();
-        let cfs = DB::list_cf(&options, &n).unwrap();
+        let cfs = DBUtils::list_cf(&options, &n).unwrap();
         let db = DB::open_cf(&options, &n, &cfs).unwrap();
 
         assert!(db.cf_handle("cf1").is_some());
