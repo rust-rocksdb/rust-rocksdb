@@ -2610,12 +2610,13 @@ void crocksdb_options_get_compression_per_level(crocksdb_options_t* opt,
 
 void crocksdb_options_set_compression_options(crocksdb_options_t* opt,
                                               int w_bits, int level,
-                                              int strategy,
-                                              int max_dict_bytes) {
+                                              int strategy, int max_dict_bytes,
+                                              int zstd_max_train_bytes) {
   opt->rep.compression_opts.window_bits = w_bits;
   opt->rep.compression_opts.level = level;
   opt->rep.compression_opts.strategy = strategy;
   opt->rep.compression_opts.max_dict_bytes = max_dict_bytes;
+  opt->rep.compression_opts.zstd_max_train_bytes = zstd_max_train_bytes;
 }
 
 void crocksdb_options_set_use_direct_reads(crocksdb_options_t* opt,

@@ -1412,6 +1412,7 @@ impl ColumnFamilyOptions {
         level: i32,
         strategy: i32,
         max_dict_bytes: i32,
+        zstd_max_train_bytes: i32,
     ) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_compression_options(
@@ -1420,6 +1421,7 @@ impl ColumnFamilyOptions {
                 level,
                 strategy,
                 max_dict_bytes,
+                zstd_max_train_bytes,
             )
         }
     }
