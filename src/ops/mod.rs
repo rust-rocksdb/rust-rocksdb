@@ -21,6 +21,8 @@ pub(crate) mod compact_range;
 #[macro_use]
 pub(crate) mod delete;
 #[macro_use]
+pub(crate) mod delete_file_in_range;
+#[macro_use]
 pub(crate) mod delete_range;
 #[macro_use]
 pub(crate) mod flush;
@@ -45,6 +47,7 @@ pub(crate) use self::column_family::GetColumnFamilies;
 pub use self::column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily};
 pub use self::compact_range::{CompactRange, CompactRangeCF, CompactRangeCFOpt, CompactRangeOpt};
 pub use self::delete::{Delete, DeleteCF, DeleteCFOpt, DeleteOpt};
+pub use self::delete_file_in_range::{DeleteFileInRange, DeleteFileInRangeCF};
 pub use self::delete_range::{DeleteRangeCF, DeleteRangeCFOpt};
 pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
 pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};

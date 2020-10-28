@@ -22,6 +22,7 @@ use crate::{
         column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily},
         compact_range::{CompactRangeCFOpt, CompactRangeOpt},
         delete::{DeleteCFOpt, DeleteOpt},
+        delete_file_in_range::{DeleteFileInRange, DeleteFileInRangeCF},
         delete_range::DeleteRangeCFOpt,
         flush::{FlushCFOpt, FlushOpt},
         get_pinned::{GetPinnedCFOpt, GetPinnedOpt},
@@ -40,7 +41,7 @@ use crate::{
 
 use ambassador::Delegate;
 use delegate::delegate;
-use libc::{self, c_char, c_int, c_uchar, size_t};
+use libc::{self, c_char, c_int, c_uchar};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -426,51 +427,6 @@ impl DBInner {
         }
     }
 
-    /// Delete sst files whose keys are entirely in the given range.
-    ///
-    /// Could leave some keys in the range which are in files which are not
-    /// entirely in the range.
-    ///
-    /// Note: L0 files are left regardless of whether they're in the range.
-    ///  
-    /// Snapshots before the delete might not see the data in the given range.
-    pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error> {
-        let from = from.as_ref();
-        let to = to.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_delete_file_in_range(
-                self.inner,
-                from.as_ptr() as *const c_char,
-                from.len() as size_t,
-                to.as_ptr() as *const c_char,
-                to.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
-    /// Same as `delete_file_in_range` but only for specific column family
-    pub fn delete_file_in_range_cf<K: AsRef<[u8]>>(
-        &self,
-        cf: &ColumnFamily,
-        from: K,
-        to: K,
-    ) -> Result<(), Error> {
-        let from = from.as_ref();
-        let to = to.as_ref();
-        unsafe {
-            ffi_try!(ffi::rocksdb_delete_file_in_range_cf(
-                self.inner,
-                cf.inner,
-                from.as_ptr() as *const c_char,
-                from.len() as size_t,
-                to.as_ptr() as *const c_char,
-                to.len() as size_t,
-            ));
-            Ok(())
-        }
-    }
-
     /// Request stopping background work, if wait is true wait until it's done.
     pub fn cancel_all_background_work(&self, wait: bool) {
         unsafe {
@@ -613,13 +569,6 @@ macro_rules! make_new_db_with_traits {
                         paths: Vec<P>,
                     ) -> Result<(), Error>;
                     pub fn live_files(&self) -> Result<Vec<LiveFile>, Error>;
-                    pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error>;
-                    pub fn delete_file_in_range_cf<K: AsRef<[u8]>>(
-                        &self,
-                        cf: &ColumnFamily,
-                        from: K,
-                        to: K,
-                    ) -> Result<(), Error>;
                     pub fn cancel_all_background_work(&self, wait: bool);
                 }
             }
@@ -651,6 +600,8 @@ make_new_db_with_traits!(
         DeleteCFOpt,
         DeleteOpt,
         DeleteRangeCFOpt,
+        DeleteFileInRange,
+        DeleteFileInRangeCF,
         FlushCFOpt,
         FlushOpt,
         GetPinnedCFOpt,
