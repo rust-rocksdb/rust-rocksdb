@@ -26,6 +26,7 @@ use crate::{
         delete_range::DeleteRangeCFOpt,
         flush::{FlushCFOpt, FlushOpt},
         get_pinned::{GetPinnedCFOpt, GetPinnedOpt},
+        ingest_external_file::{IngestExternalFileCFOpt, IngestExternalFileOpt},
         iterate::{Iterate, IterateCF},
         merge::{MergeCFOpt, MergeOpt},
         property::{GetProperty, GetPropertyCF},
@@ -295,92 +296,6 @@ impl DBInner {
         Ok(())
     }
 
-    /// Loads a list of external SST files created with SstFileWriter into the DB with default opts
-    pub fn ingest_external_file<P: AsRef<Path>>(&self, paths: Vec<P>) -> Result<(), Error> {
-        let opts = IngestExternalFileOptions::default();
-        self.ingest_external_file_opts(&opts, paths)
-    }
-
-    /// Loads a list of external SST files created with SstFileWriter into the DB
-    pub fn ingest_external_file_opts<P: AsRef<Path>>(
-        &self,
-        opts: &IngestExternalFileOptions,
-        paths: Vec<P>,
-    ) -> Result<(), Error> {
-        let paths_v: Vec<CString> = paths
-            .iter()
-            .map(|path| to_cpath(&path))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
-
-        self.ingest_external_file_raw(&opts, &paths_v, &cpaths)
-    }
-
-    /// Loads a list of external SST files created with SstFileWriter into the DB for given Column Family
-    /// with default opts
-    pub fn ingest_external_file_cf<P: AsRef<Path>>(
-        &self,
-        cf: &ColumnFamily,
-        paths: Vec<P>,
-    ) -> Result<(), Error> {
-        let opts = IngestExternalFileOptions::default();
-        self.ingest_external_file_cf_opts(&cf, &opts, paths)
-    }
-
-    /// Loads a list of external SST files created with SstFileWriter into the DB for given Column Family
-    pub fn ingest_external_file_cf_opts<P: AsRef<Path>>(
-        &self,
-        cf: &ColumnFamily,
-        opts: &IngestExternalFileOptions,
-        paths: Vec<P>,
-    ) -> Result<(), Error> {
-        let paths_v: Vec<CString> = paths
-            .iter()
-            .map(|path| to_cpath(&path))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
-
-        self.ingest_external_file_raw_cf(&cf, &opts, &paths_v, &cpaths)
-    }
-
-    fn ingest_external_file_raw(
-        &self,
-        opts: &IngestExternalFileOptions,
-        paths_v: &[CString],
-        cpaths: &[*const c_char],
-    ) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_ingest_external_file(
-                self.inner,
-                cpaths.as_ptr(),
-                paths_v.len(),
-                opts.inner as *const _
-            ));
-            Ok(())
-        }
-    }
-
-    fn ingest_external_file_raw_cf(
-        &self,
-        cf: &ColumnFamily,
-        opts: &IngestExternalFileOptions,
-        paths_v: &[CString],
-        cpaths: &[*const c_char],
-    ) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_ingest_external_file_cf(
-                self.inner,
-                cf.inner,
-                cpaths.as_ptr(),
-                paths_v.len(),
-                opts.inner as *const _
-            ));
-            Ok(())
-        }
-    }
-
     /// Returns a list of all table files with their level, start key
     /// and end key
     pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
@@ -551,23 +466,6 @@ macro_rules! make_new_db_with_traits {
                     pub fn path(&self) -> &Path;
                     pub fn latest_sequence_number(&self) -> u64;
                     pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error>;
-                    pub fn ingest_external_file<P: AsRef<Path>>(&self, paths: Vec<P>) -> Result<(), Error>;
-                    pub fn ingest_external_file_opts<P: AsRef<Path>>(
-                        &self,
-                        opts: &IngestExternalFileOptions,
-                        paths: Vec<P>,
-                    ) -> Result<(), Error>;
-                    pub fn ingest_external_file_cf<P: AsRef<Path>>(
-                        &self,
-                        cf: &ColumnFamily,
-                        paths: Vec<P>,
-                    ) -> Result<(), Error>;
-                    pub fn ingest_external_file_cf_opts<P: AsRef<Path>>(
-                        &self,
-                        cf: &ColumnFamily,
-                        opts: &IngestExternalFileOptions,
-                        paths: Vec<P>,
-                    ) -> Result<(), Error>;
                     pub fn live_files(&self) -> Result<Vec<LiveFile>, Error>;
                     pub fn cancel_all_background_work(&self, wait: bool);
                 }
@@ -606,6 +504,8 @@ make_new_db_with_traits!(
         FlushOpt,
         GetPinnedCFOpt,
         GetPinnedOpt,
+        IngestExternalFileCFOpt,
+        IngestExternalFileOpt,
         Iterate,
         IterateCF,
         MergeCFOpt,

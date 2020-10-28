@@ -31,6 +31,8 @@ pub(crate) mod get;
 #[macro_use]
 pub(crate) mod get_pinned;
 #[macro_use]
+pub(crate) mod ingest_external_file;
+#[macro_use]
 pub(crate) mod iterate;
 #[macro_use]
 pub(crate) mod merge;
@@ -52,6 +54,9 @@ pub use self::delete_range::{DeleteRangeCF, DeleteRangeCFOpt};
 pub use self::flush::{Flush, FlushCF, FlushCFOpt, FlushOpt};
 pub use self::get::{Get, GetCF, GetCFOpt, GetOpt};
 pub use self::get_pinned::{GetPinned, GetPinnedCF, GetPinnedCFOpt, GetPinnedOpt};
+pub use self::ingest_external_file::{
+    IngestExternalFile, IngestExternalFileCF, IngestExternalFileCFOpt, IngestExternalFileOpt,
+};
 pub use self::iterate::{Iterate, IterateCF};
 pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
 pub use self::property::{GetProperty, GetPropertyCF};
