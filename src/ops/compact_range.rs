@@ -68,7 +68,7 @@ where
 
 impl<T> CompactRangeOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn compact_range_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
@@ -108,7 +108,7 @@ where
 
 impl<T> CompactRangeCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn compact_range_cf_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,

@@ -50,7 +50,7 @@ where
 
 impl<T> FlushOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
@@ -71,7 +71,7 @@ where
 
 impl<T> FlushCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {

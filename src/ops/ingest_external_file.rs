@@ -90,7 +90,7 @@ fn paths_to_cstr<P: AsRef<Path>>(paths: Vec<P>) -> Result<Vec<CString>, Error> {
 
 impl<T> IngestExternalFileOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn ingest_external_file_opts<P: AsRef<Path>>(
         &self,
@@ -114,7 +114,7 @@ where
 
 impl<T> IngestExternalFileCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn ingest_external_file_cf_opts<P: AsRef<Path>>(
         &self,

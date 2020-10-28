@@ -50,7 +50,7 @@ where
 
 impl<T> CreateColumnFamily for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write + GetColumnFamilies,
+    T: Handle<ffi::rocksdb_t> + GetColumnFamilies,
 {
     fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let cname = CString::new(name.as_ref().as_bytes()).map_err(|_| {
@@ -75,7 +75,7 @@ where
 
 impl<T> DropColumnFamily for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write + GetColumnFamilies,
+    T: Handle<ffi::rocksdb_t> + GetColumnFamilies,
 {
     fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         if let Some(cf) = self.get_mut_cfs().remove(name) {

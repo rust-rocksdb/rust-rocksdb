@@ -69,7 +69,7 @@ where
 
 impl<T> MergeOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
@@ -108,7 +108,7 @@ where
 
 impl<T> MergeCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn merge_cf_opt<K, V>(
         &self,

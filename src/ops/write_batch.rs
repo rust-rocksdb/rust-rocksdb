@@ -46,7 +46,7 @@ where
 
 impl<T> WriteBatchWriteOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {

@@ -63,11 +63,3 @@ pub use self::property::{GetProperty, GetPropertyCF};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
 pub use self::set_options::SetOptions;
 pub use self::write_batch::{WriteBatchWrite, WriteBatchWriteOpt};
-
-/// Marker trait for operations that leave DB
-/// state unchanged
-pub trait Read {}
-
-/// Marker trait for operations that mutate
-/// DB state
-pub trait Write {}

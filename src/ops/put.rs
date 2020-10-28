@@ -58,7 +58,7 @@ pub trait PutCFOpt {
 
 impl<T> Put for T
 where
-    T: Handle<ffi::rocksdb_t> + PutOpt + super::Write,
+    T: Handle<ffi::rocksdb_t> + PutOpt,
 {
     fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
@@ -71,7 +71,7 @@ where
 
 impl<T> PutOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
@@ -97,7 +97,7 @@ where
 
 impl<T> PutCF for T
 where
-    T: Handle<ffi::rocksdb_t> + PutCFOpt + super::Write,
+    T: Handle<ffi::rocksdb_t> + PutCFOpt,
 {
     fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
@@ -110,7 +110,7 @@ where
 
 impl<T> PutCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn put_cf_opt<K, V>(
         &self,

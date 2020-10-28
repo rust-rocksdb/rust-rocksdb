@@ -23,7 +23,7 @@ pub trait SetOptions {
 
 impl<T> SetOptions for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
         let copts = opts

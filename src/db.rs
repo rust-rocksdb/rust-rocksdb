@@ -18,7 +18,6 @@ use crate::{
     ffi_util::{from_cstr, raw_data, to_cpath},
     handle::Handle,
     ops::{
-        self,
         column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily},
         compact_range::{CompactRangeCFOpt, CompactRangeOpt},
         delete::{DeleteCFOpt, DeleteOpt},
@@ -77,9 +76,6 @@ impl Handle<ffi::rocksdb_t> for DBInner {
         self.inner
     }
 }
-
-impl ops::Read for DBInner {}
-impl ops::Write for DBInner {}
 
 // Specifies whether open DB for read only.
 enum AccessType<'a> {

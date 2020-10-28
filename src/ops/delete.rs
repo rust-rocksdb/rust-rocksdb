@@ -54,7 +54,7 @@ where
 
 impl<T> DeleteOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn delete_opt<K: AsRef<[u8]>>(&self, key: K, writeopts: &WriteOptions) -> Result<(), Error> {
         let key = key.as_ref();
@@ -82,7 +82,7 @@ where
 
 impl<T> DeleteCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn delete_cf_opt<K: AsRef<[u8]>>(
         &self,

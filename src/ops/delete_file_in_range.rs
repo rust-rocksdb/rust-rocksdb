@@ -45,7 +45,7 @@ pub trait DeleteFileInRangeCF {
 
 impl<T> DeleteFileInRange for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn delete_file_in_range<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
@@ -69,7 +69,7 @@ where
 }
 impl<T> DeleteFileInRangeCF for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn delete_file_in_range_cf<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,

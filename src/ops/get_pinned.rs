@@ -71,7 +71,7 @@ where
 
 impl<T> GetPinnedOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Read,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn get_pinned_opt<K: AsRef<[u8]>>(
         &self,
@@ -110,7 +110,7 @@ where
 
 impl<T> GetPinnedCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Read,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,

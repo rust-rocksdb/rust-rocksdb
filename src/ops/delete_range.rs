@@ -54,7 +54,7 @@ where
 
 impl<T> DeleteRangeCFOpt for T
 where
-    T: Handle<ffi::rocksdb_t> + super::Write,
+    T: Handle<ffi::rocksdb_t>,
 {
     fn delete_range_cf_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
