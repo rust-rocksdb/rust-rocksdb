@@ -595,7 +595,6 @@ macro_rules! make_new_db_with_traits {
                     pub fn path(&self) -> &Path;
                     pub fn latest_sequence_number(&self) -> u64;
                     pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error>;
-                    pub fn try_catch_up_with_primary(&self) -> Result<(), Error>;
                     pub fn ingest_external_file<P: AsRef<Path>>(&self, paths: Vec<P>) -> Result<(), Error>;
                     pub fn ingest_external_file_opts<P: AsRef<Path>>(
                         &self,
@@ -684,24 +683,6 @@ impl DB {
         Self::open_cf(opts, path, None::<&str>)
     }
 
-    /// Opens the database for read only with the specified options.
-    pub fn open_for_read_only<P: AsRef<Path>>(
-        opts: &Options,
-        path: P,
-        error_if_log_file_exist: bool,
-    ) -> Result<Self, Error> {
-        Self::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
-    }
-
-    /// Opens the database as a secondary.
-    pub fn open_as_secondary<P: AsRef<Path>>(
-        opts: &Options,
-        primary_path: P,
-        secondary_path: P,
-    ) -> Result<Self, Error> {
-        Self::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
-    }
-
     /// Opens the database with a Time to Live compaction filter.
     pub fn open_with_ttl<P: AsRef<Path>>(
         opts: &Options,
@@ -737,6 +718,39 @@ impl DB {
         DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
     }
 
+    /// Opens a database with the given database options and column family descriptors.
+    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
+    }
+}
+
+make_new_db_with_traits!(
+    ReadOnlyDB,
+    [
+        GetColumnFamily,
+        GetPinnedCFOpt,
+        GetPinnedOpt,
+        Iterate,
+        IterateCF,
+        GetProperty,
+        GetPropertyCF
+    ]
+);
+
+impl ReadOnlyDB {
+    /// Opens the database for read only with the specified options.
+    pub fn open_for_read_only<P: AsRef<Path>>(
+        opts: &Options,
+        path: P,
+        error_if_log_file_exist: bool,
+    ) -> Result<Self, Error> {
+        Self::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
+    }
+
     /// Opens a database for read only with the given database options and column family names.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
@@ -762,6 +776,30 @@ impl DB {
             },
         )
         .map(Self)
+    }
+}
+
+make_new_db_with_traits!(
+    SecondaryDB,
+    [
+        GetColumnFamily,
+        GetPinnedCFOpt,
+        GetPinnedOpt,
+        Iterate,
+        IterateCF,
+        GetProperty,
+        GetPropertyCF
+    ]
+);
+
+impl SecondaryDB {
+    /// Opens the database as a secondary.
+    pub fn open_as_secondary<P: AsRef<Path>>(
+        opts: &Options,
+        primary_path: P,
+        secondary_path: P,
+    ) -> Result<Self, Error> {
+        Self::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
     }
 
     /// Opens the database as a secondary with the given database options and column family names.
@@ -791,12 +829,9 @@ impl DB {
         .map(Self)
     }
 
-    /// Opens a database with the given database options and column family descriptors.
-    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
-        DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
+    delegate! {
+        to self.0 {
+            pub fn try_catch_up_with_primary(&self) -> Result<(), Error>;
+        }
     }
 }
