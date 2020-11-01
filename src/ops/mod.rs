@@ -15,6 +15,8 @@
 
 // PIGMED operations (Put, Iterate, Get, Merge, Delete)
 #[macro_use]
+pub(crate) mod backup;
+#[macro_use]
 pub(crate) mod checkpoint;
 #[macro_use]
 pub(crate) mod column_family;
@@ -49,6 +51,7 @@ pub(crate) mod snapshot;
 #[macro_use]
 pub(crate) mod write_batch;
 
+pub(crate) use self::backup::BackupInternal;
 pub(crate) use self::checkpoint::CheckpointInternal;
 pub(crate) use self::column_family::GetColumnFamilies;
 pub use self::column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily};

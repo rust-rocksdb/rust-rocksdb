@@ -13,9 +13,9 @@
 // limitations under the License.
 //
 
-use crate::{db::GetDBHandle, ffi, handle::Handle, Error};
+use crate::{ffi, handle::Handle, ops::BackupInternal, Error};
 
-use libc::{c_int, c_uchar};
+use libc::c_int;
 use std::ffi::CString;
 use std::path::Path;
 
@@ -44,6 +44,12 @@ pub struct BackupEngineOptions {
 
 pub struct RestoreOptions {
     inner: *mut ffi::rocksdb_restore_options_t,
+}
+
+impl Handle<ffi::rocksdb_backup_engine_t> for BackupEngine {
+    fn handle(&self) -> *mut ffi::rocksdb_backup_engine_t {
+        self.inner
+    }
 }
 
 impl BackupEngine {
@@ -77,27 +83,20 @@ impl BackupEngine {
     ///
     /// Note: no flush before backup is performed. User might want to
     /// use `create_new_backup_flush` instead.
-    pub fn create_new_backup<G: GetDBHandle>(&mut self, get_db: &G) -> Result<(), Error> {
-        self.create_new_backup_flush(get_db, false)
+    pub fn create_new_backup<B: BackupInternal>(&mut self, db: &B) -> Result<(), Error> {
+        self.create_new_backup_flush(db, false)
     }
 
     /// Captures the state of the database in the latest backup.
     ///
     /// Set flush_before_backup=true to avoid losing unflushed key/value
     /// pairs from the memtable.
-    pub fn create_new_backup_flush<G: GetDBHandle>(
+    pub fn create_new_backup_flush<B: BackupInternal>(
         &mut self,
-        get_db: &G,
+        db: &B,
         flush_before_backup: bool,
     ) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
-                self.inner,
-                get_db.get_db_handle().handle(),
-                flush_before_backup as c_uchar,
-            ));
-            Ok(())
-        }
+        unsafe { db.create_new_backup_flush(self, flush_before_backup) }
     }
 
     pub fn purge_old_backups(&mut self, num_backups_to_keep: usize) -> Result<(), Error> {

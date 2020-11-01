@@ -18,6 +18,7 @@ use crate::{
     ffi_util::{from_cstr, raw_data, to_cpath},
     handle::Handle,
     ops::{
+        backup::BackupInternal,
         checkpoint::CheckpointInternal,
         column_family::{CreateColumnFamily, DropColumnFamily, GetColumnFamily},
         compact_range::{CompactRangeCFOpt, CompactRangeOpt},
@@ -516,6 +517,7 @@ macro_rules! make_new_db_with_traits {
 make_new_db_with_traits!(
     DB,
     [
+        BackupInternal,
         CheckpointInternal,
         CreateColumnFamily,
         DropColumnFamily,
@@ -609,6 +611,7 @@ impl DB {
 make_new_db_with_traits!(
     ReadOnlyDB,
     [
+        BackupInternal,
         CheckpointInternal,
         GetColumnFamily,
         GetPinnedCFOpt,
@@ -661,6 +664,7 @@ impl ReadOnlyDB {
 make_new_db_with_traits!(
     SecondaryDB,
     [
+        BackupInternal,
         CheckpointInternal,
         GetColumnFamily,
         GetPinnedCFOpt,
