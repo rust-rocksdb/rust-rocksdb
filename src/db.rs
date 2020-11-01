@@ -50,7 +50,6 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
-use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 use std::ptr;
@@ -411,23 +410,6 @@ pub struct LiveFile {
     pub num_deletions: u64,
 }
 
-// This is an opaque wrapper to the database handle
-// to avoid to expose it in the public API.
-pub struct DBHandle<'a> {
-    inner: *mut ffi::rocksdb_t,
-    _db: PhantomData<&'a ()>,
-}
-
-impl<'a> Handle<ffi::rocksdb_t> for DBHandle<'a> {
-    fn handle(&self) -> *mut ffi::rocksdb_t {
-        self.inner
-    }
-}
-
-pub trait GetDBHandle {
-    fn get_db_handle(&self) -> DBHandle;
-}
-
 pub struct DBUtils;
 
 impl DBUtils {
@@ -502,15 +484,6 @@ macro_rules! make_new_db_with_traits {
 
             unsafe fn release_snapshot(&self, snapshot: &mut Snapshot<Self>) {
                 self.0.release_snapshot_rocksdb(snapshot)
-            }
-        }
-
-        impl GetDBHandle for $struct_name {
-            fn get_db_handle(&self) -> DBHandle {
-                DBHandle {
-                    inner: self.0.inner,
-                    _db: PhantomData,
-                }
             }
         }
     )
