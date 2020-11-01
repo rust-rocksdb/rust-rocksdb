@@ -31,6 +31,7 @@ use crate::{
         property::{GetProperty, GetPropertyCF},
         put::{Put, PutCF, PutCFOpt, PutOpt},
         set_options::SetOptions,
+        snapshot::SnapshotInternal,
         write_batch::WriteBatchWriteOpt,
         GetColumnFamilies,
     },
@@ -344,6 +345,21 @@ impl DBInner {
             ffi::rocksdb_cancel_all_background_work(self.inner, wait as u8);
         }
     }
+
+    unsafe fn create_snapshot_rocksdb<'a, D>(&self, db: &'a D) -> Snapshot<'a, D>
+    where
+        D: SnapshotInternal<DB = D>,
+    {
+        let inner = ffi::rocksdb_create_snapshot(self.handle());
+        Snapshot { db, inner }
+    }
+
+    unsafe fn release_snapshot_rocksdb<'a, D>(&self, snapshot: &mut Snapshot<'a, D>)
+    where
+        D: SnapshotInternal<DB = D>,
+    {
+        ffi::rocksdb_release_snapshot(self.handle(), snapshot.inner);
+    }
 }
 
 impl GetColumnFamilies for DBInner {
@@ -468,7 +484,21 @@ macro_rules! make_new_db_with_traits {
             }
 
             pub fn snapshot(&self) -> Snapshot<Self> {
-                Snapshot::<Self>::new(self)
+                unsafe {
+                    self.create_snapshot()
+                }
+            }
+        }
+
+        impl SnapshotInternal for $struct_name {
+            type DB = Self;
+
+            unsafe fn create_snapshot(&self) -> Snapshot<Self> {
+                self.0.create_snapshot_rocksdb(self)
+            }
+
+            unsafe fn release_snapshot(&self, snapshot: &mut Snapshot<Self>) {
+                self.0.release_snapshot_rocksdb(snapshot)
             }
         }
 
@@ -482,7 +512,6 @@ macro_rules! make_new_db_with_traits {
         }
     )
 }
-
 make_new_db_with_traits!(
     DB,
     [
@@ -678,6 +707,7 @@ impl SecondaryDB {
 
     delegate! {
         to self.0 {
+            #[allow(clippy::inline_always)]
             pub fn try_catch_up_with_primary(&self) -> Result<(), Error>;
         }
     }

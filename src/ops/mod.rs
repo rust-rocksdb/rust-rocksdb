@@ -43,6 +43,8 @@ pub(crate) mod put;
 #[macro_use]
 pub(crate) mod set_options;
 #[macro_use]
+pub(crate) mod snapshot;
+#[macro_use]
 pub(crate) mod write_batch;
 
 pub(crate) use self::column_family::GetColumnFamilies;
@@ -62,4 +64,5 @@ pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
 pub use self::property::{GetProperty, GetPropertyCF};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
 pub use self::set_options::SetOptions;
+pub(crate) use self::snapshot::SnapshotInternal;
 pub use self::write_batch::{WriteBatchWrite, WriteBatchWriteOpt};

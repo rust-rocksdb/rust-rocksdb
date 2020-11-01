@@ -22,11 +22,11 @@ use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
     comparator::{self, ComparatorCallback, CompareFn},
-    db::GetDBHandle,
     ffi,
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
+    ops::SnapshotInternal,
     slice_transform::SliceTransform,
     Error, Snapshot,
 };
@@ -2793,7 +2793,7 @@ impl ReadOptions {
     /// not have been released.
     pub(crate) fn set_snapshot<T>(&mut self, snapshot: &Snapshot<T>)
     where
-        T: GetDBHandle,
+        T: SnapshotInternal<DB = T>,
     {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);

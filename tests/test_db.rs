@@ -262,6 +262,12 @@ fn snapshot_test() {
     }
 }
 
+#[test]
+fn test_snapshot_outlive_db() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/snapshot_outlive_db.rs");
+}
+
 #[derive(Clone)]
 struct SnapshotWrapper {
     snapshot: Arc<Snapshot<'static, DB>>,
