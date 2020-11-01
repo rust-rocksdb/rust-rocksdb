@@ -41,6 +41,8 @@ pub(crate) mod iterate;
 #[macro_use]
 pub(crate) mod merge;
 #[macro_use]
+pub(crate) mod perf;
+#[macro_use]
 pub(crate) mod property;
 #[macro_use]
 pub(crate) mod put;
@@ -67,6 +69,7 @@ pub use self::ingest_external_file::{
 };
 pub use self::iterate::{Iterate, IterateCF};
 pub use self::merge::{Merge, MergeCF, MergeCFOpt, MergeOpt};
+pub(crate) use self::perf::PerfInternal;
 pub use self::property::{GetProperty, GetPropertyCF};
 pub use self::put::{Put, PutCF, PutCFOpt, PutOpt};
 pub use self::set_options::SetOptions;

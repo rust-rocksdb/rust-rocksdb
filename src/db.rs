@@ -30,6 +30,7 @@ use crate::{
         ingest_external_file::{IngestExternalFileCFOpt, IngestExternalFileOpt},
         iterate::{Iterate, IterateCF},
         merge::{MergeCFOpt, MergeOpt},
+        perf::PerfInternal,
         property::{GetProperty, GetPropertyCF},
         put::{Put, PutCF, PutCFOpt, PutOpt},
         set_options::SetOptions,
@@ -541,6 +542,7 @@ make_new_db_with_traits!(
         MergeOpt,
         GetProperty,
         GetPropertyCF,
+        PerfInternal,
         Put,
         PutCF,
         PutCFOpt,
@@ -619,7 +621,8 @@ make_new_db_with_traits!(
         Iterate,
         IterateCF,
         GetProperty,
-        GetPropertyCF
+        GetPropertyCF,
+        PerfInternal
     ]
 );
 
@@ -672,7 +675,8 @@ make_new_db_with_traits!(
         Iterate,
         IterateCF,
         GetProperty,
-        GetPropertyCF
+        GetPropertyCF,
+        PerfInternal
     ]
 );
 

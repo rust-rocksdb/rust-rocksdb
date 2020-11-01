@@ -14,7 +14,7 @@
 
 use libc::{c_int, c_uchar, c_void};
 
-use crate::{db::GetDBHandle, ffi, ffi_util::from_cstr, handle::Handle, Cache, Error};
+use crate::{ffi, ffi_util::from_cstr, handle::Handle, ops::PerfInternal, Cache, Error};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i32)]
@@ -218,6 +218,12 @@ struct MemoryUsageBuilder {
     inner: *mut ffi::rocksdb_memory_consumers_t,
 }
 
+impl Handle<ffi::rocksdb_memory_consumers_t> for MemoryUsageBuilder {
+    fn handle(&self) -> *mut ffi::rocksdb_memory_consumers_t {
+        self.inner
+    }
+}
+
 impl Drop for MemoryUsageBuilder {
     fn drop(&mut self) {
         unsafe {
@@ -240,9 +246,9 @@ impl MemoryUsageBuilder {
     }
 
     /// Add a DB instance to collect memory usage from it and add up in total stats
-    fn add_db(&mut self, db: &dyn GetDBHandle) {
+    fn add_db(&mut self, db: &dyn PerfInternal) {
         unsafe {
-            ffi::rocksdb_memory_consumers_add_db(self.inner, db.get_db_handle().handle());
+            db.memory_consumers_add_db(self.inner);
         }
     }
 
@@ -264,7 +270,7 @@ impl MemoryUsageBuilder {
 
 /// Get memory usage stats from DB instances and Cache instances
 pub fn get_memory_usage_stats(
-    dbs: Option<&[&dyn GetDBHandle]>,
+    dbs: Option<&[&dyn PerfInternal]>,
     caches: Option<&[&Cache]>,
 ) -> Result<MemoryUsageStats, Error> {
     let mut builder = MemoryUsageBuilder::new()?;
