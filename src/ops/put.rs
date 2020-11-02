@@ -16,7 +16,7 @@
 use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
 
 #[delegatable_trait]
 pub trait Put {
@@ -58,7 +58,7 @@ pub trait PutCFOpt {
 
 impl<T> Put for T
 where
-    T: Handle<ffi::rocksdb_t> + PutOpt,
+    T: PutOpt,
 {
     fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
@@ -69,10 +69,7 @@ where
     }
 }
 
-impl<T> PutOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl PutOpt for DBInner {
     fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -97,7 +94,7 @@ where
 
 impl<T> PutCF for T
 where
-    T: Handle<ffi::rocksdb_t> + PutCFOpt,
+    T: PutCFOpt,
 {
     fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
     where
@@ -108,10 +105,7 @@ where
     }
 }
 
-impl<T> PutCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl PutCFOpt for DBInner {
     fn put_cf_opt<K, V>(
         &self,
         cf: &ColumnFamily,

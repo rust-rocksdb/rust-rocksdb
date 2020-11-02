@@ -11,7 +11,9 @@
 // limitations under the License.
 //
 
-use crate::{ffi, ffi_util::opt_bytes_to_ptr, handle::Handle, ColumnFamily, CompactOptions};
+use crate::{
+    db::DBInner, ffi, ffi_util::opt_bytes_to_ptr, handle::Handle, ColumnFamily, CompactOptions,
+};
 use ambassador::delegatable_trait;
 use libc::size_t;
 
@@ -66,10 +68,7 @@ where
     }
 }
 
-impl<T> CompactRangeOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl CompactRangeOpt for DBInner {
     fn compact_range_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         begin: Option<B>,
@@ -106,10 +105,7 @@ where
     }
 }
 
-impl<T> CompactRangeCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl CompactRangeCFOpt for DBInner {
     fn compact_range_cf_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,

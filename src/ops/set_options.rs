@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, Error};
+use crate::{db::DBInner, ffi, handle::Handle, Error};
 use ambassador::delegatable_trait;
 use libc::c_char;
 use std::ffi::CString;
@@ -21,10 +21,7 @@ pub trait SetOptions {
     fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error>;
 }
 
-impl<T> SetOptions for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl SetOptions for DBInner {
     fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
         let copts = opts
             .iter()

@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error, FlushOptions};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error, FlushOptions};
 use ambassador::delegatable_trait;
 
 #[delegatable_trait]
@@ -48,10 +48,7 @@ where
     }
 }
 
-impl<T> FlushOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl FlushOpt for DBInner {
     fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_flush(self.handle(), flushopts.inner,));
@@ -69,10 +66,7 @@ where
     }
 }
 
-impl<T> FlushCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl FlushCFOpt for DBInner {
     fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_flush_cf(

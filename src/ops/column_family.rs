@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error, Options};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error, Options};
 use ambassador::delegatable_trait;
 use std::collections::BTreeMap;
 use std::ffi::CString;
@@ -48,10 +48,7 @@ where
     }
 }
 
-impl<T> CreateColumnFamily for T
-where
-    T: Handle<ffi::rocksdb_t> + GetColumnFamilies,
-{
+impl CreateColumnFamily for DBInner {
     fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let cname = CString::new(name.as_ref().as_bytes()).map_err(|_| {
             Error::new(format!(
@@ -73,10 +70,7 @@ where
     }
 }
 
-impl<T> DropColumnFamily for T
-where
-    T: Handle<ffi::rocksdb_t> + GetColumnFamilies,
-{
+impl DropColumnFamily for DBInner {
     fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         if let Some(cf) = self.get_mut_cfs().remove(name) {
             unsafe {

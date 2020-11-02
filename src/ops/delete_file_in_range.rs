@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error};
 use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
@@ -43,10 +43,7 @@ pub trait DeleteFileInRangeCF {
     ) -> Result<(), Error>;
 }
 
-impl<T> DeleteFileInRange for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl DeleteFileInRange for DBInner {
     fn delete_file_in_range<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         begin: B,
@@ -67,10 +64,8 @@ where
         }
     }
 }
-impl<T> DeleteFileInRangeCF for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+
+impl DeleteFileInRangeCF for DBInner {
     fn delete_file_in_range_cf<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,

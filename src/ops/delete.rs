@@ -15,7 +15,7 @@
 
 use libc::{c_char, size_t};
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
 use ambassador::delegatable_trait;
 
 #[delegatable_trait]
@@ -52,10 +52,7 @@ where
     }
 }
 
-impl<T> DeleteOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl DeleteOpt for DBInner {
     fn delete_opt<K: AsRef<[u8]>>(&self, key: K, writeopts: &WriteOptions) -> Result<(), Error> {
         let key = key.as_ref();
 
@@ -80,10 +77,7 @@ where
     }
 }
 
-impl<T> DeleteCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl DeleteCFOpt for DBInner {
     fn delete_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,

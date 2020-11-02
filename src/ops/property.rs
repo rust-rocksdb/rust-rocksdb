@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error};
 use ambassador::delegatable_trait;
 use libc::{c_char, c_void};
 use std::ffi::{CStr, CString};
@@ -91,10 +91,7 @@ where
     }
 }
 
-impl<T> GetProperty for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl GetProperty for DBInner {
     fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
         property_value(
             |prop_name| unsafe { ffi::rocksdb_property_value(self.handle(), prop_name.as_ptr()) },
@@ -103,10 +100,7 @@ where
     }
 }
 
-impl<T> GetPropertyCF for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl GetPropertyCF for DBInner {
     fn property_value_cf(&self, cf: &ColumnFamily, name: &str) -> Result<Option<String>, Error> {
         property_value(
             |prop_name| unsafe {

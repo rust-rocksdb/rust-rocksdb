@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
 use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
@@ -52,10 +52,7 @@ where
     }
 }
 
-impl<T> DeleteRangeCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl DeleteRangeCFOpt for DBInner {
     fn delete_range_cf_opt<B: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,

@@ -16,7 +16,7 @@
 use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
-use crate::{ffi, handle::Handle, ColumnFamily, DBPinnableSlice, Error, ReadOptions};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, DBPinnableSlice, Error, ReadOptions};
 
 #[delegatable_trait]
 pub trait GetPinned {
@@ -69,10 +69,7 @@ where
     }
 }
 
-impl<T> GetPinnedOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl GetPinnedOpt for DBInner {
     fn get_pinned_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -108,10 +105,7 @@ where
     }
 }
 
-impl<T> GetPinnedCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl GetPinnedCFOpt for DBInner {
     fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &ColumnFamily,

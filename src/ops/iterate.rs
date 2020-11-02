@@ -14,8 +14,8 @@
 use ambassador::delegatable_trait;
 
 use crate::{
-    ffi, handle::Handle, ColumnFamily, DBIterator, DBRawIterator, Direction, IteratorMode,
-    ReadOptions,
+    db::DBInner, ffi, handle::Handle, ColumnFamily, DBIterator, DBRawIterator, Direction,
+    IteratorMode, ReadOptions,
 };
 
 #[delegatable_trait]
@@ -118,20 +118,14 @@ pub trait IterateCF {
     }
 }
 
-impl<T> Iterate for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl Iterate for DBInner {
     fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: ReadOptions) -> DBRawIterator<'b> {
         let iter = unsafe { ffi::rocksdb_create_iterator(self.handle(), readopts.inner) };
         DBRawIterator::new(iter, readopts)
     }
 }
 
-impl<T> IterateCF for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl IterateCF for DBInner {
     fn raw_iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf: &ColumnFamily,

@@ -14,7 +14,7 @@
 use ambassador::delegatable_trait;
 use libc::{c_char, size_t};
 
-use crate::{ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error, WriteOptions};
 
 #[delegatable_trait]
 pub trait Merge {
@@ -67,10 +67,7 @@ where
     }
 }
 
-impl<T> MergeOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl MergeOpt for DBInner {
     fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -106,10 +103,7 @@ where
     }
 }
 
-impl<T> MergeCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl MergeCFOpt for DBInner {
     fn merge_cf_opt<K, V>(
         &self,
         cf: &ColumnFamily,

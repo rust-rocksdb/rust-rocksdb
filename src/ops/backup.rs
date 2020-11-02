@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle, Error};
+use crate::{db::DBInner, ffi, handle::Handle, Error};
 use ambassador::delegatable_trait;
 use libc::c_uchar;
 
@@ -25,10 +25,7 @@ pub trait BackupInternal {
     ) -> Result<(), Error>;
 }
 
-impl<T> BackupInternal for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl BackupInternal for DBInner {
     unsafe fn create_new_backup_flush<H: Handle<ffi::rocksdb_backup_engine_t>>(
         &self,
         backup_engine: &H,

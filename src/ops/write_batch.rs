@@ -15,7 +15,7 @@
 
 use ambassador::delegatable_trait;
 
-use crate::{ffi, handle::Handle, Error, WriteBatch, WriteOptions};
+use crate::{db::DBInner, ffi, handle::Handle, Error, WriteBatch, WriteOptions};
 
 #[delegatable_trait]
 pub trait WriteBatchWrite {
@@ -44,10 +44,7 @@ where
     }
 }
 
-impl<T> WriteBatchWriteOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl WriteBatchWriteOpt for DBInner {
     fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_write(

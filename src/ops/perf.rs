@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, handle::Handle};
+use crate::{db::DBInner, ffi, handle::Handle};
 use ambassador::delegatable_trait;
 
 /// This is an internal trait used to create and free a checkpoint
@@ -20,10 +20,7 @@ pub trait PerfInternal {
     unsafe fn memory_consumers_add_db(&self, ptr: *mut ffi::rocksdb_memory_consumers_t);
 }
 
-impl<T> PerfInternal for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl PerfInternal for DBInner {
     unsafe fn memory_consumers_add_db(&self, ptr: *mut ffi::rocksdb_memory_consumers_t) {
         ffi::rocksdb_memory_consumers_add_db(ptr, self.handle());
     }

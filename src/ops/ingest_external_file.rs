@@ -12,7 +12,8 @@
 //
 
 use crate::{
-    ffi, ffi_util::to_cpath, handle::Handle, ColumnFamily, Error, IngestExternalFileOptions,
+    db::DBInner, ffi, ffi_util::to_cpath, handle::Handle, ColumnFamily, Error,
+    IngestExternalFileOptions,
 };
 use ambassador::delegatable_trait;
 use std::ffi::CString;
@@ -88,10 +89,7 @@ fn paths_to_cstr<P: AsRef<Path>>(paths: Vec<P>) -> Result<Vec<CString>, Error> {
         .collect::<Result<Vec<_>, _>>()
 }
 
-impl<T> IngestExternalFileOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl IngestExternalFileOpt for DBInner {
     fn ingest_external_file_opts<P: AsRef<Path>>(
         &self,
         opts: &IngestExternalFileOptions,
@@ -112,10 +110,7 @@ where
     }
 }
 
-impl<T> IngestExternalFileCFOpt for T
-where
-    T: Handle<ffi::rocksdb_t>,
-{
+impl IngestExternalFileCFOpt for DBInner {
     fn ingest_external_file_cf_opts<P: AsRef<Path>>(
         &self,
         cf: &ColumnFamily,
