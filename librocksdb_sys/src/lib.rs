@@ -698,6 +698,14 @@ extern "C" {
         max_dict_bytes: c_int,
         zstd_max_train_bytes: c_int,
     );
+    pub fn crocksdb_options_set_bottommost_compression_options(
+        options: *mut Options,
+        window_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+        zstd_max_train_bytes: c_int,
+    );
     pub fn crocksdb_options_set_compression_per_level(
         options: *mut Options,
         level_values: *const DBCompressionType,

@@ -3362,8 +3362,10 @@ mod test {
         let db_opts = db.get_db_options();
         assert_eq!(db_opts.get_max_background_jobs(), 8);
 
-        db.set_db_options(&[("max_background_compactions", "6")]).unwrap();
-        db.set_db_options(&[("max_background_flushes", "3")]).unwrap();
+        db.set_db_options(&[("max_background_compactions", "6")])
+            .unwrap();
+        db.set_db_options(&[("max_background_flushes", "3")])
+            .unwrap();
         let db_opts = db.get_db_options();
         assert_eq!(db_opts.get_max_background_jobs(), 8);
         assert_eq!(db_opts.get_max_background_compactions(), 6);
