@@ -467,12 +467,6 @@ macro_rules! make_new_db_with_traits {
                     pub fn cancel_all_background_work(&self, wait: bool);
                 }
             }
-
-            pub fn snapshot(&self) -> Snapshot<Self> {
-                unsafe {
-                    self.create_snapshot()
-                }
-            }
         }
 
         impl SnapshotInternal for $struct_name {

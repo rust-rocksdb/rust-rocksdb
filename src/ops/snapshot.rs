@@ -20,3 +20,19 @@ pub trait SnapshotInternal {
     unsafe fn create_snapshot(&self) -> Snapshot<Self::DB>;
     unsafe fn release_snapshot(&self, snapshot: &mut Snapshot<Self::DB>);
 }
+
+pub trait Snapshotable {
+    type DB: SnapshotInternal<DB = Self::DB>;
+    fn snapshot(&self) -> Snapshot<Self::DB>;
+}
+
+impl<T> Snapshotable for T
+where
+    T: SnapshotInternal<DB = T>,
+{
+    type DB = T;
+
+    fn snapshot(&self) -> Snapshot<T> {
+        unsafe { self.create_snapshot() }
+    }
+}
