@@ -44,7 +44,6 @@ use crate::{
 };
 
 use ambassador::Delegate;
-use delegate::delegate;
 use libc::{self, c_char, c_int, c_uchar};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
@@ -456,16 +455,31 @@ macro_rules! make_new_db_with_traits {
         $(#[delegate($d)])+
         pub struct $struct_name(DBInner);
 
+        #[allow(clippy::inline_always)]
         impl $struct_name {
-            delegate! {
-                to self.0 {
-                    #[allow(clippy::inline_always)]
-                    pub fn path(&self) -> &Path;
-                    pub fn latest_sequence_number(&self) -> u64;
-                    pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error>;
-                    pub fn live_files(&self) -> Result<Vec<LiveFile>, Error>;
-                    pub fn cancel_all_background_work(&self, wait: bool);
-                }
+            #[inline(always)]
+            pub fn path(&self) -> &Path {
+                self.0.path()
+            }
+
+            #[inline(always)]
+            pub fn latest_sequence_number(&self) -> u64 {
+                self.0.latest_sequence_number()
+            }
+
+            #[inline(always)]
+            pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error> {
+               self.0.get_updates_since(seq_number)
+            }
+
+            #[inline(always)]
+            pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
+                self.0.live_files()
+            }
+
+            #[inline(always)]
+            pub fn cancel_all_background_work(&self, wait: bool) {
+                self.0.cancel_all_background_work(wait)
             }
         }
 
@@ -682,10 +696,9 @@ impl SecondaryDB {
         .map(Self)
     }
 
-    delegate! {
-        to self.0 {
-            #[allow(clippy::inline_always)]
-            pub fn try_catch_up_with_primary(&self) -> Result<(), Error>;
-        }
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
+    pub fn try_catch_up_with_primary(&self) -> Result<(), Error> {
+        self.0.try_catch_up_with_primary()
     }
 }
