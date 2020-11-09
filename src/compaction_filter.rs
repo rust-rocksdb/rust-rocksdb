@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use std::{mem, ptr, slice};
 
+use crate::table_properties::TableProperties;
 pub use crocksdb_ffi::DBCompactionFilter;
 use crocksdb_ffi::{self, DBCompactionFilterContext, DBCompactionFilterFactory};
 use libc::{c_char, c_int, c_void, malloc, memcpy, size_t};
@@ -131,6 +132,27 @@ impl CompactionFilterContext {
     pub fn is_bottommost_level(&self) -> bool {
         let ctx = &self.0 as *const DBCompactionFilterContext;
         unsafe { crocksdb_ffi::crocksdb_compactionfiltercontext_is_bottommost_level(ctx) }
+    }
+
+    pub fn file_numbers(&self) -> &[u64] {
+        let ctx = &self.0 as *const DBCompactionFilterContext;
+        let (mut buffer, mut len): (*const u64, usize) = (ptr::null_mut(), 0);
+        unsafe {
+            crocksdb_ffi::crocksdb_compactionfiltercontext_file_numbers(
+                ctx,
+                &mut buffer as *mut *const u64,
+                &mut len as *mut usize,
+            );
+            slice::from_raw_parts(buffer, len)
+        }
+    }
+
+    pub fn table_properties(&self, offset: usize) -> &TableProperties {
+        let ctx = &self.0 as *const DBCompactionFilterContext;
+        unsafe {
+            let raw = crocksdb_ffi::crocksdb_compactionfiltercontext_table_properties(ctx, offset);
+            TableProperties::from_ptr(raw)
+        }
     }
 }
 

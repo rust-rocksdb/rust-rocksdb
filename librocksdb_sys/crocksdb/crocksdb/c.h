@@ -1341,6 +1341,14 @@ extern C_ROCKSDB_LIBRARY_API unsigned char
 crocksdb_compactionfiltercontext_is_bottommost_level(
     crocksdb_compactionfiltercontext_t* context);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_compactionfiltercontext_file_numbers(
+    crocksdb_compactionfiltercontext_t* context, const uint64_t** buffer,
+    size_t* len);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_table_properties_t*
+crocksdb_compactionfiltercontext_table_properties(
+    crocksdb_compactionfiltercontext_t* context, size_t offset);
+
 /* Compaction Filter Factory */
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_compactionfilterfactory_t*

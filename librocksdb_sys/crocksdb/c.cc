@@ -3297,6 +3297,19 @@ unsigned char crocksdb_compactionfiltercontext_is_bottommost_level(
   return context->rep.is_bottommost_level;
 }
 
+void crocksdb_compactionfiltercontext_file_numbers(
+    crocksdb_compactionfiltercontext_t* context, const uint64_t** buffer,
+    size_t* len) {
+  *buffer = context->rep.file_numbers.data();
+  *len = context->rep.file_numbers.size();
+}
+
+crocksdb_table_properties_t* crocksdb_compactionfiltercontext_table_properties(
+    crocksdb_compactionfiltercontext_t* context, size_t offset) {
+  return (crocksdb_table_properties_t*)context->rep.table_properties[offset]
+      .get();
+}
+
 crocksdb_compactionfilterfactory_t* crocksdb_compactionfilterfactory_create(
     void* state, void (*destructor)(void*),
     crocksdb_compactionfilter_t* (*create_compaction_filter)(
