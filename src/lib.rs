@@ -68,7 +68,8 @@
     // False positive: WebSocket
     clippy::doc_markdown,
     clippy::missing_safety_doc,
-    clippy::needless_pass_by_value
+    clippy::needless_pass_by_value,
+    clippy::option_if_let_else,
 )]
 
 #[macro_use]
