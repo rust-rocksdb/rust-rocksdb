@@ -446,6 +446,23 @@ pub enum DBSstPartitionerResult {
     Required = 1,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum CompactionFilterValueType {
+    Value = 0,
+    MergeOperand = 1,
+    BlobIndex = 2,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub enum CompactionFilterDecision {
+    Keep = 0,
+    Remove = 1,
+    ChangeValue = 2,
+    RemoveAndSkipUntil = 3,
+}
+
 /// # Safety
 ///
 /// ptr must point to a valid CStr value
@@ -1499,26 +1516,24 @@ extern "C" {
         propname: *const c_char,
     ) -> *mut c_char;
     // Compaction filter
-    pub fn crocksdb_compactionfilter_create(
+    pub fn crocksdb_compactionfilter_create_v2(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
-        filter: extern "C" fn(
+        filter_v2: extern "C" fn(
             *mut c_void,
             c_int,
             *const u8,
             size_t,
+            CompactionFilterValueType,
             *const u8,
             size_t,
             *mut *mut u8,
             *mut size_t,
-            *mut bool,
-        ) -> bool,
+            *mut *mut u8,
+            *mut size_t,
+        ) -> CompactionFilterDecision,
         name: extern "C" fn(*mut c_void) -> *const c_char,
     ) -> *mut DBCompactionFilter;
-    pub fn crocksdb_compactionfilter_set_ignore_snapshots(
-        filter: *mut DBCompactionFilter,
-        ignore_snapshot: bool,
-    );
     pub fn crocksdb_compactionfilter_destroy(filter: *mut DBCompactionFilter);
 
     // Compaction filter context

@@ -392,36 +392,38 @@ struct crocksdb_map_property_t {
 struct crocksdb_compactionfilter_t : public CompactionFilter {
   void* state_;
   void (*destructor_)(void*);
-  unsigned char (*filter_)(void*, int level, const char* key, size_t key_length,
-                           const char* existing_value, size_t value_length,
-                           char** new_value, size_t* new_value_length,
-                           unsigned char* value_changed);
+  Decision (*filter_v2_)(void*, int level, const char* key, size_t key_length,
+                         ValueType value_type, const char* existing_value,
+                         size_t value_length, char** new_value,
+                         size_t* new_value_length, char** skip_until,
+                         size_t* skip_until_length);
+
   const char* (*name_)(void*);
-  unsigned char ignore_snapshots_;
 
   virtual ~crocksdb_compactionfilter_t() { (*destructor_)(state_); }
 
-  virtual bool Filter(int level, const Slice& key, const Slice& existing_value,
-                      std::string* new_value,
-                      bool* value_changed) const override {
+  virtual Decision FilterV2(int level, const Slice& key, ValueType value_type,
+                            const Slice& existing_value, std::string* new_value,
+                            std::string* skip_until) const override {
     char* c_new_value = nullptr;
-    size_t new_value_length = 0;
-    unsigned char c_value_changed = 0;
-    unsigned char result =
-        (*filter_)(state_, level, key.data(), key.size(), existing_value.data(),
-                   existing_value.size(), &c_new_value, &new_value_length,
-                   &c_value_changed);
-    if (c_value_changed) {
+    char* c_skip_until = nullptr;
+    size_t new_value_length, skip_until_length = 0;
+
+    Decision result = (*filter_v2_)(
+        state_, level, key.data(), key.size(), value_type,
+        existing_value.data(), existing_value.size(), &c_new_value,
+        &new_value_length, &c_skip_until, &skip_until_length);
+    if (result == Decision::kChangeValue) {
       new_value->assign(c_new_value, new_value_length);
       free(c_new_value);
-      *value_changed = true;
+    } else if (result == Decision::kRemoveAndSkipUntil) {
+      skip_until->assign(c_skip_until, skip_until_length);
+      free(c_skip_until);
     }
     return result;
   }
 
   virtual const char* Name() const override { return (*name_)(state_); }
-
-  virtual bool IgnoreSnapshots() const override { return ignore_snapshots_; }
 };
 
 struct crocksdb_compactionfilterfactory_t : public CompactionFilterFactory {
@@ -3256,26 +3258,20 @@ custom cache
 table_properties_collectors
 */
 
-crocksdb_compactionfilter_t* crocksdb_compactionfilter_create(
+crocksdb_compactionfilter_t* crocksdb_compactionfilter_create_v2(
     void* state, void (*destructor)(void*),
-    unsigned char (*filter)(void*, int level, const char* key,
-                            size_t key_length, const char* existing_value,
-                            size_t value_length, char** new_value,
-                            size_t* new_value_length,
-                            unsigned char* value_changed),
+    CompactionFilter::Decision (*filter_v2)(
+        void*, int level, const char* key, size_t key_length,
+        CompactionFilter::ValueType value_type, const char* existing_value,
+        size_t value_length, char** new_value, size_t* new_value_length,
+        char** skip_until, size_t* skip_until_length),
     const char* (*name)(void*)) {
   crocksdb_compactionfilter_t* result = new crocksdb_compactionfilter_t;
   result->state_ = state;
   result->destructor_ = destructor;
-  result->filter_ = filter;
-  result->ignore_snapshots_ = true;
+  result->filter_v2_ = filter_v2;
   result->name_ = name;
   return result;
-}
-
-void crocksdb_compactionfilter_set_ignore_snapshots(
-    crocksdb_compactionfilter_t* filter, unsigned char whether_ignore) {
-  filter->ignore_snapshots_ = whether_ignore;
 }
 
 void crocksdb_compactionfilter_destroy(crocksdb_compactionfilter_t* filter) {

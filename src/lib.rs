@@ -31,8 +31,9 @@ extern crate lazy_static;
 pub use cloud::CloudEnvOptions;
 pub use compaction_filter::{
     new_compaction_filter, new_compaction_filter_factory, new_compaction_filter_raw,
-    CompactionFilter, CompactionFilterContext, CompactionFilterFactory,
-    CompactionFilterFactoryHandle, CompactionFilterHandle, DBCompactionFilter,
+    CompactionFilter, CompactionFilterContext, CompactionFilterDecision, CompactionFilterFactory,
+    CompactionFilterFactoryHandle, CompactionFilterHandle, CompactionFilterValueType,
+    DBCompactionFilter,
 };
 #[cfg(feature = "encryption")]
 pub use encryption::{DBEncryptionMethod, EncryptionKeyManager, FileEncryptionInfo};
