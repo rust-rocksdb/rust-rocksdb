@@ -55,16 +55,21 @@ jobs:
   test:
     name: ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
+      fail-fast: false
       matrix:
         build: [Linux, macOS, Windows]
         include:
           - build: Linux
             os: ubuntu-latest
+            experimental: false
           - build: macOS
-            os: macOS-latest
+            os: macos-latest
+            experimental: false
           - build: Windows
             os: windows-latest
+            experimental: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
