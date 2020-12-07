@@ -89,21 +89,25 @@ macro_rules! CheckCondition {
     };
 }
 
-unsafe fn CheckEqual(expected: *const c_char, v: *const c_char, n: size_t) {
-    if expected.is_null() && v.is_null() {
-        // ok
+unsafe fn CheckEqual(expected: *const c_char, actual: *const c_char, n: size_t) {
+    let is_equal = if expected.is_null() && actual.is_null() {
+        true
     } else if !expected.is_null()
-        && !v.is_null()
+        && !actual.is_null()
         && n == strlen(expected)
-        && memcmp(expected as *const c_void, v as *const c_void, n) == 0
+        && memcmp(expected as *const c_void, actual as *const c_void, n) == 0
     {
-        // ok
+        true
     } else {
+        false
+    };
+
+    if !is_equal {
         panic!(
             "{}: expected '{}', got '{}'",
             phase,
             rstr(strndup(expected, n)),
-            rstr(strndup(v, 5))
+            rstr(strndup(actual, 5))
         );
     }
 }

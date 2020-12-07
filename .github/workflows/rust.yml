@@ -65,7 +65,7 @@ jobs:
             os: ubuntu-latest
             experimental: false
           - build: macOS
-            os: macOS-latest
+            os: macos-latest
             experimental: false
           - build: Windows
             os: windows-latest
