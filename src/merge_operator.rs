@@ -42,7 +42,6 @@
 //!
 //!opts.create_if_missing(true);
 //!opts.set_merge_operator_associative("test operator", concat_merge);
-//!//opts.set_merge_operator("test operator", concat_merge, partial_concat_merge); // if your merge is not associative
 //!{
 //!    let db = DB::open(&opts, path).unwrap();
 //!    let p = db.put(b"k1", b"a");
