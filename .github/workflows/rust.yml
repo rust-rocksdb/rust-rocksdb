@@ -55,21 +55,16 @@ jobs:
   test:
     name: ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
     strategy:
-      fail-fast: false
       matrix:
         build: [Linux, macOS, Windows]
         include:
           - build: Linux
             os: ubuntu-latest
-            experimental: false
           - build: macOS
             os: macos-latest
-            experimental: false
           - build: Windows
             os: windows-latest
-            experimental: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -82,6 +77,9 @@ jobs:
           target: ${{ matrix.target }}
           profile: minimal
           override: true
+      - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
+        if: runner.os == 'Windows'
+        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
