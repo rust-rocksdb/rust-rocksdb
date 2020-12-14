@@ -1117,6 +1117,7 @@ extern "C" {
     pub fn crocksdb_iter_prev(iter: *mut DBIterator);
     pub fn crocksdb_iter_key(iter: *const DBIterator, klen: *mut size_t) -> *mut u8;
     pub fn crocksdb_iter_value(iter: *const DBIterator, vlen: *mut size_t) -> *mut u8;
+    pub fn crocksdb_iter_seqno(iter: *const DBIterator, seqno: *mut u64) -> bool;
     pub fn crocksdb_iter_get_error(iter: *const DBIterator, err: *mut *mut c_char);
     // Write batch
     pub fn crocksdb_write(
@@ -1516,14 +1517,15 @@ extern "C" {
         propname: *const c_char,
     ) -> *mut c_char;
     // Compaction filter
-    pub fn crocksdb_compactionfilter_create_v2(
+    pub fn crocksdb_compactionfilter_create(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
-        filter_v2: extern "C" fn(
+        filter: extern "C" fn(
             *mut c_void,
             c_int,
             *const u8,
             size_t,
+            u64,
             CompactionFilterValueType,
             *const u8,
             size_t,

@@ -12,6 +12,7 @@
 // limitations under the License.
 
 use std::ops::Deref;
+use std::sync::mpsc::{self, SyncSender};
 use std::sync::*;
 use std::thread;
 
@@ -408,4 +409,73 @@ fn test_fixed_suffix_seek() {
     iter.seek(SeekKey::Key(b"k-24yfa-9")).unwrap();
     let vec = prev_collect(&mut iter);
     assert!(vec.len() == 0);
+}
+
+#[test]
+fn test_iter_sequence_number() {
+    struct TestCompactionFilter(SyncSender<(Vec<u8>, Vec<u8>, u64)>);
+    impl CompactionFilter for TestCompactionFilter {
+        fn featured_filter(
+            &mut self,
+            _: usize,
+            key: &[u8],
+            seqno: u64,
+            value: &[u8],
+            _: CompactionFilterValueType,
+        ) -> CompactionFilterDecision {
+            self.0.send((key.to_vec(), value.to_vec(), seqno)).unwrap();
+            CompactionFilterDecision::Keep
+        }
+    }
+    let (tx, rx) = mpsc::sync_channel(8);
+    let filter = Box::new(TestCompactionFilter(tx));
+
+    let path = tempdir_with_prefix("_rust_rocksdb_sequence_number");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    let mut cf_opts = ColumnFamilyOptions::new();
+    cf_opts.set_disable_auto_compactions(true);
+    cf_opts.set_num_levels(7);
+    cf_opts.set_compaction_filter("test", filter).unwrap();
+    let db = DB::open_cf(
+        opts,
+        path.path().to_str().unwrap(),
+        vec![("default", cf_opts)],
+    )
+    .unwrap();
+
+    db.put(b"key1", b"value11").unwrap();
+    db.flush(false).unwrap();
+    db.put(b"key1", b"value22").unwrap();
+    db.flush(false).unwrap();
+    db.put(b"key2", b"value21").unwrap();
+    db.flush(false).unwrap();
+    db.put(b"key2", b"value22").unwrap();
+
+    let mut iter = db.iter();
+    assert!(iter.seek(SeekKey::Key(b"key1")).unwrap());
+    assert_eq!(iter.key(), b"key1");
+    assert_eq!(iter.value(), b"value22");
+    assert_eq!(iter.sequence().unwrap(), 2);
+
+    assert!(iter.next().unwrap());
+    assert_eq!(iter.key(), b"key2");
+    assert_eq!(iter.value(), b"value22");
+    assert_eq!(iter.sequence().unwrap(), 4);
+
+    let mut compact_opts = CompactOptions::new();
+    compact_opts.set_bottommost_level_compaction(DBBottommostLevelCompaction::Force);
+    compact_opts.set_target_level(6);
+    let cf_default = db.cf_handle("default").unwrap();
+    db.compact_range_cf_opt(cf_default, &compact_opts, Some(b"a"), Some(b"z"));
+
+    let (k, v, seqno) = rx.recv().unwrap();
+    assert_eq!(k, b"key1");
+    assert_eq!(v, b"value22");
+    assert_eq!(seqno, 2);
+
+    let (k, v, seqno) = rx.recv().unwrap();
+    assert_eq!(k, b"key2");
+    assert_eq!(v, b"value22");
+    assert_eq!(seqno, 4);
 }

@@ -8,7 +8,7 @@ pub use crocksdb_ffi::DBCompactionFilter;
 use crocksdb_ffi::{self, DBCompactionFilterContext, DBCompactionFilterFactory};
 use libc::{c_char, c_int, c_void, malloc, memcpy, size_t};
 
-/// Decision used in `CompactionFilter::filter_v2`.
+/// Decision used in `CompactionFilter::filter`.
 pub enum CompactionFilterDecision {
     /// The record will be kept instead of filtered.
     Keep,
@@ -43,10 +43,11 @@ pub trait CompactionFilter {
     }
 
     /// This method will overwrite `filter` if a `CompactionFilter` implements both of them.
-    fn filter_v2(
+    fn featured_filter(
         &mut self,
         level: usize,
         key: &[u8],
+        _seqno: u64,
         value: &[u8],
         value_type: CompactionFilterValueType,
     ) -> CompactionFilterDecision {
@@ -84,11 +85,12 @@ extern "C" fn destructor(filter: *mut c_void) {
     }
 }
 
-extern "C" fn filter_v2(
+extern "C" fn filter(
     filter: *mut c_void,
     level: c_int,
     key: *const u8,
     key_len: size_t,
+    seqno: u64,
     value_type: CompactionFilterValueType,
     value: *const u8,
     value_len: size_t,
@@ -106,7 +108,7 @@ extern "C" fn filter_v2(
         let filter = &mut (*(filter as *mut CompactionFilterProxy)).filter;
         let key = slice::from_raw_parts(key, key_len);
         let value = slice::from_raw_parts(value, value_len);
-        match filter.filter_v2(level as usize, key, value, value_type) {
+        match filter.featured_filter(level as usize, key, seqno, value, value_type) {
             CompactionFilterDecision::Keep => RawCompactionFilterDecision::Keep,
             CompactionFilterDecision::Remove => RawCompactionFilterDecision::Remove,
             CompactionFilterDecision::ChangeValue(new_v) => {
@@ -155,12 +157,7 @@ pub unsafe fn new_compaction_filter_raw(
         name: c_name,
         filter: f,
     }));
-    crocksdb_ffi::crocksdb_compactionfilter_create_v2(
-        proxy as *mut c_void,
-        destructor,
-        filter_v2,
-        name,
-    )
+    crocksdb_ffi::crocksdb_compactionfilter_create(proxy as *mut c_void, destructor, filter, name)
 }
 
 pub struct CompactionFilterContext(DBCompactionFilterContext);

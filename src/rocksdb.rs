@@ -305,6 +305,17 @@ impl<D> DBIterator<D> {
         }
     }
 
+    pub fn sequence(&self) -> Option<u64> {
+        debug_assert_eq!(self.valid(), Ok(true));
+        unsafe {
+            let mut seqno = 0;
+            if crocksdb_ffi::crocksdb_iter_seqno(self.inner, &mut seqno) {
+                return Some(seqno);
+            }
+            None
+        }
+    }
+
     #[deprecated]
     pub fn kv(&self) -> Option<(Vec<u8>, Vec<u8>)> {
         if self.valid().unwrap() {

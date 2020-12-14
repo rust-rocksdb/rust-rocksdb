@@ -41,6 +41,7 @@
 #include "rocksdb/status.h"
 #include "rocksdb/table.h"
 #include "rocksdb/table_properties.h"
+#include "rocksdb/types.h"
 #include "rocksdb/universal_compaction.h"
 #include "rocksdb/utilities/backupable_db.h"
 #include "rocksdb/utilities/db_ttl.h"
@@ -392,27 +393,28 @@ struct crocksdb_map_property_t {
 struct crocksdb_compactionfilter_t : public CompactionFilter {
   void* state_;
   void (*destructor_)(void*);
-  Decision (*filter_v2_)(void*, int level, const char* key, size_t key_length,
-                         ValueType value_type, const char* existing_value,
-                         size_t value_length, char** new_value,
-                         size_t* new_value_length, char** skip_until,
-                         size_t* skip_until_length);
+  Decision (*filter_)(void*, int level, const char* key, size_t key_length,
+                      uint64_t seqno, ValueType value_type,
+                      const char* existing_value, size_t value_length,
+                      char** new_value, size_t* new_value_length,
+                      char** skip_until, size_t* skip_until_length);
 
   const char* (*name_)(void*);
 
   virtual ~crocksdb_compactionfilter_t() { (*destructor_)(state_); }
 
-  virtual Decision FilterV2(int level, const Slice& key, ValueType value_type,
-                            const Slice& existing_value, std::string* new_value,
+  virtual Decision FilterV3(int level, const Slice& key, uint64_t seqno,
+                            ValueType value_type, const Slice& existing_value,
+                            std::string* new_value,
                             std::string* skip_until) const override {
     char* c_new_value = nullptr;
     char* c_skip_until = nullptr;
     size_t new_value_length, skip_until_length = 0;
 
-    Decision result = (*filter_v2_)(
-        state_, level, key.data(), key.size(), value_type,
-        existing_value.data(), existing_value.size(), &c_new_value,
-        &new_value_length, &c_skip_until, &skip_until_length);
+    Decision result =
+        (*filter_)(state_, level, key.data(), key.size(), seqno, value_type,
+                   existing_value.data(), existing_value.size(), &c_new_value,
+                   &new_value_length, &c_skip_until, &skip_until_length);
     if (result == Decision::kChangeValue) {
       new_value->assign(c_new_value, new_value_length);
       free(c_new_value);
@@ -1498,6 +1500,10 @@ const char* crocksdb_iter_value(const crocksdb_iterator_t* iter, size_t* vlen) {
   Slice s = iter->rep->value();
   *vlen = s.size();
   return s.data();
+}
+
+bool crocksdb_iter_seqno(const crocksdb_iterator_t* iter, SequenceNumber* no) {
+  return iter->rep->seqno(no);
 }
 
 void crocksdb_iter_get_error(const crocksdb_iterator_t* iter, char** errptr) {
@@ -3258,10 +3264,10 @@ custom cache
 table_properties_collectors
 */
 
-crocksdb_compactionfilter_t* crocksdb_compactionfilter_create_v2(
+crocksdb_compactionfilter_t* crocksdb_compactionfilter_create(
     void* state, void (*destructor)(void*),
-    CompactionFilter::Decision (*filter_v2)(
-        void*, int level, const char* key, size_t key_length,
+    CompactionFilter::Decision (*filter)(
+        void*, int level, const char* key, size_t key_length, uint64_t seqno,
         CompactionFilter::ValueType value_type, const char* existing_value,
         size_t value_length, char** new_value, size_t* new_value_length,
         char** skip_until, size_t* skip_until_length),
@@ -3269,7 +3275,7 @@ crocksdb_compactionfilter_t* crocksdb_compactionfilter_create_v2(
   crocksdb_compactionfilter_t* result = new crocksdb_compactionfilter_t;
   result->state_ = state;
   result->destructor_ = destructor;
-  result->filter_v2_ = filter_v2;
+  result->filter_ = filter;
   result->name_ = name;
   return result;
 }

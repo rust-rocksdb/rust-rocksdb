@@ -1310,23 +1310,6 @@ crocksdb_ratelimiter_get_bytes_per_second(crocksdb_ratelimiter_t* limiter);
 extern C_ROCKSDB_LIBRARY_API int64_t crocksdb_ratelimiter_get_total_requests(
     crocksdb_ratelimiter_t* limiter, unsigned char pri);
 
-/* Compaction Filter */
-
-extern C_ROCKSDB_LIBRARY_API crocksdb_compactionfilter_t*
-crocksdb_compactionfilter_create(
-    void* state, void (*destructor)(void*),
-    unsigned char (*filter)(void*, int level, const char* key,
-                            size_t key_length, const char* existing_value,
-                            size_t value_length, char** new_value,
-                            size_t* new_value_length,
-                            unsigned char* value_changed),
-    const char* (*name)(void*));
-extern C_ROCKSDB_LIBRARY_API void
-crocksdb_compactionfilter_set_ignore_snapshots(crocksdb_compactionfilter_t*,
-                                               unsigned char);
-extern C_ROCKSDB_LIBRARY_API void crocksdb_compactionfilter_destroy(
-    crocksdb_compactionfilter_t*);
-
 /* Compaction Filter Context */
 
 extern C_ROCKSDB_LIBRARY_API unsigned char
