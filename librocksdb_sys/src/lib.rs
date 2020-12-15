@@ -855,6 +855,7 @@ extern "C" {
         limiter: *mut DBRateLimiter,
         bytes_per_sec: i64,
     );
+    pub fn crocksdb_ratelimiter_set_auto_tuned(limiter: *mut DBRateLimiter, auto_tuned: bool);
     pub fn crocksdb_ratelimiter_get_singleburst_bytes(limiter: *mut DBRateLimiter) -> i64;
     pub fn crocksdb_ratelimiter_request(limiter: *mut DBRateLimiter, bytes: i64, pri: c_uchar);
     pub fn crocksdb_ratelimiter_get_total_bytes_through(
@@ -862,6 +863,7 @@ extern "C" {
         pri: c_uchar,
     ) -> i64;
     pub fn crocksdb_ratelimiter_get_bytes_per_second(limiter: *mut DBRateLimiter) -> i64;
+    pub fn crocksdb_ratelimiter_get_auto_tuned(limiter: *mut DBRateLimiter) -> bool;
     pub fn crocksdb_ratelimiter_get_total_requests(
         limiter: *mut DBRateLimiter,
         pri: c_uchar,

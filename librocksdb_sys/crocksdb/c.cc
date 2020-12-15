@@ -3225,6 +3225,11 @@ void crocksdb_ratelimiter_set_bytes_per_second(crocksdb_ratelimiter_t* limiter,
   limiter->rep->SetBytesPerSecond(rate_bytes_per_sec);
 }
 
+void crocksdb_ratelimiter_set_auto_tuned(crocksdb_ratelimiter_t* limiter,
+                                         unsigned char auto_tuned) {
+  limiter->rep->SetAutoTuned(auto_tuned);
+}
+
 int64_t crocksdb_ratelimiter_get_singleburst_bytes(
     crocksdb_ratelimiter_t* limiter) {
   return limiter->rep->GetSingleBurstBytes();
@@ -3243,6 +3248,11 @@ int64_t crocksdb_ratelimiter_get_total_bytes_through(
 int64_t crocksdb_ratelimiter_get_bytes_per_second(
     crocksdb_ratelimiter_t* limiter) {
   return limiter->rep->GetBytesPerSecond();
+}
+
+unsigned char crocksdb_ratelimiter_get_auto_tuned(
+    crocksdb_ratelimiter_t* limiter) {
+  return limiter->rep->GetAutoTuned();
 }
 
 int64_t crocksdb_ratelimiter_get_total_requests(crocksdb_ratelimiter_t* limiter,

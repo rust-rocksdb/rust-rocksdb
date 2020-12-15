@@ -1095,6 +1095,31 @@ impl DBOptions {
         Some(rate)
     }
 
+    pub fn set_auto_tuned(&mut self, auto_tuned: bool) -> Result<(), String> {
+        let limiter = unsafe { crocksdb_ffi::crocksdb_options_get_ratelimiter(self.inner) };
+        if limiter.is_null() {
+            return Err("Failed to get rate limiter".to_owned());
+        }
+
+        let rate_limiter = RateLimiter { inner: limiter };
+
+        unsafe {
+            crocksdb_ffi::crocksdb_ratelimiter_set_auto_tuned(rate_limiter.inner, auto_tuned);
+        }
+        Ok(())
+    }
+
+    pub fn get_auto_tuned(&self) -> Option<bool> {
+        let limiter = unsafe { crocksdb_ffi::crocksdb_options_get_ratelimiter(self.inner) };
+        if limiter.is_null() {
+            return None;
+        }
+
+        let rate_limiter = RateLimiter { inner: limiter };
+        let mode = unsafe { crocksdb_ffi::crocksdb_ratelimiter_get_auto_tuned(rate_limiter.inner) };
+        Some(mode)
+    }
+
     // Create a info log with `path` and save to options logger field directly.
     // TODO: export more logger options like level, roll size, time, etc...
     pub fn create_info_log(&self, path: &str) -> Result<(), String> {

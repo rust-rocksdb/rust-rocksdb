@@ -1293,6 +1293,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_ratelimiter_destroy(
     crocksdb_ratelimiter_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_ratelimiter_set_bytes_per_second(
     crocksdb_ratelimiter_t* limiter, int64_t rate_bytes_per_sec);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_ratelimiter_set_auto_tuned(
+    crocksdb_ratelimiter_t* limiter, unsigned char auto_tuned);
 extern C_ROCKSDB_LIBRARY_API int64_t
 crocksdb_ratelimiter_get_singleburst_bytes(crocksdb_ratelimiter_t* limiter);
 enum {
@@ -1307,6 +1309,8 @@ crocksdb_ratelimiter_get_total_bytes_through(crocksdb_ratelimiter_t* limiter,
                                              unsigned char pri);
 extern C_ROCKSDB_LIBRARY_API int64_t
 crocksdb_ratelimiter_get_bytes_per_second(crocksdb_ratelimiter_t* limiter);
+extern C_ROCKSDB_LIBRARY_API unsigned char crocksdb_ratelimiter_get_auto_tuned(
+    crocksdb_ratelimiter_t* limiter);
 extern C_ROCKSDB_LIBRARY_API int64_t crocksdb_ratelimiter_get_total_requests(
     crocksdb_ratelimiter_t* limiter, unsigned char pri);
 

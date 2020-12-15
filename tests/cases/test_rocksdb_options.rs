@@ -194,6 +194,9 @@ fn test_set_writeampbasedratelimiter_with_auto_tuned() {
         true,
     );
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+    let mut opts = db.get_db_options();
+    assert!(opts.set_auto_tuned(false).is_ok(), true);
+    assert_eq!(opts.get_auto_tuned().unwrap(), false);
     drop(db);
 }
 
