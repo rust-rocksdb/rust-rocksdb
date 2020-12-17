@@ -564,6 +564,80 @@ impl DB {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
+    /// TODO: FIXME.
+    pub fn multi_get<K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_opt(keys, &ReadOptions::default())
+    }
+
+    /// TODO: FIXME.
+    pub fn multi_get_opt<K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut values = vec![ptr::null_mut(); keys.len()];
+        let mut values_sizes = vec![0usize; keys.len()];
+        unsafe {
+            ffi_try!(ffi::rocksdb_multi_get(
+                self.inner,
+                readopts.inner,
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+            ));
+        }
+
+        // TODO: Move to a separate function?
+        let mut result = Vec::new();
+        for i in 0..keys.len() {
+            let value = unsafe { slice::from_raw_parts(values[i] as *const u8, values_sizes[i]) };
+            result.push(value.into());
+            unsafe {
+                ffi::rocksdb_free(values[i] as *mut c_void);
+            }
+        }
+        Ok(result)
+    }
+
+    /// TODO: FIXME.
+    pub fn multi_get_cf<K, I>(&self, keys: I, cf: &ColumnFamily) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_cf_opt(keys, cf, &ReadOptions::default())
+    }
+
+    /// TODO: FIXME.
+    pub fn multi_get_cf_opt<K, I>(
+        &self,
+        keys: I,
+        cf: &ColumnFamily,
+        readopts: &ReadOptions,
+    ) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        todo!()
+    }
+
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
             c
