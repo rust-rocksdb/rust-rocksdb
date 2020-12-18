@@ -564,7 +564,7 @@ impl DB {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    /// TODO: FIXME.
+    /// Return the values associated with the given keys.
     pub fn multi_get<K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
@@ -573,7 +573,7 @@ impl DB {
         self.multi_get_opt(keys, &ReadOptions::default())
     }
 
-    /// TODO: FIXME.
+    /// Return the values associated with the given keys using read options.
     pub fn multi_get_opt<K, I>(
         &self,
         keys: I,
@@ -616,26 +616,66 @@ impl DB {
     }
 
     /// TODO: FIXME.
-    pub fn multi_get_cf<K, I>(&self, keys: I, cf: &ColumnFamily) -> Result<Vec<Vec<u8>>, Error>
+    pub fn multi_get_cf<K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>,
+        I: IntoIterator<Item = (K, ColumnFamily)>,
     {
-        self.multi_get_cf_opt(keys, cf, &ReadOptions::default())
+        self.multi_get_cf_opt(keys, &ReadOptions::default())
     }
 
     /// TODO: FIXME.
     pub fn multi_get_cf_opt<K, I>(
         &self,
         keys: I,
-        cf: &ColumnFamily,
         readopts: &ReadOptions,
     ) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>,
+        I: IntoIterator<Item = (K, ColumnFamily)>,
     {
-        todo!()
+        let mut boxed_keys: Vec<Box<[u8]>> = Vec::new();
+        let mut keys_sizes = Vec::new();
+        let mut column_families = Vec::new();
+        for (key, cf) in keys.into_iter() {
+            boxed_keys.push(Box::from(key.as_ref()));
+            keys_sizes.push(key.as_ref().len());
+            column_families.push(cf);
+        }
+        let ptr_keys: Vec<_> = boxed_keys
+            .iter()
+            .map(|k| k.as_ptr() as *const c_char)
+            .collect();
+        let ptr_cfs: Vec<_> = column_families
+            .iter()
+            .map(|c| c.inner as *const _)
+            .collect();
+
+        let mut values = vec![ptr::null_mut(); boxed_keys.len()];
+        let mut values_sizes = vec![0usize; boxed_keys.len()];
+        unsafe {
+            ffi_try!(ffi::rocksdb_multi_get_cf(
+                self.inner,
+                readopts.inner,
+                ptr_cfs.as_ptr(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+            ));
+        }
+
+        // TODO: Move to a separate function?
+        let mut result = Vec::new();
+        for i in 0..boxed_keys.len() {
+            let value = unsafe { slice::from_raw_parts(values[i] as *const u8, values_sizes[i]) };
+            result.push(value.into());
+            unsafe {
+                ffi::rocksdb_free(values[i] as *mut c_void);
+            }
+        }
+        Ok(result)
     }
 
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
