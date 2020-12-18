@@ -590,7 +590,7 @@ impl DB {
         let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
 
         let mut values = vec![ptr::null_mut(); keys.len()];
-        let mut values_sizes = vec![0usize; keys.len()];
+        let mut values_sizes = vec![0_usize; keys.len()];
         unsafe {
             ffi_try!(ffi::rocksdb_multi_get(
                 self.inner,
@@ -628,7 +628,7 @@ impl DB {
         let mut boxed_keys: Vec<Box<[u8]>> = Vec::new();
         let mut keys_sizes = Vec::new();
         let mut column_families = Vec::new();
-        for (cf, key) in keys.into_iter() {
+        for (cf, key) in keys {
             boxed_keys.push(Box::from(key.as_ref()));
             keys_sizes.push(key.as_ref().len());
             column_families.push(cf);
@@ -643,7 +643,7 @@ impl DB {
             .collect();
 
         let mut values = vec![ptr::null_mut(); boxed_keys.len()];
-        let mut values_sizes = vec![0usize; boxed_keys.len()];
+        let mut values_sizes = vec![0_usize; boxed_keys.len()];
         unsafe {
             ffi_try!(ffi::rocksdb_multi_get_cf(
                 self.inner,
