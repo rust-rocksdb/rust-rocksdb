@@ -3954,7 +3954,6 @@ struct crocksdb_encryption_key_manager_impl_t : public KeyManager {
   crocksdb_encryption_key_manager_new_file_cb new_file;
   crocksdb_encryption_key_manager_delete_file_cb delete_file;
   crocksdb_encryption_key_manager_link_file_cb link_file;
-  crocksdb_encryption_key_manager_rename_file_cb rename_file;
 
   virtual ~crocksdb_encryption_key_manager_impl_t() { destructor(state); }
 
@@ -4004,17 +4003,6 @@ struct crocksdb_encryption_key_manager_impl_t : public KeyManager {
     }
     return s;
   }
-
-  Status RenameFile(const std::string& src_fname,
-                    const std::string& dst_fname) override {
-    const char* ret = rename_file(state, src_fname.c_str(), dst_fname.c_str());
-    Status s;
-    if (ret != nullptr) {
-      s = Status::Corruption(std::string(ret));
-      delete ret;
-    }
-    return s;
-  }
 };
 
 crocksdb_encryption_key_manager_t* crocksdb_encryption_key_manager_create(
@@ -4022,8 +4010,7 @@ crocksdb_encryption_key_manager_t* crocksdb_encryption_key_manager_create(
     crocksdb_encryption_key_manager_get_file_cb get_file,
     crocksdb_encryption_key_manager_new_file_cb new_file,
     crocksdb_encryption_key_manager_delete_file_cb delete_file,
-    crocksdb_encryption_key_manager_link_file_cb link_file,
-    crocksdb_encryption_key_manager_rename_file_cb rename_file) {
+    crocksdb_encryption_key_manager_link_file_cb link_file) {
   std::shared_ptr<crocksdb_encryption_key_manager_impl_t> key_manager_impl =
       std::make_shared<crocksdb_encryption_key_manager_impl_t>();
   key_manager_impl->state = state;
@@ -4032,7 +4019,6 @@ crocksdb_encryption_key_manager_t* crocksdb_encryption_key_manager_create(
   key_manager_impl->new_file = new_file;
   key_manager_impl->delete_file = delete_file;
   key_manager_impl->link_file = link_file;
-  key_manager_impl->rename_file = rename_file;
   crocksdb_encryption_key_manager_t* key_manager =
       new crocksdb_encryption_key_manager_t;
   key_manager->rep = key_manager_impl;
@@ -4088,19 +4074,6 @@ const char* crocksdb_encryption_key_manager_link_file(
   assert(src_fname != nullptr);
   assert(dst_fname != nullptr);
   Status s = key_manager->rep->LinkFile(src_fname, dst_fname);
-  if (!s.ok()) {
-    return strdup(s.ToString().c_str());
-  }
-  return nullptr;
-}
-
-const char* crocksdb_encryption_key_manager_rename_file(
-    crocksdb_encryption_key_manager_t* key_manager, const char* src_fname,
-    const char* dst_fname) {
-  assert(key_manager != nullptr && key_manager->rep != nullptr);
-  assert(src_fname != nullptr);
-  assert(dst_fname != nullptr);
-  Status s = key_manager->rep->RenameFile(src_fname, dst_fname);
   if (!s.ok()) {
     return strdup(s.ToString().c_str());
   }

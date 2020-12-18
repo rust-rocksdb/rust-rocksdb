@@ -1681,7 +1681,6 @@ extern "C" {
         ) -> *const c_char,
         delete_file: extern "C" fn(*mut c_void, *const c_char) -> *const c_char,
         link_file: extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *const c_char,
-        rename_file: extern "C" fn(*mut c_void, *const c_char, *const c_char) -> *const c_char,
     ) -> *mut DBEncryptionKeyManagerInstance;
     #[cfg(feature = "encryption")]
     pub fn crocksdb_encryption_key_manager_destroy(
@@ -1706,12 +1705,6 @@ extern "C" {
     ) -> *const c_char;
     #[cfg(feature = "encryption")]
     pub fn crocksdb_encryption_key_manager_link_file(
-        key_manager: *mut DBEncryptionKeyManagerInstance,
-        src_fname: *const c_char,
-        dst_fname: *const c_char,
-    ) -> *const c_char;
-    #[cfg(feature = "encryption")]
-    pub fn crocksdb_encryption_key_manager_rename_file(
         key_manager: *mut DBEncryptionKeyManagerInstance,
         src_fname: *const c_char,
         dst_fname: *const c_char,
