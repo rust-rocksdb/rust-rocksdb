@@ -1530,11 +1530,11 @@ fn convert_values(values: Vec<*mut c_char>, values_sizes: Vec<usize>) -> Vec<Vec
         .into_iter()
         .zip(values_sizes.into_iter())
         .map(|(v, s)| {
-            let value = unsafe { slice::from_raw_parts(v as *const u8, s) };
+            let value = unsafe { slice::from_raw_parts(v as *const u8, s) }.into();
             unsafe {
                 ffi::rocksdb_free(v as *mut c_void);
             }
-            value.into()
+            value
         })
         .collect()
 }
