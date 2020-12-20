@@ -845,3 +845,50 @@ fn delete_range_test() {
         assert!(db.get_cf(cf1, b"k3").unwrap().is_none());
     }
 }
+
+#[test]
+fn multi_get() {
+    let path = DBPath::new("_rust_rocksdb_multi_get");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+
+        let values = db
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .expect("multi_get failed");
+        assert_eq!(3, values.len());
+        assert!(values[0].is_empty());
+        assert_eq!(values[1], b"v1");
+        assert_eq!(values[2], b"v2");
+    }
+}
+
+#[test]
+fn multi_get_cf() {
+    let path = DBPath::new("_rust_rocksdb_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &["cf0", "cf1", "cf2"]).unwrap();
+
+        let cf0 = db.cf_handle("cf0").unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(cf2, b"k2", b"v2").unwrap();
+
+        let values = db
+            .multi_get_cf(vec![(cf0, b"k0"), (cf1, b"k1"), (cf2, b"k2")])
+            .expect("multi_get failed");
+        assert_eq!(3, values.len());
+        assert!(values[0].is_empty());
+        assert_eq!(values[1], b"v1");
+        assert_eq!(values[2], b"v2");
+    }
+}
