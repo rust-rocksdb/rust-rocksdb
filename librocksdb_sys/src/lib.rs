@@ -646,6 +646,7 @@ extern "C" {
         filter: *mut DBCompactionFilterFactory,
     );
     pub fn crocksdb_options_set_create_if_missing(options: *mut Options, v: bool);
+    pub fn crocksdb_options_set_create_missing_column_families(options: *mut Options, v: bool);
     pub fn crocksdb_options_set_max_open_files(options: *mut Options, files: c_int);
     pub fn crocksdb_options_set_max_total_wal_size(options: *mut Options, size: u64);
     pub fn crocksdb_options_set_use_fsync(options: *mut Options, v: c_int);

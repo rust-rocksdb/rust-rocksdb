@@ -738,6 +738,15 @@ impl DBOptions {
         }
     }
 
+    pub fn create_missing_column_families(&mut self, create_missing_column_families: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_create_missing_column_families(
+                self.inner,
+                create_missing_column_families,
+            )
+        }
+    }
+
     pub fn set_env(&mut self, env: Arc<Env>) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_env(self.inner, env.inner);
