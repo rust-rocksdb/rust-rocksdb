@@ -86,6 +86,7 @@ pub mod comparator;
 #[cfg(feature = "encryption")]
 mod encryption;
 mod event_listener;
+mod file_system;
 pub mod logger;
 pub mod merge_operator;
 mod metadata;

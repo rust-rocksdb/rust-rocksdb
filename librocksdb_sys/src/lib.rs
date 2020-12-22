@@ -173,6 +173,8 @@ pub struct DBSstPartitionerContext(c_void);
 pub struct DBSstPartitionerFactory(c_void);
 #[repr(C)]
 pub struct DBWriteBatchIterator(c_void);
+#[repr(C)]
+pub struct DBFileSystemInspectorInstance(c_void);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
@@ -1715,6 +1717,30 @@ extern "C" {
     pub fn crocksdb_key_managed_encrypted_env_create(
         base_env: *mut DBEnv,
         key_manager: *mut DBEncryptionKeyManagerInstance,
+    ) -> *mut DBEnv;
+
+    // FileSystemInspectedEnv
+    pub fn crocksdb_file_system_inspector_create(
+        state: *mut c_void,
+        destructor: extern "C" fn(*mut c_void),
+        read: extern "C" fn(*mut c_void, size_t, *mut *mut c_char) -> size_t,
+        write: extern "C" fn(*mut c_void, size_t, *mut *mut c_char) -> size_t,
+    ) -> *mut DBFileSystemInspectorInstance;
+    pub fn crocksdb_file_system_inspector_destroy(inspector: *mut DBFileSystemInspectorInstance);
+    pub fn crocksdb_file_system_inspector_read(
+        inspector: *mut DBFileSystemInspectorInstance,
+        len: size_t,
+        errptr: *mut *mut c_char,
+    ) -> size_t;
+    pub fn crocksdb_file_system_inspector_write(
+        inspector: *mut DBFileSystemInspectorInstance,
+        len: size_t,
+        errptr: *mut *mut c_char,
+    ) -> size_t;
+
+    pub fn crocksdb_file_system_inspected_env_create(
+        base_env: *mut DBEnv,
+        inspector: *mut DBFileSystemInspectorInstance,
     ) -> *mut DBEnv;
 
     // SstFileReader

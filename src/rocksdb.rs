@@ -42,6 +42,7 @@ use std::{fs, ptr, slice};
 use cloud::CloudEnvOptions;
 #[cfg(feature = "encryption")]
 use encryption::{DBEncryptionKeyManager, EncryptionKeyManager};
+use file_system::{DBFileSystemInspector, FileSystemInspector};
 use table_properties::{TableProperties, TablePropertiesCollection};
 use table_properties_rc::TablePropertiesCollection as RcTablePropertiesCollection;
 use titan::TitanDBOptions;
@@ -2662,6 +2663,23 @@ impl Env {
             crocksdb_ffi::crocksdb_key_managed_encrypted_env_create(
                 base_env.inner,
                 db_key_manager.inner,
+            )
+        };
+        Ok(Env {
+            inner: env,
+            base: Some(base_env),
+        })
+    }
+
+    pub fn new_file_system_inspected_env(
+        base_env: Arc<Env>,
+        file_system_inspector: Arc<dyn FileSystemInspector>,
+    ) -> Result<Env, String> {
+        let db_file_system_inspector = DBFileSystemInspector::new(file_system_inspector);
+        let env = unsafe {
+            crocksdb_ffi::crocksdb_file_system_inspected_env_create(
+                base_env.inner,
+                db_file_system_inspector.inner,
             )
         };
         Ok(Env {

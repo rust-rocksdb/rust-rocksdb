@@ -23,6 +23,7 @@
 #include "rocksdb/encryption.h"
 #include "rocksdb/env.h"
 #include "rocksdb/env_encryption.h"
+#include "rocksdb/env_inspected.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/iterator.h"
@@ -198,6 +199,8 @@ using rocksdb::encryption::KeyManager;
 using rocksdb::encryption::NewKeyManagedEncryptedEnv;
 #endif
 
+using rocksdb::FileSystemInspector;
+using rocksdb::NewFileSystemInspectedEnv;
 using std::shared_ptr;
 
 extern "C" {
@@ -663,6 +666,10 @@ struct crocksdb_sst_partitioner_context_t {
 
 struct crocksdb_sst_partitioner_factory_t {
   std::shared_ptr<SstPartitionerFactory> rep;
+};
+
+struct crocksdb_file_system_inspector_t {
+  std::shared_ptr<FileSystemInspector> rep;
 };
 
 static bool SaveError(char** errptr, const Status& s) {
@@ -4092,6 +4099,89 @@ crocksdb_env_t* crocksdb_key_managed_encrypted_env_create(
   return result;
 }
 #endif
+
+struct crocksdb_file_system_inspector_impl_t : public FileSystemInspector {
+  void* state;
+  void (*destructor)(void*);
+  crocksdb_file_system_inspector_read_cb read;
+  crocksdb_file_system_inspector_write_cb write;
+
+  virtual ~crocksdb_file_system_inspector_impl_t() { destructor(state); }
+
+  Status Read(size_t len, size_t* allowed) {
+    assert(allowed);
+    char* err = nullptr;
+    *allowed = read(state, len, &err);
+    if (err) {
+      Status s = Status::IOError(err);
+      // malloc-ed by strdup
+      free(err);
+      return s;
+    } else {
+      return Status::OK();
+    }
+  }
+
+  Status Write(size_t len, size_t* allowed) {
+    assert(allowed);
+    char* err = nullptr;
+    *allowed = write(state, len, &err);
+    if (err) {
+      Status s = Status::IOError(err);
+      // malloc-ed by strdup
+      free(err);
+      return s;
+    } else {
+      return Status::OK();
+    }
+  }
+};
+
+crocksdb_file_system_inspector_t* crocksdb_file_system_inspector_create(
+    void* state, void (*destructor)(void*),
+    crocksdb_file_system_inspector_read_cb read,
+    crocksdb_file_system_inspector_write_cb write) {
+  std::shared_ptr<crocksdb_file_system_inspector_impl_t> inspector_impl =
+      std::make_shared<crocksdb_file_system_inspector_impl_t>();
+  inspector_impl->state = state;
+  inspector_impl->destructor = destructor;
+  inspector_impl->read = read;
+  inspector_impl->write = write;
+  crocksdb_file_system_inspector_t* inspector =
+      new crocksdb_file_system_inspector_t;
+  inspector->rep = inspector_impl;
+  return inspector;
+}
+
+void crocksdb_file_system_inspector_destroy(
+    crocksdb_file_system_inspector_t* inspector) {
+  delete inspector;
+}
+
+size_t crocksdb_file_system_inspector_read(
+    crocksdb_file_system_inspector_t* inspector, size_t len, char** errptr) {
+  assert(inspector != nullptr && inspector->rep != nullptr);
+  size_t allowed = 0;
+  SaveError(errptr, inspector->rep->Read(len, &allowed));
+  return allowed;
+}
+
+size_t crocksdb_file_system_inspector_write(
+    crocksdb_file_system_inspector_t* inspector, size_t len, char** errptr) {
+  assert(inspector != nullptr && inspector->rep != nullptr);
+  size_t allowed = 0;
+  SaveError(errptr, inspector->rep->Write(len, &allowed));
+  return allowed;
+}
+
+crocksdb_env_t* crocksdb_file_system_inspected_env_create(
+    crocksdb_env_t* base_env, crocksdb_file_system_inspector_t* inspector) {
+  assert(base_env != nullptr);
+  assert(inspector != nullptr);
+  crocksdb_env_t* result = new crocksdb_env_t;
+  result->rep = NewFileSystemInspectedEnv(base_env->rep, inspector->rep);
+  return result;
+}
 
 crocksdb_sstfilereader_t* crocksdb_sstfilereader_create(
     const crocksdb_options_t* io_options) {
