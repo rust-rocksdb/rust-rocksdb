@@ -139,6 +139,7 @@ using rocksdb::SstFileWriter;
 using rocksdb::SstPartitioner;
 using rocksdb::SstPartitionerFactory;
 using rocksdb::Status;
+using rocksdb::SubcompactionJobInfo;
 using rocksdb::TableProperties;
 using rocksdb::TablePropertiesCollection;
 using rocksdb::TablePropertiesCollector;
@@ -363,6 +364,9 @@ struct crocksdb_writestallinfo_t {
 };
 struct crocksdb_compactionjobinfo_t {
   CompactionJobInfo rep;
+};
+struct crocksdb_subcompactionjobinfo_t {
+  SubcompactionJobInfo rep;
 };
 struct crocksdb_externalfileingestioninfo_t {
   ExternalFileIngestionInfo rep;
@@ -2167,6 +2171,34 @@ CompactionReason crocksdb_compactionjobinfo_compaction_reason(
   return info->rep.compaction_reason;
 }
 
+/* SubcompactionJobInfo */
+
+void crocksdb_subcompactionjobinfo_status(
+    const crocksdb_subcompactionjobinfo_t* info, char** errptr) {
+  SaveError(errptr, info->rep.status);
+}
+
+const char* crocksdb_subcompactionjobinfo_cf_name(
+    const crocksdb_subcompactionjobinfo_t* info, size_t* size) {
+  *size = info->rep.cf_name.size();
+  return info->rep.cf_name.data();
+}
+
+uint64_t crocksdb_subcompactionjobinfo_thread_id(
+    const crocksdb_subcompactionjobinfo_t* info) {
+  return info->rep.thread_id;
+}
+
+int crocksdb_subcompactionjobinfo_base_input_level(
+    const crocksdb_subcompactionjobinfo_t* info) {
+  return info->rep.base_input_level;
+}
+
+int crocksdb_subcompactionjobinfo_output_level(
+    const crocksdb_subcompactionjobinfo_t* info) {
+  return info->rep.output_level;
+}
+
 /* ExternalFileIngestionInfo */
 
 const char* crocksdb_externalfileingestioninfo_cf_name(
@@ -2212,15 +2244,27 @@ const crocksdb_writestallcondition_t* crocksdb_writestallinfo_prev(
 struct crocksdb_eventlistener_t : public EventListener {
   void* state_;
   void (*destructor_)(void*);
+  void (*on_flush_begin)(void*, crocksdb_t*, const crocksdb_flushjobinfo_t*);
   void (*on_flush_completed)(void*, crocksdb_t*,
                              const crocksdb_flushjobinfo_t*);
+  void (*on_compaction_begin)(void*, crocksdb_t*,
+                              const crocksdb_compactionjobinfo_t*);
   void (*on_compaction_completed)(void*, crocksdb_t*,
                                   const crocksdb_compactionjobinfo_t*);
+  void (*on_subcompaction_begin)(void*, const crocksdb_subcompactionjobinfo_t*);
+  void (*on_subcompaction_completed)(void*,
+                                     const crocksdb_subcompactionjobinfo_t*);
   void (*on_external_file_ingested)(
       void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
   void (*on_background_error)(void*, crocksdb_backgrounderrorreason_t,
                               crocksdb_status_ptr_t*);
   void (*on_stall_conditions_changed)(void*, const crocksdb_writestallinfo_t*);
+
+  virtual void OnFlushBegin(DB* db, const FlushJobInfo& info) {
+    crocksdb_t c_db = {db};
+    on_flush_begin(state_, &c_db,
+                   reinterpret_cast<const crocksdb_flushjobinfo_t*>(&info));
+  }
 
   virtual void OnFlushCompleted(DB* db, const FlushJobInfo& info) {
     crocksdb_t c_db = {db};
@@ -2228,11 +2272,30 @@ struct crocksdb_eventlistener_t : public EventListener {
                        reinterpret_cast<const crocksdb_flushjobinfo_t*>(&info));
   }
 
+  virtual void OnCompactionBegin(DB* db, const CompactionJobInfo& info) {
+    crocksdb_t c_db = {db};
+    on_compaction_begin(
+        state_, &c_db,
+        reinterpret_cast<const crocksdb_compactionjobinfo_t*>(&info));
+  }
+
   virtual void OnCompactionCompleted(DB* db, const CompactionJobInfo& info) {
     crocksdb_t c_db = {db};
     on_compaction_completed(
         state_, &c_db,
         reinterpret_cast<const crocksdb_compactionjobinfo_t*>(&info));
+  }
+
+  virtual void OnSubcompactionBegin(const SubcompactionJobInfo& info) {
+    on_subcompaction_begin(
+        state_,
+        reinterpret_cast<const crocksdb_subcompactionjobinfo_t*>(&info));
+  }
+
+  virtual void OnSubcompactionCompleted(const SubcompactionJobInfo& info) {
+    on_subcompaction_completed(
+        state_,
+        reinterpret_cast<const crocksdb_subcompactionjobinfo_t*>(&info));
   }
 
   virtual void OnExternalFileIngested(DB* db,
@@ -2276,17 +2339,24 @@ struct crocksdb_eventlistener_t : public EventListener {
 };
 
 crocksdb_eventlistener_t* crocksdb_eventlistener_create(
-    void* state_, void (*destructor_)(void*),
+    void* state_, void (*destructor_)(void*), on_flush_begin_cb on_flush_begin,
     on_flush_completed_cb on_flush_completed,
+    on_compaction_begin_cb on_compaction_begin,
     on_compaction_completed_cb on_compaction_completed,
+    on_subcompaction_begin_cb on_subcompaction_begin,
+    on_subcompaction_completed_cb on_subcompaction_completed,
     on_external_file_ingested_cb on_external_file_ingested,
     on_background_error_cb on_background_error,
     on_stall_conditions_changed_cb on_stall_conditions_changed) {
   crocksdb_eventlistener_t* et = new crocksdb_eventlistener_t;
   et->state_ = state_;
   et->destructor_ = destructor_;
+  et->on_flush_begin = on_flush_begin;
   et->on_flush_completed = on_flush_completed;
+  et->on_compaction_begin = on_compaction_begin;
   et->on_compaction_completed = on_compaction_completed;
+  et->on_subcompaction_begin = on_subcompaction_begin;
+  et->on_subcompaction_completed = on_subcompaction_completed;
   et->on_external_file_ingested = on_external_file_ingested;
   et->on_background_error = on_background_error;
   et->on_stall_conditions_changed = on_stall_conditions_changed;

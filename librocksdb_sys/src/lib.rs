@@ -130,6 +130,8 @@ pub struct DBFlushJobInfo(c_void);
 #[repr(C)]
 pub struct DBCompactionJobInfo(c_void);
 #[repr(C)]
+pub struct DBSubcompactionJobInfo(c_void);
+#[repr(C)]
 pub struct DBIngestionInfo(c_void);
 #[repr(C)]
 pub struct DBEventListener(c_void);
@@ -2144,6 +2146,21 @@ extern "C" {
         info: *const DBCompactionJobInfo,
     ) -> CompactionReason;
 
+    pub fn crocksdb_subcompactionjobinfo_status(
+        info: *const DBSubcompactionJobInfo,
+        errptr: *mut *mut c_char,
+    );
+    pub fn crocksdb_subcompactionjobinfo_cf_name(
+        info: *const DBSubcompactionJobInfo,
+        size: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_subcompactionjobinfo_thread_id(info: *const DBSubcompactionJobInfo) -> u64;
+    pub fn crocksdb_subcompactionjobinfo_base_input_level(
+        info: *const DBSubcompactionJobInfo,
+    ) -> c_int;
+    pub fn crocksdb_subcompactionjobinfo_output_level(info: *const DBSubcompactionJobInfo)
+        -> c_int;
+
     pub fn crocksdb_externalfileingestioninfo_cf_name(
         info: *const DBIngestionInfo,
         size: *mut size_t,
@@ -2169,8 +2186,12 @@ extern "C" {
     pub fn crocksdb_eventlistener_create(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
-        flush: extern "C" fn(*mut c_void, *mut DBInstance, *const DBFlushJobInfo),
-        compact: extern "C" fn(*mut c_void, *mut DBInstance, *const DBCompactionJobInfo),
+        flush_begin: extern "C" fn(*mut c_void, *mut DBInstance, *const DBFlushJobInfo),
+        flush_completed: extern "C" fn(*mut c_void, *mut DBInstance, *const DBFlushJobInfo),
+        compact_begin: extern "C" fn(*mut c_void, *mut DBInstance, *const DBCompactionJobInfo),
+        compact_completed: extern "C" fn(*mut c_void, *mut DBInstance, *const DBCompactionJobInfo),
+        subcompact_begin: extern "C" fn(*mut c_void, *const DBSubcompactionJobInfo),
+        subcompact_completed: extern "C" fn(*mut c_void, *const DBSubcompactionJobInfo),
         ingest: extern "C" fn(*mut c_void, *mut DBInstance, *const DBIngestionInfo),
         bg_error: extern "C" fn(*mut c_void, DBBackgroundErrorReason, *mut DBStatusPtr),
         stall_conditions: extern "C" fn(*mut c_void, *const DBWriteStallInfo),

@@ -138,6 +138,7 @@ typedef struct crocksdb_table_properties_collector_factory_t
     crocksdb_table_properties_collector_factory_t;
 typedef struct crocksdb_flushjobinfo_t crocksdb_flushjobinfo_t;
 typedef struct crocksdb_compactionjobinfo_t crocksdb_compactionjobinfo_t;
+typedef struct crocksdb_subcompactionjobinfo_t crocksdb_subcompactionjobinfo_t;
 typedef struct crocksdb_externalfileingestioninfo_t
     crocksdb_externalfileingestioninfo_t;
 typedef struct crocksdb_eventlistener_t crocksdb_eventlistener_t;
@@ -830,10 +831,22 @@ extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_compactionjobinfo_output_records(const crocksdb_compactionjobinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_compactionjobinfo_total_input_bytes(
-    const crocksdb_compactionjobinfo_t* info);
+    const crocksdb_compactionjobinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_compactionjobinfo_total_output_bytes(
-    const crocksdb_compactionjobinfo_t* info);
+    const crocksdb_compactionjobinfo_t*);
+
+/* Subcompaction job info */
+extern C_ROCKSDB_LIBRARY_API void crocksdb_subcompactionjobinfo_status(
+    const crocksdb_subcompactionjobinfo_t*, char**);
+extern C_ROCKSDB_LIBRARY_API const char* crocksdb_subcompactionjobinfo_cf_name(
+    const crocksdb_subcompactionjobinfo_t*, size_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_subcompactionjobinfo_thread_id(const crocksdb_subcompactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_subcompactionjobinfo_base_input_level(
+    const crocksdb_subcompactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_subcompactionjobinfo_output_level(
+    const crocksdb_subcompactionjobinfo_t*);
 
 /* External file ingestion info */
 extern C_ROCKSDB_LIBRARY_API const char*
@@ -856,10 +869,18 @@ crocksdb_writestallinfo_prev(const crocksdb_writestallinfo_t*);
 
 /* Event listener */
 
+typedef void (*on_flush_begin_cb)(void*, crocksdb_t*,
+                                  const crocksdb_flushjobinfo_t*);
 typedef void (*on_flush_completed_cb)(void*, crocksdb_t*,
                                       const crocksdb_flushjobinfo_t*);
+typedef void (*on_compaction_begin_cb)(void*, crocksdb_t*,
+                                       const crocksdb_compactionjobinfo_t*);
 typedef void (*on_compaction_completed_cb)(void*, crocksdb_t*,
                                            const crocksdb_compactionjobinfo_t*);
+typedef void (*on_subcompaction_begin_cb)(
+    void*, const crocksdb_subcompactionjobinfo_t*);
+typedef void (*on_subcompaction_completed_cb)(
+    void*, const crocksdb_subcompactionjobinfo_t*);
 typedef void (*on_external_file_ingested_cb)(
     void*, crocksdb_t*, const crocksdb_externalfileingestioninfo_t*);
 typedef void (*on_background_error_cb)(void*, crocksdb_backgrounderrorreason_t,
@@ -870,9 +891,12 @@ typedef void (*crocksdb_logger_logv_cb)(void*, int log_level, const char*);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_eventlistener_t*
 crocksdb_eventlistener_create(
-    void* state_, void (*destructor_)(void*),
+    void* state_, void (*destructor_)(void*), on_flush_begin_cb on_flush_begin,
     on_flush_completed_cb on_flush_completed,
+    on_compaction_begin_cb on_compaction_begin,
     on_compaction_completed_cb on_compaction_completed,
+    on_subcompaction_begin_cb on_subcompaction_begin,
+    on_subcompaction_completed_cb on_subcompaction_completed,
     on_external_file_ingested_cb on_external_file_ingested,
     on_background_error_cb on_background_error,
     on_stall_conditions_changed_cb on_stall_conditions_changed);

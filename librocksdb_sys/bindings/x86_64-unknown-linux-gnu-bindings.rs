@@ -416,6 +416,11 @@ pub struct crocksdb_compactionjobinfo_t {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+pub struct crocksdb_subcompactionjobinfo_t {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct crocksdb_externalfileingestioninfo_t {
     _unused: [u8; 0],
 }
@@ -1748,13 +1753,40 @@ extern "C" {
 }
 extern "C" {
     pub fn crocksdb_compactionjobinfo_total_input_bytes(
-        info: *const crocksdb_compactionjobinfo_t,
+        arg1: *const crocksdb_compactionjobinfo_t,
     ) -> u64;
 }
 extern "C" {
     pub fn crocksdb_compactionjobinfo_total_output_bytes(
-        info: *const crocksdb_compactionjobinfo_t,
+        arg1: *const crocksdb_compactionjobinfo_t,
     ) -> u64;
+}
+extern "C" {
+    pub fn crocksdb_subcompactionjobinfo_status(
+        arg1: *const crocksdb_subcompactionjobinfo_t,
+        arg2: *mut *mut libc::c_char,
+    );
+}
+extern "C" {
+    pub fn crocksdb_subcompactionjobinfo_cf_name(
+        arg1: *const crocksdb_subcompactionjobinfo_t,
+        arg2: *mut usize,
+    ) -> *const libc::c_char;
+}
+extern "C" {
+    pub fn crocksdb_subcompactionjobinfo_thread_id(
+        arg1: *const crocksdb_subcompactionjobinfo_t,
+    ) -> u64;
+}
+extern "C" {
+    pub fn crocksdb_subcompactionjobinfo_base_input_level(
+        arg1: *const crocksdb_subcompactionjobinfo_t,
+    ) -> libc::c_int;
+}
+extern "C" {
+    pub fn crocksdb_subcompactionjobinfo_output_level(
+        arg1: *const crocksdb_subcompactionjobinfo_t,
+    ) -> libc::c_int;
 }
 extern "C" {
     pub fn crocksdb_externalfileingestioninfo_cf_name(
@@ -1789,11 +1821,25 @@ extern "C" {
         arg1: *const crocksdb_writestallinfo_t,
     ) -> *const crocksdb_writestallcondition_t;
 }
+pub type on_flush_begin_cb = ::std::option::Option<
+    unsafe extern "C" fn(
+        arg1: *mut libc::c_void,
+        arg2: *mut crocksdb_t,
+        arg3: *const crocksdb_flushjobinfo_t,
+    ),
+>;
 pub type on_flush_completed_cb = ::std::option::Option<
     unsafe extern "C" fn(
         arg1: *mut libc::c_void,
         arg2: *mut crocksdb_t,
         arg3: *const crocksdb_flushjobinfo_t,
+    ),
+>;
+pub type on_compaction_begin_cb = ::std::option::Option<
+    unsafe extern "C" fn(
+        arg1: *mut libc::c_void,
+        arg2: *mut crocksdb_t,
+        arg3: *const crocksdb_compactionjobinfo_t,
     ),
 >;
 pub type on_compaction_completed_cb = ::std::option::Option<
@@ -1802,6 +1848,12 @@ pub type on_compaction_completed_cb = ::std::option::Option<
         arg2: *mut crocksdb_t,
         arg3: *const crocksdb_compactionjobinfo_t,
     ),
+>;
+pub type on_subcompaction_begin_cb = ::std::option::Option<
+    unsafe extern "C" fn(arg1: *mut libc::c_void, arg2: *const crocksdb_subcompactionjobinfo_t),
+>;
+pub type on_subcompaction_completed_cb = ::std::option::Option<
+    unsafe extern "C" fn(arg1: *mut libc::c_void, arg2: *const crocksdb_subcompactionjobinfo_t),
 >;
 pub type on_external_file_ingested_cb = ::std::option::Option<
     unsafe extern "C" fn(
@@ -1831,8 +1883,12 @@ extern "C" {
     pub fn crocksdb_eventlistener_create(
         state_: *mut libc::c_void,
         destructor_: ::std::option::Option<unsafe extern "C" fn(arg1: *mut libc::c_void)>,
+        on_flush_begin: on_flush_begin_cb,
         on_flush_completed: on_flush_completed_cb,
+        on_compaction_begin: on_compaction_begin_cb,
         on_compaction_completed: on_compaction_completed_cb,
+        on_subcompaction_begin: on_subcompaction_begin_cb,
+        on_subcompaction_completed: on_subcompaction_completed_cb,
         on_external_file_ingested: on_external_file_ingested_cb,
         on_background_error: on_background_error_cb,
         on_stall_conditions_changed: on_stall_conditions_changed_cb,
@@ -2697,6 +2753,12 @@ extern "C" {
     );
 }
 extern "C" {
+    pub fn crocksdb_ratelimiter_set_auto_tuned(
+        limiter: *mut crocksdb_ratelimiter_t,
+        auto_tuned: libc::c_uchar,
+    );
+}
+extern "C" {
     pub fn crocksdb_ratelimiter_get_singleburst_bytes(limiter: *mut crocksdb_ratelimiter_t) -> i64;
 }
 pub const env_io_priority_low: _bindgen_ty_6 = 0;
@@ -2720,41 +2782,15 @@ extern "C" {
     pub fn crocksdb_ratelimiter_get_bytes_per_second(limiter: *mut crocksdb_ratelimiter_t) -> i64;
 }
 extern "C" {
+    pub fn crocksdb_ratelimiter_get_auto_tuned(
+        limiter: *mut crocksdb_ratelimiter_t,
+    ) -> libc::c_uchar;
+}
+extern "C" {
     pub fn crocksdb_ratelimiter_get_total_requests(
         limiter: *mut crocksdb_ratelimiter_t,
         pri: libc::c_uchar,
     ) -> i64;
-}
-extern "C" {
-    pub fn crocksdb_compactionfilter_create(
-        state: *mut libc::c_void,
-        destructor: ::std::option::Option<unsafe extern "C" fn(arg1: *mut libc::c_void)>,
-        filter: ::std::option::Option<
-            unsafe extern "C" fn(
-                arg1: *mut libc::c_void,
-                level: libc::c_int,
-                key: *const libc::c_char,
-                key_length: usize,
-                existing_value: *const libc::c_char,
-                value_length: usize,
-                new_value: *mut *mut libc::c_char,
-                new_value_length: *mut usize,
-                value_changed: *mut libc::c_uchar,
-            ) -> libc::c_uchar,
-        >,
-        name: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut libc::c_void) -> *const libc::c_char,
-        >,
-    ) -> *mut crocksdb_compactionfilter_t;
-}
-extern "C" {
-    pub fn crocksdb_compactionfilter_set_ignore_snapshots(
-        arg1: *mut crocksdb_compactionfilter_t,
-        arg2: libc::c_uchar,
-    );
-}
-extern "C" {
-    pub fn crocksdb_compactionfilter_destroy(arg1: *mut crocksdb_compactionfilter_t);
 }
 extern "C" {
     pub fn crocksdb_compactionfiltercontext_is_full_compaction(
