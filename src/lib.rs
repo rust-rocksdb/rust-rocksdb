@@ -38,7 +38,8 @@ pub use compaction_filter::{
 #[cfg(feature = "encryption")]
 pub use encryption::{DBEncryptionMethod, EncryptionKeyManager, FileEncryptionInfo};
 pub use event_listener::{
-    CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, WriteStallInfo,
+    CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, SubcompactionJobInfo,
+    WriteStallInfo,
 };
 pub use librocksdb_sys::{
     self as crocksdb_ffi, new_bloom_filter, CompactionPriority, CompactionReason,
