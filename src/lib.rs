@@ -46,7 +46,8 @@ pub use librocksdb_sys::{
     DBBackgroundErrorReason, DBBottommostLevelCompaction, DBCompactionStyle, DBCompressionType,
     DBEntryType, DBInfoLogLevel, DBRateLimiterMode, DBRecoveryMode,
     DBSstPartitionerResult as SstPartitionerResult, DBStatisticsHistogramType,
-    DBStatisticsTickerType, DBStatusPtr, DBTitanDBBlobRunMode, IndexType, WriteStallCondition,
+    DBStatisticsTickerType, DBStatusPtr, DBTitanDBBlobRunMode, DBValueType, IndexType,
+    WriteStallCondition,
 };
 pub use logger::Logger;
 pub use merge_operator::MergeOperands;
@@ -75,7 +76,7 @@ pub use table_properties::{
 pub use table_properties_collector::TablePropertiesCollector;
 pub use table_properties_collector_factory::TablePropertiesCollectorFactory;
 pub use titan::{TitanBlobIndex, TitanDBOptions};
-pub use write_batch::{WriteBatch, WriteBatchRef};
+pub use write_batch::{WriteBatch, WriteBatchIter, WriteBatchRef};
 
 #[allow(deprecated)]
 pub use rocksdb::Kv;
