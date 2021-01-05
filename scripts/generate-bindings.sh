@@ -6,7 +6,7 @@
 
 export UPDATE_BIND=1
 if [ "$ARCH" == "" ]; then
-    ARCH=`uname -p`
+    ARCH=`uname -m`
 fi
 cargo build  --target ${ARCH}-unknown-linux-gnu
 rustfmt librocksdb_sys/bindings/*
