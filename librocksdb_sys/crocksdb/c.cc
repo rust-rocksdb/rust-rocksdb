@@ -4250,6 +4250,9 @@ crocksdb_env_t* crocksdb_file_system_inspected_env_create(
   assert(inspector != nullptr);
   crocksdb_env_t* result = new crocksdb_env_t;
   result->rep = NewFileSystemInspectedEnv(base_env->rep, inspector->rep);
+  result->block_cipher = nullptr;
+  result->encryption_provider = nullptr;
+  result->is_default = false;
   return result;
 }
 
