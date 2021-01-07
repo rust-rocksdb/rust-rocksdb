@@ -41,6 +41,7 @@ pub use event_listener::{
     CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, SubcompactionJobInfo,
     WriteStallInfo,
 };
+pub use file_system::FileSystemInspector;
 pub use librocksdb_sys::{
     self as crocksdb_ffi, new_bloom_filter, CompactionPriority, CompactionReason,
     DBBackgroundErrorReason, DBBottommostLevelCompaction, DBCompactionStyle, DBCompressionType,

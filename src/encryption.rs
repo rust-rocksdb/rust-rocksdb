@@ -69,19 +69,19 @@ fn copy_error<T: Into<Vec<u8>>>(err: T) -> *const c_char {
     unsafe { libc::strdup(cstr.as_ptr()) }
 }
 
-extern "C" fn encryption_key_manager_destructor(ctx: *mut c_void) {
+extern "C" fn encryption_key_manager_destructor<T: EncryptionKeyManager>(ctx: *mut c_void) {
     unsafe {
         // Recover from raw pointer and implicitly drop.
-        Box::from_raw(ctx as *mut Arc<dyn EncryptionKeyManager>);
+        Box::from_raw(ctx as *mut T);
     }
 }
 
-extern "C" fn encryption_key_manager_get_file(
+extern "C" fn encryption_key_manager_get_file<T: EncryptionKeyManager>(
     ctx: *mut c_void,
     fname: *const c_char,
     file_info: *mut DBFileEncryptionInfo,
 ) -> *const c_char {
-    let key_manager = unsafe { &*(ctx as *mut Arc<dyn EncryptionKeyManager>) };
+    let key_manager = unsafe { &*(ctx as *mut T) };
     let fname = match unsafe { CStr::from_ptr(fname).to_str() } {
         Ok(ret) => ret,
         Err(err) => {
@@ -102,12 +102,12 @@ extern "C" fn encryption_key_manager_get_file(
     }
 }
 
-extern "C" fn encryption_key_manager_new_file(
+extern "C" fn encryption_key_manager_new_file<T: EncryptionKeyManager>(
     ctx: *mut c_void,
     fname: *const c_char,
     file_info: *mut DBFileEncryptionInfo,
 ) -> *const c_char {
-    let key_manager = unsafe { &*(ctx as *mut Arc<dyn EncryptionKeyManager>) };
+    let key_manager = unsafe { &*(ctx as *mut T) };
     let fname = match unsafe { CStr::from_ptr(fname).to_str() } {
         Ok(ret) => ret,
         Err(err) => {
@@ -128,11 +128,11 @@ extern "C" fn encryption_key_manager_new_file(
     }
 }
 
-extern "C" fn encryption_key_manager_delete_file(
+extern "C" fn encryption_key_manager_delete_file<T: EncryptionKeyManager>(
     ctx: *mut c_void,
     fname: *const c_char,
 ) -> *const c_char {
-    let key_manager = unsafe { &*(ctx as *mut Arc<dyn EncryptionKeyManager>) };
+    let key_manager = unsafe { &*(ctx as *mut T) };
     let fname = match unsafe { CStr::from_ptr(fname).to_str() } {
         Ok(ret) => ret,
         Err(err) => {
@@ -151,12 +151,12 @@ extern "C" fn encryption_key_manager_delete_file(
     }
 }
 
-extern "C" fn encryption_key_manager_link_file(
+extern "C" fn encryption_key_manager_link_file<T: EncryptionKeyManager>(
     ctx: *mut c_void,
     src_fname: *const c_char,
     dst_fname: *const c_char,
 ) -> *const c_char {
-    let key_manager = unsafe { &*(ctx as *mut Arc<dyn EncryptionKeyManager>) };
+    let key_manager = unsafe { &*(ctx as *mut T) };
     let src_fname = match unsafe { CStr::from_ptr(src_fname).to_str() } {
         Ok(ret) => ret,
         Err(err) => {
@@ -192,18 +192,16 @@ unsafe impl Send for DBEncryptionKeyManager {}
 unsafe impl Sync for DBEncryptionKeyManager {}
 
 impl DBEncryptionKeyManager {
-    pub fn new(key_manager: Arc<dyn EncryptionKeyManager>) -> DBEncryptionKeyManager {
-        // Size of Arc<dyn T>::into_raw is of 128-bits, which couldn't be used as C-style pointer.
-        // Boxing it to make a 64-bits pointer.
+    pub fn new<T: EncryptionKeyManager>(key_manager: T) -> DBEncryptionKeyManager {
         let ctx = Box::into_raw(Box::new(key_manager)) as *mut c_void;
         let instance = unsafe {
             crocksdb_ffi::crocksdb_encryption_key_manager_create(
                 ctx,
-                encryption_key_manager_destructor,
-                encryption_key_manager_get_file,
-                encryption_key_manager_new_file,
-                encryption_key_manager_delete_file,
-                encryption_key_manager_link_file,
+                encryption_key_manager_destructor::<T>,
+                encryption_key_manager_get_file::<T>,
+                encryption_key_manager_new_file::<T>,
+                encryption_key_manager_delete_file::<T>,
+                encryption_key_manager_link_file::<T>,
             )
         };
         DBEncryptionKeyManager { inner: instance }
@@ -387,7 +385,7 @@ mod test {
         }
     }
 
-    impl EncryptionKeyManager for Mutex<TestEncryptionKeyManager> {
+    impl EncryptionKeyManager for Arc<Mutex<TestEncryptionKeyManager>> {
         fn get_file(&self, fname: &str) -> Result<FileEncryptionInfo> {
             let key_manager = self.lock().unwrap();
             key_manager.get_file_called.fetch_add(1, Ordering::SeqCst);

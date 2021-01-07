@@ -3,7 +3,6 @@
 pub use crocksdb_ffi::{self, DBFileSystemInspectorInstance};
 
 use libc::{c_char, c_void, size_t, strdup};
-use std::sync::Arc;
 
 // Inspect global IO flow. No per-file inspection for now.
 pub trait FileSystemInspector: Sync + Send {
@@ -11,19 +10,19 @@ pub trait FileSystemInspector: Sync + Send {
     fn write(&self, len: usize) -> Result<usize, String>;
 }
 
-extern "C" fn file_system_inspector_destructor(ctx: *mut c_void) {
+extern "C" fn file_system_inspector_destructor<T: FileSystemInspector>(ctx: *mut c_void) {
     unsafe {
         // Recover from raw pointer and implicitly drop.
-        Box::from_raw(ctx as *mut Arc<dyn FileSystemInspector>);
+        Box::from_raw(ctx as *mut T);
     }
 }
 
-extern "C" fn file_system_inspector_read(
+extern "C" fn file_system_inspector_read<T: FileSystemInspector>(
     ctx: *mut c_void,
     len: size_t,
     errptr: *mut *mut c_char,
 ) -> size_t {
-    let file_system_inspector = unsafe { &*(ctx as *mut Arc<dyn FileSystemInspector>) };
+    let file_system_inspector = unsafe { &*(ctx as *mut T) };
     match file_system_inspector.read(len) {
         Ok(ret) => ret,
         Err(e) => {
@@ -35,12 +34,12 @@ extern "C" fn file_system_inspector_read(
     }
 }
 
-extern "C" fn file_system_inspector_write(
+extern "C" fn file_system_inspector_write<T: FileSystemInspector>(
     ctx: *mut c_void,
     len: size_t,
     errptr: *mut *mut c_char,
 ) -> size_t {
-    let file_system_inspector = unsafe { &*(ctx as *mut Arc<dyn FileSystemInspector>) };
+    let file_system_inspector = unsafe { &*(ctx as *mut T) };
     match file_system_inspector.write(len) {
         Ok(ret) => ret,
         Err(e) => {
@@ -60,16 +59,14 @@ unsafe impl Send for DBFileSystemInspector {}
 unsafe impl Sync for DBFileSystemInspector {}
 
 impl DBFileSystemInspector {
-    pub fn new(file_system_inspector: Arc<dyn FileSystemInspector>) -> DBFileSystemInspector {
-        // Size of Arc<dyn T>::into_raw is of 128-bits, which couldn't be used as C-style pointer.
-        // Boxing it to make a 64-bits pointer.
+    pub fn new<T: FileSystemInspector>(file_system_inspector: T) -> DBFileSystemInspector {
         let ctx = Box::into_raw(Box::new(file_system_inspector)) as *mut c_void;
         let instance = unsafe {
             crocksdb_ffi::crocksdb_file_system_inspector_create(
                 ctx,
-                file_system_inspector_destructor,
-                file_system_inspector_read,
-                file_system_inspector_write,
+                file_system_inspector_destructor::<T>,
+                file_system_inspector_read::<T>,
+                file_system_inspector_write::<T>,
             )
         };
         DBFileSystemInspector { inner: instance }
@@ -131,7 +128,7 @@ mod test {
         }
     }
 
-    impl FileSystemInspector for Mutex<TestFileSystemInspector> {
+    impl FileSystemInspector for Arc<Mutex<TestFileSystemInspector>> {
         fn read(&self, len: usize) -> Result<usize, String> {
             let mut inner = self.lock().unwrap();
             inner.read_called += 1;
