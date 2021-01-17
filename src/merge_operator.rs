@@ -41,7 +41,7 @@
 //!let mut opts = Options::default();
 //!
 //!opts.create_if_missing(true);
-//!opts.set_merge_operator("test operator", concat_merge, None);
+//!opts.set_merge_operator_associative("test operator", concat_merge);
 //!{
 //!    let db = DB::open(&opts, path).unwrap();
 //!    let p = db.put(b"k1", b"a");
@@ -61,24 +61,47 @@ use std::mem;
 use std::ptr;
 use std::slice;
 
-pub type MergeFn = fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>>;
+pub trait MergeFn:
+    Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
+{
+}
+impl<F> MergeFn for F where
+    F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
+{
+}
 
-pub struct MergeOperatorCallback {
+pub struct MergeOperatorCallback<F: MergeFn, PF: MergeFn> {
     pub name: CString,
-    pub full_merge_fn: MergeFn,
-    pub partial_merge_fn: MergeFn,
+    pub full_merge_fn: F,
+    pub partial_merge_fn: PF,
 }
 
-pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
-    let _: Box<MergeOperatorCallback> = mem::transmute(raw_cb);
+pub unsafe extern "C" fn destructor_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) {
+    let _: Box<MergeOperatorCallback<F, PF>> =
+        Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>);
 }
 
-pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
-    let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
+pub unsafe extern "C" fn delete_callback(
+    _raw_cb: *mut c_void,
+    value: *const c_char,
+    value_length: size_t,
+) {
+    if !value.is_null() {
+        let _ = Box::from_raw(slice::from_raw_parts_mut(
+            value as *mut u8,
+            value_length as usize,
+        ));
+    }
+}
+
+pub unsafe extern "C" fn name_callback<F: MergeFn, PF: MergeFn>(
+    raw_cb: *mut c_void,
+) -> *const c_char {
+    let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     cb.name.as_ptr()
 }
 
-pub unsafe extern "C" fn full_merge_callback(
+pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
     raw_cb: *mut c_void,
     raw_key: *const c_char,
     key_len: size_t,
@@ -90,7 +113,7 @@ pub unsafe extern "C" fn full_merge_callback(
     success: *mut u8,
     new_value_length: *mut size_t,
 ) -> *mut c_char {
-    let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
+    let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
     let oldval = if existing_value.is_null() {
@@ -101,23 +124,21 @@ pub unsafe extern "C" fn full_merge_callback(
             existing_value_len as usize,
         ))
     };
-    if let Some(mut result) = (cb.full_merge_fn)(key, oldval, operands) {
-        result.shrink_to_fit();
-        // TODO(tan) investigate zero-copy techniques to improve performance
-        let buf = libc::malloc(result.len() as size_t);
-        assert!(!buf.is_null());
-        *new_value_length = result.len() as size_t;
-        *success = 1 as u8;
-        ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
-        buf as *mut c_char
-    } else {
-        *new_value_length = 0;
-        *success = 0 as u8;
-        ptr::null_mut() as *mut c_char
-    }
+    (cb.full_merge_fn)(key, oldval, operands).map_or_else(
+        || {
+            *new_value_length = 0;
+            *success = 0_u8;
+            ptr::null_mut() as *mut c_char
+        },
+        |result| {
+            *new_value_length = result.len() as size_t;
+            *success = 1_u8;
+            Box::into_raw(result.into_boxed_slice()) as *mut c_char
+        },
+    )
 }
 
-pub unsafe extern "C" fn partial_merge_callback(
+pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
     raw_cb: *mut c_void,
     raw_key: *const c_char,
     key_len: size_t,
@@ -127,23 +148,21 @@ pub unsafe extern "C" fn partial_merge_callback(
     success: *mut u8,
     new_value_length: *mut size_t,
 ) -> *mut c_char {
-    let cb = &mut *(raw_cb as *mut MergeOperatorCallback);
+    let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
     let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    if let Some(mut result) = (cb.partial_merge_fn)(key, None, operands) {
-        result.shrink_to_fit();
-        // TODO(tan) investigate zero-copy techniques to improve performance
-        let buf = libc::malloc(result.len() as size_t);
-        assert!(!buf.is_null());
-        *new_value_length = result.len() as size_t;
-        *success = 1 as u8;
-        ptr::copy(result.as_ptr() as *mut c_void, &mut *buf, result.len());
-        buf as *mut c_char
-    } else {
-        *new_value_length = 0;
-        *success = 0 as u8;
-        ptr::null_mut::<c_char>()
-    }
+    (cb.partial_merge_fn)(key, None, operands).map_or_else(
+        || {
+            *new_value_length = 0;
+            *success = 0_u8;
+            ptr::null_mut::<c_char>()
+        },
+        |result| {
+            *new_value_length = result.len() as size_t;
+            *success = 1_u8;
+            Box::into_raw(result.into_boxed_slice()) as *mut c_char
+        },
+    )
 }
 
 pub struct MergeOperands {

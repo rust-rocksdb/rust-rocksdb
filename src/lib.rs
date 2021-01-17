@@ -68,7 +68,8 @@
     // False positive: WebSocket
     clippy::doc_markdown,
     clippy::missing_safety_doc,
-    clippy::needless_pass_by_value
+    clippy::needless_pass_by_value,
+    clippy::option_if_let_else,
 )]
 
 #[macro_use]
@@ -163,7 +164,7 @@ mod test {
     use super::{
         BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
         IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
-        SstFileWriter, WriteOptions, DB,
+        SstFileWriter, WriteBatch, WriteOptions, DB,
     };
 
     #[test]
@@ -188,6 +189,7 @@ mod test {
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
         is_send::<SstFileWriter>();
+        is_send::<WriteBatch>();
     }
 
     #[test]

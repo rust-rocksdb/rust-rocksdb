@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "6.10.2"
+version = "6.11.4"
 edition = "2018"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
@@ -9,7 +9,6 @@ readme = "README.md"
 repository = "https://github.com/rust-rocksdb/rust-rocksdb"
 keywords = [ "bindings", "ffi", "rocksdb" ]
 categories = [ "api-bindings", "database", "external-ffi-bindings" ]
-
 links = "rocksdb"
 
 [features]
@@ -30,5 +29,5 @@ uuid = { version = "0.8", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "^1.0", features = ["parallel"] }
-bindgen = "0.54"
+bindgen = "0.55"
 glob = "0.3"

@@ -14,6 +14,8 @@
 
 mod util;
 
+use pretty_assertions::assert_eq;
+
 use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
     DB,
@@ -35,6 +37,14 @@ fn backup_restore() {
             let backup_opts = BackupEngineOptions::default();
             let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
             assert!(backup_engine.create_new_backup(&db).is_ok());
+
+            // check backup info
+            let info = backup_engine.get_backup_info();
+            assert!(!info.is_empty());
+            info.iter().for_each(|i| {
+                assert!(backup_engine.verify_backup(i.backup_id).is_ok());
+                assert!(i.size > 0);
+            });
 
             let mut restore_option = RestoreOptions::default();
             restore_option.set_keep_log_files(false); // true to keep log files

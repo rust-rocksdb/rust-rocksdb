@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-* Export the `DEFAULT_COLUMN_FAMILY_NAME` constant.
+* Add `DB::cancel_all_background_work` method (stanislav-tkach)
+* Bump `librocksdb-sys` up to 6.13.3 (aleksuss)
+* Add `multi_get`, `multi_get_opt`, `multi_get_cf` and `multi_get_cf_opt` `DB` methods (stanislav-tkach)
+
+## 0.15.0 (2020-08-25)
+
+* Fix building rocksdb library on windows host (aleksuss)
+* Add github actions CI for windows build (aleksuss)
+* Update doc for Options::set_compression_type (wqfish)
+* Add clippy linter in CI (aleksuss)
+* Use DBPath for backup_restore test (wqfish)
+* Allow to build RocksDB with a different stdlib (calavera)
+* Add some doc-comments and tiny refactoring (aleksuss)
+* Expose `open_with_ttl`. (calavera)
+* Fixed build for `x86_64-linux-android` that doesn't support PCLMUL (vimmerru)
+* Add support for `SstFileWriter` and `DB::ingest_external_file` (methyl)
+* Add set_max_log_file_size and set_recycle_log_file_num to the Options (stanislav-tkach)
+* Export the `DEFAULT_COLUMN_FAMILY_NAME` constant (stanislav-tkach)
+* Fix slice transformers with no in_domain callback (nelhage)
+* Don't segfault on failed a merge operator (nelhage)
+* Adding read/write/db/compaction options (linxGnu)
+* Add dbpath and env options (linxGnu)
+* Add compaction filter factory API (unrealhoang)
+* Add link stdlib when linking prebuilt rocksdb (unrealhoang)
+* Support fetching sst files metadata, delete files in range, get mem usage (linxGnu)
+* Do not set rerun-if-changed=build.rs (xu-cheng)
+* Use pretty_assertions in tests (stanislav-tkach)
+* librocksdb-sys: update rocksdb to 6.11.4 (ordian)
+* Adding backup engine info (linxGnu)
+* Implement `Clone` trait for `Options` (stanislav-tkach)
+* Added `Send` implementation to `WriteBatch` (stanislav-tkach)
+* Extend github actions (stanislav-tkach)
+* Avoid copy for merge operator result using delete_callback (xuchen-plus)
 
 ## 0.14.0 (2020-04-22)
 

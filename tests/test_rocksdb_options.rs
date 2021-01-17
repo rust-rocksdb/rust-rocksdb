@@ -14,8 +14,9 @@
 
 mod util;
 
-use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options, ReadOptions, DB};
 use std::{fs, io::Read as _};
+
+use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options, ReadOptions, DB};
 use util::DBPath;
 
 #[test]

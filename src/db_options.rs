@@ -344,6 +344,16 @@ impl Drop for Options {
     }
 }
 
+impl Clone for Options {
+    fn clone(&self) -> Self {
+        let inner = unsafe { ffi::rocksdb_options_create_copy(self.inner) };
+        if inner.is_null() {
+            panic!("Could not copy RocksDB options");
+        }
+        Self { inner }
+    }
+}
+
 impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
@@ -935,26 +945,50 @@ impl Options {
         }
     }
 
-    pub fn set_merge_operator(
+    pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
         name: &str,
-        full_merge_fn: MergeFn,
-        partial_merge_fn: Option<MergeFn>,
+        full_merge_fn: F,
     ) {
         let cb = Box::new(MergeOperatorCallback {
             name: CString::new(name.as_bytes()).unwrap(),
-            full_merge_fn,
-            partial_merge_fn: partial_merge_fn.unwrap_or(full_merge_fn),
+            full_merge_fn: full_merge_fn.clone(),
+            partial_merge_fn: full_merge_fn,
         });
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                mem::transmute(cb),
-                Some(merge_operator::destructor_callback),
-                Some(full_merge_callback),
-                Some(partial_merge_callback),
+                Box::into_raw(cb) as _,
+                Some(merge_operator::destructor_callback::<F, F>),
+                Some(full_merge_callback::<F, F>),
+                Some(partial_merge_callback::<F, F>),
                 None,
-                Some(merge_operator::name_callback),
+                Some(merge_operator::name_callback::<F, F>),
+            );
+            ffi::rocksdb_options_set_merge_operator(self.inner, mo);
+        }
+    }
+
+    pub fn set_merge_operator<F: MergeFn, PF: MergeFn>(
+        &mut self,
+        name: &str,
+        full_merge_fn: F,
+        partial_merge_fn: PF,
+    ) {
+        let cb = Box::new(MergeOperatorCallback {
+            name: CString::new(name.as_bytes()).unwrap(),
+            full_merge_fn,
+            partial_merge_fn,
+        });
+
+        unsafe {
+            let mo = ffi::rocksdb_mergeoperator_create(
+                Box::into_raw(cb) as _,
+                Some(merge_operator::destructor_callback::<F, PF>),
+                Some(full_merge_callback::<F, PF>),
+                Some(partial_merge_callback::<F, PF>),
+                None,
+                Some(merge_operator::name_callback::<F, PF>),
             );
             ffi::rocksdb_options_set_merge_operator(self.inner, mo);
         }
@@ -964,8 +998,8 @@ impl Options {
         since = "0.5.0",
         note = "add_merge_operator has been renamed to set_merge_operator"
     )]
-    pub fn add_merge_operator(&mut self, name: &str, merge_fn: MergeFn) {
-        self.set_merge_operator(name, merge_fn, None);
+    pub fn add_merge_operator<F: MergeFn + Clone>(&mut self, name: &str, merge_fn: F) {
+        self.set_merge_operator_associative(name, merge_fn);
     }
 
     /// Sets a compaction filter used to determine if entries should be kept, changed,
@@ -2208,7 +2242,7 @@ impl Options {
     /// If not zero, dump rocksdb.stats to RocksDB to LOG every `stats_persist_period_sec`.
     ///
     /// Default: `600` (10 mins)
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -3422,7 +3456,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_stats_persist_period_sec(){
+    fn test_set_stats_persist_period_sec() {
         let mut opts = Options::default();
         opts.enable_statistics();
         opts.set_stats_persist_period_sec(5);
