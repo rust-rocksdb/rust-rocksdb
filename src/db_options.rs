@@ -137,6 +137,22 @@ impl Env {
         }
     }
 
+    /// Sets the size of the low priority thread pool that can be used to
+    /// prevent compactions from stalling memtable flushes.
+    pub fn set_low_priority_background_threads(&mut self, n: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_low_priority_background_threads(self.inner, n);
+        }
+    }
+
+    /// Sets the size of the bottom priority thread pool that can be used to
+    /// prevent compactions from stalling memtable flushes.
+    pub fn set_bottom_priority_background_threads(&mut self, n: c_int) {
+        unsafe {
+            ffi::rocksdb_env_set_bottom_priority_background_threads(self.inner, n);
+        }
+    }
+
     /// Wait for all threads started by StartThread to terminate.
     pub fn join_all_threads(&mut self) {
         unsafe {
@@ -2223,6 +2239,24 @@ impl Options {
         }
     }
 
+    /// If not zero, dump rocksdb.stats to RocksDB to LOG every `stats_persist_period_sec`.
+    ///
+    /// Default: `600` (10 mins)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_stats_persist_period_sec(5);
+    /// ```
+    pub fn set_stats_persist_period_sec(&mut self, period: c_uint) {
+        unsafe {
+            ffi::rocksdb_options_set_stats_persist_period_sec(self.inner, period);
+        }
+    }
+
     /// When set to true, reading SST files will opt out of the filesystem's
     /// readahead. Setting this to false may improve sequential iteration
     /// performance.
@@ -3419,5 +3453,16 @@ mod tests {
             height: 4,
             branching_factor: 4,
         });
+    }
+
+    #[test]
+    fn test_set_stats_persist_period_sec() {
+        let mut opts = Options::default();
+        opts.enable_statistics();
+        opts.set_stats_persist_period_sec(5);
+        assert!(opts.get_statistics().is_some());
+
+        let opts = Options::default();
+        assert!(opts.get_statistics().is_none());
     }
 }
