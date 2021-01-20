@@ -684,22 +684,6 @@ impl DB {
         Ok(convert_values(values, values_sizes))
     }
 
-    pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
-        let copts = convert_options(opts)?;
-        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
-        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
-        let count = opts.len() as i32;
-        unsafe {
-            ffi_try!(ffi::rocksdb_set_options(
-                self.0.inner,
-                count,
-                cnames.as_ptr(),
-                cvalues.as_ptr(),
-            ));
-        }
-        Ok(())
-    }
-
     pub fn set_options_cf(
         &self,
         cf_handle: &ColumnFamily,
