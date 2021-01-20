@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{db::DBInner, ffi, handle::Handle, Error};
+use crate::{db::DBInner, ffi, handle::Handle, Error, ColumnFamily};
 use ambassador::delegatable_trait;
 use libc::c_char;
 use std::ffi::CString;
@@ -21,19 +21,14 @@ pub trait SetOptions {
     fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error>;
 }
 
+#[delegatable_trait]
+pub trait SetOptionsCF {
+    fn set_options_cf(&self, cf_handle: &ColumnFamily, opts: &[(&str, &str)]) -> Result<(), Error>;
+}
+
 impl SetOptions for DBInner {
     fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
-        let copts = opts
-            .iter()
-            .map(|(name, value)| {
-                let cname = CString::new(name.as_bytes())
-                    .map_err(|e| Error::new(format!("Invalid option name `{}`", e)))?;
-                let cvalue = CString::new(value.as_bytes())
-                    .map_err(|e| Error::new(format!("Invalid option name `{}`", e)))?;
-                Ok((cname, cvalue))
-            })
-            .collect::<Result<Vec<(CString, CString)>, Error>>()?;
-
+        let copts = convert_options(opts)?;
         let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
         let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
         let count = opts.len() as i32;
@@ -47,4 +42,39 @@ impl SetOptions for DBInner {
         }
         Ok(())
     }
+}
+
+impl SetOptionsCF for DBInner {
+    fn set_options_cf(&self, cf_handle: &ColumnFamily, opts: &[(&str, &str)]) -> Result<(), Error> {
+        let copts = convert_options(opts)?;
+        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
+        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
+        let count = opts.len() as i32;
+        unsafe {
+            ffi_try!(ffi::rocksdb_set_options_cf(
+                self.handle(),
+                cf_handle.inner,
+                count,
+                cnames.as_ptr(),
+                cvalues.as_ptr(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Error> {
+    opts.iter()
+        .map(|(name, value)| {
+            let cname = match CString::new(name.as_bytes()) {
+                Ok(cname) => cname,
+                Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
+            };
+            let cvalue = match CString::new(value.as_bytes()) {
+                Ok(cvalue) => cvalue,
+                Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
+            };
+            Ok((cname, cvalue))
+        })
+        .collect()
 }

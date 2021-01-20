@@ -1,4 +1,5 @@
-// Copyright 2020 Tyler Neely
+// Copyri
+// ght 2020 Tyler Neely
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +34,7 @@ use crate::{
         perf::PerfInternal,
         property::{GetProperty, GetPropertyCF},
         put::{PutCFOpt, PutOpt},
-        set_options::SetOptions,
+        set_options::{SetOptions, SetOptionsCF},
         snapshot::SnapshotInternal,
         write_batch::WriteBatchWriteOpt,
         GetColumnFamilies,
@@ -527,6 +528,7 @@ make_new_db_with_traits!(
         PutCFOpt,
         PutOpt,
         SetOptions,
+        SetOptionsCF,
         WriteBatchWriteOpt
     ]
 );
@@ -684,26 +686,6 @@ impl DB {
         Ok(convert_values(values, values_sizes))
     }
 
-    pub fn set_options_cf(
-        &self,
-        cf_handle: &ColumnFamily,
-        opts: &[(&str, &str)],
-    ) -> Result<(), Error> {
-        let copts = convert_options(opts)?;
-        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
-        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
-        let count = opts.len() as i32;
-        unsafe {
-            ffi_try!(ffi::rocksdb_set_options_cf(
-                self.0.inner,
-                cf_handle.inner,
-                count,
-                cnames.as_ptr(),
-                cvalues.as_ptr(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 make_new_db_with_traits!(
@@ -818,22 +800,6 @@ impl SecondaryDB {
     pub fn try_catch_up_with_primary(&self) -> Result<(), Error> {
         self.0.try_catch_up_with_primary()
     }
-}
-
-fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Error> {
-    opts.iter()
-        .map(|(name, value)| {
-            let cname = match CString::new(name.as_bytes()) {
-                Ok(cname) => cname,
-                Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
-            };
-            let cvalue = match CString::new(value.as_bytes()) {
-                Ok(cvalue) => cvalue,
-                Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
-            };
-            Ok((cname, cvalue))
-        })
-        .collect()
 }
 
 fn convert_values(values: Vec<*mut c_char>, values_sizes: Vec<usize>) -> Vec<Vec<u8>> {
