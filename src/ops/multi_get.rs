@@ -116,7 +116,11 @@ where
 }
 
 impl MultiGetCFOpt<&ReadOptions> for DBInner {
-    fn multi_get_cf_opt<'c, K, I>(&self, keys: I, readopts: &ReadOptions) -> Result<Vec<Vec<u8>>, Error>
+    fn multi_get_cf_opt<'c, K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'c ColumnFamily, K)>,

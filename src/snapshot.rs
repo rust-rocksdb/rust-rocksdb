@@ -146,7 +146,11 @@ impl<'a, T> MultiGetCFOpt<ReadOptions> for Snapshot<'a, T>
 where
     for<'o> T: MultiGetCFOpt<&'o ReadOptions> + SnapshotInternal<DB = T>,
 {
-    fn multi_get_cf_opt<'c, K, I>(&self, keys: I, mut readopts: ReadOptions) -> Result<Vec<Vec<u8>>, Error>
+    fn multi_get_cf_opt<'c, K, I>(
+        &self,
+        keys: I,
+        mut readopts: ReadOptions,
+    ) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'c ColumnFamily, K)>,

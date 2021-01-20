@@ -685,7 +685,6 @@ impl DB {
 
         Ok(convert_values(values, values_sizes))
     }
-
 }
 
 make_new_db_with_traits!(

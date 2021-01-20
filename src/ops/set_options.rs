@@ -11,7 +11,7 @@
 // limitations under the License.
 //
 
-use crate::{db::DBInner, ffi, handle::Handle, Error, ColumnFamily};
+use crate::{db::DBInner, ffi, handle::Handle, ColumnFamily, Error};
 use ambassador::delegatable_trait;
 use libc::c_char;
 use std::ffi::CString;
