@@ -44,7 +44,7 @@ use crate::{
 };
 
 use ambassador::Delegate;
-use libc::{self, c_char, c_int, c_uchar};
+use libc::{self, c_char, c_int, c_uchar, c_void};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -587,6 +587,139 @@ impl DB {
     {
         DBInner::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite).map(Self)
     }
+
+    /// Return the values associated with the given keys.
+    pub fn multi_get<K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_opt(keys, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys using read options.
+    pub fn multi_get_opt<K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut values = vec![ptr::null_mut(); keys.len()];
+        let mut values_sizes = vec![0_usize; keys.len()];
+        unsafe {
+            ffi_try!(ffi::rocksdb_multi_get(
+                self.0.inner,
+                readopts.inner,
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+            ));
+        }
+
+        Ok(convert_values(values, values_sizes))
+    }
+
+    /// Return the values associated with the given keys and column families.
+    pub fn multi_get_cf<'c, K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'c ColumnFamily, K)>,
+    {
+        self.multi_get_cf_opt(keys, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys and column families using read options.
+    pub fn multi_get_cf_opt<'c, K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'c ColumnFamily, K)>,
+    {
+        let mut boxed_keys: Vec<Box<[u8]>> = Vec::new();
+        let mut keys_sizes = Vec::new();
+        let mut column_families = Vec::new();
+        for (cf, key) in keys {
+            boxed_keys.push(Box::from(key.as_ref()));
+            keys_sizes.push(key.as_ref().len());
+            column_families.push(cf);
+        }
+        let ptr_keys: Vec<_> = boxed_keys
+            .iter()
+            .map(|k| k.as_ptr() as *const c_char)
+            .collect();
+        let ptr_cfs: Vec<_> = column_families
+            .iter()
+            .map(|c| c.inner as *const _)
+            .collect();
+
+        let mut values = vec![ptr::null_mut(); boxed_keys.len()];
+        let mut values_sizes = vec![0_usize; boxed_keys.len()];
+        unsafe {
+            ffi_try!(ffi::rocksdb_multi_get_cf(
+                self.0.inner,
+                readopts.inner,
+                ptr_cfs.as_ptr(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+            ));
+        }
+
+        Ok(convert_values(values, values_sizes))
+    }
+
+    pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
+        let copts = convert_options(opts)?;
+        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
+        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
+        let count = opts.len() as i32;
+        unsafe {
+            ffi_try!(ffi::rocksdb_set_options(
+                self.0.inner,
+                count,
+                cnames.as_ptr(),
+                cvalues.as_ptr(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn set_options_cf(
+        &self,
+        cf_handle: &ColumnFamily,
+        opts: &[(&str, &str)],
+    ) -> Result<(), Error> {
+        let copts = convert_options(opts)?;
+        let cnames: Vec<*const c_char> = copts.iter().map(|opt| opt.0.as_ptr()).collect();
+        let cvalues: Vec<*const c_char> = copts.iter().map(|opt| opt.1.as_ptr()).collect();
+        let count = opts.len() as i32;
+        unsafe {
+            ffi_try!(ffi::rocksdb_set_options_cf(
+                self.0.inner,
+                cf_handle.inner,
+                count,
+                cnames.as_ptr(),
+                cvalues.as_ptr(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 make_new_db_with_traits!(
@@ -701,4 +834,34 @@ impl SecondaryDB {
     pub fn try_catch_up_with_primary(&self) -> Result<(), Error> {
         self.0.try_catch_up_with_primary()
     }
+}
+
+fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Error> {
+    opts.iter()
+        .map(|(name, value)| {
+            let cname = match CString::new(name.as_bytes()) {
+                Ok(cname) => cname,
+                Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
+            };
+            let cvalue = match CString::new(value.as_bytes()) {
+                Ok(cvalue) => cvalue,
+                Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
+            };
+            Ok((cname, cvalue))
+        })
+        .collect()
+}
+
+fn convert_values(values: Vec<*mut c_char>, values_sizes: Vec<usize>) -> Vec<Vec<u8>> {
+    values
+        .into_iter()
+        .zip(values_sizes.into_iter())
+        .map(|(v, s)| {
+            let value = unsafe { slice::from_raw_parts(v as *const u8, s) }.into();
+            unsafe {
+                ffi::rocksdb_free(v as *mut c_void);
+            }
+            value
+        })
+        .collect()
 }

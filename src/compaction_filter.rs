@@ -137,7 +137,7 @@ where
         Change(newval) => {
             *new_value = newval.as_ptr() as *mut c_char;
             *new_value_length = newval.len() as size_t;
-            *value_changed = 1 as c_uchar;
+            *value_changed = 1_u8;
             0
         }
     }

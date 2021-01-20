@@ -343,6 +343,47 @@ fn set_option_test() {
 }
 
 #[test]
+fn set_option_cf_test() {
+    let path = DBPath::new("_rust_rocksdb_set_options_cftest");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, vec!["cf1"]).unwrap();
+        let cf = db.cf_handle("cf1").unwrap();
+        // set an option to valid values
+        assert!(db
+            .set_options_cf(cf, &[("disable_auto_compactions", "true")])
+            .is_ok());
+        assert!(db
+            .set_options_cf(cf, &[("disable_auto_compactions", "false")])
+            .is_ok());
+        // invalid names/values should result in an error
+        assert!(db
+            .set_options_cf(cf, &[("disable_auto_compactions", "INVALID_VALUE")])
+            .is_err());
+        assert!(db
+            .set_options_cf(cf, &[("INVALID_NAME", "INVALID_VALUE")])
+            .is_err());
+        // option names/values must not contain NULLs
+        assert!(db
+            .set_options_cf(cf, &[("disable_auto_compactions", "true\0")])
+            .is_err());
+        assert!(db
+            .set_options_cf(cf, &[("disable_auto_compactions\0", "true")])
+            .is_err());
+        // empty options are not allowed
+        assert!(db.set_options_cf(cf, &[]).is_err());
+        // multiple options can be set in a single API call
+        let multiple_options = [
+            ("paranoid_file_checks", "true"),
+            ("report_bg_io_stats", "true"),
+        ];
+        db.set_options(&multiple_options).unwrap();
+    }
+}
+
+#[test]
 fn test_sequence_number() {
     let path = DBPath::new("_rust_rocksdb_test_sequence_number");
     {
@@ -744,6 +785,29 @@ fn get_with_cache_and_bulkload_test() {
         opts.set_error_if_exists(true);
         assert!(DB::open(&opts, &path).is_err());
     }
+
+    // disable all threads
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.set_max_background_jobs(0);
+        opts.set_stats_dump_period_sec(0);
+        opts.set_stats_persist_period_sec(0);
+
+        // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
+        let mut env = Env::default().unwrap();
+        env.set_bottom_priority_background_threads(0);
+        opts.set_env(&env);
+
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // try to get key
+        let iter = db.iterator(IteratorMode::Start);
+        for (expected, (k, _)) in iter.enumerate() {
+            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+        }
+    }
 }
 
 #[test]
@@ -807,5 +871,52 @@ fn delete_range_test() {
         assert_eq!(db.get_cf(cf1, b"k5").unwrap().unwrap(), b"v5");
         assert!(db.get_cf(cf1, b"k2").unwrap().is_none());
         assert!(db.get_cf(cf1, b"k3").unwrap().is_none());
+    }
+}
+
+#[test]
+fn multi_get() {
+    let path = DBPath::new("_rust_rocksdb_multi_get");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+
+        let values = db
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .expect("multi_get failed");
+        assert_eq!(3, values.len());
+        assert!(values[0].is_empty());
+        assert_eq!(values[1], b"v1");
+        assert_eq!(values[2], b"v2");
+    }
+}
+
+#[test]
+fn multi_get_cf() {
+    let path = DBPath::new("_rust_rocksdb_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &["cf0", "cf1", "cf2"]).unwrap();
+
+        let cf0 = db.cf_handle("cf0").unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(cf2, b"k2", b"v2").unwrap();
+
+        let values = db
+            .multi_get_cf(vec![(cf0, b"k0"), (cf1, b"k1"), (cf2, b"k2")])
+            .expect("multi_get failed");
+        assert_eq!(3, values.len());
+        assert!(values[0].is_empty());
+        assert_eq!(values[1], b"v1");
+        assert_eq!(values[2], b"v2");
     }
 }
