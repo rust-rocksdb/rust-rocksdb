@@ -14,7 +14,10 @@
 
 use crate::{
     ffi,
-    ops::{Get, GetCF, GetCFOpt, GetOpt, Iterate, IterateCF, SnapshotInternal},
+    ops::{
+        Get, GetCF, GetCFOpt, GetOpt, Iterate, IterateCF, MultiGet, MultiGetCF, MultiGetCFOpt,
+        MultiGetOpt, SnapshotInternal,
+    },
     ColumnFamily, DBRawIterator, Error, ReadOptions,
 };
 
@@ -96,6 +99,60 @@ where
     ) -> Result<Option<Vec<u8>>, Error> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key, &readopts)
+    }
+}
+
+impl<'a, T> MultiGet for Snapshot<'a, T>
+where
+    for<'o> T: MultiGetOpt<&'o ReadOptions> + SnapshotInternal<DB = T>,
+{
+    fn multi_get<K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_opt(keys, ReadOptions::default())
+    }
+}
+
+impl<'a, T> MultiGetOpt<ReadOptions> for Snapshot<'a, T>
+where
+    for<'o> T: MultiGetOpt<&'o ReadOptions> + SnapshotInternal<DB = T>,
+{
+    fn multi_get_opt<K, I>(&self, keys: I, mut readopts: ReadOptions) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        readopts.set_snapshot(self);
+        self.db.multi_get_opt(keys, &readopts)
+    }
+}
+
+impl<'a, T> MultiGetCF for Snapshot<'a, T>
+where
+    for<'o> T: MultiGetCFOpt<&'o ReadOptions> + SnapshotInternal<DB = T>,
+{
+    fn multi_get_cf<'c, K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'c ColumnFamily, K)>,
+    {
+        self.multi_get_cf_opt(keys, ReadOptions::default())
+    }
+}
+
+impl<'a, T> MultiGetCFOpt<ReadOptions> for Snapshot<'a, T>
+where
+    for<'o> T: MultiGetCFOpt<&'o ReadOptions> + SnapshotInternal<DB = T>,
+{
+    fn multi_get_cf_opt<'c, K, I>(&self, keys: I, mut readopts: ReadOptions) -> Result<Vec<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'c ColumnFamily, K)>,
+    {
+        readopts.set_snapshot(self);
+        self.db.multi_get_cf_opt(keys, &readopts)
     }
 }
 
