@@ -50,17 +50,19 @@ where
 
 impl CreateColumnFamily for DBInner {
     fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
-        let cname = CString::new(name.as_ref().as_bytes()).map_err(|_| {
-            Error::new(format!(
+        let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(format!(
                 "Failed to convert path to CString when creating cf: {}",
                 name.as_ref()
-            ))
-        })?;
+            )));
+        };
         unsafe {
             let inner = ffi_try!(ffi::rocksdb_create_column_family(
                 self.handle(),
                 opts.inner,
-                cname.as_ptr(),
+                cf_name.as_ptr(),
             ));
 
             self.get_mut_cfs()
