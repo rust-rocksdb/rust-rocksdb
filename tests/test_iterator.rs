@@ -300,7 +300,7 @@ fn test_full_iterator() {
     }
 }
 
-fn custom_iter<'a>(db: &'a DB) -> impl Iterator<Item = usize> + 'a {
+fn custom_iter(db: &'_ DB) -> impl Iterator<Item = usize> + '_ {
     db.iterator(IteratorMode::Start)
         .map(|(_, db_value)| db_value.len())
 }

@@ -26,9 +26,9 @@ zlib = ["librocksdb-sys/zlib"]
 bzip2 = ["librocksdb-sys/bzip2"]
 
 [dependencies]
-libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "6.11.4" }
 ambassador = "0.2"
+libc = "0.2"
+librocksdb-sys = { path = "librocksdb-sys", version = "6.15.4" }
 
 [dev-dependencies]
 trybuild = "1.0.21"
