@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 * Add `DB::cancel_all_background_work` method (stanislav-tkach)
+* Bump `librocksdb-sys` up to 6.13.3 (aleksuss)
+* Add `multi_get`, `multi_get_opt`, `multi_get_cf` and `multi_get_cf_opt` `DB` methods (stanislav-tkach)
 
 ## 0.15.0 (2020-08-25)
 

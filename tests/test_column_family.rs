@@ -27,7 +27,7 @@ fn test_column_family() {
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        opts.set_merge_operator("test operator", test_provided_merge, None);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
         let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
@@ -41,24 +41,21 @@ fn test_column_family() {
     // should fail to open db without specifying same column families
     {
         let mut opts = Options::default();
-        opts.set_merge_operator("test operator", test_provided_merge, None);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
         match DB::open(&opts, &n) {
             Ok(_db) => panic!(
                 "should not have opened DB successfully without \
                         specifying column
             families"
             ),
-            Err(e) => assert!(e.to_string().starts_with(
-                "Invalid argument: You have to open all \
-                 column families."
-            )),
+            Err(e) => assert!(e.to_string().starts_with("Invalid argument")),
         }
     }
 
     // should properly open db when specyfing all column families
     {
         let mut opts = Options::default();
-        opts.set_merge_operator("test operator", test_provided_merge, None);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
         match DB::open_cf(&opts, &n, &["cf1"]) {
             Ok(_db) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
@@ -137,7 +134,7 @@ fn test_merge_operator() {
     // TODO should be able to write, read, merge, batch, and iterate over a cf
     {
         let mut opts = Options::default();
-        opts.set_merge_operator("test operator", test_provided_merge, None);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
         let db = match DB::open_cf(&opts, &n, &["cf1"]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
