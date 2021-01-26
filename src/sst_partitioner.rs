@@ -25,8 +25,8 @@ pub struct SstPartitionerContext<'a> {
 }
 
 pub trait SstPartitioner {
-    fn should_partition(&self, req: &SstPartitionerRequest) -> SstPartitionerResult;
-    fn can_do_trivial_move(&self, smallest_user_key: &[u8], largest_user_key: &[u8]) -> bool;
+    fn should_partition(&mut self, req: &SstPartitionerRequest) -> SstPartitionerResult;
+    fn can_do_trivial_move(&mut self, smallest_user_key: &[u8], largest_user_key: &[u8]) -> bool;
 }
 
 extern "C" fn sst_partitioner_destructor<P: SstPartitioner>(ctx: *mut c_void) {
@@ -40,7 +40,7 @@ extern "C" fn sst_partitioner_should_partition<P: SstPartitioner>(
     ctx: *mut c_void,
     request: *mut DBSstPartitionerRequest,
 ) -> SstPartitionerResult {
-    let partitioner = unsafe { &*(ctx as *mut P) };
+    let partitioner = unsafe { &mut *(ctx as *mut P) };
     let req = unsafe {
         let mut prev_key_len: usize = 0;
         let prev_key = crocksdb_ffi::crocksdb_sst_partitioner_request_prev_user_key(
@@ -69,7 +69,7 @@ extern "C" fn sst_partitioner_can_do_trivial_move<P: SstPartitioner>(
     largest_user_key: *const c_char,
     largest_user_key_len: size_t,
 ) -> c_uchar {
-    let partitioner = unsafe { &*(ctx as *mut P) };
+    let partitioner = unsafe { &mut *(ctx as *mut P) };
     let smallest_key =
         unsafe { slice::from_raw_parts(smallest_user_key as *const u8, smallest_user_key_len) };
     let largest_key =
@@ -220,7 +220,7 @@ mod test {
     }
 
     impl SstPartitioner for TestSstPartitioner {
-        fn should_partition(&self, req: &SstPartitionerRequest) -> SstPartitionerResult {
+        fn should_partition(&mut self, req: &SstPartitionerRequest) -> SstPartitionerResult {
             let mut s = self.state.lock().unwrap();
             s.call_should_partition += 1;
             s.prev_user_key = Some(req.prev_user_key.to_vec());
@@ -230,7 +230,7 @@ mod test {
             s.should_partition_result
         }
 
-        fn can_do_trivial_move(&self, smallest_key: &[u8], largest_key: &[u8]) -> bool {
+        fn can_do_trivial_move(&mut self, smallest_key: &[u8], largest_key: &[u8]) -> bool {
             let mut s = self.state.lock().unwrap();
             s.call_can_do_trivial_move += 1;
             s.trivial_move_smallest_key = Some(smallest_key.to_vec());
