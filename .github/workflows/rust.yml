@@ -82,9 +82,9 @@ jobs:
           target: ${{ matrix.target }}
           profile: minimal
           override: true
-#      - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
-#        if: matrix.build == 'Windows-gnu'
-#        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
+      - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
+        if: matrix.build == 'Windows'
+        run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
