@@ -286,15 +286,6 @@ impl DBInner {
         }
     }
 
-    /// Tries to catch up with the primary by reading as much as possible from the
-    /// log files.
-    pub fn try_catch_up_with_primary(&self) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_try_catch_up_with_primary(self.inner));
-        }
-        Ok(())
-    }
-
     /// Returns a list of all table files with their level, start key
     /// and end key
     pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
@@ -723,9 +714,12 @@ impl SecondaryDB {
         .map(Self)
     }
 
-    #[allow(clippy::inline_always)]
-    #[inline(always)]
+    /// Tries to catch up with the primary by reading as much as possible from the
+    /// log files.
     pub fn try_catch_up_with_primary(&self) -> Result<(), Error> {
-        self.0.try_catch_up_with_primary()
+        unsafe {
+            ffi_try!(ffi::rocksdb_try_catch_up_with_primary(self.0.inner));
+        }
+        Ok(())
     }
 }
