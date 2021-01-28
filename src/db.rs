@@ -32,6 +32,7 @@ use std::path::PathBuf;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::sync::RwLock;
 use std::time::Duration;
 
 /// A RocksDB database.
@@ -39,7 +40,7 @@ use std::time::Duration;
 /// See crate level documentation for a simple usage example.
 pub struct DB {
     pub(crate) inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, ColumnFamily>,
+    cfs: RwLock<BTreeMap<String, ColumnFamily>>,
     path: PathBuf,
 }
 
@@ -105,7 +106,7 @@ impl DB {
 
         Ok(DB {
             inner: db,
-            cfs: BTreeMap::new(),
+            cfs: RwLock::new(BTreeMap::new()),
             path: path.as_ref().to_path_buf(),
         })
     }
@@ -268,7 +269,7 @@ impl DB {
 
         Ok(DB {
             inner: db,
-            cfs: cf_map,
+            cfs: RwLock::new(cf_map),
             path: path.as_ref().to_path_buf(),
         })
     }
@@ -676,13 +677,15 @@ impl DB {
             ));
 
             self.cfs
+                .write()
+                .unwrap()
                 .insert(name.as_ref().to_string(), ColumnFamily { inner });
         };
         Ok(())
     }
 
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.remove(name) {
+    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.write().unwrap().remove(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
             }
@@ -693,8 +696,8 @@ impl DB {
     }
 
     /// Return the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
-        self.cfs.get(name)
+    pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
+        self.cfs.read().unwrap().get(name).cloned()
     }
 
     pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
@@ -1476,7 +1479,7 @@ impl DB {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            for cf in self.cfs.values() {
+            for cf in self.cfs.read().unwrap().values() {
                 ffi::rocksdb_column_family_handle_destroy(cf.inner);
             }
             ffi::rocksdb_close(self.inner);
