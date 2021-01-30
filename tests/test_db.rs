@@ -506,7 +506,7 @@ fn test_open_as_secondary() {
     opts.set_max_open_files(-1);
 
     let secondary_path = DBPath::new("_rust_rocksdb_test_open_as_secondary_secondary");
-    let secondary = SecondaryDB::open_as_secondary(&opts, &primary_path, &secondary_path).unwrap();
+    let secondary = SecondaryDB::open(&opts, &primary_path, &secondary_path).unwrap();
 
     let result = secondary.get(b"key1").unwrap().unwrap();
     assert_eq!(get_byte_slice(&result), b"value1");
@@ -820,7 +820,7 @@ fn test_open_for_read_only() {
     {
         let opts = Options::default();
         let error_if_log_file_exist = false;
-        let db = ReadOnlyDB::open_for_read_only(&opts, &path, error_if_log_file_exist).unwrap();
+        let db = ReadOnlyDB::open(&opts, &path, error_if_log_file_exist).unwrap();
         assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
     }
 }
@@ -841,7 +841,7 @@ fn test_open_cf_for_read_only() {
         let opts = Options::default();
         let error_if_log_file_exist = false;
         let db =
-            ReadOnlyDB::open_cf_for_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
+            ReadOnlyDB::open_cf(&opts, &path, cfs, error_if_log_file_exist).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
         assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
     }

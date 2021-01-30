@@ -625,16 +625,16 @@ make_new_db_with_traits!(
 
 impl ReadOnlyDB {
     /// Opens the database for read only with the specified options.
-    pub fn open_for_read_only<P: AsRef<Path>>(
+    pub fn open<P: AsRef<Path>>(
         opts: &Options,
         path: P,
         error_if_log_file_exist: bool,
     ) -> Result<Self, Error> {
-        Self::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
+        Self::open_cf(opts, path, None::<&str>, error_if_log_file_exist)
     }
 
     /// Opens a database for read only with the given database options and column family names.
-    pub fn open_cf_for_read_only<P, I, N>(
+    pub fn open_cf<P, I, N>(
         opts: &Options,
         path: P,
         cfs: I,
@@ -679,16 +679,16 @@ make_new_db_with_traits!(
 
 impl SecondaryDB {
     /// Opens the database as a secondary.
-    pub fn open_as_secondary<P: AsRef<Path>>(
+    pub fn open<P: AsRef<Path>>(
         opts: &Options,
         primary_path: P,
         secondary_path: P,
     ) -> Result<Self, Error> {
-        Self::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
+        Self::open_cf(opts, primary_path, secondary_path, None::<&str>)
     }
 
     /// Opens the database as a secondary with the given database options and column family names.
-    pub fn open_cf_as_secondary<P, I, N>(
+    pub fn open_cf<P, I, N>(
         opts: &Options,
         primary_path: P,
         secondary_path: P,
