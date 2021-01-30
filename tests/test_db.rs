@@ -20,9 +20,9 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, prelude::*, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, DBCompactionStyle, Env, FifoCompactOptions, IteratorMode, PerfContext,
-    PerfMetric, ReadOnlyDB, SecondaryDB, SliceTransform, Snapshot, UniversalCompactOptions,
-    UniversalCompactionStopStyle, WriteBatch,
+    CompactOptions, DBCompactionStyle, DBWithTTL, Env, FifoCompactOptions, IteratorMode,
+    PerfContext, PerfMetric, ReadOnlyDB, SecondaryDB, SliceTransform, Snapshot,
+    UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
 };
 use util::DBPath;
 
@@ -524,7 +524,7 @@ fn test_open_with_ttl() {
 
     let mut opts = Options::default();
     opts.create_if_missing(true);
-    let db = DB::open_with_ttl(&opts, &path, Duration::from_secs(1)).unwrap();
+    let db = DBWithTTL::open(&opts, &path, Duration::from_secs(1)).unwrap();
     db.put(b"key1", b"value1").unwrap();
 
     thread::sleep(Duration::from_secs(2));
@@ -840,8 +840,7 @@ fn test_open_cf_for_read_only() {
     {
         let opts = Options::default();
         let error_if_log_file_exist = false;
-        let db =
-            ReadOnlyDB::open_cf(&opts, &path, cfs, error_if_log_file_exist).unwrap();
+        let db = ReadOnlyDB::open_cf(&opts, &path, cfs, error_if_log_file_exist).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
         assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
     }

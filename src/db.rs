@@ -513,6 +513,7 @@ macro_rules! make_new_db_with_traits {
 
     )
 }
+
 make_new_db_with_traits!(
     DB,
     [
@@ -560,25 +561,6 @@ impl DB {
     /// Opens the database with the specified options.
     pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Self, Error> {
         Self::open_cf(opts, path, None::<&str>)
-    }
-
-    /// Opens the database with a Time to Live compaction filter.
-    pub fn open_with_ttl<P: AsRef<Path>>(
-        opts: &Options,
-        path: P,
-        ttl: Duration,
-    ) -> Result<Self, Error> {
-        let c_path = to_cpath(&path)?;
-        let db = DBInner::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
-        if db.is_null() {
-            return Err(Error::new("Could not initialize database.".to_owned()));
-        }
-
-        Ok(Self(DBInner {
-            inner: db,
-            cfs: BTreeMap::new(),
-            path: path.as_ref().to_path_buf(),
-        }))
     }
 
     /// Opens a database with the given database options and column family names.
@@ -721,5 +703,34 @@ impl SecondaryDB {
             ffi_try!(ffi::rocksdb_try_catch_up_with_primary(self.0.inner));
         }
         Ok(())
+    }
+}
+
+make_new_db_with_traits!(
+    DBWithTTL,
+    [
+        BackupInternal,
+        CheckpointInternal,
+        CompactRangeOpt,
+        DeleteOpt,
+        DeleteFileInRange,
+        FlushOpt,
+        GetPinnedOpt,
+        IngestExternalFileOpt,
+        Iterate,
+        MergeOpt,
+        GetProperty,
+        PerfInternal,
+        PutOpt,
+        SetOptions,
+        WriteBatchWriteOpt
+    ]
+);
+
+impl DBWithTTL {
+    /// Opens the database with a Time to Live compaction filter.
+    pub fn open<P: AsRef<Path>>(opts: &Options, path: P, ttl: Duration) -> Result<Self, Error> {
+        DBInner::open_cf_descriptors_internal(opts, path, None, &AccessType::WithTTL { ttl })
+            .map(Self)
     }
 }
