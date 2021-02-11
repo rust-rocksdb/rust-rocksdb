@@ -661,7 +661,7 @@ impl DB {
         Ok(convert_values(values, values_sizes))
     }
 
-    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
+    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
         let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
             c
         } else {
@@ -1429,7 +1429,7 @@ impl DB {
     /// entirely in the range.
     ///
     /// Note: L0 files are left regardless of whether they're in the range.
-    ///  
+    ///
     /// Snapshots before the delete might not see the data in the given range.
     pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error> {
         let from = from.as_ref();
