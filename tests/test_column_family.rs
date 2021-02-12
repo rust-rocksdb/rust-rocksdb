@@ -28,7 +28,7 @@ fn test_column_family() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator_associative("test operator", test_provided_merge);
-        let mut db = DB::open(&opts, &n).unwrap();
+        let db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
             Ok(()) => println!("cf1 created successfully"),
@@ -78,7 +78,7 @@ fn test_column_family() {
     {}
     // should b able to drop a cf
     {
-        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -95,7 +95,7 @@ fn test_can_open_db_with_results_of_list_cf() {
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        let mut db = DB::open(&opts, &n).unwrap();
+        let db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
 
         assert!(db.create_cf("cf1", &opts).is_ok());
@@ -143,15 +143,15 @@ fn test_merge_operator() {
             Err(e) => panic!("failed to open db with column family: {}", e),
         };
         let cf1 = db.cf_handle("cf1").unwrap();
-        assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
-        let p = db.put_cf(cf1, b"k1", b"a");
+        assert!(db.put_cf(&cf1, b"k1", b"v1").is_ok());
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        let p = db.put_cf(&cf1, b"k1", b"a");
         assert!(p.is_ok());
-        db.merge_cf(cf1, b"k1", b"b").unwrap();
-        db.merge_cf(cf1, b"k1", b"c").unwrap();
-        db.merge_cf(cf1, b"k1", b"d").unwrap();
-        db.merge_cf(cf1, b"k1", b"efg").unwrap();
-        let m = db.merge_cf(cf1, b"k1", b"h");
+        db.merge_cf(&cf1, b"k1", b"b").unwrap();
+        db.merge_cf(&cf1, b"k1", b"c").unwrap();
+        db.merge_cf(&cf1, b"k1", b"d").unwrap();
+        db.merge_cf(&cf1, b"k1", b"efg").unwrap();
+        let m = db.merge_cf(&cf1, b"k1", b"h");
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
         match db.get(b"k1") {
@@ -163,7 +163,7 @@ fn test_merge_operator() {
             _ => panic!("value not present!"),
         }
 
-        let _ = db.get_cf(cf1, b"k1");
+        let _ = db.get_cf(&cf1, b"k1");
         // TODO assert!(r.unwrap().as_ref() == b"abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
@@ -242,7 +242,7 @@ fn test_create_duplicate_column_family() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let mut db = match DB::open_cf(&opts, &n, &["cf1"]) {
+        let db = match DB::open_cf(&opts, &n, &["cf1"]) {
             Ok(d) => d,
             Err(e) => panic!("failed to create new column family: {}", e),
         };
