@@ -19,6 +19,7 @@
 
 use crate::{ffi, Error, DB};
 use std::ffi::CString;
+use std::marker::PhantomData;
 use std::path::Path;
 
 /// Undocumented parameter for `ffi::rocksdb_checkpoint_create` function. Zero by default.
@@ -26,16 +27,17 @@ const LOG_SIZE_FOR_FLUSH: u64 = 0_u64;
 
 /// Database's checkpoint object.
 /// Used to create checkpoints of the specified DB from time to time.
-pub struct Checkpoint {
+pub struct Checkpoint<'db> {
     inner: *mut ffi::rocksdb_checkpoint_t,
+    _db: PhantomData<&'db ()>,
 }
 
-impl Checkpoint {
+impl<'db> Checkpoint<'db> {
     /// Creates new checkpoint object for specific DB.
     ///
     /// Does not actually produce checkpoints, call `.create_checkpoint()` method to produce
     /// a DB checkpoint.
-    pub fn new(db: &DB) -> Result<Checkpoint, Error> {
+    pub fn new(db: &'db DB) -> Result<Checkpoint<'db>, Error> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
         unsafe { checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner)) };
@@ -44,7 +46,10 @@ impl Checkpoint {
             return Err(Error::new("Could not create checkpoint object.".to_owned()));
         }
 
-        Ok(Checkpoint { inner: checkpoint })
+        Ok(Checkpoint {
+            inner: checkpoint,
+            _db: PhantomData,
+        })
     }
 
     /// Creates new physical DB checkpoint in directory specified by `path`.
@@ -70,7 +75,7 @@ impl Checkpoint {
     }
 }
 
-impl Drop for Checkpoint {
+impl<'db> Drop for Checkpoint<'db> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_checkpoint_object_destroy(self.inner);
