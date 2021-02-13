@@ -946,3 +946,9 @@ fn multi_get_cf() {
         assert_eq!(values[2], b"v2");
     }
 }
+
+#[test]
+fn test_snapshot_outlive_db() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/snapshot_outlive_db.rs");
+}
