@@ -16,6 +16,7 @@
 use crate::{
     column_family::AsColumnFamilyRef,
     column_family::BoundColumnFamily,
+    db_options::OptionsMustOutliveDB,
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
@@ -102,6 +103,7 @@ pub struct DBWithThreadMode<T: ThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_t,
     cfs: T, // Column families are held differently depending on thread mode
     path: PathBuf,
+    _outlive: OptionsMustOutliveDB,
 }
 
 /// Minimal set of DB-related methods, intended to be  generic over
@@ -238,6 +240,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             inner: db,
             cfs: T::new(BTreeMap::new()),
             path: path.as_ref().to_path_buf(),
+            _outlive: opts.outlive.clone(),
         })
     }
 
@@ -401,6 +404,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             inner: db,
             path: path.as_ref().to_path_buf(),
             cfs: T::new(cf_map),
+            _outlive: opts.outlive.clone(),
         })
     }
 
