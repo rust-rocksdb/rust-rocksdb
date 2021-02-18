@@ -16,7 +16,6 @@
 use libc::{c_char, c_int, c_void, size_t};
 use std::cmp::Ordering;
 use std::ffi::CString;
-use std::mem;
 use std::slice;
 
 pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
@@ -27,7 +26,7 @@ pub struct ComparatorCallback {
 }
 
 pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
-    let _: Box<ComparatorCallback> = mem::transmute(raw_cb);
+    Box::from_raw(raw_cb as *mut ComparatorCallback);
 }
 
 pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
