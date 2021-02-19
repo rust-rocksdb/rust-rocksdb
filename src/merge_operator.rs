@@ -61,7 +61,7 @@ pub unsafe extern "C" fn full_merge_callback(
     let buf = buf as *mut u8;
     assert!(!buf.is_null());
     *new_value_length = result.len() as size_t;
-    *success = 1 as u8;
+    *success = 1_u8;
     ptr::copy(result.as_ptr(), &mut *buf, result.len());
     buf as *const c_char
 }
@@ -86,7 +86,7 @@ pub unsafe extern "C" fn partial_merge_callback(
     let buf = buf as *mut u8;
     assert!(!buf.is_null());
     *new_value_length = result.len() as size_t;
-    *success = 1 as u8;
+    *success = 1_u8;
     ptr::copy(result.as_ptr(), &mut *buf, result.len());
     buf as *const c_char
 }

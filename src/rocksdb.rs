@@ -84,10 +84,10 @@ fn ensure_default_cf_exists<'a>(
     }
 }
 
-fn split_descriptors<'a>(
-    list: Vec<ColumnFamilyDescriptor<'a>>,
+fn split_descriptors(
+    list: Vec<ColumnFamilyDescriptor>,
     is_titan: bool,
-) -> (Vec<&'a str>, Vec<ColumnFamilyOptions>) {
+) -> (Vec<&str>, Vec<ColumnFamilyOptions>) {
     let mut v1 = Vec::with_capacity(list.len());
     let mut v2 = Vec::with_capacity(list.len());
     for mut d in list {
@@ -345,7 +345,6 @@ impl<D> DBIterator<D> {
 #[deprecated]
 pub type Kv = (Vec<u8>, Vec<u8>);
 
-#[deprecated]
 impl<'b, D> Iterator for &'b mut DBIterator<D> {
     #[allow(deprecated)]
     type Item = Kv;

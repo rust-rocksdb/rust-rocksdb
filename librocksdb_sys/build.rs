@@ -17,7 +17,7 @@ extern crate cmake;
 
 use cc::Build;
 use cmake::Config;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, str};
 
 // On these platforms jemalloc-sys will use a prefixed jemalloc which cannot be linked together
@@ -27,7 +27,7 @@ const NO_JEMALLOC_TARGETS: &[&str] = &["android", "dragonfly", "musl", "darwin"]
 
 // Generate the bindings to rocksdb C-API.
 // Try to disable the generation of platform-related bindings.
-fn bindgen_rocksdb(file_path: &PathBuf) {
+fn bindgen_rocksdb(file_path: &Path) {
     let bindings = bindgen::Builder::default()
         .header("crocksdb/crocksdb/c.h")
         .ctypes_prefix("libc")
