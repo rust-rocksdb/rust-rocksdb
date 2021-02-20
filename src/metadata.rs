@@ -31,11 +31,18 @@ impl ColumnFamilyMetaData {
         unsafe {
             let n = crocksdb_ffi::crocksdb_column_family_meta_data_level_count(self.inner);
             for i in 0..n {
-                let data = crocksdb_ffi::crocksdb_column_family_meta_data_level_data(self.inner, i);
-                levels.push(LevelMetaData::from_ptr(data, self));
+                levels.push(self.get_level(i));
             }
         }
         levels
+    }
+
+    /// The caller must ensure that the level is less than the bottommost one.
+    pub fn get_level(&self, level: usize) -> LevelMetaData {
+        unsafe {
+            let data = crocksdb_ffi::crocksdb_column_family_meta_data_level_data(self.inner, level);
+            LevelMetaData::from_ptr(data, self)
+        }
     }
 }
 
