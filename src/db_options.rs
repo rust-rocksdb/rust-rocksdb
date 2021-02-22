@@ -962,7 +962,7 @@ impl Options {
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
-                None,
+                Some(merge_operator::delete_callback),
                 Some(merge_operator::name_callback::<F, F>),
             );
             ffi::rocksdb_options_set_merge_operator(self.inner, mo);
@@ -987,7 +987,7 @@ impl Options {
                 Some(merge_operator::destructor_callback::<F, PF>),
                 Some(full_merge_callback::<F, PF>),
                 Some(partial_merge_callback::<F, PF>),
-                None,
+                Some(merge_operator::delete_callback),
                 Some(merge_operator::name_callback::<F, PF>),
             );
             ffi::rocksdb_options_set_merge_operator(self.inner, mo);
