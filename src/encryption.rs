@@ -9,7 +9,6 @@ use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::io::Result;
 use std::ptr;
-use std::sync::Arc;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct FileEncryptionInfo {

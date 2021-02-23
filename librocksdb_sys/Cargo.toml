@@ -32,7 +32,7 @@ cloud = []
 [build-dependencies]
 cc = "1.0.3"
 cmake = "0.1"
-bindgen = { version = "0.51", default-features = false }
+bindgen = { version = "0.57", default-features = false, features = ["runtime"] }
 
 [dependencies.tikv-jemalloc-sys]
 version = "0.4.0"
