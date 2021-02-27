@@ -7,8 +7,3 @@
 	path = librocksdb_sys/libtitan_sys/titan
 	url = https://github.com/tikv/titan.git
 	branch = master
-
-[submodule "rocksdb-cloud"]
-	path = librocksdb_sys/librocksdb_cloud_sys/rocksdb-cloud
-	url = https://github.com/tikv/rocksdb
-	branch = 6.4.cloud

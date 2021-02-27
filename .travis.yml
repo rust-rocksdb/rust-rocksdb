@@ -4,11 +4,6 @@ language: rust
 rust:
   - nightly
 
-cache:
-  cargo: false
-  directories:
-  - "/tmp/aws-sdk-cpp-1.8.14"
-
 addons:
   apt:
     sources:
@@ -22,9 +17,6 @@ jobs:
     rust: nightly
     env: FEATURES="encryption,jemalloc,portable,sse"
   - os: linux
-    rust: nightly
-    env: FEATURES="cloud"  
-  - os: linux
     arch: arm64-graviton2
     rust: nightly
   - os: osx
@@ -37,20 +29,6 @@ env:
   - RUST_BACKTRACE=1
 
 before_script:
-  # Installing the AWS-SDK, so increase the maximum number of open file descriptors,
-  # since some tests use more FDs than the default limit.
-  - if [ "${FEATURES}" == "cloud" ]; then
-      echo "limit maxfiles 1024 unlimited" | sudo tee -a /etc/launchd.conf;
-      pushd /tmp;
-      wget https://github.com/aws/aws-sdk-cpp/archive/1.8.14.tar.gz -O /tmp/aws-sdk.tar.gz;
-      tar -xvf /tmp/aws-sdk.tar.gz > /dev/null;
-      popd;
-      pushd /tmp/aws-sdk-cpp-1.8.14;
-      cmake -DBUILD_ONLY='kinesis;core;s3;transfer' -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_TESTING=OFF .;
-      make -j4 all;
-      sudo make install;
-      popd;
-    fi
   - rustup component add rustfmt-preview
   - rustup component add clippy
 

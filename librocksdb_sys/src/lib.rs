@@ -46,8 +46,6 @@ use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t};
 #[repr(C)]
 pub struct Options(c_void);
 #[repr(C)]
-pub struct CloudEnvOptions(c_void);
-#[repr(C)]
 pub struct ColumnFamilyDescriptor(c_void);
 #[repr(C)]
 pub struct DBInstance(c_void);
@@ -2668,26 +2666,6 @@ extern "C" {
         include_end: bool,
         errptr: *mut *mut c_char,
     );
-}
-
-// RocksDB Cloud
-extern "C" {
-    // NewAWSEnv
-    pub fn crocksdb_cloud_aws_env_create(
-        base_env: *mut DBEnv,
-        src_cloud_bucket: *const c_char,
-        src_cloud_object: *const c_char,
-        src_cloud_region: *const c_char,
-        dest_cloud_bucket: *const c_char,
-        dest_cloud_object: *const c_char,
-        dest_cloud_region: *const c_char,
-        opts: *mut CloudEnvOptions,
-        err: *mut *mut c_char,
-    ) -> *mut DBEnv;
-
-    // CloudEnvOptions
-    pub fn crocksdb_cloud_envoptions_create() -> *mut CloudEnvOptions;
-    pub fn crocksdb_cloud_envoptions_destroy(opt: *mut CloudEnvOptions);
 }
 
 #[cfg(test)]

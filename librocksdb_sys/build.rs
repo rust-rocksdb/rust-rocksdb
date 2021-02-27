@@ -128,10 +128,6 @@ fn link_cpp(build: &mut Build) {
 fn build_rocksdb() -> Build {
     let target = env::var("TARGET").expect("TARGET was not set");
     let mut cfg = Config::new("rocksdb");
-    // Conditionally compile with support for RocksDB-Cloud, setting USE_AWS
-    if cfg!(feature = "cloud") {
-        println!("cargo:rustc-link-lib=static=rocksdb_cloud");
-    }
     if cfg!(feature = "encryption") {
         cfg.register_dep("OPENSSL").define("WITH_OPENSSL", "ON");
         println!("cargo:rustc-link-lib=static=crypto");
@@ -199,22 +195,12 @@ fn build_rocksdb() -> Build {
     build.include(cur_dir.join("rocksdb"));
     build.include(cur_dir.join("libtitan_sys").join("titan").join("include"));
     build.include(cur_dir.join("libtitan_sys").join("titan"));
-    build.include(
-        cur_dir
-            .join("librocksdb_cloud_sys")
-            .join("rocksdb-cloud")
-            .join("include"),
-    );
-    build.include(cur_dir.join("librocksdb_cloud_sys").join("rocksdb-cloud"));
 
     // Adding rocksdb specific compile macros.
     // TODO: should make sure crocksdb compile options is the same as rocksdb and titan.
     build.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
     if cfg!(feature = "encryption") {
         build.define("OPENSSL", None);
-    }
-    if cfg!(feature = "cloud") {
-        build.define("USE_AWS", None).define("USE_CLOUD", None);
     }
 
     println!("cargo:rustc-link-lib=static=rocksdb");

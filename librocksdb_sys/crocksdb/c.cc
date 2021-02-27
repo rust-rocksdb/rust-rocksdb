@@ -15,7 +15,6 @@
 
 #include "db/column_family.h"
 #include "rocksdb/cache.h"
-#include "rocksdb/cloud/cloud_env_options.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/convenience.h"
@@ -187,9 +186,6 @@ using rocksdb::titandb::TitanDB;
 using rocksdb::titandb::TitanDBOptions;
 using rocksdb::titandb::TitanOptions;
 using rocksdb::titandb::TitanReadOptions;
-
-using rocksdb::CloudEnv;
-using rocksdb::CloudEnvOptions;
 
 using rocksdb::MemoryAllocator;
 
@@ -6579,48 +6575,4 @@ void ctitandb_delete_blob_files_in_ranges_cf(
                         cf->rep, &ranges[0], num_ranges, include_end));
 }
 
-/* RocksDB Cloud */
-#ifdef USE_CLOUD
-struct crocksdb_cloud_envoptions_t {
-  CloudEnvOptions rep;
-};
-
-crocksdb_env_t* crocksdb_cloud_aws_env_create(
-    crocksdb_env_t* base_env, const char* src_cloud_bucket,
-    const char* src_cloud_object, const char* src_cloud_region,
-    const char* dest_cloud_bucket, const char* dest_cloud_object,
-    const char* dest_cloud_region, crocksdb_cloud_envoptions_t* cloud_options,
-    char** errptr) {
-  // Store a reference to a cloud env. A new cloud env object should be
-  // associated with every new cloud-db.
-  CloudEnv* cloud_env;
-
-  CloudEnv* cenv;
-  if (SaveError(errptr,
-                CloudEnv::NewAwsEnv(
-                    base_env->rep, src_cloud_bucket, src_cloud_object,
-                    src_cloud_region, dest_cloud_bucket, dest_cloud_object,
-                    dest_cloud_region, cloud_options->rep, nullptr, &cenv))) {
-    assert(cenv != nullptr);
-    return nullptr;
-  }
-  cloud_env = cenv;
-
-  crocksdb_env_t* result = new crocksdb_env_t;
-  result->rep = static_cast<Env*>(cloud_env);
-  result->block_cipher = nullptr;
-  result->encryption_provider = nullptr;
-  result->is_default = true;
-  return result;
-}
-
-crocksdb_cloud_envoptions_t* crocksdb_cloud_envoptions_create() {
-  crocksdb_cloud_envoptions_t* opt = new crocksdb_cloud_envoptions_t;
-  return opt;
-}
-
-void crocksdb_cloud_envoptions_destroy(crocksdb_cloud_envoptions_t* opt) {
-  delete opt;
-}
-#endif
 }  // end extern "C"

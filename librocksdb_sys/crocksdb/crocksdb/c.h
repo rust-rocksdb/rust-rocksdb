@@ -2603,21 +2603,6 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_delete_blob_files_in_ranges_cf(
     const char* const* limit_keys, const size_t* limit_keys_lens,
     size_t num_ranges, unsigned char include_end, char** errptr);
 
-/* RocksDB Cloud */
-
-#ifdef USE_CLOUD
-extern C_ROCKSDB_LIBRARY_API crocksdb_env_t* crocksdb_cloud_aws_env_create(
-    crocksdb_env_t* base_env, const char* src_cloud_bucket,
-    const char* src_cloud_object, const char* src_cloud_region,
-    const char* dest_cloud_bucket, const char* dest_cloud_object,
-    const char* dest_cloud_region, crocksdb_cloud_envoptions_t* cloud_options,
-    char** errptr);
-extern C_ROCKSDB_LIBRARY_API crocksdb_cloud_envoptions_t*
-crocksdb_cloud_envoptions_create();
-extern C_ROCKSDB_LIBRARY_API void crocksdb_cloud_envoptions_destroy(
-    crocksdb_cloud_envoptions_t* opt);
-#endif
-
 #ifdef __cplusplus
 } /* end extern "C" */
 #endif
