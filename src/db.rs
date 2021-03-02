@@ -712,6 +712,9 @@ impl DB {
         })
     }
 
+    /// Create column family with given name and options without grabbing the
+    /// inner column family lock. This is an optimization that is only safe to
+    /// use if the database was opened with multithreaded config
     pub fn create_cf_multithreaded<N: AsRef<str>>(
         &self,
         name: N,
@@ -724,6 +727,7 @@ impl DB {
         Ok(())
     }
 
+    /// Create column family with given name and options
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
         self.cfs
@@ -731,6 +735,7 @@ impl DB {
         Ok(())
     }
 
+    /// Drop the column family with the given name
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
         self.cfs.get_mut(|cf_map| {
@@ -745,6 +750,9 @@ impl DB {
         })
     }
 
+    /// Drop column family with given name without grabbing the inner column
+    /// family lock. This is an optimization that is only safe to use if the
+    /// database was opened with multithreaded config
     pub fn drop_cf_multi_threaded(&mut self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
         self.cfs.get_mut_locked(|cf_map| {
@@ -1546,8 +1554,8 @@ impl Drop for DB {
             self.cfs.get(|cf_map| {
                 for cf in cf_map.values() {
                     ffi::rocksdb_column_family_handle_destroy(cf.inner);
-                    ffi::rocksdb_close(self.inner);
                 }
+                ffi::rocksdb_close(self.inner);
             })
         }
     }
