@@ -154,7 +154,24 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite, false)
+    }
+
+    /// Opens a database with the given database options and column family names
+    /// with internal locking for column families.
+    ///
+    /// Column families opened using this function will be created with default `Options`.
+    pub fn open_cf_multithreaded<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite, true)
     }
 
     /// Opens a database for read only with the given database options and column family names.
@@ -180,6 +197,7 @@ impl DB {
             &AccessType::ReadOnly {
                 error_if_log_file_exist,
             },
+            false,
         )
     }
 
@@ -206,6 +224,7 @@ impl DB {
             &AccessType::Secondary {
                 secondary_path: secondary_path.as_ref(),
             },
+            false,
         )
     }
 
@@ -215,7 +234,21 @@ impl DB {
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite, false)
+    }
+
+    /// Opens a database with the given database options and column family descriptors,
+    /// with internal locking for column families
+    pub fn open_cf_descriptors_multithreaded<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+    ) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite, true)
     }
 
     /// Internal implementation for opening RocksDB.
@@ -224,6 +257,7 @@ impl DB {
         path: P,
         cfs: I,
         access_type: &AccessType,
+        is_multithreaded: bool,
     ) -> Result<DB, Error>
     where
         P: AsRef<Path>,
@@ -297,9 +331,15 @@ impl DB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
+        let cfs = if is_multithreaded {
+            ColumnFamilyHandles::MultiThread(RwLock::new(cf_map))
+        } else {
+            ColumnFamilyHandles::SingleThread(cf_map)
+        };
+
         Ok(DB {
             inner: db,
-            cfs: ColumnFamilyHandles::SingleThread(cf_map),
+            cfs,
             path: path.as_ref().to_path_buf(),
         })
     }
@@ -712,8 +752,8 @@ impl DB {
         })
     }
 
-    /// Create column family with given name and options without grabbing the
-    /// inner column family lock. This is an optimization that is only safe to
+    /// Create column family with given name by internally locking the inner column
+    /// family map. This avoids needing `&mut self` reference, but is only safe to
     /// use if the database was opened with multithreaded config
     pub fn create_cf_multithreaded<N: AsRef<str>>(
         &self,
@@ -750,10 +790,10 @@ impl DB {
         })
     }
 
-    /// Drop column family with given name without grabbing the inner column
-    /// family lock. This is an optimization that is only safe to use if the
-    /// database was opened with multithreaded config
-    pub fn drop_cf_multi_threaded(&mut self, name: &str) -> Result<(), Error> {
+    /// Drop column family with given name by internally locking the inner column
+    /// family map. This avoids needing `&mut self` reference, but is only safe to
+    /// use if the database was opened with multithreaded config
+    pub fn drop_cf_multi_threaded(&self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
         self.cfs.get_mut_locked(|cf_map| {
             if let Some(cf) = cf_map.remove(name) {
