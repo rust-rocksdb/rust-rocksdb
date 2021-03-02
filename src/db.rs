@@ -161,7 +161,7 @@ impl DB {
     /// with internal locking for column families.
     ///
     /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf_multithreaded<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+    pub fn open_cf_multi_threaded<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = N>,
@@ -239,7 +239,7 @@ impl DB {
 
     /// Opens a database with the given database options and column family descriptors,
     /// with internal locking for column families
-    pub fn open_cf_descriptors_multithreaded<P, I>(
+    pub fn open_cf_descriptors_multi_threaded<P, I>(
         opts: &Options,
         path: P,
         cfs: I,
@@ -257,7 +257,7 @@ impl DB {
         path: P,
         cfs: I,
         access_type: &AccessType,
-        is_multithreaded: bool,
+        is_multi_threaded: bool,
     ) -> Result<DB, Error>
     where
         P: AsRef<Path>,
@@ -331,7 +331,7 @@ impl DB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        let cfs = if is_multithreaded {
+        let cfs = if is_multi_threaded {
             ColumnFamilyHandles::MultiThread(RwLock::new(cf_map))
         } else {
             ColumnFamilyHandles::SingleThread(cf_map)
@@ -754,8 +754,8 @@ impl DB {
 
     /// Create column family with given name by internally locking the inner column
     /// family map. This avoids needing `&mut self` reference, but is only safe to
-    /// use if the database was opened with multithreaded config
-    pub fn create_cf_multithreaded<N: AsRef<str>>(
+    /// use if the database was opened with multi-threaded config
+    pub fn create_cf_multi_threaded<N: AsRef<str>>(
         &self,
         name: N,
         opts: &Options,
@@ -792,7 +792,7 @@ impl DB {
 
     /// Drop column family with given name by internally locking the inner column
     /// family map. This avoids needing `&mut self` reference, but is only safe to
-    /// use if the database was opened with multithreaded config
+    /// use if the database was opened with multi-threaded config
     pub fn drop_cf_multi_threaded(&self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
         self.cfs.get_mut_locked(|cf_map| {
