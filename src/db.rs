@@ -32,37 +32,12 @@ use std::path::PathBuf;
 use std::ptr;
 use std::slice;
 use std::str;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 enum ColumnFamilyHandles {
-    MultiThread(RwLock<BTreeMap<String, ColumnFamily>>),
+    MultiThread(RwLock<BTreeMap<String, Arc<ColumnFamily>>>),
     SingleThread(BTreeMap<String, ColumnFamily>),
-}
-
-impl ColumnFamilyHandles {
-    fn get<T>(&self, f: impl Fn(&BTreeMap<String, ColumnFamily>) -> T) -> T {
-        match self {
-            ColumnFamilyHandles::MultiThread(lock) => f(&lock.read().unwrap()),
-            ColumnFamilyHandles::SingleThread(map) => f(&map),
-        }
-    }
-
-    fn get_mut<T>(&mut self, mut f: impl FnMut(&mut BTreeMap<String, ColumnFamily>) -> T) -> T {
-        match self {
-            ColumnFamilyHandles::MultiThread(lock) => f(&mut lock.write().unwrap()),
-            ColumnFamilyHandles::SingleThread(ref mut map) => f(map),
-        }
-    }
-
-    fn get_mut_locked<T>(&self, mut f: impl FnMut(&mut BTreeMap<String, ColumnFamily>) -> T) -> T {
-        match self {
-            ColumnFamilyHandles::MultiThread(lock) => f(&mut lock.write().unwrap()),
-            ColumnFamilyHandles::SingleThread(_) => {
-                panic!("Not available on SingleThread implementation");
-            }
-        }
-    }
 }
 
 /// A RocksDB database.
@@ -332,7 +307,12 @@ impl DB {
         }
 
         let cfs = if is_multi_threaded {
-            ColumnFamilyHandles::MultiThread(RwLock::new(cf_map))
+            ColumnFamilyHandles::MultiThread(RwLock::new(
+                cf_map
+                    .into_iter()
+                    .map(|(name, cf)| (name, Arc::new(cf)))
+                    .collect(),
+            ))
         } else {
             ColumnFamilyHandles::SingleThread(cf_map)
         };
@@ -752,7 +732,7 @@ impl DB {
         })
     }
 
-    /// Create column family with given name by internally locking the inner column
+    /// Creates column family with given name by internally locking the inner column
     /// family map. This avoids needing `&mut self` reference, but is only safe to
     /// use if the database was opened with multi-threaded config
     pub fn create_cf_multi_threaded<N: AsRef<str>>(
@@ -761,55 +741,94 @@ impl DB {
         opts: &Options,
     ) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
-        self.cfs.get_mut_locked(|cf_map| {
-            cf_map.insert(name.as_ref().to_string(), ColumnFamily { inner })
-        });
+        match &self.cfs {
+            ColumnFamilyHandles::MultiThread(cf_map) => cf_map
+                .write()
+                .unwrap()
+                .insert(name.as_ref().to_string(), Arc::new(ColumnFamily { inner })),
+            ColumnFamilyHandles::SingleThread(_) => {
+                panic!("Not available on SingleThread implementation");
+            }
+        };
         Ok(())
     }
 
-    /// Create column family with given name and options
+    /// Creates column family with given name and options
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
-        self.cfs
-            .get_mut(|cf_map| cf_map.insert(name.as_ref().to_string(), ColumnFamily { inner }));
+        match &mut self.cfs {
+            ColumnFamilyHandles::MultiThread(_) => {
+                panic!("Not available on MultiThread implementation")
+            }
+            ColumnFamilyHandles::SingleThread(cf_map) => {
+                cf_map.insert(name.as_ref().to_string(), ColumnFamily { inner });
+            }
+        }
         Ok(())
     }
 
-    /// Drop the column family with the given name
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        let inner = self.inner;
-        self.cfs.get_mut(|cf_map| {
-            if let Some(cf) = cf_map.remove(name) {
-                unsafe {
-                    ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
-                }
-                Ok(())
-            } else {
-                Err(Error::new(format!("Invalid column family: {}", name)))
-            }
-        })
-    }
-
-    /// Drop column family with given name by internally locking the inner column
-    /// family map. This avoids needing `&mut self` reference, but is only safe to
-    /// use if the database was opened with multi-threaded config
+    /// Drops the column family with the given name by internally locking the inner column
+    /// family map. This avoids needing `&mut self` reference, but is only safe to use if
+    /// the database was opened with multi-threaded config
     pub fn drop_cf_multi_threaded(&self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
-        self.cfs.get_mut_locked(|cf_map| {
-            if let Some(cf) = cf_map.remove(name) {
-                unsafe {
-                    ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
+        match &self.cfs {
+            ColumnFamilyHandles::MultiThread(cf_map) => {
+                if let Some(cf) = cf_map.write().unwrap().remove(name) {
+                    unsafe {
+                        ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
+                    }
+                    Ok(())
+                } else {
+                    Err(Error::new(format!("Invalid column family: {}", name)))
                 }
-                Ok(())
-            } else {
-                Err(Error::new(format!("Invalid column family: {}", name)))
             }
-        })
+            ColumnFamilyHandles::SingleThread(_) => {
+                panic!("Not available on SingleThread implementation")
+            }
+        }
     }
 
-    /// Return the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<ColumnFamily> {
-        self.cfs.get(|cf_map| cf_map.get(name).cloned())
+    /// Drops the column family with the given name
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
+        let inner = self.inner;
+        match &mut self.cfs {
+            ColumnFamilyHandles::MultiThread(_) => {
+                panic!("Not available on MultiThread implementation")
+            }
+            ColumnFamilyHandles::SingleThread(cf_map) => {
+                if let Some(cf) = cf_map.remove(name) {
+                    unsafe {
+                        ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
+                    }
+                    Ok(())
+                } else {
+                    Err(Error::new(format!("Invalid column family: {}", name)))
+                }
+            }
+        }
+    }
+
+    /// Return the underlying column family handle, only safe to use if the database
+    /// was configured to be multithreaded
+    pub fn cf_handle_multi_threaded(&self, name: &str) -> Option<Arc<ColumnFamily>> {
+        match &self.cfs {
+            ColumnFamilyHandles::MultiThread(cf_map) => cf_map.write().unwrap().get(name).cloned(),
+            ColumnFamilyHandles::SingleThread(_) => {
+                panic!("Not available on SingleThread implementation")
+            }
+        }
+    }
+
+    /// Return the underlying column family handle, only safe to use if the database
+    /// was not configured to be multithreaded
+    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
+        match &self.cfs {
+            ColumnFamilyHandles::MultiThread(_) => {
+                panic!("Not available on MultiThread implementation")
+            }
+            ColumnFamilyHandles::SingleThread(cf_map) => cf_map.get(name),
+        }
     }
 
     pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
@@ -1591,12 +1610,20 @@ impl DB {
 impl Drop for DB {
     fn drop(&mut self) {
         unsafe {
-            self.cfs.get(|cf_map| {
-                for cf in cf_map.values() {
-                    ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            match &self.cfs {
+                ColumnFamilyHandles::MultiThread(cf_map) => {
+                    for cf in cf_map.read().unwrap().values() {
+                        ffi::rocksdb_column_family_handle_destroy(cf.inner);
+                    }
                 }
-                ffi::rocksdb_close(self.inner);
-            })
+                ColumnFamilyHandles::SingleThread(cf_map) => {
+                    for cf in cf_map.values() {
+                        ffi::rocksdb_column_family_handle_destroy(cf.inner);
+                    }
+                }
+            }
+
+            ffi::rocksdb_close(self.inner);
         }
     }
 }

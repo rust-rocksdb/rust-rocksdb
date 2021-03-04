@@ -907,7 +907,7 @@ fn multi_get_cf() {
         db.put_cf(&cf2, b"k2", b"v2").unwrap();
 
         let values = db
-            .multi_get_cf(vec![(&cf0, b"k0"), (&cf1, b"k1"), (&cf2, b"k2")])
+            .multi_get_cf(vec![(cf0, b"k0"), (cf1, b"k1"), (cf2, b"k2")])
             .expect("multi_get failed");
         assert_eq!(3, values.len());
         assert!(values[0].is_empty());
