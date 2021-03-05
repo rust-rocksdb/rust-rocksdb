@@ -2552,6 +2552,14 @@ extern "C" {
         opts: *mut DBTitanDBOptions,
         t: DBCompressionType,
     );
+    pub fn ctitandb_options_set_compression_options(
+        options: *mut DBTitanDBOptions,
+        window_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+        zstd_max_train_bytes: c_int,
+    );
 
     pub fn ctitandb_decode_blob_index(
         value: *const u8,

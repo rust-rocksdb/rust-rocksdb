@@ -60,6 +60,27 @@ impl TitanDBOptions {
         }
     }
 
+    pub fn set_compression_options(
+        &mut self,
+        window_bits: i32,
+        level: i32,
+        strategy: i32,
+        max_dict_bytes: i32,
+        zstd_max_train_bytes: i32,
+    ) {
+        unsafe {
+            crocksdb_ffi::ctitandb_options_set_compression_options(
+                self.inner,
+                window_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+                zstd_max_train_bytes,
+            )
+        }
+    }
+
+
     pub fn set_disable_background_gc(&mut self, disable: bool) {
         unsafe {
             crocksdb_ffi::ctitandb_options_set_disable_background_gc(self.inner, disable);

@@ -108,7 +108,8 @@ fn test_titandb() {
     let mut tdb_opts = TitanDBOptions::new();
     tdb_opts.set_dirname(tdb_path.to_str().unwrap());
     tdb_opts.set_min_blob_size(max_value_size / 2 + 1);
-    tdb_opts.set_blob_file_compression(DBCompressionType::No);
+    tdb_opts.set_blob_file_compression(DBCompressionType::Zstd);
+    tdb_opts.set_compression_options(-14, 0, 0, 0, 0);
     tdb_opts.set_disable_background_gc(true);
     tdb_opts.set_purge_obsolete_files_period(10);
     tdb_opts.set_level_merge(false);

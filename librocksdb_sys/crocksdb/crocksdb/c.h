@@ -2476,6 +2476,9 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_gc_merge_rewrite(
 extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_blob_file_compression(
     ctitandb_options_t*, int type);
 
+extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_compression_options(
+    ctitandb_options_t* opt, int, int, int, int, int);
+
 extern C_ROCKSDB_LIBRARY_API void ctitandb_decode_blob_index(
     const char* value, size_t value_size, ctitandb_blob_index_t* index,
     char** errptr);
