@@ -347,27 +347,27 @@ fn set_option_cf_test() {
         let cf = db.cf_handle("cf1").unwrap();
         // set an option to valid values
         assert!(db
-            .set_options_cf(&cf, &[("disable_auto_compactions", "true")])
+            .set_options_cf(cf, &[("disable_auto_compactions", "true")])
             .is_ok());
         assert!(db
-            .set_options_cf(&cf, &[("disable_auto_compactions", "false")])
+            .set_options_cf(cf, &[("disable_auto_compactions", "false")])
             .is_ok());
         // invalid names/values should result in an error
         assert!(db
-            .set_options_cf(&cf, &[("disable_auto_compactions", "INVALID_VALUE")])
+            .set_options_cf(cf, &[("disable_auto_compactions", "INVALID_VALUE")])
             .is_err());
         assert!(db
-            .set_options_cf(&cf, &[("INVALID_NAME", "INVALID_VALUE")])
+            .set_options_cf(cf, &[("INVALID_NAME", "INVALID_VALUE")])
             .is_err());
         // option names/values must not contain NULLs
         assert!(db
-            .set_options_cf(&cf, &[("disable_auto_compactions", "true\0")])
+            .set_options_cf(cf, &[("disable_auto_compactions", "true\0")])
             .is_err());
         assert!(db
-            .set_options_cf(&cf, &[("disable_auto_compactions\0", "true")])
+            .set_options_cf(cf, &[("disable_auto_compactions\0", "true")])
             .is_err());
         // empty options are not allowed
-        assert!(db.set_options_cf(&cf, &[]).is_err());
+        assert!(db.set_options_cf(cf, &[]).is_err());
         // multiple options can be set in a single API call
         let multiple_options = [
             ("paranoid_file_checks", "true"),
@@ -556,13 +556,13 @@ fn compact_range_test() {
         let cfs = vec!["cf1"];
         let db = DB::open_cf(&opts, &path, cfs).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
-        db.put_cf(&cf1, b"k1", b"v1").unwrap();
-        db.put_cf(&cf1, b"k2", b"v2").unwrap();
-        db.put_cf(&cf1, b"k3", b"v3").unwrap();
-        db.put_cf(&cf1, b"k4", b"v4").unwrap();
-        db.put_cf(&cf1, b"k5", b"v5").unwrap();
-        db.compact_range_cf(&cf1, Some(b"k2"), Some(b"k4"));
-        db.compact_range_cf_opt(&cf1, Some(b"k1"), None::<&str>, &compact_opts);
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+        db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
+        db.compact_range_cf_opt(cf1, Some(b"k1"), None::<&str>, &compact_opts);
 
         // put and compact default column family
         db.put(b"k1", b"v1").unwrap();
@@ -595,12 +595,12 @@ fn fifo_compaction_test() {
         let cfs = vec!["cf1"];
         let db = DB::open_cf(&opts, &path, cfs).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
-        db.put_cf(&cf1, b"k1", b"v1").unwrap();
-        db.put_cf(&cf1, b"k2", b"v2").unwrap();
-        db.put_cf(&cf1, b"k3", b"v3").unwrap();
-        db.put_cf(&cf1, b"k4", b"v4").unwrap();
-        db.put_cf(&cf1, b"k5", b"v5").unwrap();
-        db.compact_range_cf(&cf1, Some(b"k2"), Some(b"k4"));
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
+        db.compact_range_cf(cf1, Some(b"k2"), Some(b"k4"));
 
         // check stats
         let ctx = PerfContext::default();
@@ -830,15 +830,15 @@ fn test_open_cf_for_read_only() {
         opts.create_missing_column_families(true);
         let db = DB::open_cf(&opts, &path, cfs.clone()).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
-        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
     }
     {
         let opts = Options::default();
         let error_if_log_file_exist = false;
         let db = DB::open_cf_for_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
-        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
-        assert!(db.put_cf(&cf1, b"k2", b"v2").is_err());
+        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.put_cf(cf1, b"k2", b"v2").is_err());
     }
 }
 
@@ -854,18 +854,18 @@ fn delete_range_test() {
         let db = DB::open_cf(&opts, &path, cfs).unwrap();
 
         let cf1 = db.cf_handle("cf1").unwrap();
-        db.put_cf(&cf1, b"k1", b"v1").unwrap();
-        db.put_cf(&cf1, b"k2", b"v2").unwrap();
-        db.put_cf(&cf1, b"k3", b"v3").unwrap();
-        db.put_cf(&cf1, b"k4", b"v4").unwrap();
-        db.put_cf(&cf1, b"k5", b"v5").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k2", b"v2").unwrap();
+        db.put_cf(cf1, b"k3", b"v3").unwrap();
+        db.put_cf(cf1, b"k4", b"v4").unwrap();
+        db.put_cf(cf1, b"k5", b"v5").unwrap();
 
-        db.delete_range_cf(&cf1, b"k2", b"k4").unwrap();
-        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
-        assert_eq!(db.get_cf(&cf1, b"k4").unwrap().unwrap(), b"v4");
-        assert_eq!(db.get_cf(&cf1, b"k5").unwrap().unwrap(), b"v5");
-        assert!(db.get_cf(&cf1, b"k2").unwrap().is_none());
-        assert!(db.get_cf(&cf1, b"k3").unwrap().is_none());
+        db.delete_range_cf(cf1, b"k2", b"k4").unwrap();
+        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert_eq!(db.get_cf(cf1, b"k4").unwrap().unwrap(), b"v4");
+        assert_eq!(db.get_cf(cf1, b"k5").unwrap().unwrap(), b"v5");
+        assert!(db.get_cf(cf1, b"k2").unwrap().is_none());
+        assert!(db.get_cf(cf1, b"k3").unwrap().is_none());
     }
 }
 
@@ -901,10 +901,10 @@ fn multi_get_cf() {
         let cf0 = db.cf_handle("cf0").unwrap();
 
         let cf1 = db.cf_handle("cf1").unwrap();
-        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(cf1, b"k1", b"v1").unwrap();
 
         let cf2 = db.cf_handle("cf2").unwrap();
-        db.put_cf(&cf2, b"k2", b"v2").unwrap();
+        db.put_cf(cf2, b"k2", b"v2").unwrap();
 
         let values = db
             .multi_get_cf(vec![(cf0, b"k0"), (cf1, b"k1"), (cf2, b"k2")])

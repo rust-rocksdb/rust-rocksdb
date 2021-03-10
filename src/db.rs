@@ -809,7 +809,7 @@ impl DB {
         }
     }
 
-    /// Return the underlying column family handle, only safe to use if the database
+    /// Returns the underlying column family handle, only safe to use if the database
     /// was configured to be multithreaded
     pub fn cf_handle_multi_threaded(&self, name: &str) -> Option<Arc<ColumnFamily>> {
         match &self.cfs {
@@ -820,7 +820,7 @@ impl DB {
         }
     }
 
-    /// Return the underlying column family handle, only safe to use if the database
+    /// Returns the underlying column family handle, only safe to use if the database
     /// was not configured to be multithreaded
     pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
         match &self.cfs {
