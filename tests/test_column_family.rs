@@ -95,14 +95,14 @@ fn test_column_family() {
 fn test_multi_threaded_column_family() {
     let n = DBPath::new("_rust_rocksdb_cftest");
 
-    // should be able to create column families
+    // Should be able to create column families without a mutable reference
+    // to the db
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator_associative("test operator", test_provided_merge);
         let db = DB::open_cf_multi_threaded(&opts, &n, None::<&str>).unwrap();
         let opts = Options::default();
-
         match db.create_cf_multi_threaded("cf1", &opts) {
             Ok(()) => println!("cf1 created successfully"),
             Err(e) => {
@@ -113,7 +113,8 @@ fn test_multi_threaded_column_family() {
 
     test_cf_common(&n);
 
-    // should be able to drop a cf
+    // Should be able to drop column families without a mutable reference
+    // to the db
     {
         let db = DB::open_cf_multi_threaded(&Options::default(), &n, &["cf1"]).unwrap();
         match db.drop_cf_multi_threaded("cf1") {
