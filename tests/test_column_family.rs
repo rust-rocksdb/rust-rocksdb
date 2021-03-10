@@ -19,39 +19,7 @@ use pretty_assertions::assert_eq;
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
 use util::DBPath;
 
-fn run_test_column_family(is_multi_threaded: bool) {
-    let n = DBPath::new("_rust_rocksdb_cftest");
-
-    // should be able to create column families
-    {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.set_merge_operator_associative("test operator", test_provided_merge);
-        let (multi_threaded_db, single_threaded_db) = if is_multi_threaded {
-            (
-                Some(DB::open_cf_multi_threaded(&opts, &n, None::<&str>).unwrap()),
-                None,
-            )
-        } else {
-            (None, Some(DB::open_cf(&opts, &n, None::<&str>).unwrap()))
-        };
-        let opts = Options::default();
-        let create_cf_result = if is_multi_threaded {
-            // multithreaded db does not need mutable access to create a column family
-            let multi_threaded_db = multi_threaded_db.unwrap();
-            multi_threaded_db.create_cf_multi_threaded("cf1", &opts)
-        } else {
-            let mut single_threaded_db = single_threaded_db.unwrap();
-            single_threaded_db.create_cf("cf1", &opts)
-        };
-        match create_cf_result {
-            Ok(()) => println!("cf1 created successfully"),
-            Err(e) => {
-                panic!("could not create column family: {}", e);
-            }
-        }
-    }
-
+fn test_cf_common(n: &DBPath) {
     // should fail to open db without specifying same column families
     {
         let mut opts = Options::default();
@@ -91,29 +59,32 @@ fn run_test_column_family(is_multi_threaded: bool) {
     // TODO should be able to iterate over a cf
     {}
     // should b able to drop a cf
+}
+
+#[test]
+fn test_column_family() {
+    let n = DBPath::new("_rust_rocksdb_cftest");
+
+    // should be able to create column families
     {
-        let (multi_threaded_db, single_threaded_db) = if is_multi_threaded {
-            (
-                Some(DB::open_cf_multi_threaded(&Options::default(), &n, &["cf1"]).unwrap()),
-                None,
-            )
-        } else {
-            (
-                None,
-                Some(DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap()),
-            )
-        };
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
+        let mut db = DB::open(&opts, &n).unwrap();
+        let opts = Options::default();
+        match db.create_cf("cf1", &opts) {
+            Ok(()) => println!("cf1 created successfully"),
+            Err(e) => {
+                panic!("could not create column family: {}", e);
+            }
+        }
+    }
 
-        let drop_cf_result = if is_multi_threaded {
-            // multithreaded db does not need mutable access to drop a column family
-            let multi_threaded_db = multi_threaded_db.unwrap();
-            multi_threaded_db.drop_cf_multi_threaded("cf1")
-        } else {
-            let mut single_threaded_db = single_threaded_db.unwrap();
-            single_threaded_db.drop_cf("cf1")
-        };
+    test_cf_common(&n);
 
-        match drop_cf_result {
+    {
+        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
@@ -121,13 +92,35 @@ fn run_test_column_family(is_multi_threaded: bool) {
 }
 
 #[test]
-fn test_column_family() {
-    run_test_column_family(false);
-}
+fn test_multi_threaded_column_family() {
+    let n = DBPath::new("_rust_rocksdb_cftest");
 
-#[test]
-fn test_column_family_multithreaded() {
-    run_test_column_family(true);
+    // should be able to create column families
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
+        let db = DB::open_cf_multi_threaded(&opts, &n, None::<&str>).unwrap();
+        let opts = Options::default();
+
+        match db.create_cf_multi_threaded("cf1", &opts) {
+            Ok(()) => println!("cf1 created successfully"),
+            Err(e) => {
+                panic!("could not create column family: {}", e);
+            }
+        }
+    }
+
+    test_cf_common(&n);
+
+    // should be able to drop a cf
+    {
+        let db = DB::open_cf_multi_threaded(&Options::default(), &n, &["cf1"]).unwrap();
+        match db.drop_cf_multi_threaded("cf1") {
+            Ok(_) => println!("cf1 successfully dropped."),
+            Err(e) => panic!("failed to drop column family: {}", e),
+        }
+    }
 }
 
 #[test]
