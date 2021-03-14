@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "6.15.4"
+version = "6.17.3"
 edition = "2018"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
@@ -28,6 +28,6 @@ const-cstr = "0.3"
 uuid = { version = "0.8", features = ["v4"] }
 
 [build-dependencies]
-cc = { version = "^1.0", features = ["parallel"] }
-bindgen = { version = "0.55", default-features = false, features = ["runtime"] }
+cc = { version = "1.0", features = ["parallel"] }
+bindgen = { version = "0.57.0", default-features = false, features = ["runtime"] }
 glob = "0.3"
