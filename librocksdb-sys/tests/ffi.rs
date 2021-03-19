@@ -741,7 +741,9 @@ fn ffi() {
                 limit.as_ptr(),
                 limit_len.as_ptr(),
                 sizes.as_mut_ptr(),
+                &mut err,
             );
+            CheckNoError!(err);
             CheckCondition!(sizes[0] > 0);
             CheckCondition!(sizes[1] > 0);
         }
