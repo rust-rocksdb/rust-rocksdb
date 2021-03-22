@@ -110,6 +110,25 @@ impl DB {
         })
     }
 
+    /// Opens the database with a Time to Live compaction filter and column family names.
+    pub fn open_cf_with_ttl<P, I, N>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        ttl: Duration,
+    ) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = N>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
+
+        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::WithTTL { ttl })
+    }
+
     /// Opens a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
@@ -348,7 +367,17 @@ impl DB {
                         cfhandles.as_mut_ptr(),
                     ))
                 }
-                _ => return Err(Error::new("Unsupported access type".to_owned())),
+                AccessType::WithTTL { ttl } => {
+                    ffi_try!(ffi::rocksdb_open_column_families_with_ttl(
+                        opts.inner,
+                        cpath.as_ptr(),
+                        cfs_v.len() as c_int,
+                        cfnames.as_ptr(),
+                        cfopts.as_ptr(),
+                        cfhandles.as_mut_ptr(),
+                        &(ttl.as_secs() as c_int) as *const _,
+                    ))
+                }
             }
         };
         Ok(db)
