@@ -111,6 +111,8 @@ impl DB {
     }
 
     /// Opens the database with a Time to Live compaction filter and column family names.
+    ///
+    /// Column families opened using this function will be created with default `Options`.    
     pub fn open_cf_with_ttl<P, I, N>(
         opts: &Options,
         path: P,
@@ -126,6 +128,21 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
+        DB::open_cf_descriptors_with_ttl(opts, path, cfs, ttl)
+    }
+
+    /// Opens a database with the given database with a Time to Live compaction filter and
+    /// column family descriptors.
+    pub fn open_cf_descriptors_with_ttl<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        ttl: Duration,
+    ) -> Result<DB, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
         DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::WithTTL { ttl })
     }
 
