@@ -103,12 +103,6 @@ fn test_multi_threaded_column_family() {
         opts.set_merge_operator_associative("test operator", test_provided_merge);
         let db = DB::open_cf_multi_threaded(&opts, &n, None::<&str>).unwrap();
         let opts = Options::default();
-        match db.create_cf_multi_threaded("cf1", &opts) {
-            Ok(()) => println!("cf1 created successfully"),
-            Err(e) => {
-                panic!("could not create column family: {}", e);
-            }
-        }
     }
 
     test_cf_common(&n);

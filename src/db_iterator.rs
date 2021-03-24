@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::db::WithDbInner;
 use crate::{ffi, ColumnFamily, Error, ReadOptions, WriteBatch, DB};
 use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
@@ -65,7 +66,7 @@ use std::slice;
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct DBRawIterator<'a> {
+pub struct DBRawIterator<'a, T: WithDbInner> {
     inner: *mut ffi::rocksdb_iterator_t,
 
     /// When iterate_upper_bound is set, the inner C iterator keeps a pointer to the upper bound
@@ -73,28 +74,34 @@ pub struct DBRawIterator<'a> {
     /// iterator is being used.
     _readopts: ReadOptions,
 
-    db: PhantomData<&'a DB>,
+    db: PhantomData<&'a T>,
 }
 
-impl<'a> DBRawIterator<'a> {
-    pub(crate) fn new(db: &DB, readopts: ReadOptions) -> DBRawIterator<'a> {
+impl<'a, T: WithDbInner> DBRawIterator<'a, T> {
+    pub(crate) fn new(db: &T, readopts: ReadOptions) -> DBRawIterator<'a, T> {
+        panic!();
+        /*
         unsafe {
             DBRawIterator {
                 inner: ffi::rocksdb_create_iterator(db.inner, readopts.inner),
                 _readopts: readopts,
                 db: PhantomData,
             }
-        }
+        }*/
     }
 
-    pub(crate) fn new_cf(
-        db: &DB,
-        cf_handle: &ColumnFamily,
+    pub(crate) fn new_cf<U: crate::db::WithColumnFamilyInner>(
+        db: &'a T,
+        cf_handle: U,
         readopts: ReadOptions,
-    ) -> DBRawIterator<'a> {
+    ) -> DBRawIterator<'a, T> {
         unsafe {
             DBRawIterator {
-                inner: ffi::rocksdb_create_iterator_cf(db.inner, readopts.inner, cf_handle.inner),
+                inner: ffi::rocksdb_create_iterator_cf(
+                    WithDbInner::inner(db),
+                    readopts.inner,
+                    cf_handle.inner(),
+                ),
                 _readopts: readopts,
                 db: PhantomData,
             }
@@ -323,7 +330,7 @@ impl<'a> DBRawIterator<'a> {
     }
 }
 
-impl<'a> Drop for DBRawIterator<'a> {
+impl<'a, T: WithDbInner> Drop for DBRawIterator<'a, T> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
@@ -331,8 +338,8 @@ impl<'a> Drop for DBRawIterator<'a> {
     }
 }
 
-unsafe impl<'a> Send for DBRawIterator<'a> {}
-unsafe impl<'a> Sync for DBRawIterator<'a> {}
+unsafe impl<'a, T: WithDbInner> Send for DBRawIterator<'a, T> {}
+unsafe impl<'a, T: WithDbInner> Sync for DBRawIterator<'a, T> {}
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
@@ -365,8 +372,8 @@ unsafe impl<'a> Sync for DBRawIterator<'a> {}
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct DBIterator<'a> {
-    raw: DBRawIterator<'a>,
+pub struct DBIterator<'a, T: WithDbInner> {
+    raw: DBRawIterator<'a, T>,
     direction: Direction,
     just_seeked: bool,
 }
@@ -384,8 +391,8 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl<'a> DBIterator<'a> {
-    pub(crate) fn new(db: &DB, readopts: ReadOptions, mode: IteratorMode) -> DBIterator<'a> {
+impl<'a, T: WithDbInner> DBIterator<'a, T> {
+    pub(crate) fn new(db: &T, readopts: ReadOptions, mode: IteratorMode) -> Self {
         let mut rv = DBIterator {
             raw: DBRawIterator::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
@@ -395,12 +402,12 @@ impl<'a> DBIterator<'a> {
         rv
     }
 
-    pub(crate) fn new_cf(
-        db: &DB,
-        cf_handle: &ColumnFamily,
+    pub(crate) fn new_cf<U: crate::db::WithColumnFamilyInner>(
+        db: &'a T,
+        cf_handle: U,
         readopts: ReadOptions,
         mode: IteratorMode,
-    ) -> DBIterator<'a> {
+    ) -> Self {
         let mut rv = DBIterator {
             raw: DBRawIterator::new_cf(db, cf_handle, readopts),
             direction: Direction::Forward, // blown away by set_mode()
@@ -444,7 +451,7 @@ impl<'a> DBIterator<'a> {
     }
 }
 
-impl<'a> Iterator for DBIterator<'a> {
+impl<'a, T: WithDbInner> Iterator for DBIterator<'a, T> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
@@ -475,8 +482,8 @@ impl<'a> Iterator for DBIterator<'a> {
     }
 }
 
-impl<'a> Into<DBRawIterator<'a>> for DBIterator<'a> {
-    fn into(self) -> DBRawIterator<'a> {
+impl<'a, T: WithDbInner> Into<DBRawIterator<'a, T>> for DBIterator<'a, T> {
+    fn into(self) -> DBRawIterator<'a, T> {
         self.raw
     }
 }
