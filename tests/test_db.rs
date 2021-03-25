@@ -20,9 +20,10 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, DBCompactionStyle, Env, Error, FifoCompactOptions, IteratorMode, Options,
-    PerfContext, PerfMetric, ReadOptions, SliceTransform, Snapshot, UniversalCompactOptions,
-    UniversalCompactionStopStyle, WriteBatch, DB,
+    CompactOptions, DBCompactionStyle, DbWithThreadMode, Env, Error, FifoCompactOptions,
+    IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded,
+    SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
+    DB,
 };
 use util::DBPath;
 
@@ -264,7 +265,7 @@ fn snapshot_test() {
 
 #[derive(Clone)]
 struct SnapshotWrapper {
-    snapshot: Arc<Snapshot<'static>>,
+    snapshot: Arc<Snapshot<'static, DB>>,
 }
 
 impl SnapshotWrapper {
@@ -526,6 +527,28 @@ fn test_open_with_ttl() {
     // in the database and drop all expired entries.
     db.compact_range(None::<&[u8]>, None::<&[u8]>);
     assert!(db.get(b"key1").unwrap().is_none());
+}
+
+#[test]
+fn test_open_as_single_threaded() {
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_as_single_threaded");
+
+    let mut db = DbWithThreadMode::<SingleThreaded>::open_default(&primary_path).unwrap();
+    let db_ref1 = &mut db;
+    let opts = Options::default();
+    db_ref1.create_cf("cf1", &opts).unwrap();
+}
+
+#[test]
+fn test_open_as_multi_threaded() {
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_as_multi_threaded");
+
+    let db = DbWithThreadMode::<MultiThreaded>::open_default(&primary_path).unwrap();
+    let db_ref1 = &db;
+    let db_ref2 = &db;
+    let opts = Options::default();
+    db_ref1.create_cf("cf1", &opts).unwrap();
+    db_ref2.create_cf("cf2", &opts).unwrap();
 }
 
 #[test]

@@ -19,7 +19,25 @@ use pretty_assertions::assert_eq;
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
 use util::DBPath;
 
-fn test_cf_common(n: &DBPath) {
+#[test]
+fn test_column_family() {
+    let n = DBPath::new("_rust_rocksdb_cftest");
+
+    // should be able to create column families
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
+        let mut db = DB::open(&opts, &n).unwrap();
+        let opts = Options::default();
+        match db.create_cf("cf1", &opts) {
+            Ok(()) => println!("cf1 created successfully"),
+            Err(e) => {
+                panic!("could not create column family: {}", e);
+            }
+        }
+    }
+
     // should fail to open db without specifying same column families
     {
         let mut opts = Options::default();
@@ -59,59 +77,9 @@ fn test_cf_common(n: &DBPath) {
     // TODO should be able to iterate over a cf
     {}
     // should b able to drop a cf
-}
-
-#[test]
-fn test_column_family() {
-    let n = DBPath::new("_rust_rocksdb_cftest");
-
-    // should be able to create column families
-    {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.set_merge_operator_associative("test operator", test_provided_merge);
-        let mut db = DB::open(&opts, &n).unwrap();
-        let opts = Options::default();
-        match db.create_cf("cf1", &opts) {
-            Ok(()) => println!("cf1 created successfully"),
-            Err(e) => {
-                panic!("could not create column family: {}", e);
-            }
-        }
-    }
-
-    test_cf_common(&n);
-
     {
         let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
         match db.drop_cf("cf1") {
-            Ok(_) => println!("cf1 successfully dropped."),
-            Err(e) => panic!("failed to drop column family: {}", e),
-        }
-    }
-}
-
-#[test]
-fn test_multi_threaded_column_family() {
-    let n = DBPath::new("_rust_rocksdb_cftest");
-
-    // Should be able to create column families without a mutable reference
-    // to the db
-    {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
-        opts.set_merge_operator_associative("test operator", test_provided_merge);
-        let db = DB::open_cf_multi_threaded(&opts, &n, None::<&str>).unwrap();
-        let opts = Options::default();
-    }
-
-    test_cf_common(&n);
-
-    // Should be able to drop column families without a mutable reference
-    // to the db
-    {
-        let db = DB::open_cf_multi_threaded(&Options::default(), &n, &["cf1"]).unwrap();
-        match db.drop_cf_multi_threaded("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
         }

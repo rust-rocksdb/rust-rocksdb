@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ffi, Options};
+use crate::{db::MultiThreaded, ffi, Options};
 
 /// The name of the default column family.
 ///
@@ -48,3 +48,30 @@ pub struct ColumnFamily {
 }
 
 unsafe impl Send for ColumnFamily {}
+
+/// A specialized opaque type used to represent a column family. Used for multi-threaded
+/// mode. Clone (and Copy) is derived to behave like &ColumnFamily (used for
+/// single-threaded). Clone/Copy is safe because this lifetime is bound to DB like
+/// iterators/snapshots. On top of it, this is cheap and small as &ColumnFamily because
+/// this only has a single pointer-wide field.
+#[derive(Clone, Copy)]
+pub struct BoundColumnFamily<'a> {
+    pub(crate) inner: *mut ffi::rocksdb_column_family_handle_t,
+    pub(crate) multi_threaded_cfs: std::marker::PhantomData<&'a MultiThreaded>,
+}
+
+pub trait ColumnFamilyRef {
+    fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t;
+}
+
+impl<'a> ColumnFamilyRef for &'a ColumnFamily {
+    fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
+        self.inner
+    }
+}
+
+impl<'a> ColumnFamilyRef for BoundColumnFamily<'a> {
+    fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
+        self.inner
+    }
+}

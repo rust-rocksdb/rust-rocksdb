@@ -93,9 +93,11 @@ mod sst_file_writer;
 mod write_batch;
 
 pub use crate::{
-    column_family::{ColumnFamily, ColumnFamilyDescriptor, DEFAULT_COLUMN_FAMILY_NAME},
+    column_family::{
+        BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor, DEFAULT_COLUMN_FAMILY_NAME,
+    },
     compaction_filter::Decision as CompactionDecision,
-    db::{LiveFile, DB},
+    db::{DbWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, DB},
     db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
@@ -179,7 +181,7 @@ mod test {
         is_send::<DB>();
         is_send::<DBIterator<'_, DB>>();
         is_send::<DBRawIterator<'_, DB>>();
-        is_send::<Snapshot>();
+        is_send::<Snapshot<DB>>();
         is_send::<Options>();
         is_send::<ReadOptions>();
         is_send::<WriteOptions>();
@@ -201,7 +203,7 @@ mod test {
         }
 
         is_sync::<DB>();
-        is_sync::<Snapshot>();
+        is_sync::<Snapshot<DB>>();
         is_sync::<Options>();
         is_sync::<ReadOptions>();
         is_sync::<WriteOptions>();
