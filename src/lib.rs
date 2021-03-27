@@ -70,6 +70,9 @@
     clippy::missing_safety_doc,
     clippy::needless_pass_by_value,
     clippy::option_if_let_else,
+    clippy::ptr_as_ptr,
+    clippy::missing_panics_doc,
+    clippy::from_over_into,
     clippy::upper_case_acronyms,
 )]
 
