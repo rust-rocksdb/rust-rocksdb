@@ -70,6 +70,7 @@
     clippy::missing_safety_doc,
     clippy::needless_pass_by_value,
     clippy::option_if_let_else,
+    clippy::upper_case_acronyms,
 )]
 
 #[macro_use]
