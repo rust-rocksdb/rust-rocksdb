@@ -52,7 +52,7 @@ unsafe impl Send for ColumnFamily {}
 /// A specialized opaque type used to represent a column family. Used for multi-threaded
 /// mode. Clone (and Copy) is derived to behave like &ColumnFamily (used for
 /// single-threaded). Clone/Copy is safe because this lifetime is bound to DB like
-/// iterators/snapshots. On top of it, this is cheap and small as &ColumnFamily because
+/// iterators/snapshots. On top of it, this is as cheap and small as &ColumnFamily because
 /// this only has a single pointer-wide field.
 #[derive(Clone, Copy)]
 pub struct BoundColumnFamily<'a> {
