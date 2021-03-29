@@ -95,7 +95,7 @@ jobs:
       - name: Run rocksdb tests (multi-threaded cf alterations)
         uses: actions-rs/cargo@v1
         env:
-          RUSTFLAGS=-Awarnings # Suppress "variable does not need to be mutable" warnings
+          RUSTFLAGS: -Awarnings # Suppress "variable does not need to be mutable" warnings
         with:
           command: test
           args: --features multi-threaded-as-default
