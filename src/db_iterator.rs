@@ -66,11 +66,6 @@ use std::slice;
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-
-#[cfg(not(feature = "multi-threaded-as-default"))]
-pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
-
-#[cfg(feature = "multi-threaded-as-default")]
 pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 
 pub struct DBRawIteratorWithThreadMode<'a, D: InternalDbAdapter> {
@@ -373,10 +368,6 @@ unsafe impl<'a, D: InternalDbAdapter> Sync for DBRawIteratorWithThreadMode<'a, D
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-#[cfg(not(feature = "multi-threaded-as-default"))]
-pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
-
-#[cfg(feature = "multi-threaded-as-default")]
 pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 
 pub struct DBIteratorWithThreadMode<'a, D: InternalDbAdapter> {

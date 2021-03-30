@@ -33,10 +33,6 @@ use crate::{
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
-#[cfg(not(feature = "multi-threaded-as-default"))]
-pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
-
-#[cfg(feature = "multi-threaded-as-default")]
 pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
 
 pub struct SnapshotWithThreadMode<'a, D: InternalDbAdapter> {
