@@ -58,17 +58,23 @@ pub struct BoundColumnFamily<'a> {
     pub(crate) multi_threaded_cfs: std::marker::PhantomData<&'a MultiThreaded>,
 }
 
-pub trait ColumnFamilyRef {
+#[cfg(not(feature = "multi-threaded-as-default"))]
+pub type ColumnFamilyRef<'a> = &'a ColumnFamily;
+
+#[cfg(feature = "multi-threaded-as-default")]
+pub type ColumnFamilyRef<'a> = BoundColumnFamily<'a>;
+
+pub trait AsColumnFamilyRef {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t;
 }
 
-impl<'a> ColumnFamilyRef for &'a ColumnFamily {
+impl<'a> AsColumnFamilyRef for &'a ColumnFamily {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
         self.inner
     }
 }
 
-impl<'a> ColumnFamilyRef for BoundColumnFamily<'a> {
+impl<'a> AsColumnFamilyRef for BoundColumnFamily<'a> {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
         self.inner
     }

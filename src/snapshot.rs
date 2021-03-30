@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{
-    db::InternalDbAdapter, ffi, ColumnFamilyRef, DBIteratorWithThreadMode,
+    db::InternalDbAdapter, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode,
     DBRawIteratorWithThreadMode, Error, IteratorMode, ReadOptions, DB,
 };
 
@@ -64,7 +64,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     /// the default read options.
     pub fn iterator_cf(
         &self,
-        cf_handle: impl ColumnFamilyRef,
+        cf_handle: impl AsColumnFamilyRef,
         mode: IteratorMode,
     ) -> DBIteratorWithThreadMode<D> {
         let readopts = ReadOptions::default();
@@ -85,7 +85,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     /// the given read options.
     pub fn iterator_cf_opt(
         &self,
-        cf_handle: impl ColumnFamilyRef,
+        cf_handle: impl AsColumnFamilyRef,
         mut readopts: ReadOptions,
         mode: IteratorMode,
     ) -> DBIteratorWithThreadMode<D> {
@@ -103,7 +103,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     /// the default read options.
     pub fn raw_iterator_cf(
         &self,
-        cf_handle: impl ColumnFamilyRef,
+        cf_handle: impl AsColumnFamilyRef,
     ) -> DBRawIteratorWithThreadMode<D> {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
@@ -119,7 +119,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     /// the given read options.
     pub fn raw_iterator_cf_opt(
         &self,
-        cf_handle: impl ColumnFamilyRef,
+        cf_handle: impl AsColumnFamilyRef,
         mut readopts: ReadOptions,
     ) -> DBRawIteratorWithThreadMode<D> {
         readopts.set_snapshot(self);
@@ -136,7 +136,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     /// options.
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
-        cf: impl ColumnFamilyRef,
+        cf: impl AsColumnFamilyRef,
         key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
         let readopts = ReadOptions::default();
@@ -156,7 +156,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     /// Returns the bytes associated with a key value, given column family and read options.
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: impl ColumnFamilyRef,
+        cf: impl AsColumnFamilyRef,
         key: K,
         mut readopts: ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {

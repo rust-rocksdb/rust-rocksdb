@@ -98,8 +98,8 @@ mod write_batch;
 
 pub use crate::{
     column_family::{
-        BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor, ColumnFamilyRef,
-        DEFAULT_COLUMN_FAMILY_NAME,
+        AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
+        ColumnFamilyRef, DEFAULT_COLUMN_FAMILY_NAME,
     },
     compaction_filter::Decision as CompactionDecision,
     db::{DbWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, DB},
