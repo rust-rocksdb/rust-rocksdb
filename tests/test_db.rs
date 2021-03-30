@@ -22,8 +22,8 @@ use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     CompactOptions, DBCompactionStyle, DbWithThreadMode, Env, Error, FifoCompactOptions,
     IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded,
-    SliceTransform, SnapshotWithThreadMode, UniversalCompactOptions, UniversalCompactionStopStyle,
-    WriteBatch, DB,
+    SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
+    DB,
 };
 use util::DBPath;
 
@@ -265,7 +265,7 @@ fn snapshot_test() {
 
 #[derive(Clone)]
 struct SnapshotWrapper {
-    snapshot: Arc<SnapshotWithThreadMode<'static, DB>>,
+    snapshot: Arc<Snapshot<'static>>,
 }
 
 impl SnapshotWrapper {

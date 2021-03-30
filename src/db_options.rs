@@ -2022,7 +2022,7 @@ impl Options {
     /// to not being able to determine whether there were any write conflicts.
     ///
     /// When using a TransactionDB:
-    /// If Transaction::SetSnapshotWithThreadMode is used, TransactionDB will read either
+    /// If Transaction::SetSnapshot is used, TransactionDB will read either
     /// in-memory write buffers or SST files to do write-conflict checking.
     /// Increasing this value can reduce the number of reads to SST files
     /// done for conflict detection.
