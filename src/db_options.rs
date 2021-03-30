@@ -28,7 +28,7 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
-    Error, Snapshot,
+    Error, SnapshotWithThreadMode,
 };
 
 fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -2022,7 +2022,7 @@ impl Options {
     /// to not being able to determine whether there were any write conflicts.
     ///
     /// When using a TransactionDB:
-    /// If Transaction::SetSnapshot is used, TransactionDB will read either
+    /// If Transaction::SetSnapshotWithThreadMode is used, TransactionDB will read either
     /// in-memory write buffers or SST files to do write-conflict checking.
     /// Increasing this value can reduce the number of reads to SST files
     /// done for conflict detection.
@@ -2850,7 +2850,10 @@ impl ReadOptions {
     /// Sets the snapshot which should be used for the read.
     /// The snapshot must belong to the DB that is being read and must
     /// not have been released.
-    pub(crate) fn set_snapshot<D: InternalDbAdapter>(&mut self, snapshot: &Snapshot<D>) {
+    pub(crate) fn set_snapshot<D: InternalDbAdapter>(
+        &mut self,
+        snapshot: &SnapshotWithThreadMode<D>,
+    ) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }

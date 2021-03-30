@@ -18,10 +18,10 @@ use crate::{
     column_family::ColumnFamilyRef,
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
-    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
-    DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions,
-    IteratorMode, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
+    DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
+    IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
+    WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -786,7 +786,10 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
         })
     }
 
-    pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b, Self> {
+    pub fn iterator<'a: 'b, 'b>(
+        &'a self,
+        mode: IteratorMode,
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, readopts)
     }
@@ -795,8 +798,8 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
         &'a self,
         mode: IteratorMode,
         readopts: ReadOptions,
-    ) -> DBIterator<'b, Self> {
-        DBIterator::new(self, readopts, mode)
+    ) -> DBIteratorWithThreadMode<'b, Self> {
+        DBIteratorWithThreadMode::new(self, readopts, mode)
     }
 
     /// Opens an iterator using the provided ReadOptions.
@@ -806,26 +809,29 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
         cf_handle: impl ColumnFamilyRef,
         readopts: ReadOptions,
         mode: IteratorMode,
-    ) -> DBIterator<'b, Self> {
-        DBIterator::new_cf(self, cf_handle.inner(), readopts, mode)
+    ) -> DBIteratorWithThreadMode<'b, Self> {
+        DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts, mode)
     }
 
     /// Opens an iterator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
-    pub fn full_iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b, Self> {
+    pub fn full_iterator<'a: 'b, 'b>(
+        &'a self,
+        mode: IteratorMode,
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
-        DBIterator::new(self, opts, mode)
+        DBIteratorWithThreadMode::new(self, opts, mode)
     }
 
     pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(
         &'a self,
         prefix: P,
-    ) -> DBIterator<'b, Self> {
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
-        DBIterator::new(
+        DBIteratorWithThreadMode::new(
             self,
             opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
@@ -836,29 +842,29 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
         &'a self,
         cf_handle: impl ColumnFamilyRef,
         mode: IteratorMode,
-    ) -> DBIterator<'b, Self> {
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let opts = ReadOptions::default();
-        DBIterator::new_cf(self, cf_handle.inner(), opts, mode)
+        DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), opts, mode)
     }
 
     pub fn full_iterator_cf<'a: 'b, 'b>(
         &'a self,
         cf_handle: impl ColumnFamilyRef,
         mode: IteratorMode,
-    ) -> DBIterator<'b, Self> {
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
-        DBIterator::new_cf(self, cf_handle.inner(), opts, mode)
+        DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), opts, mode)
     }
 
     pub fn prefix_iterator_cf<'a, P: AsRef<[u8]>>(
         &'a self,
         cf_handle: impl ColumnFamilyRef,
         prefix: P,
-    ) -> DBIterator<'a, Self> {
+    ) -> DBIteratorWithThreadMode<'a, Self> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
-        DBIterator::<'a, Self>::new_cf(
+        DBIteratorWithThreadMode::<'a, Self>::new_cf(
             self,
             cf_handle.inner(),
             opts,
@@ -867,26 +873,26 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
     }
 
     /// Opens a raw iterator over the database, using the default read options
-    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b, Self> {
+    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIteratorWithThreadMode<'b, Self> {
         let opts = ReadOptions::default();
-        DBRawIterator::new(self, opts)
+        DBRawIteratorWithThreadMode::new(self, opts)
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
     pub fn raw_iterator_cf<'a: 'b, 'b>(
         &'a self,
         cf_handle: impl ColumnFamilyRef,
-    ) -> DBRawIterator<'b, Self> {
+    ) -> DBRawIteratorWithThreadMode<'b, Self> {
         let opts = ReadOptions::default();
-        DBRawIterator::new_cf(self, cf_handle.inner(), opts)
+        DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), opts)
     }
 
     /// Opens a raw iterator over the database, using the given read options
     pub fn raw_iterator_opt<'a: 'b, 'b>(
         &'a self,
         readopts: ReadOptions,
-    ) -> DBRawIterator<'b, Self> {
-        DBRawIterator::new(self, readopts)
+    ) -> DBRawIteratorWithThreadMode<'b, Self> {
+        DBRawIteratorWithThreadMode::new(self, readopts)
     }
 
     /// Opens a raw iterator over the given column family, using the given read options
@@ -894,12 +900,12 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
         &'a self,
         cf_handle: impl ColumnFamilyRef,
         readopts: ReadOptions,
-    ) -> DBRawIterator<'b, Self> {
-        DBRawIterator::new_cf(self, cf_handle.inner(), readopts)
+    ) -> DBRawIteratorWithThreadMode<'b, Self> {
+        DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts)
     }
 
-    pub fn snapshot(&self) -> Snapshot<Self> {
-        Snapshot::<Self>::new(self)
+    pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
+        SnapshotWithThreadMode::<Self>::new(self)
     }
 
     pub fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
@@ -1525,7 +1531,7 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
     ///
     /// Note: L0 files are left regardless of whether they're in the range.
     ///
-    /// Snapshots before the delete might not see the data in the given range.
+    /// SnapshotWithThreadModes before the delete might not see the data in the given range.
     pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error> {
         let from = from.as_ref();
         let to = to.as_ref();

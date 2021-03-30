@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::{
-    column_family::ColumnFamilyRef, db::InternalDbAdapter, ffi, ColumnFamily, DBIterator,
-    DBRawIterator, Error, IteratorMode, ReadOptions,
+    column_family::ColumnFamilyRef, db::InternalDbAdapter, ffi, ColumnFamily,
+    DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Error, IteratorMode, ReadOptions, DB,
 };
 
 /// A consistent view of the database at the point of creation.
@@ -33,13 +33,19 @@ use crate::{
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
-pub struct Snapshot<'a, D: InternalDbAdapter> {
+#[cfg(not(feature = "multi-threaded-as-default"))]
+pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
+
+#[cfg(feature = "multi-threaded-as-default")]
+pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
+
+pub struct SnapshotWithThreadMode<'a, D: InternalDbAdapter> {
     db: &'a D,
     pub(crate) inner: *const ffi::rocksdb_snapshot_t,
 }
 
-impl<'a, D: InternalDbAdapter> Snapshot<'a, D> {
-    /// Creates a new `Snapshot` of the database `db`.
+impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
+    /// Creates a new `SnapshotWithThreadMode` of the database `db`.
     pub fn new(db: &'a D) -> Self {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner()) };
         Self {
@@ -49,22 +55,30 @@ impl<'a, D: InternalDbAdapter> Snapshot<'a, D> {
     }
 
     /// Creates an iterator over the data in this snapshot, using the default read options.
-    pub fn iterator(&self, mode: IteratorMode) -> DBIterator<'a, D> {
+    pub fn iterator(&self, mode: IteratorMode) -> DBIteratorWithThreadMode<'a, D> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, readopts)
     }
 
     /// Creates an iterator over the data in this snapshot under the given column family, using
     /// the default read options.
-    pub fn iterator_cf(&self, cf_handle: &ColumnFamily, mode: IteratorMode) -> DBIterator<D> {
+    pub fn iterator_cf(
+        &self,
+        cf_handle: &ColumnFamily,
+        mode: IteratorMode,
+    ) -> DBIteratorWithThreadMode<D> {
         let readopts = ReadOptions::default();
         self.iterator_cf_opt(cf_handle, readopts, mode)
     }
 
     /// Creates an iterator over the data in this snapshot, using the given read options.
-    pub fn iterator_opt(&self, mode: IteratorMode, mut readopts: ReadOptions) -> DBIterator<'a, D> {
+    pub fn iterator_opt(
+        &self,
+        mode: IteratorMode,
+        mut readopts: ReadOptions,
+    ) -> DBIteratorWithThreadMode<'a, D> {
         readopts.set_snapshot(self);
-        DBIterator::<D>::new(self.db, readopts, mode)
+        DBIteratorWithThreadMode::<D>::new(self.db, readopts, mode)
     }
 
     /// Creates an iterator over the data in this snapshot under the given column family, using
@@ -74,28 +88,28 @@ impl<'a, D: InternalDbAdapter> Snapshot<'a, D> {
         cf_handle: impl ColumnFamilyRef,
         mut readopts: ReadOptions,
         mode: IteratorMode,
-    ) -> DBIterator<D> {
+    ) -> DBIteratorWithThreadMode<D> {
         readopts.set_snapshot(self);
-        DBIterator::new_cf(self.db, cf_handle.inner(), readopts, mode)
+        DBIteratorWithThreadMode::new_cf(self.db, cf_handle.inner(), readopts, mode)
     }
 
     /// Creates a raw iterator over the data in this snapshot, using the default read options.
-    pub fn raw_iterator(&self) -> DBRawIterator<D> {
+    pub fn raw_iterator(&self) -> DBRawIteratorWithThreadMode<D> {
         let readopts = ReadOptions::default();
         self.raw_iterator_opt(readopts)
     }
 
     /// Creates a raw iterator over the data in this snapshot under the given column family, using
     /// the default read options.
-    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIterator<D> {
+    pub fn raw_iterator_cf(&self, cf_handle: &ColumnFamily) -> DBRawIteratorWithThreadMode<D> {
         let readopts = ReadOptions::default();
         self.raw_iterator_cf_opt(cf_handle, readopts)
     }
 
     /// Creates a raw iterator over the data in this snapshot, using the given read options.
-    pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIterator<D> {
+    pub fn raw_iterator_opt(&self, mut readopts: ReadOptions) -> DBRawIteratorWithThreadMode<D> {
         readopts.set_snapshot(self);
-        DBRawIterator::new(self.db, readopts)
+        DBRawIteratorWithThreadMode::new(self.db, readopts)
     }
 
     /// Creates a raw iterator over the data in this snapshot under the given column family, using
@@ -104,9 +118,9 @@ impl<'a, D: InternalDbAdapter> Snapshot<'a, D> {
         &self,
         cf_handle: &ColumnFamily,
         mut readopts: ReadOptions,
-    ) -> DBRawIterator<D> {
+    ) -> DBRawIteratorWithThreadMode<D> {
         readopts.set_snapshot(self);
-        DBRawIterator::new_cf(self.db, cf_handle.inner(), readopts)
+        DBRawIteratorWithThreadMode::new_cf(self.db, cf_handle.inner(), readopts)
     }
 
     /// Returns the bytes associated with a key value with default read options.
@@ -148,7 +162,7 @@ impl<'a, D: InternalDbAdapter> Snapshot<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Drop for Snapshot<'a, D> {
+impl<'a, D: InternalDbAdapter> Drop for SnapshotWithThreadMode<'a, D> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_release_snapshot(self.db.inner(), self.inner);
@@ -156,7 +170,7 @@ impl<'a, D: InternalDbAdapter> Drop for Snapshot<'a, D> {
     }
 }
 
-/// `Send` and `Sync` implementations for `Snapshot` are safe, because `Snapshot` is
+/// `Send` and `Sync` implementations for `SnapshotWithThreadMode` are safe, because `SnapshotWithThreadMode` is
 /// immutable and can be safely shared between threads.
-unsafe impl<'a, D: InternalDbAdapter> Send for Snapshot<'a, D> {}
-unsafe impl<'a, D: InternalDbAdapter> Sync for Snapshot<'a, D> {}
+unsafe impl<'a, D: InternalDbAdapter> Send for SnapshotWithThreadMode<'a, D> {}
+unsafe impl<'a, D: InternalDbAdapter> Sync for SnapshotWithThreadMode<'a, D> {}

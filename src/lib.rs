@@ -102,7 +102,10 @@ pub use crate::{
     },
     compaction_filter::Decision as CompactionDecision,
     db::{DbWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, DB},
-    db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
+    db_iterator::{
+        DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
+        DBWALIterator, Direction, IteratorMode,
+    },
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
         DBCompactionStyle, DBCompressionType, DBPath, DBRecoveryMode, DataBlockIndexType, Env,
@@ -114,7 +117,7 @@ pub use crate::{
     merge_operator::MergeOperands,
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
-    snapshot::Snapshot,
+    snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
     write_batch::{WriteBatch, WriteBatchIterator},
 };
@@ -168,9 +171,9 @@ impl fmt::Display for Error {
 #[cfg(test)]
 mod test {
     use super::{
-        BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
-        IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
-        SstFileWriter, WriteBatch, WriteOptions, DB,
+        BlockBasedOptions, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor, DBIterator,
+        DBRawIterator, IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions,
+        Snapshot, SstFileWriter, WriteBatch, WriteOptions, DB,
     };
 
     #[test]
@@ -183,9 +186,9 @@ mod test {
         }
 
         is_send::<DB>();
-        is_send::<DBIterator<'_, DB>>();
-        is_send::<DBRawIterator<'_, DB>>();
-        is_send::<Snapshot<DB>>();
+        is_send::<DBIterator<'_>>();
+        is_send::<DBRawIterator<'_>>();
+        is_send::<Snapshot>();
         is_send::<Options>();
         is_send::<ReadOptions>();
         is_send::<WriteOptions>();
@@ -194,6 +197,7 @@ mod test {
         is_send::<PlainTableFactoryOptions>();
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
+        is_send::<BoundColumnFamily<'_>>();
         is_send::<SstFileWriter>();
         is_send::<WriteBatch>();
     }
@@ -207,7 +211,7 @@ mod test {
         }
 
         is_sync::<DB>();
-        is_sync::<Snapshot<DB>>();
+        is_sync::<Snapshot>();
         is_sync::<Options>();
         is_sync::<ReadOptions>();
         is_sync::<WriteOptions>();

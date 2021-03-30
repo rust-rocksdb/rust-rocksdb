@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::db::InternalDbAdapter;
+use crate::db::{InternalDbAdapter, DB};
 use crate::{ffi, Error, ReadOptions, WriteBatch};
 use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
@@ -21,7 +21,7 @@ use std::slice;
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
 ///
-/// This iterator is different to the standard ``DBIterator`` as it aims Into
+/// This iterator is different to the standard ``DBIteratorWithThreadMode`` as it aims Into
 /// replicate the underlying iterator API within RocksDB itself. This should
 /// give access to more performance and flexibility but departs from the
 /// widely recognised Rust idioms.
@@ -66,7 +66,14 @@ use std::slice;
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct DBRawIterator<'a, D: InternalDbAdapter> {
+
+#[cfg(not(feature = "multi-threaded-as-default"))]
+pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
+
+#[cfg(feature = "multi-threaded-as-default")]
+pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
+
+pub struct DBRawIteratorWithThreadMode<'a, D: InternalDbAdapter> {
     inner: *mut ffi::rocksdb_iterator_t,
 
     /// When iterate_upper_bound is set, the inner C iterator keeps a pointer to the upper bound
@@ -77,10 +84,10 @@ pub struct DBRawIterator<'a, D: InternalDbAdapter> {
     db: PhantomData<&'a D>,
 }
 
-impl<'a, D: InternalDbAdapter> DBRawIterator<'a, D> {
-    pub(crate) fn new(db: &D, readopts: ReadOptions) -> DBRawIterator<'a, D> {
+impl<'a, D: InternalDbAdapter> DBRawIteratorWithThreadMode<'a, D> {
+    pub(crate) fn new(db: &D, readopts: ReadOptions) -> DBRawIteratorWithThreadMode<'a, D> {
         unsafe {
-            DBRawIterator {
+            DBRawIteratorWithThreadMode {
                 inner: ffi::rocksdb_create_iterator(db.inner(), readopts.inner),
                 _readopts: readopts,
                 db: PhantomData,
@@ -92,9 +99,9 @@ impl<'a, D: InternalDbAdapter> DBRawIterator<'a, D> {
         db: &'a D,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: ReadOptions,
-    ) -> DBRawIterator<'a, D> {
+    ) -> DBRawIteratorWithThreadMode<'a, D> {
         unsafe {
-            DBRawIterator {
+            DBRawIteratorWithThreadMode {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle),
                 _readopts: readopts,
                 db: PhantomData,
@@ -106,7 +113,7 @@ impl<'a, D: InternalDbAdapter> DBRawIterator<'a, D> {
     /// it reaches the end of its defined range, or when it encounters an error.
     ///
     /// To check whether the iterator encountered an error after `valid` has
-    /// returned `false`, use the [`status`](DBRawIterator::status) method. `status` will never
+    /// returned `false`, use the [`status`](DBRawIteratorWithThreadMode::status) method. `status` will never
     /// return an error when `valid` is `true`.
     pub fn valid(&self) -> bool {
         unsafe { ffi::rocksdb_iter_valid(self.inner) != 0 }
@@ -114,7 +121,7 @@ impl<'a, D: InternalDbAdapter> DBRawIterator<'a, D> {
 
     /// Returns an error `Result` if the iterator has encountered an error
     /// during operation. When an error is encountered, the iterator is
-    /// invalidated and [`valid`](DBRawIterator::valid) will return `false` when called.
+    /// invalidated and [`valid`](DBRawIteratorWithThreadMode::valid) will return `false` when called.
     ///
     /// Performing a seek will discard the current status.
     pub fn status(&self) -> Result<(), Error> {
@@ -324,7 +331,7 @@ impl<'a, D: InternalDbAdapter> DBRawIterator<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Drop for DBRawIterator<'a, D> {
+impl<'a, D: InternalDbAdapter> Drop for DBRawIteratorWithThreadMode<'a, D> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
@@ -332,8 +339,8 @@ impl<'a, D: InternalDbAdapter> Drop for DBRawIterator<'a, D> {
     }
 }
 
-unsafe impl<'a, D: InternalDbAdapter> Send for DBRawIterator<'a, D> {}
-unsafe impl<'a, D: InternalDbAdapter> Sync for DBRawIterator<'a, D> {}
+unsafe impl<'a, D: InternalDbAdapter> Send for DBRawIteratorWithThreadMode<'a, D> {}
+unsafe impl<'a, D: InternalDbAdapter> Sync for DBRawIteratorWithThreadMode<'a, D> {}
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
@@ -366,8 +373,14 @@ unsafe impl<'a, D: InternalDbAdapter> Sync for DBRawIterator<'a, D> {}
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct DBIterator<'a, D: InternalDbAdapter> {
-    raw: DBRawIterator<'a, D>,
+#[cfg(not(feature = "multi-threaded-as-default"))]
+pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
+
+#[cfg(feature = "multi-threaded-as-default")]
+pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
+
+pub struct DBIteratorWithThreadMode<'a, D: InternalDbAdapter> {
+    raw: DBRawIteratorWithThreadMode<'a, D>,
     direction: Direction,
     just_seeked: bool,
 }
@@ -385,10 +398,10 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl<'a, D: InternalDbAdapter> DBIterator<'a, D> {
+impl<'a, D: InternalDbAdapter> DBIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions, mode: IteratorMode) -> Self {
-        let mut rv = DBIterator {
-            raw: DBRawIterator::new(db, readopts),
+        let mut rv = DBIteratorWithThreadMode {
+            raw: DBRawIteratorWithThreadMode::new(db, readopts),
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };
@@ -402,8 +415,8 @@ impl<'a, D: InternalDbAdapter> DBIterator<'a, D> {
         readopts: ReadOptions,
         mode: IteratorMode,
     ) -> Self {
-        let mut rv = DBIterator {
-            raw: DBRawIterator::new_cf(db, cf_handle, readopts),
+        let mut rv = DBIteratorWithThreadMode {
+            raw: DBRawIteratorWithThreadMode::new_cf(db, cf_handle, readopts),
             direction: Direction::Forward, // blown away by set_mode()
             just_seeked: false,
         };
@@ -434,18 +447,18 @@ impl<'a, D: InternalDbAdapter> DBIterator<'a, D> {
         self.just_seeked = true;
     }
 
-    /// See [`valid`](DBRawIterator::valid)
+    /// See [`valid`](DBRawIteratorWithThreadMode::valid)
     pub fn valid(&self) -> bool {
         self.raw.valid()
     }
 
-    /// See [`status`](DBRawIterator::status)
+    /// See [`status`](DBRawIteratorWithThreadMode::status)
     pub fn status(&self) -> Result<(), Error> {
         self.raw.status()
     }
 }
 
-impl<'a, D: InternalDbAdapter> Iterator for DBIterator<'a, D> {
+impl<'a, D: InternalDbAdapter> Iterator for DBIteratorWithThreadMode<'a, D> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
@@ -476,8 +489,10 @@ impl<'a, D: InternalDbAdapter> Iterator for DBIterator<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Into<DBRawIterator<'a, D>> for DBIterator<'a, D> {
-    fn into(self) -> DBRawIterator<'a, D> {
+impl<'a, D: InternalDbAdapter> Into<DBRawIteratorWithThreadMode<'a, D>>
+    for DBIteratorWithThreadMode<'a, D>
+{
+    fn into(self) -> DBRawIteratorWithThreadMode<'a, D> {
         self.raw
     }
 }

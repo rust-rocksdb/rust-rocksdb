@@ -47,8 +47,6 @@ pub struct ColumnFamily {
     pub(crate) inner: *mut ffi::rocksdb_column_family_handle_t,
 }
 
-unsafe impl Send for ColumnFamily {}
-
 /// A specialized opaque type used to represent a column family. Used for multi-threaded
 /// mode. Clone (and Copy) is derived to behave like &ColumnFamily (used for
 /// single-threaded). Clone/Copy is safe because this lifetime is bound to DB like
@@ -75,3 +73,6 @@ impl<'a> ColumnFamilyRef for BoundColumnFamily<'a> {
         self.inner
     }
 }
+
+unsafe impl Send for ColumnFamily {}
+unsafe impl<'a> Send for BoundColumnFamily<'a> {}
