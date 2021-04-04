@@ -15,7 +15,7 @@
 use std::ffi::{CStr, CString};
 use std::mem;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
 
@@ -48,7 +48,7 @@ impl Drop for CacheWrapper {
     }
 }
 
-pub struct Cache(pub(crate) Rc<CacheWrapper>);
+pub struct Cache(pub(crate) Arc<CacheWrapper>);
 
 impl Cache {
     /// Create a lru cache with capacity
@@ -57,7 +57,7 @@ impl Cache {
         if cache.is_null() {
             Err(Error::new("Could not create Cache".to_owned()))
         } else {
-            Ok(Cache(Rc::new(CacheWrapper { inner: cache })))
+            Ok(Cache(Arc::new(CacheWrapper { inner: cache })))
         }
     }
 
@@ -93,6 +93,8 @@ impl Cache {
 ///
 /// Note: currently, C API behinds C++ API for various settings.
 /// See also: `rocksdb/include/env.h`
+pub struct Env(Arc<EnvWrapper>);
+
 struct EnvWrapper {
     inner: *mut ffi::rocksdb_env_t,
 }
@@ -105,8 +107,6 @@ impl Drop for EnvWrapper {
     }
 }
 
-pub struct Env(Rc<EnvWrapper>);
-
 impl Env {
     /// Returns default env
     pub fn default() -> Result<Env, Error> {
@@ -114,7 +114,7 @@ impl Env {
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))
         } else {
-            Ok(Env(Rc::new(EnvWrapper { inner: env })))
+            Ok(Env(Arc::new(EnvWrapper { inner: env })))
         }
     }
 
@@ -125,7 +125,7 @@ impl Env {
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))
         } else {
-            Ok(Env(Rc::new(EnvWrapper { inner: env })))
+            Ok(Env(Arc::new(EnvWrapper { inner: env })))
         }
     }
 
