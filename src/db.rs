@@ -30,6 +30,7 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
+use std::iter;
 use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
@@ -103,7 +104,7 @@ pub struct DBWithThreadMode<T: ThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_t,
     cfs: T, // Column families are held differently depending on thread mode
     path: PathBuf,
-    _outlive: OptionsMustOutliveDB,
+    _outlive: Vec<OptionsMustOutliveDB>,
 }
 
 /// Minimal set of DB-related methods, intended to be  generic over
@@ -240,7 +241,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             inner: db,
             cfs: T::new(BTreeMap::new()),
             path: path.as_ref().to_path_buf(),
-            _outlive: opts.outlive.clone(),
+            _outlive: vec![opts.outlive.clone()],
         })
     }
 
@@ -333,6 +334,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
         let cfs: Vec<_> = cfs.into_iter().collect();
+        let outlive = iter::once(opts.outlive.clone())
+            .chain(cfs.iter().map(|cf| cf.options.outlive.clone()))
+            .collect();
 
         let cpath = to_cpath(&path)?;
 
@@ -404,7 +408,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             inner: db,
             path: path.as_ref().to_path_buf(),
             cfs: T::new(cf_map),
-            _outlive: opts.outlive.clone(),
+            _outlive: outlive,
         })
     }
 
