@@ -224,7 +224,7 @@ impl OptionsMustOutliveDB {
 }
 
 #[derive(Default)]
-pub struct BlockBasedOptionsMustOutliveDB {
+struct BlockBasedOptionsMustOutliveDB {
     block_cache: Option<Cache>,
     block_cache_compressed: Option<Cache>,
 }
