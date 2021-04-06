@@ -235,7 +235,7 @@ impl Default for BackupEngineOptions {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
-                panic!("Could not create RocksDB backup options".to_owned());
+                panic!("Could not create RocksDB backup options");
             }
             BackupEngineOptions { inner: opts }
         }
@@ -247,7 +247,7 @@ impl Default for RestoreOptions {
         unsafe {
             let opts = ffi::rocksdb_restore_options_create();
             if opts.is_null() {
-                panic!("Could not create RocksDB restore options".to_owned());
+                panic!("Could not create RocksDB restore options");
             }
             RestoreOptions { inner: opts }
         }

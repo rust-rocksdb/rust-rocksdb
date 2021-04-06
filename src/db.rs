@@ -14,12 +14,14 @@
 //
 
 use crate::{
+    column_family::AsColumnFamilyRef,
+    column_family::BoundColumnFamily,
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
-    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIterator, DBPinnableSlice,
-    DBRawIterator, DBWALIterator, Direction, Error, FlushOptions, IngestExternalFileOptions,
-    IteratorMode, Options, ReadOptions, Snapshot, WriteBatch, WriteOptions,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
+    DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
+    IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
+    WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
@@ -27,30 +29,159 @@ use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::path::PathBuf;
 use std::ptr;
 use std::slice;
 use std::str;
+use std::sync::RwLock;
 use std::time::Duration;
+
+// Marker trait to specify single or multi threaded column family alternations for DB
+// Also, this is minimum common API sharable between SingleThreaded and
+// MultiThreaded. Others differ in self mutability and return type.
+pub trait ThreadMode {
+    fn new(cf_map: BTreeMap<String, ColumnFamily>) -> Self;
+    fn cf_drop_all(&mut self);
+}
+
+/// Actual marker type for the internal marker trait `ThreadMode`, which holds
+/// a collection of column families without synchronization primitive, providing
+/// no overhead for the single-threaded column family alternations. The other
+/// mode is [`MultiThreaded`].
+///
+/// See [`DB`] for more details, including performance implications for each mode
+pub struct SingleThreaded {
+    cfs: BTreeMap<String, ColumnFamily>,
+}
+
+/// Actual marker type for the internal marker trait `ThreadMode`, which holds
+/// a collection of column families wrapped in a RwLock to be mutated
+/// concurrently. The other mode is [`SingleThreaded`].
+///
+/// See [`DB`] for more details, including performance implications for each mode
+pub struct MultiThreaded {
+    cfs: RwLock<BTreeMap<String, ColumnFamily>>,
+}
+
+impl ThreadMode for SingleThreaded {
+    fn new(cfs: BTreeMap<String, ColumnFamily>) -> Self {
+        Self { cfs }
+    }
+
+    fn cf_drop_all(&mut self) {
+        for cf in self.cfs.values() {
+            unsafe {
+                ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            }
+        }
+    }
+}
+
+impl ThreadMode for MultiThreaded {
+    fn new(cfs: BTreeMap<String, ColumnFamily>) -> Self {
+        Self {
+            cfs: RwLock::new(cfs),
+        }
+    }
+
+    fn cf_drop_all(&mut self) {
+        for cf in self.cfs.read().unwrap().values() {
+            unsafe {
+                ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            }
+        }
+    }
+}
 
 /// A RocksDB database.
 ///
 /// See crate level documentation for a simple usage example.
-pub struct DB {
+pub struct DBWithThreadMode<T: ThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_t,
-    cfs: BTreeMap<String, ColumnFamily>,
+    cfs: T, // Column families are held differently depending on thread mode
     path: PathBuf,
 }
+
+/// Minimal set of DB-related methods, intended to be  generic over
+/// `DBWithThreadMode<T>`. Mainly used internally
+pub trait DBAccess {
+    fn inner(&self) -> *mut ffi::rocksdb_t;
+
+    fn get_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<Vec<u8>>, Error>;
+
+    fn get_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<Vec<u8>>, Error>;
+}
+
+impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
+    fn inner(&self) -> *mut ffi::rocksdb_t {
+        self.inner
+    }
+
+    fn get_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_opt(key, readopts)
+    }
+
+    fn get_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_cf_opt(cf, key, readopts)
+    }
+}
+
+/// A type alias to DB instance type with the single-threaded column family
+/// creations/deletions
+///
+/// # Compatibility and multi-threaded mode
+///
+/// Previously, `DB` was defined as a direct struct. Now, it's type-aliased for
+/// compatibility. Use `DBWithThreadMode<MultiThreaded>` for multi-threaded
+/// column family alternations.
+///
+/// # Limited performance implication for single-threaded mode
+///
+/// Even with [`SingleThreaded`], almost all of RocksDB operations is
+/// multi-threaded unless the underlying RocksDB instance is
+/// specifically configured otherwise. `SingleThreaded` only forces
+/// serialization of column family alternations by requring `&mut self` of DB
+/// instance due to its wrapper implementation details.
+///
+/// # Multi-threaded mode
+///
+/// [`MultiThreaded`] can be appropriate for the situation of multi-threaded
+/// workload including multi-threaded column family alternations, costing the
+/// RwLock overhead inside `DB`.
+#[cfg(not(feature = "multi-threaded-cf"))]
+pub type DB = DBWithThreadMode<SingleThreaded>;
+
+#[cfg(feature = "multi-threaded-cf")]
+pub type DB = DBWithThreadMode<MultiThreaded>;
 
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
-unsafe impl Send for DB {}
+unsafe impl<T: ThreadMode> Send for DBWithThreadMode<T> {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
-unsafe impl Sync for DB {}
+unsafe impl<T: ThreadMode> Sync for DBWithThreadMode<T> {}
 
 // Specifies whether open DB for read only.
 enum AccessType<'a> {
@@ -60,17 +191,17 @@ enum AccessType<'a> {
     WithTTL { ttl: Duration },
 }
 
-impl DB {
+impl<T: ThreadMode> DBWithThreadMode<T> {
     /// Opens a database with default options.
-    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<DB, Error> {
+    pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        DB::open(&opts, path)
+        Self::open(&opts, path)
     }
 
     /// Opens the database with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<DB, Error> {
-        DB::open_cf(opts, path, None::<&str>)
+    pub fn open<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Self, Error> {
+        Self::open_cf(opts, path, None::<&str>)
     }
 
     /// Opens the database for read only with the specified options.
@@ -78,8 +209,8 @@ impl DB {
         opts: &Options,
         path: P,
         error_if_log_file_exist: bool,
-    ) -> Result<DB, Error> {
-        DB::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
+    ) -> Result<Self, Error> {
+        Self::open_cf_for_read_only(opts, path, None::<&str>, error_if_log_file_exist)
     }
 
     /// Opens the database as a secondary.
@@ -87,8 +218,8 @@ impl DB {
         opts: &Options,
         primary_path: P,
         secondary_path: P,
-    ) -> Result<DB, Error> {
-        DB::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
+    ) -> Result<Self, Error> {
+        Self::open_cf_as_secondary(opts, primary_path, secondary_path, None::<&str>)
     }
 
     /// Opens the database with a Time to Live compaction filter.
@@ -96,16 +227,16 @@ impl DB {
         opts: &Options,
         path: P,
         ttl: Duration,
-    ) -> Result<DB, Error> {
+    ) -> Result<Self, Error> {
         let c_path = to_cpath(&path)?;
-        let db = DB::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
+        let db = Self::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
         if db.is_null() {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        Ok(DB {
+        Ok(Self {
             inner: db,
-            cfs: BTreeMap::new(),
+            cfs: T::new(BTreeMap::new()),
             path: path.as_ref().to_path_buf(),
         })
     }
@@ -149,7 +280,7 @@ impl DB {
     /// Opens a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
-    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+    pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = N>,
@@ -159,7 +290,7 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
     /// Opens a database for read only with the given database options and column family names.
@@ -168,7 +299,7 @@ impl DB {
         path: P,
         cfs: I,
         error_if_log_file_exist: bool,
-    ) -> Result<DB, Error>
+    ) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = N>,
@@ -178,7 +309,7 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_internal(
+        Self::open_cf_descriptors_internal(
             opts,
             path,
             cfs,
@@ -194,7 +325,7 @@ impl DB {
         primary_path: P,
         secondary_path: P,
         cfs: I,
-    ) -> Result<DB, Error>
+    ) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = N>,
@@ -204,7 +335,7 @@ impl DB {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_internal(
+        Self::open_cf_descriptors_internal(
             opts,
             primary_path,
             cfs,
@@ -215,12 +346,12 @@ impl DB {
     }
 
     /// Opens a database with the given database options and column family descriptors.
-    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<DB, Error>
+    pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
     /// Internal implementation for opening RocksDB.
@@ -229,7 +360,7 @@ impl DB {
         path: P,
         cfs: I,
         access_type: &AccessType,
-    ) -> Result<DB, Error>
+    ) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
@@ -249,7 +380,7 @@ impl DB {
         let mut cf_map = BTreeMap::new();
 
         if cfs.is_empty() {
-            db = DB::open_raw(opts, &cpath, access_type)?;
+            db = Self::open_raw(opts, &cpath, access_type)?;
         } else {
             let mut cfs_v = cfs;
             // Always open the default column family.
@@ -276,7 +407,7 @@ impl DB {
                 .map(|cf| cf.options.inner as *const _)
                 .collect();
 
-            db = DB::open_cf_raw(
+            db = Self::open_cf_raw(
                 opts,
                 &cpath,
                 &cfs_v,
@@ -302,10 +433,10 @@ impl DB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        Ok(DB {
+        Ok(Self {
             inner: db,
-            cfs: cf_map,
             path: path.as_ref().to_path_buf(),
+            cfs: T::new(cf_map),
         })
     }
 
@@ -454,16 +585,24 @@ impl DB {
     }
 
     /// Flushes database memtables to SST files on the disk for a given column family.
-    pub fn flush_cf_opt(&self, cf: &ColumnFamily, flushopts: &FlushOptions) -> Result<(), Error> {
+    pub fn flush_cf_opt(
+        &self,
+        cf: impl AsColumnFamilyRef,
+        flushopts: &FlushOptions,
+    ) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush_cf(self.inner, flushopts.inner, cf.inner));
+            ffi_try!(ffi::rocksdb_flush_cf(
+                self.inner,
+                flushopts.inner,
+                cf.inner()
+            ));
         }
         Ok(())
     }
 
     /// Flushes database memtables to SST files on the disk for a given column family using default
     /// options.
-    pub fn flush_cf(&self, cf: &ColumnFamily) -> Result<(), Error> {
+    pub fn flush_cf(&self, cf: impl AsColumnFamilyRef) -> Result<(), Error> {
         self.flush_cf_opt(cf, &FlushOptions::default())
     }
 
@@ -508,7 +647,7 @@ impl DB {
     /// [`get_pinned_cf_opt`](#method.get_pinned_cf_opt) to avoid unnecessary memory.
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
@@ -521,7 +660,7 @@ impl DB {
     /// [`get_pinned_cf`](#method.get_pinned_cf) to avoid unnecessary memory.
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key.as_ref(), &ReadOptions::default())
@@ -570,7 +709,7 @@ impl DB {
     /// allows specifying ColumnFamily
     pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
@@ -587,7 +726,7 @@ impl DB {
             let val = ffi_try!(ffi::rocksdb_get_pinned_cf(
                 self.inner,
                 readopts.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             ));
@@ -604,7 +743,7 @@ impl DB {
     /// leverages default options.
     pub fn get_pinned_cf<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
     ) -> Result<Option<DBPinnableSlice>, Error> {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
@@ -653,23 +792,25 @@ impl DB {
     }
 
     /// Return the values associated with the given keys and column families.
-    pub fn multi_get_cf<'c, K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    pub fn multi_get_cf<K, I, W>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
-        I: IntoIterator<Item = (&'c ColumnFamily, K)>,
+        I: IntoIterator<Item = (W, K)>,
+        W: AsColumnFamilyRef,
     {
         self.multi_get_cf_opt(keys, &ReadOptions::default())
     }
 
     /// Return the values associated with the given keys and column families using read options.
-    pub fn multi_get_cf_opt<'c, K, I>(
+    pub fn multi_get_cf_opt<K, I, W>(
         &self,
         keys: I,
         readopts: &ReadOptions,
     ) -> Result<Vec<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
-        I: IntoIterator<Item = (&'c ColumnFamily, K)>,
+        I: IntoIterator<Item = (W, K)>,
+        W: AsColumnFamilyRef,
     {
         let mut boxed_keys: Vec<Box<[u8]>> = Vec::new();
         let mut keys_sizes = Vec::new();
@@ -685,7 +826,7 @@ impl DB {
             .collect();
         let ptr_cfs: Vec<_> = column_families
             .iter()
-            .map(|c| c.inner as *const _)
+            .map(|c| c.inner() as *const _)
             .collect();
 
         let mut values = vec![ptr::null_mut(); boxed_keys.len()];
@@ -706,44 +847,31 @@ impl DB {
         Ok(convert_values(values, values_sizes))
     }
 
-    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
-        let cf_name = if let Ok(c) = CString::new(name.as_ref().as_bytes()) {
+    fn create_inner_cf_handle(
+        &self,
+        name: &str,
+        opts: &Options,
+    ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
+        let cf_name = if let Ok(c) = CString::new(name.as_bytes()) {
             c
         } else {
             return Err(Error::new(
                 "Failed to convert path to CString when creating cf".to_owned(),
             ));
         };
-        unsafe {
-            let inner = ffi_try!(ffi::rocksdb_create_column_family(
+        Ok(unsafe {
+            ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
                 opts.inner,
                 cf_name.as_ptr(),
-            ));
-
-            self.cfs
-                .insert(name.as_ref().to_string(), ColumnFamily { inner });
-        };
-        Ok(())
+            ))
+        })
     }
 
-    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(cf) = self.cfs.remove(name) {
-            unsafe {
-                ffi_try!(ffi::rocksdb_drop_column_family(self.inner, cf.inner));
-            }
-            Ok(())
-        } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
-        }
-    }
-
-    /// Return the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
-        self.cfs.get(name)
-    }
-
-    pub fn iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
+    pub fn iterator<'a: 'b, 'b>(
+        &'a self,
+        mode: IteratorMode,
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let readopts = ReadOptions::default();
         self.iterator_opt(mode, readopts)
     }
@@ -752,34 +880,40 @@ impl DB {
         &'a self,
         mode: IteratorMode,
         readopts: ReadOptions,
-    ) -> DBIterator<'b> {
-        DBIterator::new(self, readopts, mode)
+    ) -> DBIteratorWithThreadMode<'b, Self> {
+        DBIteratorWithThreadMode::new(self, readopts, mode)
     }
 
     /// Opens an iterator using the provided ReadOptions.
     /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
     pub fn iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
-        cf_handle: &ColumnFamily,
+        cf_handle: impl AsColumnFamilyRef,
         readopts: ReadOptions,
         mode: IteratorMode,
-    ) -> DBIterator<'b> {
-        DBIterator::new_cf(self, cf_handle, readopts, mode)
+    ) -> DBIteratorWithThreadMode<'b, Self> {
+        DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts, mode)
     }
 
     /// Opens an iterator with `set_total_order_seek` enabled.
     /// This must be used to iterate across prefixes when `set_memtable_factory` has been called
     /// with a Hash-based implementation.
-    pub fn full_iterator<'a: 'b, 'b>(&'a self, mode: IteratorMode) -> DBIterator<'b> {
+    pub fn full_iterator<'a: 'b, 'b>(
+        &'a self,
+        mode: IteratorMode,
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
-        DBIterator::new(self, opts, mode)
+        DBIteratorWithThreadMode::new(self, opts, mode)
     }
 
-    pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(&'a self, prefix: P) -> DBIterator<'b> {
+    pub fn prefix_iterator<'a: 'b, 'b, P: AsRef<[u8]>>(
+        &'a self,
+        prefix: P,
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
-        DBIterator::new(
+        DBIteratorWithThreadMode::new(
             self,
             opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
@@ -788,66 +922,72 @@ impl DB {
 
     pub fn iterator_cf<'a: 'b, 'b>(
         &'a self,
-        cf_handle: &ColumnFamily,
+        cf_handle: impl AsColumnFamilyRef,
         mode: IteratorMode,
-    ) -> DBIterator<'b> {
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let opts = ReadOptions::default();
-        DBIterator::new_cf(self, cf_handle, opts, mode)
+        DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), opts, mode)
     }
 
     pub fn full_iterator_cf<'a: 'b, 'b>(
         &'a self,
-        cf_handle: &ColumnFamily,
+        cf_handle: impl AsColumnFamilyRef,
         mode: IteratorMode,
-    ) -> DBIterator<'b> {
+    ) -> DBIteratorWithThreadMode<'b, Self> {
         let mut opts = ReadOptions::default();
         opts.set_total_order_seek(true);
-        DBIterator::new_cf(self, cf_handle, opts, mode)
+        DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), opts, mode)
     }
 
-    pub fn prefix_iterator_cf<'a: 'b, 'b, P: AsRef<[u8]>>(
+    pub fn prefix_iterator_cf<'a, P: AsRef<[u8]>>(
         &'a self,
-        cf_handle: &ColumnFamily,
+        cf_handle: impl AsColumnFamilyRef,
         prefix: P,
-    ) -> DBIterator<'b> {
+    ) -> DBIteratorWithThreadMode<'a, Self> {
         let mut opts = ReadOptions::default();
         opts.set_prefix_same_as_start(true);
-        DBIterator::new_cf(
+        DBIteratorWithThreadMode::<'a, Self>::new_cf(
             self,
-            cf_handle,
+            cf_handle.inner(),
             opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
 
     /// Opens a raw iterator over the database, using the default read options
-    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIterator<'b> {
+    pub fn raw_iterator<'a: 'b, 'b>(&'a self) -> DBRawIteratorWithThreadMode<'b, Self> {
         let opts = ReadOptions::default();
-        DBRawIterator::new(self, opts)
+        DBRawIteratorWithThreadMode::new(self, opts)
     }
 
     /// Opens a raw iterator over the given column family, using the default read options
-    pub fn raw_iterator_cf<'a: 'b, 'b>(&'a self, cf_handle: &ColumnFamily) -> DBRawIterator<'b> {
+    pub fn raw_iterator_cf<'a: 'b, 'b>(
+        &'a self,
+        cf_handle: impl AsColumnFamilyRef,
+    ) -> DBRawIteratorWithThreadMode<'b, Self> {
         let opts = ReadOptions::default();
-        DBRawIterator::new_cf(self, cf_handle, opts)
+        DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), opts)
     }
 
     /// Opens a raw iterator over the database, using the given read options
-    pub fn raw_iterator_opt<'a: 'b, 'b>(&'a self, readopts: ReadOptions) -> DBRawIterator<'b> {
-        DBRawIterator::new(self, readopts)
+    pub fn raw_iterator_opt<'a: 'b, 'b>(
+        &'a self,
+        readopts: ReadOptions,
+    ) -> DBRawIteratorWithThreadMode<'b, Self> {
+        DBRawIteratorWithThreadMode::new(self, readopts)
     }
 
     /// Opens a raw iterator over the given column family, using the given read options
     pub fn raw_iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
-        cf_handle: &ColumnFamily,
+        cf_handle: impl AsColumnFamilyRef,
         readopts: ReadOptions,
-    ) -> DBRawIterator<'b> {
-        DBRawIterator::new_cf(self, cf_handle, readopts)
+    ) -> DBRawIteratorWithThreadMode<'b, Self> {
+        DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts)
     }
 
-    pub fn snapshot(&self) -> Snapshot {
-        Snapshot::new(self)
+    pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
+        SnapshotWithThreadMode::<Self>::new(self)
     }
 
     pub fn put_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
@@ -873,7 +1013,7 @@ impl DB {
 
     pub fn put_cf_opt<K, V>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
         value: V,
         writeopts: &WriteOptions,
@@ -889,7 +1029,7 @@ impl DB {
             ffi_try!(ffi::rocksdb_put_cf(
                 self.inner,
                 writeopts.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -922,7 +1062,7 @@ impl DB {
 
     pub fn merge_cf_opt<K, V>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
         value: V,
         writeopts: &WriteOptions,
@@ -938,7 +1078,7 @@ impl DB {
             ffi_try!(ffi::rocksdb_merge_cf(
                 self.inner,
                 writeopts.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -968,7 +1108,7 @@ impl DB {
 
     pub fn delete_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         key: K,
         writeopts: &WriteOptions,
     ) -> Result<(), Error> {
@@ -978,7 +1118,7 @@ impl DB {
             ffi_try!(ffi::rocksdb_delete_cf(
                 self.inner,
                 writeopts.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             ));
@@ -989,7 +1129,7 @@ impl DB {
     /// Removes the database entries in the range `["from", "to")` using given write options.
     pub fn delete_range_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         from: K,
         to: K,
         writeopts: &WriteOptions,
@@ -1001,7 +1141,7 @@ impl DB {
             ffi_try!(ffi::rocksdb_delete_range_cf(
                 self.inner,
                 writeopts.inner,
-                cf.inner,
+                cf.inner(),
                 from.as_ptr() as *const c_char,
                 from.len() as size_t,
                 to.as_ptr() as *const c_char,
@@ -1019,7 +1159,7 @@ impl DB {
         self.put_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn put_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn put_cf<K, V>(&self, cf: impl AsColumnFamilyRef, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1035,7 +1175,7 @@ impl DB {
         self.merge_opt(key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
-    pub fn merge_cf<K, V>(&self, cf: &ColumnFamily, key: K, value: V) -> Result<(), Error>
+    pub fn merge_cf<K, V>(&self, cf: impl AsColumnFamilyRef, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -1047,14 +1187,18 @@ impl DB {
         self.delete_opt(key.as_ref(), &WriteOptions::default())
     }
 
-    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: &ColumnFamily, key: K) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: impl AsColumnFamilyRef,
+        key: K,
+    ) -> Result<(), Error> {
         self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
     }
 
     /// Removes the database entries in the range `["from", "to")` using default write options.
     pub fn delete_range_cf<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         from: K,
         to: K,
     ) -> Result<(), Error> {
@@ -1103,7 +1247,7 @@ impl DB {
     /// given column family. This is not likely to be needed for typical usage.
     pub fn compact_range_cf<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         start: Option<S>,
         end: Option<E>,
     ) {
@@ -1113,7 +1257,7 @@ impl DB {
 
             ffi::rocksdb_compact_range_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 opt_bytes_to_ptr(start),
                 start.map_or(0, |s| s.len()) as size_t,
                 opt_bytes_to_ptr(end),
@@ -1125,7 +1269,7 @@ impl DB {
     /// Same as `compact_range_cf` but with custom options.
     pub fn compact_range_cf_opt<S: AsRef<[u8]>, E: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         start: Option<S>,
         end: Option<E>,
         opts: &CompactOptions,
@@ -1136,7 +1280,7 @@ impl DB {
 
             ffi::rocksdb_compact_range_cf_opt(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 opts.inner,
                 opt_bytes_to_ptr(start),
                 start.map_or(0, |s| s.len()) as size_t,
@@ -1164,7 +1308,7 @@ impl DB {
 
     pub fn set_options_cf(
         &self,
-        cf_handle: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         opts: &[(&str, &str)],
     ) -> Result<(), Error> {
         let copts = convert_options(opts)?;
@@ -1174,7 +1318,7 @@ impl DB {
         unsafe {
             ffi_try!(ffi::rocksdb_set_options_cf(
                 self.inner,
-                cf_handle.inner,
+                cf.inner(),
                 count,
                 cnames.as_ptr(),
                 cvalues.as_ptr(),
@@ -1225,7 +1369,7 @@ impl DB {
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
     pub fn property_value_cf(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         name: &str,
     ) -> Result<Option<String>, Error> {
         let prop_name = match CString::new(name) {
@@ -1239,7 +1383,7 @@ impl DB {
         };
 
         unsafe {
-            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner, prop_name.as_ptr());
+            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name.as_ptr());
             if value.is_null() {
                 return Ok(None);
             }
@@ -1283,7 +1427,7 @@ impl DB {
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value_cf(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         name: &str,
     ) -> Result<Option<u64>, Error> {
         match self.property_value_cf(cf, name) {
@@ -1360,17 +1504,17 @@ impl DB {
     /// with default opts
     pub fn ingest_external_file_cf<P: AsRef<Path>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         paths: Vec<P>,
     ) -> Result<(), Error> {
         let opts = IngestExternalFileOptions::default();
-        self.ingest_external_file_cf_opts(&cf, &opts, paths)
+        self.ingest_external_file_cf_opts(cf, &opts, paths)
     }
 
     /// Loads a list of external SST files created with SstFileWriter into the DB for given Column Family
     pub fn ingest_external_file_cf_opts<P: AsRef<Path>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         opts: &IngestExternalFileOptions,
         paths: Vec<P>,
     ) -> Result<(), Error> {
@@ -1381,7 +1525,7 @@ impl DB {
 
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
-        self.ingest_external_file_raw_cf(&cf, &opts, &paths_v, &cpaths)
+        self.ingest_external_file_raw_cf(cf, &opts, &paths_v, &cpaths)
     }
 
     fn ingest_external_file_raw(
@@ -1403,7 +1547,7 @@ impl DB {
 
     fn ingest_external_file_raw_cf(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         opts: &IngestExternalFileOptions,
         paths_v: &[CString],
         cpaths: &[*const c_char],
@@ -1411,7 +1555,7 @@ impl DB {
         unsafe {
             ffi_try!(ffi::rocksdb_ingest_external_file_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 cpaths.as_ptr(),
                 paths_v.len(),
                 opts.inner as *const _
@@ -1472,8 +1616,8 @@ impl DB {
     /// entirely in the range.
     ///
     /// Note: L0 files are left regardless of whether they're in the range.
-    ///  
-    /// Snapshots before the delete might not see the data in the given range.
+    ///
+    /// SnapshotWithThreadModes before the delete might not see the data in the given range.
     pub fn delete_file_in_range<K: AsRef<[u8]>>(&self, from: K, to: K) -> Result<(), Error> {
         let from = from.as_ref();
         let to = to.as_ref();
@@ -1492,7 +1636,7 @@ impl DB {
     /// Same as `delete_file_in_range` but only for specific column family
     pub fn delete_file_in_range_cf<K: AsRef<[u8]>>(
         &self,
-        cf: &ColumnFamily,
+        cf: impl AsColumnFamilyRef,
         from: K,
         to: K,
     ) -> Result<(), Error> {
@@ -1501,7 +1645,7 @@ impl DB {
         unsafe {
             ffi_try!(ffi::rocksdb_delete_file_in_range_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 from.as_ptr() as *const c_char,
                 from.len() as size_t,
                 to.as_ptr() as *const c_char,
@@ -1519,18 +1663,85 @@ impl DB {
     }
 }
 
-impl Drop for DB {
+impl DBWithThreadMode<SingleThreaded> {
+    /// Creates column family with given name and options
+    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
+        let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        self.cfs
+            .cfs
+            .insert(name.as_ref().to_string(), ColumnFamily { inner });
+        Ok(())
+    }
+
+    /// Drops the column family with the given name
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
+        let inner = self.inner;
+        if let Some(cf) = self.cfs.cfs.remove(name) {
+            unsafe {
+                ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
+            }
+            Ok(())
+        } else {
+            Err(Error::new(format!("Invalid column family: {}", name)))
+        }
+    }
+
+    /// Returns the underlying column family handle
+    pub fn cf_handle<'a>(&'a self, name: &str) -> Option<&'a ColumnFamily> {
+        self.cfs.cfs.get(name)
+    }
+}
+
+impl DBWithThreadMode<MultiThreaded> {
+    /// Creates column family with given name and options
+    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
+        let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        self.cfs
+            .cfs
+            .write()
+            .unwrap()
+            .insert(name.as_ref().to_string(), ColumnFamily { inner });
+        Ok(())
+    }
+
+    /// Drops the column family with the given name by internally locking the inner column
+    /// family map. This avoids needing `&mut self` reference
+    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
+        let inner = self.inner;
+        if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
+            unsafe {
+                ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
+            }
+            Ok(())
+        } else {
+            Err(Error::new(format!("Invalid column family: {}", name)))
+        }
+    }
+
+    /// Returns the underlying column family handle
+    pub fn cf_handle(&self, name: &str) -> Option<BoundColumnFamily> {
+        self.cfs
+            .cfs
+            .read()
+            .unwrap()
+            .get(name)
+            .map(|cf| BoundColumnFamily {
+                inner: cf.inner,
+                multi_threaded_cfs: PhantomData,
+            })
+    }
+}
+
+impl<T: ThreadMode> Drop for DBWithThreadMode<T> {
     fn drop(&mut self) {
         unsafe {
-            for cf in self.cfs.values() {
-                ffi::rocksdb_column_family_handle_destroy(cf.inner);
-            }
+            self.cfs.cf_drop_all();
             ffi::rocksdb_close(self.inner);
         }
     }
 }
 
-impl fmt::Debug for DB {
+impl<T: ThreadMode> fmt::Debug for DBWithThreadMode<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }

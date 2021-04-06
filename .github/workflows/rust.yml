@@ -88,7 +88,14 @@ jobs:
         with:
           command: test
           args: --manifest-path=librocksdb-sys/Cargo.toml
-      - name: Run rocksdb tests
+      - name: Run rocksdb tests (single-threaded cf)
         uses: actions-rs/cargo@v1
         with:
           command: test
+      - name: Run rocksdb tests (multi-threaded cf)
+        uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: -Awarnings # Suppress "variable does not need to be mutable" warnings
+        with:
+          command: test
+          args: --features multi-threaded-cf

@@ -20,9 +20,10 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, DBCompactionStyle, Env, Error, FifoCompactOptions, IteratorMode, Options,
-    PerfContext, PerfMetric, ReadOptions, SliceTransform, Snapshot, UniversalCompactOptions,
-    UniversalCompactionStopStyle, WriteBatch, DB,
+    CompactOptions, DBCompactionStyle, DBWithThreadMode, Env, Error, FifoCompactOptions,
+    IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded,
+    SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
+    DB,
 };
 use util::DBPath;
 
@@ -545,6 +546,36 @@ fn test_open_cf_with_ttl() {
     db.compact_range_cf(cf, None::<&[u8]>, None::<&[u8]>);
 
     assert!(db.get_cf(cf, b"key1").unwrap().is_none());
+}
+
+#[test]
+fn test_open_as_single_threaded() {
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_as_single_threaded");
+
+    let mut db = DBWithThreadMode::<SingleThreaded>::open_default(&primary_path).unwrap();
+    let db_ref1 = &mut db;
+    let opts = Options::default();
+    db_ref1.create_cf("cf1", &opts).unwrap();
+}
+
+#[test]
+fn test_open_with_multiple_refs_as_multi_threaded() {
+    // This tests multiple references can be allowed while creating column families
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_as_multi_threaded");
+
+    let db = DBWithThreadMode::<MultiThreaded>::open_default(&primary_path).unwrap();
+    let db_ref1 = &db;
+    let db_ref2 = &db;
+    let opts = Options::default();
+    db_ref1.create_cf("cf1", &opts).unwrap();
+    db_ref2.create_cf("cf2", &opts).unwrap();
+}
+
+#[test]
+fn test_open_with_multiple_refs_as_single_threaded() {
+    // This tests multiple references CANNOT be allowed while creating column families
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/open_with_multiple_refs_as_single_threaded.rs");
 }
 
 #[test]

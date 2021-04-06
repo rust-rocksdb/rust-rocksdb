@@ -70,6 +70,10 @@
     clippy::missing_safety_doc,
     clippy::needless_pass_by_value,
     clippy::option_if_let_else,
+    clippy::ptr_as_ptr,
+    clippy::missing_panics_doc,
+    clippy::from_over_into,
+    clippy::upper_case_acronyms,
 )]
 
 #[macro_use]
@@ -93,10 +97,16 @@ mod sst_file_writer;
 mod write_batch;
 
 pub use crate::{
-    column_family::{ColumnFamily, ColumnFamilyDescriptor, DEFAULT_COLUMN_FAMILY_NAME},
+    column_family::{
+        AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
+        ColumnFamilyRef, DEFAULT_COLUMN_FAMILY_NAME,
+    },
     compaction_filter::Decision as CompactionDecision,
-    db::{LiveFile, DB},
-    db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
+    db::{DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, DB},
+    db_iterator::{
+        DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
+        DBWALIterator, Direction, IteratorMode,
+    },
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
         DBCompactionStyle, DBCompressionType, DBPath, DBRecoveryMode, DataBlockIndexType, Env,
@@ -108,7 +118,7 @@ pub use crate::{
     merge_operator::MergeOperands,
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
-    snapshot::Snapshot,
+    snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
     write_batch::{WriteBatch, WriteBatchIterator},
 };
@@ -162,9 +172,9 @@ impl fmt::Display for Error {
 #[cfg(test)]
 mod test {
     use super::{
-        BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
-        IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
-        SstFileWriter, WriteBatch, WriteOptions, DB,
+        BlockBasedOptions, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor, DBIterator,
+        DBRawIterator, IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions,
+        Snapshot, SstFileWriter, WriteBatch, WriteOptions, DB,
     };
 
     #[test]
@@ -188,6 +198,7 @@ mod test {
         is_send::<PlainTableFactoryOptions>();
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
+        is_send::<BoundColumnFamily<'_>>();
         is_send::<SstFileWriter>();
         is_send::<WriteBatch>();
     }

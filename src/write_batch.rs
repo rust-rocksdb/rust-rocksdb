@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ffi, ColumnFamily};
+use crate::{ffi, AsColumnFamilyRef};
 use libc::{c_char, c_void, size_t};
 use std::slice;
 
@@ -134,7 +134,7 @@ impl WriteBatch {
         }
     }
 
-    pub fn put_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V)
+    pub fn put_cf<K, V>(&mut self, cf: impl AsColumnFamilyRef, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -145,7 +145,7 @@ impl WriteBatch {
         unsafe {
             ffi::rocksdb_writebatch_put_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -173,7 +173,7 @@ impl WriteBatch {
         }
     }
 
-    pub fn merge_cf<K, V>(&mut self, cf: &ColumnFamily, key: K, value: V)
+    pub fn merge_cf<K, V>(&mut self, cf: impl AsColumnFamilyRef, key: K, value: V)
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -184,7 +184,7 @@ impl WriteBatch {
         unsafe {
             ffi::rocksdb_writebatch_merge_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
@@ -206,13 +206,13 @@ impl WriteBatch {
         }
     }
 
-    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, key: K) {
+    pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: impl AsColumnFamilyRef, key: K) {
         let key = key.as_ref();
 
         unsafe {
             ffi::rocksdb_writebatch_delete_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             );
@@ -243,13 +243,13 @@ impl WriteBatch {
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
-    pub fn delete_range_cf<K: AsRef<[u8]>>(&mut self, cf: &ColumnFamily, from: K, to: K) {
+    pub fn delete_range_cf<K: AsRef<[u8]>>(&mut self, cf: impl AsColumnFamilyRef, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
         unsafe {
             ffi::rocksdb_writebatch_delete_range_cf(
                 self.inner,
-                cf.inner,
+                cf.inner(),
                 start_key.as_ptr() as *const c_char,
                 start_key.len() as size_t,
                 end_key.as_ptr() as *const c_char,
