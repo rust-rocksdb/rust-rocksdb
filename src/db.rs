@@ -43,7 +43,7 @@ use std::time::Duration;
 // MultiThreaded. Others differ in self mutability and return type.
 pub trait ThreadMode {
     fn new(cf_map: BTreeMap<String, ColumnFamily>) -> Self;
-    unsafe fn cf_drop_all(&mut self);
+    fn cf_drop_all(&mut self);
 }
 
 pub struct SingleThreaded {
@@ -59,9 +59,11 @@ impl ThreadMode for SingleThreaded {
         Self { cfs }
     }
 
-    unsafe fn cf_drop_all(&mut self) {
+    fn cf_drop_all(&mut self) {
         for cf in self.cfs.values() {
-            ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            unsafe {
+                ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            }
         }
     }
 }
@@ -73,9 +75,11 @@ impl ThreadMode for MultiThreaded {
         }
     }
 
-    unsafe fn cf_drop_all(&mut self) {
+    fn cf_drop_all(&mut self) {
         for cf in self.cfs.read().unwrap().values() {
-            ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            unsafe {
+                ffi::rocksdb_column_family_handle_destroy(cf.inner);
+            }
         }
     }
 }
