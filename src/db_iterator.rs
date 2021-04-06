@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::db::{InternalDbAdapter, DB};
+use crate::db::{DbAccess, DB};
 use crate::{ffi, Error, ReadOptions, WriteBatch};
 use libc::{c_char, c_uchar, size_t};
 use std::marker::PhantomData;
@@ -68,7 +68,7 @@ use std::slice;
 /// ```
 pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 
-pub struct DBRawIteratorWithThreadMode<'a, D: InternalDbAdapter> {
+pub struct DBRawIteratorWithThreadMode<'a, D: DbAccess> {
     inner: *mut ffi::rocksdb_iterator_t,
 
     /// When iterate_upper_bound is set, the inner C iterator keeps a pointer to the upper bound
@@ -79,7 +79,7 @@ pub struct DBRawIteratorWithThreadMode<'a, D: InternalDbAdapter> {
     db: PhantomData<&'a D>,
 }
 
-impl<'a, D: InternalDbAdapter> DBRawIteratorWithThreadMode<'a, D> {
+impl<'a, D: DbAccess> DBRawIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions) -> DBRawIteratorWithThreadMode<'a, D> {
         unsafe {
             DBRawIteratorWithThreadMode {
@@ -326,7 +326,7 @@ impl<'a, D: InternalDbAdapter> DBRawIteratorWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Drop for DBRawIteratorWithThreadMode<'a, D> {
+impl<'a, D: DbAccess> Drop for DBRawIteratorWithThreadMode<'a, D> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner);
@@ -334,8 +334,8 @@ impl<'a, D: InternalDbAdapter> Drop for DBRawIteratorWithThreadMode<'a, D> {
     }
 }
 
-unsafe impl<'a, D: InternalDbAdapter> Send for DBRawIteratorWithThreadMode<'a, D> {}
-unsafe impl<'a, D: InternalDbAdapter> Sync for DBRawIteratorWithThreadMode<'a, D> {}
+unsafe impl<'a, D: DbAccess> Send for DBRawIteratorWithThreadMode<'a, D> {}
+unsafe impl<'a, D: DbAccess> Sync for DBRawIteratorWithThreadMode<'a, D> {}
 
 /// An iterator over a database or column family, with specifiable
 /// ranges and direction.
@@ -370,7 +370,7 @@ unsafe impl<'a, D: InternalDbAdapter> Sync for DBRawIteratorWithThreadMode<'a, D
 /// ```
 pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 
-pub struct DBIteratorWithThreadMode<'a, D: InternalDbAdapter> {
+pub struct DBIteratorWithThreadMode<'a, D: DbAccess> {
     raw: DBRawIteratorWithThreadMode<'a, D>,
     direction: Direction,
     just_seeked: bool,
@@ -389,7 +389,7 @@ pub enum IteratorMode<'a> {
     From(&'a [u8], Direction),
 }
 
-impl<'a, D: InternalDbAdapter> DBIteratorWithThreadMode<'a, D> {
+impl<'a, D: DbAccess> DBIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions, mode: IteratorMode) -> Self {
         let mut rv = DBIteratorWithThreadMode {
             raw: DBRawIteratorWithThreadMode::new(db, readopts),
@@ -449,7 +449,7 @@ impl<'a, D: InternalDbAdapter> DBIteratorWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Iterator for DBIteratorWithThreadMode<'a, D> {
+impl<'a, D: DbAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
     type Item = KVBytes;
 
     fn next(&mut self) -> Option<KVBytes> {
@@ -480,9 +480,7 @@ impl<'a, D: InternalDbAdapter> Iterator for DBIteratorWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Into<DBRawIteratorWithThreadMode<'a, D>>
-    for DBIteratorWithThreadMode<'a, D>
-{
+impl<'a, D: DbAccess> Into<DBRawIteratorWithThreadMode<'a, D>> for DBIteratorWithThreadMode<'a, D> {
     fn into(self) -> DBRawIteratorWithThreadMode<'a, D> {
         self.raw
     }

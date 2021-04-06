@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::{
-    db::InternalDbAdapter, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode,
-    DBRawIteratorWithThreadMode, Error, IteratorMode, ReadOptions, DB,
+    db::DbAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
+    Error, IteratorMode, ReadOptions, DB,
 };
 
 /// A consistent view of the database at the point of creation.
@@ -35,12 +35,12 @@ use crate::{
 ///
 pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
 
-pub struct SnapshotWithThreadMode<'a, D: InternalDbAdapter> {
+pub struct SnapshotWithThreadMode<'a, D: DbAccess> {
     db: &'a D,
     pub(crate) inner: *const ffi::rocksdb_snapshot_t,
 }
 
-impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
+impl<'a, D: DbAccess> SnapshotWithThreadMode<'a, D> {
     /// Creates a new `SnapshotWithThreadMode` of the database `db`.
     pub fn new(db: &'a D) -> Self {
         let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner()) };
@@ -161,7 +161,7 @@ impl<'a, D: InternalDbAdapter> SnapshotWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: InternalDbAdapter> Drop for SnapshotWithThreadMode<'a, D> {
+impl<'a, D: DbAccess> Drop for SnapshotWithThreadMode<'a, D> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_release_snapshot(self.db.inner(), self.inner);
@@ -171,5 +171,5 @@ impl<'a, D: InternalDbAdapter> Drop for SnapshotWithThreadMode<'a, D> {
 
 /// `Send` and `Sync` implementations for `SnapshotWithThreadMode` are safe, because `SnapshotWithThreadMode` is
 /// immutable and can be safely shared between threads.
-unsafe impl<'a, D: InternalDbAdapter> Send for SnapshotWithThreadMode<'a, D> {}
-unsafe impl<'a, D: InternalDbAdapter> Sync for SnapshotWithThreadMode<'a, D> {}
+unsafe impl<'a, D: DbAccess> Send for SnapshotWithThreadMode<'a, D> {}
+unsafe impl<'a, D: DbAccess> Sync for SnapshotWithThreadMode<'a, D> {}

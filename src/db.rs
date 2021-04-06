@@ -89,7 +89,7 @@ pub struct DbWithThreadMode<T: ThreadMode> {
     path: PathBuf,
 }
 
-pub trait InternalDbAdapter {
+pub trait DbAccess {
     fn inner(&self) -> *mut ffi::rocksdb_t;
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -106,7 +106,7 @@ pub trait InternalDbAdapter {
     ) -> Result<Option<Vec<u8>>, Error>;
 }
 
-impl<T: ThreadMode> InternalDbAdapter for DbWithThreadMode<T> {
+impl<T: ThreadMode> DbAccess for DbWithThreadMode<T> {
     fn inner(&self) -> *mut ffi::rocksdb_t {
         self.inner
     }
