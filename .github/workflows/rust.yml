@@ -98,4 +98,4 @@ jobs:
           RUSTFLAGS: -Awarnings # Suppress "variable does not need to be mutable" warnings
         with:
           command: test
-          args: --features multi-threaded-as-default
+          args: --features multi-threaded-cf-alteration

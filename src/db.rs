@@ -132,10 +132,10 @@ impl<T: ThreadMode> DbAccess for DbWithThreadMode<T> {
 /// DB struct for single-threaded column family creations/deletions
 /// Note: Previously this was direct struct; type-aliased for compatibility. Directly
 /// use DbWithThreadMode<MultiThreaded> for multi-threaded column family alternations.
-#[cfg(not(feature = "multi-threaded-as-default"))]
+#[cfg(not(feature = "multi-threaded-cf-alteration"))]
 pub type DB = DbWithThreadMode<SingleThreaded>;
 
-#[cfg(feature = "multi-threaded-as-default")]
+#[cfg(feature = "multi-threaded-cf-alteration")]
 pub type DB = DbWithThreadMode<MultiThreaded>;
 
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI

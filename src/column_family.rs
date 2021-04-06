@@ -58,10 +58,10 @@ pub struct BoundColumnFamily<'a> {
     pub(crate) multi_threaded_cfs: std::marker::PhantomData<&'a MultiThreaded>,
 }
 
-#[cfg(not(feature = "multi-threaded-as-default"))]
+#[cfg(not(feature = "multi-threaded-cf-alteration"))]
 pub type ColumnFamilyRef<'a> = &'a ColumnFamily;
 
-#[cfg(feature = "multi-threaded-as-default")]
+#[cfg(feature = "multi-threaded-cf-alteration")]
 pub type ColumnFamilyRef<'a> = BoundColumnFamily<'a>;
 
 pub trait AsColumnFamilyRef {
