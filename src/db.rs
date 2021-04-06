@@ -47,34 +47,34 @@ pub trait ThreadMode {
 }
 
 pub struct SingleThreaded {
-    map: BTreeMap<String, ColumnFamily>,
+    cfs: BTreeMap<String, ColumnFamily>,
 }
 
 pub struct MultiThreaded {
-    map: RwLock<BTreeMap<String, ColumnFamily>>,
+    cfs: RwLock<BTreeMap<String, ColumnFamily>>,
 }
 
 impl ThreadMode for SingleThreaded {
-    fn new(cf_map: BTreeMap<String, ColumnFamily>) -> Self {
-        Self { map: cf_map }
+    fn new(cfs: BTreeMap<String, ColumnFamily>) -> Self {
+        Self { cfs }
     }
 
     unsafe fn cf_drop_all(&mut self) {
-        for cf in self.map.values() {
+        for cf in self.cfs.values() {
             ffi::rocksdb_column_family_handle_destroy(cf.inner);
         }
     }
 }
 
 impl ThreadMode for MultiThreaded {
-    fn new(cf_map: BTreeMap<String, ColumnFamily>) -> Self {
+    fn new(cfs: BTreeMap<String, ColumnFamily>) -> Self {
         Self {
-            map: RwLock::new(cf_map),
+            cfs: RwLock::new(cfs),
         }
     }
 
     unsafe fn cf_drop_all(&mut self) {
-        for cf in self.map.read().unwrap().values() {
+        for cf in self.cfs.read().unwrap().values() {
             ffi::rocksdb_column_family_handle_destroy(cf.inner);
         }
     }
@@ -1586,7 +1586,7 @@ impl DbWithThreadMode<SingleThreaded> {
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
         self.cfs
-            .map
+            .cfs
             .insert(name.as_ref().to_string(), ColumnFamily { inner });
         Ok(())
     }
@@ -1594,7 +1594,7 @@ impl DbWithThreadMode<SingleThreaded> {
     /// Drops the column family with the given name
     pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
-        if let Some(cf) = self.cfs.map.remove(name) {
+        if let Some(cf) = self.cfs.cfs.remove(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
             }
@@ -1606,7 +1606,7 @@ impl DbWithThreadMode<SingleThreaded> {
 
     /// Returns the underlying column family handle
     pub fn cf_handle<'a>(&'a self, name: &str) -> Option<&'a ColumnFamily> {
-        self.cfs.map.get(name)
+        self.cfs.cfs.get(name)
     }
 }
 
@@ -1615,7 +1615,7 @@ impl DbWithThreadMode<MultiThreaded> {
     pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
         self.cfs
-            .map
+            .cfs
             .write()
             .unwrap()
             .insert(name.as_ref().to_string(), ColumnFamily { inner });
@@ -1626,7 +1626,7 @@ impl DbWithThreadMode<MultiThreaded> {
     /// family map. This avoids needing `&mut self` reference
     pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
         let inner = self.inner;
-        if let Some(cf) = self.cfs.map.write().unwrap().remove(name) {
+        if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
             unsafe {
                 ffi_try!(ffi::rocksdb_drop_column_family(inner, cf.inner));
             }
@@ -1639,7 +1639,7 @@ impl DbWithThreadMode<MultiThreaded> {
     /// Returns the underlying column family handle
     pub fn cf_handle(&self, name: &str) -> Option<BoundColumnFamily> {
         self.cfs
-            .map
+            .cfs
             .read()
             .unwrap()
             .get(name)
