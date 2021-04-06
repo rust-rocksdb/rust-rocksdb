@@ -540,7 +540,8 @@ fn test_open_as_single_threaded() {
 }
 
 #[test]
-fn test_open_as_multi_threaded() {
+fn test_open_with_multiple_refs_as_multi_threaded() {
+    // This tests multiple references can be allowed while creating column families
     let primary_path = DBPath::new("_rust_rocksdb_test_open_as_multi_threaded");
 
     let db = DBWithThreadMode::<MultiThreaded>::open_default(&primary_path).unwrap();
@@ -549,6 +550,13 @@ fn test_open_as_multi_threaded() {
     let opts = Options::default();
     db_ref1.create_cf("cf1", &opts).unwrap();
     db_ref2.create_cf("cf2", &opts).unwrap();
+}
+
+#[test]
+fn test_open_with_multiple_refs_as_single_threaded() {
+    // This tests multiple references CANNOT be allowed while creating column families
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/open_with_multiple_refs_as_single_threaded.rs");
 }
 
 #[test]
