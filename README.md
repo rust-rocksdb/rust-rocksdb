@@ -42,3 +42,12 @@ compression support, make these changes to your Cargo.toml:
 default-features = false
 features = ["lz4"]
 ```
+
+## Multi-threaded ColumnFamily alternation
+
+The underlying RocksDB does allow column families to be created and dropped
+from multiple threads concurrently. But this crate doesn't allow it by default
+for compatibility. If you need to modify column families concurrently, enable
+crate feature called `multi-threaded-cf`, which makes this binding's
+data structures to use RwLock by default. Alternatively, you can directly create
+`DBWithThreadMode<MultiThreaded>` without enabling the crate feature.
