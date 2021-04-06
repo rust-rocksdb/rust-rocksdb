@@ -22,7 +22,7 @@ use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
     comparator::{self, ComparatorCallback, CompareFn},
-    db::DbAccess,
+    db::DBAccess,
     ffi,
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
@@ -2850,7 +2850,7 @@ impl ReadOptions {
     /// Sets the snapshot which should be used for the read.
     /// The snapshot must belong to the DB that is being read and must
     /// not have been released.
-    pub(crate) fn set_snapshot<D: DbAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
+    pub(crate) fn set_snapshot<D: DBAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }

@@ -38,7 +38,7 @@ use std::str;
 use std::sync::RwLock;
 use std::time::Duration;
 
-// Marker trait to specify single or multi threaded column family alterations for DB
+// Marker trait to specify single or multi threaded column family alternations for DB
 // Also, this is minimum common API sharable between SingleThreaded and
 // MultiThreaded. Others differ in self mutability and return type.
 pub trait ThreadMode {
@@ -46,10 +46,21 @@ pub trait ThreadMode {
     fn cf_drop_all(&mut self);
 }
 
+/// Actual marker type for the internal marker trait `ThreadMode`, which holds
+/// a collection of column families without synchronization primitive, providing
+/// no overhead for the single-threaded column family alternations. The other
+/// mode is [`MultiThreaded`].
+///
+/// See [`DB`] for more details, including performance implications for each mode
 pub struct SingleThreaded {
     cfs: BTreeMap<String, ColumnFamily>,
 }
 
+/// Actual marker type for the internal marker trait `ThreadMode`, which holds
+/// a collection of column families wrapped in a RwLock to be mutated
+/// concurrently. The other mode is [`SingleThreaded`].
+///
+/// See [`DB`] for more details, including performance implications for each mode
 pub struct MultiThreaded {
     cfs: RwLock<BTreeMap<String, ColumnFamily>>,
 }
@@ -87,13 +98,15 @@ impl ThreadMode for MultiThreaded {
 /// A RocksDB database.
 ///
 /// See crate level documentation for a simple usage example.
-pub struct DbWithThreadMode<T: ThreadMode> {
+pub struct DBWithThreadMode<T: ThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_t,
     cfs: T, // Column families are held differently depending on thread mode
     path: PathBuf,
 }
 
-pub trait DbAccess {
+/// Minimal set of DB-related methods, intended to be  generic over
+/// `DBWithThreadMode<T>`. Mainly used internally
+pub trait DBAccess {
     fn inner(&self) -> *mut ffi::rocksdb_t;
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -110,7 +123,7 @@ pub trait DbAccess {
     ) -> Result<Option<Vec<u8>>, Error>;
 }
 
-impl<T: ThreadMode> DbAccess for DbWithThreadMode<T> {
+impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
     fn inner(&self) -> *mut ffi::rocksdb_t {
         self.inner
     }
@@ -133,23 +146,42 @@ impl<T: ThreadMode> DbAccess for DbWithThreadMode<T> {
     }
 }
 
-/// DB struct for single-threaded column family creations/deletions
-/// Note: Previously this was direct struct; type-aliased for compatibility. Directly
-/// use DbWithThreadMode<MultiThreaded> for multi-threaded column family alternations.
-#[cfg(not(feature = "multi-threaded-cf-alteration"))]
-pub type DB = DbWithThreadMode<SingleThreaded>;
+/// A type alias to DB instance type with the single-threaded column family
+/// creations/deletions
+///
+/// # Compatibility and multi-threaded mode
+///
+/// Previously, `DB` was defined as a direct struct. Now, it's type-aliased for
+/// compatibility. Use `DBWithThreadMode<MultiThreaded>` for multi-threaded
+/// column family alternations.
+///
+/// # Limited performance implication for single-threaded mode
+///
+/// Even with [`SingleThreaded`], almost all of RocksDB operations is
+/// multi-threaded unless the underlying RocksDB instance is
+/// specifically configured otherwise. `SingleThreaded` only forces
+/// serialization of column family alternations by requring `&mut self` of DB
+/// instance due to its wrapper implementation details.
+///
+/// # Multi-threaded mode
+///
+/// [`MultiThreaded`] can be appropriate for the situation of multi-threaded
+/// workload including multi-threaded column family alternations, costing the
+/// RwLock overhead inside `DB`.
+#[cfg(not(feature = "multi-threaded-cf"))]
+pub type DB = DBWithThreadMode<SingleThreaded>;
 
-#[cfg(feature = "multi-threaded-cf-alteration")]
-pub type DB = DbWithThreadMode<MultiThreaded>;
+#[cfg(feature = "multi-threaded-cf")]
+pub type DB = DBWithThreadMode<MultiThreaded>;
 
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
-unsafe impl<T: ThreadMode> Send for DbWithThreadMode<T> {}
+unsafe impl<T: ThreadMode> Send for DBWithThreadMode<T> {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
-unsafe impl<T: ThreadMode> Sync for DbWithThreadMode<T> {}
+unsafe impl<T: ThreadMode> Sync for DBWithThreadMode<T> {}
 
 // Specifies whether open DB for read only.
 enum AccessType<'a> {
@@ -159,7 +191,7 @@ enum AccessType<'a> {
     WithTTL { ttl: Duration },
 }
 
-impl<T: ThreadMode> DbWithThreadMode<T> {
+impl<T: ThreadMode> DBWithThreadMode<T> {
     /// Opens a database with default options.
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut opts = Options::default();
@@ -1585,7 +1617,7 @@ impl<T: ThreadMode> DbWithThreadMode<T> {
     }
 }
 
-impl DbWithThreadMode<SingleThreaded> {
+impl DBWithThreadMode<SingleThreaded> {
     /// Creates column family with given name and options
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
@@ -1614,7 +1646,7 @@ impl DbWithThreadMode<SingleThreaded> {
     }
 }
 
-impl DbWithThreadMode<MultiThreaded> {
+impl DBWithThreadMode<MultiThreaded> {
     /// Creates column family with given name and options
     pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
@@ -1654,7 +1686,7 @@ impl DbWithThreadMode<MultiThreaded> {
     }
 }
 
-impl<T: ThreadMode> Drop for DbWithThreadMode<T> {
+impl<T: ThreadMode> Drop for DBWithThreadMode<T> {
     fn drop(&mut self) {
         unsafe {
             self.cfs.cf_drop_all();
@@ -1663,7 +1695,7 @@ impl<T: ThreadMode> Drop for DbWithThreadMode<T> {
     }
 }
 
-impl<T: ThreadMode> fmt::Debug for DbWithThreadMode<T> {
+impl<T: ThreadMode> fmt::Debug for DBWithThreadMode<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }

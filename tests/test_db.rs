@@ -20,7 +20,7 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, DBCompactionStyle, DbWithThreadMode, Env, Error, FifoCompactOptions,
+    CompactOptions, DBCompactionStyle, DBWithThreadMode, Env, Error, FifoCompactOptions,
     IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded,
     SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
     DB,
@@ -533,7 +533,7 @@ fn test_open_with_ttl() {
 fn test_open_as_single_threaded() {
     let primary_path = DBPath::new("_rust_rocksdb_test_open_as_single_threaded");
 
-    let mut db = DbWithThreadMode::<SingleThreaded>::open_default(&primary_path).unwrap();
+    let mut db = DBWithThreadMode::<SingleThreaded>::open_default(&primary_path).unwrap();
     let db_ref1 = &mut db;
     let opts = Options::default();
     db_ref1.create_cf("cf1", &opts).unwrap();
@@ -543,7 +543,7 @@ fn test_open_as_single_threaded() {
 fn test_open_as_multi_threaded() {
     let primary_path = DBPath::new("_rust_rocksdb_test_open_as_multi_threaded");
 
-    let db = DbWithThreadMode::<MultiThreaded>::open_default(&primary_path).unwrap();
+    let db = DBWithThreadMode::<MultiThreaded>::open_default(&primary_path).unwrap();
     let db_ref1 = &db;
     let db_ref2 = &db;
     let opts = Options::default();

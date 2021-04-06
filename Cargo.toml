@@ -24,7 +24,7 @@ lz4 = ["librocksdb-sys/lz4"]
 zstd = ["librocksdb-sys/zstd"]
 zlib = ["librocksdb-sys/zlib"]
 bzip2 = ["librocksdb-sys/bzip2"]
-multi-threaded-cf-alteration = []
+multi-threaded-cf = []
 
 [dependencies]
 libc = "0.2"
