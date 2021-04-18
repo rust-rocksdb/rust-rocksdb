@@ -231,18 +231,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         path: P,
         ttl: Duration,
     ) -> Result<Self, Error> {
-        let c_path = to_cpath(&path)?;
-        let db = Self::open_raw(opts, &c_path, &AccessType::WithTTL { ttl })?;
-        if db.is_null() {
-            return Err(Error::new("Could not initialize database.".to_owned()));
-        }
-
-        Ok(Self {
-            inner: db,
-            cfs: T::new(BTreeMap::new()),
-            path: path.as_ref().to_path_buf(),
-            _outlive: vec![opts.outlive.clone()],
-        })
+        Self::open_cf_descriptors_with_ttl(opts, path, std::iter::empty(), ttl)
     }
 
     /// Opens the database with a Time to Live compaction filter and column family names.
@@ -253,7 +242,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         path: P,
         cfs: I,
         ttl: Duration,
-    ) -> Result<DB, Error>
+    ) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = N>,
@@ -263,7 +252,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        DB::open_cf_descriptors_with_ttl(opts, path, cfs, ttl)
+        Self::open_cf_descriptors_with_ttl(opts, path, cfs, ttl)
     }
 
     /// Opens a database with the given database with a Time to Live compaction filter and
@@ -273,12 +262,12 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         path: P,
         cfs: I,
         ttl: Duration,
-    ) -> Result<DB, Error>
+    ) -> Result<Self, Error>
     where
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        DB::open_cf_descriptors_internal(opts, path, cfs, &AccessType::WithTTL { ttl })
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::WithTTL { ttl })
     }
 
     /// Opens a database with the given database options and column family names.
