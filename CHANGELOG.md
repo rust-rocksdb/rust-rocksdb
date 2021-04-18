@@ -13,7 +13,7 @@
 * Remove unneeded bindgen features (Kixunil)
 * Add merge delete_callback omitted by mistake (zhangsoledad)
 * Bump `librocksdb-sys` up to 6.17.3 (ordian)
-* Remove need for &mut self in create_cf and drop_cf (v2) (ryoqun)
+* Remove the need for `&mut self` in `create_cf` and `drop_cf` (v2) (ryoqun)
 * Keep Cache and Env alive with Rc (acrrd)
 * Add DB::open_cf_with_ttl method (fdeantoni)
 
