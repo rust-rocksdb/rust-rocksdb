@@ -10,7 +10,7 @@
 * Allow setting options on a ColumnFamily (romanz)
 * Fix logic related to merge operator settings (BoOTheFurious)
 * Export persist_period_sec option and background_threads (developerfred)
-* Removed unneeded bindgen features (Kixunil)
+* Remove unneeded bindgen features (Kixunil)
 * Add merge delete_callback omitted by mistake (zhangsoledad)
 * Bump `librocksdb-sys` up to 6.17.3 (ordian)
 * Remove need for &mut self in create_cf and drop_cf (v2) (ryoqun)
