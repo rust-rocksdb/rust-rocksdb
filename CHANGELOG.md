@@ -2,11 +2,20 @@
 
 ## [Unreleased]
 
+## 0.16.0 (2021-04-18)
+
 * Add `DB::cancel_all_background_work` method (stanislav-tkach)
 * Bump `librocksdb-sys` up to 6.13.3 (aleksuss)
 * Add `multi_get`, `multi_get_opt`, `multi_get_cf` and `multi_get_cf_opt` `DB` methods (stanislav-tkach)
+* Allow setting options on a ColumnFamily (romanz)
+* Fix logic related to merge operator settings (BoOTheFurious)
+* Export persist_period_sec option and background_threads (developerfred)
+* Removed unneeded bindgen features (Kixunil)
+* Add merge delete_callback omitted by mistake (zhangsoledad)
 * Bump `librocksdb-sys` up to 6.17.3 (ordian)
-* Add `DB::open_cf_with_ttl` method (fdeantoni)
+* Remove need for &mut self in create_cf and drop_cf (v2) (ryoqun)
+* Keep Cache and Env alive with Rc (acrrd)
+* Add DB::open_cf_with_ttl method (fdeantoni)
 
 ## 0.15.0 (2020-08-25)
 
