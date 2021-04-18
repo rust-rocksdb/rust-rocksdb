@@ -530,6 +530,25 @@ fn test_open_with_ttl() {
 }
 
 #[test]
+fn test_open_cf_with_ttl() {
+    let path = DBPath::new("_rust_rocksdb_test_open_cf_with_ttl");
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    let db = DB::open_cf_with_ttl(&opts, &path, &["test_cf"], Duration::from_secs(1)).unwrap();
+    let cf = db.cf_handle("test_cf").unwrap();
+    db.put_cf(cf, b"key1", b"value1").unwrap();
+
+    thread::sleep(Duration::from_secs(2));
+    // Trigger a manual compaction, this will check the TTL filter
+    // in the database and drop all expired entries.
+    db.compact_range_cf(cf, None::<&[u8]>, None::<&[u8]>);
+
+    assert!(db.get_cf(cf, b"key1").unwrap().is_none());
+}
+
+#[test]
 fn test_open_as_single_threaded() {
     let primary_path = DBPath::new("_rust_rocksdb_test_open_as_single_threaded");
 
