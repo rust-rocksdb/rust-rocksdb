@@ -1556,7 +1556,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_min_write_buffer_number(&mut self) -> u32 {
+    pub fn get_min_write_buffer_number(&self) -> u32 {
         unsafe {
             crocksdb_ffi::crocksdb_options_get_min_write_buffer_number_to_merge(self.inner) as u32
         }
@@ -1568,7 +1568,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_max_write_buffer_number(&mut self) -> u32 {
+    pub fn get_max_write_buffer_number(&self) -> u32 {
         unsafe { crocksdb_ffi::crocksdb_options_get_max_write_buffer_number(self.inner) as u32 }
     }
 
@@ -1578,7 +1578,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_write_buffer_size(&mut self) -> u64 {
+    pub fn get_write_buffer_size(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_options_get_write_buffer_size(self.inner) as u64 }
     }
 
@@ -1588,7 +1588,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_max_bytes_for_level_base(&mut self) -> u64 {
+    pub fn get_max_bytes_for_level_base(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_options_get_max_bytes_for_level_base(self.inner) as u64 }
     }
 
@@ -1601,7 +1601,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_max_bytes_for_level_multiplier(&mut self) -> i32 {
+    pub fn get_max_bytes_for_level_multiplier(&self) -> i32 {
         unsafe {
             crocksdb_ffi::crocksdb_options_get_max_bytes_for_level_multiplier(self.inner) as i32
         }
@@ -1613,7 +1613,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_max_compaction_bytes(&mut self) -> u64 {
+    pub fn get_max_compaction_bytes(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_options_get_max_compaction_bytes(self.inner) }
     }
 
@@ -1675,7 +1675,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_min_write_buffer_number_to_merge(&mut self) -> u32 {
+    pub fn get_min_write_buffer_number_to_merge(&self) -> u32 {
         unsafe {
             crocksdb_ffi::crocksdb_options_get_min_write_buffer_number_to_merge(self.inner) as u32
         }
@@ -1687,7 +1687,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_level_zero_file_num_compaction_trigger(&mut self) -> u32 {
+    pub fn get_level_zero_file_num_compaction_trigger(&self) -> u32 {
         unsafe {
             crocksdb_ffi::crocksdb_options_get_level0_file_num_compaction_trigger(self.inner) as u32
         }
@@ -1825,7 +1825,7 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn get_force_consistency_checks(&mut self) -> bool {
+    pub fn get_force_consistency_checks(&self) -> bool {
         unsafe { crocksdb_ffi::crocksdb_options_get_force_consistency_checks(self.inner) }
     }
 
