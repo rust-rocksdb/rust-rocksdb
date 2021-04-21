@@ -666,26 +666,32 @@ extern "C" {
     pub fn crocksdb_options_set_table_cache_numshardbits(options: *mut Options, bits: c_int);
     pub fn crocksdb_options_set_writable_file_max_buffer_size(options: *mut Options, nbytes: c_int);
     pub fn crocksdb_options_set_max_write_buffer_number(options: *mut Options, bufno: c_int);
+    pub fn crocksdb_options_get_max_write_buffer_number(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_min_write_buffer_number_to_merge(
         options: *mut Options,
         bufno: c_int,
     );
+    pub fn crocksdb_options_get_min_write_buffer_number_to_merge(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_level0_file_num_compaction_trigger(
         options: *mut Options,
         no: c_int,
     );
+    pub fn crocksdb_options_get_level0_file_num_compaction_trigger(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_level0_slowdown_writes_trigger(options: *mut Options, no: c_int);
     pub fn crocksdb_options_get_level0_slowdown_writes_trigger(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_level0_stop_writes_trigger(options: *mut Options, no: c_int);
     pub fn crocksdb_options_get_level0_stop_writes_trigger(options: *mut Options) -> c_int;
     pub fn crocksdb_options_set_write_buffer_size(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_get_write_buffer_size(options: *mut Options) -> u64;
     pub fn crocksdb_options_set_target_file_size_base(options: *mut Options, bytes: u64);
     pub fn crocksdb_options_get_target_file_size_base(options: *const Options) -> u64;
     pub fn crocksdb_options_set_target_file_size_multiplier(options: *mut Options, mul: c_int);
     pub fn crocksdb_options_set_max_bytes_for_level_base(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_get_max_bytes_for_level_base(options: *mut Options) -> u64;
     pub fn crocksdb_options_set_max_bytes_for_level_multiplier(options: *mut Options, mul: f64);
     pub fn crocksdb_options_get_max_bytes_for_level_multiplier(options: *mut Options) -> f64;
     pub fn crocksdb_options_set_max_compaction_bytes(options: *mut Options, bytes: u64);
+    pub fn crocksdb_options_get_max_compaction_bytes(options: *mut Options) -> u64;
     pub fn crocksdb_options_set_max_log_file_size(options: *mut Options, bytes: size_t);
     pub fn crocksdb_options_set_log_file_time_to_roll(options: *mut Options, bytes: size_t);
     pub fn crocksdb_options_set_info_log_level(options: *mut Options, level: DBInfoLogLevel);
@@ -815,6 +821,7 @@ extern "C" {
     );
     pub fn crocksdb_options_set_delayed_write_rate(options: *mut Options, rate: u64);
     pub fn crocksdb_options_set_force_consistency_checks(options: *mut Options, v: bool);
+    pub fn crocksdb_options_get_force_consistency_checks(options: *mut Options) -> bool;
     pub fn crocksdb_options_set_ratelimiter(options: *mut Options, limiter: *mut DBRateLimiter);
     pub fn crocksdb_options_get_ratelimiter(options: *mut Options) -> *mut DBRateLimiter;
     pub fn crocksdb_options_set_info_log(options: *mut Options, logger: *mut DBLogger);

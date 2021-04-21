@@ -2533,6 +2533,10 @@ void crocksdb_options_set_write_buffer_size(crocksdb_options_t* opt, size_t s) {
   opt->rep.write_buffer_size = s;
 }
 
+size_t crocksdb_options_get_write_buffer_size(crocksdb_options_t* opt) {
+  return opt->rep.write_buffer_size;
+}
+
 void crocksdb_options_set_max_open_files(crocksdb_options_t* opt, int n) {
   opt->rep.max_open_files = n;
 }
@@ -2562,6 +2566,11 @@ void crocksdb_options_set_max_bytes_for_level_base(crocksdb_options_t* opt,
   opt->rep.max_bytes_for_level_base = n;
 }
 
+uint64_t crocksdb_options_get_max_bytes_for_level_base(
+    crocksdb_options_t* opt) {
+  return opt->rep.max_bytes_for_level_base;
+}
+
 void crocksdb_options_set_level_compaction_dynamic_level_bytes(
     crocksdb_options_t* opt, unsigned char v) {
   opt->rep.level_compaction_dynamic_level_bytes = v;
@@ -2585,6 +2594,10 @@ double crocksdb_options_get_max_bytes_for_level_multiplier(
 void crocksdb_options_set_max_compaction_bytes(crocksdb_options_t* opt,
                                                uint64_t n) {
   opt->rep.max_compaction_bytes = n;
+}
+
+uint64_t crocksdb_options_get_max_compaction_bytes(crocksdb_options_t* opt) {
+  return opt->rep.max_compaction_bytes;
 }
 
 void crocksdb_options_set_max_bytes_for_level_multiplier_additional(
@@ -2635,6 +2648,11 @@ int crocksdb_options_get_num_levels(crocksdb_options_t* opt) {
 void crocksdb_options_set_level0_file_num_compaction_trigger(
     crocksdb_options_t* opt, int n) {
   opt->rep.level0_file_num_compaction_trigger = n;
+}
+
+int crocksdb_options_get_level0_file_num_compaction_trigger(
+    crocksdb_options_t* opt) {
+  return opt->rep.level0_file_num_compaction_trigger;
 }
 
 void crocksdb_options_set_level0_slowdown_writes_trigger(
@@ -2893,9 +2911,18 @@ void crocksdb_options_set_max_write_buffer_number(crocksdb_options_t* opt,
   opt->rep.max_write_buffer_number = n;
 }
 
+int crocksdb_options_get_max_write_buffer_number(crocksdb_options_t* opt) {
+  return opt->rep.max_write_buffer_number;
+}
+
 void crocksdb_options_set_min_write_buffer_number_to_merge(
     crocksdb_options_t* opt, int n) {
   opt->rep.min_write_buffer_number_to_merge = n;
+}
+
+int crocksdb_options_get_min_write_buffer_number_to_merge(
+    crocksdb_options_t* opt) {
+  return opt->rep.min_write_buffer_number_to_merge;
 }
 
 void crocksdb_options_set_max_write_buffer_number_to_maintain(
@@ -3129,6 +3156,11 @@ void crocksdb_options_set_delayed_write_rate(crocksdb_options_t* opt,
 void crocksdb_options_set_force_consistency_checks(crocksdb_options_t* opt,
                                                    unsigned char v) {
   opt->rep.force_consistency_checks = v;
+}
+
+unsigned char crocksdb_options_get_force_consistency_checks(
+    crocksdb_options_t* opt) {
+  return opt->rep.force_consistency_checks;
 }
 
 char* crocksdb_options_statistics_get_string(crocksdb_options_t* opt) {

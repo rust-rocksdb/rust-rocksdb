@@ -80,7 +80,6 @@ impl TitanDBOptions {
         }
     }
 
-
     pub fn set_disable_background_gc(&mut self, disable: bool) {
         unsafe {
             crocksdb_ffi::ctitandb_options_set_disable_background_gc(self.inner, disable);

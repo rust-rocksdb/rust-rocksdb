@@ -987,6 +987,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_info_log_level(
     crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_write_buffer_size(
     crocksdb_options_t*, size_t);
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_options_get_write_buffer_size(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_db_write_buffer_size(
     crocksdb_options_t*, size_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_open_files(
@@ -1015,6 +1017,8 @@ extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_num_levels(
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level0_file_num_compaction_trigger(crocksdb_options_t*,
                                                         int);
+extern C_ROCKSDB_LIBRARY_API int
+crocksdb_options_get_level0_file_num_compaction_trigger(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_level0_slowdown_writes_trigger(crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API int
@@ -1031,6 +1035,8 @@ extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_target_file_size_multiplier(crocksdb_options_t*, int);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_bytes_for_level_base(
     crocksdb_options_t*, uint64_t);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_options_get_max_bytes_for_level_base(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_optimize_filters_for_hits(crocksdb_options_t*,
                                                unsigned char);
@@ -1083,8 +1089,12 @@ crocksdb_options_statistics_get_histogram(crocksdb_options_t* opt,
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_write_buffer_number(
     crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_options_get_max_write_buffer_number(
+    crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_min_write_buffer_number_to_merge(crocksdb_options_t*, int);
+extern C_ROCKSDB_LIBRARY_API int
+crocksdb_options_get_min_write_buffer_number_to_merge(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void
 crocksdb_options_set_max_write_buffer_number_to_maintain(crocksdb_options_t*,
                                                          int);
@@ -1213,6 +1223,8 @@ crocksdb_options_set_memtable_prefix_bloom_size_ratio(crocksdb_options_t*,
                                                       double);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_max_compaction_bytes(
     crocksdb_options_t*, uint64_t);
+extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_options_get_max_compaction_bytes(crocksdb_options_t*);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hash_skip_list_rep(
     crocksdb_options_t*, size_t, int32_t, int32_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_hash_link_list_rep(
@@ -1301,6 +1313,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_delayed_write_rate(
     crocksdb_options_t*, uint64_t);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_options_set_force_consistency_checks(
     crocksdb_options_t*, unsigned char);
+extern C_ROCKSDB_LIBRARY_API unsigned char
+crocksdb_options_get_force_consistency_checks(crocksdb_options_t*);
 
 /* RateLimiter */
 extern C_ROCKSDB_LIBRARY_API crocksdb_ratelimiter_t*
