@@ -823,6 +823,8 @@ crocksdb_compactionjobinfo_elapsed_micros(const crocksdb_compactionjobinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_compactionjobinfo_num_corrupt_keys(
     const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API int crocksdb_compactionjobinfo_base_input_level(
+    const crocksdb_compactionjobinfo_t*);
 extern C_ROCKSDB_LIBRARY_API int crocksdb_compactionjobinfo_output_level(
     const crocksdb_compactionjobinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t

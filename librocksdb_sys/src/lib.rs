@@ -2142,6 +2142,7 @@ extern "C" {
     ) -> *const DBTablePropertiesCollection;
     pub fn crocksdb_compactionjobinfo_elapsed_micros(info: *const DBCompactionJobInfo) -> u64;
     pub fn crocksdb_compactionjobinfo_num_corrupt_keys(info: *const DBCompactionJobInfo) -> u64;
+    pub fn crocksdb_compactionjobinfo_base_input_level(info: *const DBCompactionJobInfo) -> c_int;
     pub fn crocksdb_compactionjobinfo_output_level(info: *const DBCompactionJobInfo) -> c_int;
     pub fn crocksdb_compactionjobinfo_input_records(info: *const DBCompactionJobInfo) -> u64;
     pub fn crocksdb_compactionjobinfo_output_records(info: *const DBCompactionJobInfo) -> u64;

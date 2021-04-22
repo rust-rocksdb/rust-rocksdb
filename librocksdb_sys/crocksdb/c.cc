@@ -2137,6 +2137,11 @@ uint64_t crocksdb_compactionjobinfo_num_corrupt_keys(
   return info->rep.stats.num_corrupt_keys;
 }
 
+int crocksdb_compactionjobinfo_base_input_level(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.base_input_level;
+}
+
 int crocksdb_compactionjobinfo_output_level(
     const crocksdb_compactionjobinfo_t* info) {
   return info->rep.output_level;

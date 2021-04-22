@@ -105,6 +105,10 @@ impl CompactionJobInfo {
         unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_num_corrupt_keys(&self.0) }
     }
 
+    pub fn base_input_level(&self) -> i32 {
+        unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_base_input_level(&self.0) }
+    }
+
     pub fn output_level(&self) -> i32 {
         unsafe { crocksdb_ffi::crocksdb_compactionjobinfo_output_level(&self.0) }
     }
