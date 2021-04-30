@@ -844,6 +844,62 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Ok(convert_values(values, values_sizes))
     }
 
+    /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
+    /// `false`. This function uses default `ReadOptions`.
+    pub fn key_may_exist<K: AsRef<[u8]>>(&self, key: K) -> bool {
+        self.key_may_exist_opt(key, &ReadOptions::default())
+    }
+
+    /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
+    /// `false`.
+    pub fn key_may_exist_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> bool {
+        let key = key.as_ref();
+        unsafe {
+            0 != ffi::rocksdb_key_may_exist(
+                self.inner,
+                readopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ptr::null_mut(), /*value*/
+                ptr::null_mut(), /*val_len*/
+                ptr::null(),     /*timestamp*/
+                0,               /*timestamp_len*/
+                ptr::null_mut(), /*value_found*/
+            )
+        }
+    }
+
+    /// Returns `false` if the given key definitely doesn't exist in the specified column family,
+    /// otherwise returns `false`. This function uses default `ReadOptions`.
+    pub fn key_may_exist_cf<K: AsRef<[u8]>>(&self, cf: impl AsColumnFamilyRef, key: K) -> bool {
+        self.key_may_exist_cf_opt(cf, key, &ReadOptions::default())
+    }
+
+    /// Returns `false` if the given key definitely doesn't exist in the specified column family,
+    /// otherwise returns `false`.
+    pub fn key_may_exist_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> bool {
+        let key = key.as_ref();
+        0 != unsafe {
+            ffi::rocksdb_key_may_exist_cf(
+                self.inner,
+                readopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ptr::null_mut(), /*value*/
+                ptr::null_mut(), /*val_len*/
+                ptr::null(),     /*timestamp*/
+                0,               /*timestamp_len*/
+                ptr::null_mut(), /*value_found*/
+            )
+        }
+    }
+
     fn create_inner_cf_handle(
         &self,
         name: &str,
