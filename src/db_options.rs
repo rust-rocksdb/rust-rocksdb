@@ -342,6 +342,11 @@ pub struct ReadOptions {
     iterate_lower_bound: Option<Vec<u8>>,
 }
 
+/// Configuration of cuckoo-based storage.
+pub struct CuckooTableOptions {
+    pub(crate) inner: *mut ffi::rocksdb_cuckoo_table_options_t,
+}
+
 /// For configuring external files ingestion.
 ///
 /// # Examples
@@ -376,6 +381,7 @@ pub struct IngestExternalFileOptions {
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
 unsafe impl Send for BlockBasedOptions {}
+unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
 
@@ -384,6 +390,7 @@ unsafe impl Send for IngestExternalFileOptions {}
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
 unsafe impl Sync for BlockBasedOptions {}
+unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
 
@@ -412,6 +419,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for CuckooTableOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_destroy(self.inner);
         }
     }
 }
@@ -692,6 +707,40 @@ impl Default for BlockBasedOptions {
             inner: block_opts,
             outlive: BlockBasedOptionsMustOutliveDB::default(),
         }
+    }
+}
+
+impl CuckooTableOptions {
+    pub fn set_hash_ratio(&mut self, ratio: f64) {
+        unsafe { ffi::rocksdb_cuckoo_options_set_hash_ratio(self.inner, ratio) }
+    }
+
+    pub fn set_max_search_depth(&mut self, depth: u32) {
+        unsafe { ffi::rocksdb_cuckoo_options_set_max_search_depth(self.inner, depth) }
+    }
+
+    pub fn set_cuckoo_block_size(&mut self, size: u32) {
+        unsafe { ffi::rocksdb_cuckoo_options_set_cuckoo_block_size(self.inner, size) }
+    }
+
+    pub fn set_identity_as_first_hash(&mut self, flag: bool) {
+        let v = flag as u8;
+        unsafe { ffi::rocksdb_cuckoo_options_set_identity_as_first_hash(self.inner, v) }
+    }
+
+    pub fn set_use_module_hash(&mut self, flag: bool) {
+        let v = flag as u8;
+        unsafe { ffi::rocksdb_cuckoo_options_set_use_module_hash(self.inner, v) }
+    }
+}
+
+impl Default for CuckooTableOptions {
+    fn default() -> CuckooTableOptions {
+        let opts = unsafe { ffi::rocksdb_cuckoo_options_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB cuckoo options");
+        }
+        CuckooTableOptions { inner: opts }
     }
 }
 
