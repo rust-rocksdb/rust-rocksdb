@@ -2212,6 +2212,27 @@ impl Options {
         self.outlive.block_based = Some(factory.outlive.clone());
     }
 
+    /// Sets the table factory to a CuckooTableFactory (the default table
+    /// factory is a block-based table factory that provides a default
+    /// implementation of TableBuilder and TableReader with default
+    /// BlockBasedTableOptions).
+    /// See official [wiki](https://github.com/facebook/rocksdb/wiki/CuckooTable-Format) for more information on this table format.
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, CuckooTableOptions};
+    ///
+    /// let mut opts = Options::default();
+    /// let factory_opts = CuckooTableOptions::default();
+    ///
+    /// opts.set_cuckoo_table_factory(&factory_opts);
+    /// ```
+    pub fn set_cuckoo_table_factory(&mut self, factory: &CuckooTableOptions) {
+        unsafe {
+            ffi::rocksdb_options_set_cuckoo_table_factory(self.inner, factory.inner);
+        }
+    }
+
     // This is a factory that provides TableFactory objects.
     // Default: a block-based table factory that provides a default
     // implementation of TableBuilder and TableReader with default
