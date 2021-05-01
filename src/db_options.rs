@@ -711,23 +711,48 @@ impl Default for BlockBasedOptions {
 }
 
 impl CuckooTableOptions {
+    /// Determines the utilization of hash tables. Smaller values
+    /// result in larger hash tables with fewer collisions.
+    /// Default: 0.9
     pub fn set_hash_ratio(&mut self, ratio: f64) {
         unsafe { ffi::rocksdb_cuckoo_options_set_hash_ratio(self.inner, ratio) }
     }
 
+    /// A property used by builder to determine the depth to go to
+    /// to search for a path to displace elements in case of
+    /// collision. See Builder.MakeSpaceForKey method. Higher
+    /// values result in more efficient hash tables with fewer
+    /// lookups but take more time to build.
+    /// Default: 100
     pub fn set_max_search_depth(&mut self, depth: u32) {
         unsafe { ffi::rocksdb_cuckoo_options_set_max_search_depth(self.inner, depth) }
     }
 
+    /// In case of collision while inserting, the builder
+    /// attempts to insert in the next cuckoo_block_size
+    /// locations before skipping over to the next Cuckoo hash
+    /// function. This makes lookups more cache friendly in case
+    /// of collisions.
+    /// Default: 5
     pub fn set_cuckoo_block_size(&mut self, size: u32) {
         unsafe { ffi::rocksdb_cuckoo_options_set_cuckoo_block_size(self.inner, size) }
     }
 
+    /// If this option is enabled, user key is treated as uint64_t and its value
+    /// is used as hash value directly. This option changes builder's behavior.
+    /// Reader ignore this option and behave according to what specified in
+    /// table property.
+    /// Default: false
     pub fn set_identity_as_first_hash(&mut self, flag: bool) {
         let v = flag as u8;
         unsafe { ffi::rocksdb_cuckoo_options_set_identity_as_first_hash(self.inner, v) }
     }
 
+    /// If this option is set to true, module is used during hash calculation.
+    /// This often yields better space efficiency at the cost of performance.
+    /// If this option is set to false, # of entries in table is constrained to
+    /// be power of two, and bit and is used to calculate hash, which is faster in general.
+    /// Default: true
     pub fn set_use_module_hash(&mut self, flag: bool) {
         let v = flag as u8;
         unsafe { ffi::rocksdb_cuckoo_options_set_use_module_hash(self.inner, v) }
@@ -2223,7 +2248,12 @@ impl Options {
     /// use rocksdb::{Options, CuckooTableOptions};
     ///
     /// let mut opts = Options::default();
-    /// let factory_opts = CuckooTableOptions::default();
+    /// let mut factory_opts = CuckooTableOptions::default();
+    /// factory_opts.set_hash_ratio(0.8);
+    /// factory_opts.set_max_search_depth(20);
+    /// factory_opts.set_cuckoo_block_size(10);
+    /// factory_opts.set_identity_as_first_hash(true);
+    /// factory_opts.set_use_module_hash(false);
     ///
     /// opts.set_cuckoo_table_factory(&factory_opts);
     /// ```
