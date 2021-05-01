@@ -967,6 +967,39 @@ fn multi_get_cf() {
 }
 
 #[test]
+fn key_may_exist() {
+    let path = DBPath::new("_rust_rocksdb_multi_get");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+        assert_eq!(false, db.key_may_exist("nonexistent"));
+        assert_eq!(
+            false,
+            db.key_may_exist_opt("nonexistent", &ReadOptions::default())
+        );
+    }
+}
+
+#[test]
+fn key_may_exist_cf() {
+    let path = DBPath::new("_rust_rocksdb_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &["cf"]).unwrap();
+        let cf = db.cf_handle("cf").unwrap();
+
+        assert_eq!(false, db.key_may_exist_cf(cf, "nonexistent"));
+        assert_eq!(
+            false,
+            db.key_may_exist_cf_opt(cf, "nonexistent", &ReadOptions::default())
+        );
+    }
+}
+
+#[test]
 fn test_snapshot_outlive_db() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/snapshot_outlive_db.rs");
