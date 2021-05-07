@@ -37,7 +37,7 @@ fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
         .header(rocksdb_include_dir() + "/rocksdb/c.h")
         .derive_debug(false)
-        .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
+        .blocklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
         .size_t_is_usize(true)
         .generate()
@@ -96,7 +96,7 @@ fn build_rocksdb() {
     lib_sources = lib_sources
         .iter()
         .cloned()
-        .filter(|file| *file != "util/build_version.cc")
+        .filter(|&file| file != "util/build_version.cc")
         .collect::<Vec<&'static str>>();
 
     if target.contains("x86_64") {

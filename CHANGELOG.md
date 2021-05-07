@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* Bump `librocksdb-sys` up to 6.19.3 (olegnn)
+
 ## 0.16.0 (2021-04-18)
 
 * Add `DB::cancel_all_background_work` method (stanislav-tkach)
