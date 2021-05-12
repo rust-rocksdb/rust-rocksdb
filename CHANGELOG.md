@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+* Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
+* Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
+
 ## 0.16.0 (2021-04-18)
 
 * Add `DB::cancel_all_background_work` method (stanislav-tkach)
@@ -15,13 +18,13 @@
 * Bump `librocksdb-sys` up to 6.17.3 (ordian)
 * Remove the need for `&mut self` in `create_cf` and `drop_cf` (v2) (ryoqun)
 * Keep Cache and Env alive with Rc (acrrd)
-* Add DB::open_cf_with_ttl method (fdeantoni)
+* Add `DB::open_cf_with_ttl` method (fdeantoni)
 
 ## 0.15.0 (2020-08-25)
 
 * Fix building rocksdb library on windows host (aleksuss)
 * Add github actions CI for windows build (aleksuss)
-* Update doc for Options::set_compression_type (wqfish)
+* Update doc for `Options::set_compression_type` (wqfish)
 * Add clippy linter in CI (aleksuss)
 * Use DBPath for backup_restore test (wqfish)
 * Allow to build RocksDB with a different stdlib (calavera)

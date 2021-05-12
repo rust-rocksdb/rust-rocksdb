@@ -968,7 +968,7 @@ fn multi_get_cf() {
 
 #[test]
 fn key_may_exist() {
-    let path = DBPath::new("_rust_rocksdb_multi_get");
+    let path = DBPath::new("_rust_key_may_exist");
 
     {
         let db = DB::open_default(&path).unwrap();
@@ -982,7 +982,7 @@ fn key_may_exist() {
 
 #[test]
 fn key_may_exist_cf() {
-    let path = DBPath::new("_rust_rocksdb_multi_get_cf");
+    let path = DBPath::new("_rust_key_may_exist_cf");
 
     {
         let mut opts = Options::default();
