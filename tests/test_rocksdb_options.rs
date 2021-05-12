@@ -141,6 +141,7 @@ fn set_compression_options_zstd_max_train_bytes() {
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
+        opts.set_compression_options(4, 5, 6, 7);
         opts.set_zstd_max_train_bytes(100);
         let _db = DB::open(&opts, &path).unwrap();
     }
