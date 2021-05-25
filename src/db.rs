@@ -849,13 +849,13 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
-    /// `false`. This function uses default `ReadOptions`.
+    /// `true`. This function uses default `ReadOptions`.
     pub fn key_may_exist<K: AsRef<[u8]>>(&self, key: K) -> bool {
         self.key_may_exist_opt(key, &ReadOptions::default())
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
-    /// `false`.
+    /// `true`.
     pub fn key_may_exist_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> bool {
         let key = key.as_ref();
         unsafe {
@@ -874,13 +874,13 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the specified column family,
-    /// otherwise returns `false`. This function uses default `ReadOptions`.
+    /// otherwise returns `true`. This function uses default `ReadOptions`.
     pub fn key_may_exist_cf<K: AsRef<[u8]>>(&self, cf: impl AsColumnFamilyRef, key: K) -> bool {
         self.key_may_exist_cf_opt(cf, key, &ReadOptions::default())
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the specified column family,
-    /// otherwise returns `false`.
+    /// otherwise returns `true`.
     pub fn key_may_exist_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: impl AsColumnFamilyRef,
