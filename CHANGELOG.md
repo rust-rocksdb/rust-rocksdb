@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+* Bump `librocksdb-sys` up to 6.19.3 (olegnn)
 * Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
 * Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
 

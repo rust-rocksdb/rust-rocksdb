@@ -747,7 +747,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Return the values associated with the given keys.
-    pub fn multi_get<K, I>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    pub fn multi_get<K, I>(&self, keys: I) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>,
@@ -760,7 +760,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         &self,
         keys: I,
         readopts: &ReadOptions,
-    ) -> Result<Vec<Vec<u8>>, Error>
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>,
@@ -773,8 +773,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
         let mut values = vec![ptr::null_mut(); keys.len()];
         let mut values_sizes = vec![0_usize; keys.len()];
+        let mut errors = vec![ptr::null_mut(); keys.len()];
         unsafe {
-            ffi_try!(ffi::rocksdb_multi_get(
+            ffi::rocksdb_multi_get(
                 self.inner,
                 readopts.inner,
                 ptr_keys.len(),
@@ -782,14 +783,15 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 keys_sizes.as_ptr(),
                 values.as_mut_ptr(),
                 values_sizes.as_mut_ptr(),
-            ));
+                errors.as_mut_ptr(),
+            );
         }
 
-        Ok(convert_values(values, values_sizes))
+        convert_values(values, values_sizes, errors)
     }
 
     /// Return the values associated with the given keys and column families.
-    pub fn multi_get_cf<K, I, W>(&self, keys: I) -> Result<Vec<Vec<u8>>, Error>
+    pub fn multi_get_cf<K, I, W>(&self, keys: I) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (W, K)>,
@@ -803,7 +805,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         &self,
         keys: I,
         readopts: &ReadOptions,
-    ) -> Result<Vec<Vec<u8>>, Error>
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (W, K)>,
@@ -828,8 +830,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
         let mut values = vec![ptr::null_mut(); boxed_keys.len()];
         let mut values_sizes = vec![0_usize; boxed_keys.len()];
+        let mut errors = vec![ptr::null_mut(); boxed_keys.len()];
         unsafe {
-            ffi_try!(ffi::rocksdb_multi_get_cf(
+            ffi::rocksdb_multi_get_cf(
                 self.inner,
                 readopts.inner,
                 ptr_cfs.as_ptr(),
@@ -838,20 +841,21 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 keys_sizes.as_ptr(),
                 values.as_mut_ptr(),
                 values_sizes.as_mut_ptr(),
-            ));
+                errors.as_mut_ptr(),
+            );
         }
 
-        Ok(convert_values(values, values_sizes))
+        convert_values(values, values_sizes, errors)
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
-    /// `false`. This function uses default `ReadOptions`.
+    /// `true`. This function uses default `ReadOptions`.
     pub fn key_may_exist<K: AsRef<[u8]>>(&self, key: K) -> bool {
         self.key_may_exist_opt(key, &ReadOptions::default())
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
-    /// `false`.
+    /// `true`.
     pub fn key_may_exist_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> bool {
         let key = key.as_ref();
         unsafe {
@@ -870,13 +874,13 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the specified column family,
-    /// otherwise returns `false`. This function uses default `ReadOptions`.
+    /// otherwise returns `true`. This function uses default `ReadOptions`.
     pub fn key_may_exist_cf<K: AsRef<[u8]>>(&self, cf: impl AsColumnFamilyRef, key: K) -> bool {
         self.key_may_exist_cf_opt(cf, key, &ReadOptions::default())
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the specified column family,
-    /// otherwise returns `false`.
+    /// otherwise returns `true`.
     pub fn key_may_exist_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: impl AsColumnFamilyRef,
@@ -1835,16 +1839,25 @@ fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Err
         .collect()
 }
 
-fn convert_values(values: Vec<*mut c_char>, values_sizes: Vec<usize>) -> Vec<Vec<u8>> {
+fn convert_values(
+    values: Vec<*mut c_char>,
+    values_sizes: Vec<usize>,
+    errors: Vec<*mut c_char>,
+) -> Vec<Result<Option<Vec<u8>>, Error>> {
     values
         .into_iter()
         .zip(values_sizes.into_iter())
-        .map(|(v, s)| {
-            let value = unsafe { slice::from_raw_parts(v as *const u8, s) }.into();
-            unsafe {
-                ffi::rocksdb_free(v as *mut c_void);
+        .zip(errors.into_iter())
+        .map(|((v, s), e)| {
+            if e.is_null() {
+                let value = unsafe { crate::ffi_util::raw_data(v, s) };
+                unsafe {
+                    ffi::rocksdb_free(v as *mut c_void);
+                }
+                Ok(value)
+            } else {
+                Err(Error::new(crate::ffi_util::error_message(e)))
             }
-            value
         })
         .collect()
 }

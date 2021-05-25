@@ -20,10 +20,10 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, DBCompactionStyle, DBWithThreadMode, Env, Error, FifoCompactOptions,
-    IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded,
-    SliceTransform, Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch,
-    DB,
+    CompactOptions, CuckooTableOptions, DBCompactionStyle, DBWithThreadMode, Env, Error,
+    FifoCompactOptions, IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions,
+    SingleThreaded, SliceTransform, Snapshot, UniversalCompactOptions,
+    UniversalCompactionStopStyle, WriteBatch, DB,
 };
 use util::DBPath;
 
@@ -928,13 +928,17 @@ fn multi_get() {
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
 
+        let _ = db.multi_get(&[b"k0"; 40]);
+
         let values = db
             .multi_get(&[b"k0", b"k1", b"k2"])
-            .expect("multi_get failed");
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
         assert_eq!(3, values.len());
-        assert!(values[0].is_empty());
-        assert_eq!(values[1], b"v1");
-        assert_eq!(values[2], b"v2");
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
     }
 }
 
@@ -958,11 +962,13 @@ fn multi_get_cf() {
 
         let values = db
             .multi_get_cf(vec![(cf0, b"k0"), (cf1, b"k1"), (cf2, b"k2")])
-            .expect("multi_get failed");
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
         assert_eq!(3, values.len());
-        assert!(values[0].is_empty());
-        assert_eq!(values[1], b"v1");
-        assert_eq!(values[2], b"v2");
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
     }
 }
 
@@ -1003,4 +1009,34 @@ fn key_may_exist_cf() {
 fn test_snapshot_outlive_db() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/snapshot_outlive_db.rs");
+}
+
+#[test]
+fn cuckoo() {
+    let path = DBPath::new("_rust_rocksdb_cuckoo");
+
+    {
+        let mut opts = Options::default();
+        let mut factory_opts = CuckooTableOptions::default();
+        factory_opts.set_hash_ratio(0.8);
+        factory_opts.set_max_search_depth(20);
+        factory_opts.set_cuckoo_block_size(10);
+        factory_opts.set_identity_as_first_hash(true);
+        factory_opts.set_use_module_hash(false);
+
+        opts.set_cuckoo_table_factory(&factory_opts);
+        opts.create_if_missing(true);
+
+        let db = DB::open(&opts, &path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+
+        assert_eq!(r.unwrap().unwrap(), b"v1");
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k2");
+
+        assert_eq!(r.unwrap().unwrap(), b"v2");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
+    }
 }
