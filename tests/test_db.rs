@@ -928,13 +928,17 @@ fn multi_get() {
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
 
+        let _ = db.multi_get(&[b"k0"; 40]);
+
         let values = db
             .multi_get(&[b"k0", b"k1", b"k2"])
-            .expect("multi_get failed");
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
         assert_eq!(3, values.len());
-        assert!(values[0].is_empty());
-        assert_eq!(values[1], b"v1");
-        assert_eq!(values[2], b"v2");
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
     }
 }
 
@@ -958,11 +962,13 @@ fn multi_get_cf() {
 
         let values = db
             .multi_get_cf(vec![(cf0, b"k0"), (cf1, b"k1"), (cf2, b"k2")])
-            .expect("multi_get failed");
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
         assert_eq!(3, values.len());
-        assert!(values[0].is_empty());
-        assert_eq!(values[1], b"v1");
-        assert_eq!(values[2], b"v2");
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
     }
 }
 
