@@ -342,6 +342,11 @@ pub struct ReadOptions {
     iterate_lower_bound: Option<Vec<u8>>,
 }
 
+/// Configuration of cuckoo-based storage.
+pub struct CuckooTableOptions {
+    pub(crate) inner: *mut ffi::rocksdb_cuckoo_table_options_t,
+}
+
 /// For configuring external files ingestion.
 ///
 /// # Examples
@@ -376,6 +381,7 @@ pub struct IngestExternalFileOptions {
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
 unsafe impl Send for BlockBasedOptions {}
+unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
 
@@ -384,6 +390,7 @@ unsafe impl Send for IngestExternalFileOptions {}
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
 unsafe impl Sync for BlockBasedOptions {}
+unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
 
@@ -412,6 +419,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for CuckooTableOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_destroy(self.inner);
         }
     }
 }
@@ -692,6 +707,65 @@ impl Default for BlockBasedOptions {
             inner: block_opts,
             outlive: BlockBasedOptionsMustOutliveDB::default(),
         }
+    }
+}
+
+impl CuckooTableOptions {
+    /// Determines the utilization of hash tables. Smaller values
+    /// result in larger hash tables with fewer collisions.
+    /// Default: 0.9
+    pub fn set_hash_ratio(&mut self, ratio: f64) {
+        unsafe { ffi::rocksdb_cuckoo_options_set_hash_ratio(self.inner, ratio) }
+    }
+
+    /// A property used by builder to determine the depth to go to
+    /// to search for a path to displace elements in case of
+    /// collision. See Builder.MakeSpaceForKey method. Higher
+    /// values result in more efficient hash tables with fewer
+    /// lookups but take more time to build.
+    /// Default: 100
+    pub fn set_max_search_depth(&mut self, depth: u32) {
+        unsafe { ffi::rocksdb_cuckoo_options_set_max_search_depth(self.inner, depth) }
+    }
+
+    /// In case of collision while inserting, the builder
+    /// attempts to insert in the next cuckoo_block_size
+    /// locations before skipping over to the next Cuckoo hash
+    /// function. This makes lookups more cache friendly in case
+    /// of collisions.
+    /// Default: 5
+    pub fn set_cuckoo_block_size(&mut self, size: u32) {
+        unsafe { ffi::rocksdb_cuckoo_options_set_cuckoo_block_size(self.inner, size) }
+    }
+
+    /// If this option is enabled, user key is treated as uint64_t and its value
+    /// is used as hash value directly. This option changes builder's behavior.
+    /// Reader ignore this option and behave according to what specified in
+    /// table property.
+    /// Default: false
+    pub fn set_identity_as_first_hash(&mut self, flag: bool) {
+        let v = flag as u8;
+        unsafe { ffi::rocksdb_cuckoo_options_set_identity_as_first_hash(self.inner, v) }
+    }
+
+    /// If this option is set to true, module is used during hash calculation.
+    /// This often yields better space efficiency at the cost of performance.
+    /// If this option is set to false, # of entries in table is constrained to
+    /// be power of two, and bit and is used to calculate hash, which is faster in general.
+    /// Default: true
+    pub fn set_use_module_hash(&mut self, flag: bool) {
+        let v = flag as u8;
+        unsafe { ffi::rocksdb_cuckoo_options_set_use_module_hash(self.inner, v) }
+    }
+}
+
+impl Default for CuckooTableOptions {
+    fn default() -> CuckooTableOptions {
+        let opts = unsafe { ffi::rocksdb_cuckoo_options_create() };
+        if opts.is_null() {
+            panic!("Could not create RocksDB cuckoo options");
+        }
+        CuckooTableOptions { inner: opts }
     }
 }
 
@@ -2161,6 +2235,32 @@ impl Options {
             ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
         }
         self.outlive.block_based = Some(factory.outlive.clone());
+    }
+
+    /// Sets the table factory to a CuckooTableFactory (the default table
+    /// factory is a block-based table factory that provides a default
+    /// implementation of TableBuilder and TableReader with default
+    /// BlockBasedTableOptions).
+    /// See official [wiki](https://github.com/facebook/rocksdb/wiki/CuckooTable-Format) for more information on this table format.
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, CuckooTableOptions};
+    ///
+    /// let mut opts = Options::default();
+    /// let mut factory_opts = CuckooTableOptions::default();
+    /// factory_opts.set_hash_ratio(0.8);
+    /// factory_opts.set_max_search_depth(20);
+    /// factory_opts.set_cuckoo_block_size(10);
+    /// factory_opts.set_identity_as_first_hash(true);
+    /// factory_opts.set_use_module_hash(false);
+    ///
+    /// opts.set_cuckoo_table_factory(&factory_opts);
+    /// ```
+    pub fn set_cuckoo_table_factory(&mut self, factory: &CuckooTableOptions) {
+        unsafe {
+            ffi::rocksdb_options_set_cuckoo_table_factory(self.inner, factory.inner);
+        }
     }
 
     // This is a factory that provides TableFactory objects.
