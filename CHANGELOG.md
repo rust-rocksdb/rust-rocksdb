@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 * Bump `librocksdb-sys` up to 6.19.3 (olegnn)
+* Make SSE inclusion conditional for target features (mbargull)
 
 ## 0.16.0 (2021-04-18)
 
