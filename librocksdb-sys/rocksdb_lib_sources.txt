@@ -15,7 +15,6 @@ db/blob/blob_log_writer.cc
 db/builder.cc
 db/c.cc
 db/column_family.cc
-db/compacted_db_impl.cc
 db/compaction/compaction.cc
 db/compaction/compaction_iterator.cc
 db/compaction/compaction_job.cc
@@ -26,6 +25,7 @@ db/compaction/compaction_picker_universal.cc
 db/compaction/sst_partitioner.cc
 db/convenience.cc
 db/db_filesnapshot.cc
+db/db_impl/compacted_db_impl.cc
 db/db_impl/db_impl.cc
 db/db_impl/db_impl_compaction_flush.cc
 db/db_impl/db_impl_debug.cc
@@ -84,6 +84,7 @@ env/env_hdfs.cc
 env/env_posix.cc
 env/file_system.cc
 env/fs_posix.cc
+env/fs_remap.cc
 env/file_system_tracer.cc
 env/io_posix.cc
 env/mock_env.cc
@@ -202,6 +203,7 @@ util/comparator.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
+util/crc32c_arm64.cc
 util/dynamic_bloom.cc
 util/hash.cc
 util/murmurhash.cc
@@ -271,18 +273,3 @@ utilities/transactions/write_unprepared_txn_db.cc
 utilities/ttl/db_ttl_impl.cc
 utilities/write_batch_with_index/write_batch_with_index.cc
 utilities/write_batch_with_index/write_batch_with_index_internal.cc
-util/crc32c_arm64.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/concurrent_tree.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/keyrange.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/lock_request.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/locktree.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/manager.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/range_buffer.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/treenode.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/txnid_set.cc
-utilities/transactions/lock/range/range_tree/lib/locktree/wfg.cc
-utilities/transactions/lock/range/range_tree/lib/standalone_port.cc
-utilities/transactions/lock/range/range_tree/lib/util/dbt.cc
-utilities/transactions/lock/range/range_tree/lib/util/memarena.cc
-utilities/transactions/lock/range/range_tree/range_tree_lock_manager.cc
-utilities/transactions/lock/range/range_tree/range_tree_lock_tracker.cc
