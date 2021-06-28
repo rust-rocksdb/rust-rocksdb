@@ -554,3 +554,12 @@ fn test_read_invalid_sst() {
     let error_message = reader.verify_checksum().unwrap_err();
     assert!(error_message.contains("checksum mismatch"));
 }
+
+#[test]
+fn test_ingest_external_file_options() {
+    let mut ingest_opt = IngestExternalFileOptions::new();
+    ingest_opt.set_write_global_seqno(false);
+    assert_eq!(false, ingest_opt.get_write_global_seqno());
+    ingest_opt.set_write_global_seqno(true);
+    assert_eq!(true, ingest_opt.get_write_global_seqno());
+}

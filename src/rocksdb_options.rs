@@ -2081,6 +2081,23 @@ impl IngestExternalFileOptions {
             );
         }
     }
+    
+    pub fn get_write_global_seqno(&mut self) -> bool {
+        unsafe { 
+	    crocksdb_ffi::crocksdb_ingestexternalfileoptions_get_write_global_seqno(self.inner)
+	}
+    }
+
+    /// If set to true, a global_seqno will be written to a given offset in the external SST file
+    /// for backward compatibility.
+    pub fn set_write_global_seqno(&mut self, whether_write: bool) {
+        unsafe {
+            crocksdb_ffi::crocksdb_ingestexternalfileoptions_set_write_global_seqno(
+                self.inner,
+                whether_write,
+            );
+        }
+    }
 }
 
 impl Drop for IngestExternalFileOptions {
