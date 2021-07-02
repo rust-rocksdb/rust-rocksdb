@@ -2155,6 +2155,9 @@ extern "C" {
     pub fn crocksdb_compactionjobinfo_output_records(info: *const DBCompactionJobInfo) -> u64;
     pub fn crocksdb_compactionjobinfo_total_input_bytes(info: *const DBCompactionJobInfo) -> u64;
     pub fn crocksdb_compactionjobinfo_total_output_bytes(info: *const DBCompactionJobInfo) -> u64;
+    pub fn crocksdb_compactionjobinfo_num_input_files_at_output_level(
+        info: *const DBCompactionJobInfo,
+    ) -> size_t;
     pub fn crocksdb_compactionjobinfo_compaction_reason(
         info: *const DBCompactionJobInfo,
     ) -> CompactionReason;
@@ -2185,6 +2188,7 @@ extern "C" {
     pub fn crocksdb_externalfileingestioninfo_table_properties(
         info: *const DBIngestionInfo,
     ) -> *const DBTableProperties;
+    pub fn crocksdb_externalfileingestioninfo_picked_level(info: *const DBIngestionInfo) -> c_int;
 
     pub fn crocksdb_writestallinfo_cf_name(
         info: *const DBWriteStallInfo,

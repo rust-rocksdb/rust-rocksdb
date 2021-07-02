@@ -2147,6 +2147,11 @@ int crocksdb_compactionjobinfo_output_level(
   return info->rep.output_level;
 }
 
+size_t crocksdb_compactionjobinfo_num_input_files_at_output_level(
+    const crocksdb_compactionjobinfo_t* info) {
+  return info->rep.stats.num_input_files_at_output_level;
+}
+
 uint64_t crocksdb_compactionjobinfo_input_records(
     const crocksdb_compactionjobinfo_t* info) {
   return info->rep.stats.num_input_records;
@@ -2219,6 +2224,11 @@ crocksdb_externalfileingestioninfo_table_properties(
     const crocksdb_externalfileingestioninfo_t* info) {
   return reinterpret_cast<const crocksdb_table_properties_t*>(
       &info->rep.table_properties);
+}
+
+const int crocksdb_externalfileingestioninfo_picked_level(
+    const crocksdb_externalfileingestioninfo_t* info) {
+  return info->rep.picked_level;
 }
 
 /* External write stall info */

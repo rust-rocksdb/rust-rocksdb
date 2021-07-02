@@ -55,6 +55,7 @@ impl EventListener for EventCounter {
             let path = info.input_file_at(i);
             assert!(path.exists());
         }
+        assert_eq!(info.num_input_files_at_output_level(), 0);
 
         let output_file_count = info.output_file_count();
         assert_ne!(output_file_count, 0);
@@ -89,6 +90,7 @@ impl EventListener for EventCounter {
         assert!(!info.cf_name().is_empty());
         assert!(info.internal_file_path().exists());
         assert_ne!(info.table_properties().data_size(), 0);
+        assert_ne!(info.picked_level(), 0);
         self.ingestion.fetch_add(1, Ordering::SeqCst);
     }
 }

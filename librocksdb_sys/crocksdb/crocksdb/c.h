@@ -837,6 +837,9 @@ crocksdb_compactionjobinfo_total_input_bytes(
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_compactionjobinfo_total_output_bytes(
     const crocksdb_compactionjobinfo_t*);
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_compactionjobinfo_num_input_files_at_output_level(
+    const crocksdb_compactionjobinfo_t* info);
 
 /* Subcompaction job info */
 extern C_ROCKSDB_LIBRARY_API void crocksdb_subcompactionjobinfo_status(
@@ -859,6 +862,9 @@ crocksdb_externalfileingestioninfo_internal_file_path(
     const crocksdb_externalfileingestioninfo_t*, size_t*);
 extern C_ROCKSDB_LIBRARY_API const crocksdb_table_properties_t*
 crocksdb_externalfileingestioninfo_table_properties(
+    const crocksdb_externalfileingestioninfo_t*);
+extern C_ROCKSDB_LIBRARY_API const int
+crocksdb_externalfileingestioninfo_picked_level(
     const crocksdb_externalfileingestioninfo_t*);
 
 /* External write stall info */
