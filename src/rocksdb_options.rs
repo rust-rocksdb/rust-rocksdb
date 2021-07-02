@@ -2082,7 +2082,7 @@ impl IngestExternalFileOptions {
         }
     }
     
-    pub fn get_write_global_seqno(&mut self) -> bool {
+    pub fn get_write_global_seqno(&self) -> bool {
         unsafe { 
 	    crocksdb_ffi::crocksdb_ingestexternalfileoptions_get_write_global_seqno(self.inner)
 	}
