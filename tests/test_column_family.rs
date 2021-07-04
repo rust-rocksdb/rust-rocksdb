@@ -250,3 +250,66 @@ fn test_create_duplicate_column_family() {
         assert!(db.create_cf("cf1", &opts).is_err());
     }
 }
+
+#[test]
+fn test_no_leaked_column_family() {
+    let n = DBPath::new("_rust_rocksdb_no_leaked_column_family");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut write_options = rocksdb::WriteOptions::default();
+        write_options.set_sync(false);
+        write_options.disable_wal(true);
+
+        let mut db = DB::open(&opts, &n).unwrap();
+        let large_blob = [0x20; 1024 * 1024];
+
+        #[cfg(feature = "multi-threaded-cf")]
+        let mut outlived_cf = None;
+
+        // repeat creating and dropping cfs many time to indirectly detect
+        // possible leak via large dir.
+        for cf_index in 0..20 {
+            let cf_name = format!("cf{}", cf_index);
+            db.create_cf(&cf_name, &Options::default()).unwrap();
+            let cf = db.cf_handle(&cf_name).unwrap();
+
+            let mut batch = rocksdb::WriteBatch::default();
+            for key_index in 0..100 {
+                batch.put_cf(cf, format!("k{}", key_index), &large_blob);
+            }
+            db.write_opt(batch, &write_options).unwrap();
+
+            // force create an SST file
+            db.flush_cf(cf).unwrap();
+
+            db.drop_cf(&cf_name).unwrap();
+
+            #[cfg(feature = "multi-threaded-cf")]
+            {
+                outlived_cf = Some(cf);
+            }
+        }
+
+        // if we're not leaking, the dir bytes should be well under 10M bytes in total
+        let dir_bytes = fs_extra::dir::get_size(&n).unwrap();
+        assert!(
+            dir_bytes < 10_000_000,
+            "{} is too large (maybe leaking...)",
+            dir_bytes
+        );
+
+        // only if MultiThreaded, cf can outlive db.drop_cf() and shouldn't cause SEGV...
+        #[cfg(feature = "multi-threaded-cf")]
+        {
+            let outlived_cf = outlived_cf.unwrap();
+            assert_eq!(db.get_cf(&outlived_cf, "k0").unwrap().unwrap(), &large_blob);
+            drop(outlived_cf);
+        }
+
+        // make it explicit not to drop the db until we get dir size above...
+        drop(db);
+    }
+}
