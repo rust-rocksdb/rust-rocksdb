@@ -79,7 +79,7 @@ impl ThreadMode for SingleThreaded {
     }
 
     fn cf_drop_all(&mut self) {
-        // Cause all BoundColumnFamily objects to be Drop::drop()-ed.
+        // Cause all ColumnFamily objects to be Drop::drop()-ed.
         self.cfs.clear();
     }
 }

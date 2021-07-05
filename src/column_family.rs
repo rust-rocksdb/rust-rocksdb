@@ -88,7 +88,7 @@ impl Drop for ColumnFamily {
 }
 
 // these behaviors must be identical between BoundColumnFamily and UnboundColumnFamily
-// due to exsiting transmute()!
+// due to the unsafe transmute() in bound_column_family()!
 impl<'a> Drop for BoundColumnFamily<'a> {
     fn drop(&mut self) {
         destroy_handle(self.inner);
