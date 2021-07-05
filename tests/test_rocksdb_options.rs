@@ -134,3 +134,15 @@ fn test_set_data_block_index_type() {
         assert!(settings.contains("data_block_hash_table_util_ratio: 0.350000"));
     }
 }
+
+#[test]
+fn set_compression_options_zstd_max_train_bytes() {
+    let path = DBPath::new("_rust_set_compression_options_zstd_max_train_bytes");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_compression_options(4, 5, 6, 7);
+        opts.set_zstd_max_train_bytes(100);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+}
