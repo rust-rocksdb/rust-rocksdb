@@ -143,15 +143,15 @@ fn test_merge_operator() {
             Err(e) => panic!("failed to open db with column family: {}", e),
         };
         let cf1 = db.cf_handle("cf1").unwrap();
-        assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
-        let p = db.put_cf(cf1, b"k1", b"a");
+        assert!(db.put_cf(&cf1, b"k1", b"v1").is_ok());
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        let p = db.put_cf(&cf1, b"k1", b"a");
         assert!(p.is_ok());
-        db.merge_cf(cf1, b"k1", b"b").unwrap();
-        db.merge_cf(cf1, b"k1", b"c").unwrap();
-        db.merge_cf(cf1, b"k1", b"d").unwrap();
-        db.merge_cf(cf1, b"k1", b"efg").unwrap();
-        let m = db.merge_cf(cf1, b"k1", b"h");
+        db.merge_cf(&cf1, b"k1", b"b").unwrap();
+        db.merge_cf(&cf1, b"k1", b"c").unwrap();
+        db.merge_cf(&cf1, b"k1", b"d").unwrap();
+        db.merge_cf(&cf1, b"k1", b"efg").unwrap();
+        let m = db.merge_cf(&cf1, b"k1", b"h");
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
         match db.get(b"k1") {
@@ -163,7 +163,7 @@ fn test_merge_operator() {
             _ => panic!("value not present!"),
         }
 
-        let _ = db.get_cf(cf1, b"k1");
+        let _ = db.get_cf(&cf1, b"k1");
         // TODO assert!(r.unwrap().as_ref() == b"abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
@@ -278,12 +278,12 @@ fn test_no_leaked_column_family() {
 
             let mut batch = rocksdb::WriteBatch::default();
             for key_index in 0..100 {
-                batch.put_cf(cf, format!("k{}", key_index), &large_blob);
+                batch.put_cf(&cf, format!("k{}", key_index), &large_blob);
             }
             db.write_opt(batch, &write_options).unwrap();
 
             // force create an SST file
-            db.flush_cf(cf).unwrap();
+            db.flush_cf(&cf).unwrap();
 
             db.drop_cf(&cf_name).unwrap();
 

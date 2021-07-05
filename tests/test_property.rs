@@ -38,7 +38,7 @@ fn property_cf_test() {
         let mut db = DB::open_default(&n).unwrap();
         db.create_cf("cf1", &opts).unwrap();
         let cf = db.cf_handle("cf1").unwrap();
-        let value = db.property_value_cf(cf, "rocksdb.stats").unwrap().unwrap();
+        let value = db.property_value_cf(&cf, "rocksdb.stats").unwrap().unwrap();
 
         assert!(value.contains("Stats"));
     }
@@ -66,7 +66,7 @@ fn property_int_cf_test() {
         db.create_cf("cf1", &opts).unwrap();
         let cf = db.cf_handle("cf1").unwrap();
         let total_keys = db
-            .property_int_value_cf(cf, "rocksdb.estimate-num-keys")
+            .property_int_value_cf(&cf, "rocksdb.estimate-num-keys")
             .unwrap();
 
         assert_eq!(total_keys, Some(0));
