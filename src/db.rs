@@ -795,7 +795,10 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Return the values associated with the given keys and column families.
-    pub fn multi_get_cf<'a, 'b: 'a, K, I, W: 'b>(&'a self, keys: I) -> Vec<Result<Option<Vec<u8>>, Error>>
+    pub fn multi_get_cf<'a, 'b: 'a, K, I, W: 'b>(
+        &'a self,
+        keys: I,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
