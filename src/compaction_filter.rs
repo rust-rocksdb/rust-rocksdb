@@ -5,7 +5,9 @@ use crate::table_properties::TableProperties;
 use crocksdb_ffi::CompactionFilterDecision as RawCompactionFilterDecision;
 pub use crocksdb_ffi::CompactionFilterValueType;
 pub use crocksdb_ffi::DBCompactionFilter;
-use crocksdb_ffi::{self, DBCompactionFilterContext, DBCompactionFilterFactory};
+use crocksdb_ffi::{
+    self, DBCompactionFilterContext, DBCompactionFilterFactory, DBTableFileCreationReason,
+};
 use libc::{c_char, c_int, c_void, malloc, memcpy, size_t};
 
 /// Decision used in `CompactionFilter::filter`.
@@ -204,6 +206,13 @@ pub trait CompactionFilterFactory {
         &self,
         context: &CompactionFilterContext,
     ) -> *mut DBCompactionFilter;
+
+    /// Returns whether a thread creating table files for the specified `reason`
+    /// should have invoke `create_compaction_filter` and pass KVs through the returned
+    /// filter.
+    fn should_filter_table_file_creation(&self, reason: DBTableFileCreationReason) -> bool {
+        matches!(reason, DBTableFileCreationReason::Flush)
+    }
 }
 
 #[repr(C)]
@@ -216,6 +225,7 @@ mod factory {
     use super::{CompactionFilterContext, CompactionFilterFactoryProxy};
     use crocksdb_ffi::{DBCompactionFilter, DBCompactionFilterContext};
     use libc::{c_char, c_void};
+    use librocksdb_sys::DBTableFileCreationReason;
 
     pub(super) extern "C" fn name(factory: *mut c_void) -> *const c_char {
         unsafe {
@@ -238,6 +248,17 @@ mod factory {
             let factory = &mut *(factory as *mut CompactionFilterFactoryProxy);
             let context: &CompactionFilterContext = &*(context as *const CompactionFilterContext);
             factory.factory.create_compaction_filter(context)
+        }
+    }
+
+    pub(super) extern "C" fn should_filter_table_file_creation(
+        factory: *const c_void,
+        reason: DBTableFileCreationReason,
+    ) -> bool {
+        unsafe {
+            let factory = &*(factory as *const CompactionFilterFactoryProxy);
+            let reason: DBTableFileCreationReason = reason as DBTableFileCreationReason;
+            factory.factory.should_filter_table_file_creation(reason)
         }
     }
 }
@@ -267,6 +288,7 @@ pub unsafe fn new_compaction_filter_factory(
         proxy as *mut c_void,
         self::factory::destructor,
         self::factory::create_compaction_filter,
+        self::factory::should_filter_table_file_creation,
         self::factory::name,
     );
 
@@ -279,10 +301,13 @@ mod tests {
     use std::sync::mpsc::{self, SyncSender};
     use std::time::Duration;
 
+    use librocksdb_sys::DBTableFileCreationReason;
+
     use super::{
-        CompactionFilter, CompactionFilterContext, CompactionFilterFactory, DBCompactionFilter,
+        new_compaction_filter_raw, CompactionFilter, CompactionFilterContext,
+        CompactionFilterFactory, DBCompactionFilter,
     };
-    use crate::{ColumnFamilyOptions, DBOptions, DB};
+    use crate::{ColumnFamilyOptions, DBOptions, Writable, DB};
 
     struct Factory(SyncSender<()>);
     impl Drop for Factory {
@@ -305,6 +330,29 @@ mod tests {
     impl CompactionFilter for Filter {
         fn filter(&mut self, _: usize, _: &[u8], _: &[u8], _: &mut Vec<u8>, _: &mut bool) -> bool {
             false
+        }
+    }
+
+    struct FlushFactory {}
+    struct FlushFilter {}
+    impl CompactionFilter for FlushFilter {
+        fn filter(&mut self, _: usize, _: &[u8], _: &[u8], _: &mut Vec<u8>, _: &mut bool) -> bool {
+            true
+        }
+    }
+
+    impl CompactionFilterFactory for FlushFactory {
+        fn should_filter_table_file_creation(&self, reason: DBTableFileCreationReason) -> bool {
+            matches!(reason, DBTableFileCreationReason::Flush)
+        }
+
+        fn create_compaction_filter(
+            &self,
+            _context: &CompactionFilterContext,
+        ) -> *mut DBCompactionFilter {
+            let filter = Box::new(FlushFilter {});
+            let name = CString::new("flush_compaction_filter").unwrap();
+            unsafe { new_compaction_filter_raw(name, filter) }
         }
     }
 
@@ -374,5 +422,44 @@ mod tests {
         let db = DB::open_cf(db_opts, path, cfds);
         drop(db);
         assert!(rx.recv_timeout(Duration::from_secs(1)).is_ok());
+    }
+
+    #[test]
+    fn test_flush_filter() {
+        // cf with filter
+        let name = CString::new("test_flush_filter_factory").unwrap();
+        let factory = Box::new(FlushFactory {}) as Box<dyn CompactionFilterFactory>;
+        let mut cf_opts_wf = ColumnFamilyOptions::default();
+        cf_opts_wf
+            .set_compaction_filter_factory(name, factory)
+            .unwrap();
+        cf_opts_wf.set_disable_auto_compactions(true);
+
+        // cf without filter
+        let mut cf_opts_of = ColumnFamilyOptions::default();
+        cf_opts_of.set_disable_auto_compactions(true);
+
+        // db
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let path = tempfile::Builder::new()
+            .prefix("test_factory_context_keys")
+            .tempdir()
+            .unwrap();
+        let mut db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
+        db.create_cf(("wf", cf_opts_wf)).unwrap();
+        db.create_cf(("of", cf_opts_of)).unwrap();
+        let cfh_wf = db.cf_handle("wf").unwrap();
+        let cfh_of = db.cf_handle("of").unwrap();
+
+        // put data
+        db.put_cf(cfh_wf, b"k", b"v").unwrap();
+        db.put_cf(cfh_of, b"k", b"v").unwrap();
+        db.flush_cf(cfh_wf, true).unwrap();
+        db.flush_cf(cfh_of, true).unwrap();
+
+        // assert
+        assert!(db.get_cf(cfh_wf, b"k").unwrap().is_none());
+        assert!(db.get_cf(cfh_of, b"k").unwrap().is_some());
     }
 }
