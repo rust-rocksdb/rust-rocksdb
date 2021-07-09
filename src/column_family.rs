@@ -76,6 +76,8 @@ impl UnboundColumnFamily {
 }
 
 fn destroy_handle(handle: *mut ffi::rocksdb_column_family_handle_t) {
+    // SAFETY: This should be called only from various Drop::drop(), strictly keeping a 1-to-1
+    // ownership to avoid double invocation to the rocksdb function with same handle.
     unsafe {
         ffi::rocksdb_column_family_handle_destroy(handle);
     }
