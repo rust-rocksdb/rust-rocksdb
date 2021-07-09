@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use rocksdb::{Options, DB};
 
 /// Temporary database path which calls DB::Destroy when DBPath is dropped.
-#[derive(Debug)]
 pub struct DBPath {
     #[allow(dead_code)]
     dir: tempfile::TempDir, // kept for cleaning up during drop

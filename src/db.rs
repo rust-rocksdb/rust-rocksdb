@@ -45,7 +45,7 @@ use std::time::Duration;
 // Also, this is minimum common API sharable between SingleThreaded and
 // MultiThreaded. Others differ in self mutability and return type.
 pub trait ThreadMode {
-    fn new(cf_map: BTreeMap<String, *mut crate::ffi::rocksdb_column_family_handle_t>) -> Self;
+    fn new(cf_map: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>) -> Self;
     fn cf_drop_all(&mut self);
 }
 
@@ -69,7 +69,7 @@ pub struct MultiThreaded {
 }
 
 impl ThreadMode for SingleThreaded {
-    fn new(cfs: BTreeMap<String, *mut crate::ffi::rocksdb_column_family_handle_t>) -> Self {
+    fn new(cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>) -> Self {
         Self {
             cfs: cfs
                 .into_iter()
@@ -85,7 +85,7 @@ impl ThreadMode for SingleThreaded {
 }
 
 impl ThreadMode for MultiThreaded {
-    fn new(cfs: BTreeMap<String, *mut crate::ffi::rocksdb_column_family_handle_t>) -> Self {
+    fn new(cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>) -> Self {
         Self {
             cfs: RwLock::new(
                 cfs.into_iter()
@@ -1728,7 +1728,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     fn drop_column_family<C>(
         &self,
-        cf_inner: *mut crate::ffi::rocksdb_column_family_handle_t,
+        cf_inner: *mut ffi::rocksdb_column_family_handle_t,
         cf: C,
     ) -> Result<(), Error> {
         unsafe {

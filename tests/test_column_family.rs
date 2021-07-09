@@ -19,6 +19,25 @@ use pretty_assertions::assert_eq;
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
 use util::DBPath;
 
+use std::fs;
+use std::io;
+use std::path::Path;
+
+fn dir_size(path: impl AsRef<Path>) -> io::Result<u64> {
+    fn dir_size(mut dir: fs::ReadDir) -> io::Result<u64> {
+        dir.try_fold(0, |acc, file| {
+            let file = file?;
+            let size = match file.metadata()? {
+                data if data.is_dir() => dir_size(fs::read_dir(file.path())?)?,
+                data => data.len(),
+            };
+            Ok(acc + size)
+        })
+    }
+
+    dir_size(fs::read_dir(path)?)
+}
+
 #[test]
 fn test_column_family() {
     let n = DBPath::new("_rust_rocksdb_cftest");
@@ -294,7 +313,7 @@ fn test_no_leaked_column_family() {
         }
 
         // if we're not leaking, the dir bytes should be well under 10M bytes in total
-        let dir_bytes = fs_extra::dir::get_size(&n).unwrap();
+        let dir_bytes = dir_size(&n).unwrap();
         assert!(
             dir_bytes < 10_000_000,
             "{} is too large (maybe leaking...)",

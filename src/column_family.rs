@@ -14,6 +14,8 @@
 
 use crate::{db::MultiThreaded, ffi, Options};
 
+use std::sync::Arc;
+
 /// The name of the default column family.
 ///
 /// The column family with this name is created implicitly whenever column
@@ -66,9 +68,7 @@ pub(crate) struct UnboundColumnFamily {
 }
 
 impl UnboundColumnFamily {
-    pub(crate) fn bound_column_family<'a>(
-        self: std::sync::Arc<Self>,
-    ) -> std::sync::Arc<BoundColumnFamily<'a>> {
+    pub(crate) fn bound_column_family<'a>(self: Arc<Self>) -> Arc<BoundColumnFamily<'a>> {
         // SAFETY: the new BoundColumnFamily here just adding lifetime,
         // so that column family handle won't outlive db.
         unsafe { std::mem::transmute(self) }
@@ -107,7 +107,7 @@ impl Drop for UnboundColumnFamily {
 pub type ColumnFamilyRef<'a> = &'a ColumnFamily;
 
 #[cfg(feature = "multi-threaded-cf")]
-pub type ColumnFamilyRef<'a> = std::sync::Arc<BoundColumnFamily<'a>>;
+pub type ColumnFamilyRef<'a> = Arc<BoundColumnFamily<'a>>;
 
 /// Utility trait to accept both supported references to `ColumnFamily`
 /// (`&ColumnFamily` and `BoundColumnFamily`)
@@ -127,7 +127,7 @@ impl<'a> AsColumnFamilyRef for &'a ColumnFamily {
     }
 }
 
-impl<'a> AsColumnFamilyRef for std::sync::Arc<BoundColumnFamily<'a>> {
+impl<'a> AsColumnFamilyRef for Arc<BoundColumnFamily<'a>> {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
         self.inner
     }
