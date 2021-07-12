@@ -185,6 +185,8 @@ fn build_rocksdb() {
         lib_sources.push("port/win/win_thread.cc");
     }
 
+    config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
+
     if target.contains("msvc") {
         config.flag("-EHsc");
     } else {
