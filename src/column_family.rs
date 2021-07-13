@@ -129,6 +129,11 @@ impl<'a> AsColumnFamilyRef for &'a ColumnFamily {
     }
 }
 
+// Only implement for Arc-ed BoundColumnFamily as this tightly coupled and
+// implmetation detail, considering use of std::mem::transmute. BoundColumnFamily
+// isn't expected to be used as naked.
+// Also, ColumnFamilyRef might not be Arc<BoundColumnFamily<'a>> depending crate
+// feature flags so, we can't use the type alias here.
 impl<'a> AsColumnFamilyRef for Arc<BoundColumnFamily<'a>> {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
         self.inner
