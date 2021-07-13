@@ -41,15 +41,26 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
 
-// Marker trait to specify single or multi threaded column family alternations for DB
-// Also, this is minimum common API sharable between SingleThreaded and
-// MultiThreaded. Others differ in self mutability and return type.
+/// Marker trait to specify single or multi threaded column family alternations for
+/// [`DBWithThreadMode<T>`]
+///
+/// This arrangement makes differences in self mutability and return type in
+/// some of `DBWithThreadMode` methods.
+///
+/// While being a marker trait to be generic over `DBWithThreadMode`, this trait
+/// also has a minimum set of not-encapsulated internal methods between
+/// [`SingleThreaded`] and [`MultiThreaded`].  These methods aren't expected to be
+/// called and defined externally.
 pub trait ThreadMode {
-    fn new(cf_map: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>) -> Self;
-    fn cf_drop_all(&mut self);
+    /// Internal implementation for storing column family handles
+    fn new_cf_map_internal(
+        cf_map: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
+    ) -> Self;
+    /// Internal implementation for dropping column family handles
+    fn drop_all_cfs_internal(&mut self);
 }
 
-/// Actual marker type for the internal marker trait `ThreadMode`, which holds
+/// Actual marker type for the marker trait `ThreadMode`, which holds
 /// a collection of column families without synchronization primitive, providing
 /// no overhead for the single-threaded column family alternations. The other
 /// mode is [`MultiThreaded`].
@@ -59,7 +70,7 @@ pub struct SingleThreaded {
     cfs: BTreeMap<String, ColumnFamily>,
 }
 
-/// Actual marker type for the internal marker trait `ThreadMode`, which holds
+/// Actual marker type for the marker trait `ThreadMode`, which holds
 /// a collection of column families wrapped in a RwLock to be mutated
 /// concurrently. The other mode is [`SingleThreaded`].
 ///
@@ -69,7 +80,9 @@ pub struct MultiThreaded {
 }
 
 impl ThreadMode for SingleThreaded {
-    fn new(cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>) -> Self {
+    fn new_cf_map_internal(
+        cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
+    ) -> Self {
         Self {
             cfs: cfs
                 .into_iter()
@@ -78,14 +91,16 @@ impl ThreadMode for SingleThreaded {
         }
     }
 
-    fn cf_drop_all(&mut self) {
+    fn drop_all_cfs_internal(&mut self) {
         // Cause all ColumnFamily objects to be Drop::drop()-ed.
         self.cfs.clear();
     }
 }
 
 impl ThreadMode for MultiThreaded {
-    fn new(cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>) -> Self {
+    fn new_cf_map_internal(
+        cfs: BTreeMap<String, *mut ffi::rocksdb_column_family_handle_t>,
+    ) -> Self {
         Self {
             cfs: RwLock::new(
                 cfs.into_iter()
@@ -95,13 +110,15 @@ impl ThreadMode for MultiThreaded {
         }
     }
 
-    fn cf_drop_all(&mut self) {
+    fn drop_all_cfs_internal(&mut self) {
         // Cause all UnboundColumnFamily objects to be Drop::drop()-ed.
         self.cfs.write().unwrap().clear();
     }
 }
 
 /// A RocksDB database.
+///
+/// This is previously named [`DB`], which is a type alias now for compatibility.
 ///
 /// See crate level documentation for a simple usage example.
 pub struct DBWithThreadMode<T: ThreadMode> {
@@ -158,7 +175,7 @@ impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
 ///
 /// # Compatibility and multi-threaded mode
 ///
-/// Previously, `DB` was defined as a direct struct. Now, it's type-aliased for
+/// Previously, [`DB`] was defined as a direct `struct`. Now, it's type-aliased for
 /// compatibility. Use `DBWithThreadMode<MultiThreaded>` for multi-threaded
 /// column family alternations.
 ///
@@ -436,7 +453,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Ok(Self {
             inner: db,
             path: path.as_ref().to_path_buf(),
-            cfs: T::new(cf_map),
+            cfs: T::new_cf_map_internal(cf_map),
             _outlive: outlive,
         })
     }
@@ -1803,7 +1820,7 @@ impl DBWithThreadMode<MultiThreaded> {
 impl<T: ThreadMode> Drop for DBWithThreadMode<T> {
     fn drop(&mut self) {
         unsafe {
-            self.cfs.cf_drop_all();
+            self.cfs.drop_all_cfs_internal();
             ffi::rocksdb_close(self.inner);
         }
     }
