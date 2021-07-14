@@ -1,7 +1,5 @@
 *.swo
 *.swp
-target
-Cargo.lock
 *.orig
 *.bk
 _rust_rocksdb*
@@ -12,3 +10,7 @@ tags
 out/
 *.iml
 .vscode
+
+target
+Cargo.lock
+rust-toolchain

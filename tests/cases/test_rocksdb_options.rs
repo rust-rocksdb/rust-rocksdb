@@ -293,8 +293,6 @@ fn test_auto_roll_max_size_info_log() {
         .unwrap();
 
     let db = DB::open(opts, path.path().to_str().unwrap()).unwrap();
-    assert!(Path::new(info_dir.path().join("LOG").to_str().unwrap()).is_file());
-
     drop(db);
 
     // The LOG must be rolled many times.
