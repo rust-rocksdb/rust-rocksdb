@@ -3,7 +3,8 @@
 ## [Unreleased]
 
 * Bump `librocksdb-sys` up to 6.19.3 (olegnn)
-* Make SSE inclusion conditional for target features (mbargull)
+* Make SSE inclusion conditional for target features.
+  RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (mbargull)
 * Bump `librocksdb-sys` up to 6.20.3 (olegnn, akrylysov)
 * Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
 * Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
