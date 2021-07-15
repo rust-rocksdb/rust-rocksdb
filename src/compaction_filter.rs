@@ -211,7 +211,8 @@ pub trait CompactionFilterFactory {
     /// should have invoke `create_compaction_filter` and pass KVs through the returned
     /// filter.
     fn should_filter_table_file_creation(&self, reason: DBTableFileCreationReason) -> bool {
-        matches!(reason, DBTableFileCreationReason::Flush)
+        // For compatibility, `CompactionFilter`s by default apply during compaction.
+        matches!(reason, DBTableFileCreationReason::Compaction)
     }
 }
 
