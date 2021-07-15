@@ -48,6 +48,7 @@ impl Drop for CacheWrapper {
     }
 }
 
+#[derive(Clone)]
 pub struct Cache(pub(crate) Arc<CacheWrapper>);
 
 impl Cache {
@@ -77,10 +78,6 @@ impl Cache {
             ffi::rocksdb_cache_set_capacity(self.0.inner, capacity);
         }
     }
-
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
 }
 
 /// An Env is an interface used by the rocksdb implementation to access
@@ -93,6 +90,7 @@ impl Cache {
 ///
 /// Note: currently, C API behinds C++ API for various settings.
 /// See also: `rocksdb/include/env.h`
+#[derive(Clone)]
 pub struct Env(Arc<EnvWrapper>);
 
 struct EnvWrapper {
