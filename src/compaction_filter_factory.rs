@@ -56,7 +56,7 @@ impl CompactionFilterContext {
         let is_manual_compaction =
             ffi::rocksdb_compactionfiltercontext_is_manual_compaction(ptr) != 0;
 
-        CompactionFilterContext {
+        Self {
             is_full_compaction,
             is_manual_compaction,
         }

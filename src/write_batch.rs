@@ -267,8 +267,8 @@ impl WriteBatch {
 }
 
 impl Default for WriteBatch {
-    fn default() -> WriteBatch {
-        WriteBatch {
+    fn default() -> Self {
+        Self {
             inner: unsafe { ffi::rocksdb_writebatch_create() },
         }
     }

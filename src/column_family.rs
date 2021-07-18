@@ -34,7 +34,7 @@ impl ColumnFamilyDescriptor {
     where
         S: Into<String>,
     {
-        ColumnFamilyDescriptor {
+        Self {
             name: name.into(),
             options,
         }
