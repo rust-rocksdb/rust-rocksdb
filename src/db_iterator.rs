@@ -95,9 +95,9 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         db: &'a D,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: ReadOptions,
-    ) -> DBRawIteratorWithThreadMode<'a, D> {
+    ) -> Self {
         unsafe {
-            DBRawIteratorWithThreadMode {
+            Self {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle),
                 _readopts: readopts,
                 db: PhantomData,
