@@ -436,7 +436,7 @@ struct crocksdb_compactionfilterfactory_t : public CompactionFilterFactory {
   void (*destructor_)(void*);
   crocksdb_compactionfilter_t* (*create_compaction_filter_)(
       void*, crocksdb_compactionfiltercontext_t* context);
-  bool (*should_filter_table_file_creation_)(void*, int reason);
+  unsigned char (*should_filter_table_file_creation_)(void*, int reason);
   const char* (*name_)(void*);
 
   virtual ~crocksdb_compactionfilterfactory_t() { (*destructor_)(state_); }
@@ -3453,7 +3453,7 @@ crocksdb_compactionfilterfactory_t* crocksdb_compactionfilterfactory_create(
     void* state, void (*destructor)(void*),
     crocksdb_compactionfilter_t* (*create_compaction_filter)(
         void*, crocksdb_compactionfiltercontext_t* context),
-    bool (*should_filter_table_file_creation)(void*, int reason),
+    unsigned char (*should_filter_table_file_creation)(void*, int reason),
     const char* (*name)(void*)) {
   crocksdb_compactionfilterfactory_t* result =
       new crocksdb_compactionfilterfactory_t;
@@ -3687,7 +3687,8 @@ struct TableFilter {
   // several times, so we need use shared_ptr to control the ctx_ resource
   // destroy ctx_ only when the last ReadOptions out of its life time.
   TableFilter(void* ctx,
-              int (*table_filter)(void*, const crocksdb_table_properties_t*),
+              unsigned char (*table_filter)(void*,
+                                            const crocksdb_table_properties_t*),
               void (*destroy)(void*))
       : ctx_(std::make_shared<TableFilterCtx>(ctx, destroy)),
         table_filter_(table_filter) {}
@@ -3702,7 +3703,7 @@ struct TableFilter {
   }
 
   shared_ptr<TableFilterCtx> ctx_;
-  int (*table_filter_)(void*, const crocksdb_table_properties_t*);
+  unsigned char (*table_filter_)(void*, const crocksdb_table_properties_t*);
 
  private:
   TableFilter() {}
@@ -3710,7 +3711,7 @@ struct TableFilter {
 
 void crocksdb_readoptions_set_table_filter(
     crocksdb_readoptions_t* opt, void* ctx,
-    int (*table_filter)(void*, const crocksdb_table_properties_t*),
+    unsigned char (*table_filter)(void*, const crocksdb_table_properties_t*),
     void (*destroy)(void*)) {
   opt->rep.table_filter = TableFilter(ctx, table_filter, destroy);
 }

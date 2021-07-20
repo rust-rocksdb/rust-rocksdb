@@ -1398,7 +1398,7 @@ crocksdb_compactionfilterfactory_create(
     void* state, void (*destructor)(void*),
     crocksdb_compactionfilter_t* (*create_compaction_filter)(
         void*, crocksdb_compactionfiltercontext_t* context),
-    bool (*should_filter_table_file_creation)(void*, int reasion),
+    unsigned char (*should_filter_table_file_creation)(void*, int reason),
     const char* (*name)(void*));
 extern C_ROCKSDB_LIBRARY_API void crocksdb_compactionfilterfactory_destroy(
     crocksdb_compactionfilterfactory_t*);
@@ -1494,7 +1494,7 @@ crocksdb_readoptions_set_ignore_range_deletions(crocksdb_readoptions_t*,
                                                 unsigned char);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_readoptions_set_table_filter(
     crocksdb_readoptions_t*, void*,
-    int (*table_filter)(void*, const crocksdb_table_properties_t*),
+    unsigned char (*table_filter)(void*, const crocksdb_table_properties_t*),
     void (*destory)(void*));
 
 /* Write options */

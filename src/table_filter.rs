@@ -12,7 +12,7 @@
 // limitations under the License.
 
 use crocksdb_ffi::DBTableProperties;
-use libc::{c_int, c_void};
+use libc::{c_uchar, c_void};
 use table_properties::TableProperties;
 
 pub trait TableFilter {
@@ -24,11 +24,11 @@ pub trait TableFilter {
     fn table_filter(&self, props: &TableProperties) -> bool;
 }
 
-pub extern "C" fn table_filter(ctx: *mut c_void, props: *const DBTableProperties) -> c_int {
+pub extern "C" fn table_filter(ctx: *mut c_void, props: *const DBTableProperties) -> c_uchar {
     unsafe {
         let filter = &*(ctx as *mut Box<dyn TableFilter>);
         let props = &*(props as *const TableProperties);
-        filter.table_filter(props) as c_int
+        filter.table_filter(props) as c_uchar
     }
 }
 

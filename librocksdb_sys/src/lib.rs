@@ -997,7 +997,7 @@ extern "C" {
     pub fn crocksdb_readoptions_set_table_filter(
         readopts: *mut DBReadOptions,
         ctx: *mut c_void,
-        filter: extern "C" fn(*mut c_void, *const DBTableProperties) -> c_int,
+        filter: extern "C" fn(*mut c_void, *const DBTableProperties) -> c_uchar,
         destroy: extern "C" fn(*mut c_void),
     );
 
@@ -1591,7 +1591,7 @@ extern "C" {
         should_filter_table_file_creation: extern "C" fn(
             *const c_void,
             DBTableFileCreationReason,
-        ) -> bool,
+        ) -> c_uchar,
         name: extern "C" fn(*mut c_void) -> *const c_char,
     ) -> *mut DBCompactionFilterFactory;
     pub fn crocksdb_compactionfilterfactory_destroy(factory: *mut DBCompactionFilterFactory);
