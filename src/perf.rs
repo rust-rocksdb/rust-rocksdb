@@ -125,12 +125,12 @@ pub struct PerfContext {
 }
 
 impl Default for PerfContext {
-    fn default() -> PerfContext {
+    fn default() -> Self {
         let ctx = unsafe { ffi::rocksdb_perfcontext_create() };
         if ctx.is_null() {
             panic!("Could not create Perf Context");
         }
-        PerfContext { inner: ctx }
+        Self { inner: ctx }
     }
 }
 

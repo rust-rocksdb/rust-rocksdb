@@ -48,10 +48,7 @@ pub struct RestoreOptions {
 
 impl BackupEngine {
     /// Open a backup engine with the specified options.
-    pub fn open<P: AsRef<Path>>(
-        opts: &BackupEngineOptions,
-        path: P,
-    ) -> Result<BackupEngine, Error> {
+    pub fn open<P: AsRef<Path>>(opts: &BackupEngineOptions, path: P) -> Result<Self, Error> {
         let path = path.as_ref();
         let cpath = if let Ok(e) = CString::new(path.to_string_lossy().as_bytes()) {
             e
@@ -70,7 +67,7 @@ impl BackupEngine {
             return Err(Error::new("Could not initialize backup engine.".to_owned()));
         }
 
-        Ok(BackupEngine { inner: be })
+        Ok(Self { inner: be })
     }
 
     /// Captures the state of the database in the latest backup.
@@ -231,25 +228,25 @@ impl RestoreOptions {
 }
 
 impl Default for BackupEngineOptions {
-    fn default() -> BackupEngineOptions {
+    fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
                 panic!("Could not create RocksDB backup options");
             }
-            BackupEngineOptions { inner: opts }
+            Self { inner: opts }
         }
     }
 }
 
 impl Default for RestoreOptions {
-    fn default() -> RestoreOptions {
+    fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_restore_options_create();
             if opts.is_null() {
                 panic!("Could not create RocksDB restore options");
             }
-            RestoreOptions { inner: opts }
+            Self { inner: opts }
         }
     }
 }
