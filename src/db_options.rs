@@ -48,6 +48,7 @@ impl Drop for CacheWrapper {
     }
 }
 
+#[derive(Clone)]
 pub struct Cache(pub(crate) Arc<CacheWrapper>);
 
 impl Cache {
@@ -77,10 +78,6 @@ impl Cache {
             ffi::rocksdb_cache_set_capacity(self.0.inner, capacity);
         }
     }
-
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
 }
 
 /// An Env is an interface used by the rocksdb implementation to access
@@ -93,6 +90,7 @@ impl Cache {
 ///
 /// Note: currently, C API behinds C++ API for various settings.
 /// See also: `rocksdb/include/env.h`
+#[derive(Clone)]
 pub struct Env(Arc<EnvWrapper>);
 
 struct EnvWrapper {
@@ -109,23 +107,23 @@ impl Drop for EnvWrapper {
 
 impl Env {
     /// Returns default env
-    pub fn default() -> Result<Env, Error> {
+    pub fn default() -> Result<Self, Error> {
         let env = unsafe { ffi::rocksdb_create_default_env() };
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))
         } else {
-            Ok(Env(Arc::new(EnvWrapper { inner: env })))
+            Ok(Self(Arc::new(EnvWrapper { inner: env })))
         }
     }
 
     /// Returns a new environment that stores its data in memory and delegates
     /// all non-file-storage tasks to base_env.
-    pub fn mem_env() -> Result<Env, Error> {
+    pub fn mem_env() -> Result<Self, Error> {
         let env = unsafe { ffi::rocksdb_create_mem_env() };
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))
         } else {
-            Ok(Env(Arc::new(EnvWrapper { inner: env })))
+            Ok(Self(Arc::new(EnvWrapper { inner: env })))
         }
     }
 
@@ -384,6 +382,8 @@ unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
+unsafe impl Send for Cache {}
+unsafe impl Send for Env {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -393,6 +393,8 @@ unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
+unsafe impl Sync for Cache {}
+unsafe impl Sync for Env {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -698,12 +700,12 @@ impl BlockBasedOptions {
 }
 
 impl Default for BlockBasedOptions {
-    fn default() -> BlockBasedOptions {
+    fn default() -> Self {
         let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
         if block_opts.is_null() {
             panic!("Could not create RocksDB block based options");
         }
-        BlockBasedOptions {
+        Self {
             inner: block_opts,
             outlive: BlockBasedOptionsMustOutliveDB::default(),
         }
@@ -760,12 +762,12 @@ impl CuckooTableOptions {
 }
 
 impl Default for CuckooTableOptions {
-    fn default() -> CuckooTableOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_cuckoo_options_create() };
         if opts.is_null() {
             panic!("Could not create RocksDB cuckoo options");
         }
-        CuckooTableOptions { inner: opts }
+        Self { inner: opts }
     }
 }
 
@@ -2863,13 +2865,13 @@ impl Options {
 }
 
 impl Default for Options {
-    fn default() -> Options {
+    fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_options_create();
             if opts.is_null() {
                 panic!("Could not create RocksDB options");
             }
-            Options {
+            Self {
                 inner: opts,
                 outlive: OptionsMustOutliveDB::default(),
             }
@@ -2902,12 +2904,12 @@ impl FlushOptions {
 }
 
 impl Default for FlushOptions {
-    fn default() -> FlushOptions {
+    fn default() -> Self {
         let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
         if flush_opts.is_null() {
             panic!("Could not create RocksDB flush options");
         }
-        FlushOptions { inner: flush_opts }
+        Self { inner: flush_opts }
     }
 }
 
@@ -2990,12 +2992,12 @@ impl WriteOptions {
 }
 
 impl Default for WriteOptions {
-    fn default() -> WriteOptions {
+    fn default() -> Self {
         let write_opts = unsafe { ffi::rocksdb_writeoptions_create() };
         if write_opts.is_null() {
             panic!("Could not create RocksDB write options");
         }
-        WriteOptions { inner: write_opts }
+        Self { inner: write_opts }
     }
 }
 
@@ -3189,9 +3191,9 @@ impl ReadOptions {
 }
 
 impl Default for ReadOptions {
-    fn default() -> ReadOptions {
+    fn default() -> Self {
         unsafe {
-            ReadOptions {
+            Self {
                 inner: ffi::rocksdb_readoptions_create(),
                 iterate_upper_bound: None,
                 iterate_lower_bound: None,
@@ -3253,9 +3255,9 @@ impl IngestExternalFileOptions {
 }
 
 impl Default for IngestExternalFileOptions {
-    fn default() -> IngestExternalFileOptions {
+    fn default() -> Self {
         unsafe {
-            IngestExternalFileOptions {
+            Self {
                 inner: ffi::rocksdb_ingestexternalfileoptions_create(),
             }
         }
@@ -3360,12 +3362,12 @@ pub struct FifoCompactOptions {
 }
 
 impl Default for FifoCompactOptions {
-    fn default() -> FifoCompactOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_fifo_compaction_options_create() };
         if opts.is_null() {
             panic!("Could not create RocksDB Fifo Compaction Options");
         }
-        FifoCompactOptions { inner: opts }
+        Self { inner: opts }
     }
 }
 
@@ -3402,12 +3404,12 @@ pub struct UniversalCompactOptions {
 }
 
 impl Default for UniversalCompactOptions {
-    fn default() -> UniversalCompactOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_universal_compaction_options_create() };
         if opts.is_null() {
             panic!("Could not create RocksDB Universal Compaction Options");
         }
-        UniversalCompactOptions { inner: opts }
+        Self { inner: opts }
     }
 }
 
@@ -3524,12 +3526,12 @@ pub struct CompactOptions {
 }
 
 impl Default for CompactOptions {
-    fn default() -> CompactOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_compactoptions_create() };
         if opts.is_null() {
             panic!("Could not create RocksDB Compact Options");
         }
-        CompactOptions { inner: opts }
+        Self { inner: opts }
     }
 }
 

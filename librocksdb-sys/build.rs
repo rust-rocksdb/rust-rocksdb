@@ -103,14 +103,24 @@ fn build_rocksdb() {
         // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
         // (about 2011).
-        config.define("HAVE_SSE42", Some("1"));
-        config.flag_if_supported("-msse2");
-        config.flag_if_supported("-msse4.1");
-        config.flag_if_supported("-msse4.2");
+        let target_feature = env::var("CARGO_CFG_TARGET_FEATURE").unwrap();
+        let target_features: Vec<_> = target_feature.split(",").collect();
+        if target_features.contains(&"sse2") {
+            config.flag_if_supported("-msse2");
+        }
+        if target_features.contains(&"sse4.1") {
+            config.flag_if_supported("-msse4.1");
+        }
+        if target_features.contains(&"sse4.2") {
+            config.flag_if_supported("-msse4.2");
+            config.define("HAVE_SSE42", Some("1"));
+        }
 
         if !target.contains("android") {
-            config.define("HAVE_PCLMUL", Some("1"));
-            config.flag_if_supported("-mpclmul");
+            if target_features.contains(&"pclmulqdq") {
+                config.define("HAVE_PCLMUL", Some("1"));
+                config.flag_if_supported("-mpclmul");
+            }
         }
     }
 
@@ -174,6 +184,8 @@ fn build_rocksdb() {
         lib_sources.push("port/win/io_win.cc");
         lib_sources.push("port/win/win_thread.cc");
     }
+
+    config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
     if target.contains("msvc") {
         config.flag("-EHsc");

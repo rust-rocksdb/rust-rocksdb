@@ -81,9 +81,9 @@ pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
 }
 
 impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
-    pub(crate) fn new(db: &D, readopts: ReadOptions) -> DBRawIteratorWithThreadMode<'a, D> {
+    pub(crate) fn new(db: &D, readopts: ReadOptions) -> Self {
         unsafe {
-            DBRawIteratorWithThreadMode {
+            Self {
                 inner: ffi::rocksdb_create_iterator(db.inner(), readopts.inner),
                 _readopts: readopts,
                 db: PhantomData,
@@ -95,9 +95,9 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         db: &'a D,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: ReadOptions,
-    ) -> DBRawIteratorWithThreadMode<'a, D> {
+    ) -> Self {
         unsafe {
-            DBRawIteratorWithThreadMode {
+            Self {
                 inner: ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle),
                 _readopts: readopts,
                 db: PhantomData,
