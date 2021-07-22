@@ -19,6 +19,25 @@ use pretty_assertions::assert_eq;
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
 use util::DBPath;
 
+use std::fs;
+use std::io;
+use std::path::Path;
+
+fn dir_size(path: impl AsRef<Path>) -> io::Result<u64> {
+    fn dir_size(mut dir: fs::ReadDir) -> io::Result<u64> {
+        dir.try_fold(0, |acc, file| {
+            let file = file?;
+            let size = match file.metadata()? {
+                data if data.is_dir() => dir_size(fs::read_dir(file.path())?)?,
+                data => data.len(),
+            };
+            Ok(acc + size)
+        })
+    }
+
+    dir_size(fs::read_dir(path)?)
+}
+
 #[test]
 fn test_column_family() {
     let n = DBPath::new("_rust_rocksdb_cftest");
@@ -143,15 +162,15 @@ fn test_merge_operator() {
             Err(e) => panic!("failed to open db with column family: {}", e),
         };
         let cf1 = db.cf_handle("cf1").unwrap();
-        assert!(db.put_cf(cf1, b"k1", b"v1").is_ok());
-        assert_eq!(db.get_cf(cf1, b"k1").unwrap().unwrap(), b"v1");
-        let p = db.put_cf(cf1, b"k1", b"a");
+        assert!(db.put_cf(&cf1, b"k1", b"v1").is_ok());
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        let p = db.put_cf(&cf1, b"k1", b"a");
         assert!(p.is_ok());
-        db.merge_cf(cf1, b"k1", b"b").unwrap();
-        db.merge_cf(cf1, b"k1", b"c").unwrap();
-        db.merge_cf(cf1, b"k1", b"d").unwrap();
-        db.merge_cf(cf1, b"k1", b"efg").unwrap();
-        let m = db.merge_cf(cf1, b"k1", b"h");
+        db.merge_cf(&cf1, b"k1", b"b").unwrap();
+        db.merge_cf(&cf1, b"k1", b"c").unwrap();
+        db.merge_cf(&cf1, b"k1", b"d").unwrap();
+        db.merge_cf(&cf1, b"k1", b"efg").unwrap();
+        let m = db.merge_cf(&cf1, b"k1", b"h");
         println!("m is {:?}", m);
         // TODO assert!(m.is_ok());
         match db.get(b"k1") {
@@ -163,7 +182,7 @@ fn test_merge_operator() {
             _ => panic!("value not present!"),
         }
 
-        let _ = db.get_cf(cf1, b"k1");
+        let _ = db.get_cf(&cf1, b"k1");
         // TODO assert!(r.unwrap().as_ref() == b"abcdefgh");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
@@ -248,5 +267,68 @@ fn test_create_duplicate_column_family() {
         };
 
         assert!(db.create_cf("cf1", &opts).is_err());
+    }
+}
+
+#[test]
+fn test_no_leaked_column_family() {
+    let n = DBPath::new("_rust_rocksdb_no_leaked_column_family");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut write_options = rocksdb::WriteOptions::default();
+        write_options.set_sync(false);
+        write_options.disable_wal(true);
+
+        let mut db = DB::open(&opts, &n).unwrap();
+        let large_blob = [0x20; 1024 * 1024];
+
+        #[cfg(feature = "multi-threaded-cf")]
+        let mut outlived_cf = None;
+
+        // repeat creating and dropping cfs many time to indirectly detect
+        // possible leak via large dir.
+        for cf_index in 0..20 {
+            let cf_name = format!("cf{}", cf_index);
+            db.create_cf(&cf_name, &Options::default()).unwrap();
+            let cf = db.cf_handle(&cf_name).unwrap();
+
+            let mut batch = rocksdb::WriteBatch::default();
+            for key_index in 0..100 {
+                batch.put_cf(&cf, format!("k{}", key_index), &large_blob);
+            }
+            db.write_opt(batch, &write_options).unwrap();
+
+            // force create an SST file
+            db.flush_cf(&cf).unwrap();
+
+            db.drop_cf(&cf_name).unwrap();
+
+            #[cfg(feature = "multi-threaded-cf")]
+            {
+                outlived_cf = Some(cf);
+            }
+        }
+
+        // if we're not leaking, the dir bytes should be well under 10M bytes in total
+        let dir_bytes = dir_size(&n).unwrap();
+        assert!(
+            dir_bytes < 10_000_000,
+            "{} is too large (maybe leaking...)",
+            dir_bytes
+        );
+
+        // only if MultiThreaded, cf can outlive db.drop_cf() and shouldn't cause SEGV...
+        #[cfg(feature = "multi-threaded-cf")]
+        {
+            let outlived_cf = outlived_cf.unwrap();
+            assert_eq!(db.get_cf(&outlived_cf, "k0").unwrap().unwrap(), &large_blob);
+            drop(outlived_cf);
+        }
+
+        // make it explicit not to drop the db until we get dir size above...
+        drop(db);
     }
 }
