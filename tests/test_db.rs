@@ -72,9 +72,9 @@ fn errors_do_stuff() {
     match DB::destroy(&opts, &path) {
         Err(s) => {
             let message = s.to_string();
-            assert!(message.find("IO error:").is_some());
-            assert!(message.find("_rust_rocksdb_error").is_some());
-            assert!(message.find("/LOCK:").is_some());
+            assert!(message.contains("IO error:"));
+            assert!(message.contains("_rust_rocksdb_error"));
+            assert!(message.contains("/LOCK:"));
         }
         Ok(_) => panic!("should fail"),
     }
@@ -680,9 +680,10 @@ fn env_and_dbpaths_test() {
         }
 
         {
-            let mut paths = Vec::new();
-            paths.push(rocksdb::DBPath::new(&path1, 20 << 20).unwrap());
-            paths.push(rocksdb::DBPath::new(&path2, 30 << 20).unwrap());
+            let paths = vec![
+                rocksdb::DBPath::new(&path1, 20 << 20).unwrap(),
+                rocksdb::DBPath::new(&path2, 30 << 20).unwrap(),
+            ];
             opts.set_db_paths(&paths);
         }
 

@@ -164,9 +164,9 @@ fn compaction_filter_test() {
     opts.set_compaction_filter("test", test_filter);
     {
         let db = DB::open(&opts, path).unwrap();
-        let _ = db.put(b"k1", b"a");
-        let _ = db.put(b"_k", b"b");
-        let _ = db.put(b"%k", b"c");
+        let _r = db.put(b"k1", b"a");
+        let _r = db.put(b"_k", b"b");
+        let _r = db.put(b"%k", b"c");
         db.compact_range(None::<&[u8]>, None::<&[u8]>);
         assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
         assert!(db.get(b"_k").unwrap().is_none());

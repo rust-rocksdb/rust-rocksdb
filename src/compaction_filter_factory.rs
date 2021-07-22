@@ -128,9 +128,9 @@ mod tests {
         opts.set_compaction_filter_factory(TestFactory(CString::new("TestFactory").unwrap()));
         {
             let db = DB::open(&opts, path).unwrap();
-            let _ = db.put(b"k1", b"a");
-            let _ = db.put(b"_k", b"b");
-            let _ = db.put(b"%k", b"c");
+            let _r = db.put(b"k1", b"a");
+            let _r = db.put(b"_rk", b"b");
+            let _r = db.put(b"%k", b"c");
             db.compact_range(None::<&[u8]>, None::<&[u8]>);
             assert_eq!(db.get(b"%k1").unwrap(), None);
         }
