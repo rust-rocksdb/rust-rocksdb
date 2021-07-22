@@ -49,7 +49,7 @@ pub trait CompactionFilter {
     ///
     /// Note that RocksDB snapshots (i.e. call GetSnapshot() API on a
     /// DB* object) will not guarantee to preserve the state of the DB with
-    /// CompactionFilter. Data seen from a snapshot might disppear after a
+    /// CompactionFilter. Data seen from a snapshot might disappear after a
     /// compaction finishes. If you use snapshots, think twice about whether you
     /// want to use compaction filter and whether you are using it in a safe way.
     ///
@@ -158,7 +158,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
 fn compaction_filter_test() {
     use crate::{Options, DB};
 
-    let path = "_rust_rocksdb_filtertest";
+    let path = "_rust_rocksdb_filter_test";
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_compaction_filter("test", test_filter);

@@ -15,9 +15,7 @@
 mod util;
 
 use pretty_assertions::assert_eq;
-
-use rocksdb::merge_operator::MergeFn;
-use rocksdb::{DBCompactionStyle, MergeOperands, Options, DB};
+use rocksdb::{merge_operator::MergeFn, DBCompactionStyle, MergeOperands, Options, DB};
 use util::DBPath;
 
 fn test_provided_merge(
@@ -78,7 +76,7 @@ fn merge_test() {
 }
 
 unsafe fn to_slice<T: Sized>(p: &T) -> &[u8] {
-    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+    std::slice::from_raw_parts((p as *const T) as *const u8, std::mem::size_of::<T>())
 }
 
 fn from_slice<T: Sized>(s: &[u8]) -> Option<&T> {
@@ -124,11 +122,9 @@ fn test_counting_full_merge(
     existing_val: Option<&[u8]>,
     operands: &mut MergeOperands,
 ) -> Option<Vec<u8>> {
-    let mut counts = if let Some(v) = existing_val {
-        *from_slice::<ValueCounts>(v).unwrap_or(&ValueCounts::default())
-    } else {
-        ValueCounts::default()
-    };
+    let mut counts = existing_val
+        .and_then(|v| from_slice::<ValueCounts>(v).cloned())
+        .unwrap_or(ValueCounts::default());
 
     for op in operands {
         for e in op {
@@ -239,12 +235,12 @@ fn counting_merge_test() {
     h1.join().unwrap();
     match db.get(b"k2") {
         Ok(Some(value)) => match from_slice::<ValueCounts>(&*value) {
-            Some(v) => unsafe {
+            Some(v) => {
                 assert_eq!(v.num_a, 1000);
                 assert_eq!(v.num_b, 500);
                 assert_eq!(v.num_c, 2000);
                 assert_eq!(v.num_d, 500);
-            },
+            }
             None => panic!("Failed to get ValueCounts from db"),
         },
         Err(e) => panic!("error reading value {:?}", e),
@@ -252,12 +248,12 @@ fn counting_merge_test() {
     }
     match db.get(b"k1") {
         Ok(Some(value)) => match from_slice::<ValueCounts>(&*value) {
-            Some(v) => unsafe {
+            Some(v) => {
                 assert_eq!(v.num_a, 3);
                 assert_eq!(v.num_b, 2);
                 assert_eq!(v.num_c, 0);
                 assert_eq!(v.num_d, 1);
-            },
+            }
             None => panic!("Failed to get ValueCounts from db"),
         },
         Err(e) => panic!("error reading value {:?}", e),
@@ -311,7 +307,7 @@ fn make_merge_max_with_limit(limit: u64) -> impl MergeFn + Clone {
 #[test]
 fn test_merge_state() {
     use {Options, DB};
-    let path = "_rust_rocksdb_mergetest_state";
+    let path = "_rust_rocksdb_merge_test_state";
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_merge_operator_associative("max-limit-12", make_merge_max_with_limit(12));

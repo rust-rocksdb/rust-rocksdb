@@ -471,7 +471,7 @@ impl<'a, D: DBAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
         }
 
         if self.raw.valid() {
-            // .key() and .value() only ever return None if valid == false, which we've just cheked
+            // .key() and .value() only ever return None if valid == false, which we've just checked
             Some((
                 Box::from(self.raw.key().unwrap()),
                 Box::from(self.raw.value().unwrap()),

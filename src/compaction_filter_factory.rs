@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn compaction_filter_factory_test() {
-        let path = "_rust_rocksdb_filterfactorytest";
+        let path = "_rust_rocksdb_filter_factory_test";
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compaction_filter_factory(TestFactory(CString::new("TestFactory").unwrap()));
