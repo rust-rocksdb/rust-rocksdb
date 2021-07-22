@@ -184,7 +184,7 @@ impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
 /// Even with [`SingleThreaded`], almost all of RocksDB operations is
 /// multi-threaded unless the underlying RocksDB instance is
 /// specifically configured otherwise. `SingleThreaded` only forces
-/// serialization of column family alternations by requring `&mut self` of DB
+/// serialization of column family alternations by requiring `&mut self` of DB
 /// instance due to its wrapper implementation details.
 ///
 /// # Multi-threaded mode
@@ -1779,7 +1779,7 @@ impl DBWithThreadMode<SingleThreaded> {
     }
 
     /// Returns the underlying column family handle
-    pub fn cf_handle<'a>(&'a self, name: &str) -> Option<&'a ColumnFamily> {
+    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
         self.cfs.cfs.get(name)
     }
 }

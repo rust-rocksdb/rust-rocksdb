@@ -2,12 +2,20 @@
 
 ## [Unreleased]
 
+## 0.17.0 (2021-07-22)
+
+* Fix `multi_get` method (mikhailOK)
 * Bump `librocksdb-sys` up to 6.19.3 (olegnn)
-* Make SSE inclusion conditional for target features.
-  RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (mbargull)
+* Add support for the cuckoo table format (rbost)
+* RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (mbargull)
 * Bump `librocksdb-sys` up to 6.20.3 (olegnn, akrylysov)
 * Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
 * Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
+* Mark Cache and Env as Send and Sync (akrylysov)  
+* Allow cloning the Cache and Env (duarten)
+* Make SSE inclusion conditional for target features (mbargull)  
+* Use Self where possible (adamnemecek)  
+* Don't leak dropped column families (ryoqun)
 
 ## 0.16.0 (2021-04-18)
 
