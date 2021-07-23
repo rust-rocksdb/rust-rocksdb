@@ -1579,6 +1579,14 @@ extern "C" {
         context: *const DBCompactionFilterContext,
         offset: usize,
     ) -> *const DBTableProperties;
+    pub fn crocksdb_compactionfiltercontext_start_key(
+        context: *const DBCompactionFilterContext,
+        key_len: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_compactionfiltercontext_end_key(
+        context: *const DBCompactionFilterContext,
+        key_len: *mut size_t,
+    ) -> *const c_char;
 
     // Compaction filter factory
     pub fn crocksdb_compactionfilterfactory_create(
