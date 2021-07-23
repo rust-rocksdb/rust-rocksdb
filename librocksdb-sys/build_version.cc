@@ -7,9 +7,9 @@
 
 // The build script may replace these values with real values based
 // on whether or not GIT is available and the platform settings
-static const std::string rocksdb_build_git_sha  = "rocksdb_build_git_sha:8608d75d85f8e1b3b64b73a4fb6d19baec61ba5c";
-static const std::string rocksdb_build_git_tag = "rocksdb_build_git_tag:v6.20.3";
-static const std::string rocksdb_build_date = "rocksdb_build_date:2021-05-05 20:35:30";
+static const std::string rocksdb_build_git_sha  = "rocksdb_build_git_sha:51b540921dd7495c9cf2265eb58942dad1f2ef72";
+static const std::string rocksdb_build_git_tag = "rocksdb_build_git_tag:v6.22.1";
+static const std::string rocksdb_build_date = "rocksdb_build_date:2021-06-25 14:15:04";
 
 namespace ROCKSDB_NAMESPACE {
 static void AddProperty(std::unordered_map<std::string, std::string> *props, const std::string& name) {
