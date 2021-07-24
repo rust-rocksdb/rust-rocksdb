@@ -19,6 +19,7 @@ lz4 = []
 zstd = []
 zlib = []
 bzip2 = []
+rtti = []
 
 [dependencies]
 libc = "0.2"

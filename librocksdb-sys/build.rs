@@ -83,6 +83,10 @@ fn build_rocksdb() {
         config.include("bzip2/");
     }
 
+    if cfg!(feature = "rtti") {
+        config.define("USE_RTTI", Some("1"));
+    }
+
     config.include(".");
     config.define("NDEBUG", Some("1"));
 
