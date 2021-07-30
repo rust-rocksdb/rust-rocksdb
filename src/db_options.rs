@@ -2650,6 +2650,26 @@ impl Options {
         }
     }
 
+    /// If enabled, WAL is not flushed automatically after each write. Instead it
+    /// relies on manual invocation of `DB::flush_wal()` to write the WAL buffer
+    /// to its file.
+    ///
+    /// Default: false
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_manual_wal_flush(true);
+    /// ```
+    pub fn set_manual_wal_flush(&mut self, is_enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_manual_wal_flush(self.inner, is_enabled as c_uchar);
+        }
+    }
+
     /// Guarantee that all column families are flushed together atomically.
     /// This option applies to both manual flushes (`db.flush()`) and automatic
     /// background flushes caused when memtables are filled.
