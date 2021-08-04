@@ -594,7 +594,27 @@ fn test_set_max_background_compactions_and_flushes() {
     opts.create_if_missing(true);
     opts.set_max_background_compactions(4);
     opts.set_max_background_flushes(1);
+    opts.set_base_background_compactions(2);
+    assert_eq!(opts.get_max_background_compactions(), 4);
+    assert_eq!(opts.get_max_background_flushes(), 1);
+    assert_eq!(opts.get_base_background_compactions(), 2);
     DB::open(opts, path.path().to_str().unwrap()).unwrap();
+}
+
+#[test]
+fn test_set_disable_write_stall() {
+    let path = tempdir_with_prefix("_rust_rocksdb_disable_write_stall");
+    let mut opts = DBOptions::new();
+    opts.create_if_missing(true);
+    let mut cfopts = ColumnFamilyOptions::new();
+    cfopts.set_disable_write_stall(true);
+    assert_eq!(cfopts.get_disable_write_stall(), true);
+    DB::open_cf(
+        opts.clone(),
+        path.path().to_str().unwrap(),
+        vec![("default", cfopts)],
+    )
+    .unwrap();
 }
 
 #[test]

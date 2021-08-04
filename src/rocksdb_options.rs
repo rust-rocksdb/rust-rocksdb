@@ -834,6 +834,16 @@ impl DBOptions {
         unsafe { crocksdb_ffi::crocksdb_options_get_max_background_compactions(self.inner) as i32 }
     }
 
+    pub fn set_base_background_compactions(&mut self, n: c_int) {
+        unsafe {
+            crocksdb_ffi::crocksdb_options_set_base_background_compactions(self.inner, n);
+        }
+    }
+
+    pub fn get_base_background_compactions(&self) -> i32 {
+        unsafe { crocksdb_ffi::crocksdb_options_get_base_background_compactions(self.inner) as i32 }
+    }
+
     pub fn set_max_background_flushes(&mut self, n: c_int) {
         unsafe {
             crocksdb_ffi::crocksdb_options_set_max_background_flushes(self.inner, n);
@@ -1739,6 +1749,14 @@ impl ColumnFamilyOptions {
 
     pub fn get_disable_auto_compactions(&self) -> bool {
         unsafe { crocksdb_ffi::crocksdb_options_get_disable_auto_compactions(self.inner) == 1 }
+    }
+
+    pub fn set_disable_write_stall(&mut self, disable: bool) {
+        unsafe { crocksdb_ffi::crocksdb_options_set_disable_write_stall(self.inner, disable) }
+    }
+
+    pub fn get_disable_write_stall(&self) -> bool {
+        unsafe { crocksdb_ffi::crocksdb_options_get_disable_write_stall(self.inner) }
     }
 
     pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {
