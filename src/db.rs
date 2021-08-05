@@ -589,6 +589,15 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         &self.path.as_path()
     }
 
+    /// Flushes the WAL buffer. If `sync` is set to `true`, also syncs
+    /// the data to disk.
+    pub fn flush_wal(&self, sync: bool) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush_wal(self.inner, sync as u8));
+        }
+        Ok(())
+    }
+
     /// Flushes database memtables to SST files on the disk.
     pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
         unsafe {
