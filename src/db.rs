@@ -431,7 +431,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 &cfnames,
                 &cfopts,
                 &mut cfhandles,
-                &access_type,
+                access_type,
             )?;
             for handle in &cfhandles {
                 if handle.is_null() {
@@ -586,7 +586,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     pub fn path(&self) -> &Path {
-        &self.path.as_path()
+        self.path.as_path()
     }
 
     /// Flushes the WAL buffer. If `sync` is set to `true`, also syncs
@@ -1587,7 +1587,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
-        self.ingest_external_file_raw(&opts, &paths_v, &cpaths)
+        self.ingest_external_file_raw(opts, &paths_v, &cpaths)
     }
 
     /// Loads a list of external SST files created with SstFileWriter into the DB for given Column Family
@@ -1615,7 +1615,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
-        self.ingest_external_file_raw_cf(cf, &opts, &paths_v, &cpaths)
+        self.ingest_external_file_raw_cf(cf, opts, &paths_v, &cpaths)
     }
 
     fn ingest_external_file_raw(
@@ -1688,7 +1688,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                         end_key: largest_key,
                         num_entries: ffi::rocksdb_livefiles_entries(files, i),
                         num_deletions: ffi::rocksdb_livefiles_deletions(files, i),
-                    })
+                    });
                 }
 
                 // destroy livefiles metadata(s)
