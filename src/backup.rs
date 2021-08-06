@@ -61,7 +61,9 @@ impl BackupEngine {
         };
 
         let be: *mut ffi::rocksdb_backup_engine_t;
-        unsafe { be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) }
+        unsafe {
+            be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr()));
+        }
 
         if be.is_null() {
             return Err(Error::new("Could not initialize backup engine.".to_owned()));
@@ -204,7 +206,7 @@ impl BackupEngine {
                     backup_id: ffi::rocksdb_backup_engine_info_backup_id(i, index),
                     size: ffi::rocksdb_backup_engine_info_size(i, index),
                     num_files: ffi::rocksdb_backup_engine_info_number_files(i, index),
-                })
+                });
             }
 
             // destroy backup info object

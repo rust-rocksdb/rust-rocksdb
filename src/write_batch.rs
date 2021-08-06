@@ -276,7 +276,9 @@ impl Default for WriteBatch {
 
 impl Drop for WriteBatch {
     fn drop(&mut self) {
-        unsafe { ffi::rocksdb_writebatch_destroy(self.inner) }
+        unsafe {
+            ffi::rocksdb_writebatch_destroy(self.inner);
+        }
     }
 }
 
