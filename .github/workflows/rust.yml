@@ -99,3 +99,9 @@ jobs:
         with:
           command: test
           args: --features multi-threaded-cf
+      - name: Run rocksdb tests (jemalloc)
+        if: runner.os != 'Windows'
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features jemalloc

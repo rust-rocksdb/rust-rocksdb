@@ -18,6 +18,7 @@ exclude = [
 
 [features]
 default = ["snappy", "lz4", "zstd", "zlib", "bzip2"]
+jemalloc = ["librocksdb-sys/jemalloc"]
 valgrind = []
 snappy = ["librocksdb-sys/snappy"]
 lz4 = ["librocksdb-sys/lz4"]
