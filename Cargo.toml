@@ -29,7 +29,7 @@ multi-threaded-cf = []
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "6.20.3" }
+librocksdb-sys = { path = "librocksdb-sys", version = "~6.20.3" }
 
 [dev-dependencies]
 trybuild = "1.0"
