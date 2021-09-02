@@ -789,6 +789,18 @@ impl Default for CuckooTableOptions {
     }
 }
 
+// Verbosity of the info LOG.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(i32)]
+pub enum InfoLogLevel {
+    Debug = 0,
+    Info,
+    Warn,
+    Error,
+    Fatal,
+    Header,
+}
+
 impl Options {
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
@@ -1377,6 +1389,15 @@ impl Options {
         let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
         unsafe {
             ffi::rocksdb_options_set_db_log_dir(self.inner, p.as_ptr());
+        }
+    }
+
+    /// Specifies the info LOG level.
+    ///
+    /// Default: info
+    pub fn set_info_log_level(&mut self, level: InfoLogLevel) {
+        unsafe {
+            ffi::rocksdb_options_set_info_log_level(self.inner, level as c_int);
         }
     }
 
