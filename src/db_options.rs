@@ -789,10 +789,10 @@ impl Default for CuckooTableOptions {
     }
 }
 
-// Verbosity of the info LOG.
+// Verbosity of the LOG.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i32)]
-pub enum InfoLogLevel {
+pub enum LogLevel {
     Debug = 0,
     Info,
     Warn,
@@ -1392,10 +1392,10 @@ impl Options {
         }
     }
 
-    /// Specifies the info LOG level.
+    /// Specifies the LOG level.
     ///
-    /// Default: info
-    pub fn set_info_log_level(&mut self, level: InfoLogLevel) {
+    /// Default: Info
+    pub fn set_log_level(&mut self, level: LogLevel) {
         unsafe {
             ffi::rocksdb_options_set_info_log_level(self.inner, level as c_int);
         }

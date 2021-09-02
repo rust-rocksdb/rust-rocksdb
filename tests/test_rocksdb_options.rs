@@ -16,7 +16,7 @@ mod util;
 
 use std::{fs, io::Read as _};
 
-use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options, ReadOptions, DB};
+use rocksdb::{BlockBasedOptions, DataBlockIndexType, LogLevel, Options, ReadOptions, DB};
 use util::DBPath;
 
 #[test]
@@ -144,5 +144,17 @@ fn set_compression_options_zstd_max_train_bytes() {
         opts.set_compression_options(4, 5, 6, 7);
         opts.set_zstd_max_train_bytes(100);
         let _db = DB::open(&opts, &path).unwrap();
+    }
+}
+
+#[test]
+fn test_set_log_level() {
+    let path = DBPath::new("_rust_rocksdb_test_set_log_level");
+    {
+        let mut opts = Options::default();
+        opts.set_log_level(LogLevel::Warn);
+        opts.create_if_missing(true);
+
+        let _db = DB::open(&opts, &path).expect("open a db workss");
     }
 }
