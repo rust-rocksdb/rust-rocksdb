@@ -1392,9 +1392,19 @@ impl Options {
         }
     }
 
-    /// Specifies the LOG level.
+    /// Specifies the log level.
+    /// Consider the `LogLevel` enum for a list of possible levels.
     ///
     /// Default: Info
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, LogLevel};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_log_level(LogLevel::Warn);
+    /// ```
     pub fn set_log_level(&mut self, level: LogLevel) {
         unsafe {
             ffi::rocksdb_options_set_info_log_level(self.inner, level as c_int);
