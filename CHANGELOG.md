@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+* Re-add support for UTF-8 file paths on Windows (rajivshah3)
 
 ## 0.17.0 (2021-07-22)
 
