@@ -3634,4 +3634,73 @@ mod test {
             }
         });
     }
+
+    #[test]
+    fn test_ingest_multiple_file() {
+        let path_dir = tempdir_with_prefix("_test_ingest_multiple_file");
+        let root_path = path_dir.path();
+        let db_path = root_path.join("db");
+        let path_str = db_path.to_str().unwrap();
+
+        let cfs = ["default"];
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let db = DB::open_cf(
+            opts,
+            path_str,
+            cfs.iter()
+                .map(|cf| {
+                    let mut opt = ColumnFamilyOptions::new();
+                    opt.set_force_consistency_checks(true);
+                    (*cf, opt)
+                })
+                .collect(),
+        )
+        .unwrap();
+        let wb = WriteBatch::new();
+        for i in 1000..5000 {
+            let v = i.to_string();
+            wb.put(v.as_bytes(), v.as_bytes()).unwrap();
+            if i % 1000 == 100 {
+                db.write(&wb).unwrap();
+                wb.clear();
+            }
+        }
+        {
+            db.flush(true).unwrap();
+        }
+        assert_eq!(
+            1,
+            db.get_property_int_cf(
+                db.cf_handle("default").unwrap(),
+                "rocksdb.num-files-at-level0"
+            )
+            .unwrap()
+        );
+
+        let sst_path1 = root_path.join("sst1");
+        let p1 = sst_path1.to_str().unwrap();
+        let sst_path2 = root_path.join("sst2");
+        let p2 = sst_path2.to_str().unwrap();
+        let mut opt = ColumnFamilyOptions::new();
+        opt.set_force_consistency_checks(true);
+        let mut sst1 = SstFileWriter::new(EnvOptions::new(), opt.clone());
+        let mut sst2 = SstFileWriter::new(EnvOptions::new(), opt.clone());
+        sst1.open(p1).unwrap();
+        sst2.open(p2).unwrap();
+        for i in 1001..2000 {
+            let v = i.to_string();
+            sst1.put(v.as_bytes(), v.as_bytes()).unwrap();
+        }
+        sst1.finish().unwrap();
+        for i in 2001..3000 {
+            let v = i.to_string();
+            sst2.put(v.as_bytes(), v.as_bytes()).unwrap();
+        }
+        sst2.finish().unwrap();
+        let mut ingest_opt = IngestExternalFileOptions::new();
+        ingest_opt.move_files(true);
+        db.ingest_external_file_cf(db.cf_handle("default").unwrap(), &ingest_opt, &[p1, p2])
+            .unwrap();
+    }
 }
