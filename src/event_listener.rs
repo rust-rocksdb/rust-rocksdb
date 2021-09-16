@@ -229,108 +229,83 @@ pub trait EventListener: Send + Sync {
     fn on_stall_conditions_changed(&self, _: &WriteStallInfo) {}
 }
 
-extern "C" fn destructor(ctx: *mut c_void) {
+extern "C" fn destructor<E: EventListener>(ctx: *mut c_void) {
     unsafe {
-        Box::from_raw(ctx as *mut Box<dyn EventListener>);
+        Box::from_raw(ctx as *mut E);
     }
 }
 
 // Maybe we should reuse db instance?
 // TODO: refactor DB implement so that we can convert DBInstance to DB.
-extern "C" fn on_flush_begin(ctx: *mut c_void, _: *mut DBInstance, info: *const DBFlushJobInfo) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const FlushJobInfo),
-        )
-    };
-    ctx.on_flush_begin(info);
-}
-
-extern "C" fn on_flush_completed(
+extern "C" fn on_flush_begin<E: EventListener>(
     ctx: *mut c_void,
     _: *mut DBInstance,
     info: *const DBFlushJobInfo,
 ) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const FlushJobInfo),
-        )
-    };
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const FlushJobInfo)) };
+    ctx.on_flush_begin(info);
+}
+
+extern "C" fn on_flush_completed<E: EventListener>(
+    ctx: *mut c_void,
+    _: *mut DBInstance,
+    info: *const DBFlushJobInfo,
+) {
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const FlushJobInfo)) };
     ctx.on_flush_completed(info);
 }
 
-extern "C" fn on_compaction_begin(
+extern "C" fn on_compaction_begin<E: EventListener>(
     ctx: *mut c_void,
     _: *mut DBInstance,
     info: *const DBCompactionJobInfo,
 ) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const CompactionJobInfo),
-        )
-    };
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const CompactionJobInfo)) };
     ctx.on_compaction_begin(info);
 }
 
-extern "C" fn on_compaction_completed(
+extern "C" fn on_compaction_completed<E: EventListener>(
     ctx: *mut c_void,
     _: *mut DBInstance,
     info: *const DBCompactionJobInfo,
 ) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const CompactionJobInfo),
-        )
-    };
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const CompactionJobInfo)) };
     ctx.on_compaction_completed(info);
 }
 
-extern "C" fn on_subcompaction_begin(ctx: *mut c_void, info: *const DBSubcompactionJobInfo) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const SubcompactionJobInfo),
-        )
-    };
+extern "C" fn on_subcompaction_begin<E: EventListener>(
+    ctx: *mut c_void,
+    info: *const DBSubcompactionJobInfo,
+) {
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const SubcompactionJobInfo)) };
     ctx.on_subcompaction_begin(info);
 }
 
-extern "C" fn on_subcompaction_completed(ctx: *mut c_void, info: *const DBSubcompactionJobInfo) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const SubcompactionJobInfo),
-        )
-    };
+extern "C" fn on_subcompaction_completed<E: EventListener>(
+    ctx: *mut c_void,
+    info: *const DBSubcompactionJobInfo,
+) {
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const SubcompactionJobInfo)) };
     ctx.on_subcompaction_completed(info);
 }
 
-extern "C" fn on_external_file_ingested(
+extern "C" fn on_external_file_ingested<E: EventListener>(
     ctx: *mut c_void,
     _: *mut DBInstance,
     info: *const DBIngestionInfo,
 ) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const IngestionInfo),
-        )
-    };
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const IngestionInfo)) };
     ctx.on_external_file_ingested(info);
 }
 
-extern "C" fn on_background_error(
+extern "C" fn on_background_error<E: EventListener>(
     ctx: *mut c_void,
     reason: DBBackgroundErrorReason,
     status: *mut DBStatusPtr,
 ) {
     let (ctx, result) = unsafe {
         (
-            &*(ctx as *mut Box<dyn EventListener>),
+            &*(ctx as *mut E),
             || -> Result<(), String> {
                 ffi_try!(crocksdb_status_ptr_get_error(status));
                 Ok(())
@@ -340,31 +315,29 @@ extern "C" fn on_background_error(
     ctx.on_background_error(reason, result);
 }
 
-extern "C" fn on_stall_conditions_changed(ctx: *mut c_void, info: *const DBWriteStallInfo) {
-    let (ctx, info) = unsafe {
-        (
-            &*(ctx as *mut Box<dyn EventListener>),
-            &*(info as *const WriteStallInfo),
-        )
-    };
+extern "C" fn on_stall_conditions_changed<E: EventListener>(
+    ctx: *mut c_void,
+    info: *const DBWriteStallInfo,
+) {
+    let (ctx, info) = unsafe { (&*(ctx as *mut E), &*(info as *const WriteStallInfo)) };
     ctx.on_stall_conditions_changed(info);
 }
 
-pub fn new_event_listener<L: EventListener>(l: L) -> *mut DBEventListener {
-    let p: Box<dyn EventListener> = Box::new(l);
+pub fn new_event_listener<E: EventListener>(e: E) -> *mut DBEventListener {
+    let p: Box<dyn EventListener> = Box::new(e);
     unsafe {
         crocksdb_ffi::crocksdb_eventlistener_create(
-            Box::into_raw(Box::new(p)) as *mut c_void,
-            destructor,
-            on_flush_begin,
-            on_flush_completed,
-            on_compaction_begin,
-            on_compaction_completed,
-            on_subcompaction_begin,
-            on_subcompaction_completed,
-            on_external_file_ingested,
-            on_background_error,
-            on_stall_conditions_changed,
+            Box::into_raw(p) as *mut c_void,
+            destructor::<E>,
+            on_flush_begin::<E>,
+            on_flush_completed::<E>,
+            on_compaction_begin::<E>,
+            on_compaction_completed::<E>,
+            on_subcompaction_begin::<E>,
+            on_subcompaction_completed::<E>,
+            on_external_file_ingested::<E>,
+            on_background_error::<E>,
+            on_stall_conditions_changed::<E>,
         )
     }
 }

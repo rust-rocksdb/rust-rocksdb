@@ -81,9 +81,9 @@ impl TablePropertiesCollector for TitanCollector {
 #[derive(Default)]
 struct TitanCollectorFactory {}
 
-impl TablePropertiesCollectorFactory for TitanCollectorFactory {
-    fn create_table_properties_collector(&mut self, _: u32) -> Box<dyn TablePropertiesCollector> {
-        Box::new(TitanCollector::default())
+impl TablePropertiesCollectorFactory<TitanCollector> for TitanCollectorFactory {
+    fn create_table_properties_collector(&mut self, _: u32) -> TitanCollector {
+        TitanCollector::default()
     }
 }
 
@@ -122,8 +122,10 @@ fn test_titandb() {
     let mut cf_opts = ColumnFamilyOptions::new();
     let f = TitanCollectorFactory::default();
     cf_opts.set_titandb_options(&tdb_opts);
-    cf_opts.add_table_properties_collector_factory("titan-collector", Box::new(f));
-
+    cf_opts.add_table_properties_collector_factory::<TitanCollector, TitanCollectorFactory>(
+        "titan-collector",
+        f,
+    );
     let mut db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),
@@ -263,7 +265,10 @@ fn test_titan_delete_files_in_ranges() {
     opts.set_titandb_options(&tdb_opts);
     let mut cf_opts = ColumnFamilyOptions::new();
     let f = TitanCollectorFactory::default();
-    cf_opts.add_table_properties_collector_factory("titan-collector", Box::new(f));
+    cf_opts.add_table_properties_collector_factory::<TitanCollector, TitanCollectorFactory>(
+        "titan-collector",
+        f,
+    );
     cf_opts.set_titandb_options(&tdb_opts);
 
     let db = DB::open_cf(

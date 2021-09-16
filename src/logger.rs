@@ -10,15 +10,15 @@ pub trait Logger: Send + Sync {
     fn logv(&self, log_level: InfoLogLevel, log: &str);
 }
 
-extern "C" fn destructor(ctx: *mut c_void) {
+extern "C" fn destructor<L: Logger>(ctx: *mut c_void) {
     unsafe {
-        Box::from_raw(ctx as *mut Box<dyn Logger>);
+        Box::from_raw(ctx as *mut L);
     }
 }
 
-extern "C" fn logv(ctx: *mut c_void, log_level: InfoLogLevel, log: *const c_char) {
+extern "C" fn logv<L: Logger>(ctx: *mut c_void, log_level: InfoLogLevel, log: *const c_char) {
     unsafe {
-        let logger = &*(ctx as *mut Box<dyn Logger>);
+        let logger = &*(ctx as *mut L);
         let log = CStr::from_ptr(log);
         logger.logv(log_level, &log.to_string_lossy());
     }
@@ -28,9 +28,9 @@ pub fn new_logger<L: Logger>(l: L) -> *mut DBLogger {
     unsafe {
         let p: Box<dyn Logger> = Box::new(l);
         crocksdb_ffi::crocksdb_logger_create(
-            Box::into_raw(Box::new(p)) as *mut c_void,
-            destructor,
-            logv,
+            Box::into_raw(p) as *mut c_void,
+            destructor::<L>,
+            logv::<L>,
         )
     }
 }

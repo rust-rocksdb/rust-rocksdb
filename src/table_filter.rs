@@ -24,16 +24,19 @@ pub trait TableFilter {
     fn table_filter(&self, props: &TableProperties) -> bool;
 }
 
-pub extern "C" fn table_filter(ctx: *mut c_void, props: *const DBTableProperties) -> c_uchar {
+pub extern "C" fn table_filter<T: TableFilter>(
+    ctx: *mut c_void,
+    props: *const DBTableProperties,
+) -> c_uchar {
     unsafe {
-        let filter = &*(ctx as *mut Box<dyn TableFilter>);
+        let filter = &*(ctx as *mut T);
         let props = &*(props as *const TableProperties);
         filter.table_filter(props) as c_uchar
     }
 }
 
-pub extern "C" fn destroy_table_filter(filter: *mut c_void) {
+pub extern "C" fn destroy_table_filter<T: TableFilter>(filter: *mut c_void) {
     unsafe {
-        Box::from_raw(filter as *mut Box<dyn TableFilter>);
+        Box::from_raw(filter as *mut T);
     }
 }

@@ -44,6 +44,7 @@ use table_properties_collector_factory::{
     new_table_properties_collector_factory, TablePropertiesCollectorFactory,
 };
 use titan::TitanDBOptions;
+use TablePropertiesCollector;
 
 #[derive(Default, Debug)]
 pub struct HistogramData {
@@ -474,15 +475,15 @@ impl ReadOptions {
         }
     }
 
-    pub fn set_table_filter(&mut self, filter: Box<dyn TableFilter>) {
+    pub fn set_table_filter<T: TableFilter>(&mut self, filter: T) {
         unsafe {
             let f = Box::into_raw(Box::new(filter));
             let f = f as *mut c_void;
             crocksdb_ffi::crocksdb_readoptions_set_table_filter(
                 self.inner,
                 f,
-                table_filter,
-                destroy_table_filter,
+                table_filter::<T>,
+                destroy_table_filter::<T>,
             );
         }
     }
@@ -1429,10 +1430,13 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn add_table_properties_collector_factory(
+    pub fn add_table_properties_collector_factory<
+        C: TablePropertiesCollector,
+        T: TablePropertiesCollectorFactory<C>,
+    >(
         &mut self,
         fname: &str,
-        factory: Box<dyn TablePropertiesCollectorFactory>,
+        factory: T,
     ) {
         unsafe {
             let f = new_table_properties_collector_factory(fname, factory);

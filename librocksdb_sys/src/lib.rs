@@ -2733,7 +2733,7 @@ mod test {
     use std::{fs, ptr, slice};
 
     fn tempdir_with_prefix(prefix: &str) -> tempfile::TempDir {
-        tempfile::Builder::new().prefix(prefix).tempdir().expect()
+        tempfile::Builder::new().prefix(prefix).tempdir().expect("")
     }
 
     #[test]
