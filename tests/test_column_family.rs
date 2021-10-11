@@ -192,7 +192,7 @@ fn test_merge_operator() {
 fn test_provided_merge(
     _: &[u8],
     existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let nops = operands.len();
     let mut result: Vec<u8> = Vec::with_capacity(nops);

@@ -62,11 +62,11 @@ use std::ptr;
 use std::slice;
 
 pub trait MergeFn:
-    Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
+    Fn(&[u8], Option<&[u8]>, &MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
 {
 }
 impl<F> MergeFn for F where
-    F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
+    F: Fn(&[u8], Option<&[u8]>, &MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
 {
 }
 
@@ -113,7 +113,7 @@ pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
     new_value_length: *mut size_t,
 ) -> *mut c_char {
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
-    let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
+    let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
     let oldval = if existing_value.is_null() {
         None
@@ -148,7 +148,7 @@ pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
     new_value_length: *mut size_t,
 ) -> *mut c_char {
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
-    let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
+    let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
     (cb.partial_merge_fn)(key, None, operands).map_or_else(
         || {
@@ -241,18 +241,6 @@ impl<'a> Iterator for MergeOperandsIter<'a> {
 }
 
 impl<'a> IntoIterator for &'a MergeOperands {
-    type Item = &'a [u8];
-    type IntoIter = MergeOperandsIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter {
-            operands: self,
-            cursor: 0,
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a mut MergeOperands {
     type Item = &'a [u8];
     type IntoIter = MergeOperandsIter<'a>;
 
