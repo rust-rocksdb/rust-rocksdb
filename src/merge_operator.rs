@@ -168,7 +168,6 @@ pub struct MergeOperands {
     operands_list: *const *const c_char,
     operands_list_len: *const size_t,
     num_operands: usize,
-    cursor: usize,
 }
 
 impl MergeOperands {
@@ -182,16 +181,26 @@ impl MergeOperands {
             operands_list,
             operands_list_len,
             num_operands: num_operands as usize,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.num_operands
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.num_operands == 0
+    }
+
+    pub fn iter(&self) -> MergeOperandsIter {
+        MergeOperandsIter {
+            operands: self,
             cursor: 0,
         }
     }
-}
 
-impl<'a> Iterator for &'a mut MergeOperands {
-    type Item = &'a [u8];
-
-    fn next(&mut self) -> Option<&'a [u8]> {
-        if self.cursor == self.num_operands {
+    fn get_operand(&self, index: usize) -> Option<&[u8]> {
+        if index >= self.num_operands {
             None
         } else {
             unsafe {
@@ -199,10 +208,9 @@ impl<'a> Iterator for &'a mut MergeOperands {
                 let base_len = self.operands_list_len as usize;
                 let spacing = mem::size_of::<*const *const u8>();
                 let spacing_len = mem::size_of::<*const size_t>();
-                let len_ptr = (base_len + (spacing_len * self.cursor)) as *const size_t;
+                let len_ptr = (base_len + (spacing_len * index)) as *const size_t;
                 let len = *len_ptr as usize;
-                let ptr = base + (spacing * self.cursor);
-                self.cursor += 1;
+                let ptr = base + (spacing * index);
                 Some(mem::transmute(slice::from_raw_parts(
                     *(ptr as *const *const u8) as *const u8,
                     len,
@@ -210,9 +218,48 @@ impl<'a> Iterator for &'a mut MergeOperands {
             }
         }
     }
+}
+
+pub struct MergeOperandsIter<'a> {
+    operands: &'a MergeOperands,
+    cursor: usize,
+}
+
+impl<'a> Iterator for MergeOperandsIter<'a> {
+    type Item = &'a [u8];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let operand = self.operands.get_operand(self.cursor)?;
+        self.cursor += 1;
+        Some(operand)
+    }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.num_operands - self.cursor;
+        let remaining = self.operands.num_operands - self.cursor;
         (remaining, Some(remaining))
+    }
+}
+
+impl<'a> IntoIterator for &'a MergeOperands {
+    type Item = &'a [u8];
+    type IntoIter = MergeOperandsIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            operands: self,
+            cursor: 0,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a mut MergeOperands {
+    type Item = &'a [u8];
+    type IntoIter = MergeOperandsIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            operands: self,
+            cursor: 0,
+        }
     }
 }
