@@ -20,10 +20,10 @@
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
-//!                 operands: &mut MergeOperands)
+//!                 operands: &MergeOperands)
 //!                 -> Option<Vec<u8>> {
 //!
-//!    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
+//!    let mut result: Vec<u8> = Vec::with_capacity(operands.len());
 //!    existing_val.map(|v| {
 //!        for e in v {
 //!            result.push(*e)
