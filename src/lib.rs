@@ -93,6 +93,7 @@ pub mod perf;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
+pub mod txn_db;
 mod write_batch;
 
 pub use crate::{

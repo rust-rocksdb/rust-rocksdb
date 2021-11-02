@@ -128,10 +128,20 @@ pub struct DBWithThreadMode<T: ThreadMode> {
     _outlive: Vec<OptionsMustOutliveDB>,
 }
 
-/// Minimal set of DB-related methods, intended to be  generic over
+/// Minimal set of DB-related methods, intended to be generic over
 /// `DBWithThreadMode<T>`. Mainly used internally
 pub trait DBAccess {
-    fn inner(&self) -> *mut ffi::rocksdb_t;
+    fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t;
+
+    fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t);
+
+    fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t;
+
+    fn create_iterator_cf(
+        &self,
+        cf_handle: *mut ffi::rocksdb_column_family_handle_t,
+        readopts: &ReadOptions,
+    ) -> *mut ffi::rocksdb_iterator_t;
 
     fn get_opt<K: AsRef<[u8]>>(
         &self,
@@ -148,8 +158,24 @@ pub trait DBAccess {
 }
 
 impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
-    fn inner(&self) -> *mut ffi::rocksdb_t {
-        self.inner
+    fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
+        unsafe { ffi::rocksdb_create_snapshot(self.inner) }
+    }
+
+    fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
+        unsafe { ffi::rocksdb_release_snapshot(self.inner, snapshot); }
+    }
+
+    fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
+        unsafe { ffi::rocksdb_create_iterator(self.inner, readopts.inner) }
+    }
+
+    fn create_iterator_cf(
+        &self,
+        cf_handle: *mut ffi::rocksdb_column_family_handle_t,
+        readopts: &ReadOptions,
+    ) -> *mut ffi::rocksdb_iterator_t {
+        unsafe { ffi::rocksdb_create_iterator_cf(self.inner, readopts.inner, cf_handle) }
     }
 
     fn get_opt<K: AsRef<[u8]>>(
