@@ -16,6 +16,10 @@ use crate::{
 };
 use libc::{c_char, c_int, size_t};
 
+/// RocksDB TransactionDB.
+///
+/// Please read the official [guide](https://github.com/facebook/rocksdb/wiki/Transactions)
+/// to learn more about RocksDB TransactionDB.
 pub struct TxnDB {
     pub(crate) inner: *mut ffi::rocksdb_transactiondb_t,
     cfs: RwLock<BTreeMap<String, Arc<UnboundColumnFamily>>>,
