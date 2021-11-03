@@ -308,18 +308,12 @@ impl TxnDB {
         self.path.as_path()
     }
 
-    // there are no property value for C binding in current version.
-
-    pub fn checkpoint() {
-        todo!()
-    }
-
-    /// Return the bytes associated with a key value.
+    /// Returns the bytes associated with a key value.
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.get_opt(key, &ReadOptions::default())
     }
 
-    /// Return the bytes associated with a key value and the given column family.
+    /// Returns the bytes associated with a key value and the given column family.
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -328,7 +322,7 @@ impl TxnDB {
         self.get_cf_opt(key, cf, &ReadOptions::default())
     }
 
-    /// Return the bytes associated with a key value with read options.
+    /// Returns the bytes associated with a key value with read options.
     pub fn get_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -348,7 +342,7 @@ impl TxnDB {
         }
     }
 
-    /// Return the bytes associated with a key value and the given column family with read options.
+    /// Returns the bytes associated with a key value and the given column family with read options.
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -674,6 +668,8 @@ impl TxnDB {
 
 impl Drop for TxnDB {
     fn drop(&mut self) {
-        todo!()
+        unsafe {
+            ffi::rocksdb_transactiondb_close(self.inner);
+        }
     }
 }
