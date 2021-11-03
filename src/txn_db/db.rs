@@ -27,6 +27,9 @@ pub struct TxnDB {
     _outlive: Vec<OptionsMustOutliveDB>,
 }
 
+unsafe impl Send for TxnDB {}
+unsafe impl Sync for TxnDB {}
+
 impl DBAccess for TxnDB {
     fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         unsafe { ffi::rocksdb_transactiondb_create_snapshot(self.inner) }
@@ -343,8 +346,12 @@ impl TxnDB {
                 key.as_ref().len() as size_t,
                 &mut val_len,
             ));
-            let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-            Ok(Some(val))
+            if val_ptr.is_null() {
+                Ok(None)
+            } else {
+                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
+                Ok(Some(val))
+            }
         }
     }
 
@@ -365,8 +372,12 @@ impl TxnDB {
                 key.as_ref().len() as size_t,
                 &mut val_len,
             ));
-            let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-            Ok(Some(val))
+            if val_ptr.is_null() {
+                Ok(None)
+            } else {
+                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
+                Ok(Some(val))
+            }
         }
     }
 
