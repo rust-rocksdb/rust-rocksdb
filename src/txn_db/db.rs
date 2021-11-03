@@ -29,7 +29,9 @@ impl DBAccess for TxnDB {
     }
 
     fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
-        unsafe { ffi::rocksdb_transactiondb_release_snapshot(self.inner, snapshot); }
+        unsafe {
+            ffi::rocksdb_transactiondb_release_snapshot(self.inner, snapshot);
+        }
     }
 
     fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
