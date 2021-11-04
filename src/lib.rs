@@ -120,7 +120,7 @@ pub use crate::{
     slice_transform::SliceTransform,
     snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
-    txn_db::{TxnDB, TxnDBOptions, TxnOptions},
+    txn_db::{Txn, TxnDB, TxnDBOptions, TxnOptions},
     write_batch::{WriteBatch, WriteBatchIterator},
 };
 

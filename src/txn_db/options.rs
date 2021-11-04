@@ -26,7 +26,24 @@ impl TxnOptions {
         TxnOptions::default()
     }
 
-    /// Setting `set_snapshot(true)` is the same as calling `Txn::set_snapshot()`.
+    /// Specifies use snapshot or not.
+    ///
+    /// Default: false.
+    ///
+    /// If a transaction has a snapshot set, the transaction will ensure that
+    /// any keys successfully written(or fetched via `get_for_update`) have not
+    /// been modified outside of this transaction since the time the snapshot was
+    /// set.
+    /// If a snapshot has not been set, the transaction guarantees that keys have
+    /// not been modified since the time each key was first written (or fetched via
+    /// `get_for_update`).
+    ///
+    /// Using snapshot will provide stricter isolation guarantees at the
+    /// expense of potentially more transaction failures due to conflicts with
+    /// other writes.
+    ///
+    /// Calling SetSnapshot will not affect the version of Data returned by `get`
+    /// methods.
     pub fn set_snapshot(&mut self, snapshot: bool) {
         unsafe {
             ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, snapshot as c_uchar);
@@ -178,7 +195,7 @@ impl TxnDBOptions {
         }
     }
 
-    /// Sepcifies lock table stripes count.
+    /// Specifies lock table stripes count.
     ///
     /// Increasing this value will increase the concurrency by dividing the lock
     /// table (per column family) into more sub-tables, each with their own

@@ -1,7 +1,7 @@
 mod db;
 mod options;
-// mod txn;
+mod txn;
 
 pub use db::TxnDB;
 pub use options::{TxnDBOptions, TxnOptions};
-// pub use txn::Txn;
+pub use txn::Txn;

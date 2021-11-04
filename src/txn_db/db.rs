@@ -2,6 +2,7 @@ use std::{
     collections::BTreeMap,
     ffi::CString,
     fs, iter,
+    marker::PhantomData,
     path::{Path, PathBuf},
     ptr,
     sync::{Arc, RwLock},
@@ -11,8 +12,8 @@ use crate::{
     column_family::UnboundColumnFamily, db::DBAccess, db_options::OptionsMustOutliveDB, ffi,
     ffi_util::to_cpath, txn_db::TxnDBOptions, AsColumnFamilyRef, BoundColumnFamily,
     ColumnFamilyDescriptor, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction,
-    Error, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode, WriteBatch, WriteOptions,
-    DB, DEFAULT_COLUMN_FAMILY_NAME,
+    Error, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode, Txn, TxnOptions, WriteBatch,
+    WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use libc::{c_char, c_int, size_t};
 
@@ -315,6 +316,26 @@ impl TxnDB {
 
     pub fn path(&self) -> &Path {
         self.path.as_path()
+    }
+
+    /// Creates a transaction with default options.
+    pub fn txn(&self) -> Txn {
+        self.txn_opt(&WriteOptions::default(), &TxnOptions::default())
+    }
+
+    /// Creates a transaction with options.
+    pub fn txn_opt<'a>(&'a self, write_opts: &WriteOptions, txn_opts: &TxnOptions) -> Txn<'a> {
+        Txn {
+            inner: unsafe {
+                ffi::rocksdb_transaction_begin(
+                    self.inner,
+                    write_opts.inner,
+                    txn_opts.inner,
+                    std::ptr::null_mut(),
+                )
+            },
+            _marker: PhantomData::default(),
+        }
     }
 
     /// Returns the bytes associated with a key value.
