@@ -129,6 +129,27 @@ use librocksdb_sys as ffi;
 use std::error;
 use std::fmt;
 
+/// RocksDB error kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+    NotFound,
+    Corruption,
+    NotSupported,
+    InvalidArgument,
+    IOError,
+    MergeInProgress,
+    Incomplete,
+    ShutdownInProgress,
+    TimedOut,
+    Aborted,
+    Busy,
+    Expired,
+    TryAgain,
+    CompactionTooLarge,
+    ColumnFamilyDropped,
+    Unknown,
+}
+
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
 #[derive(Debug, Clone, PartialEq)]
@@ -143,6 +164,28 @@ impl Error {
 
     pub fn into_string(self) -> String {
         self.into()
+    }
+
+    /// Parse corresponding [`ErrorKind`] from error message.
+    pub fn kind(&self) -> ErrorKind {
+        match self.message.split(':').next().unwrap_or("") {
+            "NotFound" => ErrorKind::NotFound,
+            "Corruption" => ErrorKind::Corruption,
+            "Not implemented" => ErrorKind::NotSupported,
+            "Invalid argument" => ErrorKind::InvalidArgument,
+            "IO error" => ErrorKind::IOError,
+            "Merge in progress" => ErrorKind::MergeInProgress,
+            "Result incomplete" => ErrorKind::Incomplete,
+            "Shutdown in progress" => ErrorKind::ShutdownInProgress,
+            "Operation timed out" => ErrorKind::TimedOut,
+            "Operation aborted" => ErrorKind::Aborted,
+            "Resource busy" => ErrorKind::Busy,
+            "Operation expired" => ErrorKind::Expired,
+            "Operation failed. Try again." => ErrorKind::TryAgain,
+            "Compaction too large" => ErrorKind::CompactionTooLarge,
+            "Column family dropped" => ErrorKind::ColumnFamilyDropped,
+            _ => ErrorKind::Unknown,
+        }
     }
 }
 

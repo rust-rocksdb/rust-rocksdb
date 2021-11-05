@@ -3,8 +3,8 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    CuckooTableOptions, Error, IteratorMode, Options, ReadOptions, SliceTransform, TxnDB,
-    TxnDBOptions, WriteBatch,
+    CuckooTableOptions, Error, ErrorKind, IteratorMode, Options, ReadOptions, SliceTransform,
+    TxnDB, TxnDBOptions, WriteBatch,
 };
 use util::DBPath;
 
@@ -21,7 +21,6 @@ fn open_default() {
 
         assert_eq!(r.unwrap().unwrap(), b"v1111");
         assert!(db.delete(b"k1").is_ok());
-        assert!(db.get(b"k1").unwrap().is_some());
         assert!(db.get(b"k1").unwrap().is_none());
     }
 }
@@ -50,7 +49,7 @@ fn destroy_on_open() {
     match TxnDB::destroy(&opts, &path) {
         Err(s) => {
             let message = s.to_string();
-            assert!(message.contains("IO error:"));
+            assert_eq!(s.kind(), ErrorKind::IOError);
             assert!(message.contains("_rust_rocksdb_txndb_destroy_on_open"));
             assert!(message.contains("/LOCK:"));
         }
