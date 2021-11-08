@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use crate::{
-    db::DBAccess, ffi, AsColumnFamilyRef, ColumnFamilyRef, DBIteratorWithThreadMode,
-    DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, ReadOptions, TxnDB,
+    db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
+    Direction, Error, IteratorMode, ReadOptions, TxnDB,
 };
 use libc::{c_char, c_void, size_t};
 
@@ -164,7 +164,7 @@ impl<'db> Txn<'db> {
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_for_update_cf<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamilyRef,
+        cf: &impl AsColumnFamilyRef,
         key: K,
         exclusive: bool,
     ) -> Result<Option<Vec<u8>>, Error> {
@@ -281,7 +281,7 @@ impl<'db> Txn<'db> {
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_for_update_cf_opt<K: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamilyRef,
+        cf: &impl AsColumnFamilyRef,
         key: K,
         exclusive: bool,
         opts: &ReadOptions,
@@ -347,7 +347,7 @@ impl<'db> Txn<'db> {
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn put_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamilyRef,
+        cf: &impl AsColumnFamilyRef,
         key: K,
         value: V,
     ) -> Result<(), Error> {
@@ -406,7 +406,7 @@ impl<'db> Txn<'db> {
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn merge_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
-        cf: ColumnFamilyRef,
+        cf: &impl AsColumnFamilyRef,
         key: &K,
         value: &V,
     ) -> Result<(), Error> {
@@ -460,7 +460,11 @@ impl<'db> Txn<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
-    pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamilyRef, key: &K) -> Result<(), Error> {
+    pub fn delete_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: &K,
+    ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete_cf(
                 self.inner,

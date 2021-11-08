@@ -70,7 +70,7 @@ impl DBAccess for TxnDB {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_cf_opt(key, cf, readopts)
+        self.get_cf_opt(cf, key, readopts)
     }
 }
 
@@ -346,10 +346,10 @@ impl TxnDB {
     /// Returns the bytes associated with a key value and the given column family.
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
-        key: K,
         cf: &impl AsColumnFamilyRef,
+        key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_cf_opt(key, cf, &ReadOptions::default())
+        self.get_cf_opt(cf, key, &ReadOptions::default())
     }
 
     /// Returns the bytes associated with a key value with read options.
@@ -379,8 +379,8 @@ impl TxnDB {
     /// Returns the bytes associated with a key value and the given column family with read options.
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
-        key: K,
         cf: &impl AsColumnFamilyRef,
+        key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
         unsafe {
