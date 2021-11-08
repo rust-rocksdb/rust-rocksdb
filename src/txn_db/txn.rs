@@ -7,6 +7,8 @@ use crate::{
 use libc::{c_char, c_void, size_t};
 
 /// RocksDB Transaction.
+///
+/// To use transactions, you must first create a [`TxnDB`].
 pub struct Txn<'db> {
     pub(crate) inner: *mut ffi::rocksdb_transaction_t,
     pub(crate) _marker: PhantomData<&'db TxnDB>,
@@ -60,8 +62,14 @@ impl<'db> DBAccess for Txn<'db> {
 impl<'db> Txn<'db> {
     /// Write all batched keys to the db atomically.
     ///
-    /// Transaction may fail for many reasons.
-    /// todo: parse reason of failure.
+    /// May return any error that could be returned by [`TxnDB::write`].
+    ///
+    /// If this transaction was created by a [`TxnDB`], an error of
+    /// the [`Expired`] kind may be returned if this transaction has
+    /// lived longer than expiration time in [`TxnOptions`].
+    ///
+    /// [`Expired`]: crate::ErrorKind::Expired
+    /// [`TxnOptions`]: crate::TxnOptions
     pub fn commit(self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner));
@@ -77,18 +85,22 @@ impl<'db> Txn<'db> {
         }
     }
 
-    /// Record the state of the transaction for future calls to `rollback_to_savepoint`.
+    /// Record the state of the transaction for future calls to [`rollback_to_savepoint`].
     /// May be called multiple times to set multiple save points.
+    ///
+    /// [`rollback_to_savepoint`]: Self::rollback_to_savepoint
     pub fn set_savepoint(&self) {
         unsafe {
             ffi::rocksdb_transaction_set_savepoint(self.inner);
         }
     }
 
-    /// Undo all operations in this transaction since the most recent call to `set_savepoint`
-    /// and removes the most recent `set_savepoint`.
+    /// Undo all operations in this transaction since the most recent call to [`set_savepoint`]
+    /// and removes the most recent [`set_savepoint`].
     ///
-    /// Returns error if there is no previous call to `set_savepoint`.
+    /// Returns error if there is no previous call to [`set_savepoint`].
+    ///
+    /// [`set_savepoint`]: Self::set_savepoint
     pub fn rollback_to_savepoint(&self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_rollback_to_savepoint(self.inner));
@@ -115,7 +127,17 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors if this key could not be read.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_for_update<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -129,7 +151,17 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors if this key could not be read.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_for_update_cf<K: AsRef<[u8]>>(
         &self,
         cf: ColumnFamilyRef,
@@ -194,7 +226,17 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors if this key could not be read.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_for_update_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -226,7 +268,17 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors if this key could not be read.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_for_update_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: ColumnFamilyRef,
@@ -256,7 +308,17 @@ impl<'db> Txn<'db> {
 
     /// Put the key value in default column family and do conflict checking on the key.
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors on unexpected failures.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: K, value: V) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_put(
@@ -272,7 +334,17 @@ impl<'db> Txn<'db> {
 
     /// Put the key value in the given column famuly and do conflict checking on the key.
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors on unexpected failures.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn put_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
         cf: ColumnFamilyRef,
@@ -294,7 +366,17 @@ impl<'db> Txn<'db> {
 
     /// Merge value with existing value of key, and also do conflict checking on the key.
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors on unexpected failures.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn merge<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: &K, value: &V) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge(
@@ -311,7 +393,17 @@ impl<'db> Txn<'db> {
     /// Merge `value` with existing value of `key` in the given column family,
     /// and also do conflict checking on the key.
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors on unexpected failures.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn merge_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
         cf: ColumnFamilyRef,
@@ -333,7 +425,17 @@ impl<'db> Txn<'db> {
 
     /// Delete the key value if it exists and do conflict checking on the key.
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors on unexpected failures.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete(
@@ -347,7 +449,17 @@ impl<'db> Txn<'db> {
 
     /// Delete the key value in the given column family and do conflict checking.
     ///
-    /// todo: parse error msg.
+    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// * [`Busy`] if there is a write conflict.
+    /// * [`TimedOut`] if a lock could not be acquired.
+    /// * [`TryAgain`] if the memtable history size is not large enough.
+    /// * [`MergeInProgress`] if merge operations cannot be resolved.
+    /// * or other errors on unexpected failures.
+    ///
+    /// [`Busy`]: crate::ErrorKind::Busy
+    /// [`TimedOut`]: crate::ErrorKind::TimedOut
+    /// [`TryAgain`]: crate::ErrorKind::TryAgain
+    /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn delete_cf<K: AsRef<[u8]>>(&self, cf: ColumnFamilyRef, key: &K) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete_cf(
@@ -377,7 +489,7 @@ impl<'db> Txn<'db> {
     }
 
     /// Opens an iterator using the provided ReadOptions.
-    /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions
+    /// This is used when you want to iterate over a specific ColumnFamily with a modified ReadOptions.
     pub fn iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &impl AsColumnFamilyRef,
