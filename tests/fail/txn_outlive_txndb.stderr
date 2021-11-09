@@ -1,0 +1,10 @@
+error[E0597]: `db` does not live long enough
+ --> tests/fail/txn_outlive_txndb.rs:6:9
+  |
+4 |     let _txn = {
+  |         ---- borrow later stored here
+5 |         let db = TxnDB::open_default("foo").unwrap();
+6 |         db.txn()
+  |         ^^ borrowed value does not live long enough
+7 |     };
+  |     - `db` dropped here while still borrowed

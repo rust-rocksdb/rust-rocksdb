@@ -707,6 +707,7 @@ impl TxnDB {
 impl Drop for TxnDB {
     fn drop(&mut self) {
         unsafe {
+            self.cfs.write().unwrap().clear();
             ffi::rocksdb_transactiondb_close(self.inner);
         }
     }

@@ -3,8 +3,8 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    CuckooTableOptions, Error, ErrorKind, IteratorMode, Options, ReadOptions, SliceTransform,
-    TxnDB, TxnDBOptions, WriteBatch,
+    CuckooTableOptions, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
+    SliceTransform, TxnDB, TxnDBOptions, TxnOptions, WriteBatch, WriteOptions,
 };
 use util::DBPath;
 
@@ -22,6 +22,36 @@ fn open_default() {
         assert_eq!(r.unwrap().unwrap(), b"v1111");
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
+    }
+}
+
+#[test]
+fn open_cf() {
+    let path = DBPath::new("_rust_rocksdb_txndb_open_cf");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = TxnDB::open_cf(&opts, &TxnDBOptions::default(), &path, ["cf1", "cf2"]).unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+
+        db.put(b"k0", b"v0").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(&cf2, b"k2", b"v2").unwrap();
+
+        assert_eq!(db.get(b"k0").unwrap().unwrap(), b"v0");
+        assert!(db.get(b"k1").unwrap().is_none());
+        assert!(db.get(b"k2").unwrap().is_none());
+
+        assert!(db.get_cf(&cf1, b"k0").unwrap().is_none());
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.get_cf(&cf1, b"k2").unwrap().is_none());
+
+        assert!(db.get_cf(&cf2, b"k0").unwrap().is_none());
+        assert!(db.get_cf(&cf2, b"k1").unwrap().is_none());
+        assert_eq!(db.get_cf(&cf2, b"k2").unwrap().unwrap(), b"v2");
     }
 }
 
@@ -104,19 +134,58 @@ fn writebatch() {
 fn iterator_test() {
     let path = DBPath::new("_rust_rocksdb_txndb_iteratortest");
     {
-        let data = [(b"k1", b"v1111"), (b"k2", b"v2222"), (b"k3", b"v3333")];
         let db = TxnDB::open_default(&path).unwrap();
 
-        for (key, value) in &data {
-            assert!(db.put(key, value).is_ok());
-        }
+        let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
+        let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
+        let k3: Box<[u8]> = b"k3".to_vec().into_boxed_slice();
+        let k4: Box<[u8]> = b"k4".to_vec().into_boxed_slice();
+        let v1: Box<[u8]> = b"v1111".to_vec().into_boxed_slice();
+        let v2: Box<[u8]> = b"v2222".to_vec().into_boxed_slice();
+        let v3: Box<[u8]> = b"v3333".to_vec().into_boxed_slice();
+        let v4: Box<[u8]> = b"v4444".to_vec().into_boxed_slice();
+
+        db.put(&*k1, &*v1).unwrap();
+        db.put(&*k2, &*v2).unwrap();
+        db.put(&*k3, &*v3).unwrap();
+        let expected = vec![
+            (k1.clone(), v1.clone()),
+            (k2.clone(), v2.clone()),
+            (k3.clone(), v3.clone()),
+        ];
 
         let iter = db.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
 
-        for (idx, (db_key, db_value)) in iter.enumerate() {
-            let (key, value) = data[idx];
-            assert_eq!((&key[..], &value[..]), (db_key.as_ref(), db_value.as_ref()));
-        }
+        // Test that it's idempotent
+        let iter = db.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        let iter = db.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
+
+        // Test in reverse
+        let iter = db.iterator(IteratorMode::End);
+        let mut tmp_vec = iter.collect::<Vec<_>>();
+        tmp_vec.reverse();
+
+        let old_iter = db.iterator(IteratorMode::Start);
+        db.put(&*k4, &*v4).unwrap();
+        let expected2 = vec![
+            (k1.clone(), v1.clone()),
+            (k2.clone(), v2.clone()),
+            (k3.clone(), v3.clone()),
+            (k4.clone(), v4.clone()),
+        ];
+        assert_eq!(old_iter.collect::<Vec<_>>(), expected);
+
+        let iter = db.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected2);
+
+        let iter = db.iterator(IteratorMode::From(b"k3", Direction::Forward));
+        assert_eq!(
+            iter.collect::<Vec<_>>(),
+            vec![(k3.clone(), v3.clone()), (k4.clone(), v4.clone())]
+        );
     }
 }
 
@@ -198,4 +267,202 @@ fn cuckoo() {
         assert!(db.delete(b"k1").is_ok());
         assert!(db.get(b"k1").unwrap().is_none());
     }
+}
+
+#[test]
+fn transaction() {
+    let path = DBPath::new("_rust_rocksdb_txndb_transaction");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let mut txn_db_opts = TxnDBOptions::default();
+        txn_db_opts.set_txn_lock_timeout(10);
+
+        let db = TxnDB::open(&opts, &txn_db_opts, &path).unwrap();
+
+        // put outside of transaction
+        db.put(b"k1", b"v1").unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+
+        let txn1 = db.txn();
+        txn1.put(b"k1", b"v2").unwrap();
+
+        // get outside of transaction
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
+
+        // modify same key in another transaction, should get TimedOut
+        let txn2 = db.txn();
+        let err = txn2.put(b"k1", b"v3").unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::TimedOut);
+
+        txn1.commit().unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v2");
+    }
+}
+
+#[test]
+fn transaction_iterator() {
+    let path = DBPath::new("_rust_rocksdb_txndb_transaction_iterator");
+    {
+        let db = TxnDB::open_default(&path).unwrap();
+
+        let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
+        let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
+        let k3: Box<[u8]> = b"k3".to_vec().into_boxed_slice();
+        let k4: Box<[u8]> = b"k4".to_vec().into_boxed_slice();
+        let v1: Box<[u8]> = b"v1111".to_vec().into_boxed_slice();
+        let v2: Box<[u8]> = b"v2222".to_vec().into_boxed_slice();
+        let v3: Box<[u8]> = b"v3333".to_vec().into_boxed_slice();
+        let v4: Box<[u8]> = b"v4444".to_vec().into_boxed_slice();
+
+        db.put(&*k1, &*v1).unwrap();
+        db.put(&*k2, &*v2).unwrap();
+        db.put(&*k3, &*v3).unwrap();
+        let expected = vec![
+            (k1.clone(), v1.clone()),
+            (k2.clone(), v2.clone()),
+            (k3.clone(), v3.clone()),
+        ];
+
+        let txn = db.txn();
+
+        let iter = txn.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
+
+        // Test that it's idempotent
+        let iter = txn.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        let iter = txn.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected);
+
+        // Test in reverse
+        let iter = txn.iterator(IteratorMode::End);
+        let mut tmp_vec = iter.collect::<Vec<_>>();
+        tmp_vec.reverse();
+
+        let old_iter = txn.iterator(IteratorMode::Start);
+        txn.put(&*k4, &*v4).unwrap();
+        let expected2 = vec![
+            (k1.clone(), v1.clone()),
+            (k2.clone(), v2.clone()),
+            (k3.clone(), v3.clone()),
+            (k4.clone(), v4.clone()),
+        ];
+        assert_eq!(old_iter.collect::<Vec<_>>(), expected);
+
+        let iter = txn.iterator(IteratorMode::Start);
+        assert_eq!(iter.collect::<Vec<_>>(), expected2);
+
+        let iter = txn.iterator(IteratorMode::From(b"k3", Direction::Forward));
+        assert_eq!(
+            iter.collect::<Vec<_>>(),
+            vec![(k3.clone(), v3.clone()), (k4.clone(), v4.clone())]
+        );
+    }
+}
+
+#[test]
+fn transaction_rollback() {
+    let path = DBPath::new("_rust_rocksdb_txndb_transaction_rollback");
+    {
+        let db = TxnDB::open_default(&path).unwrap();
+        let txn = db.txn();
+
+        txn.rollback().unwrap();
+
+        txn.put(b"k1", b"v1").unwrap();
+        txn.set_savepoint();
+        txn.put(b"k2", b"v2").unwrap();
+
+        assert_eq!(txn.get(b"k1").unwrap().unwrap(), b"v1");
+        assert_eq!(txn.get(b"k2").unwrap().unwrap(), b"v2");
+
+        txn.rollback_to_savepoint().unwrap();
+        assert_eq!(txn.get(b"k1").unwrap().unwrap(), b"v1");
+        assert!(txn.get(b"k2").unwrap().is_none());
+
+        txn.rollback().unwrap();
+        assert!(txn.get(b"k1").unwrap().is_none());
+
+        txn.commit().unwrap();
+
+        assert!(db.get(b"k2").unwrap().is_none());
+    }
+}
+
+#[test]
+fn transaction_cf() {
+    let path = DBPath::new("_rust_rocksdb_txndb_transaction_cf");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = TxnDB::open_cf(&opts, &TxnDBOptions::default(), &path, ["cf1", "cf2"]).unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+
+        let txn = db.txn();
+        txn.put(b"k0", b"v0").unwrap();
+        txn.put_cf(&cf1, b"k1", b"v1").unwrap();
+        txn.put_cf(&cf2, b"k2", b"v2").unwrap();
+
+        assert_eq!(txn.get(b"k0").unwrap().unwrap(), b"v0");
+        assert!(txn.get(b"k1").unwrap().is_none());
+        assert!(txn.get(b"k2").unwrap().is_none());
+
+        assert!(txn.get_cf(&cf1, b"k0").unwrap().is_none());
+        assert_eq!(txn.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert!(txn.get_cf(&cf1, b"k2").unwrap().is_none());
+
+        assert!(txn.get_cf(&cf2, b"k0").unwrap().is_none());
+        assert!(txn.get_cf(&cf2, b"k1").unwrap().is_none());
+        assert_eq!(txn.get_cf(&cf2, b"k2").unwrap().unwrap(), b"v2");
+
+        txn.commit().unwrap();
+    }
+}
+
+#[test]
+fn transaction_snapshot() {
+    let path = DBPath::new("_rust_rocksdb_txndb_transaction_snapshot");
+    {
+        let db = TxnDB::open_default(&path).unwrap();
+
+        let txn = db.txn();
+        let snapshot = txn.snapshot();
+        assert!(snapshot.get(b"k1").unwrap().is_none());
+        db.put(b"k1", b"v1").unwrap();
+        assert_eq!(snapshot.get(b"k1").unwrap().unwrap(), b"v1");
+
+        let mut opts = TxnOptions::default();
+        opts.set_snapshot(true);
+        let txn = db.txn_opt(&WriteOptions::default(), &opts);
+        db.put(b"k2", b"v2").unwrap();
+        let snapshot = txn.snapshot();
+        assert!(snapshot.get(b"k2").unwrap().is_none());
+        assert_eq!(txn.get(b"k2").unwrap().unwrap(), b"v2");
+        assert_eq!(
+            txn.get_for_update(b"k2", true).unwrap_err().kind(),
+            ErrorKind::Busy
+        );
+    }
+}
+
+#[test]
+fn test_snapshot_outlive_txndb() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/snapshot_outlive_txndb.rs");
+}
+
+#[test]
+fn test_txn_outlive_txndb() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/txn_outlive_txndb.rs");
+}
+
+#[test]
+fn test_snapshot_outlive_txn() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/snapshot_outlive_txn.rs");
 }

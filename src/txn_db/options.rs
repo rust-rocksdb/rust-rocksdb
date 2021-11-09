@@ -42,7 +42,7 @@ impl TxnOptions {
     /// expense of potentially more transaction failures due to conflicts with
     /// other writes.
     ///
-    /// Calling SetSnapshot will not affect the version of Data returned by `get`
+    /// Calling `set_snapshot` will not affect the version of Data returned by `get`
     /// methods.
     pub fn set_snapshot(&mut self, snapshot: bool) {
         unsafe {

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{
     db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
-    Direction, Error, IteratorMode, ReadOptions, TxnDB,
+    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode, TxnDB,
 };
 use libc::{c_char, c_void, size_t};
 
@@ -75,6 +75,14 @@ impl<'db> Txn<'db> {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner));
         }
         Ok(())
+    }
+
+    /// Returns snapshot associated with transaction if snapshot was enabled in [`TxnOptions`].
+    /// Otherwise, returns a snapshot with `nullptr` inside which doesn't effect read operations.
+    ///
+    /// [`TxnOptions`]: crate::TxnOptions
+    pub fn snapshot(&self) -> SnapshotWithThreadMode<Txn> {
+        SnapshotWithThreadMode::new(self)
     }
 
     /// Discard all batched writes in this transaction.
