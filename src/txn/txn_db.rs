@@ -1,3 +1,18 @@
+// Copyright 2021 Yiyuan Liu
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
 use std::{
     collections::BTreeMap,
     ffi::CString,
@@ -10,10 +25,10 @@ use std::{
 
 use crate::{
     column_family::UnboundColumnFamily, db::DBAccess, db_options::OptionsMustOutliveDB, ffi,
-    ffi_util::to_cpath, txn_db::TxnDBOptions, AsColumnFamilyRef, BoundColumnFamily,
-    ColumnFamilyDescriptor, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction,
-    Error, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode, Txn, TxnOptions, WriteBatch,
-    WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
+    ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamilyDescriptor,
+    DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, Options,
+    ReadOptions, SnapshotWithThreadMode, Txn, TxnDBOptions, TxnOptions, WriteBatch, WriteOptions,
+    DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use libc::{c_char, c_int, size_t};
 
