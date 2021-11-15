@@ -172,12 +172,7 @@ impl BackupEngine {
 
     /// Restore from a specified backup
     ///
-    /// # Arguments
-    ///
-    /// * `db_dir` - A path to the database directory
-    /// * `wal_dir` - A path to the wal directory
-    /// * `opts` - Restore options
-    /// * `backup_id` - The backup id to restore
+    /// The specified backup id should be passed in as an additional parameter.
     pub fn restore_from_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,
         db_dir: D,
