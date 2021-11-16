@@ -307,6 +307,26 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
+    /// Opens a read-only database with the given database options and column family descriptors.
+    pub fn open_cf_descriptors_read_only<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        error_if_log_file_exist: bool,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        Self::open_cf_descriptors_internal(
+            opts,
+            path,
+            cfs,
+            &AccessType::ReadOnly {
+                error_if_log_file_exist,
+            },
+        )
+    }
     /// Opens a database for read only with the given database options and column family names.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
