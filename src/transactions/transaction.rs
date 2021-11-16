@@ -17,21 +17,21 @@ use std::marker::PhantomData;
 
 use crate::{
     db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
-    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode, TxnDB,
+    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode, TransactionDB,
 };
 use libc::{c_char, c_void, size_t};
 
 /// RocksDB Transaction.
 ///
-/// To use transactions, you must first create a [`TxnDB`].
-pub struct Txn<'db> {
+/// To use transactions, you must first create a [`TransactionDB`].
+pub struct Transaction<'db> {
     pub(crate) inner: *mut ffi::rocksdb_transaction_t,
-    pub(crate) _marker: PhantomData<&'db TxnDB>,
+    pub(crate) _marker: PhantomData<&'db TransactionDB>,
 }
 
-unsafe impl<'db> Send for Txn<'db> {}
+unsafe impl<'db> Send for Transaction<'db> {}
 
-impl<'db> DBAccess for Txn<'db> {
+impl<'db> DBAccess for Transaction<'db> {
     fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         unsafe { ffi::rocksdb_transaction_get_snapshot(self.inner) }
     }
@@ -74,17 +74,17 @@ impl<'db> DBAccess for Txn<'db> {
     }
 }
 
-impl<'db> Txn<'db> {
+impl<'db> Transaction<'db> {
     /// Write all batched keys to the db atomically.
     ///
-    /// May return any error that could be returned by [`TxnDB::write`].
+    /// May return any error that could be returned by [`TransactionDB::write`].
     ///
-    /// If this transaction was created by a [`TxnDB`], an error of
+    /// If this transaction was created by a [`TransactionDB`], an error of
     /// the [`Expired`] kind may be returned if this transaction has
-    /// lived longer than expiration time in [`TxnOptions`].
+    /// lived longer than expiration time in [`TransactionOptions`].
     ///
     /// [`Expired`]: crate::ErrorKind::Expired
-    /// [`TxnOptions`]: crate::TxnOptions
+    /// [`TransactionOptions`]: crate::TransactionOptions
     pub fn commit(self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner));
@@ -92,11 +92,11 @@ impl<'db> Txn<'db> {
         Ok(())
     }
 
-    /// Returns snapshot associated with transaction if snapshot was enabled in [`TxnOptions`].
+    /// Returns snapshot associated with transaction if snapshot was enabled in [`TransactionOptions`].
     /// Otherwise, returns a snapshot with `nullptr` inside which doesn't effect read operations.
     ///
-    /// [`TxnOptions`]: crate::TxnOptions
-    pub fn snapshot(&self) -> SnapshotWithThreadMode<Txn> {
+    /// [`TransactionOptions`]: crate::TransactionOptions
+    pub fn snapshot(&self) -> SnapshotWithThreadMode<Transaction> {
         SnapshotWithThreadMode::new(self)
     }
 
@@ -150,7 +150,7 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -174,7 +174,7 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -249,7 +249,7 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -291,7 +291,7 @@ impl<'db> Txn<'db> {
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -331,7 +331,7 @@ impl<'db> Txn<'db> {
 
     /// Put the key value in default column family and do conflict checking on the key.
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -357,7 +357,7 @@ impl<'db> Txn<'db> {
 
     /// Put the key value in the given column famuly and do conflict checking on the key.
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -389,7 +389,7 @@ impl<'db> Txn<'db> {
 
     /// Merge value with existing value of key, and also do conflict checking on the key.
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -416,7 +416,7 @@ impl<'db> Txn<'db> {
     /// Merge `value` with existing value of `key` in the given column family,
     /// and also do conflict checking on the key.
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -448,7 +448,7 @@ impl<'db> Txn<'db> {
 
     /// Delete the key value if it exists and do conflict checking on the key.
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -472,7 +472,7 @@ impl<'db> Txn<'db> {
 
     /// Delete the key value in the given column family and do conflict checking.
     ///
-    /// If this transaction was created by a [`TxnDB`], it can return error of kind:
+    /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
     /// * [`TimedOut`] if a lock could not be acquired.
     /// * [`TryAgain`] if the memtable history size is not large enough.
@@ -618,7 +618,7 @@ impl<'db> Txn<'db> {
     }
 }
 
-impl<'a> Drop for Txn<'a> {
+impl<'a> Drop for Transaction<'a> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_transaction_destroy(self.inner);

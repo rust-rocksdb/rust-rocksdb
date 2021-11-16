@@ -14,9 +14,9 @@
 //
 
 mod options;
-mod txn;
-mod txn_db;
+mod transaction;
+mod transaction_db;
 
-pub use options::{TxnDBOptions, TxnOptions};
-pub use txn::Txn;
-pub use txn_db::TxnDB;
+pub use options::{TransactionDBOptions, TransactionOptions};
+pub use transaction::Transaction;
+pub use transaction_db::TransactionDB;

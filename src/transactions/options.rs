@@ -19,14 +19,14 @@ use libc::c_uchar;
 
 use crate::ffi;
 
-pub struct TxnOptions {
+pub struct TransactionOptions {
     pub(crate) inner: *mut ffi::rocksdb_transaction_options_t,
 }
 
-unsafe impl Send for TxnOptions {}
-unsafe impl Sync for TxnOptions {}
+unsafe impl Send for TransactionOptions {}
+unsafe impl Sync for TransactionOptions {}
 
-impl Default for TxnOptions {
+impl Default for TransactionOptions {
     fn default() -> Self {
         let txn_opts = unsafe { ffi::rocksdb_transaction_options_create() };
         if txn_opts.is_null() {
@@ -36,9 +36,9 @@ impl Default for TxnOptions {
     }
 }
 
-impl TxnOptions {
-    pub fn new() -> TxnOptions {
-        TxnOptions::default()
+impl TransactionOptions {
+    pub fn new() -> TransactionOptions {
+        TransactionOptions::default()
     }
 
     /// Specifies use snapshot or not.
@@ -84,7 +84,7 @@ impl TxnOptions {
     /// Specifies the wait timeout in milliseconds when a transaction attempts to lock a key.
     ///
     /// If 0, no waiting is done if a lock cannot instantly be acquired.
-    /// If negative, transaction lock timeout in `TxnDBOptions` will be used.
+    /// If negative, transaction lock timeout in `TransactionDBOptions` will be used.
     ///
     /// Default: -1.
     pub fn set_lock_timeout(&mut self, lock_timeout: i64) {
@@ -125,7 +125,7 @@ impl TxnOptions {
     }
 }
 
-impl Drop for TxnOptions {
+impl Drop for TransactionOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_transaction_options_destroy(self.inner);
@@ -133,14 +133,14 @@ impl Drop for TxnOptions {
     }
 }
 
-pub struct TxnDBOptions {
+pub struct TransactionDBOptions {
     pub(crate) inner: *mut ffi::rocksdb_transactiondb_options_t,
 }
 
-unsafe impl Send for TxnDBOptions {}
-unsafe impl Sync for TxnDBOptions {}
+unsafe impl Send for TransactionDBOptions {}
+unsafe impl Sync for TransactionDBOptions {}
 
-impl Default for TxnDBOptions {
+impl Default for TransactionDBOptions {
     fn default() -> Self {
         let txn_db_opts = unsafe { ffi::rocksdb_transactiondb_options_create() };
         if txn_db_opts.is_null() {
@@ -150,13 +150,13 @@ impl Default for TxnDBOptions {
     }
 }
 
-impl TxnDBOptions {
-    pub fn new() -> TxnDBOptions {
-        TxnDBOptions::default()
+impl TransactionDBOptions {
+    pub fn new() -> TransactionDBOptions {
+        TransactionDBOptions::default()
     }
 
     /// Specifies the wait timeout in milliseconds when writing a key
-    /// outside of a transaction (ie. by calling `TxnDB::put` directly).
+    /// outside of a transaction (ie. by calling `TransactionDB::put` directly).
     ///
     /// If 0, no waiting is done if a lock cannot instantly be acquired.
     /// If negative, there is no timeout and will block indefinitely when acquiring
@@ -179,7 +179,7 @@ impl TxnDBOptions {
     }
 
     /// Specifies the default wait timeout in milliseconds when a stransaction
-    /// attempts to lock a key if not secified in `TxnOptions`.
+    /// attempts to lock a key if not secified in `TransactionOptions`.
     ///
     /// If 0, no waiting is done if a lock cannot instantly be acquired.
     /// If negative, there is no timeout.  Not using a timeout is not recommended
@@ -224,7 +224,7 @@ impl TxnDBOptions {
     }
 }
 
-impl Drop for TxnDBOptions {
+impl Drop for TransactionDBOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_transactiondb_options_destroy(self.inner);

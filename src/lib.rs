@@ -93,7 +93,7 @@ pub mod perf;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
-mod txn;
+mod transactions;
 mod write_batch;
 
 pub use crate::{
@@ -120,7 +120,7 @@ pub use crate::{
     slice_transform::SliceTransform,
     snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
-    txn::{Txn, TxnDB, TxnDBOptions, TxnOptions},
+    transactions::{Transaction, TransactionDB, TransactionDBOptions, TransactionOptions},
     write_batch::{WriteBatch, WriteBatchIterator},
 };
 

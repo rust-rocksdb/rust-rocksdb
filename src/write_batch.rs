@@ -225,7 +225,7 @@ impl WriteBatch {
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
     ///
-    /// `TxnDB` doesn't support `delete_range`.
+    /// `TransactionDB` doesn't support `delete_range`.
     pub fn delete_range<K: AsRef<[u8]>>(&mut self, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 
@@ -246,7 +246,7 @@ impl WriteBatch {
     /// including "begin_key" and excluding "end_key". It is not an error if no
     /// keys exist in the range ["begin_key", "end_key").
     ///
-    /// `TxnDB` doesn't support `delete_range_cf`.
+    /// `TransactionDB` doesn't support `delete_range_cf`.
     pub fn delete_range_cf<K: AsRef<[u8]>>(&mut self, cf: &impl AsColumnFamilyRef, from: K, to: K) {
         let (start_key, end_key) = (from.as_ref(), to.as_ref());
 

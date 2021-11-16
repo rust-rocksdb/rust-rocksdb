@@ -19,16 +19,17 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     CuckooTableOptions, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
-    SliceTransform, TxnDB, TxnDBOptions, TxnOptions, WriteBatch, WriteOptions,
+    SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions, WriteBatch,
+    WriteOptions,
 };
 use util::DBPath;
 
 #[test]
 fn open_default() {
-    let path = DBPath::new("_rust_rocksdb_txndb_open_default");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_open_default");
 
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
@@ -42,12 +43,18 @@ fn open_default() {
 
 #[test]
 fn open_cf() {
-    let path = DBPath::new("_rust_rocksdb_txndb_open_cf");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_open_cf");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = TxnDB::open_cf(&opts, &TxnDBOptions::default(), &path, ["cf1", "cf2"]).unwrap();
+        let db = TransactionDB::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &path,
+            ["cf1", "cf2"],
+        )
+        .unwrap();
 
         let cf1 = db.cf_handle("cf1").unwrap();
         let cf2 = db.cf_handle("cf2").unwrap();
@@ -72,9 +79,9 @@ fn open_cf() {
 
 #[test]
 fn put_get() {
-    let path = DBPath::new("_rust_rocksdb_txndb_put_get");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_put_get");
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
         assert!(db.put(b"k1", b"v1111").is_ok());
         assert!(db.put(b"k2", b"v22222222").is_ok());
 
@@ -87,15 +94,15 @@ fn put_get() {
 
 #[test]
 fn destroy_on_open() {
-    let path = DBPath::new("_rust_rocksdb_txndb_destroy_on_open");
-    let _db = TxnDB::open_default(&path).unwrap();
+    let path = DBPath::new("_rust_rocksdb_transaction_db_destroy_on_open");
+    let _db = TransactionDB::open_default(&path).unwrap();
     let opts = Options::default();
-    // The TxnDB will still be open when we try to destroy it and the lock should fail.
-    match TxnDB::destroy(&opts, &path) {
+    // The TransactionDB will still be open when we try to destroy it and the lock should fail.
+    match TransactionDB::destroy(&opts, &path) {
         Err(s) => {
             let message = s.to_string();
             assert_eq!(s.kind(), ErrorKind::IOError);
-            assert!(message.contains("_rust_rocksdb_txndb_destroy_on_open"));
+            assert!(message.contains("_rust_rocksdb_transaction_db_destroy_on_open"));
             assert!(message.contains("/LOCK:"));
         }
         Ok(_) => panic!("should fail"),
@@ -104,9 +111,9 @@ fn destroy_on_open() {
 
 #[test]
 fn writebatch() {
-    let path = DBPath::new("_rust_rocksdb_txndb_writebatch");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_writebatch");
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
         {
             // test put
             let mut batch = WriteBatch::default();
@@ -147,9 +154,9 @@ fn writebatch() {
 
 #[test]
 fn iterator_test() {
-    let path = DBPath::new("_rust_rocksdb_txndb_iteratortest");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_iteratortest");
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
 
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -206,9 +213,9 @@ fn iterator_test() {
 
 #[test]
 fn snapshot_test() {
-    let path = DBPath::new("_rust_rocksdb_txndb_snapshottest");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_snapshottest");
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
@@ -224,15 +231,15 @@ fn snapshot_test() {
 
 #[test]
 fn prefix_extract_and_iterate_test() {
-    let path = DBPath::new("_rust_rocksdb_txndb_prefix_extract_and_iterate");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_prefix_extract_and_iterate");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
         opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(2));
-        let txn_db_opts = TxnDBOptions::default();
+        let txn_db_opts = TransactionDBOptions::default();
 
-        let db = TxnDB::open(&opts, &txn_db_opts, &path).unwrap();
+        let db = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
         db.put(b"p1_k1", b"v1").unwrap();
         db.put(b"p2_k2", b"v2").unwrap();
         db.put(b"p1_k3", b"v3").unwrap();
@@ -255,11 +262,11 @@ fn prefix_extract_and_iterate_test() {
 
 #[test]
 fn cuckoo() {
-    let path = DBPath::new("_rust_rocksdb_txndb_cuckoo");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_cuckoo");
 
     {
         let mut opts = Options::default();
-        let txn_db_opts = TxnDBOptions::default();
+        let txn_db_opts = TransactionDBOptions::default();
         let mut factory_opts = CuckooTableOptions::default();
         factory_opts.set_hash_ratio(0.8);
         factory_opts.set_max_search_depth(20);
@@ -270,7 +277,7 @@ fn cuckoo() {
         opts.set_cuckoo_table_factory(&factory_opts);
         opts.create_if_missing(true);
 
-        let db = TxnDB::open(&opts, &txn_db_opts, &path).unwrap();
+        let db = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
         let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
@@ -286,27 +293,27 @@ fn cuckoo() {
 
 #[test]
 fn transaction() {
-    let path = DBPath::new("_rust_rocksdb_txndb_transaction");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_transaction");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        let mut txn_db_opts = TxnDBOptions::default();
+        let mut txn_db_opts = TransactionDBOptions::default();
         txn_db_opts.set_txn_lock_timeout(10);
 
-        let db = TxnDB::open(&opts, &txn_db_opts, &path).unwrap();
+        let db = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
 
         // put outside of transaction
         db.put(b"k1", b"v1").unwrap();
         assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
 
-        let txn1 = db.txn();
+        let txn1 = db.transaction();
         txn1.put(b"k1", b"v2").unwrap();
 
         // get outside of transaction
         assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
 
         // modify same key in another transaction, should get TimedOut
-        let txn2 = db.txn();
+        let txn2 = db.transaction();
         let err = txn2.put(b"k1", b"v3").unwrap_err();
         assert_eq!(err.kind(), ErrorKind::TimedOut);
 
@@ -317,9 +324,9 @@ fn transaction() {
 
 #[test]
 fn transaction_iterator() {
-    let path = DBPath::new("_rust_rocksdb_txndb_transaction_iterator");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_iterator");
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
 
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -339,7 +346,7 @@ fn transaction_iterator() {
             (k3.clone(), v3.clone()),
         ];
 
-        let txn = db.txn();
+        let txn = db.transaction();
 
         let iter = txn.iterator(IteratorMode::Start);
         assert_eq!(iter.collect::<Vec<_>>(), expected);
@@ -378,10 +385,10 @@ fn transaction_iterator() {
 
 #[test]
 fn transaction_rollback() {
-    let path = DBPath::new("_rust_rocksdb_txndb_transaction_rollback");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_rollback");
     {
-        let db = TxnDB::open_default(&path).unwrap();
-        let txn = db.txn();
+        let db = TransactionDB::open_default(&path).unwrap();
+        let txn = db.transaction();
 
         txn.rollback().unwrap();
 
@@ -407,17 +414,23 @@ fn transaction_rollback() {
 
 #[test]
 fn transaction_cf() {
-    let path = DBPath::new("_rust_rocksdb_txndb_transaction_cf");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_cf");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = TxnDB::open_cf(&opts, &TxnDBOptions::default(), &path, ["cf1", "cf2"]).unwrap();
+        let db = TransactionDB::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &path,
+            ["cf1", "cf2"],
+        )
+        .unwrap();
 
         let cf1 = db.cf_handle("cf1").unwrap();
         let cf2 = db.cf_handle("cf2").unwrap();
 
-        let txn = db.txn();
+        let txn = db.transaction();
         txn.put(b"k0", b"v0").unwrap();
         txn.put_cf(&cf1, b"k1", b"v1").unwrap();
         txn.put_cf(&cf2, b"k2", b"v2").unwrap();
@@ -440,19 +453,19 @@ fn transaction_cf() {
 
 #[test]
 fn transaction_snapshot() {
-    let path = DBPath::new("_rust_rocksdb_txndb_transaction_snapshot");
+    let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_snapshot");
     {
-        let db = TxnDB::open_default(&path).unwrap();
+        let db = TransactionDB::open_default(&path).unwrap();
 
-        let txn = db.txn();
+        let txn = db.transaction();
         let snapshot = txn.snapshot();
         assert!(snapshot.get(b"k1").unwrap().is_none());
         db.put(b"k1", b"v1").unwrap();
         assert_eq!(snapshot.get(b"k1").unwrap().unwrap(), b"v1");
 
-        let mut opts = TxnOptions::default();
+        let mut opts = TransactionOptions::default();
         opts.set_snapshot(true);
-        let txn = db.txn_opt(&WriteOptions::default(), &opts);
+        let txn = db.transaction_opt(&WriteOptions::default(), &opts);
         db.put(b"k2", b"v2").unwrap();
         let snapshot = txn.snapshot();
         assert!(snapshot.get(b"k2").unwrap().is_none());
@@ -465,19 +478,19 @@ fn transaction_snapshot() {
 }
 
 #[test]
-fn test_snapshot_outlive_txndb() {
+fn test_snapshot_outlive_transaction_db() {
     let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/snapshot_outlive_txndb.rs");
+    t.compile_fail("tests/fail/snapshot_outlive_transaction_db.rs");
 }
 
 #[test]
-fn test_txn_outlive_txndb() {
+fn test_txn_outlive_transaction_db() {
     let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/txn_outlive_txndb.rs");
+    t.compile_fail("tests/fail/transaction_outlive_transaction_db.rs");
 }
 
 #[test]
 fn test_snapshot_outlive_txn() {
     let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/snapshot_outlive_txn.rs");
+    t.compile_fail("tests/fail/snapshot_outlive_transaction.rs");
 }

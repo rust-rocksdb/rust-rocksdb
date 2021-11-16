@@ -27,8 +27,8 @@ use crate::{
     column_family::UnboundColumnFamily, db::DBAccess, db_options::OptionsMustOutliveDB, ffi,
     ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamilyDescriptor,
     DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, Options,
-    ReadOptions, SnapshotWithThreadMode, Txn, TxnDBOptions, TxnOptions, WriteBatch, WriteOptions,
-    DB, DEFAULT_COLUMN_FAMILY_NAME,
+    ReadOptions, SnapshotWithThreadMode, Transaction, TransactionDBOptions, TransactionOptions,
+    WriteBatch, WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use libc::{c_char, c_int, size_t};
 
@@ -36,17 +36,17 @@ use libc::{c_char, c_int, size_t};
 ///
 /// Please read the official [guide](https://github.com/facebook/rocksdb/wiki/Transactions)
 /// to learn more about RocksDB TransactionDB.
-pub struct TxnDB {
+pub struct TransactionDB {
     pub(crate) inner: *mut ffi::rocksdb_transactiondb_t,
     cfs: RwLock<BTreeMap<String, Arc<UnboundColumnFamily>>>,
     path: PathBuf,
     _outlive: Vec<OptionsMustOutliveDB>,
 }
 
-unsafe impl Send for TxnDB {}
-unsafe impl Sync for TxnDB {}
+unsafe impl Send for TransactionDB {}
+unsafe impl Sync for TransactionDB {}
 
-impl DBAccess for TxnDB {
+impl DBAccess for TransactionDB {
     fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         unsafe { ffi::rocksdb_transactiondb_create_snapshot(self.inner) }
     }
@@ -89,21 +89,21 @@ impl DBAccess for TxnDB {
     }
 }
 
-impl TxnDB {
+impl TransactionDB {
     /// Opens a database with default options.
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        let txn_db_opts = TxnDBOptions::default();
+        let txn_db_opts = TransactionDBOptions::default();
         Self::open(&opts, &txn_db_opts, path)
     }
 
     /// Opens the database with the specified options.
     pub fn open<P: AsRef<Path>>(
         opts: &Options,
-        txn_db_opts: &TxnDBOptions,
+        txn_db_opts: &TransactionDBOptions,
         path: P,
-    ) -> Result<TxnDB, Error> {
+    ) -> Result<TransactionDB, Error> {
         Self::open_cf(opts, txn_db_opts, path, None::<&str>)
     }
 
@@ -112,7 +112,7 @@ impl TxnDB {
     /// Column families opened using this function will be created with default `Options`.
     pub fn open_cf<P, I, N>(
         opts: &Options,
-        txn_db_opts: &TxnDBOptions,
+        txn_db_opts: &TransactionDBOptions,
         path: P,
         cfs: I,
     ) -> Result<Self, Error>
@@ -131,7 +131,7 @@ impl TxnDB {
     /// Opens a database with the given database options and column family descriptors.
     pub fn open_cf_descriptors<P, I>(
         opts: &Options,
-        txn_db_opts: &TxnDBOptions,
+        txn_db_opts: &TransactionDBOptions,
         path: P,
         cfs: I,
     ) -> Result<Self, Error>
@@ -145,7 +145,7 @@ impl TxnDB {
     /// Internal implementation for opening RocksDB.
     fn open_cf_descriptors_internal<P, I>(
         opts: &Options,
-        txn_db_opts: &TxnDBOptions,
+        txn_db_opts: &TransactionDBOptions,
         path: P,
         cfs: I,
     ) -> Result<Self, Error>
@@ -225,7 +225,7 @@ impl TxnDB {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
-        Ok(TxnDB {
+        Ok(TransactionDB {
             inner: db,
             cfs: RwLock::new(
                 cf_map
@@ -240,7 +240,7 @@ impl TxnDB {
 
     fn open_raw(
         opts: &Options,
-        txn_db_opts: &TxnDBOptions,
+        txn_db_opts: &TransactionDBOptions,
         cpath: &CString,
     ) -> Result<*mut ffi::rocksdb_transactiondb_t, Error> {
         unsafe {
@@ -255,7 +255,7 @@ impl TxnDB {
 
     fn open_cf_raw(
         opts: &Options,
-        txn_db_opts: &TxnDBOptions,
+        txn_db_opts: &TransactionDBOptions,
         cpath: &CString,
         cfs_v: &[ColumnFamilyDescriptor],
         cfnames: &[*const c_char],
@@ -334,13 +334,17 @@ impl TxnDB {
     }
 
     /// Creates a transaction with default options.
-    pub fn txn(&self) -> Txn {
-        self.txn_opt(&WriteOptions::default(), &TxnOptions::default())
+    pub fn transaction(&self) -> Transaction {
+        self.transaction_opt(&WriteOptions::default(), &TransactionOptions::default())
     }
 
     /// Creates a transaction with options.
-    pub fn txn_opt<'a>(&'a self, write_opts: &WriteOptions, txn_opts: &TxnOptions) -> Txn<'a> {
-        Txn {
+    pub fn transaction_opt<'a>(
+        &'a self,
+        write_opts: &WriteOptions,
+        txn_opts: &TransactionOptions,
+    ) -> Transaction<'a> {
+        Transaction {
             inner: unsafe {
                 ffi::rocksdb_transaction_begin(
                     self.inner,
@@ -719,7 +723,7 @@ impl TxnDB {
     }
 }
 
-impl Drop for TxnDB {
+impl Drop for TransactionDB {
     fn drop(&mut self) {
         unsafe {
             self.cfs.write().unwrap().clear();
