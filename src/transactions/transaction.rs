@@ -17,21 +17,24 @@ use std::marker::PhantomData;
 
 use crate::{
     db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
-    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode, TransactionDB,
+    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode,
 };
 use libc::{c_char, c_void, size_t};
 
 /// RocksDB Transaction.
 ///
-/// To use transactions, you must first create a [`TransactionDB`].
-pub struct Transaction<'db> {
+/// To use transactions, you must first create a [`TransactionDB`] or [`OptimisticTransactionDB`].
+///
+/// [`TransactionDB`]: crate::TransactionDB
+/// [`OptimisticTransactionDB`]: crate::OptimisticTransactionDB
+pub struct Transaction<'db, DB> {
     pub(crate) inner: *mut ffi::rocksdb_transaction_t,
-    pub(crate) _marker: PhantomData<&'db TransactionDB>,
+    pub(crate) _marker: PhantomData<&'db DB>,
 }
 
-unsafe impl<'db> Send for Transaction<'db> {}
+unsafe impl<'db, DB> Send for Transaction<'db, DB> {}
 
-impl<'db> DBAccess for Transaction<'db> {
+impl<'db, DB> DBAccess for Transaction<'db, DB> {
     fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         unsafe { ffi::rocksdb_transaction_get_snapshot(self.inner) }
     }
@@ -74,10 +77,10 @@ impl<'db> DBAccess for Transaction<'db> {
     }
 }
 
-impl<'db> Transaction<'db> {
+impl<'db, DB> Transaction<'db, DB> {
     /// Write all batched keys to the db atomically.
     ///
-    /// May return any error that could be returned by [`TransactionDB::write`].
+    /// May return any error that could be returned by `DB::write`.
     ///
     /// If this transaction was created by a [`TransactionDB`], an error of
     /// the [`Expired`] kind may be returned if this transaction has
@@ -85,6 +88,7 @@ impl<'db> Transaction<'db> {
     ///
     /// [`Expired`]: crate::ErrorKind::Expired
     /// [`TransactionOptions`]: crate::TransactionOptions
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn commit(self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner));
@@ -96,7 +100,7 @@ impl<'db> Transaction<'db> {
     /// Otherwise, returns a snapshot with `nullptr` inside which doesn't effect read operations.
     ///
     /// [`TransactionOptions`]: crate::TransactionOptions
-    pub fn snapshot(&self) -> SnapshotWithThreadMode<Transaction> {
+    pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
         SnapshotWithThreadMode::new(self)
     }
 
@@ -161,6 +165,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn get_for_update<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -185,6 +190,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn get_for_update_cf<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -260,6 +266,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn get_for_update_opt<K: AsRef<[u8]>>(
         &self,
         key: K,
@@ -302,6 +309,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn get_for_update_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -342,6 +350,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: K, value: V) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_put(
@@ -368,6 +377,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn put_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -400,6 +410,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn merge<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: &K, value: &V) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge(
@@ -427,6 +438,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn merge_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -459,6 +471,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete(
@@ -483,6 +496,7 @@ impl<'db> Transaction<'db> {
     /// [`TimedOut`]: crate::ErrorKind::TimedOut
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
+    /// [`TransactionDB`]: crate::TransactionDB
     pub fn delete_cf<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -618,7 +632,7 @@ impl<'db> Transaction<'db> {
     }
 }
 
-impl<'a> Drop for Transaction<'a> {
+impl<'db, DB> Drop for Transaction<'db, DB> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_transaction_destroy(self.inner);

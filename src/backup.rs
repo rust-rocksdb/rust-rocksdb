@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 
+use crate::db::DBInner;
 use crate::{ffi, Error, DB};
 
 use libc::{c_int, c_uchar};
@@ -92,7 +93,7 @@ impl BackupEngine {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
                 self.inner,
-                db.inner,
+                db.inner.inner(),
                 flush_before_backup as c_uchar,
             ));
             Ok(())

@@ -17,6 +17,7 @@
 //!
 //! [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
 
+use crate::db::DBInner;
 use crate::{ffi, Error, DB};
 use std::ffi::CString;
 use std::marker::PhantomData;
@@ -41,7 +42,7 @@ impl<'db> Checkpoint<'db> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
         unsafe {
-            checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner));
+            checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner.inner()));
         }
 
         if checkpoint.is_null() {
