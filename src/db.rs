@@ -327,6 +327,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             },
         )
     }
+
     /// Opens a database for read only with the given database options and column family names.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
