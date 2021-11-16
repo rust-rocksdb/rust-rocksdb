@@ -13,10 +13,12 @@
 // limitations under the License.
 //
 
+mod optimistic_transaction_db;
 mod options;
 mod transaction;
 mod transaction_db;
 
-pub use options::{TransactionDBOptions, TransactionOptions};
+pub use optimistic_transaction_db::OptimisticTransactionDB;
+pub use options::{OptimisticTransactionOptions, TransactionDBOptions, TransactionOptions};
 pub use transaction::Transaction;
 pub use transaction_db::TransactionDB;

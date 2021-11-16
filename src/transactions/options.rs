@@ -231,3 +231,53 @@ impl Drop for TransactionDBOptions {
         }
     }
 }
+
+pub struct OptimisticTransactionOptions {
+    pub(crate) inner: *mut ffi::rocksdb_optimistictransaction_options_t,
+}
+
+unsafe impl Send for OptimisticTransactionOptions {}
+unsafe impl Sync for OptimisticTransactionOptions {}
+
+impl Default for OptimisticTransactionOptions {
+    fn default() -> Self {
+        let txn_opts = unsafe { ffi::rocksdb_optimistictransaction_options_create() };
+        if txn_opts.is_null() {
+            panic!("Could not create RocksDB optimistic transaction options");
+        }
+        Self { inner: txn_opts }
+    }
+}
+
+impl OptimisticTransactionOptions {
+    pub fn new() -> OptimisticTransactionOptions {
+        OptimisticTransactionOptions::default()
+    }
+
+    /// Specifies use snapshot or not.
+    ///
+    /// Default: false.
+    ///
+    /// If a transaction has a snapshot set, the transaction will ensure that
+    /// any keys successfully written(or fetched via `get_for_update`) have not
+    /// been modified outside of this transaction since the time the snapshot was
+    /// set.
+    /// If a snapshot has not been set, the transaction guarantees that keys have
+    /// not been modified since the time each key was first written (or fetched via
+    /// `get_for_update`).
+    ///
+    /// Using snapshot will provide stricter isolation guarantees at the
+    /// expense of potentially more transaction failures due to conflicts with
+    /// other writes.
+    ///
+    /// Calling `set_snapshot` will not affect the version of Data returned by `get`
+    /// methods.
+    pub fn set_snapshot(&mut self, snapshot: bool) {
+        unsafe {
+            ffi::rocksdb_optimistictransaction_options_set_set_snapshot(
+                self.inner,
+                snapshot as c_uchar,
+            );
+        }
+    }
+}

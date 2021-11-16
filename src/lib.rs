@@ -120,7 +120,10 @@ pub use crate::{
     slice_transform::SliceTransform,
     snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
-    transactions::{Transaction, TransactionDB, TransactionDBOptions, TransactionOptions},
+    transactions::{
+        OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
+        TransactionDBOptions, TransactionOptions,
+    },
     write_batch::{WriteBatch, WriteBatchIterator},
 };
 
