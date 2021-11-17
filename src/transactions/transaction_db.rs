@@ -20,33 +20,60 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
     ptr,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use crate::{
     column_family::UnboundColumnFamily, db::DBAccess, db_options::OptionsMustOutliveDB, ffi,
-    ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamilyDescriptor,
-    DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, Options,
-    ReadOptions, SnapshotWithThreadMode, Transaction, TransactionDBOptions, TransactionOptions,
-    WriteBatch, WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
+    ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
+    DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode,
+    MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode, ThreadMode,
+    Transaction, TransactionDBOptions, TransactionOptions, WriteBatch, WriteOptions, DB,
+    DEFAULT_COLUMN_FAMILY_NAME,
 };
 use libc::{c_char, c_int, size_t};
+
+#[cfg(not(feature = "multi-threaded-cf"))]
+type DefaultThreadMode = crate::SingleThreaded;
+#[cfg(feature = "multi-threaded-cf")]
+type DefaultThreadMode = crate::MultiThreaded;
 
 /// RocksDB TransactionDB.
 ///
 /// Please read the official [guide](https://github.com/facebook/rocksdb/wiki/Transactions)
 /// to learn more about RocksDB TransactionDB.
-pub struct TransactionDB {
+///
+/// The default thread mode for [`TransactionDB`] is [`SingleThreaded`]
+/// if feature `multi-threaded-cf` is not enabled.
+///
+/// ```
+/// use rocksdb::{DB, Options, TransactionDB, SingleThreaded};
+/// let path = "_path_for_optimistic_transaction_db";
+/// {
+///     let db: TransactionDB = TransactionDB::open_default(path).unwrap();
+///     db.put(b"my key", b"my value").unwrap();
+///     
+///     // create transaction
+///     let txn = db.transaction();
+///     txn.put(b"key2", b"value2");
+///     txn.put(b"key3", b"value3");
+///     txn.commit().unwrap();
+/// }
+/// let _ = DB::destroy(&Options::default(), path);
+/// ```
+///
+/// [`SingleThreaded`]: crate::SingleThreaded
+pub struct TransactionDB<T: ThreadMode = DefaultThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_transactiondb_t,
-    cfs: RwLock<BTreeMap<String, Arc<UnboundColumnFamily>>>,
+    cfs: T,
     path: PathBuf,
     _outlive: Vec<OptionsMustOutliveDB>,
 }
 
-unsafe impl Send for TransactionDB {}
-unsafe impl Sync for TransactionDB {}
+unsafe impl<T: ThreadMode> Send for TransactionDB<T> {}
+unsafe impl<T: ThreadMode> Sync for TransactionDB<T> {}
 
-impl DBAccess for TransactionDB {
+impl<T: ThreadMode> DBAccess for TransactionDB<T> {
     fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         unsafe { ffi::rocksdb_transactiondb_create_snapshot(self.inner) }
     }
@@ -89,7 +116,7 @@ impl DBAccess for TransactionDB {
     }
 }
 
-impl TransactionDB {
+impl<T: ThreadMode> TransactionDB<T> {
     /// Opens a database with default options.
     pub fn open_default<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut opts = Options::default();
@@ -103,7 +130,7 @@ impl TransactionDB {
         opts: &Options,
         txn_db_opts: &TransactionDBOptions,
         path: P,
-    ) -> Result<TransactionDB, Error> {
+    ) -> Result<Self, Error> {
         Self::open_cf(opts, txn_db_opts, path, None::<&str>)
     }
 
@@ -227,12 +254,7 @@ impl TransactionDB {
 
         Ok(TransactionDB {
             inner: db,
-            cfs: RwLock::new(
-                cf_map
-                    .into_iter()
-                    .map(|(n, c)| (n, Arc::new(UnboundColumnFamily { inner: c })))
-                    .collect(),
-            ),
+            cfs: T::new_cf_map_internal(cf_map),
             path: path.as_ref().to_path_buf(),
             _outlive: outlive,
         })
@@ -276,16 +298,6 @@ impl TransactionDB {
         }
     }
 
-    /// Creates column family with given name and options.
-    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
-        let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
-        self.cfs.write().unwrap().insert(
-            name.as_ref().to_string(),
-            Arc::new(UnboundColumnFamily { inner }),
-        );
-        Ok(())
-    }
-
     fn create_inner_cf_handle(
         &self,
         name: &str,
@@ -307,16 +319,6 @@ impl TransactionDB {
         })
     }
 
-    /// Returns the underlying column family handle.
-    pub fn cf_handle(&self, name: &str) -> Option<Arc<BoundColumnFamily>> {
-        self.cfs
-            .read()
-            .unwrap()
-            .get(name)
-            .cloned()
-            .map(UnboundColumnFamily::bound_column_family)
-    }
-
     pub fn list_cf<P: AsRef<Path>>(opts: &Options, path: P) -> Result<Vec<String>, Error> {
         DB::list_cf(opts, path)
     }
@@ -334,7 +336,7 @@ impl TransactionDB {
     }
 
     /// Creates a transaction with default options.
-    pub fn transaction(&self) -> Transaction {
+    pub fn transaction(&self) -> Transaction<Self> {
         self.transaction_opt(&WriteOptions::default(), &TransactionOptions::default())
     }
 
@@ -343,7 +345,7 @@ impl TransactionDB {
         &'a self,
         write_opts: &WriteOptions,
         txn_opts: &TransactionOptions,
-    ) -> Transaction<'a> {
+    ) -> Transaction<'a, Self> {
         Transaction {
             inner: unsafe {
                 ffi::rocksdb_transaction_begin(
@@ -723,10 +725,49 @@ impl TransactionDB {
     }
 }
 
-impl Drop for TransactionDB {
+impl TransactionDB<SingleThreaded> {
+    /// Creates column family with given name and options.
+    pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
+        let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        self.cfs
+            .cfs
+            .insert(name.as_ref().to_string(), ColumnFamily { inner });
+        Ok(())
+    }
+
+    /// Returns the underlying column family handle.
+    pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
+        self.cfs.cfs.get(name)
+    }
+}
+
+impl TransactionDB<MultiThreaded> {
+    /// Creates column family with given name and options.
+    pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
+        let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        self.cfs.cfs.write().unwrap().insert(
+            name.as_ref().to_string(),
+            Arc::new(UnboundColumnFamily { inner }),
+        );
+        Ok(())
+    }
+
+    /// Returns the underlying column family handle.
+    pub fn cf_handle(&self, name: &str) -> Option<Arc<BoundColumnFamily>> {
+        self.cfs
+            .cfs
+            .read()
+            .unwrap()
+            .get(name)
+            .cloned()
+            .map(UnboundColumnFamily::bound_column_family)
+    }
+}
+
+impl<T: ThreadMode> Drop for TransactionDB<T> {
     fn drop(&mut self) {
         unsafe {
-            self.cfs.write().unwrap().clear();
+            self.cfs.drop_all_cfs_internal();
             ffi::rocksdb_transactiondb_close(self.inner);
         }
     }

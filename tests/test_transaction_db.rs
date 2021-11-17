@@ -20,7 +20,7 @@ use pretty_assertions::assert_eq;
 use rocksdb::{
     CuckooTableOptions, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
     SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions, WriteBatch,
-    WriteOptions,
+    WriteOptions, DB,
 };
 use util::DBPath;
 
@@ -29,7 +29,7 @@ fn open_default() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_open_default");
 
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
@@ -48,7 +48,7 @@ fn open_cf() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = TransactionDB::open_cf(
+        let db: TransactionDB = TransactionDB::open_cf(
             &opts,
             &TransactionDBOptions::default(),
             &path,
@@ -81,7 +81,7 @@ fn open_cf() {
 fn put_get() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_put_get");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
         assert!(db.put(b"k1", b"v1111").is_ok());
         assert!(db.put(b"k2", b"v22222222").is_ok());
 
@@ -95,10 +95,10 @@ fn put_get() {
 #[test]
 fn destroy_on_open() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_destroy_on_open");
-    let _db = TransactionDB::open_default(&path).unwrap();
+    let _db: TransactionDB = TransactionDB::open_default(&path).unwrap();
     let opts = Options::default();
     // The TransactionDB will still be open when we try to destroy it and the lock should fail.
-    match TransactionDB::destroy(&opts, &path) {
+    match DB::destroy(&opts, &path) {
         Err(s) => {
             let message = s.to_string();
             assert_eq!(s.kind(), ErrorKind::IOError);
@@ -113,7 +113,7 @@ fn destroy_on_open() {
 fn writebatch() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_writebatch");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
         {
             // test put
             let mut batch = WriteBatch::default();
@@ -156,7 +156,7 @@ fn writebatch() {
 fn iterator_test() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_iteratortest");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -215,7 +215,7 @@ fn iterator_test() {
 fn snapshot_test() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_snapshottest");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         assert!(db.put(b"k1", b"v1111").is_ok());
 
@@ -239,7 +239,7 @@ fn prefix_extract_and_iterate_test() {
         opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(2));
         let txn_db_opts = TransactionDBOptions::default();
 
-        let db = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
+        let db: TransactionDB = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
         db.put(b"p1_k1", b"v1").unwrap();
         db.put(b"p2_k2", b"v2").unwrap();
         db.put(b"p1_k3", b"v3").unwrap();
@@ -277,7 +277,7 @@ fn cuckoo() {
         opts.set_cuckoo_table_factory(&factory_opts);
         opts.create_if_missing(true);
 
-        let db = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
+        let db: TransactionDB = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
         db.put(b"k1", b"v1").unwrap();
         db.put(b"k2", b"v2").unwrap();
         let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
@@ -300,7 +300,7 @@ fn transaction() {
         let mut txn_db_opts = TransactionDBOptions::default();
         txn_db_opts.set_txn_lock_timeout(10);
 
-        let db = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
+        let db: TransactionDB = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
 
         // put outside of transaction
         db.put(b"k1", b"v1").unwrap();
@@ -326,7 +326,7 @@ fn transaction() {
 fn transaction_iterator() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_iterator");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
         let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
@@ -387,7 +387,7 @@ fn transaction_iterator() {
 fn transaction_rollback() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_rollback");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
         let txn = db.transaction();
 
         txn.rollback().unwrap();
@@ -419,7 +419,7 @@ fn transaction_cf() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = TransactionDB::open_cf(
+        let db: TransactionDB = TransactionDB::open_cf(
             &opts,
             &TransactionDBOptions::default(),
             &path,
@@ -455,7 +455,7 @@ fn transaction_cf() {
 fn transaction_snapshot() {
     let path = DBPath::new("_rust_rocksdb_transaction_db_transaction_snapshot");
     {
-        let db = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         let txn = db.transaction();
         let snapshot = txn.snapshot();

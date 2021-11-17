@@ -462,7 +462,7 @@ fn transaction_snapshot() {
         let snapshot = txn.snapshot();
         txn.put(b"k3", b"v3").unwrap();
         assert!(db.get(b"k3").unwrap().is_none());
-        // put operation should also visiable to snapshot,
+        // put operation should also visible to snapshot,
         // because this snapshot is associated with a transaction
         assert_eq!(snapshot.get(b"k3").unwrap().unwrap(), b"v3");
     }
