@@ -101,7 +101,7 @@ pub use crate::{
         ColumnFamilyRef, DEFAULT_COLUMN_FAMILY_NAME,
     },
     compaction_filter::Decision as CompactionDecision,
-    db::{DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode, DB},
+    db::{AccessType, DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode, DB},
     db_iterator::{
         DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
         DBWALIterator, Direction, IteratorMode,
