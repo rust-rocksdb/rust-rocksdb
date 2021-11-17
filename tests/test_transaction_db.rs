@@ -19,8 +19,8 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     CuckooTableOptions, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
-    SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions, WriteBatch,
-    WriteOptions, DB,
+    SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions,
+    WriteBatchWithTransaction, WriteOptions, DB,
 };
 use util::DBPath;
 
@@ -116,7 +116,7 @@ fn writebatch() {
         let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
         {
             // test put
-            let mut batch = WriteBatch::default();
+            let mut batch = WriteBatchWithTransaction::<true>::default();
             assert!(db.get(b"k1").unwrap().is_none());
             assert_eq!(batch.len(), 0);
             assert!(batch.is_empty());
@@ -133,7 +133,7 @@ fn writebatch() {
         }
         {
             // test delete
-            let mut batch = WriteBatch::default();
+            let mut batch = WriteBatchWithTransaction::<true>::default();
             batch.delete(b"k1");
             assert_eq!(batch.len(), 1);
             assert!(!batch.is_empty());
@@ -143,7 +143,7 @@ fn writebatch() {
         }
         {
             // test size_in_bytes
-            let mut batch = WriteBatch::default();
+            let mut batch = WriteBatchWithTransaction::<true>::default();
             let before = batch.size_in_bytes();
             batch.put(b"k1", b"v1234567890");
             let after = batch.size_in_bytes();

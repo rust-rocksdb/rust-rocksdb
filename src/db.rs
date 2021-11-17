@@ -121,7 +121,7 @@ pub trait DBInner {
     fn inner(&self) -> *mut ffi::rocksdb_t;
 }
 
-/// A helper class to implement some common methods for [`DBWithThreadMode`]
+/// A helper type to implement some common methods for [`DBWithThreadMode`]
 /// and [`OptimisticTransactionDB`].
 ///
 /// [`OptimisticTransactionDB`]: crate::OptimisticTransactionDB
@@ -640,6 +640,27 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     ) -> Result<(), Error> {
         self.delete_range_cf_opt(cf, from, to, &WriteOptions::default())
     }
+
+    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_write(
+                self.inner.inner(),
+                writeopts.inner,
+                batch.inner
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
+        self.write_opt(batch, &WriteOptions::default())
+    }
+
+    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error> {
+        let mut wo = WriteOptions::new();
+        wo.disable_wal(true);
+        self.write_opt(batch, &wo)
+    }
 }
 
 /// Common methods of `DBWithThreadMode` and `OptimisticTransactionDB`.
@@ -740,27 +761,6 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     /// options.
     pub fn flush_cf(&self, cf: &impl AsColumnFamilyRef) -> Result<(), Error> {
         self.flush_cf_opt(cf, &FlushOptions::default())
-    }
-
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
-        unsafe {
-            ffi_try!(ffi::rocksdb_write(
-                self.inner.inner(),
-                writeopts.inner,
-                batch.inner
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
-        self.write_opt(batch, &WriteOptions::default())
-    }
-
-    pub fn write_without_wal(&self, batch: WriteBatch) -> Result<(), Error> {
-        let mut wo = WriteOptions::new();
-        wo.disable_wal(true);
-        self.write_opt(batch, &wo)
     }
 
     /// Return the bytes associated with a key value with read options. If you only intend to use

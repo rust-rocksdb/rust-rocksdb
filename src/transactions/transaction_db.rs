@@ -28,8 +28,8 @@ use crate::{
     ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
     DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode,
     MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode, ThreadMode,
-    Transaction, TransactionDBOptions, TransactionOptions, WriteBatch, WriteOptions, DB,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction, WriteOptions,
+    DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use libc::{c_char, c_int, size_t};
 
@@ -48,7 +48,7 @@ type DefaultThreadMode = crate::MultiThreaded;
 ///
 /// ```
 /// use rocksdb::{DB, Options, TransactionDB, SingleThreaded};
-/// let path = "_path_for_optimistic_transaction_db";
+/// let path = "_path_for_transaction_db";
 /// {
 ///     let db: TransactionDB = TransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();
@@ -482,11 +482,15 @@ impl<T: ThreadMode> TransactionDB<T> {
         Ok(())
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<(), Error> {
+    pub fn write(&self, batch: WriteBatchWithTransaction<true>) -> Result<(), Error> {
         self.write_opt(batch, &WriteOptions::default())
     }
 
-    pub fn write_opt(&self, batch: WriteBatch, writeopts: &WriteOptions) -> Result<(), Error> {
+    pub fn write_opt(
+        &self,
+        batch: WriteBatchWithTransaction<true>,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transactiondb_write(
                 self.inner,

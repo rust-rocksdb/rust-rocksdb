@@ -18,9 +18,9 @@ use std::{collections::BTreeMap, ffi::CString, fs, iter, marker::PhantomData, pa
 use libc::{c_char, c_int};
 
 use crate::{
-    db::DBCommon, db::DBInner, ffi, ffi_util::to_cpath, ColumnFamilyDescriptor, Error,
-    OptimisticTransactionOptions, Options, ThreadMode, Transaction, WriteOptions,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    db::DBCommon, db::DBInner, ffi, ffi_util::to_cpath, write_batch::WriteBatchWithTransaction,
+    ColumnFamilyDescriptor, Error, OptimisticTransactionOptions, Options, ThreadMode, Transaction,
+    WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 /// A type alias to RocksDB Optimistic Transaction DB.
@@ -265,5 +265,30 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
             },
             _marker: PhantomData::default(),
         }
+    }
+
+    pub fn write_opt(
+        &self,
+        batch: WriteBatchWithTransaction<true>,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_write(
+                self.inner.inner(),
+                writeopts.inner,
+                batch.inner
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn write(&self, batch: WriteBatchWithTransaction<true>) -> Result<(), Error> {
+        self.write_opt(batch, &WriteOptions::default())
+    }
+
+    pub fn write_without_wal(&self, batch: WriteBatchWithTransaction<true>) -> Result<(), Error> {
+        let mut wo = WriteOptions::new();
+        wo.disable_wal(true);
+        self.write_opt(batch, &wo)
     }
 }
