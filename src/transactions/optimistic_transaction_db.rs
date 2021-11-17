@@ -29,15 +29,18 @@ use crate::{
 /// [guide](https://github.com/facebook/rocksdb/wiki/Transactions#optimistictransactiondb)
 /// to learn more about RocksDB OptimisticTransactionDB.
 ///
+/// The default thread mode for [`OptimisticTransactionDB`] is [`SingleThreaded`]
+/// if feature `multi-threaded-cf` is not enabled.
+///
 /// See [`DBCommon`] for full list of methods.
 ///
 /// # Examples
 ///
 /// ```
-/// use rocksdb::{Options, OptimisticTransactionDB, SingleThreaded};
+/// use rocksdb::{DB, Options, OptimisticTransactionDB, SingleThreaded};
 /// let path = "_path_for_optimistic_transaction_db";
 /// {
-///     let db = OptimisticTransactionDB::<SingleThreaded>::open_default(path).unwrap();
+///     let db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();
 ///     
 ///     // create transaction
@@ -46,9 +49,16 @@ use crate::{
 ///     txn.put(b"key3", b"value3");
 ///     txn.commit().unwrap();
 /// }
-/// let _ = OptimisticTransactionDB::<SingleThreaded>::destroy(&Options::default(), path);
+/// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub type OptimisticTransactionDB<T> = DBCommon<T, OptimisticTransactionDBInner>;
+///
+/// [`SingleThreaded`]: crate::SingleThreaded
+#[cfg(not(feature = "multi-threaded-cf"))]
+pub type OptimisticTransactionDB<T = crate::SingleThreaded> =
+    DBCommon<T, OptimisticTransactionDBInner>;
+#[cfg(feature = "multi-threaded-cf")]
+pub type OptimisticTransactionDB<T = crate::MultiThreaded> =
+    DBCommon<T, OptimisticTransactionDBInner>;
 
 pub struct OptimisticTransactionDBInner {
     base: *mut ffi::rocksdb_t,

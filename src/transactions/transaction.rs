@@ -85,11 +85,11 @@ impl<'db, DB> Transaction<'db, DB> {
     /// If this transaction was created by a [`TransactionDB`], an error of
     /// the [`Expired`] kind may be returned if this transaction has
     /// lived longer than expiration time in [`TransactionOptions`].
-    /// 
+    ///
     /// If this transaction was created by an [`OptimisticTransactionDB`], an error of
-    /// the [`Busy`] kind may be returned if the transaction 
+    /// the [`Busy`] kind may be returned if the transaction
     /// could not guarantee that there are no write conflicts.
-    /// An error of the [`TryAgain`] kind may be returned if the memtable 
+    /// An error of the [`TryAgain`] kind may be returned if the memtable
     /// history size is not large enough (see [`Options::set_max_write_buffer_size_to_maintain`]).
     ///
     /// [`Expired`]: crate::ErrorKind::Expired
@@ -146,18 +146,18 @@ impl<'db, DB> Transaction<'db, DB> {
     }
 
     /// Get the bytes associated with a key value.
-    /// 
+    ///
     /// See [`get_cf_opt`] for details.
-    /// 
+    ///
     /// [`get_cf_opt`]: Self::get_cf_opt
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
         self.get_opt(key, &ReadOptions::default())
     }
 
     /// Get the bytes associated with a key value and the given column family.
-    /// 
+    ///
     /// See [`get_cf_opt`] for details.
-    /// 
+    ///
     /// [`get_cf_opt`]: Self::get_cf_opt
     pub fn get_cf<K: AsRef<[u8]>>(
         &self,
@@ -173,7 +173,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// snapshot is set in this transaction).
     ///
     /// See [`get_for_update_cf_opt`] for details.
-    /// 
+    ///
     /// [`get_for_update_cf_opt`]: Self::get_for_update_cf_opt
     pub fn get_for_update<K: AsRef<[u8]>>(
         &self,
@@ -189,7 +189,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// snapshot is set in this transaction).
     ///
     /// See [`get_for_update_cf_opt`] for details.
-    /// 
+    ///
     /// [`get_for_update_cf_opt`]: Self::get_for_update_cf_opt
     pub fn get_for_update_cf<K: AsRef<[u8]>>(
         &self,
@@ -201,9 +201,9 @@ impl<'db, DB> Transaction<'db, DB> {
     }
 
     /// Returns the bytes associated with a key value with read options.
-    /// 
+    ///
     /// See [`get_cf_opt`] for details.
-    /// 
+    ///
     /// [`get_cf_opt`]: Self::get_cf_opt
     pub fn get_opt<K: AsRef<[u8]>>(
         &self,
@@ -229,11 +229,11 @@ impl<'db, DB> Transaction<'db, DB> {
     }
 
     /// Get the bytes associated with a key value and the given column family with read options.
-    /// 
+    ///
     /// This function will also read pending changes in this transaction.
     /// Currently, this function will return an error of the [`MergeInProgress`] kind
-    /// if the most recent write to the queried key in this batch is a Merge. 
-    /// 
+    /// if the most recent write to the queried key in this batch is a Merge.
+    ///
     /// [`MergeInProgress`]: crate::ErrorKind::MergeInProgress
     pub fn get_cf_opt<K: AsRef<[u8]>>(
         &self,
@@ -266,7 +266,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// snapshot is set in this transaction).
     ///
     /// See [`get_for_update_cf_opt`] for details.
-    /// 
+    ///
     /// [`get_for_update_cf_opt`]: Self::get_for_update_cf_opt
     pub fn get_for_update_opt<K: AsRef<[u8]>>(
         &self,
@@ -298,7 +298,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// be able to be committed if this key is not written outside this
     /// transaction after it has first been read (or after the snapshot if a
     /// snapshot is set in this transaction).
-    /// 
+    ///
     /// Currently, this function will return an error of the [`MergeInProgress`]
     /// if the most recent write to the queried key in this batch is a Merge.
     ///
@@ -308,7 +308,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// * [`TryAgain`] if the memtable history size is not large enough.
     /// * [`MergeInProgress`] if merge operations cannot be resolved.
     /// * or other errors if this key could not be read.
-    /// 
+    ///
     /// If this transaction was created by an `[OptimisticTransactionDB]`, `get_for_update_opt`
     /// can cause [`commit`] to fail. Otherwise, it could return any error that could
     /// be returned by `[DB::get]`.
@@ -351,7 +351,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// Put the key value in default column family and do conflict checking on the key.
     ///
     /// See [`put_cf`] for details.
-    /// 
+    ///
     /// [`put_cf`]: Self::put_cf
     pub fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: K, value: V) -> Result<(), Error> {
         unsafe {
@@ -403,7 +403,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// Merge value with existing value of key, and also do conflict checking on the key.
     ///
     /// See [`merge_cf`] for details.
-    /// 
+    ///
     /// [`merge_cf`]: Self::merge_cf
     pub fn merge<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: &K, value: &V) -> Result<(), Error> {
         unsafe {
@@ -455,7 +455,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// Delete the key value if it exists and do conflict checking on the key.
     ///
     /// See [`delete_cf`] for details.
-    /// 
+    ///
     /// [`delete_cf`]: Self::delete_cf
     pub fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<(), Error> {
         unsafe {
