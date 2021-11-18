@@ -22,9 +22,9 @@ use util::DBPath;
 fn test_provided_merge(
     _new_key: &[u8],
     existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
-    let nops = operands.size_hint().0;
+    let nops = operands.len();
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     if let Some(v) = existing_val {
         for e in v {
@@ -97,9 +97,9 @@ impl ValueCounts {
 fn test_counting_partial_merge(
     _new_key: &[u8],
     _existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
-    let nops = operands.size_hint().0;
+    let nops = operands.len();
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     for op in operands {
         for e in op {
@@ -112,7 +112,7 @@ fn test_counting_partial_merge(
 fn test_counting_full_merge(
     _new_key: &[u8],
     existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut counts = existing_val
         .map(|v| ValueCounts::from_slice(v))
@@ -251,7 +251,7 @@ fn failed_merge_test() {
     fn test_failing_merge(
         _key: &[u8],
         _val: Option<&[u8]>,
-        _operands: &mut MergeOperands,
+        _operands: &MergeOperands,
     ) -> Option<Vec<u8>> {
         None
     }
@@ -274,7 +274,7 @@ fn failed_merge_test() {
 }
 
 fn make_merge_max_with_limit(limit: u64) -> impl MergeFn + Clone {
-    move |_key: &[u8], first: Option<&[u8]>, rest: &mut MergeOperands| {
+    move |_key: &[u8], first: Option<&[u8]>, rest: &MergeOperands| {
         let max = first
             .into_iter()
             .chain(rest)
