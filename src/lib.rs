@@ -218,6 +218,11 @@ impl fmt::Display for Error {
 
 #[cfg(test)]
 mod test {
+    use crate::{
+        OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
+        TransactionDBOptions, TransactionOptions,
+    };
+
     use super::{
         BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor,
         DBIterator, DBRawIterator, Env, IngestExternalFileOptions, Options,
@@ -251,6 +256,12 @@ mod test {
         is_send::<WriteBatch>();
         is_send::<Cache>();
         is_send::<Env>();
+        is_send::<TransactionDB>();
+        is_send::<OptimisticTransactionDB>();
+        is_send::<Transaction<'_, TransactionDB>>();
+        is_send::<TransactionDBOptions>();
+        is_send::<OptimisticTransactionOptions>();
+        is_send::<TransactionOptions>();
     }
 
     #[test]
@@ -273,5 +284,10 @@ mod test {
         is_sync::<SstFileWriter>();
         is_sync::<Cache>();
         is_sync::<Env>();
+        is_sync::<TransactionDB>();
+        is_sync::<OptimisticTransactionDB>();
+        is_sync::<TransactionDBOptions>();
+        is_sync::<OptimisticTransactionOptions>();
+        is_sync::<TransactionOptions>();
     }
 }

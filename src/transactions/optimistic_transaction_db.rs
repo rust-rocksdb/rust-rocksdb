@@ -80,6 +80,9 @@ impl Drop for OptimisticTransactionDBInner {
     }
 }
 
+unsafe impl<T: ThreadMode> Sync for OptimisticTransactionDB<T> {}
+unsafe impl<T: ThreadMode> Send for OptimisticTransactionDB<T> {}
+
 /// Methods of `OptimisticTransactionDB`.
 impl<T: ThreadMode> OptimisticTransactionDB<T> {
     /// Opens a database with default options.
