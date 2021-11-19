@@ -193,8 +193,8 @@ fn iterator_test() {
         let old_iter = db.iterator(IteratorMode::Start);
         db.put(&*k4, &*v4).unwrap();
         let expected2 = vec![
-            (k1.clone(), v1.clone()),
-            (k2.clone(), v2.clone()),
+            (k1, v1),
+            (k2, v2),
             (k3.clone(), v3.clone()),
             (k4.clone(), v4.clone()),
         ];
@@ -204,10 +204,7 @@ fn iterator_test() {
         assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
         let iter = db.iterator(IteratorMode::From(b"k3", Direction::Forward));
-        assert_eq!(
-            iter.collect::<Vec<_>>(),
-            vec![(k3.clone(), v3.clone()), (k4.clone(), v4.clone())]
-        );
+        assert_eq!(iter.collect::<Vec<_>>(), vec![(k3, v3), (k4, v4)]);
     }
 }
 
@@ -317,6 +314,10 @@ fn transaction() {
         let err = txn2.put(b"k1", b"v3").unwrap_err();
         assert_eq!(err.kind(), ErrorKind::TimedOut);
 
+        // modify same key directly, should also get TimedOut
+        let err = db.put(b"k1", b"v4").unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::TimedOut);
+
         txn1.commit().unwrap();
         assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v2");
     }
@@ -365,8 +366,8 @@ fn transaction_iterator() {
         let old_iter = txn.iterator(IteratorMode::Start);
         txn.put(&*k4, &*v4).unwrap();
         let expected2 = vec![
-            (k1.clone(), v1.clone()),
-            (k2.clone(), v2.clone()),
+            (k1, v1),
+            (k2, v2),
             (k3.clone(), v3.clone()),
             (k4.clone(), v4.clone()),
         ];
@@ -376,10 +377,7 @@ fn transaction_iterator() {
         assert_eq!(iter.collect::<Vec<_>>(), expected2);
 
         let iter = txn.iterator(IteratorMode::From(b"k3", Direction::Forward));
-        assert_eq!(
-            iter.collect::<Vec<_>>(),
-            vec![(k3.clone(), v3.clone()), (k4.clone(), v4.clone())]
-        );
+        assert_eq!(iter.collect::<Vec<_>>(), vec![(k3, v3), (k4, v4)]);
     }
 }
 
