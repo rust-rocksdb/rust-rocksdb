@@ -46,6 +46,8 @@ use table_properties_rc::TablePropertiesCollection as RcTablePropertiesCollectio
 use titan::TitanDBOptions;
 use write_batch::WriteBatch;
 
+use crate::metadata::LiveFiles;
+
 pub struct CFHandle {
     inner: *mut DBCFHandle,
 }
@@ -1214,6 +1216,14 @@ impl DB {
         }
     }
 
+    /// Ref https://github.com/facebook/rocksdb/wiki/Background-Error-Handling#recovery
+    pub fn resume(&self) -> Result<(), String> {
+        unsafe {
+            ffi_try!(crocksdb_resume(self.inner));
+            Ok(())
+        }
+    }
+
     /// Get the sequence number of the most recent transaction.
     pub fn get_latest_sequence_number(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_get_latest_sequence_number(self.inner) }
@@ -1949,6 +1959,13 @@ impl DB {
             let inner = crocksdb_ffi::crocksdb_column_family_meta_data_create();
             crocksdb_ffi::crocksdb_get_column_family_meta_data(self.inner, cf.inner, inner);
             ColumnFamilyMetaData::from_ptr(inner)
+        }
+    }
+
+    pub fn get_live_files(&self) -> LiveFiles {
+        unsafe {
+            let inner = crocksdb_ffi::crocksdb_livefiles(self.inner);
+            LiveFiles::from_ptr(inner)
         }
     }
 

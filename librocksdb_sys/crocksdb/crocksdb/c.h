@@ -240,6 +240,8 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_t* crocksdb_open_for_read_only(
 extern C_ROCKSDB_LIBRARY_API void crocksdb_status_ptr_get_error(
     crocksdb_status_ptr_t*, char** errptr);
 
+extern C_ROCKSDB_LIBRARY_API void rocksdb_resume(crocksdb_t* db, char** errptr);
+
 extern C_ROCKSDB_LIBRARY_API crocksdb_backup_engine_t*
 crocksdb_backup_engine_open(const crocksdb_options_t* options, const char* path,
                             char** errptr);
@@ -1882,7 +1884,7 @@ crocksdb_fifo_compaction_options_set_allow_compaction(
 extern C_ROCKSDB_LIBRARY_API void crocksdb_fifo_compaction_options_destroy(
     crocksdb_fifo_compaction_options_t* fifo_opts);
 
-extern C_ROCKSDB_LIBRARY_API int crocksdb_livefiles_count(
+extern C_ROCKSDB_LIBRARY_API size_t crocksdb_livefiles_count(
     const crocksdb_livefiles_t*);
 extern C_ROCKSDB_LIBRARY_API const char* crocksdb_livefiles_name(
     const crocksdb_livefiles_t*, int index);

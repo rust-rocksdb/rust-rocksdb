@@ -742,6 +742,10 @@ void crocksdb_status_ptr_get_error(crocksdb_status_ptr_t* status,
   SaveError(errptr, *(status->rep));
 }
 
+void crocksdb_resume(crocksdb_t* db, char** errptr) {
+  SaveError(errptr, db->rep->Resume());
+}
+
 crocksdb_backup_engine_t* crocksdb_backup_engine_open(
     const crocksdb_options_t* options, const char* path, char** errptr) {
   BackupEngine* be;
@@ -4741,7 +4745,7 @@ void crocksdb_options_set_min_level_to_compress(crocksdb_options_t* opt,
   }
 }
 
-int crocksdb_livefiles_count(const crocksdb_livefiles_t* lf) {
+size_t crocksdb_livefiles_count(const crocksdb_livefiles_t* lf) {
   return static_cast<int>(lf->rep.size());
 }
 

@@ -44,6 +44,8 @@ use libc::{c_char, c_double, c_int, c_uchar, c_void, size_t};
 // [2]: https://doc.rust-lang.org/nightly/src/core/ffi.rs.html#28
 
 #[repr(C)]
+pub struct DBLivefiles(c_void);
+#[repr(C)]
 pub struct Options(c_void);
 #[repr(C)]
 pub struct ColumnFamilyDescriptor(c_void);
@@ -511,6 +513,7 @@ macro_rules! ffi_try {
 // instead...
 extern "C" {
     pub fn crocksdb_status_ptr_get_error(status: *mut DBStatusPtr, err: *mut *mut c_char);
+    pub fn crocksdb_resume(db: *mut DBInstance, err: *mut *mut c_char);
     pub fn crocksdb_get_db_options(db: *mut DBInstance) -> *mut Options;
     pub fn crocksdb_set_db_options(
         db: *mut DBInstance,
@@ -2307,6 +2310,22 @@ extern "C" {
         meta: *const DBSstFileMetaData,
         len: *mut size_t,
     ) -> *const c_char;
+
+    pub fn crocksdb_livefiles(db: *mut DBInstance) -> *mut DBLivefiles;
+    pub fn crocksdb_livefiles_count(lf: *const DBLivefiles) -> size_t;
+    pub fn crocksdb_livefiles_size(lf: *const DBLivefiles, index: i32) -> size_t;
+    pub fn crocksdb_livefiles_name(lf: *const DBLivefiles, index: i32) -> *const c_char;
+    pub fn crocksdb_livefiles_smallestkey(
+        lf: *const DBLivefiles,
+        index: i32,
+        size: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_livefiles_largestkey(
+        lf: *const DBLivefiles,
+        index: i32,
+        size: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_livefiles_destroy(lf: *mut DBLivefiles);
 
     pub fn crocksdb_compaction_options_create() -> *mut DBCompactionOptions;
     pub fn crocksdb_compaction_options_destroy(opts: *mut DBCompactionOptions);
