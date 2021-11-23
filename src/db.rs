@@ -208,7 +208,7 @@ unsafe impl<T: ThreadMode> Send for DBWithThreadMode<T> {}
 unsafe impl<T: ThreadMode> Sync for DBWithThreadMode<T> {}
 
 // Specifies whether open DB for read only.
-pub enum AccessType<'a> {
+enum AccessType<'a> {
     ReadWrite,
     ReadOnly { error_if_log_file_exist: bool },
     Secondary { secondary_path: &'a Path },
@@ -288,7 +288,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        Self::open_cf_descriptors_access_type(opts, path, cfs, &AccessType::WithTTL { ttl })
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::WithTTL { ttl })
     }
 
     /// Opens a database with the given database options and column family names.
@@ -304,7 +304,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        Self::open_cf_descriptors_access_type(opts, path, cfs, &AccessType::ReadWrite)
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
     /// Opens a database for read only with the given database options and column family names.
@@ -323,7 +323,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        Self::open_cf_descriptors_access_type(
+        Self::open_cf_descriptors_internal(
             opts,
             path,
             cfs,
@@ -375,7 +375,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             .into_iter()
             .map(|name| ColumnFamilyDescriptor::new(name.as_ref(), Options::default()));
 
-        Self::open_cf_descriptors_access_type(
+        Self::open_cf_descriptors_internal(
             opts,
             primary_path,
             cfs,
@@ -391,11 +391,11 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        Self::open_cf_descriptors_access_type(opts, path, cfs, &AccessType::ReadWrite)
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
     /// Internal implementation for opening RocksDB.
-    pub fn open_cf_descriptors_access_type<P, I>(
+    fn open_cf_descriptors_internal<P, I>(
         opts: &Options,
         path: P,
         cfs: I,
