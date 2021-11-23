@@ -333,6 +333,32 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         )
     }
 
+    /// Opens a database for read only with the given database options and column family names.
+    pub fn open_cf_with_opts_for_read_only<P, I, N>(
+        db_opts: &Options,
+        path: P,
+        cfs: I,
+        error_if_log_file_exist: bool,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = (N, Options)>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|(name, cf_opts)| ColumnFamilyDescriptor::new(name.as_ref(), cf_opts));
+
+        Self::open_cf_descriptors_internal(
+            db_opts,
+            path,
+            cfs,
+            &AccessType::ReadOnly {
+                error_if_log_file_exist,
+            },
+        )
+    }
+
     /// Opens the database as a secondary with the given database options and column family names.
     pub fn open_cf_as_secondary<P, I, N>(
         opts: &Options,
