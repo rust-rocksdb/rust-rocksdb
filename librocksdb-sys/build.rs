@@ -88,6 +88,10 @@ fn build_rocksdb() {
         }
     }
 
+    if cfg!(feature = "rtti") {
+        config.define("USE_RTTI", Some("1"));
+    }
+
     config.include(".");
     config.define("NDEBUG", Some("1"));
 
@@ -321,4 +325,13 @@ fn main() {
         fail_on_empty_directory("lz4");
         build_lz4();
     }
+
+    // Allow dependent crates to locate the sources and output directory of
+    // this crate. Notably, this allows a dependent crate to locate the RocksDB
+    // sources and built archive artifacts provided by this crate.
+    println!(
+        "cargo:cargo_manifest_dir={}",
+        env::var("CARGO_MANIFEST_DIR").unwrap()
+    );
+    println!("cargo:out_dir={}", env::var("OUT_DIR").unwrap());
 }
