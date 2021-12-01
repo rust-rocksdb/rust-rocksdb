@@ -13,3 +13,6 @@
 [submodule "librocksdb-sys/zlib"]
 	path = librocksdb-sys/zlib
 	url = https://github.com/madler/zlib.git
+[submodule "librocksdb-sys/rocksdb"]
+	path = librocksdb-sys/rocksdb
+	url = https://github.com/yiyuanliu/rocksdb

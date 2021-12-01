@@ -567,9 +567,9 @@ impl BlockBasedOptions {
     pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
         unsafe {
             let bloom = if block_based {
-                ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)
+                ffi::rocksdb_filterpolicy_create_bloom(f64::from(bits_per_key))
             } else {
-                ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key)
+                ffi::rocksdb_filterpolicy_create_bloom_full(f64::from(bits_per_key))
             };
 
             ffi::rocksdb_block_based_options_set_filter_policy(self.inner, bloom);

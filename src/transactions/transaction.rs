@@ -106,6 +106,40 @@ impl<'db, DB> Transaction<'db, DB> {
         Ok(())
     }
 
+    pub fn set_name(&self, name: &[u8]) -> Result<(), Error> {
+        let ptr = name.as_ptr();
+        let len = name.len();
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_set_name(
+                self.inner, ptr as _, len as _
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub fn get_name(&self) -> Option<Vec<u8>> {
+        unsafe {
+            let mut name_len = 0;
+            let name = ffi::rocksdb_transaction_get_name(self.inner, &mut name_len);
+            if name.is_null() {
+                None
+            } else {
+                let mut vec = vec![0; name_len];
+                std::ptr::copy_nonoverlapping(name as *mut u8, vec.as_mut_ptr(), name_len as usize);
+                ffi::rocksdb_free(name as *mut c_void);
+                Some(vec)
+            }
+        }
+    }
+
+    pub fn prepare(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_prepare(self.inner));
+        }
+        Ok(())
+    }
+
     /// Returns snapshot associated with transaction if snapshot was enabled in [`TransactionOptions`].
     /// Otherwise, returns a snapshot with `nullptr` inside which doesn't effect read operations.
     ///

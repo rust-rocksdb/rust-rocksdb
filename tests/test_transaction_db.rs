@@ -476,6 +476,82 @@ fn transaction_snapshot() {
 }
 
 #[test]
+fn two_phase_commit() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_2pc");
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.set_name(b"txn1").unwrap();
+        txn.prepare().unwrap();
+        txn.commit().unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k2", b"v2").unwrap();
+        let err = txn.prepare().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidArgument);
+
+        let mut opt = TransactionOptions::new();
+        opt.set_skip_prepare(false);
+        let txn = db.transaction_opt(&WriteOptions::default(), &opt);
+        txn.put(b"k3", b"v3").unwrap();
+        let err = txn.prepare().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidArgument);
+    }
+
+    DB::destroy(&Options::default(), &path).unwrap();
+
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.set_name(b"t1").unwrap();
+        txn.prepare().unwrap();
+
+        let txn2 = db.transaction();
+        txn2.put(b"k2", b"v1").unwrap();
+        txn2.set_name(b"t2").unwrap();
+        txn2.prepare().unwrap();
+
+        let txn3 = db.transaction();
+        let err = txn3.set_name(b"t1").unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidArgument);
+
+        // k1 and k2 should locked after we restore prepared transactions.
+        let err = db.put(b"k1", b"v2").unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::TimedOut);
+    }
+
+    {
+        // recovery
+        let mut opt = TransactionDBOptions::new();
+        opt.set_default_lock_timeout(1);
+        let mut db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        // get prepared transactions
+        let txns = db.prepared_transactions();
+        assert_eq!(txns.len(), 2);
+
+        for (_, txn) in txns.into_iter().enumerate() {
+            let name = txn.get_name().unwrap();
+
+            if name == b"t1" {
+                txn.commit().unwrap();
+            } else if name == b"t2" {
+                txn.rollback().unwrap();
+            } else {
+                unreachable!();
+            }
+        }
+
+        assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.get(b"k2").unwrap().is_none());
+    }
+}
+
+#[test]
 fn test_snapshot_outlive_transaction_db() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/snapshot_outlive_transaction_db.rs");

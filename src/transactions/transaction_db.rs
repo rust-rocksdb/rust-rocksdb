@@ -20,7 +20,7 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
     ptr,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -31,7 +31,8 @@ use crate::{
     Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction, WriteOptions,
     DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
-use libc::{c_char, c_int, size_t};
+use ffi::rocksdb_transaction_t;
+use libc::{c_char, c_int, c_void, size_t};
 
 #[cfg(not(feature = "multi-threaded-cf"))]
 type DefaultThreadMode = crate::SingleThreaded;
@@ -67,6 +68,8 @@ pub struct TransactionDB<T: ThreadMode = DefaultThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_transactiondb_t,
     cfs: T,
     path: PathBuf,
+    // prepared 2pc transactions.
+    prepared: Mutex<Vec<*mut rocksdb_transaction_t>>,
     _outlive: Vec<OptionsMustOutliveDB>,
 }
 
@@ -252,10 +255,22 @@ impl<T: ThreadMode> TransactionDB<T> {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
+        let prepared = unsafe {
+            let mut cnt = 0;
+            let ptr = ffi::rocksdb_transactiondb_get_prepared_transactions(db, &mut cnt);
+            let mut vec = vec![std::ptr::null_mut(); cnt];
+            std::ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), cnt);
+            if !ptr.is_null() {
+                ffi::rocksdb_free(ptr as *mut c_void);
+            }
+            vec
+        };
+
         Ok(TransactionDB {
             inner: db,
             cfs: T::new_cf_map_internal(cf_map),
             path: path.as_ref().to_path_buf(),
+            prepared: Mutex::new(prepared),
             _outlive: outlive,
         })
     }
@@ -357,6 +372,21 @@ impl<T: ThreadMode> TransactionDB<T> {
             },
             _marker: PhantomData::default(),
         }
+    }
+
+    /// Get all prepared transactions for recovery.
+    /// This function is expected to call once after open database.
+    /// Caller should commit or rollback all transactions before start other transactions.
+    pub fn prepared_transactions(&mut self) -> Vec<Transaction<Self>> {
+        self.prepared
+            .lock()
+            .unwrap()
+            .drain(0..)
+            .map(|inner| Transaction {
+                inner,
+                _marker: PhantomData::default(),
+            })
+            .collect()
     }
 
     /// Returns the bytes associated with a key value.
@@ -771,6 +801,7 @@ impl TransactionDB<MultiThreaded> {
 impl<T: ThreadMode> Drop for TransactionDB<T> {
     fn drop(&mut self) {
         unsafe {
+            self.prepared_transactions().clear();
             self.cfs.drop_all_cfs_internal();
             ffi::rocksdb_transactiondb_close(self.inner);
         }
