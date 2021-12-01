@@ -17,6 +17,14 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
+// Ensure the libraries are linked in, despite it not being used directly
+#[cfg(feature = "bzip2")]
+extern crate bzip2_sys;
+#[cfg(feature = "zlib")]
+extern crate libz_sys;
+#[cfg(feature = "zstd")]
+extern crate zstd_sys;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[cfg(feature = "bzip2")]
