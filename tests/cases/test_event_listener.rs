@@ -257,6 +257,11 @@ fn test_event_listener_ingestion() {
     assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
     assert_eq!(db.get(b"k2").unwrap().unwrap(), b"v2");
     assert_ne!(counter.ingestion.load(Ordering::SeqCst), 0);
+    let files = db.get_live_files();
+    assert!(test_sstfile.exists());
+    assert!(db.delete_file(&files.get_name(0)).is_ok());
+    assert!(db.get(b"k1").unwrap().is_none());
+    assert!(db.get(b"k2").unwrap().is_none());
 }
 
 #[test]

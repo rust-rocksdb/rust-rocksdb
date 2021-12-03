@@ -1335,8 +1335,8 @@ void crocksdb_approximate_memtable_stats_cf(
   db->rep->GetApproximateMemTableStats(cf->rep, range, count, size);
 }
 
-void crocksdb_delete_file(crocksdb_t* db, const char* name) {
-  db->rep->DeleteFile(name);
+void crocksdb_delete_file(crocksdb_t* db, const char* name, char** errptr) {
+  SaveError(errptr, db->rep->DeleteFile(name));
 }
 
 const crocksdb_livefiles_t* crocksdb_livefiles(crocksdb_t* db) {

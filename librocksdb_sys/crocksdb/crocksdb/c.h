@@ -509,7 +509,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_compact_range_cf_opt(
     const char* limit_key, size_t limit_key_len);
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_delete_file(crocksdb_t* db,
-                                                       const char* name);
+                                                       const char* name,
+                                                       char** errptr);
 
 extern C_ROCKSDB_LIBRARY_API const crocksdb_livefiles_t* crocksdb_livefiles(
     crocksdb_t* db);
@@ -1884,8 +1885,8 @@ crocksdb_fifo_compaction_options_set_allow_compaction(
 extern C_ROCKSDB_LIBRARY_API void crocksdb_fifo_compaction_options_destroy(
     crocksdb_fifo_compaction_options_t* fifo_opts);
 
-extern C_ROCKSDB_LIBRARY_API size_t crocksdb_livefiles_count(
-    const crocksdb_livefiles_t*);
+extern C_ROCKSDB_LIBRARY_API size_t
+crocksdb_livefiles_count(const crocksdb_livefiles_t*);
 extern C_ROCKSDB_LIBRARY_API const char* crocksdb_livefiles_name(
     const crocksdb_livefiles_t*, int index);
 extern C_ROCKSDB_LIBRARY_API int crocksdb_livefiles_level(
