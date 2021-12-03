@@ -405,7 +405,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// See [`merge_cf`] for details.
     ///
     /// [`merge_cf`]: Self::merge_cf
-    pub fn merge<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: &K, value: &V) -> Result<(), Error> {
+    pub fn merge<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: K, value: V) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge(
                 self.inner,
@@ -436,8 +436,8 @@ impl<'db, DB> Transaction<'db, DB> {
     pub fn merge_cf<K: AsRef<[u8]>, V: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
-        key: &K,
-        value: &V,
+        key: K,
+        value: V,
     ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge_cf(
@@ -457,7 +457,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// See [`delete_cf`] for details.
     ///
     /// [`delete_cf`]: Self::delete_cf
-    pub fn delete<K: AsRef<[u8]>>(&self, key: &K) -> Result<(), Error> {
+    pub fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete(
                 self.inner,
@@ -485,7 +485,7 @@ impl<'db, DB> Transaction<'db, DB> {
     pub fn delete_cf<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
-        key: &K,
+        key: K,
     ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete_cf(
