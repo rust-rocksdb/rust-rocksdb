@@ -25,11 +25,14 @@ lz4 = ["librocksdb-sys/lz4"]
 zstd = ["librocksdb-sys/zstd"]
 zlib = ["librocksdb-sys/zlib"]
 bzip2 = ["librocksdb-sys/bzip2"]
+rtti = ["librocksdb-sys/rtti"]
 multi-threaded-cf = []
+serde1 = ["serde"]
 
 [dependencies]
 libc = "0.2"
 librocksdb-sys = { path = "librocksdb-sys", version = "6.20.3" }
+serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]
 trybuild = "1.0"

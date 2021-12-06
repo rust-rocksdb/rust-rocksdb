@@ -170,6 +170,50 @@ impl BackupEngine {
         Ok(())
     }
 
+    /// Restore from a specified backup
+    ///
+    /// The specified backup id should be passed in as an additional parameter.
+    pub fn restore_from_backup<D: AsRef<Path>, W: AsRef<Path>>(
+        &mut self,
+        db_dir: D,
+        wal_dir: W,
+        opts: &RestoreOptions,
+        backup_id: u32,
+    ) -> Result<(), Error> {
+        let db_dir = db_dir.as_ref();
+        let c_db_dir = if let Ok(c) = CString::new(db_dir.to_string_lossy().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(
+                "Failed to convert db_dir to CString \
+                     when restoring from latest backup"
+                    .to_owned(),
+            ));
+        };
+
+        let wal_dir = wal_dir.as_ref();
+        let c_wal_dir = if let Ok(c) = CString::new(wal_dir.to_string_lossy().as_bytes()) {
+            c
+        } else {
+            return Err(Error::new(
+                "Failed to convert wal_dir to CString \
+                     when restoring from latest backup"
+                    .to_owned(),
+            ));
+        };
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_backup_engine_restore_db_from_backup(
+                self.inner,
+                c_db_dir.as_ptr(),
+                c_wal_dir.as_ptr(),
+                opts.inner,
+                backup_id,
+            ));
+        }
+        Ok(())
+    }
+
     /// Checks that each file exists and that the size of the file matches our
     /// expectations. it does not check file checksum.
     ///
