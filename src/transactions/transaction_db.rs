@@ -26,10 +26,10 @@ use std::{
 use crate::{
     column_family::UnboundColumnFamily, db::DBAccess, db_options::OptionsMustOutliveDB, ffi,
     ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
-    DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode,
-    MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode, ThreadMode,
-    Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction, WriteOptions,
-    DB, DEFAULT_COLUMN_FAMILY_NAME,
+    DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode, Direction, Error,
+    IteratorMode, MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode,
+    ThreadMode, Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction,
+    WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use ffi::rocksdb_transaction_t;
 use libc::{c_char, c_int, c_void, size_t};
@@ -391,7 +391,7 @@ impl<T: ThreadMode> TransactionDB<T> {
 
     /// Returns the bytes associated with a key value.
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
-        self.get_opt(key, &ReadOptions::default())
+        self.get_pinned(key).map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Returns the bytes associated with a key value and the given column family.
@@ -400,7 +400,8 @@ impl<T: ThreadMode> TransactionDB<T> {
         cf: &impl AsColumnFamilyRef,
         key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_cf_opt(cf, key, &ReadOptions::default())
+        self.get_pinned_cf(cf, key)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Returns the bytes associated with a key value with read options.
@@ -409,22 +410,8 @@ impl<T: ThreadMode> TransactionDB<T> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
-        unsafe {
-            let mut val_len: usize = 0;
-            let val_ptr = ffi_try!(ffi::rocksdb_transactiondb_get(
-                self.inner,
-                readopts.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
-                &mut val_len,
-            ));
-            if val_ptr.is_null() {
-                Ok(None)
-            } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
-            }
-        }
+        self.get_pinned_opt(key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Returns the bytes associated with a key value and the given column family with read options.
@@ -434,21 +421,64 @@ impl<T: ThreadMode> TransactionDB<T> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_cf_opt(cf, key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
+    }
+
+    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_opt(key, &ReadOptions::default())
+    }
+
+    /// Returns the bytes associated with a key value and the given column family.
+    pub fn get_pinned_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
+    }
+
+    /// Returns the bytes associated with a key value with read options.
+    pub fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        let key = key.as_ref();
         unsafe {
-            let mut val_len: usize = 0;
-            let val_ptr = ffi_try!(ffi::rocksdb_transactiondb_get_cf(
+            let val = ffi_try!(ffi::rocksdb_transactiondb_get_pinned(
+                self.inner,
+                readopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            ));
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBPinnableSlice::from_c(val)))
+            }
+        }
+    }
+
+    /// Returns the bytes associated with a key value and the given column family with read options.
+    pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        unsafe {
+            let val = ffi_try!(ffi::rocksdb_transactiondb_get_pinned_cf(
                 self.inner,
                 readopts.inner,
                 cf.inner(),
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len() as size_t,
-                &mut val_len,
             ));
-            if val_ptr.is_null() {
+            if val.is_null() {
                 Ok(None)
             } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
+                Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
     }
