@@ -55,12 +55,12 @@ fn test_compaction_filter() {
     // reregister with ignore_snapshots set to true
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts
-        .set_compaction_filter(
+        .set_compaction_filter::<&str, Filter>(
             "test",
-            Box::new(Filter {
+            Filter {
                 drop_called: drop_called.clone(),
                 filtered_kvs: filtered_kvs.clone(),
-            }),
+            },
         )
         .unwrap();
 

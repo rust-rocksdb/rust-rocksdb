@@ -295,9 +295,9 @@ fn test_total_order_seek() {
     opts.create_if_missing(true);
     cf_opts.set_block_based_table_factory(&bbto);
     cf_opts
-        .set_prefix_extractor(
+        .set_prefix_extractor::<&str, FixedPrefixTransform>(
             "FixedPrefixTransform",
-            Box::new(FixedPrefixTransform { prefix_len: 2 }),
+            FixedPrefixTransform { prefix_len: 2 },
         )
         .unwrap();
     // also create prefix bloom for memtable
@@ -383,9 +383,9 @@ fn test_fixed_suffix_seek() {
     opts.create_if_missing(true);
     cf_opts.set_block_based_table_factory(&bbto);
     cf_opts
-        .set_prefix_extractor(
+        .set_prefix_extractor::<&str, FixedSuffixTransform>(
             "FixedSuffixTransform",
-            Box::new(FixedSuffixTransform { suffix_len: 2 }),
+            FixedSuffixTransform { suffix_len: 2 },
         )
         .unwrap();
 
@@ -428,7 +428,7 @@ fn test_iter_sequence_number() {
         }
     }
     let (tx, rx) = mpsc::sync_channel(8);
-    let filter = Box::new(TestCompactionFilter(tx));
+    let filter = TestCompactionFilter(tx);
 
     let path = tempdir_with_prefix("_rust_rocksdb_sequence_number");
     let mut opts = DBOptions::new();
@@ -436,7 +436,9 @@ fn test_iter_sequence_number() {
     let mut cf_opts = ColumnFamilyOptions::new();
     cf_opts.set_disable_auto_compactions(true);
     cf_opts.set_num_levels(7);
-    cf_opts.set_compaction_filter("test", filter).unwrap();
+    cf_opts
+        .set_compaction_filter::<&str, TestCompactionFilter>("test", filter)
+        .unwrap();
     let db = DB::open_cf(
         opts,
         path.path().to_str().unwrap(),

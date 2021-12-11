@@ -16,7 +16,7 @@ use libc::{c_char, c_void, size_t};
 use std::ffi::CString;
 use std::slice;
 
-// `SliceTranform` is a generic pluggable way of transforming one string
+// `SliceTransform` is a generic pluggable way of transforming one string
 // mainly used for prefix blooms.
 pub trait SliceTransform {
     // Extract a prefix from a specified key
@@ -38,29 +38,29 @@ pub trait SliceTransform {
 }
 
 #[repr(C)]
-pub struct SliceTransformProxy {
+pub struct SliceTransformProxy<S: SliceTransform> {
     name: CString,
-    transform: Box<dyn SliceTransform>,
+    transform: S,
 }
 
-extern "C" fn name(transform: *mut c_void) -> *const c_char {
-    unsafe { (*(transform as *mut SliceTransformProxy)).name.as_ptr() }
+extern "C" fn name<S: SliceTransform>(transform: *mut c_void) -> *const c_char {
+    unsafe { (*(transform as *mut SliceTransformProxy<S>)).name.as_ptr() }
 }
 
-extern "C" fn destructor(transform: *mut c_void) {
+extern "C" fn destructor<S: SliceTransform>(transform: *mut c_void) {
     unsafe {
-        Box::from_raw(transform as *mut SliceTransformProxy);
+        Box::from_raw(transform as *mut SliceTransformProxy<S>);
     }
 }
 
-extern "C" fn transform(
+extern "C" fn transform<S: SliceTransform>(
     transform: *mut c_void,
     key: *const u8,
     key_len: size_t,
     dest_len: *mut size_t,
 ) -> *const u8 {
     unsafe {
-        let transform = &mut *(transform as *mut SliceTransformProxy);
+        let transform = &mut *(transform as *mut SliceTransformProxy<S>);
         let key = slice::from_raw_parts(key, key_len);
         let prefix = transform.transform.transform(key);
         *dest_len = prefix.len() as size_t;
@@ -68,25 +68,33 @@ extern "C" fn transform(
     }
 }
 
-extern "C" fn in_domain(transform: *mut c_void, key: *const u8, key_len: size_t) -> u8 {
+extern "C" fn in_domain<S: SliceTransform>(
+    transform: *mut c_void,
+    key: *const u8,
+    key_len: size_t,
+) -> u8 {
     unsafe {
-        let transform = &mut *(transform as *mut SliceTransformProxy);
+        let transform = &mut *(transform as *mut SliceTransformProxy<S>);
         let key = slice::from_raw_parts(key, key_len);
         transform.transform.in_domain(key) as u8
     }
 }
 
-extern "C" fn in_range(transform: *mut c_void, key: *const u8, key_len: size_t) -> u8 {
+extern "C" fn in_range<S: SliceTransform>(
+    transform: *mut c_void,
+    key: *const u8,
+    key_len: size_t,
+) -> u8 {
     unsafe {
-        let transform = &mut *(transform as *mut SliceTransformProxy);
+        let transform = &mut *(transform as *mut SliceTransformProxy<S>);
         let key = slice::from_raw_parts(key, key_len);
         transform.transform.in_range(key) as u8
     }
 }
 
-pub unsafe fn new_slice_transform(
+pub unsafe fn new_slice_transform<S: SliceTransform>(
     c_name: CString,
-    f: Box<dyn SliceTransform>,
+    f: S,
 ) -> Result<*mut DBSliceTransform, String> {
     let proxy = Box::into_raw(Box::new(SliceTransformProxy {
         name: c_name,
@@ -94,11 +102,11 @@ pub unsafe fn new_slice_transform(
     }));
     let transform = crocksdb_ffi::crocksdb_slicetransform_create(
         proxy as *mut c_void,
-        destructor,
-        transform,
-        in_domain,
-        in_range,
-        name,
+        destructor::<S>,
+        transform::<S>,
+        in_domain::<S>,
+        in_range::<S>,
+        name::<S>,
     );
     Ok(transform)
 }

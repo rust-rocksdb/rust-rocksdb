@@ -1387,20 +1387,17 @@ impl ColumnFamilyOptions {
     /// recent call to GetSnapshot() to filter.
     ///
     /// See also `CompactionFilter`.
-    pub fn set_compaction_filter<S>(
-        &mut self,
-        name: S,
-        filter: Box<dyn CompactionFilter>,
-    ) -> Result<(), String>
+    pub fn set_compaction_filter<S, C>(&mut self, name: S, filter: C) -> Result<(), String>
     where
         S: Into<Vec<u8>>,
+        C: CompactionFilter,
     {
         unsafe {
             let c_name = match CString::new(name) {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            let filter = new_compaction_filter(c_name, filter);
+            let filter = new_compaction_filter::<C>(c_name, filter);
             crocksdb_ffi::crocksdb_options_set_compaction_filter(self.inner, filter.inner);
             self.filter = Some(filter);
             Ok(())
@@ -1410,20 +1407,17 @@ impl ColumnFamilyOptions {
     /// Set compaction filter factory.
     ///
     /// See also `CompactionFilterFactory`.
-    pub fn set_compaction_filter_factory<S>(
-        &mut self,
-        name: S,
-        factory: Box<dyn CompactionFilterFactory>,
-    ) -> Result<(), String>
+    pub fn set_compaction_filter_factory<S, C>(&mut self, name: S, factory: C) -> Result<(), String>
     where
         S: Into<Vec<u8>>,
+        C: CompactionFilterFactory,
     {
         let c_name = match CString::new(name) {
             Ok(s) => s,
             Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
         };
         unsafe {
-            let factory = new_compaction_filter_factory(c_name, factory)?;
+            let factory = new_compaction_filter_factory::<C>(c_name, factory)?;
             crocksdb_ffi::crocksdb_options_set_compaction_filter_factory(self.inner, factory.inner);
             std::mem::forget(factory); // Deconstructor will be called after `self` is dropped.
             Ok(())
@@ -1789,20 +1783,17 @@ impl ColumnFamilyOptions {
         unsafe { crocksdb_ffi::crocksdb_options_get_num_levels(self.inner) as usize }
     }
 
-    pub fn set_prefix_extractor<S>(
-        &mut self,
-        name: S,
-        transform: Box<dyn SliceTransform>,
-    ) -> Result<(), String>
+    pub fn set_prefix_extractor<S, ST>(&mut self, name: S, transform: ST) -> Result<(), String>
     where
         S: Into<Vec<u8>>,
+        ST: SliceTransform,
     {
         unsafe {
             let c_name = match CString::new(name) {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            let transform = new_slice_transform(c_name, transform)?;
+            let transform = new_slice_transform::<ST>(c_name, transform)?;
             crocksdb_ffi::crocksdb_options_set_prefix_extractor(self.inner, transform);
             Ok(())
         }
@@ -1814,20 +1805,21 @@ impl ColumnFamilyOptions {
         }
     }
 
-    pub fn set_memtable_insert_hint_prefix_extractor<S>(
+    pub fn set_memtable_insert_hint_prefix_extractor<S, ST>(
         &mut self,
         name: S,
-        transform: Box<dyn SliceTransform>,
+        transform: ST,
     ) -> Result<(), String>
     where
         S: Into<Vec<u8>>,
+        ST: SliceTransform,
     {
         unsafe {
             let c_name = match CString::new(name) {
                 Ok(s) => s,
                 Err(e) => return Err(format!("failed to convert to cstring: {:?}", e)),
             };
-            let transform = new_slice_transform(c_name, transform)?;
+            let transform = new_slice_transform::<ST>(c_name, transform)?;
             crocksdb_ffi::crocksdb_options_set_memtable_insert_with_hint_prefix_extractor(
                 self.inner, transform,
             );

@@ -60,9 +60,9 @@ fn test_prefix_extractor_compatibility() {
         opts.create_if_missing(false);
         cf_opts.set_block_based_table_factory(&bbto);
         cf_opts
-            .set_prefix_extractor(
+            .set_prefix_extractor::<&str, FixedPrefixTransform>(
                 "FixedPrefixTransform",
-                Box::new(FixedPrefixTransform { prefix_len: 2 }),
+                FixedPrefixTransform { prefix_len: 2 },
             )
             .unwrap();
         // also create prefix bloom for memtable

@@ -124,9 +124,9 @@ fn test_memtable_insert_hint_prefix_extractor() {
     let mut cf_opts = ColumnFamilyOptions::new();
     opts.create_if_missing(true);
     cf_opts
-        .set_memtable_insert_hint_prefix_extractor(
+        .set_memtable_insert_hint_prefix_extractor::<&str, FixedPrefixTransform>(
             "FixedPrefixTransform",
-            Box::new(FixedPrefixTransform { prefix_len: 2 }),
+            FixedPrefixTransform { prefix_len: 2 },
         )
         .unwrap();
     let db = DB::open_cf(

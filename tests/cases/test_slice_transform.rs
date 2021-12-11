@@ -46,7 +46,10 @@ fn test_slice_transform() {
     cf_opts.set_memtable_prefix_bloom_size_ratio(0.25);
 
     cf_opts
-        .set_prefix_extractor("test", Box::new(FixedPostfixTransform { postfix_len: 2 }))
+        .set_prefix_extractor::<&str, FixedPostfixTransform>(
+            "test",
+            FixedPostfixTransform { postfix_len: 2 },
+        )
         .unwrap();
     opts.create_if_missing(true);
 
