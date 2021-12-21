@@ -528,7 +528,7 @@ fn two_phase_commit() {
         // recovery
         let mut opt = TransactionDBOptions::new();
         opt.set_default_lock_timeout(1);
-        let mut db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         // get prepared transactions
         let txns = db.prepared_transactions();

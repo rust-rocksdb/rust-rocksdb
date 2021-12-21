@@ -378,7 +378,7 @@ impl<T: ThreadMode> TransactionDB<T> {
     ///
     /// This function is expected to call once after open database.
     /// User should commit or rollback all transactions before start other transactions.
-    pub fn prepared_transactions(&mut self) -> Vec<Transaction<Self>> {
+    pub fn prepared_transactions(&self) -> Vec<Transaction<Self>> {
         self.prepared
             .lock()
             .unwrap()
