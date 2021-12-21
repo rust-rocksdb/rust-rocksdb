@@ -18,7 +18,7 @@ use std::marker::PhantomData;
 use crate::{
     db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBPinnableSlice,
     DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, ReadOptions,
-    SnapshotWithThreadMode,
+    SnapshotWithThreadMode, WriteBatchWithTransaction,
 };
 use libc::{c_char, c_void, size_t};
 
@@ -706,6 +706,30 @@ impl<'db, DB> Transaction<'db, DB> {
         readopts: ReadOptions,
     ) -> DBRawIteratorWithThreadMode<'b, Self> {
         DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts)
+    }
+
+    pub fn get_writebatch(&self) -> WriteBatchWithTransaction<true> {
+        unsafe {
+            let wi = ffi::rocksdb_transaction_get_writebatch_wi(self.inner);
+            let mut len: usize = 0;
+            let ptr = ffi::rocksdb_writebatch_wi_data(wi, &mut len as _);
+            let data = std::slice::from_raw_parts(ptr, len).to_owned();
+            let writebatch = ffi::rocksdb_writebatch_create_from(data.as_ptr(), data.len());
+            WriteBatchWithTransaction { inner: writebatch }
+        }
+    }
+
+    pub fn rebuild_from_writebatch(
+        &self,
+        writebatch: &WriteBatchWithTransaction<true>,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_rebuild_from_writebatch(
+                self.inner,
+                writebatch.inner
+            ));
+        }
+        Ok(())
     }
 }
 

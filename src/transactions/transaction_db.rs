@@ -375,8 +375,9 @@ impl<T: ThreadMode> TransactionDB<T> {
     }
 
     /// Get all prepared transactions for recovery.
+    ///
     /// This function is expected to call once after open database.
-    /// Caller should commit or rollback all transactions before start other transactions.
+    /// User should commit or rollback all transactions before start other transactions.
     pub fn prepared_transactions(&mut self) -> Vec<Transaction<Self>> {
         self.prepared
             .lock()
