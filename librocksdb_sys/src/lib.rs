@@ -1626,6 +1626,8 @@ extern "C" {
     pub fn crocksdb_env_file_exists(env: *mut DBEnv, path: *const c_char, err: *mut *mut c_char);
     pub fn crocksdb_env_delete_file(env: *mut DBEnv, path: *const c_char, err: *mut *mut c_char);
     pub fn crocksdb_env_destroy(env: *mut DBEnv);
+    pub fn crocksdb_env_set_background_threads(env: *mut DBEnv, n: c_int);
+    pub fn crocksdb_env_set_high_priority_background_threads(env: *mut DBEnv, n: c_int);
 
     // EnvOptions
     pub fn crocksdb_envoptions_create() -> *mut EnvOptions;
