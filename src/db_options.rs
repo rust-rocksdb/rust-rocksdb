@@ -17,7 +17,7 @@ use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
-use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
+use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -564,7 +564,7 @@ impl BlockBasedOptions {
     }
 
     /// Sets the filter policy to reduce disk reads
-    pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
+    pub fn set_bloom_filter(&mut self, bits_per_key: c_double, block_based: bool) {
         unsafe {
             let bloom = if block_based {
                 ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)
