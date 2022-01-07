@@ -561,7 +561,8 @@ impl BlockBasedOptions {
         }
     }
 
-    /// Sets the filter policy to reduce disk reads
+    /// Sets a [Bloom filter](https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter)
+    /// policy to reduce disk reads.
     pub fn set_bloom_filter(&mut self, bits_per_key: c_double, block_based: bool) {
         unsafe {
             let bloom = if block_based {
@@ -571,6 +572,38 @@ impl BlockBasedOptions {
             };
 
             ffi::rocksdb_block_based_options_set_filter_policy(self.inner, bloom);
+        }
+    }
+
+    /// Sets a [Ribbon filter](http://rocksdb.org/blog/2021/12/29/ribbon-filter.html)
+    /// policy to reduce disk reads.
+    ///
+    /// Ribbon filters use less memory in exchange for slightly more CPU usage
+    /// compared to an equivalent bloom filter.
+    pub fn set_ribbon_filter(&mut self, bloom_equivalent_bits_per_key: c_double) {
+        unsafe {
+            let ribbon = ffi::rocksdb_filterpolicy_create_ribbon(bloom_equivalent_bits_per_key);
+            ffi::rocksdb_block_based_options_set_filter_policy(self.inner, ribbon);
+        }
+    }
+
+    /// Sets a hybrid [Ribbon filter](http://rocksdb.org/blog/2021/12/29/ribbon-filter.html)
+    /// policy to reduce disk reads.
+    ///
+    /// Uses Bloom filters before the given level, and Ribbon filters for all
+    /// other levels. This combines the memory savings from Ribbon filters
+    /// with the lower CPU usage of Bloom filters.
+    pub fn set_hybrid_ribbon_filter(
+        &mut self,
+        bloom_equivalent_bits_per_key: c_double,
+        bloom_before_level: c_int,
+    ) {
+        unsafe {
+            let ribbon = ffi::rocksdb_filterpolicy_create_ribbon_hybrid(
+                bloom_equivalent_bits_per_key,
+                bloom_before_level,
+            );
+            ffi::rocksdb_block_based_options_set_filter_policy(self.inner, ribbon);
         }
     }
 
