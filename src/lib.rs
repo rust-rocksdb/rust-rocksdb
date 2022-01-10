@@ -73,6 +73,7 @@
     clippy::missing_panics_doc,
     clippy::from_over_into,
     clippy::upper_case_acronyms,
+    clippy::redundant_closure_for_method_calls,
 )]
 
 #[macro_use]
