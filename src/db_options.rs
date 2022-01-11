@@ -3210,7 +3210,7 @@ impl ReadOptions {
     /// in the flush job queue and delete obsolete files in background.
     ///
     /// Default: false
-    pub fn set_background_purge_on_interator_cleanup(&mut self, v: bool) {
+    pub fn set_background_purge_on_iterator_cleanup(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_background_purge_on_iterator_cleanup(
                 self.inner,
