@@ -277,9 +277,8 @@ impl Default for BackupEngineOptions {
     fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB backup options");
-            }
+            assert!(!opts.is_null(), "Could not create RocksDB backup options");
+
             Self { inner: opts }
         }
     }
@@ -289,9 +288,8 @@ impl Default for RestoreOptions {
     fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_restore_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB restore options");
-            }
+            assert!(!opts.is_null(), "Could not create RocksDB restore options");
+
             Self { inner: opts }
         }
     }
