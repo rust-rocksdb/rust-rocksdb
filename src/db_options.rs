@@ -407,9 +407,8 @@ impl Drop for Options {
 impl Clone for Options {
     fn clone(&self) -> Self {
         let inner = unsafe { ffi::rocksdb_options_create_copy(self.inner) };
-        if inner.is_null() {
-            panic!("Could not copy RocksDB options");
-        }
+        assert!(!inner.is_null(), "Could not copy RocksDB options");
+
         Self {
             inner,
             outlive: self.outlive.clone(),
@@ -710,9 +709,11 @@ impl BlockBasedOptions {
 impl Default for BlockBasedOptions {
     fn default() -> Self {
         let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
-        if block_opts.is_null() {
-            panic!("Could not create RocksDB block based options");
-        }
+        assert!(
+            !block_opts.is_null(),
+            "Could not create RocksDB block based options"
+        );
+
         Self {
             inner: block_opts,
             outlive: BlockBasedOptionsMustOutliveDB::default(),
@@ -782,9 +783,8 @@ impl CuckooTableOptions {
 impl Default for CuckooTableOptions {
     fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_cuckoo_options_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB cuckoo options");
-        }
+        assert!(!opts.is_null(), "Could not create RocksDB cuckoo options");
+
         Self { inner: opts }
     }
 }
@@ -2951,9 +2951,8 @@ impl Default for Options {
     fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB options");
-            }
+            assert!(!opts.is_null(), "Could not create RocksDB options");
+
             Self {
                 inner: opts,
                 outlive: OptionsMustOutliveDB::default(),
@@ -2989,9 +2988,11 @@ impl FlushOptions {
 impl Default for FlushOptions {
     fn default() -> Self {
         let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
-        if flush_opts.is_null() {
-            panic!("Could not create RocksDB flush options");
-        }
+        assert!(
+            !flush_opts.is_null(),
+            "Could not create RocksDB flush options"
+        );
+
         Self { inner: flush_opts }
     }
 }
@@ -3077,9 +3078,11 @@ impl WriteOptions {
 impl Default for WriteOptions {
     fn default() -> Self {
         let write_opts = unsafe { ffi::rocksdb_writeoptions_create() };
-        if write_opts.is_null() {
-            panic!("Could not create RocksDB write options");
-        }
+        assert!(
+            !write_opts.is_null(),
+            "Could not create RocksDB write options"
+        );
+
         Self { inner: write_opts }
     }
 }
@@ -3456,9 +3459,11 @@ pub struct FifoCompactOptions {
 impl Default for FifoCompactOptions {
     fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_fifo_compaction_options_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB Fifo Compaction Options");
-        }
+        assert!(
+            !opts.is_null(),
+            "Could not create RocksDB Fifo Compaction Options"
+        );
+
         Self { inner: opts }
     }
 }
@@ -3499,9 +3504,11 @@ pub struct UniversalCompactOptions {
 impl Default for UniversalCompactOptions {
     fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_universal_compaction_options_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB Universal Compaction Options");
-        }
+        assert!(
+            !opts.is_null(),
+            "Could not create RocksDB Universal Compaction Options"
+        );
+
         Self { inner: opts }
     }
 }
@@ -3622,9 +3629,8 @@ pub struct CompactOptions {
 impl Default for CompactOptions {
     fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_compactoptions_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB Compact Options");
-        }
+        assert!(!opts.is_null(), "Could not create RocksDB Compact Options");
+
         Self { inner: opts }
     }
 }
