@@ -61,18 +61,15 @@
     // Next lints produce too much noise/false positives.
     clippy::module_name_repetitions, clippy::similar_names, clippy::must_use_candidate,
     // '... may panic' lints.
-    clippy::indexing_slicing,
     // Too much work to fix.
     clippy::missing_errors_doc,
     // False positive: WebSocket
     clippy::doc_markdown,
     clippy::missing_safety_doc,
     clippy::needless_pass_by_value,
-    clippy::option_if_let_else,
     clippy::ptr_as_ptr,
     clippy::missing_panics_doc,
     clippy::from_over_into,
-    clippy::upper_case_acronyms,
 )]
 
 #[macro_use]

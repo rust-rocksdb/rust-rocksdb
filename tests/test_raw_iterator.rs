@@ -32,13 +32,13 @@ pub fn test_forwards_iteration() {
         let mut iter = db.raw_iterator();
         iter.seek_to_first();
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k1".as_ref()));
         assert_eq!(iter.value(), Some(b"v1".as_ref()));
 
         iter.next();
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k2".as_ref()));
         assert_eq!(iter.value(), Some(b"v2".as_ref()));
 
@@ -46,7 +46,7 @@ pub fn test_forwards_iteration() {
         iter.next(); // k4
         iter.next(); // invalid!
 
-        assert_eq!(iter.valid(), false);
+        assert!(!iter.valid());
         assert_eq!(iter.key(), None);
         assert_eq!(iter.value(), None);
     }
@@ -65,13 +65,13 @@ pub fn test_seek_last() {
         let mut iter = db.raw_iterator();
         iter.seek_to_last();
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k4".as_ref()));
         assert_eq!(iter.value(), Some(b"v4".as_ref()));
 
         iter.prev();
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k3".as_ref()));
         assert_eq!(iter.value(), Some(b"v3".as_ref()));
 
@@ -79,7 +79,7 @@ pub fn test_seek_last() {
         iter.prev(); // k1
         iter.prev(); // invalid!
 
-        assert_eq!(iter.valid(), false);
+        assert!(!iter.valid());
         assert_eq!(iter.key(), None);
         assert_eq!(iter.value(), None);
     }
@@ -97,14 +97,14 @@ pub fn test_seek() {
         let mut iter = db.raw_iterator();
         iter.seek(b"k2");
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k2".as_ref()));
         assert_eq!(iter.value(), Some(b"v2".as_ref()));
 
         // Check it gets the next key when the key doesn't exist
         iter.seek(b"k3");
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k4".as_ref()));
         assert_eq!(iter.value(), Some(b"v4".as_ref()));
     }
@@ -122,7 +122,7 @@ pub fn test_seek_to_nonexistant() {
         let mut iter = db.raw_iterator();
         iter.seek(b"k2");
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k3".as_ref()));
         assert_eq!(iter.value(), Some(b"v3".as_ref()));
     }
@@ -140,14 +140,14 @@ pub fn test_seek_for_prev() {
         let mut iter = db.raw_iterator();
         iter.seek(b"k2");
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k2".as_ref()));
         assert_eq!(iter.value(), Some(b"v2".as_ref()));
 
         // Check it gets the previous key when the key doesn't exist
         iter.seek_for_prev(b"k3");
 
-        assert_eq!(iter.valid(), true);
+        assert!(iter.valid());
         assert_eq!(iter.key(), Some(b"k2".as_ref()));
         assert_eq!(iter.value(), Some(b"v2".as_ref()));
     }

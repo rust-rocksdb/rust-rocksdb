@@ -1018,11 +1018,8 @@ fn key_may_exist() {
 
     {
         let db = DB::open_default(&path).unwrap();
-        assert_eq!(false, db.key_may_exist("nonexistent"));
-        assert_eq!(
-            false,
-            db.key_may_exist_opt("nonexistent", &ReadOptions::default())
-        );
+        assert!(!db.key_may_exist("nonexistent"));
+        assert!(!db.key_may_exist_opt("nonexistent", &ReadOptions::default()));
     }
 }
 
@@ -1037,11 +1034,8 @@ fn key_may_exist_cf() {
         let db = DB::open_cf(&opts, &path, &["cf"]).unwrap();
         let cf = db.cf_handle("cf").unwrap();
 
-        assert_eq!(false, db.key_may_exist_cf(&cf, "nonexistent"));
-        assert_eq!(
-            false,
-            db.key_may_exist_cf_opt(&cf, "nonexistent", &ReadOptions::default())
-        );
+        assert!(!db.key_may_exist_cf(&cf, "nonexistent"));
+        assert!(!db.key_may_exist_cf_opt(&cf, "nonexistent", &ReadOptions::default()));
     }
 }
 

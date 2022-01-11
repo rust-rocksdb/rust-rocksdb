@@ -1374,9 +1374,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             ffi::rocksdb_compact_range(
                 self.inner,
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
@@ -1396,9 +1396,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 self.inner,
                 opts.inner,
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
@@ -1419,9 +1419,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 self.inner,
                 cf.inner(),
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
@@ -1443,9 +1443,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 cf.inner(),
                 opts.inner,
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
