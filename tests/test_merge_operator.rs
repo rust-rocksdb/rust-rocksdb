@@ -115,7 +115,7 @@ fn test_counting_full_merge(
     operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
     let mut counts = existing_val
-        .map(|v| ValueCounts::from_slice(v))
+        .map(ValueCounts::from_slice)
         .flatten()
         .unwrap_or_default();
 

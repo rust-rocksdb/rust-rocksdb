@@ -136,12 +136,6 @@ options/options.cc
 options/options_helper.cc
 options/options_parser.cc
 port/port_posix.cc
-port/win/env_default.cc
-port/win/env_win.cc
-port/win/io_win.cc
-port/win/port_win.cc
-port/win/win_logger.cc
-port/win/win_thread.cc
 port/stack_trace.cc
 table/adaptive/adaptive_table_factory.cc
 table/block_based/binary_search_index_reader.cc
@@ -205,7 +199,6 @@ util/comparator.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
-util/crc32c_arm64.cc
 util/dynamic_bloom.cc
 util/hash.cc
 util/murmurhash.cc
