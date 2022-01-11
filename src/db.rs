@@ -983,26 +983,22 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
         I: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef,
     {
-        let mut boxed_keys: Vec<Box<[u8]>> = Vec::new();
-        let mut keys_sizes = Vec::new();
-        let mut column_families = Vec::new();
-        for (cf, key) in keys {
-            boxed_keys.push(Box::from(key.as_ref()));
-            keys_sizes.push(key.as_ref().len());
-            column_families.push(cf);
-        }
-        let ptr_keys: Vec<_> = boxed_keys
+        let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
+            .into_iter()
+            .map(|(cf, key)| ((cf, Box::from(key.as_ref())), key.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = cfs_and_keys
             .iter()
-            .map(|k| k.as_ptr() as *const c_char)
+            .map(|(_, k)| k.as_ptr() as *const c_char)
             .collect();
-        let ptr_cfs: Vec<_> = column_families
+        let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|c| c.inner() as *const _)
+            .map(|(c, _)| c.inner() as *const _)
             .collect();
 
-        let mut values = vec![ptr::null_mut(); boxed_keys.len()];
-        let mut values_sizes = vec![0_usize; boxed_keys.len()];
-        let mut errors = vec![ptr::null_mut(); boxed_keys.len()];
+        let mut values = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut values_sizes = vec![0_usize; ptr_keys.len()];
+        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
         unsafe {
             ffi::rocksdb_multi_get_cf(
                 self.inner.inner(),
@@ -1408,9 +1404,9 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
             ffi::rocksdb_compact_range(
                 self.inner.inner(),
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
@@ -1430,9 +1426,9 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
                 self.inner.inner(),
                 opts.inner,
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
@@ -1453,9 +1449,9 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
                 self.inner.inner(),
                 cf.inner(),
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }
@@ -1477,9 +1473,9 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
                 cf.inner(),
                 opts.inner,
                 opt_bytes_to_ptr(start),
-                start.map_or(0, |s| s.len()) as size_t,
+                start.map_or(0, <[u8]>::len) as size_t,
                 opt_bytes_to_ptr(end),
-                end.map_or(0, |e| e.len()) as size_t,
+                end.map_or(0, <[u8]>::len) as size_t,
             );
         }
     }

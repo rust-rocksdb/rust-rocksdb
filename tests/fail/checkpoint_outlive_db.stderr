@@ -1,5 +1,5 @@
 error[E0597]: `db` does not live long enough
- --> $DIR/checkpoint_outlive_db.rs:6:25
+ --> tests/fail/checkpoint_outlive_db.rs:6:25
   |
 4 |     let _checkpoint = {
   |         ----------- borrow later stored here
