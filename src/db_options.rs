@@ -1007,6 +1007,17 @@ impl Options {
         }
     }
 
+    /// Sets the compression algorithm that will be used for the bottommost
+    /// level that contains files.
+    ///
+    /// Can be combined with [`Options::set_compression_type()`] for all other
+    /// levels.
+    pub fn set_bottommost_compression_type(&mut self, t: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression(self.inner, t as c_int);
+        }
+    }
+
     /// Different levels can have different compression policies. There
     /// are cases where most lower levels would like to use quick compression
     /// algorithms while the higher levels (which have more data) use
