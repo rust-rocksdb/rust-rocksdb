@@ -703,6 +703,15 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio);
         }
     }
+
+    /// If false, place only prefixes in the filter, not whole keys.
+    ///
+    /// Defaults to true.
+    pub fn set_whole_key_filtering(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_whole_key_filtering(self.inner, v as u8);
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
