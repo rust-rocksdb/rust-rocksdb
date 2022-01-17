@@ -141,4 +141,6 @@ impl<'a> AsColumnFamilyRef for Arc<BoundColumnFamily<'a>> {
 }
 
 unsafe impl Send for ColumnFamily {}
+unsafe impl Send for UnboundColumnFamily {}
+unsafe impl Sync for UnboundColumnFamily {}
 unsafe impl<'a> Send for BoundColumnFamily<'a> {}

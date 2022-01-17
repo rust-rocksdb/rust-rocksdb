@@ -168,6 +168,7 @@ impl fmt::Display for Error {
 #[cfg(test)]
 mod test {
     use super::{
+        column_family::UnboundColumnFamily,
         db_options::{CacheWrapper, EnvWrapper},
         BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor,
         DBIterator, DBRawIterator, Env, IngestExternalFileOptions, Options,
@@ -197,6 +198,7 @@ mod test {
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
         is_send::<BoundColumnFamily<'_>>();
+        is_send::<UnboundColumnFamily>();
         is_send::<SstFileWriter>();
         is_send::<WriteBatch>();
         is_send::<Cache>();
@@ -221,6 +223,7 @@ mod test {
         is_sync::<IngestExternalFileOptions>();
         is_sync::<BlockBasedOptions>();
         is_sync::<PlainTableFactoryOptions>();
+        is_sync::<UnboundColumnFamily>();
         is_sync::<ColumnFamilyDescriptor>();
         is_sync::<SstFileWriter>();
         is_sync::<Cache>();

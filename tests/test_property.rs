@@ -35,6 +35,9 @@ fn property_cf_test() {
     let n = DBPath::new("_rust_rocksdb_property_cf_test");
     {
         let opts = Options::default();
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open_default(&n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open_default(&n).unwrap();
         db.create_cf("cf1", &opts).unwrap();
         let cf = db.cf_handle("cf1").unwrap();
@@ -62,6 +65,9 @@ fn property_int_cf_test() {
     let n = DBPath::new("_rust_rocksdb_property_int_cf_test");
     {
         let opts = Options::default();
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open_default(&n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open_default(&n).unwrap();
         db.create_cf("cf1", &opts).unwrap();
         let cf = db.cf_handle("cf1").unwrap();
