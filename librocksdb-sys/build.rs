@@ -108,6 +108,7 @@ fn build_rocksdb() {
         .filter(|&file| file != "util/build_version.cc")
         .collect::<Vec<&'static str>>();
 
+    /*
     if target.contains("x86_64") {
         // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
@@ -131,6 +132,10 @@ fn build_rocksdb() {
                 config.flag_if_supported("-mpclmul");
             }
         }
+    } */
+
+    if target.contains("x86_64") && cfg!(feature = "sse") {
+        config.define("FORCE_SSE42", "ON");
     }
 
     if target.contains("aarch64") {
