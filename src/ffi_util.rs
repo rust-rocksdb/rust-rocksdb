@@ -29,8 +29,8 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
         None
     } else {
         let mut dst = vec![0; size];
-
         ptr::copy_nonoverlapping(ptr as *const u8, dst.as_mut_ptr(), size);
+
         Some(dst)
     }
 }
