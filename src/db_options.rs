@@ -16,7 +16,7 @@ use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::sync::Arc;
 
-use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
+use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -562,7 +562,7 @@ impl BlockBasedOptions {
     }
 
     /// Sets the filter policy to reduce disk reads
-    pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
+    pub fn set_bloom_filter(&mut self, bits_per_key: c_double, block_based: bool) {
         unsafe {
             let bloom = if block_based {
                 ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)
@@ -1029,11 +1029,11 @@ impl Options {
     /// ]);
     /// ```
     pub fn set_compression_per_level(&mut self, level_types: &[DBCompressionType]) {
+        let level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
         unsafe {
-            let mut level_types: Vec<_> = level_types.iter().map(|&t| t as c_int).collect();
             ffi::rocksdb_options_set_compression_per_level(
                 self.inner,
-                level_types.as_mut_ptr(),
+                level_types.as_ptr(),
                 level_types.len() as size_t,
             );
         }

@@ -476,7 +476,7 @@ fn ffi() {
         let no_compression = rocksdb_no_compression as c_int;
         rocksdb_options_set_compression(options, no_compression);
         rocksdb_options_set_compression_options(options, -14, -1, 0, 0);
-        let mut compression_levels = vec![
+        let compression_levels = vec![
             no_compression,
             no_compression,
             no_compression,
@@ -484,7 +484,7 @@ fn ffi() {
         ];
         rocksdb_options_set_compression_per_level(
             options,
-            compression_levels.as_mut_ptr(),
+            compression_levels.as_ptr(),
             compression_levels.len() as size_t,
         );
 
@@ -802,7 +802,7 @@ fn ffi() {
                     Some(FilterName),
                 )
             } else {
-                rocksdb_filterpolicy_create_bloom(10)
+                rocksdb_filterpolicy_create_bloom(10.0)
             };
 
             rocksdb_block_based_options_set_filter_policy(table_options, policy);
