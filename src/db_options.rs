@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -1214,7 +1213,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
@@ -1239,7 +1238,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, PF>),
                 Some(full_merge_callback::<F, PF>),
                 Some(partial_merge_callback::<F, PF>),
@@ -1279,7 +1278,7 @@ impl Options {
 
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
@@ -1304,7 +1303,7 @@ impl Options {
 
         unsafe {
             let cff = ffi::rocksdb_compactionfilterfactory_create(
-                Box::into_raw(factory) as *mut c_void,
+                Box::into_raw(factory).cast::<c_void>(),
                 Some(compaction_filter_factory::destructor_callback::<F>),
                 Some(compaction_filter_factory::create_compaction_filter_callback::<F>),
                 Some(compaction_filter_factory::name_callback::<F>),
@@ -1328,7 +1327,7 @@ impl Options {
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(comparator::destructor_callback),
                 Some(comparator::compare_callback),
                 Some(comparator::name_callback),
