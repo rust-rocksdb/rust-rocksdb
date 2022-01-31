@@ -245,7 +245,7 @@ pub type DB = DBWithThreadMode<MultiThreaded>;
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
-unsafe impl<T: ThreadMode> Send for DBWithThreadMode<T> {}
+unsafe impl<T: ThreadMode + Send> Send for DBWithThreadMode<T> {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
