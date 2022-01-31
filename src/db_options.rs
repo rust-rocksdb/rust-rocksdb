@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -93,7 +92,7 @@ impl Cache {
 #[derive(Clone)]
 pub struct Env(Arc<EnvWrapper>);
 
-struct EnvWrapper {
+pub(crate) struct EnvWrapper {
     inner: *mut ffi::rocksdb_env_t,
 }
 
@@ -382,8 +381,8 @@ unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
-unsafe impl Send for Cache {}
-unsafe impl Send for Env {}
+unsafe impl Send for CacheWrapper {}
+unsafe impl Send for EnvWrapper {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -393,8 +392,8 @@ unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
-unsafe impl Sync for Cache {}
-unsafe impl Sync for Env {}
+unsafe impl Sync for CacheWrapper {}
+unsafe impl Sync for EnvWrapper {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -1137,7 +1136,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
@@ -1162,7 +1161,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, PF>),
                 Some(full_merge_callback::<F, PF>),
                 Some(partial_merge_callback::<F, PF>),
@@ -1202,7 +1201,7 @@ impl Options {
 
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
@@ -1227,7 +1226,7 @@ impl Options {
 
         unsafe {
             let cff = ffi::rocksdb_compactionfilterfactory_create(
-                Box::into_raw(factory) as *mut c_void,
+                Box::into_raw(factory).cast::<c_void>(),
                 Some(compaction_filter_factory::destructor_callback::<F>),
                 Some(compaction_filter_factory::create_compaction_filter_callback::<F>),
                 Some(compaction_filter_factory::name_callback::<F>),
@@ -1251,7 +1250,7 @@ impl Options {
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(comparator::destructor_callback),
                 Some(comparator::compare_callback),
                 Some(comparator::name_callback),
