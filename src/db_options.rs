@@ -1015,6 +1015,30 @@ impl Options {
         }
     }
 
+    /// Sets the bottom-most compression algorithm that will be used for
+    /// compressing blocks at the bottom-most level.
+    ///
+    /// Note that to actually unable bottom-most compression configuration after
+    /// setting the compression type it needs to be enabled by calling
+    /// [`set_bottommost_compression_options`] or
+    /// [`set_bottommost_zstd_max_train_bytes`] method with `enabled` argument
+    /// set to `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_zstd_max_train_bytes(0, true);
+    /// ```
+    pub fn set_bottommost_compression_type(&mut self, t: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression(self.inner, t as c_int);
+        }
+    }
+
     /// Different levels can have different compression policies. There
     /// are cases where most lower levels would like to use quick compression
     /// algorithms while the higher levels (which have more data) use
@@ -1091,6 +1115,40 @@ impl Options {
         }
     }
 
+    /// Sets compression options for blocks at the bottom-most level.  Meaning
+    /// of all settings is the same as in [`set_compression_options`] method but
+    /// affect only the bottom-most compression which is set using
+    /// [`set_bottommost_compression_type`] method.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_compression_options(4, 5, 6, 7, true);
+    /// ```
+    pub fn set_bottommost_compression_options(
+        &mut self,
+        w_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+        enabled: bool,
+    ) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options(
+                self.inner,
+                w_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+                enabled as c_uchar,
+            );
+        }
+    }
+
     /// Sets maximum size of training data passed to zstd's dictionary trainer. Using zstd's
     /// dictionary trainer can achieve even better compression ratio improvements than using
     /// `max_dict_bytes` alone.
@@ -1101,6 +1159,25 @@ impl Options {
     pub fn set_zstd_max_train_bytes(&mut self, value: c_int) {
         unsafe {
             ffi::rocksdb_options_set_compression_options_zstd_max_train_bytes(self.inner, value);
+        }
+    }
+
+    /// Sets maximum size of training data passed to zstd's dictionary trainer
+    /// when compressing the bottom-most level. Using zstd's dictionary trainer
+    /// can achieve even better compression ratio improvements than using
+    /// `max_dict_bytes` alone.
+    ///
+    /// The training data will be used to generate a dictionary of
+    /// `max_dict_bytes`.
+    ///
+    /// Default: 0.
+    pub fn set_bottommost_zstd_max_train_bytes(&mut self, value: c_int, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options_zstd_max_train_bytes(
+                self.inner,
+                value,
+                enabled as c_uchar,
+            );
         }
     }
 
