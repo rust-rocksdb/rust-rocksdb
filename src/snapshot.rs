@@ -160,6 +160,55 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key.as_ref(), &readopts)
     }
+
+    /// Returns the bytes associated with the given key values and default read options.
+    pub fn multi_get<K: AsRef<[u8]>, I>(&self, keys: I) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        I: IntoIterator<Item = K>,
+    {
+        let readopts = ReadOptions::default();
+        self.multi_get_opt(keys, readopts)
+    }
+
+    /// Returns the bytes associated with the given key values and default read options.
+    pub fn multi_get_cf<'b, K, I, W>(&self, keys_cf: I) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef + 'b,
+    {
+        let readopts = ReadOptions::default();
+        self.multi_get_cf_opt(keys_cf, readopts)
+    }
+
+    /// Returns the bytes associated with the given key values and given read options.
+    pub fn multi_get_opt<K, I>(
+        &self,
+        keys: I,
+        mut readopts: ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        readopts.set_snapshot(self);
+        self.db.multi_get_opt(keys, &readopts)
+    }
+
+    /// Returns the bytes associated with the given key values, given column family and read options.
+    pub fn multi_get_cf_opt<'b, K, I, W>(
+        &self,
+        keys_cf: I,
+        mut readopts: ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef + 'b,
+    {
+        readopts.set_snapshot(self);
+        self.db.multi_get_cf_opt(keys_cf, &readopts)
+    }
 }
 
 impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -93,7 +92,7 @@ impl Cache {
 #[derive(Clone)]
 pub struct Env(Arc<EnvWrapper>);
 
-struct EnvWrapper {
+pub(crate) struct EnvWrapper {
     inner: *mut ffi::rocksdb_env_t,
 }
 
@@ -382,8 +381,8 @@ unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
-unsafe impl Send for Cache {}
-unsafe impl Send for Env {}
+unsafe impl Send for CacheWrapper {}
+unsafe impl Send for EnvWrapper {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -393,8 +392,8 @@ unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
-unsafe impl Sync for Cache {}
-unsafe impl Sync for Env {}
+unsafe impl Sync for CacheWrapper {}
+unsafe impl Sync for EnvWrapper {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -704,6 +703,15 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio);
         }
     }
+
+    /// If false, place only prefixes in the filter, not whole keys.
+    ///
+    /// Defaults to true.
+    pub fn set_whole_key_filtering(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_whole_key_filtering(self.inner, v as u8);
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
@@ -1007,6 +1015,30 @@ impl Options {
         }
     }
 
+    /// Sets the bottom-most compression algorithm that will be used for
+    /// compressing blocks at the bottom-most level.
+    ///
+    /// Note that to actually unable bottom-most compression configuration after
+    /// setting the compression type it needs to be enabled by calling
+    /// [`set_bottommost_compression_options`] or
+    /// [`set_bottommost_zstd_max_train_bytes`] method with `enabled` argument
+    /// set to `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_zstd_max_train_bytes(0, true);
+    /// ```
+    pub fn set_bottommost_compression_type(&mut self, t: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression(self.inner, t as c_int);
+        }
+    }
+
     /// Different levels can have different compression policies. There
     /// are cases where most lower levels would like to use quick compression
     /// algorithms while the higher levels (which have more data) use
@@ -1083,6 +1115,40 @@ impl Options {
         }
     }
 
+    /// Sets compression options for blocks at the bottom-most level.  Meaning
+    /// of all settings is the same as in [`set_compression_options`] method but
+    /// affect only the bottom-most compression which is set using
+    /// [`set_bottommost_compression_type`] method.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_compression_options(4, 5, 6, 7, true);
+    /// ```
+    pub fn set_bottommost_compression_options(
+        &mut self,
+        w_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+        enabled: bool,
+    ) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options(
+                self.inner,
+                w_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+                enabled as c_uchar,
+            );
+        }
+    }
+
     /// Sets maximum size of training data passed to zstd's dictionary trainer. Using zstd's
     /// dictionary trainer can achieve even better compression ratio improvements than using
     /// `max_dict_bytes` alone.
@@ -1093,6 +1159,25 @@ impl Options {
     pub fn set_zstd_max_train_bytes(&mut self, value: c_int) {
         unsafe {
             ffi::rocksdb_options_set_compression_options_zstd_max_train_bytes(self.inner, value);
+        }
+    }
+
+    /// Sets maximum size of training data passed to zstd's dictionary trainer
+    /// when compressing the bottom-most level. Using zstd's dictionary trainer
+    /// can achieve even better compression ratio improvements than using
+    /// `max_dict_bytes` alone.
+    ///
+    /// The training data will be used to generate a dictionary of
+    /// `max_dict_bytes`.
+    ///
+    /// Default: 0.
+    pub fn set_bottommost_zstd_max_train_bytes(&mut self, value: c_int, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options_zstd_max_train_bytes(
+                self.inner,
+                value,
+                enabled as c_uchar,
+            );
         }
     }
 
@@ -1137,7 +1222,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
@@ -1162,7 +1247,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, PF>),
                 Some(full_merge_callback::<F, PF>),
                 Some(partial_merge_callback::<F, PF>),
@@ -1202,7 +1287,7 @@ impl Options {
 
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
@@ -1227,7 +1312,7 @@ impl Options {
 
         unsafe {
             let cff = ffi::rocksdb_compactionfilterfactory_create(
-                Box::into_raw(factory) as *mut c_void,
+                Box::into_raw(factory).cast::<c_void>(),
                 Some(compaction_filter_factory::destructor_callback::<F>),
                 Some(compaction_filter_factory::create_compaction_filter_callback::<F>),
                 Some(compaction_filter_factory::name_callback::<F>),
@@ -1251,7 +1336,7 @@ impl Options {
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(comparator::destructor_callback),
                 Some(comparator::compare_callback),
                 Some(comparator::name_callback),

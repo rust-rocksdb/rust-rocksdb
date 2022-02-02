@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Options, DB};
+use rocksdb::{properties, Options, DB};
 use util::DBPath;
 
 #[test]
@@ -24,7 +24,7 @@ fn property_test() {
     let n = DBPath::new("_rust_rocksdb_property_test");
     {
         let db = DB::open_default(&n).unwrap();
-        let value = db.property_value("rocksdb.stats").unwrap().unwrap();
+        let value = db.property_value(properties::STATS).unwrap().unwrap();
 
         assert!(value.contains("Stats"));
     }
@@ -35,10 +35,16 @@ fn property_cf_test() {
     let n = DBPath::new("_rust_rocksdb_property_cf_test");
     {
         let opts = Options::default();
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open_default(&n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open_default(&n).unwrap();
         db.create_cf("cf1", &opts).unwrap();
         let cf = db.cf_handle("cf1").unwrap();
-        let value = db.property_value_cf(&cf, "rocksdb.stats").unwrap().unwrap();
+        let value = db
+            .property_value_cf(&cf, properties::STATS)
+            .unwrap()
+            .unwrap();
 
         assert!(value.contains("Stats"));
     }
@@ -50,7 +56,7 @@ fn property_int_test() {
     {
         let db = DB::open_default(&n).unwrap();
         let value = db
-            .property_int_value("rocksdb.estimate-live-data-size")
+            .property_int_value(properties::ESTIMATE_LIVE_DATA_SIZE)
             .unwrap();
 
         assert_eq!(value, Some(0));
@@ -62,11 +68,14 @@ fn property_int_cf_test() {
     let n = DBPath::new("_rust_rocksdb_property_int_cf_test");
     {
         let opts = Options::default();
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open_default(&n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open_default(&n).unwrap();
         db.create_cf("cf1", &opts).unwrap();
         let cf = db.cf_handle("cf1").unwrap();
         let total_keys = db
-            .property_int_value_cf(&cf, "rocksdb.estimate-num-keys")
+            .property_int_value_cf(&cf, properties::ESTIMATE_NUM_KEYS)
             .unwrap();
 
         assert_eq!(total_keys, Some(0));

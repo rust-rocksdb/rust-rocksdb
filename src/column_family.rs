@@ -71,7 +71,7 @@ impl UnboundColumnFamily {
     pub(crate) fn bound_column_family<'a>(self: Arc<Self>) -> Arc<BoundColumnFamily<'a>> {
         // SAFETY: the new BoundColumnFamily here just adding lifetime,
         // so that column family handle won't outlive db.
-        unsafe { std::mem::transmute(self) }
+        unsafe { Arc::from_raw(Arc::into_raw(self).cast()) }
     }
 }
 
@@ -141,4 +141,6 @@ impl<'a> AsColumnFamilyRef for Arc<BoundColumnFamily<'a>> {
 }
 
 unsafe impl Send for ColumnFamily {}
+unsafe impl Send for UnboundColumnFamily {}
+unsafe impl Sync for UnboundColumnFamily {}
 unsafe impl<'a> Send for BoundColumnFamily<'a> {}
