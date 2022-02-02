@@ -141,12 +141,6 @@ options/options.cc
 options/options_helper.cc
 options/options_parser.cc
 port/port_posix.cc
-port/win/env_default.cc
-port/win/env_win.cc
-port/win/io_win.cc
-port/win/port_win.cc
-port/win/win_logger.cc
-port/win/win_thread.cc
 port/stack_trace.cc
 table/adaptive/adaptive_table_factory.cc
 table/block_based/binary_search_index_reader.cc
@@ -291,4 +285,3 @@ utilities/ttl/db_ttl_impl.cc
 utilities/wal_filter.cc
 utilities/write_batch_with_index/write_batch_with_index.cc
 utilities/write_batch_with_index/write_batch_with_index_internal.cc
-
