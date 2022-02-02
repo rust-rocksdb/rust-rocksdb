@@ -1734,6 +1734,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 let mut key_size: usize = 0;
 
                 for i in 0..n {
+                    let column_family_name =
+                        from_cstr(ffi::rocksdb_livefiles_column_family_name(files, i));
                     let name = from_cstr(ffi::rocksdb_livefiles_name(files, i));
                     let size = ffi::rocksdb_livefiles_size(files, i);
                     let level = ffi::rocksdb_livefiles_level(files, i) as i32;
@@ -1747,6 +1749,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     let largest_key = raw_data(largest_key, key_size);
 
                     livefiles.push(LiveFile {
+                        column_family_name,
                         name,
                         size,
                         level,
@@ -1910,6 +1913,8 @@ impl<T: ThreadMode> fmt::Debug for DBWithThreadMode<T> {
 /// The metadata that describes a SST file
 #[derive(Debug, Clone)]
 pub struct LiveFile {
+    /// Name of the column family the file belongs to
+    pub column_family_name: String,
     /// Name of the file
     pub name: String,
     /// Size of the file
