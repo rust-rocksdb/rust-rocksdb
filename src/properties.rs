@@ -19,7 +19,7 @@ pub const NUM_FILES_AT_LEVEL_PREFIX: &str = property!("num-files-at-level");
 /// representation of a level number (e.g., "0"). Here, compression
 /// ratio is defined as uncompressed data size / compressed file size.
 /// Returns "-1.0" if no open files at level <N>.
-pub const COMPRESSION_RATIO_AT_LEVEL: &str = property!("rocksdb.compression-ratio-at-level");
+pub const COMPRESSION_RATIO_AT_LEVEL: &str = property!("compression-ratio-at-level");
 
 /// "rocksdb.stats" - returns a multi-line string containing the data
 /// described by kCFStats followed by the data described by kDBStats.
