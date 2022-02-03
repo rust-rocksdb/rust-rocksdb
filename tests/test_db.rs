@@ -660,6 +660,19 @@ fn fifo_compaction_test() {
             let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
             assert!(ctx.report(true).contains(&expect));
         }
+
+        // check live files (sst files meta)
+        let livefiles = db.live_files().unwrap();
+        assert_eq!(livefiles.len(), 1);
+        livefiles.iter().for_each(|f| {
+            assert_eq!(f.level, 1);
+            assert_eq!(f.column_family_name, "cf1");
+            assert!(!f.name.is_empty());
+            assert_eq!(f.start_key.as_ref().unwrap().as_slice(), "k1".as_bytes());
+            assert_eq!(f.end_key.as_ref().unwrap().as_slice(), "k5".as_bytes());
+            assert_eq!(f.num_entries, 5);
+            assert_eq!(f.num_deletions, 0);
+        });
     }
 }
 
@@ -798,6 +811,7 @@ fn get_with_cache_and_bulkload_test() {
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
             assert_eq!(f.level, 2);
+            assert_eq!(f.column_family_name, "default");
             assert!(!f.name.is_empty());
             assert_eq!(
                 f.start_key.as_ref().unwrap().as_slice(),

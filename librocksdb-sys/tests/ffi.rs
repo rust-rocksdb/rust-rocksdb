@@ -802,7 +802,7 @@ fn ffi() {
                     Some(FilterName),
                 )
             } else {
-                rocksdb_filterpolicy_create_bloom(10)
+                rocksdb_filterpolicy_create_bloom(10.0)
             };
 
             rocksdb_block_based_options_set_filter_policy(table_options, policy);
