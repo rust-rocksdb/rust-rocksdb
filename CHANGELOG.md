@@ -4,6 +4,7 @@
 
 ## 0.18.0 (2022-02-03)
 
+* Change versioning scheme of `librocksdb-sys` crate (aleksuss)
 * Upgrade to RocksDB 6.28.2 (akrylysov)
 * Fix theoretical UB while transmuting Arc (niklasf)
 * Support configuring bottom-most compression level (mina86)
