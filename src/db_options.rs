@@ -570,7 +570,7 @@ impl BlockBasedOptions {
     /// use rocksdb::BlockBasedOptions;
     ///
     /// let mut opts = BlockBasedOptions::default();
-    /// opts.set_bloom_filter(0.5, true);
+    /// opts.set_bloom_filter(10.0, true);
     /// ```
     pub fn set_bloom_filter(&mut self, bits_per_key: c_double, block_based: bool) {
         unsafe {
@@ -596,7 +596,7 @@ impl BlockBasedOptions {
     /// use rocksdb::BlockBasedOptions;
     ///
     /// let mut opts = BlockBasedOptions::default();
-    /// opts.set_ribbon_filter(0.5);
+    /// opts.set_ribbon_filter(10.0);
     /// ```
     pub fn set_ribbon_filter(&mut self, bloom_equivalent_bits_per_key: c_double) {
         unsafe {
@@ -618,7 +618,7 @@ impl BlockBasedOptions {
     /// use rocksdb::BlockBasedOptions;
     ///
     /// let mut opts = BlockBasedOptions::default();
-    /// opts.set_hybrid_ribbon_filter(0.5, 2);
+    /// opts.set_hybrid_ribbon_filter(10.0, 2);
     /// ```
     pub fn set_hybrid_ribbon_filter(
         &mut self,
