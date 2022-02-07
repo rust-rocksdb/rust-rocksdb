@@ -520,7 +520,7 @@ fn test_open_cf_descriptors_as_secondary() {
     primary_opts.create_if_missing(true);
     primary_opts.create_missing_column_families(true);
     let cfs = vec!["cf1"];
-    let primary_db = DB::open_cf(&primary_opts, &primary_path, cfs.clone()).unwrap();
+    let primary_db = DB::open_cf(&primary_opts, &primary_path, &cfs).unwrap();
     let primary_cf1 = primary_db.cf_handle("cf1").unwrap();
     primary_db.put_cf(&primary_cf1, b"k1", b"v1").unwrap();
 
@@ -528,9 +528,9 @@ fn test_open_cf_descriptors_as_secondary() {
         DBPath::new("_rust_rocksdb_test_open_cf_descriptors_as_secondary_secondary");
     let mut secondary_opts = Options::default();
     secondary_opts.set_max_open_files(-1);
-    let cfs = cfs.into_iter().map(|name| {
-        ColumnFamilyDescriptor::new(<str as AsRef<str>>::as_ref(name), Options::default())
-    });
+    let cfs = cfs
+        .into_iter()
+        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
     let secondary_db =
         DB::open_cf_descriptors_as_secondary(&secondary_opts, &primary_path, &secondary_path, cfs)
             .unwrap();
@@ -955,16 +955,16 @@ fn test_open_cf_descriptors_for_read_only() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = DB::open_cf(&opts, &path, cfs.clone()).unwrap();
+        let db = DB::open_cf(&opts, &path, &cfs).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
         db.put_cf(&cf1, b"k1", b"v1").unwrap();
     }
     {
         let opts = Options::default();
         let error_if_log_file_exist = false;
-        let cfs = cfs.into_iter().map(|name| {
-            ColumnFamilyDescriptor::new(<str as AsRef<str>>::as_ref(name), Options::default())
-        });
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
         let db =
             DB::open_cf_descriptors_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
