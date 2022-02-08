@@ -34,7 +34,6 @@ db/db_filesnapshot.cc
 db/db_impl/compacted_db_impl.cc
 db/db_impl/db_impl.cc
 db/db_impl/db_impl_compaction_flush.cc
-db/db_impl/db_impl_debug.cc
 db/db_impl/db_impl_experimental.cc
 db/db_impl/db_impl_files.cc
 db/db_impl/db_impl_open.cc
@@ -209,7 +208,6 @@ util/comparator.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
-util/crc32c_arm64.cc
 util/dynamic_bloom.cc
 util/hash.cc
 util/murmurhash.cc
