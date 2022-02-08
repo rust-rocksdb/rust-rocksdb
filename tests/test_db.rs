@@ -20,10 +20,10 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle, DBWithThreadMode, Env, Error,
-    FifoCompactOptions, IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions,
-    SingleThreaded, SliceTransform, Snapshot, UniversalCompactOptions,
-    UniversalCompactionStopStyle, WriteBatch, DB,
+    ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
+    DBWithThreadMode, Env, Error, FifoCompactOptions, IteratorMode, MultiThreaded, Options,
+    PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
+    UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
 };
 use util::DBPath;
 
@@ -514,6 +514,46 @@ fn test_open_as_secondary() {
 }
 
 #[test]
+fn test_open_cf_descriptors_as_secondary() {
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_cf_descriptors_as_secondary_primary");
+    let mut primary_opts = Options::default();
+    primary_opts.create_if_missing(true);
+    primary_opts.create_missing_column_families(true);
+    let cfs = vec!["cf1"];
+    let primary_db = DB::open_cf(&primary_opts, &primary_path, &cfs).unwrap();
+    let primary_cf1 = primary_db.cf_handle("cf1").unwrap();
+    primary_db.put_cf(&primary_cf1, b"k1", b"v1").unwrap();
+
+    let secondary_path =
+        DBPath::new("_rust_rocksdb_test_open_cf_descriptors_as_secondary_secondary");
+    let mut secondary_opts = Options::default();
+    secondary_opts.set_max_open_files(-1);
+    let cfs = cfs
+        .into_iter()
+        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
+    let secondary_db =
+        DB::open_cf_descriptors_as_secondary(&secondary_opts, &primary_path, &secondary_path, cfs)
+            .unwrap();
+    let secondary_cf1 = secondary_db.cf_handle("cf1").unwrap();
+    assert_eq!(
+        secondary_db.get_cf(&secondary_cf1, b"k1").unwrap().unwrap(),
+        b"v1"
+    );
+    assert!(secondary_db.put_cf(&secondary_cf1, b"k2", b"v2").is_err());
+
+    primary_db.put_cf(&primary_cf1, b"k1", b"v2").unwrap();
+    assert_eq!(
+        secondary_db.get_cf(&secondary_cf1, b"k1").unwrap().unwrap(),
+        b"v1"
+    );
+    assert!(secondary_db.try_catch_up_with_primary().is_ok());
+    assert_eq!(
+        secondary_db.get_cf(&secondary_cf1, b"k1").unwrap().unwrap(),
+        b"v2"
+    );
+}
+
+#[test]
 fn test_open_with_ttl() {
     let path = DBPath::new("_rust_rocksdb_test_open_with_ttl");
 
@@ -901,6 +941,32 @@ fn test_open_cf_for_read_only() {
         let opts = Options::default();
         let error_if_log_file_exist = false;
         let db = DB::open_cf_for_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.put_cf(&cf1, b"k2", b"v2").is_err());
+    }
+}
+
+#[test]
+fn test_open_cf_descriptors_for_read_only() {
+    let path = DBPath::new("_rust_rocksdb_test_open_cf_descriptors_for_read_only");
+    let cfs = vec!["cf1"];
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+    }
+    {
+        let opts = Options::default();
+        let error_if_log_file_exist = false;
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
+        let db =
+            DB::open_cf_descriptors_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
         assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
         assert!(db.put_cf(&cf1, b"k2", b"v2").is_err());
