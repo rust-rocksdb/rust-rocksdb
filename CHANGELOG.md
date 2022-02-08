@@ -4,6 +4,8 @@
 
 ## 0.18.0 (2022-02-03)
 
+* Add open_cf_descriptor methods for Seoncdary and ReadOnly AccessType (steviez)
+* Make Ribbon filters available (niklasf)
 * Change versioning scheme of `librocksdb-sys` crate (aleksuss)
 * Upgrade to RocksDB 6.28.2 (akrylysov)
 * Fix theoretical UB while transmuting Arc (niklasf)
