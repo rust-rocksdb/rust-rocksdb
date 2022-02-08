@@ -16,6 +16,9 @@ exclude = [
     "test/**/*",
 ]
 
+[workspace]
+members = ["librocksdb-sys"]
+
 [features]
 default = ["snappy", "lz4", "zstd", "zlib", "bzip2"]
 jemalloc = ["librocksdb-sys/jemalloc"]
@@ -31,7 +34,7 @@ serde1 = ["serde"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.6.0" }
+librocksdb-sys = { path = "librocksdb-sys", version = "0.6.1" }
 serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]

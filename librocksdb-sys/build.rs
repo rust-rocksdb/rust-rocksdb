@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{env, fs, path::PathBuf, process::Command};
 
 fn link(name: &str, bundled: bool) {
@@ -111,7 +112,7 @@ fn build_rocksdb() {
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
         // (about 2011).
         let target_feature = env::var("CARGO_CFG_TARGET_FEATURE").unwrap();
-        let target_features: Vec<_> = target_feature.split(",").collect();
+        let target_features: Vec<_> = target_feature.split(',').collect();
         if target_features.contains(&"sse2") {
             config.flag_if_supported("-msse2");
         }
@@ -123,11 +124,9 @@ fn build_rocksdb() {
             config.define("HAVE_SSE42", Some("1"));
         }
 
-        if !target.contains("android") {
-            if target_features.contains(&"pclmulqdq") {
-                config.define("HAVE_PCLMUL", Some("1"));
-                config.flag_if_supported("-mpclmul");
-            }
+        if !target.contains("android") && target_features.contains(&"pclmulqdq") {
+            config.define("HAVE_PCLMUL", Some("1"));
+            config.flag_if_supported("-mpclmul");
         }
     }
 
@@ -318,7 +317,9 @@ fn update_submodules() {
 }
 
 fn main() {
-    update_submodules();
+    if !Path::new("rocksdb/AUTHORS").exists() {
+        update_submodules();
+    }
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
