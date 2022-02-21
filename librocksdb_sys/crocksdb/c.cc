@@ -2094,6 +2094,11 @@ unsigned char crocksdb_flushjobinfo_triggered_writes_stop(
   return info->rep.triggered_writes_stop;
 }
 
+void crocksdb_reset_status(crocksdb_status_ptr_t* status_ptr) {
+  auto ptr = status_ptr->rep;
+  *ptr = Status::OK();
+}
+
 /* CompactionJobInfo */
 
 void crocksdb_compactionjobinfo_status(const crocksdb_compactionjobinfo_t* info,

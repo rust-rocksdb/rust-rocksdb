@@ -807,6 +807,9 @@ crocksdb_flushjobinfo_triggered_writes_slowdown(const crocksdb_flushjobinfo_t*);
 extern C_ROCKSDB_LIBRARY_API unsigned char
 crocksdb_flushjobinfo_triggered_writes_stop(const crocksdb_flushjobinfo_t*);
 
+extern C_ROCKSDB_LIBRARY_API void crocksdb_reset_status(
+    crocksdb_status_ptr_t* status_ptr);
+
 /* Compaction job info */
 extern C_ROCKSDB_LIBRARY_API void crocksdb_compactionjobinfo_status(
     const crocksdb_compactionjobinfo_t* info, char** errptr);

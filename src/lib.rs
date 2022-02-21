@@ -36,8 +36,8 @@ pub use compaction_filter::{
 #[cfg(feature = "encryption")]
 pub use encryption::{DBEncryptionMethod, EncryptionKeyManager, FileEncryptionInfo};
 pub use event_listener::{
-    CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, SubcompactionJobInfo,
-    WriteStallInfo,
+    CompactionJobInfo, EventListener, FlushJobInfo, IngestionInfo, MutableStatus,
+    SubcompactionJobInfo, WriteStallInfo,
 };
 pub use file_system::FileSystemInspector;
 pub use librocksdb_sys::{

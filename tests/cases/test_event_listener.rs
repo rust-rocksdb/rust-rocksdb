@@ -11,6 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::Write;
+use std::path::Path;
 use std::sync::atomic::*;
 use std::sync::Arc;
 
@@ -131,7 +133,7 @@ struct BackgroundErrorCounter {
 }
 
 impl EventListener for BackgroundErrorCounter {
-    fn on_background_error(&self, _: DBBackgroundErrorReason, _: Result<(), String>) {
+    fn on_background_error(&self, _: DBBackgroundErrorReason, _: MutableStatus) {
         self.background_error.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -282,4 +284,60 @@ fn test_event_listener_background_error() {
         db.flush(false).unwrap();
     }
     assert_eq!(counter.background_error.load(Ordering::SeqCst), 0);
+}
+
+#[derive(Default, Clone)]
+struct BackgroundErrorCleaner(Arc<AtomicUsize>);
+
+impl EventListener for BackgroundErrorCleaner {
+    fn on_background_error(&self, _: DBBackgroundErrorReason, s: MutableStatus) {
+        s.reset();
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+#[test]
+fn test_event_listener_status_reset() {
+    let path = tempdir_with_prefix("_test_event_listener_status_reset");
+    let path_str = path.path().to_str().unwrap();
+
+    let mut opts = DBOptions::new();
+    let cleaner = BackgroundErrorCleaner::default();
+    let counter = cleaner.0.clone();
+    opts.add_event_listener(cleaner.clone());
+    opts.create_if_missing(true);
+    let db = DB::open(opts, path_str).unwrap();
+
+    for i in 1..5 {
+        db.put(format!("{:04}", i).as_bytes(), b"value").unwrap();
+    }
+    db.flush(true).unwrap();
+
+    disturb_sst_file(&db, path.path());
+
+    for i in 1..5 {
+        db.put(format!("{:04}", i).as_bytes(), b"value").unwrap();
+    }
+    compact_files_to_bottom(&db);
+    db.flush(true).unwrap();
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+}
+
+fn disturb_sst_file(db: &DB, path: &Path) {
+    let files = db.get_live_files();
+    let mut file_name = files.get_name(0);
+    file_name.remove(0);
+
+    let sst_path = path.to_path_buf().join(file_name);
+
+    let mut file = std::fs::File::create(sst_path).unwrap();
+    file.write(b"surprise").unwrap();
+    file.sync_all().unwrap();
+}
+
+fn compact_files_to_bottom(db: &DB) {
+    let mut opt = CompactionOptions::new();
+    opt.set_max_subcompactions(1);
+    // output_level should be from 0 to 6.
+    db.compact_range(None, None);
 }

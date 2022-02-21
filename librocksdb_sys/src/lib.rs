@@ -2155,7 +2155,7 @@ extern "C" {
     ) -> *const DBTableProperties;
     pub fn crocksdb_flushjobinfo_triggered_writes_slowdown(info: *const DBFlushJobInfo) -> bool;
     pub fn crocksdb_flushjobinfo_triggered_writes_stop(info: *const DBFlushJobInfo) -> bool;
-
+    pub fn crocksdb_reset_status(ptr: *mut DBStatusPtr);
     pub fn crocksdb_compactionjobinfo_status(
         info: *const DBCompactionJobInfo,
         errptr: *mut *mut c_char,
