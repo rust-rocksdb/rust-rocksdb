@@ -679,6 +679,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     ))
                 }
                 AccessType::WithTTL { ttl } => {
+                    let ttls_v = vec![ttl.as_secs() as c_int; cfs_v.len()];
                     ffi_try!(ffi::rocksdb_open_column_families_with_ttl(
                         opts.inner,
                         cpath.as_ptr(),
@@ -686,7 +687,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
                         cfhandles.as_mut_ptr(),
-                        &(ttl.as_secs() as c_int) as *const _,
+                        ttls_v.as_ptr(),
                     ))
                 }
             }
