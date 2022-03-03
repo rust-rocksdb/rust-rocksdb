@@ -613,22 +613,22 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only(
                     opts.inner,
-                    cpath.as_ptr() as *const _,
+                    cpath.as_ptr(),
                     c_uchar::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => {
-                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
+                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr()))
                 }
                 AccessType::Secondary { secondary_path } => {
                     ffi_try!(ffi::rocksdb_open_as_secondary(
                         opts.inner,
-                        cpath.as_ptr() as *const _,
-                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cpath.as_ptr(),
+                        to_cpath(secondary_path)?.as_ptr(),
                     ))
                 }
                 AccessType::WithTTL { ttl } => ffi_try!(ffi::rocksdb_open_with_ttl(
                     opts.inner,
-                    cpath.as_ptr() as *const _,
+                    cpath.as_ptr(),
                     ttl.as_secs() as c_int,
                 )),
             }
@@ -670,8 +670,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 AccessType::Secondary { secondary_path } => {
                     ffi_try!(ffi::rocksdb_open_as_secondary_column_families(
                         opts.inner,
-                        cpath.as_ptr() as *const _,
-                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cpath.as_ptr(),
+                        to_cpath(secondary_path)?.as_ptr(),
                         cfs_v.len() as c_int,
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
@@ -702,7 +702,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         unsafe {
             let ptr = ffi_try!(ffi::rocksdb_list_column_families(
                 opts.inner,
-                cpath.as_ptr() as *const _,
+                cpath.as_ptr(),
                 &mut length,
             ));
 
