@@ -281,3 +281,11 @@ impl OptimisticTransactionOptions {
         }
     }
 }
+
+impl Drop for OptimisticTransactionOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_optimistictransaction_options_destroy(self.inner);
+        }
+    }
+}
