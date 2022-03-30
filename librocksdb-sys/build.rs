@@ -131,10 +131,17 @@ fn build_rocksdb() {
     }
 
     if target.contains("aarch64") {
-        lib_sources.push("util/crc32c_arm64.cc")
+        lib_sources.push("util/crc32c_arm64.cc");
     }
 
-    if target.contains("darwin") {
+    if target.contains("apple-ios") {
+        config.define("IOS_CROSS_COMPILE", None);
+        config.define("PLATFORM", "IOS");
+        config.define("NIOSTATS_CONTEXT", None);
+        config.define("NPERF_CONTEXT", None);
+    }
+
+    if target.contains("darwin") || target.contains("apple-ios") {
         config.define("OS_MACOSX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
@@ -192,7 +199,9 @@ fn build_rocksdb() {
         lib_sources.push("port/win/win_thread.cc");
     }
 
-    config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
+    if !target.contains("apple-ios") {
+        config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
+    }
 
     if cfg!(feature = "jemalloc") {
         config.define("WITH_JEMALLOC", "ON");
