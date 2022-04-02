@@ -34,7 +34,7 @@ for task in tasks:
             if task[2].match(line):
                 begin = True
                 print('#[derive(Copy, Clone, Debug, Eq, PartialEq)]')
-                print('#[repr(C)]')
+                print('#[repr(u32)]')
                 print('pub enum {} {{'.format(task[0]))
             continue
         if task[3].match(line):

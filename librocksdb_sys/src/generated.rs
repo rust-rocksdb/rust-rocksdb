@@ -2,7 +2,7 @@
 /// Re-generate it if you upgrade to a new version of RocksDB.
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
+#[repr(u32)]
 pub enum DBStatisticsTickerType {
     BlockCacheMiss = 0,
     BlockCacheHit = 1,
@@ -178,7 +178,7 @@ pub enum DBStatisticsTickerType {
     TitanGcTriggerNext,
 }
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
+#[repr(u32)]
 pub enum DBStatisticsHistogramType {
     DbGet = 0,
     DbWrite = 1,

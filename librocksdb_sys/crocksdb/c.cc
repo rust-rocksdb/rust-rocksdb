@@ -119,6 +119,7 @@ using rocksdb::NewLRUCache;
 using rocksdb::Options;
 using rocksdb::PartitionerRequest;
 using rocksdb::PartitionerResult;
+using rocksdb::PerfFlags;
 using rocksdb::PinnableSlice;
 using rocksdb::RandomAccessFile;
 using rocksdb::Range;
@@ -5534,6 +5535,24 @@ int crocksdb_get_perf_level(void) {
 
 void crocksdb_set_perf_level(int level) {
   rocksdb::SetPerfLevel(static_cast<PerfLevel>(level));
+}
+
+struct crocksdb_perf_flags_t {
+  PerfFlags rep;
+};
+
+crocksdb_perf_flags_t* crocksdb_create_perf_flags() {
+  return new crocksdb_perf_flags_t;
+}
+
+void crocksdb_perf_flags_set(crocksdb_perf_flags_t* flags, uint32_t flag) {
+  flags->rep.set(flag);
+}
+
+void crocksdb_destroy_perf_flags(crocksdb_perf_flags_t* flags) { delete flags; }
+
+void crocksdb_set_perf_flags(const crocksdb_perf_flags_t* flags) {
+  rocksdb::SetPerfFlags(flags->rep);
 }
 
 struct crocksdb_perf_context_t {

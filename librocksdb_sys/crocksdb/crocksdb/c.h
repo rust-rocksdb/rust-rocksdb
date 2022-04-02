@@ -154,6 +154,7 @@ typedef struct crocksdb_column_family_meta_data_t
 typedef struct crocksdb_level_meta_data_t crocksdb_level_meta_data_t;
 typedef struct crocksdb_sst_file_meta_data_t crocksdb_sst_file_meta_data_t;
 typedef struct crocksdb_compaction_options_t crocksdb_compaction_options_t;
+typedef struct crocksdb_perf_flags_t crocksdb_perf_flags_t;
 typedef struct crocksdb_perf_context_t crocksdb_perf_context_t;
 typedef struct crocksdb_iostats_context_t crocksdb_iostats_context_t;
 typedef struct crocksdb_writestallinfo_t crocksdb_writestallinfo_t;
@@ -2155,6 +2156,14 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_compact_files_cf(
 /* PerfContext */
 extern C_ROCKSDB_LIBRARY_API int crocksdb_get_perf_level(void);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_set_perf_level(int level);
+extern C_ROCKSDB_LIBRARY_API crocksdb_perf_flags_t*
+crocksdb_create_perf_flags();
+extern C_ROCKSDB_LIBRARY_API void crocksdb_perf_flags_set(
+    crocksdb_perf_flags_t* flags, uint32_t flag);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_destroy_perf_flags(
+    crocksdb_perf_flags_t* flags);
+extern C_ROCKSDB_LIBRARY_API void crocksdb_set_perf_flags(
+    const crocksdb_perf_flags_t* flags);
 extern C_ROCKSDB_LIBRARY_API crocksdb_perf_context_t* crocksdb_get_perf_context(
     void);
 extern C_ROCKSDB_LIBRARY_API void crocksdb_perf_context_reset(

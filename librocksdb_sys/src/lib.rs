@@ -151,6 +151,8 @@ pub struct DBSstFileMetaData(c_void);
 #[repr(C)]
 pub struct DBCompactionOptions(c_void);
 #[repr(C)]
+pub struct DBPerfFlags(c_void);
+#[repr(C)]
 pub struct DBPerfContext(c_void);
 #[repr(C)]
 pub struct DBIOStatsContext(c_void);
@@ -2349,6 +2351,10 @@ extern "C" {
 
     pub fn crocksdb_get_perf_level() -> c_int;
     pub fn crocksdb_set_perf_level(level: c_int);
+    pub fn crocksdb_create_perf_flags() -> *mut DBPerfFlags;
+    pub fn crocksdb_perf_flags_set(flags: *mut DBPerfFlags, flag: u32);
+    pub fn crocksdb_destroy_perf_flags(flag: *mut DBPerfFlags);
+    pub fn crocksdb_set_perf_flags(flags: *const DBPerfFlags);
     pub fn crocksdb_get_perf_context() -> *mut DBPerfContext;
     pub fn crocksdb_perf_context_reset(ctx: *mut DBPerfContext);
     pub fn crocksdb_perf_context_user_key_comparison_count(ctx: *mut DBPerfContext) -> u64;

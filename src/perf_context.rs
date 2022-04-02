@@ -11,7 +11,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crocksdb_ffi::{self, DBIOStatsContext, DBPerfContext};
+use crocksdb_ffi::{self, DBIOStatsContext, DBPerfContext, DBPerfFlags};
+
+use std::{
+    iter::Sum,
+    ops::{Add, AddAssign, BitOr, BitOrAssign},
+    ptr::NonNull,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PerfLevel {
@@ -50,6 +56,179 @@ pub fn set_perf_level(level: PerfLevel) {
     };
     unsafe {
         crocksdb_ffi::crocksdb_set_perf_level(v);
+    }
+}
+
+pub struct PerfFlags {
+    inner: NonNull<DBPerfFlags>,
+}
+
+unsafe impl Send for PerfFlags {}
+
+unsafe impl Sync for PerfFlags {}
+
+impl PerfFlags {
+    pub fn new() -> PerfFlags {
+        unsafe {
+            let inner = crocksdb_ffi::crocksdb_create_perf_flags();
+            PerfFlags {
+                inner: NonNull::new_unchecked(inner),
+            }
+        }
+    }
+}
+
+impl Drop for PerfFlags {
+    fn drop(&mut self) {
+        unsafe {
+            crocksdb_ffi::crocksdb_destroy_perf_flags(self.inner.as_ptr());
+        }
+    }
+}
+
+impl Default for PerfFlags {
+    fn default() -> PerfFlags {
+        PerfFlags::new()
+    }
+}
+
+// Generated from librocksdb_sys/src/generate.py and copied here to implement
+// operator traits.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PerfFlag {
+    UserKeyComparisonCount = 0,
+    BlockCacheHitCount = 1,
+    BlockReadCount = 2,
+    BlockReadByte = 3,
+    BlockReadTime = 4,
+    BlockCacheIndexHitCount = 5,
+    IndexBlockReadCount = 6,
+    BlockCacheFilterHitCount = 7,
+    FilterBlockReadCount = 8,
+    CompressionDictBlockReadCount = 9,
+    BlockChecksumTime = 10,
+    BlockDecompressTime = 11,
+    GetReadBytes = 12,
+    MultigetReadBytes = 13,
+    IterReadBytes = 14,
+    InternalKeySkippedCount = 15,
+    InternalDeleteSkippedCount = 16,
+    InternalRecentSkippedCount = 17,
+    InternalMergeCount = 18,
+    GetSnapshotTime = 19,
+    GetFromMemtableTime = 20,
+    GetFromMemtableCount = 21,
+    GetPostProcessTime = 22,
+    GetFromOutputFilesTime = 23,
+    SeekOnMemtableTime = 24,
+    SeekOnMemtableCount = 25,
+    NextOnMemtableCount = 26,
+    PrevOnMemtableCount = 27,
+    SeekChildSeekTime = 28,
+    SeekChildSeekCount = 29,
+    SeekMinHeapTime = 30,
+    SeekMaxHeapTime = 31,
+    SeekInternalSeekTime = 32,
+    FindNextUserEntryTime = 33,
+    WriteWalTime = 34,
+    WriteMemtableTime = 35,
+    WriteDelayTime = 36,
+    WriteSchedulingFlushesCompactionsTime = 37,
+    WritePreAndPostProcessTime = 38,
+    WriteThreadWaitNanos = 39,
+    DbMutexLockNanos = 40,
+    DbConditionWaitNanos = 41,
+    MergeOperatorTimeNanos = 42,
+    ReadIndexBlockNanos = 43,
+    ReadFilterBlockNanos = 44,
+    NewTableBlockIterNanos = 45,
+    NewTableIteratorNanos = 46,
+    BlockSeekNanos = 47,
+    FindTableNanos = 48,
+    BloomMemtableHitCount = 49,
+    BloomMemtableMissCount = 50,
+    BloomSstHitCount = 51,
+    BloomSstMissCount = 52,
+    KeyLockWaitTime = 53,
+    KeyLockWaitCount = 54,
+    EnvNewSequentialFileNanos = 55,
+    EnvNewRandomAccessFileNanos = 56,
+    EnvNewWritableFileNanos = 57,
+    EnvReuseWritableFileNanos = 58,
+    EnvNewRandomRwFileNanos = 59,
+    EnvNewDirectoryNanos = 60,
+    EnvFileExistsNanos = 61,
+    EnvGetChildrenNanos = 62,
+    EnvGetChildrenFileAttributesNanos = 63,
+    EnvDeleteFileNanos = 64,
+    EnvCreateDirNanos = 65,
+    EnvCreateDirIfMissingNanos = 66,
+    EnvDeleteDirNanos = 67,
+    EnvGetFileSizeNanos = 68,
+    EnvGetFileModificationTimeNanos = 69,
+    EnvRenameFileNanos = 70,
+    EnvLinkFileNanos = 71,
+    EnvLockFileNanos = 72,
+    EnvUnlockFileNanos = 73,
+    EnvNewLoggerNanos = 74,
+    GetCpuNanos = 75,
+    IterNextCpuNanos = 76,
+    IterPrevCpuNanos = 77,
+    IterSeekCpuNanos = 78,
+    EncryptDataNanos = 79,
+    DecryptDataNanos = 80,
+    GetFromTableNanos = 81,
+    UserKeyReturnCount = 82,
+    BlockCacheMissCount = 83,
+    BloomFilterFullPositive = 84,
+    BloomFilterUseful = 85,
+    BloomFilterFullTruePositive = 86,
+    BytesRead = 87,
+    BytesWritten = 88,
+    OpenNanos = 89,
+    AllocateNanos = 90,
+    WriteNanos = 91,
+    ReadNanos = 92,
+    RangeSyncNanos = 93,
+    PrepareWriteNanos = 94,
+    FsyncNanos = 95,
+    LoggerNanos = 96,
+    CpuReadNanos = 97,
+    CpuWriteNanos = 98,
+}
+
+impl BitOrAssign<PerfFlag> for PerfFlags {
+    fn bitor_assign(&mut self, rhs: PerfFlag) {
+        unsafe {
+            crocksdb_ffi::crocksdb_perf_flags_set(self.inner.as_ptr(), rhs as u32);
+        }
+    }
+}
+
+impl BitOr<PerfFlag> for PerfFlags {
+    type Output = PerfFlags;
+
+    fn bitor(mut self, rhs: PerfFlag) -> PerfFlags {
+        self |= rhs;
+        self
+    }
+}
+
+impl BitOr<PerfFlag> for PerfFlag {
+    type Output = PerfFlags;
+
+    fn bitor(self, rhs: PerfFlag) -> PerfFlags {
+        let mut flags = PerfFlags::default();
+        flags |= self;
+        flags |= rhs;
+        flags
+    }
+}
+
+pub fn set_perf_flags(flags: &PerfFlags) {
+    unsafe {
+        crocksdb_ffi::crocksdb_set_perf_flags(flags.inner.as_ptr());
     }
 }
 
@@ -541,5 +720,47 @@ mod test {
         assert!(ctx.fsync_nanos() > 0);
         assert!(ctx.prepare_write_nanos() > 0);
         assert!(ctx.logger_nanos() > 0);
+    }
+
+    #[test]
+    fn test_perf_flags() {
+        let temp_dir = tempdir_with_prefix("test_perf_flags");
+        let mut opts = DBOptions::new();
+        opts.create_if_missing(true);
+        let db = DB::open(opts, temp_dir.path().to_str().unwrap()).unwrap();
+
+        let n = 10;
+        for i in 0..n {
+            let k = &[i as u8];
+            db.put(k, k).unwrap();
+            if i % 2 == 0 {
+                db.delete(k).unwrap();
+            }
+        }
+
+        set_perf_level(PerfLevel::Disable);
+        set_perf_flags(&(PerfFlag::InternalKeySkippedCount | PerfFlag::InternalDeleteSkippedCount));
+        let mut ctx = PerfContext::get();
+
+        let mut iter = db.iter();
+        assert!(iter.seek(SeekKey::Start).unwrap());
+        while iter.next().unwrap() {}
+        assert_eq!(ctx.internal_key_skipped_count(), n);
+        assert_eq!(ctx.internal_delete_skipped_count(), n / 2);
+        assert_eq!(ctx.seek_internal_seek_time(), 0);
+
+        ctx.reset();
+        assert_eq!(ctx.internal_key_skipped_count(), 0);
+        assert_eq!(ctx.internal_delete_skipped_count(), 0);
+
+        set_perf_flags(&(PerfFlag::InternalKeySkippedCount | PerfFlag::SeekInternalSeekTime));
+        let mut iter = db.iter();
+        assert!(iter.seek(SeekKey::End).unwrap());
+        while iter.valid().unwrap() {
+            iter.prev().unwrap();
+        }
+        assert_eq!(ctx.internal_key_skipped_count(), n + n / 2);
+        assert_eq!(ctx.internal_delete_skipped_count(), 0);
+        assert_ne!(ctx.seek_internal_seek_time(), 0);
     }
 }
