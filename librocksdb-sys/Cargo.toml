@@ -14,7 +14,7 @@ links = "rocksdb"
 [features]
 default = [ "static" ]
 jemalloc = ["tikv-jemalloc-sys"]
-static = ["libz-sys/static", "bzip2-sys/static"]
+static = ["libz-sys?/static", "bzip2-sys?/static"]
 snappy = []
 lz4 = []
 zstd = ["zstd-sys"]
