@@ -16,8 +16,9 @@
 use std::marker::PhantomData;
 
 use crate::{
-    db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
-    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode,
+    db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBPinnableSlice,
+    DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, ReadOptions,
+    SnapshotWithThreadMode, WriteBatchWithTransaction,
 };
 use libc::{c_char, c_void, size_t};
 
@@ -106,6 +107,40 @@ impl<'db, DB> Transaction<'db, DB> {
         Ok(())
     }
 
+    pub fn set_name(&self, name: &[u8]) -> Result<(), Error> {
+        let ptr = name.as_ptr();
+        let len = name.len();
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_set_name(
+                self.inner, ptr as _, len as _
+            ));
+        }
+
+        Ok(())
+    }
+
+    pub fn get_name(&self) -> Option<Vec<u8>> {
+        unsafe {
+            let mut name_len = 0;
+            let name = ffi::rocksdb_transaction_get_name(self.inner, &mut name_len);
+            if name.is_null() {
+                None
+            } else {
+                let mut vec = vec![0; name_len];
+                std::ptr::copy_nonoverlapping(name as *mut u8, vec.as_mut_ptr(), name_len as usize);
+                ffi::rocksdb_free(name as *mut c_void);
+                Some(vec)
+            }
+        }
+    }
+
+    pub fn prepare(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_prepare(self.inner));
+        }
+        Ok(())
+    }
+
     /// Returns snapshot associated with transaction if snapshot was enabled in [`TransactionOptions`].
     /// Otherwise, returns a snapshot with `nullptr` inside which doesn't effect read operations.
     ///
@@ -154,6 +189,10 @@ impl<'db, DB> Transaction<'db, DB> {
         self.get_opt(key, &ReadOptions::default())
     }
 
+    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_opt(key, &ReadOptions::default())
+    }
+
     /// Get the bytes associated with a key value and the given column family.
     ///
     /// See [`get_cf_opt`] for details.
@@ -165,6 +204,14 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key, &ReadOptions::default())
+    }
+
+    pub fn get_pinned_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
     /// Get the key and ensure that this transaction will only
@@ -181,6 +228,14 @@ impl<'db, DB> Transaction<'db, DB> {
         exclusive: bool,
     ) -> Result<Option<Vec<u8>>, Error> {
         self.get_for_update_opt(key, exclusive, &ReadOptions::default())
+    }
+
+    pub fn get_pinned_for_update<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        exclusive: bool,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_for_update_opt(key, exclusive, &ReadOptions::default())
     }
 
     /// Get the key in the given column family and ensure that this transaction will only
@@ -200,6 +255,15 @@ impl<'db, DB> Transaction<'db, DB> {
         self.get_for_update_cf_opt(cf, key, exclusive, &ReadOptions::default())
     }
 
+    pub fn get_pinned_for_update_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        exclusive: bool,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_for_update_cf_opt(cf, key, exclusive, &ReadOptions::default())
+    }
+
     /// Returns the bytes associated with a key value with read options.
     ///
     /// See [`get_cf_opt`] for details.
@@ -210,20 +274,26 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_opt(key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
+    }
+
+    pub fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
         unsafe {
-            let mut val_len: usize = 0;
-            let val_ptr = ffi_try!(ffi::rocksdb_transaction_get(
+            let val = ffi_try!(ffi::rocksdb_transaction_get_pinned(
                 self.inner,
                 readopts.inner,
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len(),
-                &mut val_len as *mut size_t
             ));
-            if val_ptr.is_null() {
+            if val.is_null() {
                 Ok(None)
             } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
+                Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
     }
@@ -241,21 +311,28 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_cf_opt(cf, key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
+    }
+
+    pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
         unsafe {
-            let mut val_len: usize = 0;
-            let val_ptr = ffi_try!(ffi::rocksdb_transaction_get_cf(
+            let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_cf(
                 self.inner,
                 readopts.inner,
                 cf.inner(),
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len(),
-                &mut val_len as *mut size_t
             ));
-            if val_ptr.is_null() {
+            if val.is_null() {
                 Ok(None)
             } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
+                Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
     }
@@ -274,21 +351,28 @@ impl<'db, DB> Transaction<'db, DB> {
         exclusive: bool,
         opts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_for_update_opt(key, exclusive, opts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
+    }
+
+    pub fn get_pinned_for_update_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        exclusive: bool,
+        opts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
         unsafe {
-            let mut val_len = 0_usize;
-            let val_ptr = ffi_try!(ffi::rocksdb_transaction_get_for_update(
+            let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update(
                 self.inner,
                 opts.inner,
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len() as size_t,
-                &mut val_len,
                 exclusive as u8,
             ));
-            if val_ptr.is_null() {
+            if val.is_null() {
                 Ok(None)
             } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
+                Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
     }
@@ -328,22 +412,30 @@ impl<'db, DB> Transaction<'db, DB> {
         exclusive: bool,
         opts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_for_update_cf_opt(cf, key, exclusive, opts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
+    }
+
+    pub fn get_pinned_for_update_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        exclusive: bool,
+        opts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
         unsafe {
-            let mut val_len = 0_usize;
-            let val_ptr = ffi_try!(ffi::rocksdb_transaction_get_for_update_cf(
+            let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update_cf(
                 self.inner,
                 opts.inner,
                 cf.inner(),
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len() as size_t,
-                &mut val_len,
                 exclusive as u8,
             ));
-            if val_ptr.is_null() {
+            if val.is_null() {
                 Ok(None)
             } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
+                Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
     }
@@ -614,6 +706,30 @@ impl<'db, DB> Transaction<'db, DB> {
         readopts: ReadOptions,
     ) -> DBRawIteratorWithThreadMode<'b, Self> {
         DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts)
+    }
+
+    pub fn get_writebatch(&self) -> WriteBatchWithTransaction<true> {
+        unsafe {
+            let wi = ffi::rocksdb_transaction_get_writebatch_wi(self.inner);
+            let mut len: usize = 0;
+            let ptr = ffi::rocksdb_writebatch_wi_data(wi, &mut len as _);
+            let data = std::slice::from_raw_parts(ptr, len).to_owned();
+            let writebatch = ffi::rocksdb_writebatch_create_from(data.as_ptr(), data.len());
+            WriteBatchWithTransaction { inner: writebatch }
+        }
+    }
+
+    pub fn rebuild_from_writebatch(
+        &self,
+        writebatch: &WriteBatchWithTransaction<true>,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transaction_rebuild_from_writebatch(
+                self.inner,
+                writebatch.inner
+            ));
+        }
+        Ok(())
     }
 }
 
