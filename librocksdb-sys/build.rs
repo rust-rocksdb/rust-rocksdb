@@ -26,16 +26,9 @@ fn fail_on_empty_directory(name: &str) {
     }
 }
 
-fn rocksdb_include_dir() -> String {
-    match env::var("ROCKSDB_INCLUDE_DIR") {
-        Ok(val) => val,
-        Err(_) => "rocksdb/include".to_string(),
-    }
-}
-
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
-        .header(rocksdb_include_dir() + "/rocksdb/c.h")
+        .header("rocksdb-c.h")
         .derive_debug(false)
         .blocklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
@@ -106,6 +99,13 @@ fn build_rocksdb() {
         .iter()
         .cloned()
         .filter(|&file| file != "util/build_version.cc")
+        .collect::<Vec<&'static str>>();
+
+    // We has rocksdb-c.cc
+    lib_sources = lib_sources
+        .iter()
+        .cloned()
+        .filter(|&file| file != "db/c.cc")
         .collect::<Vec<&'static str>>();
 
     if target.contains("x86_64") {
@@ -216,6 +216,7 @@ fn build_rocksdb() {
     }
 
     config.file("build_version.cc");
+    config.file("rocksdb-c.cc");
 
     config.cpp(true);
     config.compile("librocksdb.a");
