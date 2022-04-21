@@ -3031,6 +3031,89 @@ impl Options {
             );
         }
     }
+
+    /// Enable the use of key-value separation.
+    ///
+    /// More details can be found here: http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html.
+    ///
+    /// Default: false (disable)
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_enable_blob_files(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_blob_files(self.inner, val as _);
+        }
+    }
+
+    /// Sets the minimum threshold value at or above which will be written
+    /// to blob files during flush or compaction.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_min_blob_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_min_blob_size(self.inner, val);
+        }
+    }
+
+    /// Sets the size limit for blob files.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_file_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_file_size(self.inner, val);
+        }
+    }
+
+    /// Sets the blob compression type. All blob files use the same
+    /// compression type.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_compression_type(&mut self, val: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_compression_type(self.inner, val as _);
+        }
+    }
+
+    /// If this is set to true RocksDB will actively relocate valid blobs from the oldest blob files
+    /// as they are encountered during compaction.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_enable_blob_gc(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_blob_gc(self.inner, val as _);
+        }
+    }
+
+    /// Sets the threshold that the GC logic uses to determine which blob files should be considered “old.”
+    ///
+    /// For example, the default value of 0.25 signals to RocksDB that blobs residing in the
+    /// oldest 25% of blob files should be relocated by GC. This parameter can be tuned to adjust
+    /// the trade-off between write amplification and space amplification.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_gc_age_cutoff(&mut self, val: c_double) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_gc_age_cutoff(self.inner, val);
+        }
+    }
+
+    /// Sets the blob GC force threshold.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_gc_force_threshold(&mut self, val: c_double) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_gc_force_threshold(self.inner, val);
+        }
+    }
+
+    /// Sets the blob compaction read ahead size.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_compaction_readahead_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_compaction_readahead_size(self.inner, val);
+        }
+    }
 }
 
 impl Default for Options {
