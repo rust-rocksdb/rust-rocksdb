@@ -790,20 +790,8 @@ fn ffi() {
 
         StartPhase("filter");
         for run in 0..2 {
-            // First run uses custom filter, second run uses bloom filter
             CheckNoError!(err);
-            let mut policy: *mut rocksdb_filterpolicy_t = if run == 0 {
-                rocksdb_filterpolicy_create(
-                    ptr::null_mut(),
-                    Some(FilterDestroy),
-                    Some(FilterCreate),
-                    Some(FilterKeyMatch),
-                    None,
-                    Some(FilterName),
-                )
-            } else {
-                rocksdb_filterpolicy_create_bloom(10.0)
-            };
+            let mut policy: *mut rocksdb_filterpolicy_t = rocksdb_filterpolicy_create_bloom(10.0);
 
             rocksdb_block_based_options_set_filter_policy(table_options, policy);
 
