@@ -208,7 +208,7 @@ fn build_rocksdb() {
 
     if target.contains("msvc") {
         config.flag("-EHsc");
-        config.flag_if_supported("/std:c++17");
+        config.flag("-std:c++17");
     } else {
         config.flag(&cxx_standard());
         // this was breaking the build on travis due to
