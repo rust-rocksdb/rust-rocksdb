@@ -184,12 +184,20 @@ fn build_rocksdb() {
             .collect::<Vec<&'static str>>();
 
         // Add Windows-specific sources
-        lib_sources.push("port/win/port_win.cc");
-        lib_sources.push("port/win/env_win.cc");
-        lib_sources.push("port/win/env_default.cc");
-        lib_sources.push("port/win/win_logger.cc");
-        lib_sources.push("port/win/io_win.cc");
-        lib_sources.push("port/win/win_thread.cc");
+        let mut win_sources = vec![
+            "port/win/env_default.cc",
+            "port/win/port_win.cc",
+            "port/win/xpress_win.cc",
+            "port/win/io_win.cc",
+            "port/win/win_thread.cc",
+            "port/win/env_win.cc",
+            "port/win/win_logger.cc",
+        ];
+        lib_sources.append(&mut win_sources);
+
+        if cfg!(feature = "jemalloc") {
+            lib_sources.push("port/win/win_jemalloc.cc");
+        }
     }
 
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
@@ -200,6 +208,7 @@ fn build_rocksdb() {
 
     if target.contains("msvc") {
         config.flag("-EHsc");
+        config.flag_if_supported("/std:c++17");
     } else {
         config.flag(&cxx_standard());
         // this was breaking the build on travis due to

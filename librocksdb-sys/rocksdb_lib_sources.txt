@@ -1,12 +1,4 @@
 port/stack_trace.cc
-port/win/win_jemalloc.cc
-port/win/env_default.cc
-port/win/port_win.cc
-port/win/xpress_win.cc
-port/win/io_win.cc
-port/win/win_thread.cc
-port/win/env_win.cc
-port/win/win_logger.cc
 port/port_posix.cc
 file/random_access_file_reader.cc
 file/sst_file_manager_impl.cc
