@@ -225,7 +225,6 @@ memory/concurrent_arena.cc
 memory/arena.cc
 memory/memkind_kmem_allocator.cc
 memory/jemalloc_nodump_allocator.cc
-table/mock_table.cc
 table/sst_file_reader.cc
 table/adaptive/adaptive_table_factory.cc
 table/iterator.cc
