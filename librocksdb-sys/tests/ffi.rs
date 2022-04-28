@@ -433,7 +433,7 @@ fn ffi() {
         let mut err: *mut c_char = ptr::null_mut();
         let run: c_int = -1;
 
-        let test_uuid = Uuid::new_v4().to_simple();
+        let test_uuid = Uuid::new_v4().simple();
 
         let dbname = {
             let mut dir = GetTempDir();

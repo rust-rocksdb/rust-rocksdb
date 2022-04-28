@@ -184,7 +184,7 @@ fn build_rocksdb() {
             .collect::<Vec<&'static str>>();
 
         // Add Windows-specific sources
-        let mut win_sources = vec![
+        lib_sources.extend([
             "port/win/env_default.cc",
             "port/win/port_win.cc",
             "port/win/xpress_win.cc",
@@ -192,8 +192,7 @@ fn build_rocksdb() {
             "port/win/win_thread.cc",
             "port/win/env_win.cc",
             "port/win/win_logger.cc",
-        ];
-        lib_sources.append(&mut win_sources);
+        ]);
 
         if cfg!(feature = "jemalloc") {
             lib_sources.push("port/win/win_jemalloc.cc");
@@ -211,10 +210,18 @@ fn build_rocksdb() {
         config.flag("-std:c++17");
     } else {
         config.flag(&cxx_standard());
-        // this was breaking the build on travis due to
-        // > 4mb of warnings emitted.
-        config.flag("-Wno-unused-parameter");
     }
+    // matches the flags in CMakeLists.txt from rocksdb
+    config.flag("-Wsign-compare");
+    config.flag("-Wshadow");
+    config.flag("-Wno-unused-parameter");
+    config.flag("-Wno-unused-variable");
+    config.flag("-Woverloaded-virtual");
+    config.flag("-Wnon-virtual-dtor");
+    config.flag("-Wno-missing-field-initializers");
+    config.flag("-Wno-strict-aliasing");
+    config.flag("-Wno-invalid-offsetof");
+
 
     for file in lib_sources {
         let file = "rocksdb/".to_string() + file;
