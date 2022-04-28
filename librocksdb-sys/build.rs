@@ -210,17 +210,17 @@ fn build_rocksdb() {
         config.flag("-std:c++17");
     } else {
         config.flag(&cxx_standard());
+        // matches the flags in CMakeLists.txt from rocksdb
+        config.flag("-Wsign-compare");
+        config.flag("-Wshadow");
+        config.flag("-Wno-unused-parameter");
+        config.flag("-Wno-unused-variable");
+        config.flag("-Woverloaded-virtual");
+        config.flag("-Wnon-virtual-dtor");
+        config.flag("-Wno-missing-field-initializers");
+        config.flag("-Wno-strict-aliasing");
+        config.flag("-Wno-invalid-offsetof");
     }
-    // matches the flags in CMakeLists.txt from rocksdb
-    config.flag("-Wsign-compare");
-    config.flag("-Wshadow");
-    config.flag("-Wno-unused-parameter");
-    config.flag("-Wno-unused-variable");
-    config.flag("-Woverloaded-virtual");
-    config.flag("-Wnon-virtual-dtor");
-    config.flag("-Wno-missing-field-initializers");
-    config.flag("-Wno-strict-aliasing");
-    config.flag("-Wno-invalid-offsetof");
 
     for file in lib_sources {
         let file = "rocksdb/".to_string() + file;
