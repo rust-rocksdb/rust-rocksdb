@@ -433,7 +433,7 @@ fn ffi() {
         let mut err: *mut c_char = ptr::null_mut();
         let run: c_int = -1;
 
-        let test_uuid = Uuid::new_v4().to_simple();
+        let test_uuid = Uuid::new_v4().simple();
 
         let dbname = {
             let mut dir = GetTempDir();
@@ -790,20 +790,8 @@ fn ffi() {
 
         StartPhase("filter");
         for run in 0..2 {
-            // First run uses custom filter, second run uses bloom filter
             CheckNoError!(err);
-            let mut policy: *mut rocksdb_filterpolicy_t = if run == 0 {
-                rocksdb_filterpolicy_create(
-                    ptr::null_mut(),
-                    Some(FilterDestroy),
-                    Some(FilterCreate),
-                    Some(FilterKeyMatch),
-                    None,
-                    Some(FilterName),
-                )
-            } else {
-                rocksdb_filterpolicy_create_bloom(10.0)
-            };
+            let mut policy: *mut rocksdb_filterpolicy_t = rocksdb_filterpolicy_create_bloom(10.0);
 
             rocksdb_block_based_options_set_filter_policy(table_options, policy);
 

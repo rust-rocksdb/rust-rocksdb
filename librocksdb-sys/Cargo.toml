@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "0.6.1+6.28.2"
+version = "0.7.0+7.1.2"
 edition = "2018"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
@@ -31,7 +31,7 @@ bzip2-sys = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
 const-cstr = "0.3"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
