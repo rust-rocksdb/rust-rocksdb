@@ -1,7 +1,36 @@
 # Changelog
 
 ## [Unreleased]
-* Re-add support for UTF-8 file paths on Windows (rajivshah3)
+
+## 0.18.0 (2022-02-03)
+
+* Add open_cf_descriptor methods for Seoncdary and ReadOnly AccessType (steviez)
+* Make Ribbon filters available (niklasf)
+* Change versioning scheme of `librocksdb-sys` crate (aleksuss)
+* Upgrade to RocksDB 6.28.2 (akrylysov)
+* Fix theoretical UB while transmuting Arc (niklasf)
+* Support configuring bottom-most compression level (mina86)
+* Add BlockBasedOptions::set_whole_key_filtering (niklasf)
+* Add constants for all supported properties (steviez)
+* Make CacheWrapper and EnvWrapper Send and Sync (aleksuss)
+* Replace mem::transmute with narrower conversions (niklasf)
+* Optimize non-overlapping copy in raw_data (niklasf)
+* Support multi_get_* methods (olegnn)
+* Optimize multi_get_cf_opt() to use size hint (niklasf)
+* Fix typo in set_background_purge_on_iterator_cleanup method (Congyuwang)
+* Use external compression crates where possible (Dr-Emann)
+* Update compression dependencies (akrylysov)
+* Add method for opening DB with ro access and cf descriptors (nikurt)
+* Support restoring from a specified backup (GoldenLeaves)
+* Add merge operands iterator (0xdeafbeef)
+* Derive serde::{Serialize, Deserialize} for configuration enums (thibault-martinez)
+* Add feature flag for runtime type information and metadata (jgraettinger)
+* Add set_info_log_level to control log verbosity (tkintscher)
+* Replace jemalloc-sys for tikv-jemalloc-sys (Rexagon)
+* Support UTF-8 file paths on Windows (rajivshah3)
+* Support building RocksDB with jemalloc (akrylysov)
+* Add rocksdb WAL flush api (duarten)
+* Update rocksdb to v6.22.1 (#540)
 
 ## 0.17.0 (2021-07-22)
 

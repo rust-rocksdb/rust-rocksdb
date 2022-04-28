@@ -26,7 +26,7 @@ use crate::{
     WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
-use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
+use libc::{self, c_char, c_int, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -160,6 +160,19 @@ pub trait DBAccess {
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error>;
 
+    fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error>;
+
+    fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error>;
+
     fn multi_get_opt<K, I>(
         &self,
         keys: I,
@@ -218,6 +231,23 @@ impl<T: ThreadMode, I: DBInner> DBAccess for DBCommon<T, I> {
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key, readopts)
+    }
+
+    fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_opt(key, readopts)
+    }
+
+    fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_cf_opt(cf, key, readopts)
     }
 
     fn multi_get_opt<K, I>(
@@ -358,7 +388,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens the database with a Time to Live compaction filter and column family names.
     ///
-    /// Column families opened using this function will be created with default `Options`.    
+    /// Column families opened using this function will be created with default `Options`.
     pub fn open_cf_with_ttl<P, I, N>(
         opts: &Options,
         path: P,
@@ -460,6 +490,28 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         )
     }
 
+    /// Opens a database for ready only with the given database options and
+    /// column family descriptors.
+    pub fn open_cf_descriptors_read_only<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        error_if_log_file_exist: bool,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        Self::open_cf_descriptors_internal(
+            opts,
+            path,
+            cfs,
+            &AccessType::ReadOnly {
+                error_if_log_file_exist,
+            },
+        )
+    }
+
     /// Opens the database as a secondary with the given database options and column family names.
     pub fn open_cf_as_secondary<P, I, N>(
         opts: &Options,
@@ -479,6 +531,28 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Self::open_cf_descriptors_internal(
             opts,
             primary_path,
+            cfs,
+            &AccessType::Secondary {
+                secondary_path: secondary_path.as_ref(),
+            },
+        )
+    }
+
+    /// Opens the database as a secondary with the given database options and
+    /// column family descriptors.
+    pub fn open_cf_descriptors_as_secondary<P, I>(
+        opts: &Options,
+        path: P,
+        secondary_path: P,
+        cfs: I,
+    ) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        Self::open_cf_descriptors_internal(
+            opts,
+            path,
             cfs,
             &AccessType::Secondary {
                 secondary_path: secondary_path.as_ref(),
@@ -597,7 +671,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 } => ffi_try!(ffi::rocksdb_open_for_read_only(
                     opts.inner,
                     cpath.as_ptr() as *const _,
-                    error_if_log_file_exist as c_uchar,
+                    u8::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => {
                     ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
@@ -619,13 +693,14 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Ok(db)
     }
 
+    #[allow(clippy::pedantic)]
     fn open_cf_raw(
         opts: &Options,
         cpath: &CString,
         cfs_v: &[ColumnFamilyDescriptor],
         cfnames: &[*const c_char],
         cfopts: &[*const ffi::rocksdb_options_t],
-        cfhandles: &mut Vec<*mut ffi::rocksdb_column_family_handle_t>,
+        cfhandles: &mut [*mut ffi::rocksdb_column_family_handle_t],
         access_type: &AccessType,
     ) -> Result<*mut ffi::rocksdb_t, Error> {
         let db = unsafe {
@@ -639,7 +714,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     cfnames.as_ptr(),
                     cfopts.as_ptr(),
                     cfhandles.as_mut_ptr(),
-                    error_if_log_file_exist as c_uchar,
+                    u8::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => ffi_try!(ffi::rocksdb_open_column_families(
                     opts.inner,
@@ -793,7 +868,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     /// the data to disk.
     pub fn flush_wal(&self, sync: bool) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush_wal(self.inner.inner(), sync as u8));
+            ffi_try!(ffi::rocksdb_flush_wal(self.inner(), u8::from(sync)));
         }
         Ok(())
     }
@@ -1817,6 +1892,8 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
                 let mut key_size: usize = 0;
 
                 for i in 0..n {
+                    let column_family_name =
+                        from_cstr(ffi::rocksdb_livefiles_column_family_name(files, i));
                     let name = from_cstr(ffi::rocksdb_livefiles_name(files, i));
                     let size = ffi::rocksdb_livefiles_size(files, i);
                     let level = ffi::rocksdb_livefiles_level(files, i) as i32;
@@ -1830,6 +1907,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
                     let largest_key = raw_data(largest_key, key_size);
 
                     livefiles.push(LiveFile {
+                        column_family_name,
                         name,
                         size,
                         level,
@@ -1897,7 +1975,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     /// Request stopping background work, if wait is true wait until it's done.
     pub fn cancel_all_background_work(&self, wait: bool) {
         unsafe {
-            ffi::rocksdb_cancel_all_background_work(self.inner.inner(), wait as u8);
+            ffi::rocksdb_cancel_all_background_work(self.inner(), u8::from(wait));
         }
     }
 
@@ -1993,6 +2071,8 @@ impl<T: ThreadMode, I: DBInner> fmt::Debug for DBCommon<T, I> {
 /// The metadata that describes a SST file
 #[derive(Debug, Clone)]
 pub struct LiveFile {
+    /// Name of the column family the file belongs to
+    pub column_family_name: String,
     /// Name of the file
     pub name: String,
     /// Size of the file

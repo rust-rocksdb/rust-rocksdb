@@ -20,10 +20,10 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle, DBWithThreadMode, Env, Error,
-    ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded, Options, PerfContext, PerfMetric,
-    ReadOptions, SingleThreaded, SliceTransform, Snapshot, UniversalCompactOptions,
-    UniversalCompactionStopStyle, WriteBatch, DB,
+    ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
+    DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
+    Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
+    UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
 };
 use util::DBPath;
 
@@ -514,6 +514,46 @@ fn test_open_as_secondary() {
 }
 
 #[test]
+fn test_open_cf_descriptors_as_secondary() {
+    let primary_path = DBPath::new("_rust_rocksdb_test_open_cf_descriptors_as_secondary_primary");
+    let mut primary_opts = Options::default();
+    primary_opts.create_if_missing(true);
+    primary_opts.create_missing_column_families(true);
+    let cfs = vec!["cf1"];
+    let primary_db = DB::open_cf(&primary_opts, &primary_path, &cfs).unwrap();
+    let primary_cf1 = primary_db.cf_handle("cf1").unwrap();
+    primary_db.put_cf(&primary_cf1, b"k1", b"v1").unwrap();
+
+    let secondary_path =
+        DBPath::new("_rust_rocksdb_test_open_cf_descriptors_as_secondary_secondary");
+    let mut secondary_opts = Options::default();
+    secondary_opts.set_max_open_files(-1);
+    let cfs = cfs
+        .into_iter()
+        .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
+    let secondary_db =
+        DB::open_cf_descriptors_as_secondary(&secondary_opts, &primary_path, &secondary_path, cfs)
+            .unwrap();
+    let secondary_cf1 = secondary_db.cf_handle("cf1").unwrap();
+    assert_eq!(
+        secondary_db.get_cf(&secondary_cf1, b"k1").unwrap().unwrap(),
+        b"v1"
+    );
+    assert!(secondary_db.put_cf(&secondary_cf1, b"k2", b"v2").is_err());
+
+    primary_db.put_cf(&primary_cf1, b"k1", b"v2").unwrap();
+    assert_eq!(
+        secondary_db.get_cf(&secondary_cf1, b"k1").unwrap().unwrap(),
+        b"v1"
+    );
+    assert!(secondary_db.try_catch_up_with_primary().is_ok());
+    assert_eq!(
+        secondary_db.get_cf(&secondary_cf1, b"k1").unwrap().unwrap(),
+        b"v2"
+    );
+}
+
+#[test]
 fn test_open_with_ttl() {
     let path = DBPath::new("_rust_rocksdb_test_open_with_ttl");
 
@@ -660,6 +700,19 @@ fn fifo_compaction_test() {
             let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
             assert!(ctx.report(true).contains(&expect));
         }
+
+        // check live files (sst files meta)
+        let livefiles = db.live_files().unwrap();
+        assert_eq!(livefiles.len(), 1);
+        livefiles.iter().for_each(|f| {
+            assert_eq!(f.level, 1);
+            assert_eq!(f.column_family_name, "cf1");
+            assert!(!f.name.is_empty());
+            assert_eq!(f.start_key.as_ref().unwrap().as_slice(), "k1".as_bytes());
+            assert_eq!(f.end_key.as_ref().unwrap().as_slice(), "k5".as_bytes());
+            assert_eq!(f.num_entries, 5);
+            assert_eq!(f.num_deletions, 0);
+        });
     }
 }
 
@@ -798,6 +851,142 @@ fn get_with_cache_and_bulkload_test() {
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
             assert_eq!(f.level, 2);
+            assert_eq!(f.column_family_name, "default");
+            assert!(!f.name.is_empty());
+            assert_eq!(
+                f.start_key.as_ref().unwrap().as_slice(),
+                format!("{:0>4}", 0).as_bytes()
+            );
+            assert_eq!(
+                f.end_key.as_ref().unwrap().as_slice(),
+                format!("{:0>4}", 9999).as_bytes()
+            );
+            assert_eq!(f.num_entries, 10000);
+            assert_eq!(f.num_deletions, 0);
+        });
+
+        // delete sst file in range (except L0)
+        assert!(db
+            .delete_file_in_range(
+                format!("{:0>4}", 0).as_bytes(),
+                format!("{:0>4}", 9999).as_bytes()
+            )
+            .is_ok());
+        let livefiles = db.live_files().unwrap();
+        assert_eq!(livefiles.len(), 0);
+
+        // try to get a deleted key
+        assert!(db.get(format!("{:0>4}", 123).as_bytes()).unwrap().is_none());
+    }
+
+    // raise error when db exists
+    {
+        opts.set_error_if_exists(true);
+        assert!(DB::open(&opts, &path).is_err());
+    }
+
+    // disable all threads
+    {
+        // create new options
+        let mut opts = Options::default();
+        opts.set_max_background_jobs(0);
+        opts.set_stats_dump_period_sec(0);
+        opts.set_stats_persist_period_sec(0);
+
+        // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
+        let mut env = Env::default().unwrap();
+        env.set_bottom_priority_background_threads(0);
+        opts.set_env(&env);
+
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // try to get key
+        let iter = db.iterator(IteratorMode::Start);
+        for (expected, (k, _)) in iter.enumerate() {
+            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+        }
+    }
+}
+
+#[test]
+fn get_with_cache_and_bulkload_and_blobs_test() {
+    let path = DBPath::new("_rust_rocksdb_get_with_cache_and_bulkload_and_blobs_test");
+    let log_path = DBPath::new("_rust_rocksdb_log_path_test");
+
+    // create options
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    opts.set_wal_bytes_per_sync(8 << 10); // 8KB
+    opts.set_writable_file_max_buffer_size(512 << 10); // 512KB
+    opts.set_enable_write_thread_adaptive_yield(true);
+    opts.set_unordered_write(true);
+    opts.set_max_subcompactions(2);
+    opts.set_max_background_jobs(4);
+    opts.set_use_adaptive_mutex(true);
+    opts.set_db_log_dir(&log_path);
+    opts.set_memtable_whole_key_filtering(true);
+    opts.set_dump_malloc_stats(true);
+    opts.set_enable_blob_files(true);
+    opts.set_min_blob_size(256); // set small to ensure it is actually used
+
+    // trigger all sst files in L1/2 instead of L0
+    opts.set_max_bytes_for_level_base(64 << 10); // 64KB
+
+    {
+        // set block based table and cache
+        let cache = Cache::new_lru_cache(512 << 10).unwrap();
+        assert_eq!(cache.get_usage(), 0);
+        let mut block_based_opts = BlockBasedOptions::default();
+        block_based_opts.set_block_cache(&cache);
+        block_based_opts.set_cache_index_and_filter_blocks(true);
+        opts.set_block_based_table_factory(&block_based_opts);
+
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // write a lot
+        let mut batch = WriteBatch::default();
+        for i in 0..10_000 {
+            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+        }
+        assert!(db.write(batch).is_ok());
+
+        // flush memory table to sst and manual compaction
+        assert!(db.flush().is_ok());
+        db.compact_range(Some(format!("{:0>4}", 0).as_bytes()), None::<Vec<u8>>);
+
+        // get -> trigger caching
+        let _ = db.get(b"1");
+        assert!(cache.get_usage() > 0);
+
+        // get approximated memory usage
+        let mem_usage = get_memory_usage_stats(Some(&[&db]), None).unwrap();
+        assert!(mem_usage.mem_table_total > 0);
+
+        // get approximated cache usage
+        let mem_usage = get_memory_usage_stats(None, Some(&[&cache])).unwrap();
+        assert!(mem_usage.cache_total > 0);
+    }
+
+    // bulk loading
+    {
+        // open db
+        let db = DB::open(&opts, &path).unwrap();
+
+        // try to get key
+        let iter = db.iterator(IteratorMode::Start);
+        for (expected, (k, _)) in iter.enumerate() {
+            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+        }
+
+        // check live files (sst files meta)
+        let livefiles = db.live_files().unwrap();
+        assert_eq!(livefiles.len(), 1);
+        livefiles.iter().for_each(|f| {
+            assert_eq!(f.level, 2);
+            assert_eq!(f.column_family_name, "default");
             assert!(!f.name.is_empty());
             assert_eq!(
                 f.start_key.as_ref().unwrap().as_slice(),
@@ -887,6 +1076,32 @@ fn test_open_cf_for_read_only() {
         let opts = Options::default();
         let error_if_log_file_exist = false;
         let db = DB::open_cf_for_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.put_cf(&cf1, b"k2", b"v2").is_err());
+    }
+}
+
+#[test]
+fn test_open_cf_descriptors_for_read_only() {
+    let path = DBPath::new("_rust_rocksdb_test_open_cf_descriptors_for_read_only");
+    let cfs = vec!["cf1"];
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+    }
+    {
+        let opts = Options::default();
+        let error_if_log_file_exist = false;
+        let cfs = cfs
+            .into_iter()
+            .map(|name| ColumnFamilyDescriptor::new(name, Options::default()));
+        let db =
+            DB::open_cf_descriptors_read_only(&opts, &path, cfs, error_if_log_file_exist).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
         assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
         assert!(db.put_cf(&cf1, b"k2", b"v2").is_err());

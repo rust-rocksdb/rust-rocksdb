@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::{
-    db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBRawIteratorWithThreadMode,
-    Error, IteratorMode, ReadOptions, DB,
+    db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBPinnableSlice,
+    DBRawIteratorWithThreadMode, Error, IteratorMode, ReadOptions, DB,
 };
 
 /// A type alias to keep compatibility. See [`SnapshotWithThreadMode`] for details
@@ -159,6 +159,50 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
     ) -> Result<Option<Vec<u8>>, Error> {
         readopts.set_snapshot(self);
         self.db.get_cf_opt(cf, key.as_ref(), &readopts)
+    }
+
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
+    /// leverages default options.
+    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
+        let readopts = ReadOptions::default();
+        self.get_pinned_opt(key, readopts)
+    }
+
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_cf_opt but
+    /// leverages default options.
+    pub fn get_pinned_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        let readopts = ReadOptions::default();
+        self.get_pinned_cf_opt(cf, key.as_ref(), readopts)
+    }
+
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy.
+    pub fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        mut readopts: ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        readopts.set_snapshot(self);
+        self.db.get_pinned_opt(key.as_ref(), &readopts)
+    }
+
+    /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
+    /// allows specifying ColumnFamily.
+    pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        mut readopts: ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        readopts.set_snapshot(self);
+        self.db.get_pinned_cf_opt(cf, key.as_ref(), &readopts)
     }
 
     /// Returns the bytes associated with the given key values and default read options.
