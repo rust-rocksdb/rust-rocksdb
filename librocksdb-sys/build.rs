@@ -222,7 +222,6 @@ fn build_rocksdb() {
     config.flag("-Wno-strict-aliasing");
     config.flag("-Wno-invalid-offsetof");
 
-
     for file in lib_sources {
         let file = "rocksdb/".to_string() + file;
         config.file(&file);
