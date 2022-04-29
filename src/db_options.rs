@@ -399,6 +399,8 @@ impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_options_destroy(self.inner);
+	    let sst_partitioner_ptr = ffi::rocksdb_options_get_sst_partitioner_factory(self.inner);
+	    ffi::rocksdb_sst_partitioner_factory_destroy(sst_partitioner_ptr);	    
         }
     }
 }
@@ -3113,6 +3115,16 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_blob_compaction_readahead_size(self.inner, val);
         }
+    }
+
+    /// Sets sst partitioner prefix len.
+    ///
+    /// Dynamically changeable through SetOptions() API    
+    pub fn set_sst_partitioner_prefix_len(&mut self, len: i64) {
+	unsafe {
+	    let ptr = ffi::rocksdb_sst_partitioner_fixed_prefix_factory_create(len);
+	    ffi::rocksdb_options_set_sst_partitioner_factory(self.inner, ptr);
+	}
     }
 }
 

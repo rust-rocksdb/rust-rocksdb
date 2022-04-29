@@ -28,6 +28,25 @@ use rocksdb::{
 use util::DBPath;
 
 #[test]
+fn sst_partitioner() {
+    let path = DBPath::new("_rust_rocksdb_sst_partitioner");
+
+    {
+	let mut opts = Options::default();
+	opts.create_if_missing(true);
+	opts.set_sst_partitioner_prefix_len(1);
+        let db = DB::open(&opts, &path).unwrap();
+        assert!(db.put(b"2", b"v2222").is_ok());
+        assert!(db.put(b"1", b"v1111").is_ok());
+	assert!(db.put(b"3", b"v3333").is_ok());
+	assert!(db.put(b"1a", b"v112").is_ok());
+	db.compact_range::<Vec<u8>, Vec<u8>>(None, None);
+	let l = db.live_files().unwrap();
+	println!("{:?}", l);
+    }
+}
+
+#[test]
 fn external() {
     let path = DBPath::new("_rust_rocksdb_externaltest");
 
