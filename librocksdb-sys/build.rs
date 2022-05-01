@@ -123,7 +123,20 @@ fn build_rocksdb() {
             config.flag_if_supported("-msse4.2");
             config.define("HAVE_SSE42", Some("1"));
         }
-
+        // Pass along additional target features as defined in
+        // build_tools/build_detect_platform.
+        if target_features.contains(&"avx2") {
+            config.flag_if_supported("-mavx2");
+            config.define("HAVE_AVX2", Some("1"));
+        }
+        if target_features.contains(&"bmi1") {
+            config.flag_if_supported("-mbmi");
+            config.define("HAVE_BMI", Some("1"));
+        }
+        if target_features.contains(&"lzcnt") {
+            config.flag_if_supported("-mlzcnt");
+            config.define("HAVE_LZCNT", Some("1"));
+        }
         if !target.contains("android") && target_features.contains(&"pclmulqdq") {
             config.define("HAVE_PCLMUL", Some("1"));
             config.flag_if_supported("-mpclmul");
@@ -211,6 +224,7 @@ fn build_rocksdb() {
     } else {
         config.flag(&cxx_standard());
         // matches the flags in CMakeLists.txt from rocksdb
+        config.define("HAVE_UINT128_EXTENSION", Some("1"));
         config.flag("-Wsign-compare");
         config.flag("-Wshadow");
         config.flag("-Wno-unused-parameter");
