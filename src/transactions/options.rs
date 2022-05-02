@@ -29,9 +29,10 @@ unsafe impl Sync for TransactionOptions {}
 impl Default for TransactionOptions {
     fn default() -> Self {
         let txn_opts = unsafe { ffi::rocksdb_transaction_options_create() };
-        if txn_opts.is_null() {
-            panic!("Could not create RocksDB transaction options");
-        }
+        assert!(
+            !txn_opts.is_null(),
+            "Could not create RocksDB transaction options"
+        );
         Self { inner: txn_opts }
     }
 }
@@ -149,9 +150,10 @@ unsafe impl Sync for TransactionDBOptions {}
 impl Default for TransactionDBOptions {
     fn default() -> Self {
         let txn_db_opts = unsafe { ffi::rocksdb_transactiondb_options_create() };
-        if txn_db_opts.is_null() {
-            panic!("Could not create RocksDB transactiondb options");
-        }
+        assert!(
+            !txn_db_opts.is_null(),
+            "Could not create RocksDB transactiondb options"
+        );
         Self { inner: txn_db_opts }
     }
 }
@@ -248,9 +250,10 @@ unsafe impl Sync for OptimisticTransactionOptions {}
 impl Default for OptimisticTransactionOptions {
     fn default() -> Self {
         let txn_opts = unsafe { ffi::rocksdb_optimistictransaction_options_create() };
-        if txn_opts.is_null() {
-            panic!("Could not create RocksDB optimistic transaction options");
-        }
+        assert!(
+            !txn_opts.is_null(),
+            "Could not create RocksDB optimistic transaction options"
+        );
         Self { inner: txn_opts }
     }
 }

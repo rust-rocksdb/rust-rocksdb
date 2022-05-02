@@ -83,7 +83,7 @@ pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
 impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions) -> Self {
         Self {
-            inner: db.create_iterator(&readopts),
+            inner: unsafe { db.create_iterator(&readopts) },
             _readopts: readopts,
             db: PhantomData,
         }
@@ -95,7 +95,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         readopts: ReadOptions,
     ) -> Self {
         Self {
-            inner: db.create_iterator_cf(cf_handle, &readopts),
+            inner: unsafe { db.create_iterator_cf(cf_handle, &readopts) },
             _readopts: readopts,
             db: PhantomData,
         }

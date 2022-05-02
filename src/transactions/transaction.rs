@@ -36,28 +36,24 @@ pub struct Transaction<'db, DB> {
 unsafe impl<'db, DB> Send for Transaction<'db, DB> {}
 
 impl<'db, DB> DBAccess for Transaction<'db, DB> {
-    fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
-        unsafe { ffi::rocksdb_transaction_get_snapshot(self.inner) }
+    unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
+        ffi::rocksdb_transaction_get_snapshot(self.inner)
     }
 
-    fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
-        unsafe {
-            ffi::rocksdb_free(snapshot as *mut c_void);
-        }
+    unsafe fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
+        ffi::rocksdb_free(snapshot as *mut c_void);
     }
 
-    fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        unsafe { ffi::rocksdb_transaction_create_iterator(self.inner, readopts.inner) }
+    unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
+        ffi::rocksdb_transaction_create_iterator(self.inner, readopts.inner)
     }
 
-    fn create_iterator_cf(
+    unsafe fn create_iterator_cf(
         &self,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        unsafe {
-            ffi::rocksdb_transaction_create_iterator_cf(self.inner, readopts.inner, cf_handle)
-        }
+        ffi::rocksdb_transaction_create_iterator_cf(self.inner, readopts.inner, cf_handle)
     }
 
     fn get_opt<K: AsRef<[u8]>>(
