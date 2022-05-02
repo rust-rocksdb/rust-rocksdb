@@ -1,6 +1,5 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
+use std::{env, fs, path::PathBuf, process::Command};
 
 fn link(name: &str, bundled: bool) {
     use std::env::var;
@@ -113,7 +112,7 @@ fn build_rocksdb() {
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
         // (about 2011).
         let target_feature = env::var("CARGO_CFG_TARGET_FEATURE").unwrap();
-        let target_features: Vec<_> = target_feature.split(",").collect();
+        let target_features: Vec<_> = target_feature.split(',').collect();
         if target_features.contains(&"sse2") {
             config.flag_if_supported("-msse2");
         }
@@ -125,11 +124,9 @@ fn build_rocksdb() {
             config.define("HAVE_SSE42", Some("1"));
         }
 
-        if !target.contains("android") {
-            if target_features.contains(&"pclmulqdq") {
-                config.define("HAVE_PCLMUL", Some("1"));
-                config.flag_if_supported("-mpclmul");
-            }
+        if !target.contains("android") && target_features.contains(&"pclmulqdq") {
+            config.define("HAVE_PCLMUL", Some("1"));
+            config.flag_if_supported("-mpclmul");
         }
     }
 
@@ -187,12 +184,19 @@ fn build_rocksdb() {
             .collect::<Vec<&'static str>>();
 
         // Add Windows-specific sources
-        lib_sources.push("port/win/port_win.cc");
-        lib_sources.push("port/win/env_win.cc");
-        lib_sources.push("port/win/env_default.cc");
-        lib_sources.push("port/win/win_logger.cc");
-        lib_sources.push("port/win/io_win.cc");
-        lib_sources.push("port/win/win_thread.cc");
+        lib_sources.extend([
+            "port/win/env_default.cc",
+            "port/win/port_win.cc",
+            "port/win/xpress_win.cc",
+            "port/win/io_win.cc",
+            "port/win/win_thread.cc",
+            "port/win/env_win.cc",
+            "port/win/win_logger.cc",
+        ]);
+
+        if cfg!(feature = "jemalloc") {
+            lib_sources.push("port/win/win_jemalloc.cc");
+        }
     }
 
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
@@ -203,11 +207,19 @@ fn build_rocksdb() {
 
     if target.contains("msvc") {
         config.flag("-EHsc");
+        config.flag("-std:c++17");
     } else {
         config.flag(&cxx_standard());
-        // this was breaking the build on travis due to
-        // > 4mb of warnings emitted.
+        // matches the flags in CMakeLists.txt from rocksdb
+        config.flag("-Wsign-compare");
+        config.flag("-Wshadow");
         config.flag("-Wno-unused-parameter");
+        config.flag("-Wno-unused-variable");
+        config.flag("-Woverloaded-virtual");
+        config.flag("-Wnon-virtual-dtor");
+        config.flag("-Wno-missing-field-initializers");
+        config.flag("-Wno-strict-aliasing");
+        config.flag("-Wno-invalid-offsetof");
     }
 
     for file in lib_sources {
@@ -219,6 +231,7 @@ fn build_rocksdb() {
     config.file("rocksdb-c.cc");
 
     config.cpp(true);
+    config.flag_if_supported("-std=c++17");
     config.compile("librocksdb.a");
 }
 
@@ -291,7 +304,7 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 }
 
 fn cxx_standard() -> String {
-    env::var("ROCKSDB_CXX_STD").map_or("-std=c++11".to_owned(), |cxx_std| {
+    env::var("ROCKSDB_CXX_STD").map_or("-std=c++17".to_owned(), |cxx_std| {
         if !cxx_std.starts_with("-std=") {
             format!("-std={}", cxx_std)
         } else {
@@ -300,7 +313,30 @@ fn cxx_standard() -> String {
     })
 }
 
+fn update_submodules() {
+    let program = "git";
+    let dir = "../";
+    let args = ["submodule", "update", "--init"];
+    println!(
+        "Running command: \"{} {}\" in dir: {}",
+        program,
+        args.join(" "),
+        dir
+    );
+    let ret = Command::new(program).current_dir(dir).args(args).status();
+
+    match ret.map(|status| (status.success(), status.code())) {
+        Ok((true, _)) => (),
+        Ok((false, Some(c))) => panic!("Command failed with error code {}", c),
+        Ok((false, None)) => panic!("Command got killed"),
+        Err(e) => panic!("Command failed with error: {}", e),
+    }
+}
+
 fn main() {
+    if !Path::new("rocksdb/AUTHORS").exists() {
+        update_submodules();
+    }
     bindgen_rocksdb();
 
     if !try_to_find_and_link_lib("ROCKSDB") {

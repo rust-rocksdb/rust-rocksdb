@@ -16,7 +16,6 @@
 use crate::db::DBInner;
 use crate::{ffi, Error, DB};
 
-use libc::{c_int, c_uchar};
 use std::ffi::CString;
 use std::path::Path;
 
@@ -94,7 +93,7 @@ impl BackupEngine {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
                 self.inner,
                 db.inner.inner(),
-                flush_before_backup as c_uchar,
+                u8::from(flush_before_backup),
             ));
             Ok(())
         }
@@ -269,7 +268,7 @@ impl BackupEngineOptions {
 impl RestoreOptions {
     pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
         unsafe {
-            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, keep_log_files as c_int);
+            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, i32::from(keep_log_files));
         }
     }
 }

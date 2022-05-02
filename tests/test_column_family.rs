@@ -47,6 +47,9 @@ fn test_column_family() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_merge_operator_associative("test operator", test_provided_merge);
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open(&opts, &n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
         match db.create_cf("cf1", &opts) {
@@ -97,7 +100,11 @@ fn test_column_family() {
     {}
     // should b able to drop a cf
     {
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
@@ -114,6 +121,9 @@ fn test_can_open_db_with_results_of_list_cf() {
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open(&opts, &n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open(&opts, &n).unwrap();
         let opts = Options::default();
 
@@ -261,10 +271,10 @@ fn test_create_duplicate_column_family() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let mut db = match DB::open_cf(&opts, &n, &["cf1"]) {
-            Ok(d) => d,
-            Err(e) => panic!("failed to create new column family: {}", e),
-        };
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open_cf(&opts, &n, &["cf1"]).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
+        let mut db = DB::open_cf(&opts, &n, &["cf1"]).unwrap();
 
         assert!(db.create_cf("cf1", &opts).is_err());
     }
@@ -282,6 +292,9 @@ fn test_no_leaked_column_family() {
         write_options.set_sync(false);
         write_options.disable_wal(true);
 
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = DB::open(&opts, &n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open(&opts, &n).unwrap();
         let large_blob = [0x20; 1024 * 1024];
 

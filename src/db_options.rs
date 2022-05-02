@@ -13,11 +13,10 @@
 // limitations under the License.
 
 use std::ffi::{CStr, CString};
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
-use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
+use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -93,7 +92,7 @@ impl Cache {
 #[derive(Clone)]
 pub struct Env(Arc<EnvWrapper>);
 
-struct EnvWrapper {
+pub(crate) struct EnvWrapper {
     inner: *mut ffi::rocksdb_env_t,
 }
 
@@ -382,8 +381,8 @@ unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
-unsafe impl Send for Cache {}
-unsafe impl Send for Env {}
+unsafe impl Send for CacheWrapper {}
+unsafe impl Send for EnvWrapper {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -393,8 +392,8 @@ unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
-unsafe impl Sync for Cache {}
-unsafe impl Sync for Env {}
+unsafe impl Sync for CacheWrapper {}
+unsafe impl Sync for EnvWrapper {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -496,7 +495,7 @@ impl BlockBasedOptions {
     /// incompatible with block-based filters.
     pub fn set_partition_filters(&mut self, size: bool) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_partition_filters(self.inner, size as c_uchar);
+            ffi::rocksdb_block_based_options_set_partition_filters(self.inner, u8::from(size));
         }
     }
 
@@ -558,12 +557,22 @@ impl BlockBasedOptions {
     /// Disable block cache
     pub fn disable_cache(&mut self) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, true as c_uchar);
+            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, u8::from(true));
         }
     }
 
-    /// Sets the filter policy to reduce disk reads
-    pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
+    /// Sets a [Bloom filter](https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter)
+    /// policy to reduce disk reads.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_bloom_filter(10.0, true);
+    /// ```
+    pub fn set_bloom_filter(&mut self, bits_per_key: c_double, block_based: bool) {
         unsafe {
             let bloom = if block_based {
                 ffi::rocksdb_filterpolicy_create_bloom(bits_per_key as _)
@@ -575,9 +584,62 @@ impl BlockBasedOptions {
         }
     }
 
+    /// Sets a [Ribbon filter](http://rocksdb.org/blog/2021/12/29/ribbon-filter.html)
+    /// policy to reduce disk reads.
+    ///
+    /// Ribbon filters use less memory in exchange for slightly more CPU usage
+    /// compared to an equivalent bloom filter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_ribbon_filter(10.0);
+    /// ```
+    pub fn set_ribbon_filter(&mut self, bloom_equivalent_bits_per_key: c_double) {
+        unsafe {
+            let ribbon = ffi::rocksdb_filterpolicy_create_ribbon(bloom_equivalent_bits_per_key);
+            ffi::rocksdb_block_based_options_set_filter_policy(self.inner, ribbon);
+        }
+    }
+
+    /// Sets a hybrid [Ribbon filter](http://rocksdb.org/blog/2021/12/29/ribbon-filter.html)
+    /// policy to reduce disk reads.
+    ///
+    /// Uses Bloom filters before the given level, and Ribbon filters for all
+    /// other levels. This combines the memory savings from Ribbon filters
+    /// with the lower CPU usage of Bloom filters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_hybrid_ribbon_filter(10.0, 2);
+    /// ```
+    pub fn set_hybrid_ribbon_filter(
+        &mut self,
+        bloom_equivalent_bits_per_key: c_double,
+        bloom_before_level: c_int,
+    ) {
+        unsafe {
+            let ribbon = ffi::rocksdb_filterpolicy_create_ribbon_hybrid(
+                bloom_equivalent_bits_per_key,
+                bloom_before_level,
+            );
+            ffi::rocksdb_block_based_options_set_filter_policy(self.inner, ribbon);
+        }
+    }
+
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner, v as u8);
+            ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(
+                self.inner,
+                u8::from(v),
+            );
         }
     }
 
@@ -609,7 +671,7 @@ impl BlockBasedOptions {
         unsafe {
             ffi::rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
                 self.inner,
-                v as c_uchar,
+                u8::from(v),
             );
         }
     }
@@ -625,7 +687,7 @@ impl BlockBasedOptions {
         unsafe {
             ffi::rocksdb_block_based_options_set_pin_top_level_index_and_filter(
                 self.inner,
-                v as c_uchar,
+                u8::from(v),
             );
         }
     }
@@ -704,6 +766,15 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio);
         }
     }
+
+    /// If false, place only prefixes in the filter, not whole keys.
+    ///
+    /// Defaults to true.
+    pub fn set_whole_key_filtering(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_whole_key_filtering(self.inner, u8::from(v));
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
@@ -761,7 +832,7 @@ impl CuckooTableOptions {
     /// table property.
     /// Default: false
     pub fn set_identity_as_first_hash(&mut self, flag: bool) {
-        let v = flag as u8;
+        let v = u8::from(flag);
         unsafe {
             ffi::rocksdb_cuckoo_options_set_identity_as_first_hash(self.inner, v);
         }
@@ -773,7 +844,7 @@ impl CuckooTableOptions {
     /// be power of two, and bit and is used to calculate hash, which is faster in general.
     /// Default: true
     pub fn set_use_module_hash(&mut self, flag: bool) {
-        let v = flag as u8;
+        let v = u8::from(flag);
         unsafe {
             ffi::rocksdb_cuckoo_options_set_use_module_hash(self.inner, v);
         }
@@ -886,7 +957,7 @@ impl Options {
     /// ```
     pub fn create_if_missing(&mut self, create_if_missing: bool) {
         unsafe {
-            ffi::rocksdb_options_set_create_if_missing(self.inner, create_if_missing as c_uchar);
+            ffi::rocksdb_options_set_create_if_missing(self.inner, u8::from(create_if_missing));
         }
     }
 
@@ -907,7 +978,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_create_missing_column_families(
                 self.inner,
-                create_missing_cfs as c_uchar,
+                u8::from(create_missing_cfs),
             );
         }
     }
@@ -917,7 +988,7 @@ impl Options {
     /// Default: false
     pub fn set_error_if_exists(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_error_if_exists(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_error_if_exists(self.inner, u8::from(enabled));
         }
     }
 
@@ -935,7 +1006,7 @@ impl Options {
     /// Default: false
     pub fn set_paranoid_checks(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_paranoid_checks(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_paranoid_checks(self.inner, u8::from(enabled));
         }
     }
 
@@ -1004,6 +1075,30 @@ impl Options {
     pub fn set_compression_type(&mut self, t: DBCompressionType) {
         unsafe {
             ffi::rocksdb_options_set_compression(self.inner, t as c_int);
+        }
+    }
+
+    /// Sets the bottom-most compression algorithm that will be used for
+    /// compressing blocks at the bottom-most level.
+    ///
+    /// Note that to actually unable bottom-most compression configuration after
+    /// setting the compression type it needs to be enabled by calling
+    /// [`set_bottommost_compression_options`] or
+    /// [`set_bottommost_zstd_max_train_bytes`] method with `enabled` argument
+    /// set to `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_zstd_max_train_bytes(0, true);
+    /// ```
+    pub fn set_bottommost_compression_type(&mut self, t: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression(self.inner, t as c_int);
         }
     }
 
@@ -1083,6 +1178,40 @@ impl Options {
         }
     }
 
+    /// Sets compression options for blocks at the bottom-most level.  Meaning
+    /// of all settings is the same as in [`set_compression_options`] method but
+    /// affect only the bottom-most compression which is set using
+    /// [`set_bottommost_compression_type`] method.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_compression_options(4, 5, 6, 7, true);
+    /// ```
+    pub fn set_bottommost_compression_options(
+        &mut self,
+        w_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+        enabled: bool,
+    ) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options(
+                self.inner,
+                w_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+                u8::from(enabled),
+            );
+        }
+    }
+
     /// Sets maximum size of training data passed to zstd's dictionary trainer. Using zstd's
     /// dictionary trainer can achieve even better compression ratio improvements than using
     /// `max_dict_bytes` alone.
@@ -1093,6 +1222,25 @@ impl Options {
     pub fn set_zstd_max_train_bytes(&mut self, value: c_int) {
         unsafe {
             ffi::rocksdb_options_set_compression_options_zstd_max_train_bytes(self.inner, value);
+        }
+    }
+
+    /// Sets maximum size of training data passed to zstd's dictionary trainer
+    /// when compressing the bottom-most level. Using zstd's dictionary trainer
+    /// can achieve even better compression ratio improvements than using
+    /// `max_dict_bytes` alone.
+    ///
+    /// The training data will be used to generate a dictionary of
+    /// `max_dict_bytes`.
+    ///
+    /// Default: 0.
+    pub fn set_bottommost_zstd_max_train_bytes(&mut self, value: c_int, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options_zstd_max_train_bytes(
+                self.inner,
+                value,
+                u8::from(enabled),
+            );
         }
     }
 
@@ -1120,7 +1268,7 @@ impl Options {
     /// Default: false.
     pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v as c_uchar);
+            ffi::rocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, u8::from(v));
         }
     }
 
@@ -1137,7 +1285,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
@@ -1162,7 +1310,7 @@ impl Options {
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, PF>),
                 Some(full_merge_callback::<F, PF>),
                 Some(partial_merge_callback::<F, PF>),
@@ -1202,7 +1350,7 @@ impl Options {
 
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
@@ -1227,7 +1375,7 @@ impl Options {
 
         unsafe {
             let cff = ffi::rocksdb_compactionfilterfactory_create(
-                Box::into_raw(factory) as *mut c_void,
+                Box::into_raw(factory).cast::<c_void>(),
                 Some(compaction_filter_factory::destructor_callback::<F>),
                 Some(compaction_filter_factory::create_compaction_filter_callback::<F>),
                 Some(compaction_filter_factory::name_callback::<F>),
@@ -1251,7 +1399,7 @@ impl Options {
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(comparator::destructor_callback),
                 Some(comparator::compare_callback),
                 Some(comparator::name_callback),
@@ -1296,7 +1444,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_optimize_filters_for_hits(
                 self.inner,
-                optimize_for_hits as c_int,
+                i32::from(optimize_for_hits),
             );
         }
     }
@@ -1373,7 +1521,7 @@ impl Options {
     /// ```
     pub fn set_use_fsync(&mut self, useit: bool) {
         unsafe {
-            ffi::rocksdb_options_set_use_fsync(self.inner, useit as c_int);
+            ffi::rocksdb_options_set_use_fsync(self.inner, i32::from(useit));
         }
     }
 
@@ -1485,7 +1633,7 @@ impl Options {
     /// ```
     pub fn set_allow_concurrent_memtable_write(&mut self, allow: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner, allow as c_uchar);
+            ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner, u8::from(allow));
         }
     }
 
@@ -1499,7 +1647,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_enable_write_thread_adaptive_yield(
                 self.inner,
-                enabled as c_uchar,
+                u8::from(enabled),
             );
         }
     }
@@ -1536,7 +1684,7 @@ impl Options {
     /// ```
     pub fn set_use_direct_reads(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_use_direct_reads(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_use_direct_reads(self.inner, u8::from(enabled));
         }
     }
 
@@ -1562,7 +1710,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_use_direct_io_for_flush_and_compaction(
                 self.inner,
-                enabled as c_uchar,
+                u8::from(enabled),
             );
         }
     }
@@ -1572,18 +1720,7 @@ impl Options {
     /// Default: true
     pub fn set_is_fd_close_on_exec(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_is_fd_close_on_exec(self.inner, enabled as c_uchar);
-        }
-    }
-
-    /// Enable/disable skipping of log corruption error on recovery (If client is ok with
-    /// losing most recent changes)
-    ///
-    /// Default: false
-    #[deprecated(since = "0.15.0", note = "This option is no longer used")]
-    pub fn set_skip_log_error_on_recovery(&mut self, enabled: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_skip_log_error_on_recovery(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_is_fd_close_on_exec(self.inner, u8::from(enabled));
         }
     }
 
@@ -1989,7 +2126,7 @@ impl Options {
     /// Default: false
     pub fn set_unordered_write(&mut self, unordered: bool) {
         unsafe {
-            ffi::rocksdb_options_set_unordered_write(self.inner, unordered as c_uchar);
+            ffi::rocksdb_options_set_unordered_write(self.inner, u8::from(unordered));
         }
     }
 
@@ -2099,7 +2236,7 @@ impl Options {
     /// ```
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
         unsafe {
-            ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int);
+            ffi::rocksdb_options_set_disable_auto_compactions(self.inner, i32::from(disable));
         }
     }
 
@@ -2162,7 +2299,7 @@ impl Options {
     /// Default: false.
     pub fn set_inplace_update_support(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_inplace_update_support(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_inplace_update_support(self.inner, u8::from(enabled));
         }
     }
 
@@ -2205,7 +2342,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
                 self.inner,
-                value as c_uchar,
+                u8::from(value),
             );
         }
     }
@@ -2261,7 +2398,7 @@ impl Options {
     /// Default: false
     pub fn set_enable_pipelined_write(&mut self, value: bool) {
         unsafe {
-            ffi::rocksdb_options_set_enable_pipelined_write(self.inner, value as c_uchar);
+            ffi::rocksdb_options_set_enable_pipelined_write(self.inner, u8::from(value));
         }
     }
 
@@ -2395,7 +2532,7 @@ impl Options {
     /// ```
     pub fn set_report_bg_io_stats(&mut self, enable: bool) {
         unsafe {
-            ffi::rocksdb_options_set_report_bg_io_stats(self.inner, enable as c_int);
+            ffi::rocksdb_options_set_report_bg_io_stats(self.inner, i32::from(enable));
         }
     }
 
@@ -2501,7 +2638,7 @@ impl Options {
     /// Default: `true`
     pub fn set_advise_random_on_open(&mut self, advise: bool) {
         unsafe {
-            ffi::rocksdb_options_set_advise_random_on_open(self.inner, advise as c_uchar);
+            ffi::rocksdb_options_set_advise_random_on_open(self.inner, u8::from(advise));
         }
     }
 
@@ -2525,7 +2662,7 @@ impl Options {
     /// Default: false
     pub fn set_use_adaptive_mutex(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_use_adaptive_mutex(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_use_adaptive_mutex(self.inner, u8::from(enabled));
         }
     }
 
@@ -2636,18 +2773,6 @@ impl Options {
         }
     }
 
-    /// Enable/disable purging of duplicate/deleted keys when a memtable is flushed to storage.
-    ///
-    /// Default: true
-    pub fn set_purge_redundant_kvs_while_flush(&mut self, enabled: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_purge_redundant_kvs_while_flush(
-                self.inner,
-                enabled as c_uchar,
-            );
-        }
-    }
-
     /// If true, then DB::Open() will not update the statistics used to optimize
     /// compaction decision by loading table properties from many files.
     /// Turning off this feature will improve DBOpen time especially in disk environment.
@@ -2655,7 +2780,7 @@ impl Options {
     /// Default: false
     pub fn set_skip_stats_update_on_db_open(&mut self, skip: bool) {
         unsafe {
-            ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, skip as c_uchar);
+            ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, u8::from(skip));
         }
     }
 
@@ -2691,7 +2816,7 @@ impl Options {
     /// ```
     pub fn set_allow_mmap_writes(&mut self, is_enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_mmap_writes(self.inner, is_enabled as c_uchar);
+            ffi::rocksdb_options_set_allow_mmap_writes(self.inner, u8::from(is_enabled));
         }
     }
 
@@ -2709,7 +2834,7 @@ impl Options {
     /// ```
     pub fn set_allow_mmap_reads(&mut self, is_enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_mmap_reads(self.inner, is_enabled as c_uchar);
+            ffi::rocksdb_options_set_allow_mmap_reads(self.inner, u8::from(is_enabled));
         }
     }
 
@@ -2729,7 +2854,7 @@ impl Options {
     /// ```
     pub fn set_manual_wal_flush(&mut self, is_enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_manual_wal_flush(self.inner, is_enabled as c_uchar);
+            ffi::rocksdb_options_set_manual_wal_flush(self.inner, u8::from(is_enabled));
         }
     }
 
@@ -2752,7 +2877,7 @@ impl Options {
     /// ```
     pub fn set_atomic_flush(&mut self, atomic_flush: bool) {
         unsafe {
-            ffi::rocksdb_options_set_atomic_flush(self.inner, atomic_flush as c_uchar);
+            ffi::rocksdb_options_set_atomic_flush(self.inner, u8::from(atomic_flush));
         }
     }
 
@@ -2853,32 +2978,6 @@ impl Options {
         }
     }
 
-    /// Sets the soft rate limit.
-    ///
-    /// Puts are delayed 0-1 ms when any level has a compaction score that exceeds
-    /// soft_rate_limit. This is ignored when == 0.0.
-    /// CONSTRAINT: soft_rate_limit <= hard_rate_limit. If this constraint does not
-    /// hold, RocksDB will set soft_rate_limit = hard_rate_limit
-    ///
-    /// Default: 0.0 (disabled)
-    pub fn set_soft_rate_limit(&mut self, limit: f64) {
-        unsafe {
-            ffi::rocksdb_options_set_soft_rate_limit(self.inner, limit);
-        }
-    }
-
-    /// Sets the hard rate limit.
-    ///
-    /// Puts are delayed 1ms at a time when any level has a compaction score that
-    /// exceeds hard_rate_limit. This is ignored when <= 1.0.
-    ///
-    /// Default: 0.0 (disabled)
-    pub fn set_hard_rate_limit(&mut self, limit: f64) {
-        unsafe {
-            ffi::rocksdb_options_set_hard_rate_limit(self.inner, limit);
-        }
-    }
-
     /// Sets the threshold at which all writes will be slowed down to at least delayed_write_rate if estimated
     /// bytes needed to be compaction exceed this threshold.
     ///
@@ -2899,16 +2998,6 @@ impl Options {
         }
     }
 
-    /// Sets the max time a put will be stalled when hard_rate_limit is enforced.
-    /// If 0, then there is no limit.
-    ///
-    /// Default: 1000
-    pub fn set_rate_limit_delay_max_milliseconds(&mut self, millis: c_uint) {
-        unsafe {
-            ffi::rocksdb_options_set_rate_limit_delay_max_milliseconds(self.inner, millis);
-        }
-    }
-
     /// Sets the size of one block in arena memory allocation.
     ///
     /// If <= 0, a proper value is automatically calculated (usually 1/10 of
@@ -2926,7 +3015,7 @@ impl Options {
     /// Default: false
     pub fn set_dump_malloc_stats(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_dump_malloc_stats(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_dump_malloc_stats(self.inner, u8::from(enabled));
         }
     }
 
@@ -2941,8 +3030,91 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_memtable_whole_key_filtering(
                 self.inner,
-                whole_key_filter as c_uchar,
+                u8::from(whole_key_filter),
             );
+        }
+    }
+
+    /// Enable the use of key-value separation.
+    ///
+    /// More details can be found here: http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html.
+    ///
+    /// Default: false (disable)
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_enable_blob_files(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_blob_files(self.inner, u8::from(val));
+        }
+    }
+
+    /// Sets the minimum threshold value at or above which will be written
+    /// to blob files during flush or compaction.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_min_blob_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_min_blob_size(self.inner, val);
+        }
+    }
+
+    /// Sets the size limit for blob files.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_file_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_file_size(self.inner, val);
+        }
+    }
+
+    /// Sets the blob compression type. All blob files use the same
+    /// compression type.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_compression_type(&mut self, val: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_compression_type(self.inner, val as _);
+        }
+    }
+
+    /// If this is set to true RocksDB will actively relocate valid blobs from the oldest blob files
+    /// as they are encountered during compaction.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_enable_blob_gc(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_blob_gc(self.inner, u8::from(val));
+        }
+    }
+
+    /// Sets the threshold that the GC logic uses to determine which blob files should be considered “old.”
+    ///
+    /// For example, the default value of 0.25 signals to RocksDB that blobs residing in the
+    /// oldest 25% of blob files should be relocated by GC. This parameter can be tuned to adjust
+    /// the trade-off between write amplification and space amplification.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_gc_age_cutoff(&mut self, val: c_double) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_gc_age_cutoff(self.inner, val);
+        }
+    }
+
+    /// Sets the blob GC force threshold.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_gc_force_threshold(&mut self, val: c_double) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_gc_force_threshold(self.inner, val);
+        }
+    }
+
+    /// Sets the blob compaction read ahead size.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_compaction_readahead_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_compaction_readahead_size(self.inner, val);
         }
     }
 }
@@ -2980,7 +3152,7 @@ impl FlushOptions {
     /// ```
     pub fn set_wait(&mut self, wait: bool) {
         unsafe {
-            ffi::rocksdb_flushoptions_set_wait(self.inner, wait as c_uchar);
+            ffi::rocksdb_flushoptions_set_wait(self.inner, u8::from(wait));
         }
     }
 }
@@ -3009,7 +3181,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_sync(&mut self, sync: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_sync(self.inner, sync as c_uchar);
+            ffi::rocksdb_writeoptions_set_sync(self.inner, u8::from(sync));
         }
     }
 
@@ -3020,7 +3192,7 @@ impl WriteOptions {
     /// Default: false
     pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_disable_WAL(self.inner, disable as c_int);
+            ffi::rocksdb_writeoptions_disable_WAL(self.inner, i32::from(disable));
         }
     }
 
@@ -3033,7 +3205,7 @@ impl WriteOptions {
         unsafe {
             ffi::rocksdb_writeoptions_set_ignore_missing_column_families(
                 self.inner,
-                ignore as c_uchar,
+                u8::from(ignore),
             );
         }
     }
@@ -3044,7 +3216,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_no_slowdown(&mut self, no_slowdown: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_no_slowdown(self.inner, no_slowdown as c_uchar);
+            ffi::rocksdb_writeoptions_set_no_slowdown(self.inner, u8::from(no_slowdown));
         }
     }
 
@@ -3057,7 +3229,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_low_pri(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_low_pri(self.inner, v as c_uchar);
+            ffi::rocksdb_writeoptions_set_low_pri(self.inner, u8::from(v));
         }
     }
 
@@ -3070,7 +3242,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_memtable_insert_hint_per_batch(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_memtable_insert_hint_per_batch(self.inner, v as c_uchar);
+            ffi::rocksdb_writeoptions_set_memtable_insert_hint_per_batch(self.inner, u8::from(v));
         }
     }
 }
@@ -3109,7 +3281,7 @@ impl ReadOptions {
     /// Default: true
     pub fn fill_cache(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_fill_cache(self.inner, u8::from(v));
         }
     }
 
@@ -3178,7 +3350,7 @@ impl ReadOptions {
     /// Default: false
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, u8::from(v));
         }
     }
 
@@ -3191,7 +3363,7 @@ impl ReadOptions {
     /// changing implementation of prefix extractor.
     pub fn set_total_order_seek(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_total_order_seek(self.inner, u8::from(v));
         }
     }
 
@@ -3214,7 +3386,7 @@ impl ReadOptions {
         unsafe {
             ffi::rocksdb_readoptions_set_background_purge_on_iterator_cleanup(
                 self.inner,
-                v as c_uchar,
+                u8::from(v),
             );
         }
     }
@@ -3226,7 +3398,7 @@ impl ReadOptions {
     /// Default: false
     pub fn set_ignore_range_deletions(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, u8::from(v));
         }
     }
 
@@ -3236,7 +3408,7 @@ impl ReadOptions {
     /// Default: true
     pub fn set_verify_checksums(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_verify_checksums(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_verify_checksums(self.inner, u8::from(v));
         }
     }
 
@@ -3262,7 +3434,7 @@ impl ReadOptions {
     /// or seek_to_last are not supported.
     pub fn set_tailing(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_tailing(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_tailing(self.inner, u8::from(v));
         }
     }
 
@@ -3276,7 +3448,7 @@ impl ReadOptions {
     /// Default: false
     pub fn set_pin_data(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_pin_data(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_pin_data(self.inner, u8::from(v));
         }
     }
 }
@@ -3297,7 +3469,7 @@ impl IngestExternalFileOptions {
     /// Can be set to true to move the files instead of copying them.
     pub fn set_move_files(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_ingestexternalfileoptions_set_move_files(self.inner, v as c_uchar);
+            ffi::rocksdb_ingestexternalfileoptions_set_move_files(self.inner, u8::from(v));
         }
     }
 
@@ -3307,7 +3479,7 @@ impl IngestExternalFileOptions {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_snapshot_consistency(
                 self.inner,
-                v as c_uchar,
+                u8::from(v),
             );
         }
     }
@@ -3316,7 +3488,7 @@ impl IngestExternalFileOptions {
     /// overlaps with existing keys or tombstones in the DB.
     pub fn set_allow_global_seqno(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_ingestexternalfileoptions_set_allow_global_seqno(self.inner, v as c_uchar);
+            ffi::rocksdb_ingestexternalfileoptions_set_allow_global_seqno(self.inner, u8::from(v));
         }
     }
 
@@ -3326,7 +3498,7 @@ impl IngestExternalFileOptions {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_allow_blocking_flush(
                 self.inner,
-                v as c_uchar,
+                u8::from(v),
             );
         }
     }
@@ -3340,7 +3512,7 @@ impl IngestExternalFileOptions {
     /// All files will be ingested at the bottommost level with seqno=0.
     pub fn set_ingest_behind(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_ingestexternalfileoptions_set_ingest_behind(self.inner, v as c_uchar);
+            ffi::rocksdb_ingestexternalfileoptions_set_ingest_behind(self.inner, u8::from(v));
         }
     }
 }
@@ -3651,7 +3823,7 @@ impl CompactOptions {
     /// and wait for existing automatic compaction jobs to finish.
     pub fn set_exclusive_manual_compaction(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_compactoptions_set_exclusive_manual_compaction(self.inner, v as c_uchar);
+            ffi::rocksdb_compactoptions_set_exclusive_manual_compaction(self.inner, u8::from(v));
         }
     }
 
@@ -3666,7 +3838,7 @@ impl CompactOptions {
     /// of holding the data or given level (specified non-negative target_level).
     pub fn set_change_level(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_compactoptions_set_change_level(self.inner, v as c_uchar);
+            ffi::rocksdb_compactoptions_set_change_level(self.inner, u8::from(v));
         }
     }
 
