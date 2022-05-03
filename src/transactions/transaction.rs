@@ -13,12 +13,12 @@
 // limitations under the License.
 //
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ptr};
 
 use crate::{
-    db::DBAccess, ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBPinnableSlice,
-    DBRawIteratorWithThreadMode, Direction, Error, IteratorMode, ReadOptions,
-    SnapshotWithThreadMode, WriteBatchWithTransaction,
+    db::{convert_values, DBAccess},
+    ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode,
+    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode, WriteBatchWithTransaction,
 };
 use libc::{c_char, c_void, size_t};
 
@@ -92,27 +92,27 @@ impl<'db, DB> DBAccess for Transaction<'db, DB> {
 
     fn multi_get_opt<K, I>(
         &self,
-        _keys: I,
-        _readopts: &ReadOptions,
+        keys: I,
+        readopts: &ReadOptions,
     ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>,
     {
-        todo!()
+        self.multi_get_opt(keys, readopts)
     }
 
     fn multi_get_cf_opt<'b, K, I, W>(
         &self,
-        _keys_cf: I,
-        _readopts: &ReadOptions,
+        keys_cf: I,
+        readopts: &ReadOptions,
     ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef + 'b,
     {
-        todo!()
+        self.multi_get_cf_opt(keys_cf, readopts)
     }
 }
 
@@ -476,6 +476,107 @@ impl<'db, DB> Transaction<'db, DB> {
                 Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
+    }
+
+    /// Return the values associated with the given keys.
+    pub fn multi_get<K, I>(&self, keys: I) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_opt(keys, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys using read options.
+    pub fn multi_get_opt<K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut values = vec![ptr::null_mut(); keys.len()];
+        let mut values_sizes = vec![0_usize; keys.len()];
+        let mut errors = vec![ptr::null_mut(); keys.len()];
+        unsafe {
+            ffi::rocksdb_transaction_multi_get(
+                self.inner,
+                readopts.inner,
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+                errors.as_mut_ptr(),
+            );
+        }
+
+        convert_values(values, values_sizes, errors)
+    }
+
+    /// Return the values associated with the given keys and column families.
+    pub fn multi_get_cf<'a, 'b: 'a, K, I, W: 'b>(
+        &'a self,
+        keys: I,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef,
+    {
+        self.multi_get_cf_opt(keys, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys and column families using read options.
+    pub fn multi_get_cf_opt<'a, 'b: 'a, K, I, W: 'b>(
+        &'a self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef,
+    {
+        let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
+            .into_iter()
+            .map(|(cf, key)| ((cf, Box::from(key.as_ref())), key.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = cfs_and_keys
+            .iter()
+            .map(|(_, k)| k.as_ptr() as *const c_char)
+            .collect();
+        let ptr_cfs: Vec<_> = cfs_and_keys
+            .iter()
+            .map(|(c, _)| c.inner() as *const _)
+            .collect();
+
+        let mut values = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut values_sizes = vec![0_usize; ptr_keys.len()];
+        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
+        unsafe {
+            ffi::rocksdb_transaction_multi_get_cf(
+                self.inner,
+                readopts.inner,
+                ptr_cfs.as_ptr(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+                errors.as_mut_ptr(),
+            );
+        }
+
+        convert_values(values, values_sizes, errors)
     }
 
     /// Put the key value in default column family and do conflict checking on the key.

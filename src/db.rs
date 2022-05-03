@@ -2103,7 +2103,7 @@ fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Err
         .collect()
 }
 
-fn convert_values(
+pub(crate) fn convert_values(
     values: Vec<*mut c_char>,
     values_sizes: Vec<usize>,
     errors: Vec<*mut c_char>,

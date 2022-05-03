@@ -2,6 +2,7 @@
 
 // Include origin rocksdb C-API.
 #include "rocksdb/db/c.cc"
+#include <vector>
 
 // Implement some missing functions.
 extern "C" {
@@ -172,6 +173,120 @@ void rocksdb_transaction_rebuild_from_writebatch(
 void rocksdb_transaction_rebuild_from_writebatch_wi(
     rocksdb_transaction_t* txn, rocksdb_writebatch_wi_t *wi, char** errptr) {
   SaveError(errptr, txn->rep->RebuildFromWriteBatch(wi->rep->GetWriteBatch()));
+}
+
+void rocksdb_transaction_multi_get(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options, size_t num_keys,
+    const char* const* keys_list, const size_t* keys_list_sizes, char** values_list,
+    size_t* values_list_sizes, char** errs) {
+  std::vector<Slice> keys(num_keys);
+  for (size_t i = 0; i < num_keys; i++) {
+    keys[i] = Slice(keys_list[i], keys_list_sizes[i]);
+  }
+  std::vector<std::string> values(num_keys);
+  std::vector<Status> statuses = txn->rep->MultiGet(options->rep, keys, &values);
+  for (size_t i = 0; i < num_keys; i++) {
+    if (statuses[i].ok()) {
+      values_list[i] = CopyString(values[i]);
+      values_list_sizes[i] = values[i].size();
+      errs[i] = nullptr;
+    } else {
+      values_list[i] = nullptr;
+      values_list_sizes[i] = 0;
+      if (!statuses[i].IsNotFound()) {
+        errs[i] = strdup(statuses[i].ToString().c_str());
+      } else {
+        errs[i] = nullptr;
+      }
+    }
+  }
+}
+
+void rocksdb_transaction_multi_get_cf(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
+    const rocksdb_column_family_handle_t* const* column_families,
+    size_t num_keys, const char* const* keys_list, const size_t* keys_list_sizes,
+    char** values_list, size_t* values_list_sizes, char** errs) {
+  std::vector<Slice> keys(num_keys);
+  std::vector<ColumnFamilyHandle*> cfs(num_keys);
+  for (size_t i = 0; i < num_keys; i++) {
+    keys[i] = Slice(keys_list[i], keys_list_sizes[i]);
+    cfs[i] = column_families[i]->rep;
+  }
+  std::vector<std::string> values(num_keys);
+  std::vector<Status> statuses = txn->rep->MultiGet(options->rep, cfs, keys, &values);
+  for (size_t i = 0; i < num_keys; i++) {
+    if (statuses[i].ok()) {
+      values_list[i] = CopyString(values[i]);
+      values_list_sizes[i] = values[i].size();
+      errs[i] = nullptr;
+    } else {
+      values_list[i] = nullptr;
+      values_list_sizes[i] = 0;
+      if (!statuses[i].IsNotFound()) {
+        errs[i] = strdup(statuses[i].ToString().c_str());
+      } else {
+        errs[i] = nullptr;
+      }
+    }
+  }
+}
+
+void rocksdb_transactiondb_multi_get(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options, size_t num_keys,
+    const char* const* keys_list, const size_t* keys_list_sizes, char** values_list,
+    size_t* values_list_sizes, char** errs) {
+  std::vector<Slice> keys(num_keys);
+  for (size_t i = 0; i < num_keys; i++) {
+    keys[i] = Slice(keys_list[i], keys_list_sizes[i]);
+  }
+  std::vector<std::string> values(num_keys);
+  std::vector<Status> statuses = txn_db->rep->MultiGet(options->rep, keys, &values);
+  for (size_t i = 0; i < num_keys; i++) {
+    if (statuses[i].ok()) {
+      values_list[i] = CopyString(values[i]);
+      values_list_sizes[i] = values[i].size();
+      errs[i] = nullptr;
+    } else {
+      values_list[i] = nullptr;
+      values_list_sizes[i] = 0;
+      if (!statuses[i].IsNotFound()) {
+        errs[i] = strdup(statuses[i].ToString().c_str());
+      } else {
+        errs[i] = nullptr;
+      }
+    }
+  }
+}
+
+void rocksdb_transactiondb_multi_get_cf(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options,
+    const rocksdb_column_family_handle_t* const* column_families,
+    size_t num_keys, const char* const* keys_list, const size_t* keys_list_sizes,
+    char** values_list, size_t* values_list_sizes, char** errs) {
+  std::vector<Slice> keys(num_keys);
+  std::vector<ColumnFamilyHandle*> cfs(num_keys);
+  for (size_t i = 0; i < num_keys; i++) {
+    keys[i] = Slice(keys_list[i], keys_list_sizes[i]);
+    cfs[i] = column_families[i]->rep;
+  }
+  std::vector<std::string> values(num_keys);
+  std::vector<Status> statuses = txn_db->rep->MultiGet(options->rep, cfs, keys, &values);
+  for (size_t i = 0; i < num_keys; i++) {
+    if (statuses[i].ok()) {
+      values_list[i] = CopyString(values[i]);
+      values_list_sizes[i] = values[i].size();
+      errs[i] = nullptr;
+    } else {
+      values_list[i] = nullptr;
+      values_list_sizes[i] = 0;
+      if (!statuses[i].IsNotFound()) {
+        errs[i] = strdup(statuses[i].ToString().c_str());
+      } else {
+        errs[i] = nullptr;
+      }
+    }
+  }
 }
 
 }   // C

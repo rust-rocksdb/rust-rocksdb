@@ -341,6 +341,8 @@ fn main() {
 
     if !try_to_find_and_link_lib("ROCKSDB") {
         println!("cargo:rerun-if-changed=rocksdb/");
+        println!("cargo:rerun-if-changed=rocksdb-c.h");
+        println!("cargo:rerun-if-changed=rocksdb-c.cc");
         fail_on_empty_directory("rocksdb");
         build_rocksdb();
     } else {

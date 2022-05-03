@@ -66,6 +66,29 @@ extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_flush_wal(
 extern ROCKSDB_LIBRARY_API void rocksdb_transaction_options_set_skip_prepare(
     rocksdb_transaction_options_t* opt, unsigned char v);
 
+// multi get support for TransactionDB and Transaction
+extern ROCKSDB_LIBRARY_API void rocksdb_transaction_multi_get(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options, size_t num_keys,
+    const char* const* keys_list, const size_t* keys_list_sizes, char** values_list,
+    size_t* values_list_sizes, char** errs);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transaction_multi_get_cf(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
+    const rocksdb_column_family_handle_t* const* column_families,
+    size_t num_keys, const char* const* keys_list, const size_t* keys_list_sizes,
+    char** values_list, size_t* values_list_sizes, char** errs);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_multi_get(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options, size_t num_keys,
+    const char* const* keys_list, const size_t* keys_list_sizes, char** values_list,
+    size_t* values_list_sizes, char** errs);
+
+extern ROCKSDB_LIBRARY_API void rocksdb_transactiondb_multi_get_cf(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options,
+    const rocksdb_column_family_handle_t* const* column_families,
+    size_t num_keys, const char* const* keys_list, const size_t* keys_list_sizes,
+    char** values_list, size_t* values_list_sizes, char** errs);
+
 #ifdef __cplusplus
 }  /* end extern "C" */
 #endif
