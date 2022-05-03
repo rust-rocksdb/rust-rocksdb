@@ -619,6 +619,23 @@ fn test_open_with_multiple_refs_as_single_threaded() {
 }
 
 #[test]
+fn test_open_utf8_path() {
+    let path = DBPath::new("_rust_rocksdb_utf8_path_temporärer_Ordner");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        assert!(db.put(b"k1", b"v1111").is_ok());
+
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+
+        assert_eq!(r.unwrap().unwrap(), b"v1111");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
+    }
+}
+
+#[test]
 fn compact_range_test() {
     let path = DBPath::new("_rust_rocksdb_compact_range_test");
     {
