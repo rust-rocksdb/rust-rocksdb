@@ -405,7 +405,7 @@ impl<'db, DB> Transaction<'db, DB> {
                 opts.inner,
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len() as size_t,
-                exclusive as u8,
+                u8::from(exclusive),
             ));
             if val.is_null() {
                 Ok(None)
@@ -468,7 +468,7 @@ impl<'db, DB> Transaction<'db, DB> {
                 cf.inner(),
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len() as size_t,
-                exclusive as u8,
+                u8::from(exclusive),
             ));
             if val.is_null() {
                 Ok(None)

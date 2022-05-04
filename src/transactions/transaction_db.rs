@@ -339,7 +339,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         cfs_v: &[ColumnFamilyDescriptor],
         cfnames: &[*const c_char],
         cfopts: &[*const ffi::rocksdb_options_t],
-        cfhandles: &mut Vec<*mut ffi::rocksdb_column_family_handle_t>,
+        cfhandles: &mut [*mut ffi::rocksdb_column_family_handle_t],
     ) -> Result<*mut ffi::rocksdb_transactiondb_t, Error> {
         unsafe {
             let db = ffi_try!(ffi::rocksdb_transactiondb_open_column_families(

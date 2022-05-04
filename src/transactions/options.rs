@@ -13,11 +13,8 @@
 // limitations under the License.
 //
 
-use core::panic;
-
-use libc::c_uchar;
-
 use crate::ffi;
+use core::panic;
 
 pub struct TransactionOptions {
     pub(crate) inner: *mut ffi::rocksdb_transaction_options_t,
@@ -44,7 +41,7 @@ impl TransactionOptions {
 
     pub fn set_skip_prepare(&mut self, skip_prepare: bool) {
         unsafe {
-            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, skip_prepare as c_uchar);
+            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, u8::from(skip_prepare));
         }
     }
 
@@ -68,7 +65,7 @@ impl TransactionOptions {
     /// methods.
     pub fn set_snapshot(&mut self, snapshot: bool) {
         unsafe {
-            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, snapshot as c_uchar);
+            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, u8::from(snapshot));
         }
     }
 
@@ -83,7 +80,7 @@ impl TransactionOptions {
         unsafe {
             ffi::rocksdb_transaction_options_set_deadlock_detect(
                 self.inner,
-                deadlock_detect as c_uchar,
+                u8::from(deadlock_detect),
             );
         }
     }
@@ -285,7 +282,7 @@ impl OptimisticTransactionOptions {
         unsafe {
             ffi::rocksdb_optimistictransaction_options_set_set_snapshot(
                 self.inner,
-                snapshot as c_uchar,
+                u8::from(snapshot),
             );
         }
     }
