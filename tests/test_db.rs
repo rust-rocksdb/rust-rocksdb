@@ -21,7 +21,7 @@ use pretty_assertions::assert_eq;
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
-    DBWithThreadMode, Env, Error, FifoCompactOptions, IteratorMode, MultiThreaded, Options,
+    DBWithThreadMode, Env, Error, FifoCompactOptions, IteratorMode, MultiThreaded, Options, SstPartitionerFactory,
     PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
 };
@@ -32,9 +32,10 @@ fn sst_partitioner() {
     let path = DBPath::new("_rust_rocksdb_sst_partitioner");
 
     {
+	let factory = SstPartitionerFactory::new(1);
 	let mut opts = Options::default();
 	opts.create_if_missing(true);
-	opts.set_sst_partitioner_prefix_len(1);
+	opts.set_sst_partitioner_factory(&factory);
         let db = DB::open(&opts, &path).unwrap();
         assert!(db.put(b"2", b"v2222").is_ok());
         assert!(db.put(b"1", b"v1111").is_ok());

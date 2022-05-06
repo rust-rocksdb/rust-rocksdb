@@ -31,6 +31,30 @@ use crate::{
     Error, SnapshotWithThreadMode,
 };
 
+
+pub struct SstPartitionerFactory {
+    pub(crate) inner: *mut ffi::rocksdb_sst_partitioner_factory_t,
+}
+
+impl Drop for SstPartitionerFactory {
+    fn drop(&mut self) {
+	unsafe {
+	    ffi::rocksdb_sst_partitioner_factory_destroy(self.inner);
+	}
+    }
+}
+
+impl SstPartitionerFactory {
+    pub fn new(len: i64) -> Self {
+	unsafe {
+	    let ptr = ffi::rocksdb_sst_partitioner_fixed_prefix_factory_create(len);
+	    SstPartitionerFactory {
+		inner: ptr,
+	    }
+	}
+    }
+}
+
 fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
     unsafe { ffi::rocksdb_cache_create_lru(capacity) }
 }
@@ -399,8 +423,6 @@ impl Drop for Options {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_options_destroy(self.inner);
-	    let sst_partitioner_ptr = ffi::rocksdb_options_get_sst_partitioner_factory(self.inner);
-	    ffi::rocksdb_sst_partitioner_factory_destroy(sst_partitioner_ptr);	    
         }
     }
 }
@@ -3117,13 +3139,12 @@ impl Options {
         }
     }
 
-    /// Sets sst partitioner prefix len.
+    /// Sets sst partitioner factory.
     ///
     /// Dynamically changeable through SetOptions() API    
-    pub fn set_sst_partitioner_prefix_len(&mut self, len: i64) {
+    pub fn set_sst_partitioner_factory(&mut self, factory: &SstPartitionerFactory) {
 	unsafe {
-	    let ptr = ffi::rocksdb_sst_partitioner_fixed_prefix_factory_create(len);
-	    ffi::rocksdb_options_set_sst_partitioner_factory(self.inner, ptr);
+	    ffi::rocksdb_options_set_sst_partitioner_factory(self.inner, factory.inner);
 	}
     }
 }
