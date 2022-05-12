@@ -177,6 +177,17 @@ pub trait DBAccess {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef + 'b;
+
+    fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>;
 }
 
 impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
@@ -241,6 +252,20 @@ impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
         W: AsColumnFamilyRef + 'b,
     {
         self.multi_get_cf_opt(keys_cf, readopts)
+    }
+
+    fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.batched_multi_get_cf_opt(cf, keys, sorted_input, readopts)
     }
 }
 
@@ -1020,6 +1045,75 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         }
 
         convert_values(values, values_sizes, errors)
+    }
+
+    /// Return the values associated with the given keys and the specified column family
+    /// where internally the read requests are processed in batch if block-based table
+    /// SST format is used.  It is a more optimized version of multi_get_cf.
+    pub fn batched_multi_get_cf<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.batched_multi_get_cf_opt(cf, keys, sorted_input, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys and the specified column family
+    /// where internally the read requests are processed in batch if block-based table
+    /// SST format is used.  It is a more optimized version of multi_get_cf_opt.
+    pub fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut pinned_values = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
+
+        unsafe {
+            ffi::rocksdb_batched_multi_get_cf(
+                self.inner,
+                readopts.inner,
+                cf.inner(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                pinned_values.as_mut_ptr(),
+                errors.as_mut_ptr(),
+                sorted_input,
+            );
+            pinned_values
+                .into_iter()
+                .zip(errors.into_iter())
+                .map(|(v, e)| {
+                    if e.is_null() {
+                        if v.is_null() {
+                            Ok(None)
+                        } else {
+                            Ok(Some(DBPinnableSlice::from_c(v)))
+                        }
+                    } else {
+                        Err(Error::new(crate::ffi_util::error_message(e)))
+                    }
+                })
+                .collect()
+        }
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
