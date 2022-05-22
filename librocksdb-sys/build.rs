@@ -152,6 +152,7 @@ fn build_rocksdb() {
         config.define("PLATFORM", "IOS");
         config.define("NIOSTATS_CONTEXT", None);
         config.define("NPERF_CONTEXT", None);
+        config.flag("-miphoneos-version-min=11.0");
     }
 
     if target.contains("darwin") || target.contains("apple-ios") {
