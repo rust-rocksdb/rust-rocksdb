@@ -152,7 +152,8 @@ fn build_rocksdb() {
         config.define("PLATFORM", "IOS");
         config.define("NIOSTATS_CONTEXT", None);
         config.define("NPERF_CONTEXT", None);
-        config.flag("-miphoneos-version-min=11.0");
+        // https://github.com/rust-lang/cc-rs/blob/f2e1b1c9ff92ad063957382ec445bc54e9570c71/src/lib.rs#L2118
+        env::set_var("IPHONEOS_DEPLOYMENT_TARGET", "11.0");
     }
 
     if target.contains("darwin") || target.contains("apple-ios") {
