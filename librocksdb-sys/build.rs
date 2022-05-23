@@ -220,9 +220,7 @@ fn build_rocksdb() {
         }
     }
 
-    if !target.contains("apple-ios") {
-        config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
-    }
+    config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
     if cfg!(feature = "jemalloc") {
         config.define("WITH_JEMALLOC", "ON");
