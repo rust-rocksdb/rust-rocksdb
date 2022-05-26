@@ -33,7 +33,7 @@ cmake = "0.1"
 bindgen = { version = "0.57", default-features = false, features = ["runtime"] }
 
 [dependencies.tikv-jemalloc-sys]
-version = "0.4.0"
+version = "0.5.0"
 optional = true
 features = ["unprefixed_malloc_on_supported_platforms"]
 
