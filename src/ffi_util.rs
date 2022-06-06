@@ -141,7 +141,7 @@ impl CStrLike for &str {
 }
 
 // This is redundant for the most part and exists so that `foo(&string)` (where
-// `string: String` works just as if `foo` too `arg: &str` argument.
+// `string: String` works just as if `foo` took `arg: &str` argument.
 impl CStrLike for &String {
     type Baked = CString;
     type Error = std::ffi::NulError;
@@ -183,7 +183,7 @@ impl CStrLike for CString {
 }
 
 // This is redundant for the most part and exists so that `foo(&cstring)` (where
-// `string: CString` works just as if `foo` too `arg: &CStr` argument.
+// `string: CString` works just as if `foo` took `arg: &CStr` argument.
 impl<'a> CStrLike for &'a CString {
     type Baked = &'a CStr;
     type Error = std::convert::Infallible;
