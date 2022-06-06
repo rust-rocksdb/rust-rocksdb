@@ -1558,13 +1558,21 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Ok(())
     }
 
-    /// Retrieves a RocksDB property by name.
+    /// Implementation for property_value et al methods.
     ///
-    /// Full list of properties could be find
-    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
-    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
-        let prop_name = match CString::new(name) {
-            Ok(c) => c,
+    /// `name` is the name of the property.  It will be converted into a CString
+    /// and passed to `get_property` as argument.  `get_property` reads the
+    /// specified property and either returns NULL or a pointer to a C allocated
+    /// string; this method takes ownership of that string and will free it at
+    /// the end. That string is parsed using `parse` callback which produces
+    /// the returned result.
+    fn property_value_impl<R>(
+        name: &str,
+        get_property: impl FnOnce(*const c_char) -> *mut c_char,
+        parse: impl FnOnce(&str) -> Result<R, Error>,
+    ) -> Result<Option<R>, Error> {
+        let value = match CString::new(name) {
+            Ok(prop_name) => get_property(prop_name.as_ptr()),
             Err(e) => {
                 return Err(Error::new(format!(
                     "Failed to convert property name to CString: {}",
@@ -1572,26 +1580,32 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 )));
             }
         };
-
-        unsafe {
-            let value = ffi::rocksdb_property_value(self.inner, prop_name.as_ptr());
-            if value.is_null() {
-                return Ok(None);
-            }
-
-            let str_value = match CStr::from_ptr(value).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(e) => {
-                    return Err(Error::new(format!(
-                        "Failed to convert property value to string: {}",
-                        e
-                    )));
-                }
-            };
-
-            libc::free(value as *mut c_void);
-            Ok(Some(str_value))
+        if value.is_null() {
+            return Ok(None);
         }
+        let result = match unsafe { CStr::from_ptr(value) }.to_str() {
+            Ok(s) => parse(s).map(|value| Some(value)),
+            Err(e) => Err(Error::new(format!(
+                "Failed to convert property value to string: {}",
+                e
+            ))),
+        };
+        unsafe {
+            libc::free(value as *mut c_void);
+        }
+        result
+    }
+
+    /// Retrieves a RocksDB property by name.
+    ///
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
+    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
+            |str_value| Ok(str_value.to_owned()),
+        )
     }
 
     /// Retrieves a RocksDB property by name, for a specific column family.
@@ -1603,35 +1617,22 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         cf: &impl AsColumnFamilyRef,
         name: &str,
     ) -> Result<Option<String>, Error> {
-        let prop_name = match CString::new(name) {
-            Ok(c) => c,
-            Err(e) => {
-                return Err(Error::new(format!(
-                    "Failed to convert property name to CString: {}",
-                    e
-                )));
-            }
-        };
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe {
+                ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name)
+            },
+            |str_value| Ok(str_value.to_owned()),
+        )
+    }
 
-        unsafe {
-            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name.as_ptr());
-            if value.is_null() {
-                return Ok(None);
-            }
-
-            let str_value = match CStr::from_ptr(value).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(e) => {
-                    return Err(Error::new(format!(
-                        "Failed to convert property value to string: {}",
-                        e
-                    )));
-                }
-            };
-
-            libc::free(value as *mut c_void);
-            Ok(Some(str_value))
-        }
+    fn parse_property_int_value(value: &str) -> Result<u64, Error> {
+        value.parse::<u64>().map_err(|err| {
+            Error::new(format!(
+                "Failed to convert property value {} to int: {}",
+                value, err
+            ))
+        })
     }
 
     /// Retrieves a RocksDB property and casts it to an integer.
@@ -1639,17 +1640,11 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// Full list of properties that return int values could be find
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
     pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
-        match self.property_value(name) {
-            Ok(Some(value)) => match value.parse::<u64>() {
-                Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!(
-                    "Failed to convert property value to int: {}",
-                    e
-                ))),
-            },
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        }
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
+            Self::parse_property_int_value,
+        )
     }
 
     /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
@@ -1661,17 +1656,13 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         cf: &impl AsColumnFamilyRef,
         name: &str,
     ) -> Result<Option<u64>, Error> {
-        match self.property_value_cf(cf, name) {
-            Ok(Some(value)) => match value.parse::<u64>() {
-                Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!(
-                    "Failed to convert property value to int: {}",
-                    e
-                ))),
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe {
+                ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name)
             },
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        }
+            Self::parse_property_int_value,
+        )
     }
 
     /// The sequence number of the most recent transaction.
