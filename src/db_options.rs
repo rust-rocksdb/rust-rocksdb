@@ -24,6 +24,7 @@ use crate::{
     comparator::{self, ComparatorCallback, CompareFn},
     db::DBAccess,
     ffi,
+    ffi_util::to_cpath,
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
@@ -1534,7 +1535,7 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_log_dir<P: AsRef<Path>>(&mut self, path: P) {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path).unwrap();
         unsafe {
             ffi::rocksdb_options_set_db_log_dir(self.inner, p.as_ptr());
         }
@@ -2722,7 +2723,7 @@ impl Options {
     /// opts.set_wal_dir("/path/to/dir");
     /// ```
     pub fn set_wal_dir<P: AsRef<Path>>(&mut self, path: P) {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path).unwrap();
         unsafe {
             ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
         }
@@ -3859,12 +3860,12 @@ pub struct DBPath {
 impl DBPath {
     /// Create a new path
     pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<Self, Error> {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path.as_ref()).unwrap();
         let dbpath = unsafe { ffi::rocksdb_dbpath_create(p.as_ptr(), target_size) };
         if dbpath.is_null() {
             Err(Error::new(format!(
                 "Could not create path for storing sst files at location: {}",
-                path.as_ref().to_string_lossy()
+                path.as_ref().display()
             )))
         } else {
             Ok(DBPath { inner: dbpath })
