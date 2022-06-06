@@ -1564,7 +1564,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// and passed to `get_property` as argument.  `get_property` reads the
     /// specified property and either returns NULL or a pointer to a C allocated
     /// string; this method takes ownership of that string and will free it at
-    /// the end.  That string is parsed using `parse` callback which produces
+    /// the end. That string is parsed using `parse` callback which produces
     /// the returned result.
     fn property_value_impl<R>(
         name: &str,
