@@ -223,7 +223,10 @@ fn test_c_str_like_into() {
 
     assert_eq!(Ok(want.clone()), test("foo")); // &str
     assert_eq!(Ok(want.clone()), test(&String::from("foo"))); // &String
-    assert_eq!(Ok(want.clone()), test(CString::new("foo").unwrap().as_ref())); // &CStr
+    assert_eq!(
+        Ok(want.clone()),
+        test(CString::new("foo").unwrap().as_ref())
+    ); // &CStr
     assert_eq!(Ok(want.clone()), test(&CString::new("foo").unwrap())); // &CString
     assert_eq!(Ok(want), test(CString::new("foo").unwrap())); // CString
 
