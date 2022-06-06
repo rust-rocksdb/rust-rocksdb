@@ -219,13 +219,13 @@ fn test_c_str_like_into() {
         value.into_c_string()
     }
 
-    let foo = CString::new("foo").unwrap();
+    let want = CString::new("foo").unwrap();
 
-    assert_eq!(Ok(foo.clone()), test("foo")); // &str
-    assert_eq!(Ok(foo.clone()), test(&String::from("foo"))); // &String
-    assert_eq!(Ok(foo.clone()), test(CString::new("foo").unwrap().as_ref())); // &CStr
-    assert_eq!(Ok(foo.clone()), test(&CString::new("foo").unwrap())); // &CString
-    assert_eq!(Ok(foo.clone()), test(CString::new("foo").unwrap())); // CString
+    assert_eq!(Ok(want.clone()), test("foo")); // &str
+    assert_eq!(Ok(want.clone()), test(&String::from("foo"))); // &String
+    assert_eq!(Ok(want.clone()), test(CString::new("foo").unwrap().as_ref())); // &CStr
+    assert_eq!(Ok(want.clone()), test(&CString::new("foo").unwrap())); // &CString
+    assert_eq!(Ok(want), test(CString::new("foo").unwrap())); // CString
 
     assert_eq!(3, test("foo\0bar").err().unwrap().nul_position());
 }
