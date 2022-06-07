@@ -169,12 +169,6 @@ impl TitanDBOptions {
             crocksdb_ffi::ctitandb_options_set_blob_run_mode(self.inner, t);
         }
     }
-
-    pub fn set_gc_merge_rewrite(&mut self, enable: bool) {
-        unsafe {
-            crocksdb_ffi::ctitandb_options_set_gc_merge_rewrite(self.inner, enable);
-        }
-    }
 }
 
 impl Drop for TitanDBOptions {

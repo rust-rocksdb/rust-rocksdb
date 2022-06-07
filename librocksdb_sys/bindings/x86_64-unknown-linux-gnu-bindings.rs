@@ -4916,12 +4916,6 @@ extern "C" {
     pub fn ctitandb_options_blob_file_compression(arg1: *mut ctitandb_options_t) -> libc::c_int;
 }
 extern "C" {
-    pub fn ctitandb_options_set_gc_merge_rewrite(
-        arg1: *mut ctitandb_options_t,
-        arg2: libc::c_uchar,
-    );
-}
-extern "C" {
     pub fn ctitandb_options_set_blob_file_compression(
         arg1: *mut ctitandb_options_t,
         type_: libc::c_int,

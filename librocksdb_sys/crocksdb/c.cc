@@ -6389,11 +6389,6 @@ void ctitandb_options_set_compression_options(ctitandb_options_t* opt,
       zstd_max_train_bytes;
 }
 
-void ctitandb_options_set_gc_merge_rewrite(ctitandb_options_t* opts,
-                                           unsigned char enable) {
-  opts->rep.gc_merge_rewrite = enable;
-}
-
 void ctitandb_decode_blob_index(const char* value, size_t value_size,
                                 ctitandb_blob_index_t* index, char** errptr) {
   Slice v(value, value_size);
