@@ -2755,6 +2755,9 @@ pub struct Cache {
     pub inner: *mut DBCache,
 }
 
+unsafe impl Sync for Cache {}
+unsafe impl Send for Cache {}
+
 impl Cache {
     pub fn new_lru_cache(opt: LRUCacheOptions) -> Cache {
         // This is ok because LRUCacheOptions always contains a valid pointer
