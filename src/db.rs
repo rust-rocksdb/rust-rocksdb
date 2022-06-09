@@ -1083,8 +1083,10 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         name: impl CStrLike,
         opts: &Options,
     ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
-        let cf_name = name.bake().map_err(|_| {
-            Error::new("Failed to convert path to CString when creating cf".to_owned())
+        let cf_name = name.bake().map_err(|err| {
+            Error::new(format!(
+                "Failed to convert path to CString when creating cf: {err}"
+            ))
         })?;
         Ok(unsafe {
             ffi_try!(ffi::rocksdb_create_column_family(
