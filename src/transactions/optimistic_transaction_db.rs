@@ -274,7 +274,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
     ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_optimistictransactiondb_write(
-                self.inner.inner(),
+                self.inner.db,
                 writeopts.inner,
                 batch.inner
             ));
