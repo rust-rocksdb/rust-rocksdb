@@ -11,7 +11,7 @@ libc = "0.2.11"
 libtitan_sys = { path = "libtitan_sys" }
 libz-sys = { version = "1.1", features = ["static"] }
 openssl-sys = { version = "0.9.54", optional = true, features = ["vendored"] }
-zstd-sys = "1.4.19+zstd.1.4.8"
+zstd-sys = "2.0.1+zstd.1.5.2"
 lz4-sys = "1.9"
 
 [dev-dependencies]

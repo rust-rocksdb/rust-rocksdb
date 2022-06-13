@@ -8,7 +8,7 @@ links = "titan"
 bzip2-sys = "0.1.8+1.0.8"
 libc = "0.2.11"
 libz-sys = { version = "1.1", features = ["static"] }
-zstd-sys = "1.4.15+zstd.1.4.4"
+zstd-sys = "2.0.1+zstd.1.5.2"
 lz4-sys = "1.9"
 
 [features]
