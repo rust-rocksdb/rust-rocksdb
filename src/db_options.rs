@@ -24,6 +24,7 @@ use crate::{
     comparator::{self, ComparatorCallback, CompareFn},
     db::DBAccess,
     ffi,
+    ffi_util::CStrLike,
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
@@ -1274,11 +1275,11 @@ impl Options {
 
     pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
-        name: &str,
+        name: impl CStrLike,
         full_merge_fn: F,
     ) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             full_merge_fn: full_merge_fn.clone(),
             partial_merge_fn: full_merge_fn,
         });
@@ -1298,12 +1299,12 @@ impl Options {
 
     pub fn set_merge_operator<F: MergeFn, PF: MergeFn>(
         &mut self,
-        name: &str,
+        name: impl CStrLike,
         full_merge_fn: F,
         partial_merge_fn: PF,
     ) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             full_merge_fn,
             partial_merge_fn,
         });
@@ -1339,12 +1340,12 @@ impl Options {
     ///
     /// If multi-threaded compaction is used, `filter_fn` may be called multiple times
     /// simultaneously.
-    pub fn set_compaction_filter<F>(&mut self, name: &str, filter_fn: F)
+    pub fn set_compaction_filter<F>(&mut self, name: impl CStrLike, filter_fn: F)
     where
         F: CompactionFilterFn + Send + 'static,
     {
         let cb = Box::new(CompactionFilterCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             filter_fn,
         });
 
@@ -1391,9 +1392,9 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
+    pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: CompareFn) {
         let cb = Box::new(ComparatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             f: compare_fn,
         });
 

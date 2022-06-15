@@ -17,7 +17,7 @@ use std::slice;
 
 use libc::{c_char, c_void, size_t};
 
-use crate::ffi;
+use crate::{ffi, ffi_util::CStrLike};
 
 /// A `SliceTransform` is a generic pluggable way of transforming one string
 /// to another. Its primary use-case is in configuring rocksdb
@@ -35,12 +35,12 @@ pub struct SliceTransform {
 
 impl SliceTransform {
     pub fn create(
-        name: &str,
+        name: impl CStrLike,
         transform_fn: TransformFn,
         in_domain_fn: Option<InDomainFn>,
     ) -> SliceTransform {
         let cb = Box::into_raw(Box::new(TransformCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             transform_fn,
             in_domain_fn,
         }));

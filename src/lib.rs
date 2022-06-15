@@ -112,6 +112,7 @@ pub use crate::{
         UniversalCompactOptions, UniversalCompactionStopStyle, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
+    ffi_util::CStrLike,
     merge_operator::MergeOperands,
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
