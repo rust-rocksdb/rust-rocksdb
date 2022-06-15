@@ -19,7 +19,7 @@ use crate::{
     column_family::UnboundColumnFamily,
     db_options::OptionsMustOutliveDB,
     ffi,
-    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
+    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
@@ -1080,16 +1080,14 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     fn create_inner_cf_handle(
         &self,
-        name: &str,
+        name: impl CStrLike,
         opts: &Options,
     ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
-        let cf_name = if let Ok(c) = CString::new(name.as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
-                "Failed to convert path to CString when creating cf".to_owned(),
-            ));
-        };
+        let cf_name = name.bake().map_err(|err| {
+            Error::new(format!(
+                "Failed to convert path to CString when creating cf: {err}"
+            ))
+        })?;
         Ok(unsafe {
             ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
@@ -1567,11 +1565,11 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// the end. That string is parsed using `parse` callback which produces
     /// the returned result.
     fn property_value_impl<R>(
-        name: &str,
+        name: impl CStrLike,
         get_property: impl FnOnce(*const c_char) -> *mut c_char,
         parse: impl FnOnce(&str) -> Result<R, Error>,
     ) -> Result<Option<R>, Error> {
-        let value = match CString::new(name) {
+        let value = match name.bake() {
             Ok(prop_name) => get_property(prop_name.as_ptr()),
             Err(e) => {
                 return Err(Error::new(format!(
@@ -1600,7 +1598,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     ///
     /// Full list of properties could be find
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
-    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
+    pub fn property_value(&self, name: impl CStrLike) -> Result<Option<String>, Error> {
         Self::property_value_impl(
             name,
             |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
@@ -1615,7 +1613,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     pub fn property_value_cf(
         &self,
         cf: &impl AsColumnFamilyRef,
-        name: &str,
+        name: impl CStrLike,
     ) -> Result<Option<String>, Error> {
         Self::property_value_impl(
             name,
@@ -1639,7 +1637,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     ///
     /// Full list of properties that return int values could be find
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
-    pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
+    pub fn property_int_value(&self, name: impl CStrLike) -> Result<Option<u64>, Error> {
         Self::property_value_impl(
             name,
             |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
@@ -1654,7 +1652,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     pub fn property_int_value_cf(
         &self,
         cf: &impl AsColumnFamilyRef,
-        name: &str,
+        name: impl CStrLike,
     ) -> Result<Option<u64>, Error> {
         Self::property_value_impl(
             name,
