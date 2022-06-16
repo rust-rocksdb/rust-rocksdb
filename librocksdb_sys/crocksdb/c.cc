@@ -55,6 +55,7 @@
 #include "table/table_reader.h"
 #include "titan/db.h"
 #include "titan/options.h"
+#include "titan/statistics.h"
 #include "util/coding.h"
 #include "util/file_reader_writer.h"
 
@@ -2650,7 +2651,7 @@ void crocksdb_options_set_sst_partitioner_factory(
 void crocksdb_options_enable_statistics(crocksdb_options_t* opt,
                                         unsigned char v) {
   if (v) {
-    opt->rep.statistics = rocksdb::CreateDBStatistics();
+    opt->rep.statistics = rocksdb::titandb::CreateDBStatistics();
   } else {
     opt->rep.statistics = nullptr;
   }
