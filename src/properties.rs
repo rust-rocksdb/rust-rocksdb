@@ -236,8 +236,8 @@ pub const OPTIONS_STATISTICS: &CStr = property!("options-statistics");
 /// Expects `name` not to contain any interior NUL bytes.
 unsafe fn level_property(name: &str, level: usize) -> CString {
     let bytes = format!("rocksdb.{}{}\0", name, level).into_bytes();
-    // SAFETY: We’re appending terminating NUL and we’re expecting user not to
-    // pass us a string with interior NUL bytes.
+    // SAFETY: We’re appending terminating NUL and all our call sites pass
+    // a string without interior NUL bytes.
     CString::from_vec_with_nul_unchecked(bytes)
 }
 
