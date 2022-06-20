@@ -2559,9 +2559,6 @@ extern C_ROCKSDB_LIBRARY_API void
 ctitandb_options_set_blob_file_discardable_ratio(ctitandb_options_t* options,
                                                  double ratio);
 
-extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_sample_file_size_ratio(
-    ctitandb_options_t* options, double ratio);
-
 extern C_ROCKSDB_LIBRARY_API void
 ctitandb_options_set_merge_small_file_threshold(ctitandb_options_t* options,
                                                 uint64_t size);
