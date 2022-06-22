@@ -24,21 +24,22 @@ fn property_test() {
     let n = DBPath::new("_rust_rocksdb_property_test");
     {
         let db = DB::open_default(&n).unwrap();
-        let value = db.property_value(properties::STATS).unwrap().unwrap();
-        assert!(value.contains("Stats"));
-    }
-
-    {
-        let db = DB::open_default(&n).unwrap();
-        let prop_name = std::ffi::CString::new(properties::STATS).unwrap();
+        let prop_name: &std::ffi::CStr = properties::STATS;
         let value = db.property_value(prop_name).unwrap().unwrap();
         assert!(value.contains("Stats"));
     }
 
     {
         let db = DB::open_default(&n).unwrap();
-        let prop_name = std::ffi::CString::new(properties::STATS).unwrap();
-        let value = db.property_value(prop_name.as_ref()).unwrap().unwrap();
+        let prop_name: std::ffi::CString = properties::STATS.to_owned();
+        let value = db.property_value(&prop_name).unwrap().unwrap();
+        assert!(value.contains("Stats"));
+    }
+
+    {
+        let db = DB::open_default(&n).unwrap();
+        let prop_name: String = properties::STATS.to_owned().into_string().unwrap();
+        let value = db.property_value(&prop_name).unwrap().unwrap();
         assert!(value.contains("Stats"));
     }
 }
