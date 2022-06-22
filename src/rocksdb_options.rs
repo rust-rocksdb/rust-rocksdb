@@ -1176,10 +1176,14 @@ impl DBOptions {
         }
     }
 
-    pub fn enable_pipelined_commit(&self, v: bool) {
+    pub fn enable_multi_batch_write(&self, v: bool) {
         unsafe {
-            crocksdb_ffi::crocksdb_options_set_enable_pipelined_commit(self.inner, v);
+            crocksdb_ffi::crocksdb_options_set_enable_multi_batch_write(self.inner, v);
         }
+    }
+
+    pub fn is_enable_multi_batch_write(&self) -> bool {
+        unsafe { crocksdb_ffi::crocksdb_options_is_enable_multi_batch_write(self.inner) }
     }
 
     pub fn enable_unordered_write(&self, v: bool) {
