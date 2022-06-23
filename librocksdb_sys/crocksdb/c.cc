@@ -2914,6 +2914,11 @@ void crocksdb_options_set_enable_multi_batch_write(crocksdb_options_t* opt,
   opt->rep.enable_multi_batch_write = v;
 }
 
+unsigned char crocksdb_options_is_enable_multi_batch_write(
+    crocksdb_options_t* opt) {
+  return opt->rep.enable_multi_batch_write;
+}
+
 void crocksdb_options_set_unordered_write(crocksdb_options_t* opt,
                                           unsigned char v) {
   opt->rep.unordered_write = v;
