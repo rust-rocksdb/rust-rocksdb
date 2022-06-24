@@ -1140,11 +1140,18 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         &'a self,
         prefix: P,
     ) -> DBIteratorWithThreadMode<'b, Self> {
-        let mut opts = ReadOptions::default();
-        opts.set_prefix_same_as_start(true);
+        self.prefix_iterator_opt(ReadOptions::default(), prefix)
+    }
+
+    pub fn prefix_iterator_opt<'a: 'b, 'b, P: AsRef<[u8]>>(
+        &'a self,
+        mut readopts: ReadOptions,
+        prefix: P,
+    ) -> DBIteratorWithThreadMode<'b, Self> {
+        readopts.set_prefix_same_as_start(true);
         DBIteratorWithThreadMode::new(
             self,
-            opts,
+            readopts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
@@ -1173,12 +1180,20 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         cf_handle: &impl AsColumnFamilyRef,
         prefix: P,
     ) -> DBIteratorWithThreadMode<'a, Self> {
-        let mut opts = ReadOptions::default();
-        opts.set_prefix_same_as_start(true);
+        self.prefix_iterator_cf_opt(cf_handle, ReadOptions::default(), prefix)
+    }
+
+    pub fn prefix_iterator_cf_opt<'a, P: AsRef<[u8]>>(
+        &'a self,
+        cf_handle: &impl AsColumnFamilyRef,
+        mut readopts: ReadOptions,
+        prefix: P,
+    ) -> DBIteratorWithThreadMode<'a, Self> {
+        readopts.set_prefix_same_as_start(true);
         DBIteratorWithThreadMode::<'a, Self>::new_cf(
             self,
             cf_handle.inner(),
-            opts,
+            readopts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         )
     }
