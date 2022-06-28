@@ -295,8 +295,6 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// Returns a slice of the current key.
     pub fn key(&self) -> Option<&[u8]> {
         if self.valid() {
-            // Safety Note: This is safe as all methods that may invalidate the buffer returned
-            // take `&mut self`, so borrow checker will prevent use of buffer after seek.
             Some(self.key_impl())
         } else {
             None
@@ -306,8 +304,6 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// Returns a slice of the current value.
     pub fn value(&self) -> Option<&[u8]> {
         if self.valid() {
-            // Safety Note: This is safe as all methods that may invalidate the buffer returned
-            // take `&mut self`, so borrow checker will prevent use of buffer after seek.
             Some(self.value_impl())
         } else {
             None
@@ -317,8 +313,6 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// Returns pair with slice of the current key and current value.
     pub fn item(&self) -> Option<(&[u8], &[u8])> {
         if self.valid() {
-            // Safety Note: This is safe as all methods that may invalidate the buffer returned
-            // take `&mut self`, so borrow checker will prevent use of buffer after seek.
             Some((self.key_impl(), self.value_impl()))
         } else {
             None
