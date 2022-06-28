@@ -26,7 +26,7 @@ use crate::{
     WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
-use libc::{self, c_char, c_int, c_void, size_t};
+use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -177,6 +177,17 @@ pub trait DBAccess {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef + 'b;
+
+    fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>;
 }
 
 impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
@@ -241,6 +252,20 @@ impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
         W: AsColumnFamilyRef + 'b,
     {
         self.multi_get_cf_opt(keys_cf, readopts)
+    }
+
+    fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.batched_multi_get_cf_opt(cf, keys, sorted_input, readopts)
     }
 }
 
@@ -613,22 +638,22 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only(
                     opts.inner,
-                    cpath.as_ptr() as *const _,
-                    u8::from(error_if_log_file_exist),
+                    cpath.as_ptr(),
+                    c_uchar::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => {
-                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
+                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr()))
                 }
                 AccessType::Secondary { secondary_path } => {
                     ffi_try!(ffi::rocksdb_open_as_secondary(
                         opts.inner,
-                        cpath.as_ptr() as *const _,
-                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cpath.as_ptr(),
+                        to_cpath(secondary_path)?.as_ptr(),
                     ))
                 }
                 AccessType::WithTTL { ttl } => ffi_try!(ffi::rocksdb_open_with_ttl(
                     opts.inner,
-                    cpath.as_ptr() as *const _,
+                    cpath.as_ptr(),
                     ttl.as_secs() as c_int,
                 )),
             }
@@ -657,7 +682,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     cfnames.as_ptr(),
                     cfopts.as_ptr(),
                     cfhandles.as_mut_ptr(),
-                    u8::from(error_if_log_file_exist),
+                    c_uchar::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => ffi_try!(ffi::rocksdb_open_column_families(
                     opts.inner,
@@ -670,8 +695,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 AccessType::Secondary { secondary_path } => {
                     ffi_try!(ffi::rocksdb_open_as_secondary_column_families(
                         opts.inner,
-                        cpath.as_ptr() as *const _,
-                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cpath.as_ptr(),
+                        to_cpath(secondary_path)?.as_ptr(),
                         cfs_v.len() as c_int,
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
@@ -679,6 +704,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     ))
                 }
                 AccessType::WithTTL { ttl } => {
+                    let ttls_v = vec![ttl.as_secs() as c_int; cfs_v.len()];
                     ffi_try!(ffi::rocksdb_open_column_families_with_ttl(
                         opts.inner,
                         cpath.as_ptr(),
@@ -686,7 +712,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
                         cfhandles.as_mut_ptr(),
-                        &(ttl.as_secs() as c_int) as *const _,
+                        ttls_v.as_ptr(),
                     ))
                 }
             }
@@ -701,7 +727,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         unsafe {
             let ptr = ffi_try!(ffi::rocksdb_list_column_families(
                 opts.inner,
-                cpath.as_ptr() as *const _,
+                cpath.as_ptr(),
                 &mut length,
             ));
 
@@ -738,7 +764,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// the data to disk.
     pub fn flush_wal(&self, sync: bool) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush_wal(self.inner, u8::from(sync)));
+            ffi_try!(ffi::rocksdb_flush_wal(self.inner, c_uchar::from(sync)));
         }
         Ok(())
     }
@@ -1020,6 +1046,75 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         }
 
         convert_values(values, values_sizes, errors)
+    }
+
+    /// Return the values associated with the given keys and the specified column family
+    /// where internally the read requests are processed in batch if block-based table
+    /// SST format is used.  It is a more optimized version of multi_get_cf.
+    pub fn batched_multi_get_cf<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.batched_multi_get_cf_opt(cf, keys, sorted_input, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys and the specified column family
+    /// where internally the read requests are processed in batch if block-based table
+    /// SST format is used.  It is a more optimized version of multi_get_cf_opt.
+    pub fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut pinned_values = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
+
+        unsafe {
+            ffi::rocksdb_batched_multi_get_cf(
+                self.inner,
+                readopts.inner,
+                cf.inner(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                pinned_values.as_mut_ptr(),
+                errors.as_mut_ptr(),
+                sorted_input,
+            );
+            pinned_values
+                .into_iter()
+                .zip(errors.into_iter())
+                .map(|(v, e)| {
+                    if e.is_null() {
+                        if v.is_null() {
+                            Ok(None)
+                        } else {
+                            Ok(Some(DBPinnableSlice::from_c(v)))
+                        }
+                    } else {
+                        Err(Error::new(crate::ffi_util::error_message(e)))
+                    }
+                })
+                .collect()
+        }
     }
 
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
@@ -1881,7 +1976,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// Request stopping background work, if wait is true wait until it's done.
     pub fn cancel_all_background_work(&self, wait: bool) {
         unsafe {
-            ffi::rocksdb_cancel_all_background_work(self.inner, u8::from(wait));
+            ffi::rocksdb_cancel_all_background_work(self.inner, c_uchar::from(wait));
         }
     }
 
