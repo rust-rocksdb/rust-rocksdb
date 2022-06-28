@@ -619,6 +619,23 @@ fn test_open_with_multiple_refs_as_single_threaded() {
 }
 
 #[test]
+fn test_open_utf8_path() {
+    let path = DBPath::new("_rust_rocksdb_utf8_path_temporärer_Ordner");
+
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        assert!(db.put(b"k1", b"v1111").is_ok());
+
+        let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+
+        assert_eq!(r.unwrap().unwrap(), b"v1111");
+        assert!(db.delete(b"k1").is_ok());
+        assert!(db.get(b"k1").unwrap().is_none());
+    }
+}
+
+#[test]
 fn compact_range_test() {
     let path = DBPath::new("_rust_rocksdb_compact_range_test");
     {
@@ -1224,6 +1241,33 @@ fn multi_get_cf() {
         assert_eq!(values[0], None);
         assert_eq!(values[1], Some(b"v1".to_vec()));
         assert_eq!(values[2], Some(b"v2".to_vec()));
+    }
+}
+
+#[test]
+fn batched_multi_get_cf() {
+    let path = DBPath::new("_rust_rocksdb_batched_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &["cf0"]).unwrap();
+
+        let cf = db.cf_handle("cf0").unwrap();
+        db.put_cf(&cf, b"k1", b"v1").unwrap();
+        db.put_cf(&cf, b"k2", b"v2").unwrap();
+
+        let values = db
+            .batched_multi_get_cf(&cf, vec![b"k0", b"k1", b"k2"], true) // sorted_input
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        assert_eq!(3, values.len());
+        assert!(values[0].is_none());
+        assert!(values[1].is_some());
+        assert_eq!(&(values[1].as_ref().unwrap())[0..2], b"v1");
+        assert_eq!(&(values[2].as_ref().unwrap())[0..2], b"v2");
     }
 }
 

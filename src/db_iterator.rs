@@ -529,6 +529,10 @@ impl Iterator for DBWALIterator {
     type Item = (u64, WriteBatch);
 
     fn next(&mut self) -> Option<(u64, WriteBatch)> {
+        if !self.valid() {
+            return None;
+        }
+
         // Seek to the next write batch.
         unsafe {
             ffi::rocksdb_wal_iter_next(self.inner);

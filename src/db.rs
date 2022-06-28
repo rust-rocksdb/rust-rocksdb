@@ -19,7 +19,7 @@ use crate::{
     column_family::UnboundColumnFamily,
     db_options::OptionsMustOutliveDB,
     ffi,
-    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath},
+    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
@@ -177,6 +177,17 @@ pub trait DBAccess {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef + 'b;
+
+    fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>;
 }
 
 impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
@@ -241,6 +252,20 @@ impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
         W: AsColumnFamilyRef + 'b,
     {
         self.multi_get_cf_opt(keys_cf, readopts)
+    }
+
+    fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.batched_multi_get_cf_opt(cf, keys, sorted_input, readopts)
     }
 }
 
@@ -1023,6 +1048,75 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         convert_values(values, values_sizes, errors)
     }
 
+    /// Return the values associated with the given keys and the specified column family
+    /// where internally the read requests are processed in batch if block-based table
+    /// SST format is used.  It is a more optimized version of multi_get_cf.
+    pub fn batched_multi_get_cf<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.batched_multi_get_cf_opt(cf, keys, sorted_input, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys and the specified column family
+    /// where internally the read requests are processed in batch if block-based table
+    /// SST format is used.  It is a more optimized version of multi_get_cf_opt.
+    pub fn batched_multi_get_cf_opt<K, I>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        keys: I,
+        sorted_input: bool,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut pinned_values = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
+
+        unsafe {
+            ffi::rocksdb_batched_multi_get_cf(
+                self.inner,
+                readopts.inner,
+                cf.inner(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                pinned_values.as_mut_ptr(),
+                errors.as_mut_ptr(),
+                sorted_input,
+            );
+            pinned_values
+                .into_iter()
+                .zip(errors.into_iter())
+                .map(|(v, e)| {
+                    if e.is_null() {
+                        if v.is_null() {
+                            Ok(None)
+                        } else {
+                            Ok(Some(DBPinnableSlice::from_c(v)))
+                        }
+                    } else {
+                        Err(Error::new(crate::ffi_util::error_message(e)))
+                    }
+                })
+                .collect()
+        }
+    }
+
     /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
     /// `true`. This function uses default `ReadOptions`.
     pub fn key_may_exist<K: AsRef<[u8]>>(&self, key: K) -> bool {
@@ -1081,16 +1175,14 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     fn create_inner_cf_handle(
         &self,
-        name: &str,
+        name: impl CStrLike,
         opts: &Options,
     ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
-        let cf_name = if let Ok(c) = CString::new(name.as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
-                "Failed to convert path to CString when creating cf".to_owned(),
-            ));
-        };
+        let cf_name = name.bake().map_err(|err| {
+            Error::new(format!(
+                "Failed to convert path to CString when creating cf: {err}"
+            ))
+        })?;
         Ok(unsafe {
             ffi_try!(ffi::rocksdb_create_column_family(
                 self.inner,
@@ -1559,13 +1651,21 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Ok(())
     }
 
-    /// Retrieves a RocksDB property by name.
+    /// Implementation for property_value et al methods.
     ///
-    /// Full list of properties could be find
-    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
-    pub fn property_value(&self, name: &str) -> Result<Option<String>, Error> {
-        let prop_name = match CString::new(name) {
-            Ok(c) => c,
+    /// `name` is the name of the property.  It will be converted into a CString
+    /// and passed to `get_property` as argument.  `get_property` reads the
+    /// specified property and either returns NULL or a pointer to a C allocated
+    /// string; this method takes ownership of that string and will free it at
+    /// the end. That string is parsed using `parse` callback which produces
+    /// the returned result.
+    fn property_value_impl<R>(
+        name: impl CStrLike,
+        get_property: impl FnOnce(*const c_char) -> *mut c_char,
+        parse: impl FnOnce(&str) -> Result<R, Error>,
+    ) -> Result<Option<R>, Error> {
+        let value = match name.bake() {
+            Ok(prop_name) => get_property(prop_name.as_ptr()),
             Err(e) => {
                 return Err(Error::new(format!(
                     "Failed to convert property name to CString: {}",
@@ -1573,26 +1673,32 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 )));
             }
         };
-
-        unsafe {
-            let value = ffi::rocksdb_property_value(self.inner, prop_name.as_ptr());
-            if value.is_null() {
-                return Ok(None);
-            }
-
-            let str_value = match CStr::from_ptr(value).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(e) => {
-                    return Err(Error::new(format!(
-                        "Failed to convert property value to string: {}",
-                        e
-                    )));
-                }
-            };
-
-            libc::free(value as *mut c_void);
-            Ok(Some(str_value))
+        if value.is_null() {
+            return Ok(None);
         }
+        let result = match unsafe { CStr::from_ptr(value) }.to_str() {
+            Ok(s) => parse(s).map(|value| Some(value)),
+            Err(e) => Err(Error::new(format!(
+                "Failed to convert property value to string: {}",
+                e
+            ))),
+        };
+        unsafe {
+            libc::free(value as *mut c_void);
+        }
+        result
+    }
+
+    /// Retrieves a RocksDB property by name.
+    ///
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
+    pub fn property_value(&self, name: impl CStrLike) -> Result<Option<String>, Error> {
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
+            |str_value| Ok(str_value.to_owned()),
+        )
     }
 
     /// Retrieves a RocksDB property by name, for a specific column family.
@@ -1602,55 +1708,36 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     pub fn property_value_cf(
         &self,
         cf: &impl AsColumnFamilyRef,
-        name: &str,
+        name: impl CStrLike,
     ) -> Result<Option<String>, Error> {
-        let prop_name = match CString::new(name) {
-            Ok(c) => c,
-            Err(e) => {
-                return Err(Error::new(format!(
-                    "Failed to convert property name to CString: {}",
-                    e
-                )));
-            }
-        };
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe {
+                ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name)
+            },
+            |str_value| Ok(str_value.to_owned()),
+        )
+    }
 
-        unsafe {
-            let value = ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name.as_ptr());
-            if value.is_null() {
-                return Ok(None);
-            }
-
-            let str_value = match CStr::from_ptr(value).to_str() {
-                Ok(s) => s.to_owned(),
-                Err(e) => {
-                    return Err(Error::new(format!(
-                        "Failed to convert property value to string: {}",
-                        e
-                    )));
-                }
-            };
-
-            libc::free(value as *mut c_void);
-            Ok(Some(str_value))
-        }
+    fn parse_property_int_value(value: &str) -> Result<u64, Error> {
+        value.parse::<u64>().map_err(|err| {
+            Error::new(format!(
+                "Failed to convert property value {} to int: {}",
+                value, err
+            ))
+        })
     }
 
     /// Retrieves a RocksDB property and casts it to an integer.
     ///
     /// Full list of properties that return int values could be find
     /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
-    pub fn property_int_value(&self, name: &str) -> Result<Option<u64>, Error> {
-        match self.property_value(name) {
-            Ok(Some(value)) => match value.parse::<u64>() {
-                Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!(
-                    "Failed to convert property value to int: {}",
-                    e
-                ))),
-            },
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        }
+    pub fn property_int_value(&self, name: impl CStrLike) -> Result<Option<u64>, Error> {
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
+            Self::parse_property_int_value,
+        )
     }
 
     /// Retrieves a RocksDB property for a specific column family and casts it to an integer.
@@ -1660,19 +1747,15 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     pub fn property_int_value_cf(
         &self,
         cf: &impl AsColumnFamilyRef,
-        name: &str,
+        name: impl CStrLike,
     ) -> Result<Option<u64>, Error> {
-        match self.property_value_cf(cf, name) {
-            Ok(Some(value)) => match value.parse::<u64>() {
-                Ok(int_value) => Ok(Some(int_value)),
-                Err(e) => Err(Error::new(format!(
-                    "Failed to convert property value to int: {}",
-                    e
-                ))),
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe {
+                ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name)
             },
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        }
+            Self::parse_property_int_value,
+        )
     }
 
     /// The sequence number of the most recent transaction.

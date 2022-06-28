@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -24,6 +24,7 @@ use crate::{
     comparator::{self, ComparatorCallback, CompareFn},
     db::DBAccess,
     ffi,
+    ffi_util::{to_cpath, CStrLike},
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
@@ -1275,11 +1276,11 @@ impl Options {
 
     pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
-        name: &str,
+        name: impl CStrLike,
         full_merge_fn: F,
     ) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             full_merge_fn: full_merge_fn.clone(),
             partial_merge_fn: full_merge_fn,
         });
@@ -1299,12 +1300,12 @@ impl Options {
 
     pub fn set_merge_operator<F: MergeFn, PF: MergeFn>(
         &mut self,
-        name: &str,
+        name: impl CStrLike,
         full_merge_fn: F,
         partial_merge_fn: PF,
     ) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             full_merge_fn,
             partial_merge_fn,
         });
@@ -1340,12 +1341,12 @@ impl Options {
     ///
     /// If multi-threaded compaction is used, `filter_fn` may be called multiple times
     /// simultaneously.
-    pub fn set_compaction_filter<F>(&mut self, name: &str, filter_fn: F)
+    pub fn set_compaction_filter<F>(&mut self, name: impl CStrLike, filter_fn: F)
     where
         F: CompactionFilterFn + Send + 'static,
     {
         let cb = Box::new(CompactionFilterCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             filter_fn,
         });
 
@@ -1392,9 +1393,9 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
+    pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: CompareFn) {
         let cb = Box::new(ComparatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             f: compare_fn,
         });
 
@@ -1535,7 +1536,7 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_log_dir<P: AsRef<Path>>(&mut self, path: P) {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path).unwrap();
         unsafe {
             ffi::rocksdb_options_set_db_log_dir(self.inner, p.as_ptr());
         }
@@ -2726,7 +2727,7 @@ impl Options {
     /// opts.set_wal_dir("/path/to/dir");
     /// ```
     pub fn set_wal_dir<P: AsRef<Path>>(&mut self, path: P) {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path).unwrap();
         unsafe {
             ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
         }
@@ -3872,12 +3873,12 @@ pub struct DBPath {
 impl DBPath {
     /// Create a new path
     pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<Self, Error> {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path.as_ref()).unwrap();
         let dbpath = unsafe { ffi::rocksdb_dbpath_create(p.as_ptr(), target_size) };
         if dbpath.is_null() {
             Err(Error::new(format!(
                 "Could not create path for storing sst files at location: {}",
-                path.as_ref().to_string_lossy()
+                path.as_ref().display()
             )))
         } else {
             Ok(DBPath { inner: dbpath })
