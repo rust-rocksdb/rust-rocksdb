@@ -1245,6 +1245,33 @@ fn multi_get_cf() {
 }
 
 #[test]
+fn batched_multi_get_cf() {
+    let path = DBPath::new("_rust_rocksdb_batched_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &["cf0"]).unwrap();
+
+        let cf = db.cf_handle("cf0").unwrap();
+        db.put_cf(&cf, b"k1", b"v1").unwrap();
+        db.put_cf(&cf, b"k2", b"v2").unwrap();
+
+        let values = db
+            .batched_multi_get_cf(&cf, vec![b"k0", b"k1", b"k2"], true) // sorted_input
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        assert_eq!(3, values.len());
+        assert!(values[0].is_none());
+        assert!(values[1].is_some());
+        assert_eq!(&(values[1].as_ref().unwrap())[0..2], b"v1");
+        assert_eq!(&(values[2].as_ref().unwrap())[0..2], b"v2");
+    }
+}
+
+#[test]
 fn key_may_exist() {
     let path = DBPath::new("_rust_key_may_exist");
 
