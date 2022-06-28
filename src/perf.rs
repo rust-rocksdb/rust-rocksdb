@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use libc::{c_int, c_void};
+use libc::{c_int, c_uchar, c_void};
 
 use crate::{ffi, ffi_util::from_cstr, Cache, Error, DB};
 
@@ -152,7 +152,8 @@ impl PerfContext {
     /// Get the report on perf
     pub fn report(&self, exclude_zero_counters: bool) -> String {
         unsafe {
-            let ptr = ffi::rocksdb_perfcontext_report(self.inner, u8::from(exclude_zero_counters));
+            let ptr =
+                ffi::rocksdb_perfcontext_report(self.inner, c_uchar::from(exclude_zero_counters));
             let report = from_cstr(ptr);
             libc::free(ptr as *mut c_void);
             report

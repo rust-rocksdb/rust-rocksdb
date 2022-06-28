@@ -26,7 +26,7 @@ use crate::{
     WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
-use libc::{self, c_char, c_int, c_void, size_t};
+use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -638,22 +638,22 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     error_if_log_file_exist,
                 } => ffi_try!(ffi::rocksdb_open_for_read_only(
                     opts.inner,
-                    cpath.as_ptr() as *const _,
-                    u8::from(error_if_log_file_exist),
+                    cpath.as_ptr(),
+                    c_uchar::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => {
-                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr() as *const _))
+                    ffi_try!(ffi::rocksdb_open(opts.inner, cpath.as_ptr()))
                 }
                 AccessType::Secondary { secondary_path } => {
                     ffi_try!(ffi::rocksdb_open_as_secondary(
                         opts.inner,
-                        cpath.as_ptr() as *const _,
-                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cpath.as_ptr(),
+                        to_cpath(secondary_path)?.as_ptr(),
                     ))
                 }
                 AccessType::WithTTL { ttl } => ffi_try!(ffi::rocksdb_open_with_ttl(
                     opts.inner,
-                    cpath.as_ptr() as *const _,
+                    cpath.as_ptr(),
                     ttl.as_secs() as c_int,
                 )),
             }
@@ -682,7 +682,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     cfnames.as_ptr(),
                     cfopts.as_ptr(),
                     cfhandles.as_mut_ptr(),
-                    u8::from(error_if_log_file_exist),
+                    c_uchar::from(error_if_log_file_exist),
                 )),
                 AccessType::ReadWrite => ffi_try!(ffi::rocksdb_open_column_families(
                     opts.inner,
@@ -695,8 +695,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 AccessType::Secondary { secondary_path } => {
                     ffi_try!(ffi::rocksdb_open_as_secondary_column_families(
                         opts.inner,
-                        cpath.as_ptr() as *const _,
-                        to_cpath(secondary_path)?.as_ptr() as *const _,
+                        cpath.as_ptr(),
+                        to_cpath(secondary_path)?.as_ptr(),
                         cfs_v.len() as c_int,
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
@@ -704,6 +704,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     ))
                 }
                 AccessType::WithTTL { ttl } => {
+                    let ttls_v = vec![ttl.as_secs() as c_int; cfs_v.len()];
                     ffi_try!(ffi::rocksdb_open_column_families_with_ttl(
                         opts.inner,
                         cpath.as_ptr(),
@@ -711,7 +712,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
                         cfhandles.as_mut_ptr(),
-                        &(ttl.as_secs() as c_int) as *const _,
+                        ttls_v.as_ptr(),
                     ))
                 }
             }
@@ -726,7 +727,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         unsafe {
             let ptr = ffi_try!(ffi::rocksdb_list_column_families(
                 opts.inner,
-                cpath.as_ptr() as *const _,
+                cpath.as_ptr(),
                 &mut length,
             ));
 
@@ -763,7 +764,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// the data to disk.
     pub fn flush_wal(&self, sync: bool) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush_wal(self.inner, u8::from(sync)));
+            ffi_try!(ffi::rocksdb_flush_wal(self.inner, c_uchar::from(sync)));
         }
         Ok(())
     }
@@ -1975,7 +1976,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     /// Request stopping background work, if wait is true wait until it's done.
     pub fn cancel_all_background_work(&self, wait: bool) {
         unsafe {
-            ffi::rocksdb_cancel_all_background_work(self.inner, u8::from(wait));
+            ffi::rocksdb_cancel_all_background_work(self.inner, c_uchar::from(wait));
         }
     }
 

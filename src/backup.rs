@@ -15,6 +15,7 @@
 
 use crate::{ffi, ffi_util::to_cpath, Error, DB};
 
+use libc::{c_int, c_uchar};
 use std::path::Path;
 
 /// Represents information of a backup including timestamp of the backup
@@ -82,7 +83,7 @@ impl BackupEngine {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
                 self.inner,
                 db.inner,
-                u8::from(flush_before_backup),
+                c_uchar::from(flush_before_backup),
             ));
             Ok(())
         }
@@ -219,7 +220,10 @@ impl BackupEngineOptions {
 impl RestoreOptions {
     pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
         unsafe {
-            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, i32::from(keep_log_files));
+            ffi::rocksdb_restore_options_set_keep_log_files(
+                self.inner,
+                c_int::from(keep_log_files),
+            );
         }
     }
 }
