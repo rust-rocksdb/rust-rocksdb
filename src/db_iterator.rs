@@ -91,7 +91,8 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: ReadOptions,
     ) -> Self {
-        let inner = unsafe { ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle) };
+        let inner =
+            unsafe { ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle) };
         Self::from_inner(inner, readopts)
     }
 
@@ -101,7 +102,11 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         // use new and deference the result so any nulls would end up in SIGSEGV
         // there and we have bigger issue.
         let inner = std::ptr::NonNull::new(inner).unwrap();
-        Self { inner, _readopts: readopts, db: PhantomData }
+        Self {
+            inner,
+            _readopts: readopts,
+            db: PhantomData,
+        }
     }
 
     /// Returns `true` if the iterator is valid. An iterator is invalidated when
