@@ -82,12 +82,8 @@ pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
 
 impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions) -> Self {
-        let ptr = unsafe { ffi::rocksdb_create_iterator(db.inner(), readopts.inner) };
-        Self {
-            inner: std::ptr::NonNull::new(ptr).unwrap(),
-            _readopts: readopts,
-            db: PhantomData,
-        }
+        let inner = unsafe { ffi::rocksdb_create_iterator(db.inner(), readopts.inner) };
+        Self::from_inner(inner, readopts)
     }
 
     pub(crate) fn new_cf(
@@ -95,12 +91,17 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: ReadOptions,
     ) -> Self {
-        let ptr = unsafe { ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle) };
-        Self {
-            inner: std::ptr::NonNull::new(ptr).unwrap(),
-            _readopts: readopts,
-            db: PhantomData,
-        }
+        let inner = unsafe { ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle) };
+        Self::from_inner(inner, readopts)
+    }
+
+    fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
+        // This unwrap will never fail since rocksdb_create_iterator and
+        // rocksdb_create_iterator_cf functions always return non-null.  They
+        // use new and deference the result so any nulls would end up in SIGSEGV
+        // there and we have bigger issue.
+        let inner = std::ptr::NonNull::new(inner).unwrap();
+        Self { inner, _readopts: readopts, db: PhantomData }
     }
 
     /// Returns `true` if the iterator is valid. An iterator is invalidated when
