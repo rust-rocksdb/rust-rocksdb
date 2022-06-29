@@ -163,13 +163,14 @@ fn test_prefix_iterator_uses_full_prefix() {
             assert!(db.put(key, *value).is_ok());
         }
 
-        let prefix = [0, 1, 1];
-        let results: Vec<_> = db
-            .prefix_iterator(&prefix)
-            .map(|(_, v)| std::str::from_utf8(&v).unwrap().to_string())
-            .collect();
-
-        assert_eq!(results, vec!("444", "555", "666"));
+        assert_iter!(
+            db.prefix_iterator(&[0, 1, 1]),
+            [
+                pair(&[0, 1, 1, 1], b"444"),
+                pair(&[0, 1, 2, 1], b"555"),
+                pair(&[0, 2, 0, 0], b"666")
+            ]
+        );
     }
 }
 
@@ -207,10 +208,10 @@ fn test_full_iterator() {
         let bad_iterator = db.iterator(IteratorMode::Start);
         assert_eq!(bad_iterator.collect::<Vec<_>>(), vec![]);
 
-        let expected = vec![pair(A1, A1), pair(A2, A2), pair(B1, B1), pair(B2, B2)];
-
-        let a_iterator = db.full_iterator(IteratorMode::Start);
-        assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
+        assert_iter!(
+            db.full_iterator(IteratorMode::Start),
+            [pair(A1, A1), pair(A2, A2), pair(B1, B1), pair(B2, B2)]
+        );
     }
 }
 
