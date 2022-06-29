@@ -25,7 +25,7 @@ rtti = []
 [dependencies]
 libc = "0.2"
 tikv-jemalloc-sys = { version = "0.4", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
-zstd-sys = { version = "1.6", default-features = false, optional = true }
+zstd-sys = { version = "2.0", features = ["zdict_builder"], optional = true }
 libz-sys = { version = "1.1", default-features = false, optional = true }
 bzip2-sys = { version = "0.1", default-features = false, optional = true }
 
