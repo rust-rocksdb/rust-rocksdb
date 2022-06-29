@@ -49,11 +49,11 @@ pub fn pair(left: &[u8], right: &[u8]) -> (Box<[u8]>, Box<[u8]>) {
 #[allow(unused_macros)]
 macro_rules! assert_iter {
     ($iter:expr, $want:expr) => {
-        let got = $iter.collect::<Vec<_>>();
+        let got = $iter.collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(got.as_slice(), &$want);
     };
     (reversed $iter:expr, $want:expr) => {
-        let mut got = $iter.collect::<Vec<_>>();
+        let mut got = $iter.collect::<Result<Vec<_>, _>>().unwrap();
         got.reverse();
         assert_eq!(got.as_slice(), &$want);
     };
