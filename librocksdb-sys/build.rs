@@ -147,7 +147,18 @@ fn build_rocksdb() {
         lib_sources.push("util/crc32c_arm64.cc")
     }
 
-    if target.contains("darwin") {
+    if target.contains("apple-ios") {
+        config.define("OS_MACOSX", None);
+
+        config.define("IOS_CROSS_COMPILE", None);
+        config.define("PLATFORM", "IOS");
+        config.define("NIOSTATS_CONTEXT", None);
+        config.define("NPERF_CONTEXT", None);
+        config.define("ROCKSDB_PLATFORM_POSIX", None);
+        config.define("ROCKSDB_LIB_IO_POSIX", None);
+
+        env::set_var("IPHONEOS_DEPLOYMENT_TARGET", "11.0");
+    } else if target.contains("darwin") {
         config.define("OS_MACOSX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
