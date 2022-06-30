@@ -53,7 +53,7 @@ fn test_prefix_extractor_compatibility() {
     // open db with prefix extractor, and insert data
     {
         let mut bbto = BlockBasedOptions::new();
-        bbto.set_bloom_filter(10, false);
+        bbto.set_bloom_filter(10.0, false);
         bbto.set_whole_key_filtering(false);
         let mut opts = DBOptions::new();
         let mut cf_opts = ColumnFamilyOptions::new();

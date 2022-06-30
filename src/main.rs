@@ -155,7 +155,7 @@ mod tests {
         blockopts.set_block_size(524288);
         blockopts.set_no_block_cache(true);
         blockopts.set_cache_index_and_filter_blocks(true);
-        blockopts.set_bloom_filter(10, false);
+        blockopts.set_bloom_filter(10.0, false);
         cf_opts.set_block_based_table_factory(blockopts);
         cf_opts.set_disable_auto_compactions(true);
         cf_opts.set_max_compaction_bytes(1073741824 * 25);

@@ -14,6 +14,9 @@
 #include <limits>
 
 #include "db/column_family.h"
+#include "file/random_access_file_reader.h"
+#include "file/sequence_file_reader.h"
+#include "file/writable_file_writer.h"
 #include "rocksdb/cache.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/comparator.h"
@@ -23,6 +26,7 @@
 #include "rocksdb/env.h"
 #include "rocksdb/env_encryption.h"
 #include "rocksdb/env_inspected.h"
+#include "rocksdb/file_system.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/iterator.h"
@@ -55,9 +59,7 @@
 #include "table/table_reader.h"
 #include "titan/db.h"
 #include "titan/options.h"
-#include "titan/statistics.h"
 #include "util/coding.h"
-#include "util/file_reader_writer.h"
 
 #if !defined(ROCKSDB_MAJOR) || !defined(ROCKSDB_MINOR) || \
     !defined(ROCKSDB_PATCH)
@@ -85,7 +87,6 @@ using rocksdb::CompactionOptionsFIFO;
 using rocksdb::CompactRangeOptions;
 using rocksdb::Comparator;
 using rocksdb::CompressionType;
-using rocksdb::CTREncryptionProvider;
 using rocksdb::CuckooTableOptions;
 using rocksdb::DB;
 using rocksdb::DBOptions;
@@ -99,11 +100,14 @@ using rocksdb::EventListener;
 using rocksdb::ExternalFileIngestionInfo;
 using rocksdb::ExternalSstFileInfo;
 using rocksdb::FileLock;
+using rocksdb::FileOptions;
 using rocksdb::FilterBitsBuilder;
 using rocksdb::FilterBitsReader;
+using rocksdb::FilterBuildingContext;
 using rocksdb::FilterPolicy;
 using rocksdb::FlushJobInfo;
 using rocksdb::FlushOptions;
+using rocksdb::FSRandomAccessFile;
 using rocksdb::HistogramData;
 using rocksdb::InfoLogLevel;
 using rocksdb::IngestExternalFileOptions;
@@ -609,8 +613,8 @@ struct crocksdb_mergeoperator_t : public MergeOperator {
 struct crocksdb_env_t {
   Env* rep;
   bool is_default;
-  EncryptionProvider* encryption_provider;
-  BlockCipher* block_cipher;
+  std::shared_ptr<EncryptionProvider> encryption_provider;
+  std::shared_ptr<BlockCipher> block_cipher;
 };
 
 struct crocksdb_slicetransform_t : public SliceTransform {
@@ -2007,6 +2011,17 @@ void crocksdb_block_based_options_set_read_amp_bytes_per_bit(
   options->rep.read_amp_bytes_per_bit = v;
 }
 
+void crocksdb_block_based_options_set_prepopulate_block_cache(
+    crocksdb_block_based_table_options_t* options, int v) {
+  options->rep.prepopulate_block_cache =
+      static_cast<BlockBasedTableOptions::PrepopulateBlockCache>(v);
+}
+
+void crocksdb_block_based_options_set_checksum(
+    crocksdb_block_based_table_options_t* options, int v) {
+  options->rep.checksum = static_cast<rocksdb::ChecksumType>(v);
+}
+
 void crocksdb_options_set_block_based_table_factory(
     crocksdb_options_t* opt,
     crocksdb_block_based_table_options_t* table_options) {
@@ -2029,10 +2044,11 @@ void crocksdb_options_set_wal_bytes_per_sync(crocksdb_options_t* opt,
 static BlockBasedTableOptions* get_block_based_table_options(
     crocksdb_options_t* opt) {
   if (opt && opt->rep.table_factory != nullptr) {
-    void* table_opt = opt->rep.table_factory->GetOptions();
+    BlockBasedTableOptions* table_opt =
+        opt->rep.table_factory->GetOptions<BlockBasedTableOptions>();
     if (table_opt &&
         strcmp(opt->rep.table_factory->Name(), block_base_table_str) == 0) {
-      return static_cast<BlockBasedTableOptions*>(table_opt);
+      return table_opt;
     }
   }
   return nullptr;
@@ -2748,23 +2764,26 @@ void crocksdb_options_get_compression_per_level(crocksdb_options_t* opt,
 void crocksdb_options_set_compression_options(crocksdb_options_t* opt,
                                               int w_bits, int level,
                                               int strategy, int max_dict_bytes,
-                                              int zstd_max_train_bytes) {
+                                              int zstd_max_train_bytes,
+                                              int parallel_threads) {
   opt->rep.compression_opts.window_bits = w_bits;
   opt->rep.compression_opts.level = level;
   opt->rep.compression_opts.strategy = strategy;
   opt->rep.compression_opts.max_dict_bytes = max_dict_bytes;
   opt->rep.compression_opts.zstd_max_train_bytes = zstd_max_train_bytes;
+  opt->rep.compression_opts.parallel_threads = parallel_threads;
 }
 
 void crocksdb_options_set_bottommost_compression_options(
     crocksdb_options_t* opt, int w_bits, int level, int strategy,
-    int max_dict_bytes, int zstd_max_train_bytes) {
+    int max_dict_bytes, int zstd_max_train_bytes, int parallel_threads) {
   opt->rep.bottommost_compression_opts.window_bits = w_bits;
   opt->rep.bottommost_compression_opts.level = level;
   opt->rep.bottommost_compression_opts.strategy = strategy;
   opt->rep.bottommost_compression_opts.max_dict_bytes = max_dict_bytes;
   opt->rep.bottommost_compression_opts.zstd_max_train_bytes =
       zstd_max_train_bytes;
+  opt->rep.bottommost_compression_opts.parallel_threads = parallel_threads;
   opt->rep.bottommost_compression_opts.enabled = true;
 }
 
@@ -3560,13 +3579,13 @@ void crocksdb_filterpolicy_destroy(crocksdb_filterpolicy_t* filter) {
 }
 
 crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom_format(
-    int bits_per_key, bool original_format) {
+    double bits_per_key, bool original_format) {
   // Make a crocksdb_filterpolicy_t, but override all of its methods so
   // they delegate to a NewBloomFilterPolicy() instead of user
   // supplied C functions.
   struct Wrapper : public crocksdb_filterpolicy_t {
     const FilterPolicy* rep_;
-    ~Wrapper() { delete rep_; }
+    ~Wrapper() override { delete rep_; }
     const char* Name() const override { return rep_->Name(); }
     void CreateFilter(const Slice* keys, int n,
                       std::string* dst) const override {
@@ -3575,10 +3594,12 @@ crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom_format(
     bool KeyMayMatch(const Slice& key, const Slice& filter) const override {
       return rep_->KeyMayMatch(key, filter);
     }
-    virtual FilterBitsBuilder* GetFilterBitsBuilder() const override {
-      return rep_->GetFilterBitsBuilder();
+    // No need to override GetFilterBitsBuilder if this one is overridden
+    FilterBitsBuilder* GetBuilderWithContext(
+        const FilterBuildingContext& context) const override {
+      return rep_->GetBuilderWithContext(context);
     }
-    virtual FilterBitsReader* GetFilterBitsReader(
+    FilterBitsReader* GetFilterBitsReader(
         const Slice& contents) const override {
       return rep_->GetFilterBitsReader(contents);
     }
@@ -3593,11 +3614,12 @@ crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom_format(
 }
 
 crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom_full(
-    int bits_per_key) {
+    double bits_per_key) {
   return crocksdb_filterpolicy_create_bloom_format(bits_per_key, false);
 }
 
-crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom(int bits_per_key) {
+crocksdb_filterpolicy_t* crocksdb_filterpolicy_create_bloom(
+    double bits_per_key) {
   return crocksdb_filterpolicy_create_bloom_format(bits_per_key, true);
 }
 
@@ -3643,6 +3665,16 @@ void crocksdb_readoptions_set_verify_checksums(crocksdb_readoptions_t* opt,
 void crocksdb_readoptions_set_fill_cache(crocksdb_readoptions_t* opt,
                                          unsigned char v) {
   opt->rep.fill_cache = v;
+}
+
+void crocksdb_readoptions_set_auto_prefix_mode(crocksdb_readoptions_t* opt,
+                                               unsigned char v) {
+  opt->rep.auto_prefix_mode = v;
+}
+
+void crocksdb_readoptions_set_adaptive_readahead(crocksdb_readoptions_t* opt,
+                                                 unsigned char v) {
+  opt->rep.adaptive_readahead = v;
 }
 
 void crocksdb_readoptions_set_snapshot(crocksdb_readoptions_t* opt,
@@ -3797,6 +3829,11 @@ void crocksdb_writeoptions_set_low_pri(crocksdb_writeoptions_t* opt,
   opt->rep.low_pri = v;
 }
 
+void crocksdb_writeoptions_set_memtable_insert_hint_per_batch(
+    crocksdb_writeoptions_t* opt, unsigned char v) {
+  opt->rep.memtable_insert_hint_per_batch = v;
+}
+
 crocksdb_compactoptions_t* crocksdb_compactoptions_create() {
   return new crocksdb_compactoptions_t;
 }
@@ -3934,6 +3971,8 @@ struct CTRBlockCipher : public BlockCipher {
     assert(block_size == cipertext.size());
   }
 
+  const char* Name() const override { return "CTRBlockCipher"; }
+
   virtual size_t BlockSize() { return block_size_; }
 
   virtual Status Encrypt(char* data) {
@@ -3959,10 +3998,10 @@ crocksdb_env_t* crocksdb_ctr_encrypted_env_create(crocksdb_env_t* base_env,
                                                   const char* ciphertext,
                                                   size_t ciphertext_len) {
   auto result = new crocksdb_env_t;
-  result->block_cipher = new CTRBlockCipher(
+  result->block_cipher = std::make_shared<CTRBlockCipher>(
       ciphertext_len, std::string(ciphertext, ciphertext_len));
   result->encryption_provider =
-      new CTREncryptionProvider(*result->block_cipher);
+      EncryptionProvider::NewCTRProvider(result->block_cipher);
   result->rep = NewEncryptedEnv(base_env->rep, result->encryption_provider);
   result->is_default = false;
 
@@ -3994,8 +4033,6 @@ void crocksdb_env_delete_file(crocksdb_env_t* env, const char* path,
 
 void crocksdb_env_destroy(crocksdb_env_t* env) {
   if (!env->is_default) delete env->rep;
-  if (env->block_cipher) delete env->block_cipher;
-  if (env->encryption_provider) delete env->encryption_provider;
   delete env;
 }
 
@@ -5347,9 +5384,10 @@ struct ExternalSstFileModifier {
     }
 
     // Open External Sst File
-    std::unique_ptr<RandomAccessFile> sst_file;
+    std::unique_ptr<FSRandomAccessFile> sst_file;
     std::unique_ptr<RandomAccessFileReader> sst_file_reader;
-    status = env_->NewRandomAccessFile(file_, &sst_file, env_options_);
+    status = env_->GetFileSystem()->NewRandomAccessFile(
+        file_, FileOptions(env_options_), &sst_file, nullptr /*dbg*/);
     if (!status.ok()) {
       return status;
     }
@@ -5362,7 +5400,7 @@ struct ExternalSstFileModifier {
     auto cfd = reinterpret_cast<ColumnFamilyHandleImpl*>(handle_)->cfd();
     auto ioptions = *cfd->ioptions();
     auto table_opt =
-        TableReaderOptions(ioptions, desc.options.prefix_extractor.get(),
+        TableReaderOptions(ioptions, desc.options.prefix_extractor,
                            env_options_, cfd->internal_comparator());
     // Get around global seqno check.
     table_opt.largest_seqno = kMaxSequenceNumber;
@@ -5395,8 +5433,7 @@ struct ExternalSstFileModifier {
           "External file global sequence number not found");
     }
     *pre_seq_no = DecodeFixed64(seqno_iter->second.c_str());
-    uint64_t offset = props->properties_offsets.at(
-        ExternalSstFilePropertyNames::kGlobalSeqno);
+    uint64_t offset = props->external_sst_file_global_seqno_offset;
     if (offset == 0) {
       return Status::Corruption("Was not able to find file global seqno field");
     }

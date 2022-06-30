@@ -327,7 +327,7 @@ fn test_partitioned_index_filters() {
     // See https://github.com/facebook/rocksdb/wiki/Partitioned-Index-Filters#how-to-use-it
     block_opts.set_index_type(IndexType::TwoLevelIndexSearch);
     block_opts.set_partition_filters(true);
-    block_opts.set_bloom_filter(10, false);
+    block_opts.set_bloom_filter(10.0, false);
     block_opts.set_metadata_block_size(4096);
     block_opts.set_cache_index_and_filter_blocks(true);
     block_opts.set_pin_top_level_index_and_filter(true);
@@ -754,7 +754,7 @@ fn test_read_options() {
 
     let mut read_opts = ReadOptions::new();
     read_opts.set_verify_checksums(true);
-    read_opts.fill_cache(true);
+    read_opts.set_fill_cache(true);
     read_opts.set_tailing(true);
     read_opts.set_pin_data(true);
     read_opts.set_background_purge_on_iterator_cleanup(true);
@@ -922,8 +922,8 @@ fn test_compact_on_deletion() {
     opt.set_target_level(1);
     db.compact_range_cf_opt(cf, &opt, None, None);
 
-    let name = format!("rocksdb.num-files-at-level{}", 1);
-    assert_eq!(db.get_property_int(&name).unwrap(), 1);
+    let level1_prop = format!("rocksdb.num-files-at-level{}", 1);
+    assert_eq!(db.get_property_int(&level1_prop).unwrap(), 1);
 
     for i in 0..num_keys {
         if i >= num_keys - window_size && i < num_keys - window_size + dels_trigger {
@@ -933,10 +933,15 @@ fn test_compact_on_deletion() {
         }
     }
     db.flush(true).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(100));
-
-    let name = format!("rocksdb.num-files-at-level{}", 0);
-    assert_eq!(db.get_property_int(&name).unwrap(), 0);
-    let name = format!("rocksdb.num-files-at-level{}", 1);
-    assert_eq!(db.get_property_int(&name).unwrap(), 1);
+    let max_retry = 1000;
+    let level0_prop = format!("rocksdb.num-files-at-level{}", 0);
+    for _ in 0..max_retry {
+        if db.get_property_int(&level0_prop).unwrap() == 0 {
+            break;
+        } else {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+    assert_eq!(db.get_property_int(&level0_prop).unwrap(), 0);
+    assert_eq!(db.get_property_int(&level1_prop).unwrap(), 1);
 }

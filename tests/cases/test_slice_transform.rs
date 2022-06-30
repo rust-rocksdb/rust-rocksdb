@@ -39,7 +39,7 @@ fn test_slice_transform() {
     let mut cf_opts = ColumnFamilyOptions::new();
 
     let mut block_opts = BlockBasedOptions::new();
-    block_opts.set_bloom_filter(10, false);
+    block_opts.set_bloom_filter(10.0, false);
     block_opts.set_whole_key_filtering(false);
 
     cf_opts.set_block_based_table_factory(&block_opts);

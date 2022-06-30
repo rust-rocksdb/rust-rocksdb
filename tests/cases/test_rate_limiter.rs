@@ -17,6 +17,10 @@ use rocksdb::RateLimiter;
 
 #[test]
 fn test_rate_limiter() {
+    const IO_LOW: u8 = 0;
+    const IO_HIGH: u8 = 2;
+    const IO_TOTAL: u8 = 4;
+
     let rate_limiter = RateLimiter::new(10 * 1024 * 1024, 100 * 1000, 10);
     assert_eq!(rate_limiter.get_singleburst_bytes(), 1 * 1024 * 1024);
 
@@ -25,19 +29,15 @@ fn test_rate_limiter() {
 
     assert_eq!(rate_limiter.get_singleburst_bytes(), 2 * 1024 * 1024);
 
-    let low = 0;
-    let high = 1;
-    let total = 2;
+    assert_eq!(rate_limiter.get_total_bytes_through(IO_TOTAL), 0);
 
-    assert_eq!(rate_limiter.get_total_bytes_through(total), 0);
+    rate_limiter.request(1024 * 1024, IO_LOW);
+    assert_eq!(rate_limiter.get_total_bytes_through(IO_LOW), 1024 * 1024);
 
-    rate_limiter.request(1024 * 1024, low);
-    assert_eq!(rate_limiter.get_total_bytes_through(low), 1024 * 1024);
+    rate_limiter.request(2048 * 1024, IO_HIGH);
+    assert_eq!(rate_limiter.get_total_bytes_through(IO_HIGH), 2048 * 1024);
 
-    rate_limiter.request(2048 * 1024, high);
-    assert_eq!(rate_limiter.get_total_bytes_through(high), 2048 * 1024);
-
-    assert_eq!(rate_limiter.get_total_bytes_through(total), 3072 * 1024);
+    assert_eq!(rate_limiter.get_total_bytes_through(IO_TOTAL), 3072 * 1024);
 }
 
 #[test]

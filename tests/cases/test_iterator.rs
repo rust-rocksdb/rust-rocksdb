@@ -288,7 +288,7 @@ fn read_with_upper_bound() {
 fn test_total_order_seek() {
     let path = tempdir_with_prefix("_rust_rocksdb_total_order_seek");
     let mut bbto = BlockBasedOptions::new();
-    bbto.set_bloom_filter(10, false);
+    bbto.set_bloom_filter(10.0, false);
     bbto.set_whole_key_filtering(false);
     let mut cf_opts = ColumnFamilyOptions::new();
     let mut opts = DBOptions::new();
@@ -376,7 +376,7 @@ fn test_total_order_seek() {
 fn test_fixed_suffix_seek() {
     let path = tempdir_with_prefix("_rust_rocksdb_fixed_suffix_seek");
     let mut bbto = BlockBasedOptions::new();
-    bbto.set_bloom_filter(10, false);
+    bbto.set_bloom_filter(10.0, false);
     bbto.set_whole_key_filtering(false);
     let mut opts = DBOptions::new();
     let mut cf_opts = ColumnFamilyOptions::new();
