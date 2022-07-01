@@ -17,7 +17,7 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
-use util::{assert_iter, pair, DBPath};
+use util::{assert_iter, assert_iter_reversed, pair, DBPath};
 
 #[test]
 #[allow(clippy::cognitive_complexity)]
@@ -38,38 +38,38 @@ fn test_iterator() {
         assert!(db.put(K2, V2).is_ok());
         assert!(db.put(K3, V3).is_ok());
         let expected = [pair(K1, V1), pair(K2, V2), pair(K3, V3)];
-        assert_iter!(db.iterator(IteratorMode::Start), expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
         // Test that it's idempotent
-        assert_iter!(db.iterator(IteratorMode::Start), expected);
-        assert_iter!(db.iterator(IteratorMode::Start), expected);
-        assert_iter!(db.iterator(IteratorMode::Start), expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
         // Test it in reverse a few times
-        assert_iter!(reversed db.iterator(IteratorMode::End), expected);
-        assert_iter!(reversed db.iterator(IteratorMode::End), expected);
-        assert_iter!(reversed db.iterator(IteratorMode::End), expected);
-        assert_iter!(reversed db.iterator(IteratorMode::End), expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
         // Try it forward again
-        assert_iter!(db.iterator(IteratorMode::Start), expected);
-        assert_iter!(db.iterator(IteratorMode::Start), expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
 
         {
             let old_iterator = db.iterator(IteratorMode::Start);
             assert!(db.put(K4, V4).is_ok());
-            assert_iter!(old_iterator, expected);
+            assert_iter(old_iterator, &expected);
         }
         let expected2 = [pair(K1, V1), pair(K2, V2), pair(K3, V3), pair(K4, V4)];
-        assert_iter!(db.iterator(IteratorMode::Start), expected2);
-        assert_iter!(
+        assert_iter(db.iterator(IteratorMode::Start), &expected2);
+        assert_iter(
             db.iterator(IteratorMode::From(b"k2", Direction::Forward)),
-            expected2[1..]
+            &expected2[1..],
         );
-        assert_iter!(reversed
+        assert_iter_reversed(
             db.iterator(IteratorMode::From(b"k2", Direction::Reverse)),
-            expected[..2]
+            &expected[..2],
         );
-        assert_iter!(reversed
+        assert_iter_reversed(
             db.iterator(IteratorMode::From(b"zz", Direction::Reverse)),
-            expected2
+            &expected2,
         );
 
         {
@@ -122,9 +122,9 @@ fn test_prefix_iterator() {
         assert!(db.put(B1, B1).is_ok());
         assert!(db.put(B2, B2).is_ok());
 
-        assert_iter!(db.prefix_iterator(b"aaa"), [pair(A1, A1), pair(A2, A2)]);
-        assert_iter!(db.prefix_iterator(b"bbb"), [pair(B1, B1), pair(B2, B2)]);
-        assert_iter!(db.prefix_iterator(A2), [pair(A2, A2)]);
+        assert_iter(db.prefix_iterator(b"aaa"), &[pair(A1, A1), pair(A2, A2)]);
+        assert_iter(db.prefix_iterator(b"bbb"), &[pair(B1, B1), pair(B2, B2)]);
+        assert_iter(db.prefix_iterator(A2), &[pair(A2, A2)]);
     }
 }
 
@@ -163,13 +163,13 @@ fn test_prefix_iterator_uses_full_prefix() {
             assert!(db.put(key, *value).is_ok());
         }
 
-        assert_iter!(
+        assert_iter(
             db.prefix_iterator(&[0, 1, 1]),
-            [
+            &[
                 pair(&[0, 1, 1, 1], b"444"),
                 pair(&[0, 1, 2, 1], b"555"),
-                pair(&[0, 2, 0, 0], b"666")
-            ]
+                pair(&[0, 2, 0, 0], b"666"),
+            ],
         );
     }
 }
@@ -208,9 +208,9 @@ fn test_full_iterator() {
         let bad_iterator = db.iterator(IteratorMode::Start);
         assert_eq!(bad_iterator.collect::<Vec<_>>(), vec![]);
 
-        assert_iter!(
+        assert_iter(
             db.full_iterator(IteratorMode::Start),
-            [pair(A1, A1), pair(A2, A2), pair(B1, B1), pair(B2, B2)]
+            &[pair(A1, A1), pair(A2, A2), pair(B1, B1), pair(B2, B2)],
         );
     }
 }

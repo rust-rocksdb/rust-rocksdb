@@ -213,9 +213,9 @@ fn iterator_test_upper_bound() {
         let mut readopts = ReadOptions::default();
         readopts.set_iterate_upper_bound(b"k4".to_vec());
 
-        assert_iter!(
+        assert_iter(
             db.iterator_opt(IteratorMode::Start, readopts),
-            [pair(b"k1", b"v1"), pair(b"k2", b"v2"), pair(b"k3", b"v3")]
+            &[pair(b"k1", b"v1"), pair(b"k2", b"v2"), pair(b"k3", b"v3")],
         );
     }
 }
@@ -234,9 +234,9 @@ fn iterator_test_lower_bound() {
         let mut readopts = ReadOptions::default();
         readopts.set_iterate_lower_bound(b"k4".to_vec());
 
-        assert_iter!(
+        assert_iter(
             db.iterator_opt(IteratorMode::Start, readopts),
-            [pair(b"k4", b"v4"), pair(b"k5", b"v5")]
+            &[pair(b"k4", b"v4"), pair(b"k5", b"v5")],
         );
     }
 }
@@ -780,13 +780,13 @@ fn prefix_extract_and_iterate_test() {
         readopts.set_iterate_lower_bound(b"p1".to_vec());
         readopts.set_pin_data(true);
 
-        assert_iter!(
+        assert_iter(
             db.iterator_opt(IteratorMode::Start, readopts),
-            [
+            &[
                 pair(b"p1_k1", b"v1"),
                 pair(b"p1_k3", b"v3"),
-                pair(b"p1_k4", b"v4")
-            ]
+                pair(b"p1_k4", b"v4"),
+            ],
         );
     }
 }
