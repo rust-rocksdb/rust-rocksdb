@@ -152,12 +152,6 @@ impl TitanDBOptions {
         }
     }
 
-    pub fn set_sample_ratio(&mut self, ratio: f64) {
-        unsafe {
-            crocksdb_ffi::ctitandb_options_set_sample_ratio(self.inner, ratio);
-        }
-    }
-
     pub fn set_merge_small_file_threshold(&mut self, size: u64) {
         unsafe {
             crocksdb_ffi::ctitandb_options_set_merge_small_file_threshold(self.inner, size);

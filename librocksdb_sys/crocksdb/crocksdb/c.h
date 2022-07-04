@@ -2615,9 +2615,6 @@ extern C_ROCKSDB_LIBRARY_API void ctitandb_options_set_discardable_ratio(
     ctitandb_options_t* options, double ratio);
 
 extern void C_ROCKSDB_LIBRARY_API
-ctitandb_options_set_sample_ratio(ctitandb_options_t* options, double ratio);
-
-extern void C_ROCKSDB_LIBRARY_API
 ctitandb_options_set_blob_run_mode(ctitandb_options_t* options, int mode);
 
 /* TitanReadOptions */
