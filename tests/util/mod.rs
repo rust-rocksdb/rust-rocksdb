@@ -40,22 +40,24 @@ impl AsRef<Path> for &DBPath {
     }
 }
 
-pub fn pair(left: &[u8], right: &[u8]) -> (Box<[u8]>, Box<[u8]>) {
+type Pair = (Box<[u8]>, Box<[u8]>);
+
+pub fn pair(left: &[u8], right: &[u8]) -> Pair {
     (Box::from(left), Box::from(right))
 }
 
 #[track_caller]
-pub fn assert_iter<'a, D: rocksdb::DBAccess>(
-    iter: rocksdb::DBIteratorWithThreadMode<'a, D>,
-    want: &[(Box<[u8]>, Box<[u8]>)],
+pub fn assert_iter<D: rocksdb::DBAccess>(
+    iter: rocksdb::DBIteratorWithThreadMode<'_, D>,
+    want: &[Pair],
 ) {
     assert_eq!(iter.collect::<Vec<_>>().as_slice(), want);
 }
 
 #[track_caller]
-pub fn assert_iter_reversed<'a, D: rocksdb::DBAccess>(
-    iter: rocksdb::DBIteratorWithThreadMode<'a, D>,
-    want: &[(Box<[u8]>, Box<[u8]>)],
+pub fn assert_iter_reversed<D: rocksdb::DBAccess>(
+    iter: rocksdb::DBIteratorWithThreadMode<'_, D>,
+    want: &[Pair],
 ) {
     let mut got = iter.collect::<Vec<_>>();
     got.reverse();
