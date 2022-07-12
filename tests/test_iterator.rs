@@ -17,130 +17,61 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
-use util::DBPath;
-
-fn cba(input: &[u8]) -> Box<[u8]> {
-    input.to_vec().into_boxed_slice()
-}
+use util::{assert_iter, assert_iter_reversed, pair, DBPath};
 
 #[test]
 #[allow(clippy::cognitive_complexity)]
 fn test_iterator() {
     let n = DBPath::new("_rust_rocksdb_iterator_test");
     {
-        let k1: Box<[u8]> = b"k1".to_vec().into_boxed_slice();
-        let k2: Box<[u8]> = b"k2".to_vec().into_boxed_slice();
-        let k3: Box<[u8]> = b"k3".to_vec().into_boxed_slice();
-        let k4: Box<[u8]> = b"k4".to_vec().into_boxed_slice();
-        let v1: Box<[u8]> = b"v1111".to_vec().into_boxed_slice();
-        let v2: Box<[u8]> = b"v2222".to_vec().into_boxed_slice();
-        let v3: Box<[u8]> = b"v3333".to_vec().into_boxed_slice();
-        let v4: Box<[u8]> = b"v4444".to_vec().into_boxed_slice();
-        let db = DB::open_default(&n).unwrap();
-        let p = db.put(&*k1, &*v1);
-        assert!(p.is_ok());
-        let p = db.put(&*k2, &*v2);
-        assert!(p.is_ok());
-        let p = db.put(&*k3, &*v3);
-        assert!(p.is_ok());
-        let expected = vec![
-            (cba(&k1), cba(&v1)),
-            (cba(&k2), cba(&v2)),
-            (cba(&k3), cba(&v3)),
-        ];
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        // Test that it's idempotent
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        // Test it in reverse a few times
-        {
-            let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = iterator1.collect::<Vec<_>>();
-            tmp_vec.reverse();
-            assert_eq!(tmp_vec, expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = iterator1.collect::<Vec<_>>();
-            tmp_vec.reverse();
-            assert_eq!(tmp_vec, expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = iterator1.collect::<Vec<_>>();
-            tmp_vec.reverse();
-            assert_eq!(tmp_vec, expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = iterator1.collect::<Vec<_>>();
-            tmp_vec.reverse();
-            assert_eq!(tmp_vec, expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::End);
-            let mut tmp_vec = iterator1.collect::<Vec<_>>();
-            tmp_vec.reverse();
-            assert_eq!(tmp_vec, expected);
-        }
-        // Try it forward again
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
+        const K1: &[u8] = b"k1";
+        const K2: &[u8] = b"k2";
+        const K3: &[u8] = b"k3";
+        const K4: &[u8] = b"k4";
+        const V1: &[u8] = b"v1111";
+        const V2: &[u8] = b"v2222";
+        const V3: &[u8] = b"v3333";
+        const V4: &[u8] = b"v4444";
 
-        let old_iterator = db.iterator(IteratorMode::Start);
-        let p = db.put(&*k4, &*v4);
-        assert!(p.is_ok());
-        let expected2 = vec![
-            (cba(&k1), cba(&v1)),
-            (cba(&k2), cba(&v2)),
-            (cba(&k3), cba(&v3)),
-            (cba(&k4), cba(&v4)),
-        ];
+        let db = DB::open_default(&n).unwrap();
+        assert!(db.put(K1, V1).is_ok());
+        assert!(db.put(K2, V2).is_ok());
+        assert!(db.put(K3, V3).is_ok());
+        let expected = [pair(K1, V1), pair(K2, V2), pair(K3, V3)];
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        // Test that it's idempotent
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        // Test it in reverse a few times
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        assert_iter_reversed(db.iterator(IteratorMode::End), &expected);
+        // Try it forward again
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+        assert_iter(db.iterator(IteratorMode::Start), &expected);
+
         {
-            assert_eq!(old_iterator.collect::<Vec<_>>(), expected);
+            let old_iterator = db.iterator(IteratorMode::Start);
+            assert!(db.put(K4, V4).is_ok());
+            assert_iter(old_iterator, &expected);
         }
-        {
-            let iterator1 = db.iterator(IteratorMode::Start);
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected2);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::From(b"k2", Direction::Forward));
-            let expected = vec![
-                (cba(&k2), cba(&v2)),
-                (cba(&k3), cba(&v3)),
-                (cba(&k4), cba(&v4)),
-            ];
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::From(b"k2", Direction::Reverse));
-            let expected = vec![(cba(&k2), cba(&v2)), (cba(&k1), cba(&v1))];
-            assert_eq!(iterator1.collect::<Vec<_>>(), expected);
-        }
-        {
-            let iterator1 = db.iterator(IteratorMode::From(b"zz", Direction::Reverse));
-            let expected = vec![(cba(&k4), cba(&v4)), (cba(&k3), cba(&v3))];
-            assert_eq!(iterator1.take(2).collect::<Vec<_>>(), expected);
-        }
+        let expected2 = [pair(K1, V1), pair(K2, V2), pair(K3, V3), pair(K4, V4)];
+        assert_iter(db.iterator(IteratorMode::Start), &expected2);
+        assert_iter(
+            db.iterator(IteratorMode::From(b"k2", Direction::Forward)),
+            &expected2[1..],
+        );
+        assert_iter_reversed(
+            db.iterator(IteratorMode::From(b"k2", Direction::Reverse)),
+            &expected[..2],
+        );
+        assert_iter_reversed(
+            db.iterator(IteratorMode::From(b"zz", Direction::Reverse)),
+            &expected2,
+        );
+
         {
             let iterator1 = db.iterator(IteratorMode::From(b"k0", Direction::Forward));
             assert!(iterator1.valid());
@@ -169,18 +100,14 @@ fn test_iterator() {
     }
 }
 
-fn key(k: &[u8]) -> Box<[u8]> {
-    k.to_vec().into_boxed_slice()
-}
-
 #[test]
 fn test_prefix_iterator() {
     let n = DBPath::new("_rust_rocksdb_prefix_iterator_test");
     {
-        let a1: Box<[u8]> = key(b"aaa1");
-        let a2: Box<[u8]> = key(b"aaa2");
-        let b1: Box<[u8]> = key(b"bbb1");
-        let b2: Box<[u8]> = key(b"bbb2");
+        const A1: &[u8] = b"aaa1";
+        const A2: &[u8] = b"aaa2";
+        const B1: &[u8] = b"bbb1";
+        const B2: &[u8] = b"bbb2";
 
         let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
 
@@ -190,22 +117,14 @@ fn test_prefix_iterator() {
 
         let db = DB::open(&opts, &n).unwrap();
 
-        assert!(db.put(&*a1, &*a1).is_ok());
-        assert!(db.put(&*a2, &*a2).is_ok());
-        assert!(db.put(&*b1, &*b1).is_ok());
-        assert!(db.put(&*b2, &*b2).is_ok());
+        assert!(db.put(A1, A1).is_ok());
+        assert!(db.put(A2, A2).is_ok());
+        assert!(db.put(B1, B1).is_ok());
+        assert!(db.put(B2, B2).is_ok());
 
-        {
-            let expected = vec![(cba(&a1), cba(&a1)), (cba(&a2), cba(&a2))];
-            let a_iterator = db.prefix_iterator(b"aaa");
-            assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
-        }
-
-        {
-            let expected = vec![(cba(&b1), cba(&b1)), (cba(&b2), cba(&b2))];
-            let b_iterator = db.prefix_iterator(b"bbb");
-            assert_eq!(b_iterator.collect::<Vec<_>>(), expected)
-        }
+        assert_iter(db.prefix_iterator(b"aaa"), &[pair(A1, A1), pair(A2, A2)]);
+        assert_iter(db.prefix_iterator(b"bbb"), &[pair(B1, B1), pair(B2, B2)]);
+        assert_iter(db.prefix_iterator(A2), &[pair(A2, A2)]);
     }
 }
 
@@ -244,13 +163,14 @@ fn test_prefix_iterator_uses_full_prefix() {
             assert!(db.put(key, *value).is_ok());
         }
 
-        let prefix = [0, 1, 1];
-        let results: Vec<_> = db
-            .prefix_iterator(&prefix)
-            .map(|(_, v)| std::str::from_utf8(&v).unwrap().to_string())
-            .collect();
-
-        assert_eq!(results, vec!("444", "555", "666"));
+        assert_iter(
+            db.prefix_iterator(&[0, 1, 1]),
+            &[
+                pair(&[0, 1, 1, 1], b"444"),
+                pair(&[0, 1, 2, 1], b"555"),
+                pair(&[0, 2, 0, 0], b"666"),
+            ],
+        );
     }
 }
 
@@ -258,10 +178,10 @@ fn test_prefix_iterator_uses_full_prefix() {
 fn test_full_iterator() {
     let path = DBPath::new("full_iterator_test");
     {
-        let a1: Box<[u8]> = key(b"aaa1");
-        let a2: Box<[u8]> = key(b"aaa2");
-        let b1: Box<[u8]> = key(b"bbb1");
-        let b2: Box<[u8]> = key(b"bbb2");
+        const A1: &[u8] = b"aaa1";
+        const A2: &[u8] = b"aaa2";
+        const B1: &[u8] = b"bbb1";
+        const B2: &[u8] = b"bbb2";
 
         let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
         let factory = MemtableFactory::HashSkipList {
@@ -278,25 +198,20 @@ fn test_full_iterator() {
 
         let db = DB::open(&opts, &path).unwrap();
 
-        assert!(db.put(&*a1, &*a1).is_ok());
-        assert!(db.put(&*a2, &*a2).is_ok());
-        assert!(db.put(&*b1, &*b1).is_ok());
-        assert!(db.put(&*b2, &*b2).is_ok());
+        assert!(db.put(A1, A1).is_ok());
+        assert!(db.put(A2, A2).is_ok());
+        assert!(db.put(B1, B1).is_ok());
+        assert!(db.put(B2, B2).is_ok());
 
         // A normal iterator won't work here since we're using a HashSkipList for our memory table
         // implementation (which buckets keys based on their prefix):
         let bad_iterator = db.iterator(IteratorMode::Start);
         assert_eq!(bad_iterator.collect::<Vec<_>>(), vec![]);
 
-        let expected = vec![
-            (cba(&a1), cba(&a1)),
-            (cba(&a2), cba(&a2)),
-            (cba(&b1), cba(&b1)),
-            (cba(&b2), cba(&b2)),
-        ];
-
-        let a_iterator = db.full_iterator(IteratorMode::Start);
-        assert_eq!(a_iterator.collect::<Vec<_>>(), expected)
+        assert_iter(
+            db.full_iterator(IteratorMode::Start),
+            &[pair(A1, A1), pair(A2, A2), pair(B1, B1), pair(B2, B2)],
+        );
     }
 }
 

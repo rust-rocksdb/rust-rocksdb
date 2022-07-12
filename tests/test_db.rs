@@ -25,7 +25,7 @@ use rocksdb::{
     PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
 };
-use util::DBPath;
+use util::{assert_iter, pair, DBPath};
 
 #[test]
 fn external() {
@@ -213,12 +213,10 @@ fn iterator_test_upper_bound() {
         let mut readopts = ReadOptions::default();
         readopts.set_iterate_upper_bound(b"k4".to_vec());
 
-        let iter = db.iterator_opt(IteratorMode::Start, readopts);
-        let expected: Vec<_> = vec![(b"k1", b"v1"), (b"k2", b"v2"), (b"k3", b"v3")]
-            .into_iter()
-            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
-            .collect();
-        assert_eq!(expected, iter.collect::<Vec<_>>());
+        assert_iter(
+            db.iterator_opt(IteratorMode::Start, readopts),
+            &[pair(b"k1", b"v1"), pair(b"k2", b"v2"), pair(b"k3", b"v3")],
+        );
     }
 }
 
@@ -236,12 +234,10 @@ fn iterator_test_lower_bound() {
         let mut readopts = ReadOptions::default();
         readopts.set_iterate_lower_bound(b"k4".to_vec());
 
-        let iter = db.iterator_opt(IteratorMode::Start, readopts);
-        let expected: Vec<_> = vec![(b"k4", b"v4"), (b"k5", b"v5")]
-            .into_iter()
-            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
-            .collect();
-        assert_eq!(expected, iter.collect::<Vec<_>>());
+        assert_iter(
+            db.iterator_opt(IteratorMode::Start, readopts),
+            &[pair(b"k4", b"v4"), pair(b"k5", b"v5")],
+        );
     }
 }
 
@@ -784,12 +780,14 @@ fn prefix_extract_and_iterate_test() {
         readopts.set_iterate_lower_bound(b"p1".to_vec());
         readopts.set_pin_data(true);
 
-        let iter = db.iterator_opt(IteratorMode::Start, readopts);
-        let expected: Vec<_> = vec![(b"p1_k1", b"v1"), (b"p1_k3", b"v3"), (b"p1_k4", b"v4")]
-            .into_iter()
-            .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
-            .collect();
-        assert_eq!(expected, iter.collect::<Vec<_>>());
+        assert_iter(
+            db.iterator_opt(IteratorMode::Start, readopts),
+            &[
+                pair(b"p1_k1", b"v1"),
+                pair(b"p1_k3", b"v3"),
+                pair(b"p1_k4", b"v4"),
+            ],
+        );
     }
 }
 
