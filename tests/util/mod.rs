@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use rocksdb::{DB, Error, Options};
+use rocksdb::{Error, Options, DB};
 
 /// Temporary database path which calls DB::Destroy when DBPath is dropped.
 pub struct DBPath {
