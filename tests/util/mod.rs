@@ -1,10 +1,11 @@
+#![allow(dead_code)]
+
 use std::path::{Path, PathBuf};
 
-use rocksdb::{Options, DB};
+use rocksdb::{DB, Error, Options};
 
 /// Temporary database path which calls DB::Destroy when DBPath is dropped.
 pub struct DBPath {
-    #[allow(dead_code)]
     dir: tempfile::TempDir, // kept for cleaning up during drop
     path: PathBuf,
 }
@@ -39,25 +40,21 @@ impl AsRef<Path> for &DBPath {
     }
 }
 
-#[allow(dead_code)]
-pub fn pair(left: &[u8], right: &[u8]) -> (Box<[u8]>, Box<[u8]>) {
+type Pair = (Box<[u8]>, Box<[u8]>);
+
+pub fn pair(left: &[u8], right: &[u8]) -> Pair {
     (Box::from(left), Box::from(right))
 }
 
-// Use macro rather than functions so that on failure we get line number where
-// the macro was instantiated rather than line number inside of a function.
-#[allow(unused_macros)]
-macro_rules! assert_iter {
-    ($iter:expr, $want:expr) => {
-        let got = $iter.collect::<Result<Vec<_>, _>>().unwrap();
-        assert_eq!(got.as_slice(), &$want);
-    };
-    (reversed $iter:expr, $want:expr) => {
-        let mut got = $iter.collect::<Result<Vec<_>, _>>().unwrap();
-        got.reverse();
-        assert_eq!(got.as_slice(), &$want);
-    };
+#[track_caller]
+pub fn assert_iter(iter: impl Iterator<Item = Result<Pair, Error>>, want: &[Pair]) {
+    let got = iter.collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(got.as_slice(), want);
 }
 
-#[allow(unused_imports)]
-pub(crate) use assert_iter;
+#[track_caller]
+pub fn assert_iter_reversed(iter: impl Iterator<Item = Result<Pair, Error>>, want: &[Pair]) {
+    let mut got = iter.collect::<Result<Vec<_>, _>>().unwrap();
+    got.reverse();
+    assert_eq!(got.as_slice(), want);
+}

@@ -992,20 +992,20 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Return the values associated with the given keys and column families.
-    pub fn multi_get_cf<'a, 'b: 'a, K, I, W: 'b>(
+    pub fn multi_get_cf<'a, 'b: 'a, K, I, W>(
         &'a self,
         keys: I,
     ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
-        W: AsColumnFamilyRef,
+        W: 'b + AsColumnFamilyRef,
     {
         self.multi_get_cf_opt(keys, &ReadOptions::default())
     }
 
     /// Return the values associated with the given keys and column families using read options.
-    pub fn multi_get_cf_opt<'a, 'b: 'a, K, I, W: 'b>(
+    pub fn multi_get_cf_opt<'a, 'b: 'a, K, I, W>(
         &'a self,
         keys: I,
         readopts: &ReadOptions,
@@ -1013,7 +1013,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
-        W: AsColumnFamilyRef,
+        W: 'b + AsColumnFamilyRef,
     {
         let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
             .into_iter()

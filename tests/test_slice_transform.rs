@@ -45,8 +45,8 @@ pub fn test_slice_transform() {
         assert!(db.put(B1, B1).is_ok());
         assert!(db.put(B2, B2).is_ok());
 
-        assert_iter!(db.prefix_iterator(b"aaa"), [pair(A1, A1), pair(A2, A2)]);
-        assert_iter!(db.prefix_iterator(b"bbb"), [pair(B1, B1), pair(B2, B2)]);
+        assert_iter(db.prefix_iterator(b"aaa"), &[pair(A1, A1), pair(A2, A2)]);
+        assert_iter(db.prefix_iterator(b"bbb"), &[pair(B1, B1), pair(B2, B2)]);
     }
 }
 
