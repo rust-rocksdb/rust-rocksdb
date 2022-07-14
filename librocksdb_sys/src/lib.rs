@@ -159,6 +159,8 @@ pub struct DBIOStatsContext(c_void);
 #[repr(C)]
 pub struct DBWriteStallInfo(c_void);
 #[repr(C)]
+pub struct DBMemTableInfo(c_void);
+#[repr(C)]
 pub struct DBStatusPtr(c_void);
 #[repr(C)]
 pub struct DBMapProperty(c_void);
@@ -948,6 +950,7 @@ extern "C" {
     pub fn crocksdb_options_get_path_target_size(options: *mut Options, idx: size_t) -> u64;
     pub fn crocksdb_options_set_vector_memtable_factory(options: *mut Options, reserved_bytes: u64);
     pub fn crocksdb_options_set_atomic_flush(option: *mut Options, enable: bool);
+    pub fn crocksdb_options_avoid_flush_during_shutdown(option: *mut Options, avoid: bool);
     pub fn crocksdb_options_get_sst_partitioner_factory(
         option: *mut Options,
     ) -> *mut DBSstPartitionerFactory;
@@ -1197,6 +1200,14 @@ extern "C" {
         batch: *mut DBWriteBatch,
         err: *mut *mut c_char,
     );
+    pub fn crocksdb_write_seq(
+        db: *mut DBInstance,
+        writeopts: *const DBWriteOptions,
+        batch: *mut DBWriteBatch,
+        seq: *mut u64,
+        err: *mut *mut c_char,
+    );
+
     pub fn crocksdb_write_multi_batch(
         db: *mut DBInstance,
         writeopts: *const DBWriteOptions,
@@ -2194,7 +2205,11 @@ extern "C" {
     ) -> *const DBTableProperties;
     pub fn crocksdb_flushjobinfo_triggered_writes_slowdown(info: *const DBFlushJobInfo) -> bool;
     pub fn crocksdb_flushjobinfo_triggered_writes_stop(info: *const DBFlushJobInfo) -> bool;
+    pub fn crocksdb_flushjobinfo_largest_seqno(info: *const DBFlushJobInfo) -> u64;
+    pub fn crocksdb_flushjobinfo_smallest_seqno(info: *const DBFlushJobInfo) -> u64;
+
     pub fn crocksdb_reset_status(ptr: *mut DBStatusPtr);
+
     pub fn crocksdb_compactionjobinfo_status(
         info: *const DBCompactionJobInfo,
         errptr: *mut *mut c_char,
@@ -2275,6 +2290,15 @@ extern "C" {
     pub fn crocksdb_writestallinfo_cur(info: *const DBWriteStallInfo)
         -> *const WriteStallCondition;
 
+    pub fn crocksdb_memtableinfo_cf_name(
+        info: *const DBMemTableInfo,
+        size: *mut size_t,
+    ) -> *const c_char;
+    pub fn crocksdb_memtableinfo_first_seqno(info: *const DBMemTableInfo) -> u64;
+    pub fn crocksdb_memtableinfo_earliest_seqno(info: *const DBMemTableInfo) -> u64;
+    pub fn crocksdb_memtableinfo_num_entries(info: *const DBMemTableInfo) -> u64;
+    pub fn crocksdb_memtableinfo_num_deletes(info: *const DBMemTableInfo) -> u64;
+
     pub fn crocksdb_eventlistener_create(
         state: *mut c_void,
         destructor: extern "C" fn(*mut c_void),
@@ -2287,6 +2311,7 @@ extern "C" {
         ingest: extern "C" fn(*mut c_void, *mut DBInstance, *const DBIngestionInfo),
         bg_error: extern "C" fn(*mut c_void, DBBackgroundErrorReason, *mut DBStatusPtr),
         stall_conditions: extern "C" fn(*mut c_void, *const DBWriteStallInfo),
+        memtable_sealed: extern "C" fn(*mut c_void, *const DBMemTableInfo),
     ) -> *mut DBEventListener;
     pub fn crocksdb_eventlistener_destroy(et: *mut DBEventListener);
     pub fn crocksdb_options_add_eventlistener(opt: *mut Options, et: *mut DBEventListener);

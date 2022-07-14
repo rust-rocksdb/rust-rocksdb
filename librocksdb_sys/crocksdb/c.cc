@@ -116,6 +116,7 @@ using rocksdb::KeyVersion;
 using rocksdb::LiveFileMetaData;
 using rocksdb::Logger;
 using rocksdb::LRUCacheOptions;
+using rocksdb::MemTableInfo;
 using rocksdb::MergeOperator;
 using rocksdb::NewBloomFilterPolicy;
 using rocksdb::NewEncryptedEnv;
@@ -363,6 +364,9 @@ struct crocksdb_writestallcondition_t {
 };
 struct crocksdb_writestallinfo_t {
   WriteStallInfo rep;
+};
+struct crocksdb_memtableinfo_t {
+  MemTableInfo rep;
 };
 struct crocksdb_compactionjobinfo_t {
   CompactionJobInfo rep;
@@ -1066,6 +1070,12 @@ void crocksdb_merge_cf(crocksdb_t* db, const crocksdb_writeoptions_t* options,
 void crocksdb_write(crocksdb_t* db, const crocksdb_writeoptions_t* options,
                     crocksdb_writebatch_t* batch, char** errptr) {
   SaveError(errptr, db->rep->Write(options->rep, &batch->rep));
+}
+
+void crocksdb_write_seq(crocksdb_t* db, const crocksdb_writeoptions_t* options,
+                        crocksdb_writebatch_t* batch, uint64_t* seq,
+                        char** errptr) {
+  SaveError(errptr, db->rep->Write(options->rep, &batch->rep, seq));
 }
 
 void crocksdb_write_multi_batch(crocksdb_t* db,
@@ -2112,6 +2122,16 @@ unsigned char crocksdb_flushjobinfo_triggered_writes_stop(
   return info->rep.triggered_writes_stop;
 }
 
+uint64_t crocksdb_flushjobinfo_largest_seqno(
+    const crocksdb_flushjobinfo_t* info) {
+  return info->rep.largest_seqno;
+}
+
+uint64_t crocksdb_flushjobinfo_smallest_seqno(
+    const crocksdb_flushjobinfo_t* info) {
+  return info->rep.smallest_seqno;
+}
+
 void crocksdb_reset_status(crocksdb_status_ptr_t* status_ptr) {
   auto ptr = status_ptr->rep;
   *ptr = Status::OK();
@@ -2289,6 +2309,29 @@ const crocksdb_writestallcondition_t* crocksdb_writestallinfo_prev(
       &info->rep.condition.prev);
 }
 
+const char* crocksdb_memtableinfo_cf_name(const crocksdb_memtableinfo_t* info,
+                                          size_t* size) {
+  *size = info->rep.cf_name.size();
+  return info->rep.cf_name.data();
+}
+
+uint64_t crocksdb_memtableinfo_first_seqno(
+    const crocksdb_memtableinfo_t* info) {
+  return info->rep.first_seqno;
+}
+uint64_t crocksdb_memtableinfo_earliest_seqno(
+    const crocksdb_memtableinfo_t* info) {
+  return info->rep.earliest_seqno;
+}
+uint64_t crocksdb_memtableinfo_num_entries(
+    const crocksdb_memtableinfo_t* info) {
+  return info->rep.num_entries;
+}
+uint64_t crocksdb_memtableinfo_num_deletes(
+    const crocksdb_memtableinfo_t* info) {
+  return info->rep.num_deletes;
+}
+
 /* event listener */
 
 struct crocksdb_eventlistener_t : public EventListener {
@@ -2309,6 +2352,7 @@ struct crocksdb_eventlistener_t : public EventListener {
   void (*on_background_error)(void*, crocksdb_backgrounderrorreason_t,
                               crocksdb_status_ptr_t*);
   void (*on_stall_conditions_changed)(void*, const crocksdb_writestallinfo_t*);
+  void (*on_memtable_sealed)(void*, const crocksdb_memtableinfo_t*);
 
   virtual void OnFlushBegin(DB* db, const FlushJobInfo& info) {
     crocksdb_t c_db = {db};
@@ -2385,6 +2429,11 @@ struct crocksdb_eventlistener_t : public EventListener {
         state_, reinterpret_cast<const crocksdb_writestallinfo_t*>(&info));
   }
 
+  virtual void OnMemTableSealed(const MemTableInfo& info) {
+    on_memtable_sealed(state_,
+                       reinterpret_cast<const crocksdb_memtableinfo_t*>(&info));
+  }
+
   virtual ~crocksdb_eventlistener_t() { destructor_(state_); }
 };
 
@@ -2397,7 +2446,8 @@ crocksdb_eventlistener_t* crocksdb_eventlistener_create(
     on_subcompaction_completed_cb on_subcompaction_completed,
     on_external_file_ingested_cb on_external_file_ingested,
     on_background_error_cb on_background_error,
-    on_stall_conditions_changed_cb on_stall_conditions_changed) {
+    on_stall_conditions_changed_cb on_stall_conditions_changed,
+    on_memtable_sealed_cb on_memtable_sealed) {
   crocksdb_eventlistener_t* et = new crocksdb_eventlistener_t;
   et->state_ = state_;
   et->destructor_ = destructor_;
@@ -2410,6 +2460,7 @@ crocksdb_eventlistener_t* crocksdb_eventlistener_create(
   et->on_external_file_ingested = on_external_file_ingested;
   et->on_background_error = on_background_error;
   et->on_stall_conditions_changed = on_stall_conditions_changed;
+  et->on_memtable_sealed = on_memtable_sealed;
   return et;
 }
 
@@ -3318,6 +3369,11 @@ void crocksdb_options_set_vector_memtable_factory(crocksdb_options_t* opt,
 void crocksdb_options_set_atomic_flush(crocksdb_options_t* opt,
                                        unsigned char enable) {
   opt->rep.atomic_flush = enable;
+}
+
+void crocksdb_options_avoid_flush_during_shutdown(crocksdb_options_t* opt,
+                                                  unsigned char avoid) {
+  opt->rep.avoid_flush_during_shutdown = avoid;
 }
 
 unsigned char crocksdb_load_latest_options(
