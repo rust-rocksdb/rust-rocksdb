@@ -216,6 +216,7 @@ typedef enum crocksdb_encryption_method_t {
   kAES128_CTR = 2,
   kAES192_CTR = 3,
   kAES256_CTR = 4,
+  kSM4_CTR = 5,
 } crocksdb_encryption_method_t;
 
 typedef struct crocksdb_file_encryption_info_t crocksdb_file_encryption_info_t;

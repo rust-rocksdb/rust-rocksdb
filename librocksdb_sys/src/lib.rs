@@ -439,6 +439,7 @@ pub enum DBEncryptionMethod {
     Aes128Ctr = 2,
     Aes192Ctr = 3,
     Aes256Ctr = 4,
+    Sm4Ctr = 5,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
