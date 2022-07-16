@@ -270,8 +270,8 @@ fn test_iter_range() {
     ) {
         let mut ro = rocksdb::ReadOptions::default();
         // Set bounds to test that set_iterate_range clears old bounds.
-        ro.set_iterate_lower_bound(b"z");
-        ro.set_iterate_upper_bound(b"z");
+        ro.set_iterate_lower_bound(vec![b'z']);
+        ro.set_iterate_upper_bound(vec![b'z']);
         ro.set_iterate_range(range);
         let got = db
             .iterator_opt(mode, ro)
@@ -294,14 +294,14 @@ fn test_iter_range() {
         where
             R: rocksdb::IterateBounds + Clone,
         {
-            test(&db, IteratorMode::Start, range.clone(), want.clone(), false);
-            test(&db, IteratorMode::End, range, want, true);
+            test(db, IteratorMode::Start, range.clone(), want.clone(), false);
+            test(db, IteratorMode::End, range, want, true);
         }
 
         check(&db, .., 0..12);
-        check(&db, b"b1".., 7..12);
-        check(&db, ..b"b1", 0..7);
-        check(&db, b"a1"..b"b1", 1..7);
+        check(&db, "b1".as_bytes().., 7..12);
+        check(&db, .."b1".as_bytes(), 0..7);
+        check(&db, "a1".as_bytes().."b1".as_bytes(), 1..7);
 
         check(&db, prefix(b""), 0..12);
         check(&db, prefix(b"a"), 0..6);
@@ -317,16 +317,16 @@ fn test_iter_range() {
             R: rocksdb::IterateBounds + Clone,
         {
             let mode = IteratorMode::From(from, Direction::Forward);
-            test(&db, mode, range, want, false);
+            test(db, mode, range, want, false);
         }
 
         check(&db, b"b0", .., 6..12);
-        check(&db, b"b0", b"a2".., 6..12);
-        check(&db, b"b0", ..b"a1", 0..0);
-        check(&db, b"b0", ..b"b0", 0..0);
-        check(&db, b"b0", ..b"b1", 6..7);
-        check(&db, b"b0", b"a1"..b"b0", 0..0);
-        check(&db, b"b0", b"a1"..b"b1", 6..7);
+        check(&db, b"b0", "a2".as_bytes().., 6..12);
+        check(&db, b"b0", .."a1".as_bytes(), 0..0);
+        check(&db, b"b0", .."b0".as_bytes(), 0..0);
+        check(&db, b"b0", .."b1".as_bytes(), 6..7);
+        check(&db, b"b0", "a1".as_bytes().."b0".as_bytes(), 0..0);
+        check(&db, b"b0", "a1".as_bytes().."b1".as_bytes(), 6..7);
 
         check(&db, b"b0", prefix(b""), 6..12);
         check(&db, b"a1", prefix(b"a"), 1..6);
@@ -345,16 +345,16 @@ fn test_iter_range() {
             R: rocksdb::IterateBounds + Clone,
         {
             let mode = IteratorMode::From(from, Direction::Reverse);
-            test(&db, mode, range, want, true);
+            test(db, mode, range, want, true);
         }
 
         check(&db, b"b0", .., 0..7);
-        check(&db, b"b0", b"a2".., 3..7);
-        check(&db, b"b0", ..b"a1", 0..1);
-        check(&db, b"b0", ..b"b0", 0..6);
-        check(&db, b"b0", ..b"b1", 0..7);
-        check(&db, b"b0", b"a1"..b"b0", 1..6);
-        check(&db, b"b0", b"a1"..b"b1", 1..7);
+        check(&db, b"b0", "a2".as_bytes().., 3..7);
+        check(&db, b"b0", .."a1".as_bytes(), 0..1);
+        check(&db, b"b0", .."b0".as_bytes(), 0..6);
+        check(&db, b"b0", .."b1".as_bytes(), 0..7);
+        check(&db, b"b0", "a1".as_bytes().."b0".as_bytes(), 1..6);
+        check(&db, b"b0", "a1".as_bytes().."b1".as_bytes(), 1..7);
 
         check(&db, b"b0", prefix(b""), 0..7);
         check(&db, b"a1", prefix(b"a"), 0..2);

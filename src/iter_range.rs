@@ -95,14 +95,11 @@ fn next_prefix(prefix: &[u8]) -> Option<Vec<u8>> {
 fn test_prefix_range() {
     fn test(start: &[u8], end: Option<&[u8]>) {
         let got = PrefixRange(start).into_bounds();
-        let got = (
-            got.0.as_ref().map(Vec::as_slice),
-            got.1.as_ref().map(Vec::as_slice),
-        );
-        assert_eq!((Some(start), end), got)
+        assert_eq!((Some(start), end), (got.0.as_deref(), got.1.as_deref()));
     }
 
-    assert_eq!((None, None), PrefixRange(b"").into_bounds());
+    let empty: &[u8] = &[];
+    assert_eq!((None, None), PrefixRange(empty).into_bounds());
     test(b"\xff", None);
     test(b"\xff\xff\xff\xff", None);
     test(b"a", Some(b"b"));
