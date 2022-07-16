@@ -72,10 +72,10 @@ pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
     inner: std::ptr::NonNull<ffi::rocksdb_iterator_t>,
 
-    /// When iterate_upper_bound is set, the inner C iterator keeps a pointer to the upper bound
-    /// inside `_readopts`. Storing this makes sure the upper bound is always alive when the
-    /// iterator is being used.
-    _readopts: ReadOptions,
+    /// When iterate_upper_bound or iterate_lower_bound is set, the inner
+    /// C iterator keeps a pointer to the bounds.  We need to hold onto those
+    /// slices or else C iterator ends up reading freed memory.
+    _bounds: (Option<Vec<u8>>, Option<Vec<u8>>),
 
     db: PhantomData<&'a D>,
 }
@@ -96,15 +96,17 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         Self::from_inner(inner, readopts)
     }
 
-    fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
+    fn from_inner(inner: *mut ffi::rocksdb_iterator_t, mut readopts: ReadOptions) -> Self {
         // This unwrap will never fail since rocksdb_create_iterator and
         // rocksdb_create_iterator_cf functions always return non-null.  They
         // use new and deference the result so any nulls would end up in SIGSEGV
         // there and we have bigger issue.
         let inner = std::ptr::NonNull::new(inner).unwrap();
+        let lower = readopts.iterate_lower_bound.take();
+        let upper = readopts.iterate_upper_bound.take();
         Self {
             inner,
-            _readopts: readopts,
+            _bounds: (lower, upper),
             db: PhantomData,
         }
     }
