@@ -20,6 +20,7 @@ use crate::{
     db_options::OptionsMustOutliveDB,
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
+    metadata::ColumnFamilyMetaData,
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
@@ -188,6 +189,8 @@ pub trait DBAccess {
     where
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>;
+
+    fn get_column_family_metadata_cf(&self, cf: &impl AsColumnFamilyRef) -> ColumnFamilyMetaData;
 }
 
 impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
@@ -266,6 +269,13 @@ impl<T: ThreadMode> DBAccess for DBWithThreadMode<T> {
         I: IntoIterator<Item = K>,
     {
         self.batched_multi_get_cf_opt(cf, keys, sorted_input, readopts)
+    }
+
+    fn get_column_family_metadata_cf(&self, cf: &impl AsColumnFamilyRef) -> ColumnFamilyMetaData {
+        unsafe {
+            let cf_meta = ffi::rocksdb_get_column_family_metadata_cf(self.inner, cf.inner());
+            ColumnFamilyMetaData::from_c(cf_meta)
+        }
     }
 }
 
