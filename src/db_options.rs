@@ -3324,7 +3324,7 @@ impl ReadOptions {
     ///
     /// ```
     /// let mut options = rocksdb::ReadOptions::default();
-    /// options.set_iterate_range(b"xy"..b"xz");
+    /// options.set_iterate_range("xy".as_bytes().."xz".as_bytes());
     /// ```
     ///
     /// In addition, [`crate::PrefixRange`] can be used to specify a range of
@@ -3333,7 +3333,7 @@ impl ReadOptions {
     ///
     /// ```
     /// let mut options = rocksdb::ReadOptions::default();
-    /// options.set_iterate_range(rocksdb::PrefixRange(b"xy"));
+    /// options.set_iterate_range(rocksdb::PrefixRange("xy".as_bytes()));
     /// ```
     ///
     /// Note that setting range using this method is separate to using prefix
