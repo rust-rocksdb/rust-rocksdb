@@ -19,6 +19,7 @@ db/blob/blob_garbage_meter.cc
 db/blob/blob_log_format.cc
 db/blob/blob_log_sequential_reader.cc
 db/blob/blob_log_writer.cc
+db/blob/blob_source.cc
 db/blob/prefetch_buffer_collection.cc
 db/builder.cc
 db/c.cc
@@ -80,6 +81,7 @@ db/version_edit_handler.cc
 db/version_set.cc
 db/wal_edit.cc
 db/wal_manager.cc
+db/wide/wide_column_serialization.cc
 db/write_batch.cc
 db/write_batch_base.cc
 db/write_controller.cc
@@ -153,7 +155,6 @@ port/stack_trace.cc
 table/adaptive/adaptive_table_factory.cc
 table/block_based/binary_search_index_reader.cc
 table/block_based/block.cc
-table/block_based/block_based_filter_block.cc
 table/block_based/block_based_table_builder.cc
 table/block_based/block_based_table_factory.cc
 table/block_based/block_based_table_iterator.cc
