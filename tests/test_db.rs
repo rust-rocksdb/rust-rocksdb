@@ -14,7 +14,7 @@
 
 mod util;
 
-use std::{mem, sync::Arc, thread, time::Duration};
+use std::{convert::TryInto, mem, sync::Arc, thread, time::Duration};
 
 use pretty_assertions::assert_eq;
 
@@ -1266,6 +1266,77 @@ fn batched_multi_get_cf() {
         assert!(values[1].is_some());
         assert_eq!(&(values[1].as_ref().unwrap())[0..2], b"v1");
         assert_eq!(&(values[2].as_ref().unwrap())[0..2], b"v2");
+    }
+}
+
+#[test]
+fn compact_range_and_metadata() {
+    let path = DBPath::new("_compact_range_and_metadata");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, &["cf0"]).unwrap();
+        let cf = db.cf_handle("cf0").unwrap();
+        let mut compact_options = CompactOptions::default();
+        let start_keys = vec![b"aa", b"ba", b"ca", b"da", b"ea", b"fa"];
+        let end_keys = vec![b"az", b"bz", b"cz", b"dz", b"ez", b"fz"];
+        let values = vec![b"va", b"vb", b"vc", b"vd", b"ve", b"vf"];
+        let target_levels = vec![5, 4, 3, 2, 1];
+
+        // create 5 files in 5 different levels, each file with 2 keys.
+        // The resulting level struct will look like the following where
+        // each [] represents a sst file:
+        //
+        //   L0
+        //   L1  [ea..ez]
+        //   L2  [da..dz]
+        //   L3  [ca..cz]
+        //   L4  [ba..bz]
+        //   L5  [aa..az]
+        for i in 0usize..5 {
+            db.put_cf(&cf, start_keys[i], values[i]).unwrap();
+            db.put_cf(&cf, end_keys[i], values[i]).unwrap();
+            assert!(db.flush().is_ok());
+            compact_options.set_target_level(target_levels[i]);
+            compact_options.set_change_level(true);
+            db.compact_range_cf_opt(
+                cf,
+                Some(start_keys[i]),
+                Some(start_keys[i + 1]),
+                &compact_options,
+            );
+        }
+
+        // verify whether the obtained column family metadata matched
+        // the level structure we constructed.
+        let cf_meta = db.get_column_family_metadata_cf(&cf);
+        let mut non_empty_levels = 0;
+        let mut total_size = 0;
+        for level_meta in cf_meta.levels {
+            if !level_meta.files.is_empty() {
+                non_empty_levels += 1;
+                assert_eq!(level_meta.files.len(), 1);
+                for file in level_meta.files {
+                    let key_index: usize = (5 - level_meta.level).try_into().unwrap();
+                    assert_eq!(
+                        &(file.smallest_key.as_ref().unwrap())[0..2],
+                        start_keys[key_index]
+                    );
+                    assert_eq!(
+                        &(file.largest_key.as_ref().unwrap())[0..2],
+                        end_keys[key_index]
+                    );
+                    total_size += file.size;
+                    assert!(!file.name.is_empty());
+                }
+            }
+        }
+        assert_eq!(non_empty_levels, 5);
+        assert_eq!(cf_meta.file_count, 5);
+        assert_eq!(cf_meta.size, total_size);
+        assert_eq!(cf_meta.name, "cf0");
     }
 }
 
