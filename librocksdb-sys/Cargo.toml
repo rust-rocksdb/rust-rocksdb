@@ -24,7 +24,7 @@ rtti = []
 
 [dependencies]
 libc = "0.2"
-tikv-jemalloc-sys = { version = "0.4", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
+tikv-jemalloc-sys = { version = "0.5", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
 zstd-sys = { version = "2.0", features = ["zdict_builder"], optional = true }
 libz-sys = { version = "1.1", default-features = false, optional = true }
 bzip2-sys = { version = "0.1", default-features = false, optional = true }
@@ -35,5 +35,5 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
-bindgen = { version = "0.59", default-features = false, features = ["runtime"] }
+bindgen = { version = "0.60", default-features = false, features = ["runtime"] }
 glob = "0.3"
