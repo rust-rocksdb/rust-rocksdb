@@ -1508,7 +1508,7 @@ impl Options {
 
     /// By default, writes to stable storage use fdatasync (on platforms
     /// where this function is available). If this option is true,
-    /// fsync is used instead. 
+    /// fsync is used instead.
     ///
     /// fsync and fdatasync are equally safe for our purposes and fdatasync is
     /// faster, so it is rarely necessary to set this option. It is provided
