@@ -336,8 +336,8 @@ pub struct BlockBasedOptions {
 
 pub struct ReadOptions {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
-    pub(crate) iterate_upper_bound: Option<Vec<u8>>,
-    pub(crate) iterate_lower_bound: Option<Vec<u8>>,
+    iterate_upper_bound: Option<Vec<u8>>,
+    iterate_lower_bound: Option<Vec<u8>>,
 }
 
 /// Configuration of cuckoo-based storage.
