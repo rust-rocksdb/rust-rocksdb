@@ -236,3 +236,133 @@ fn test_iterator_outlive_db() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/iterator_outlive_db.rs");
 }
+
+#[test]
+fn test_iter_range() {
+    #[rustfmt::skip]
+    const ALL_KEYS: [&[u8]; 12] = [
+        /*  0 */ b"a0",
+        /*  1 */ b"a1",
+        /*  2 */ b"a11",
+        /*  3 */ b"a2",
+        /*  4 */ b"a\xff0",
+        /*  5 */ b"a\xff1",
+        /*  6 */ b"b0",
+        /*  7 */ b"b1",
+        /*  8 */ b"\xff",
+        /*  9 */ b"\xff0",
+        /* 10 */ b"\xff1",
+        /* 11 */ b"\xff2",
+    ];
+
+    let path = DBPath::new("_rust_rocksdb_iter_range_test");
+    let db = DB::open_default(&path).unwrap();
+    for key in ALL_KEYS.iter() {
+        assert!(db.put(key, key).is_ok());
+    }
+
+    fn test(
+        db: &DB,
+        mode: IteratorMode,
+        range: impl rocksdb::IterateBounds,
+        want: std::ops::Range<usize>,
+        reverse: bool,
+    ) {
+        let mut ro = rocksdb::ReadOptions::default();
+        // Set bounds to test that set_iterate_range clears old bounds.
+        ro.set_iterate_lower_bound(vec![b'z']);
+        ro.set_iterate_upper_bound(vec![b'z']);
+        ro.set_iterate_range(range);
+        let got = db
+            .iterator_opt(mode, ro)
+            .map(|(key, _value)| key)
+            .collect::<Vec<_>>();
+        let mut got = got.iter().map(Box::as_ref).collect::<Vec<_>>();
+        if reverse {
+            got.reverse();
+        }
+        assert_eq!(&ALL_KEYS[want], got);
+    }
+
+    fn prefix(key: &[u8]) -> rocksdb::PrefixRange<&[u8]> {
+        rocksdb::PrefixRange(key)
+    }
+
+    // Test Start and End modes
+    {
+        fn check<R>(db: &DB, range: R, want: std::ops::Range<usize>)
+        where
+            R: rocksdb::IterateBounds + Clone,
+        {
+            test(db, IteratorMode::Start, range.clone(), want.clone(), false);
+            test(db, IteratorMode::End, range, want, true);
+        }
+
+        check(&db, .., 0..12);
+        check(&db, "b1".as_bytes().., 7..12);
+        check(&db, .."b1".as_bytes(), 0..7);
+        check(&db, "a1".as_bytes().."b1".as_bytes(), 1..7);
+
+        check(&db, prefix(b""), 0..12);
+        check(&db, prefix(b"a"), 0..6);
+        check(&db, prefix(b"a1"), 1..3);
+        check(&db, prefix(b"a\xff"), 4..6);
+        check(&db, prefix(b"\xff"), 8..12);
+    }
+
+    // Test From mode with Forward direction
+    {
+        fn check<R>(db: &DB, from: &[u8], range: R, want: std::ops::Range<usize>)
+        where
+            R: rocksdb::IterateBounds + Clone,
+        {
+            let mode = IteratorMode::From(from, Direction::Forward);
+            test(db, mode, range, want, false);
+        }
+
+        check(&db, b"b0", .., 6..12);
+        check(&db, b"b0", "a2".as_bytes().., 6..12);
+        check(&db, b"b0", .."a1".as_bytes(), 0..0);
+        check(&db, b"b0", .."b0".as_bytes(), 0..0);
+        check(&db, b"b0", .."b1".as_bytes(), 6..7);
+        check(&db, b"b0", "a1".as_bytes().."b0".as_bytes(), 0..0);
+        check(&db, b"b0", "a1".as_bytes().."b1".as_bytes(), 6..7);
+
+        check(&db, b"b0", prefix(b""), 6..12);
+        check(&db, b"a1", prefix(b"a"), 1..6);
+        check(&db, b"b0", prefix(b"a"), 0..0);
+        check(&db, b"a1", prefix(b"a1"), 1..3);
+        check(&db, b"b0", prefix(b"a1"), 0..0);
+        check(&db, b"a1", prefix(b"a\xff"), 4..6);
+        check(&db, b"b0", prefix(b"a\xff"), 0..0);
+        check(&db, b"b0", prefix(b"\xff"), 8..12);
+    }
+
+    // Test From mode with Reverse direction
+    {
+        fn check<R>(db: &DB, from: &[u8], range: R, want: std::ops::Range<usize>)
+        where
+            R: rocksdb::IterateBounds + Clone,
+        {
+            let mode = IteratorMode::From(from, Direction::Reverse);
+            test(db, mode, range, want, true);
+        }
+
+        check(&db, b"b0", .., 0..7);
+        check(&db, b"b0", "a2".as_bytes().., 3..7);
+        check(&db, b"b0", .."a1".as_bytes(), 0..1);
+        check(&db, b"b0", .."b0".as_bytes(), 0..6);
+        check(&db, b"b0", .."b1".as_bytes(), 0..7);
+        check(&db, b"b0", "a1".as_bytes().."b0".as_bytes(), 1..6);
+        check(&db, b"b0", "a1".as_bytes().."b1".as_bytes(), 1..7);
+
+        check(&db, b"b0", prefix(b""), 0..7);
+        check(&db, b"a1", prefix(b"a"), 0..2);
+        check(&db, b"b0", prefix(b"a"), 0..6);
+        check(&db, b"a1", prefix(b"a1"), 1..2);
+        check(&db, b"b0", prefix(b"a1"), 1..3);
+        check(&db, b"a1", prefix(b"a\xff"), 0..0);
+        check(&db, b"b0", prefix(b"a\xff"), 4..6);
+        check(&db, b"b0", prefix(b"\xff"), 0..0);
+    }
+}

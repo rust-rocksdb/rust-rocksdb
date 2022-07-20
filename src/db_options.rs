@@ -3302,38 +3302,83 @@ impl ReadOptions {
         }
     }
 
+    /// Sets the lower bound for an iterator.
+    pub fn set_iterate_lower_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
+        self.set_lower_bound_impl(Some(key.into()));
+    }
+
     /// Sets the upper bound for an iterator.
     /// The upper bound itself is not included on the iteration result.
     pub fn set_iterate_upper_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
-        self.iterate_upper_bound = Some(key.into());
-        let upper_bound = self
-            .iterate_upper_bound
-            .as_ref()
-            .expect("iterate_upper_bound must exist.");
+        self.set_upper_bound_impl(Some(key.into()));
+    }
 
+    /// Sets lower and upper bounds based on the provided range.  This is
+    /// similar to setting lower and upper bounds separately except that it also
+    /// allows either bound to be reset.
+    ///
+    /// The argument can be a regular Rust range, e.g. `lower..upper`.  However,
+    /// since RocksDB upper bound is always excluded (i.e. range can never be
+    /// fully closed) inclusive ranges (`lower..=upper` and `..=upper`) are not
+    /// supported.  For example:
+    ///
+    /// ```
+    /// let mut options = rocksdb::ReadOptions::default();
+    /// options.set_iterate_range("xy".as_bytes().."xz".as_bytes());
+    /// ```
+    ///
+    /// In addition, [`crate::PrefixRange`] can be used to specify a range of
+    /// keys with a given prefix.  In particular, the above example is
+    /// equivalent to:
+    ///
+    /// ```
+    /// let mut options = rocksdb::ReadOptions::default();
+    /// options.set_iterate_range(rocksdb::PrefixRange("xy".as_bytes()));
+    /// ```
+    ///
+    /// Note that setting range using this method is separate to using prefix
+    /// iterators.  Prefix iterators use prefix extractor configured for
+    /// a column family.  Setting bounds via [`crate::PrefixRange`] is more akin
+    /// to using manual prefix.
+    ///
+    /// Using this method clears any previously set bounds.  In other words, the
+    /// bounds can be reset by setting the range to `..` as in:
+    ///
+    /// ```
+    /// let mut options = rocksdb::ReadOptions::default();
+    /// options.set_iterate_range(..);
+    /// ```
+    pub fn set_iterate_range(&mut self, range: impl crate::IterateBounds) {
+        let (lower, upper) = range.into_bounds();
+        self.set_lower_bound_impl(lower);
+        self.set_upper_bound_impl(upper);
+    }
+
+    fn set_lower_bound_impl(&mut self, bound: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref bound) = bound {
+            (bound.as_ptr() as *const c_char, bound.len())
+        } else if self.iterate_lower_bound.is_some() {
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.iterate_lower_bound = bound;
         unsafe {
-            ffi::rocksdb_readoptions_set_iterate_upper_bound(
-                self.inner,
-                upper_bound.as_ptr() as *const c_char,
-                upper_bound.len() as size_t,
-            );
+            ffi::rocksdb_readoptions_set_iterate_lower_bound(self.inner, ptr, len);
         }
     }
 
-    /// Sets the lower bound for an iterator.
-    pub fn set_iterate_lower_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
-        self.iterate_lower_bound = Some(key.into());
-        let lower_bound = self
-            .iterate_lower_bound
-            .as_ref()
-            .expect("iterate_lower_bound must exist.");
-
+    fn set_upper_bound_impl(&mut self, bound: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref bound) = bound {
+            (bound.as_ptr() as *const c_char, bound.len())
+        } else if self.iterate_upper_bound.is_some() {
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.iterate_upper_bound = bound;
         unsafe {
-            ffi::rocksdb_readoptions_set_iterate_lower_bound(
-                self.inner,
-                lower_bound.as_ptr() as *const c_char,
-                lower_bound.len() as size_t,
-            );
+            ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner, ptr, len);
         }
     }
 
