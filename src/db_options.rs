@@ -1506,10 +1506,14 @@ impl Options {
         }
     }
 
-    /// If true, then every store to stable storage will issue a fsync.
-    /// If false, then every store to stable storage will issue a fdatasync.
-    /// This parameter should be set to true while storing data to
-    /// filesystem like ext3 that can lose files after a reboot.
+    /// By default, writes to stable storage use fdatasync (on platforms
+    /// where this function is available). If this option is true,
+    /// fsync is used instead.
+    ///
+    /// fsync and fdatasync are equally safe for our purposes and fdatasync is
+    /// faster, so it is rarely necessary to set this option. It is provided
+    /// as a workaround for kernel/filesystem bugs, such as one that affected
+    /// fdatasync with ext4 in kernel versions prior to 3.7.
     ///
     /// Default: `false`
     ///
