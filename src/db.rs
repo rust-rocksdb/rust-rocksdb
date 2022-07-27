@@ -125,8 +125,8 @@ pub trait DBInner {
 /// and [`OptimisticTransactionDB`].
 ///
 /// [`OptimisticTransactionDB`]: crate::OptimisticTransactionDB
-pub struct DBCommon<T: ThreadMode, I: DBInner> {
-    pub(crate) inner: I,
+pub struct DBCommon<T: ThreadMode, D: DBInner> {
+    pub(crate) inner: D,
     cfs: T, // Column families are held differently depending on thread mode
     path: PathBuf,
     _outlive: Vec<OptionsMustOutliveDB>,
@@ -191,20 +191,9 @@ pub trait DBAccess {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef + 'b;
-
-    fn batched_multi_get_cf_opt<K, I>(
-        &self,
-        cf: &impl AsColumnFamilyRef,
-        keys: I,
-        sorted_input: bool,
-        readopts: &ReadOptions,
-    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
-    where
-        K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>;
 }
 
-impl<T: ThreadMode, I: DBInner> DBAccess for DBCommon<T, I> {
+impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
     unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         ffi::rocksdb_create_snapshot(self.inner.inner())
     }
@@ -282,20 +271,6 @@ impl<T: ThreadMode, I: DBInner> DBAccess for DBCommon<T, I> {
         W: AsColumnFamilyRef + 'b,
     {
         self.multi_get_cf_opt(keys_cf, readopts)
-    }
-
-    fn batched_multi_get_cf_opt<K, I>(
-        &self,
-        cf: &impl AsColumnFamilyRef,
-        keys: I,
-        sorted_input: bool,
-        readopts: &ReadOptions,
-    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
-    where
-        K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>,
-    {
-        self.batched_multi_get_cf_opt(cf, keys, sorted_input, readopts)
     }
 }
 
@@ -833,13 +808,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 }
 
 /// Common methods of `DBWithThreadMode` and `OptimisticTransactionDB`.
-impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
-    pub(crate) fn new(
-        inner: Inner,
-        cfs: T,
-        path: PathBuf,
-        outlive: Vec<OptionsMustOutliveDB>,
-    ) -> Self {
+impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
+    pub(crate) fn new(inner: D, cfs: T, path: PathBuf, outlive: Vec<OptionsMustOutliveDB>) -> Self {
         Self {
             inner,
             cfs,
@@ -1203,7 +1173,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
 
         unsafe {
             ffi::rocksdb_batched_multi_get_cf(
-                self.inner,
+                self.inner.inner(),
                 readopts.inner,
                 cf.inner(),
                 ptr_keys.len(),
@@ -1775,7 +1745,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     pub fn property_value(&self, name: impl CStrLike) -> Result<Option<String>, Error> {
         Self::property_value_impl(
             name,
-            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
+            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner.inner(), prop_name) },
             |str_value| Ok(str_value.to_owned()),
         )
     }
@@ -1814,7 +1784,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     pub fn property_int_value(&self, name: impl CStrLike) -> Result<Option<u64>, Error> {
         Self::property_value_impl(
             name,
-            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner, prop_name) },
+            |prop_name| unsafe { ffi::rocksdb_property_value(self.inner.inner(), prop_name) },
             Self::parse_property_int_value,
         )
     }
@@ -1831,7 +1801,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
         Self::property_value_impl(
             name,
             |prop_name| unsafe {
-                ffi::rocksdb_property_value_cf(self.inner, cf.inner(), prop_name)
+                ffi::rocksdb_property_value_cf(self.inner.inner(), cf.inner(), prop_name)
             },
             Self::parse_property_int_value,
         )

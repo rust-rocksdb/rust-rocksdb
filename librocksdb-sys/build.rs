@@ -25,9 +25,16 @@ fn fail_on_empty_directory(name: &str) {
     }
 }
 
+fn rocksdb_include_dir() -> String {
+    match env::var("ROCKSDB_INCLUDE_DIR") {
+        Ok(val) => val,
+        Err(_) => "rocksdb/include".to_string(),
+    }
+}
+
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
-        .header("rocksdb-c.h")
+        .header(rocksdb_include_dir() + "/rocksdb/c.h")
         .derive_debug(false)
         .blocklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
@@ -91,20 +98,8 @@ fn build_rocksdb() {
         .trim()
         .split('\n')
         .map(str::trim)
-        .collect::<Vec<&'static str>>();
-
-    // We have a pregenerated a version of build_version.cc in the local directory
-    lib_sources = lib_sources
-        .iter()
-        .cloned()
-        .filter(|&file| file != "util/build_version.cc")
-        .collect::<Vec<&'static str>>();
-
-    // We has rocksdb-c.cc
-    lib_sources = lib_sources
-        .iter()
-        .cloned()
-        .filter(|&file| file != "db/c.cc")
+        // We have a pre-generated a version of build_version.cc in the local directory
+        .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
 
     if target.contains("x86_64") {
@@ -141,10 +136,6 @@ fn build_rocksdb() {
             config.define("HAVE_PCLMUL", Some("1"));
             config.flag_if_supported("-mpclmul");
         }
-    }
-
-    if target.contains("aarch64") {
-        lib_sources.push("util/crc32c_arm64.cc")
     }
 
     if target.contains("apple-ios") {
@@ -248,12 +239,10 @@ fn build_rocksdb() {
     }
 
     for file in lib_sources {
-        let file = "rocksdb/".to_string() + file;
-        config.file(&file);
+        config.file(&format!("rocksdb/{file}"));
     }
 
     config.file("build_version.cc");
-    config.file("rocksdb-c.cc");
 
     config.cpp(true);
     config.flag_if_supported("-std=c++17");
@@ -366,8 +355,6 @@ fn main() {
 
     if !try_to_find_and_link_lib("ROCKSDB") {
         println!("cargo:rerun-if-changed=rocksdb/");
-        println!("cargo:rerun-if-changed=rocksdb-c.h");
-        println!("cargo:rerun-if-changed=rocksdb-c.cc");
         fail_on_empty_directory("rocksdb");
         build_rocksdb();
     } else {
