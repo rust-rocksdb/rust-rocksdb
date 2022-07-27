@@ -17,7 +17,7 @@
 //!
 //! [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
 
-use crate::db::DBInner;
+use crate::{DBCommon, ThreadMode, db::DBInner};
 use crate::{ffi, Error, DB};
 use std::ffi::CString;
 use std::marker::PhantomData;
@@ -38,7 +38,7 @@ impl<'db> Checkpoint<'db> {
     ///
     /// Does not actually produce checkpoints, call `.create_checkpoint()` method to produce
     /// a DB checkpoint.
-    pub fn new(db: &'db DB) -> Result<Self, Error> {
+    pub fn new<T: ThreadMode, I: DBInner>(db: &'db DBCommon<T, I>) -> Result<Self, Error> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
         unsafe {
