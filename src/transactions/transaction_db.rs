@@ -20,18 +20,23 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
     ptr,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
-    column_family::UnboundColumnFamily, db::DBAccess, db_options::OptionsMustOutliveDB, ffi,
-    ffi_util::to_cpath, AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
-    DBIteratorWithThreadMode, DBRawIteratorWithThreadMode, Direction, Error, IteratorMode,
-    MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode, ThreadMode,
-    Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction, WriteOptions,
-    DB, DEFAULT_COLUMN_FAMILY_NAME,
+    column_family::UnboundColumnFamily,
+    db::{convert_values, DBAccess},
+    db_options::OptionsMustOutliveDB,
+    ffi,
+    ffi_util::to_cpath,
+    AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
+    DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode, Direction, Error,
+    IteratorMode, MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode,
+    ThreadMode, Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction,
+    WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
-use libc::{c_char, c_int, size_t};
+use ffi::rocksdb_transaction_t;
+use libc::{c_char, c_int, c_void, size_t};
 
 #[cfg(not(feature = "multi-threaded-cf"))]
 type DefaultThreadMode = crate::SingleThreaded;
@@ -67,6 +72,8 @@ pub struct TransactionDB<T: ThreadMode = DefaultThreadMode> {
     pub(crate) inner: *mut ffi::rocksdb_transactiondb_t,
     cfs: T,
     path: PathBuf,
+    // prepared 2pc transactions.
+    prepared: Mutex<Vec<*mut rocksdb_transaction_t>>,
     _outlive: Vec<OptionsMustOutliveDB>,
 }
 
@@ -74,28 +81,24 @@ unsafe impl<T: ThreadMode> Send for TransactionDB<T> {}
 unsafe impl<T: ThreadMode> Sync for TransactionDB<T> {}
 
 impl<T: ThreadMode> DBAccess for TransactionDB<T> {
-    fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
-        unsafe { ffi::rocksdb_transactiondb_create_snapshot(self.inner) }
+    unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
+        ffi::rocksdb_transactiondb_create_snapshot(self.inner)
     }
 
-    fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
-        unsafe {
-            ffi::rocksdb_transactiondb_release_snapshot(self.inner, snapshot);
-        }
+    unsafe fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
+        ffi::rocksdb_transactiondb_release_snapshot(self.inner, snapshot);
     }
 
-    fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        unsafe { ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.inner) }
+    unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
+        ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.inner)
     }
 
-    fn create_iterator_cf(
+    unsafe fn create_iterator_cf(
         &self,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        unsafe {
-            ffi::rocksdb_transactiondb_create_iterator_cf(self.inner, readopts.inner, cf_handle)
-        }
+        ffi::rocksdb_transactiondb_create_iterator_cf(self.inner, readopts.inner, cf_handle)
     }
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -113,6 +116,48 @@ impl<T: ThreadMode> DBAccess for TransactionDB<T> {
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
         self.get_cf_opt(cf, key, readopts)
+    }
+
+    fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_opt(key, readopts)
+    }
+
+    fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_cf_opt(cf, key, readopts)
+    }
+
+    fn multi_get_opt<K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_opt(keys, readopts)
+    }
+
+    fn multi_get_cf_opt<'b, K, I, W>(
+        &self,
+        keys_cf: I,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef + 'b,
+    {
+        self.multi_get_cf_opt(keys_cf, readopts)
     }
 }
 
@@ -252,10 +297,22 @@ impl<T: ThreadMode> TransactionDB<T> {
             return Err(Error::new("Could not initialize database.".to_owned()));
         }
 
+        let prepared = unsafe {
+            let mut cnt = 0;
+            let ptr = ffi::rocksdb_transactiondb_get_prepared_transactions(db, &mut cnt);
+            let mut vec = vec![std::ptr::null_mut(); cnt];
+            std::ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), cnt);
+            if !ptr.is_null() {
+                ffi::rocksdb_free(ptr as *mut c_void);
+            }
+            vec
+        };
+
         Ok(TransactionDB {
             inner: db,
             cfs: T::new_cf_map_internal(cf_map),
             path: path.as_ref().to_path_buf(),
+            prepared: Mutex::new(prepared),
             _outlive: outlive,
         })
     }
@@ -282,7 +339,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         cfs_v: &[ColumnFamilyDescriptor],
         cfnames: &[*const c_char],
         cfopts: &[*const ffi::rocksdb_options_t],
-        cfhandles: &mut Vec<*mut ffi::rocksdb_column_family_handle_t>,
+        cfhandles: &mut [*mut ffi::rocksdb_column_family_handle_t],
     ) -> Result<*mut ffi::rocksdb_transactiondb_t, Error> {
         unsafe {
             let db = ffi_try!(ffi::rocksdb_transactiondb_open_column_families(
@@ -359,9 +416,25 @@ impl<T: ThreadMode> TransactionDB<T> {
         }
     }
 
+    /// Get all prepared transactions for recovery.
+    ///
+    /// This function is expected to call once after open database.
+    /// User should commit or rollback all transactions before start other transactions.
+    pub fn prepared_transactions(&self) -> Vec<Transaction<Self>> {
+        self.prepared
+            .lock()
+            .unwrap()
+            .drain(0..)
+            .map(|inner| Transaction {
+                inner,
+                _marker: PhantomData::default(),
+            })
+            .collect()
+    }
+
     /// Returns the bytes associated with a key value.
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<Vec<u8>>, Error> {
-        self.get_opt(key, &ReadOptions::default())
+        self.get_pinned(key).map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Returns the bytes associated with a key value and the given column family.
@@ -370,7 +443,8 @@ impl<T: ThreadMode> TransactionDB<T> {
         cf: &impl AsColumnFamilyRef,
         key: K,
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_cf_opt(cf, key, &ReadOptions::default())
+        self.get_pinned_cf(cf, key)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Returns the bytes associated with a key value with read options.
@@ -379,22 +453,8 @@ impl<T: ThreadMode> TransactionDB<T> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
-        unsafe {
-            let mut val_len: usize = 0;
-            let val_ptr = ffi_try!(ffi::rocksdb_transactiondb_get(
-                self.inner,
-                readopts.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
-                &mut val_len,
-            ));
-            if val_ptr.is_null() {
-                Ok(None)
-            } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
-            }
-        }
+        self.get_pinned_opt(key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
 
     /// Returns the bytes associated with a key value and the given column family with read options.
@@ -404,23 +464,167 @@ impl<T: ThreadMode> TransactionDB<T> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        self.get_pinned_cf_opt(cf, key, readopts)
+            .map(|x| x.map(|v| v.as_ref().to_vec()))
+    }
+
+    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_opt(key, &ReadOptions::default())
+    }
+
+    /// Returns the bytes associated with a key value and the given column family.
+    pub fn get_pinned_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
+    }
+
+    /// Returns the bytes associated with a key value with read options.
+    pub fn get_pinned_opt<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        let key = key.as_ref();
         unsafe {
-            let mut val_len: usize = 0;
-            let val_ptr = ffi_try!(ffi::rocksdb_transactiondb_get_cf(
+            let val = ffi_try!(ffi::rocksdb_transactiondb_get_pinned(
+                self.inner,
+                readopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            ));
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBPinnableSlice::from_c(val)))
+            }
+        }
+    }
+
+    /// Returns the bytes associated with a key value and the given column family with read options.
+    pub fn get_pinned_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error> {
+        unsafe {
+            let val = ffi_try!(ffi::rocksdb_transactiondb_get_pinned_cf(
                 self.inner,
                 readopts.inner,
                 cf.inner(),
                 key.as_ref().as_ptr() as *const c_char,
                 key.as_ref().len() as size_t,
-                &mut val_len,
             ));
-            if val_ptr.is_null() {
+            if val.is_null() {
                 Ok(None)
             } else {
-                let val = Vec::from_raw_parts(val_ptr as *mut u8, val_len, val_len);
-                Ok(Some(val))
+                Ok(Some(DBPinnableSlice::from_c(val)))
             }
         }
+    }
+
+    /// Return the values associated with the given keys.
+    pub fn multi_get<K, I>(&self, keys: I) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        self.multi_get_opt(keys, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys using read options.
+    pub fn multi_get_opt<K, I>(
+        &self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = K>,
+    {
+        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+            .into_iter()
+            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+
+        let mut values = vec![ptr::null_mut(); keys.len()];
+        let mut values_sizes = vec![0_usize; keys.len()];
+        let mut errors = vec![ptr::null_mut(); keys.len()];
+        unsafe {
+            ffi::rocksdb_transactiondb_multi_get(
+                self.inner,
+                readopts.inner,
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+                errors.as_mut_ptr(),
+            );
+        }
+
+        convert_values(values, values_sizes, errors)
+    }
+
+    /// Return the values associated with the given keys and column families.
+    pub fn multi_get_cf<'a, 'b: 'a, K, I, W: 'b>(
+        &'a self,
+        keys: I,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef,
+    {
+        self.multi_get_cf_opt(keys, &ReadOptions::default())
+    }
+
+    /// Return the values associated with the given keys and column families using read options.
+    pub fn multi_get_cf_opt<'a, 'b: 'a, K, I, W: 'b>(
+        &'a self,
+        keys: I,
+        readopts: &ReadOptions,
+    ) -> Vec<Result<Option<Vec<u8>>, Error>>
+    where
+        K: AsRef<[u8]>,
+        I: IntoIterator<Item = (&'b W, K)>,
+        W: AsColumnFamilyRef,
+    {
+        let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
+            .into_iter()
+            .map(|(cf, key)| ((cf, Box::from(key.as_ref())), key.as_ref().len()))
+            .unzip();
+        let ptr_keys: Vec<_> = cfs_and_keys
+            .iter()
+            .map(|(_, k)| k.as_ptr() as *const c_char)
+            .collect();
+        let ptr_cfs: Vec<_> = cfs_and_keys
+            .iter()
+            .map(|(c, _)| c.inner() as *const _)
+            .collect();
+
+        let mut values = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut values_sizes = vec![0_usize; ptr_keys.len()];
+        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
+        unsafe {
+            ffi::rocksdb_transactiondb_multi_get_cf(
+                self.inner,
+                readopts.inner,
+                ptr_cfs.as_ptr(),
+                ptr_keys.len(),
+                ptr_keys.as_ptr(),
+                keys_sizes.as_ptr(),
+                values.as_mut_ptr(),
+                values_sizes.as_mut_ptr(),
+                errors.as_mut_ptr(),
+            );
+        }
+
+        convert_values(values, values_sizes, errors)
     }
 
     pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
@@ -771,6 +975,7 @@ impl TransactionDB<MultiThreaded> {
 impl<T: ThreadMode> Drop for TransactionDB<T> {
     fn drop(&mut self) {
         unsafe {
+            self.prepared_transactions().clear();
             self.cfs.drop_all_cfs_internal();
             ffi::rocksdb_transactiondb_close(self.inner);
         }

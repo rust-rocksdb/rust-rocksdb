@@ -16,9 +16,9 @@
 mod util;
 
 use rocksdb::{
-    CuckooTableOptions, Direction, Error, ErrorKind, IteratorMode, OptimisticTransactionDB,
-    OptimisticTransactionOptions, Options, ReadOptions, SingleThreaded, SliceTransform,
-    SnapshotWithThreadMode, WriteBatchWithTransaction, WriteOptions, DB,
+    CuckooTableOptions, DBAccess, Direction, Error, ErrorKind, IteratorMode,
+    OptimisticTransactionDB, OptimisticTransactionOptions, Options, ReadOptions, SingleThreaded,
+    SliceTransform, SnapshotWithThreadMode, WriteBatchWithTransaction, WriteOptions, DB,
 };
 use util::DBPath;
 
@@ -67,6 +67,120 @@ fn open_cf() {
         assert!(db.get_cf(&cf2, b"k0").unwrap().is_none());
         assert!(db.get_cf(&cf2, b"k1").unwrap().is_none());
         assert_eq!(db.get_cf(&cf2, b"k2").unwrap().unwrap(), b"v2");
+    }
+}
+
+#[test]
+fn multi_get() {
+    let path = DBPath::new("_rust_rocksdb_multi_get");
+
+    {
+        let db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(&path).unwrap();
+        let initial_snap = db.snapshot();
+        db.put(b"k1", b"v1").unwrap();
+        let k1_snap = db.snapshot();
+        db.put(b"k2", b"v2").unwrap();
+
+        let _ = db.multi_get(&[b"k0"; 40]);
+
+        let assert_values = |values: Vec<_>| {
+            assert_eq!(3, values.len());
+            assert_eq!(values[0], None);
+            assert_eq!(values[1], Some(b"v1".to_vec()));
+            assert_eq!(values[2], Some(b"v2".to_vec()));
+        };
+
+        let values = db
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+
+        let values = DBAccess::multi_get_opt(&db, &[b"k0", b"k1", b"k2"], &Default::default())
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+
+        let values = db
+            .snapshot()
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+
+        let none_values = initial_snap
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_eq!(none_values, vec![None; 3]);
+
+        let k1_only = k1_snap
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_eq!(k1_only, vec![None, Some(b"v1".to_vec()), None]);
+
+        let txn = db.transaction();
+        let values = txn
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+    }
+}
+
+#[test]
+fn multi_get_cf() {
+    let path = DBPath::new("_rust_rocksdb_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db: OptimisticTransactionDB =
+            OptimisticTransactionDB::open_cf(&opts, &path, &["cf0", "cf1", "cf2"]).unwrap();
+
+        let cf0 = db.cf_handle("cf0").unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(&cf2, b"k2", b"v2").unwrap();
+
+        let values = db
+            .multi_get_cf(vec![(&cf0, b"k0"), (&cf1, b"k1"), (&cf2, b"k2")])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        assert_eq!(3, values.len());
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
+
+        let txn = db.transaction();
+        let values = txn
+            .multi_get_cf(vec![(&cf0, b"k0"), (&cf1, b"k1"), (&cf2, b"k2")])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_eq!(3, values.len());
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
     }
 }
 

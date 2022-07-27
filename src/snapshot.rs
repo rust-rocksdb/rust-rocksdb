@@ -44,7 +44,7 @@ pub struct SnapshotWithThreadMode<'a, D: DBAccess> {
 impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
     /// Creates a new `SnapshotWithThreadMode` of the database `db`.
     pub fn new(db: &'a D) -> Self {
-        let snapshot = db.create_snapshot();
+        let snapshot = unsafe { db.create_snapshot() };
         Self {
             db,
             inner: snapshot,
@@ -257,7 +257,9 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
 
 impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {
     fn drop(&mut self) {
-        self.db.release_snapshot(self.inner);
+        unsafe {
+            self.db.release_snapshot(self.inner);
+        }
     }
 }
 

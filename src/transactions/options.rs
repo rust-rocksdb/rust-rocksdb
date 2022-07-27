@@ -13,11 +13,8 @@
 // limitations under the License.
 //
 
-use core::panic;
-
-use libc::c_uchar;
-
 use crate::ffi;
+use core::panic;
 
 pub struct TransactionOptions {
     pub(crate) inner: *mut ffi::rocksdb_transaction_options_t,
@@ -29,9 +26,10 @@ unsafe impl Sync for TransactionOptions {}
 impl Default for TransactionOptions {
     fn default() -> Self {
         let txn_opts = unsafe { ffi::rocksdb_transaction_options_create() };
-        if txn_opts.is_null() {
-            panic!("Could not create RocksDB transaction options");
-        }
+        assert!(
+            !txn_opts.is_null(),
+            "Could not create RocksDB transaction options"
+        );
         Self { inner: txn_opts }
     }
 }
@@ -39,6 +37,12 @@ impl Default for TransactionOptions {
 impl TransactionOptions {
     pub fn new() -> TransactionOptions {
         TransactionOptions::default()
+    }
+
+    pub fn set_skip_prepare(&mut self, skip_prepare: bool) {
+        unsafe {
+            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, u8::from(skip_prepare));
+        }
     }
 
     /// Specifies use snapshot or not.
@@ -61,7 +65,7 @@ impl TransactionOptions {
     /// methods.
     pub fn set_snapshot(&mut self, snapshot: bool) {
         unsafe {
-            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, snapshot as c_uchar);
+            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, u8::from(snapshot));
         }
     }
 
@@ -76,7 +80,7 @@ impl TransactionOptions {
         unsafe {
             ffi::rocksdb_transaction_options_set_deadlock_detect(
                 self.inner,
-                deadlock_detect as c_uchar,
+                u8::from(deadlock_detect),
             );
         }
     }
@@ -143,9 +147,10 @@ unsafe impl Sync for TransactionDBOptions {}
 impl Default for TransactionDBOptions {
     fn default() -> Self {
         let txn_db_opts = unsafe { ffi::rocksdb_transactiondb_options_create() };
-        if txn_db_opts.is_null() {
-            panic!("Could not create RocksDB transactiondb options");
-        }
+        assert!(
+            !txn_db_opts.is_null(),
+            "Could not create RocksDB transactiondb options"
+        );
         Self { inner: txn_db_opts }
     }
 }
@@ -242,9 +247,10 @@ unsafe impl Sync for OptimisticTransactionOptions {}
 impl Default for OptimisticTransactionOptions {
     fn default() -> Self {
         let txn_opts = unsafe { ffi::rocksdb_optimistictransaction_options_create() };
-        if txn_opts.is_null() {
-            panic!("Could not create RocksDB optimistic transaction options");
-        }
+        assert!(
+            !txn_opts.is_null(),
+            "Could not create RocksDB optimistic transaction options"
+        );
         Self { inner: txn_opts }
     }
 }
@@ -276,8 +282,16 @@ impl OptimisticTransactionOptions {
         unsafe {
             ffi::rocksdb_optimistictransaction_options_set_set_snapshot(
                 self.inner,
-                snapshot as c_uchar,
+                u8::from(snapshot),
             );
+        }
+    }
+}
+
+impl Drop for OptimisticTransactionOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_optimistictransaction_options_destroy(self.inner);
         }
     }
 }

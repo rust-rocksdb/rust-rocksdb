@@ -18,7 +18,7 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    CuckooTableOptions, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
+    CuckooTableOptions, DBAccess, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
     SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions,
     WriteBatchWithTransaction, WriteOptions, DB,
 };
@@ -89,6 +89,125 @@ fn put_get() {
         let v2 = db.get(b"k2").unwrap().unwrap();
         assert_eq!(v1.as_slice(), b"v1111");
         assert_eq!(v2.as_slice(), b"v22222222");
+    }
+}
+
+#[test]
+fn multi_get() {
+    let path = DBPath::new("_rust_rocksdb_multi_get");
+
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+        let initial_snap = db.snapshot();
+        db.put(b"k1", b"v1").unwrap();
+        let k1_snap = db.snapshot();
+        db.put(b"k2", b"v2").unwrap();
+
+        let _ = db.multi_get(&[b"k0"; 40]);
+
+        let assert_values = |values: Vec<_>| {
+            assert_eq!(3, values.len());
+            assert_eq!(values[0], None);
+            assert_eq!(values[1], Some(b"v1".to_vec()));
+            assert_eq!(values[2], Some(b"v2".to_vec()));
+        };
+
+        let values = db
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+
+        let values = DBAccess::multi_get_opt(&db, &[b"k0", b"k1", b"k2"], &Default::default())
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+
+        let values = db
+            .snapshot()
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+
+        let none_values = initial_snap
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_eq!(none_values, vec![None; 3]);
+
+        let k1_only = k1_snap
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_eq!(k1_only, vec![None, Some(b"v1".to_vec()), None]);
+
+        let txn = db.transaction();
+        let values = txn
+            .multi_get(&[b"k0", b"k1", b"k2"])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_values(values);
+    }
+}
+
+#[test]
+fn multi_get_cf() {
+    let path = DBPath::new("_rust_rocksdb_multi_get_cf");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db: TransactionDB = TransactionDB::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &path,
+            &["cf0", "cf1", "cf2"],
+        )
+        .unwrap();
+
+        let cf0 = db.cf_handle("cf0").unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(&cf2, b"k2", b"v2").unwrap();
+
+        let values = db
+            .multi_get_cf(vec![(&cf0, b"k0"), (&cf1, b"k1"), (&cf2, b"k2")])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        assert_eq!(3, values.len());
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
+
+        let txn = db.transaction();
+        let values = txn
+            .multi_get_cf(vec![(&cf0, b"k0"), (&cf1, b"k1"), (&cf2, b"k2")])
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        assert_eq!(3, values.len());
+        assert_eq!(values[0], None);
+        assert_eq!(values[1], Some(b"v1".to_vec()));
+        assert_eq!(values[2], Some(b"v2".to_vec()));
     }
 }
 
@@ -472,6 +591,82 @@ fn transaction_snapshot() {
             txn.get_for_update(b"k2", true).unwrap_err().kind(),
             ErrorKind::Busy
         );
+    }
+}
+
+#[test]
+fn two_phase_commit() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_2pc");
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.set_name(b"txn1").unwrap();
+        txn.prepare().unwrap();
+        txn.commit().unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k2", b"v2").unwrap();
+        let err = txn.prepare().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidArgument);
+
+        let mut opt = TransactionOptions::new();
+        opt.set_skip_prepare(false);
+        let txn = db.transaction_opt(&WriteOptions::default(), &opt);
+        txn.put(b"k3", b"v3").unwrap();
+        let err = txn.prepare().unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidArgument);
+    }
+
+    DB::destroy(&Options::default(), &path).unwrap();
+
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.set_name(b"t1").unwrap();
+        txn.prepare().unwrap();
+
+        let txn2 = db.transaction();
+        txn2.put(b"k2", b"v1").unwrap();
+        txn2.set_name(b"t2").unwrap();
+        txn2.prepare().unwrap();
+
+        let txn3 = db.transaction();
+        let err = txn3.set_name(b"t1").unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::InvalidArgument);
+
+        // k1 and k2 should locked after we restore prepared transactions.
+        let err = db.put(b"k1", b"v2").unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::TimedOut);
+    }
+
+    {
+        // recovery
+        let mut opt = TransactionDBOptions::new();
+        opt.set_default_lock_timeout(1);
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        // get prepared transactions
+        let txns = db.prepared_transactions();
+        assert_eq!(txns.len(), 2);
+
+        for (_, txn) in txns.into_iter().enumerate() {
+            let name = txn.get_name().unwrap();
+
+            if name == b"t1" {
+                txn.commit().unwrap();
+            } else if name == b"t2" {
+                txn.rollback().unwrap();
+            } else {
+                unreachable!();
+            }
+        }
+
+        assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+        assert!(db.get(b"k2").unwrap().is_none());
     }
 }
 

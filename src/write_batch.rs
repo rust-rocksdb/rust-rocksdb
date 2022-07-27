@@ -296,4 +296,4 @@ impl<const TRANSACTION: bool> Drop for WriteBatchWithTransaction<TRANSACTION> {
     }
 }
 
-unsafe impl Send for WriteBatch {}
+unsafe impl<const TRANSACTION: bool> Send for WriteBatchWithTransaction<TRANSACTION> {}

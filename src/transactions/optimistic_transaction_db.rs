@@ -80,9 +80,6 @@ impl Drop for OptimisticTransactionDBInner {
     }
 }
 
-unsafe impl<T: ThreadMode> Sync for OptimisticTransactionDB<T> {}
-unsafe impl<T: ThreadMode> Send for OptimisticTransactionDB<T> {}
-
 /// Methods of `OptimisticTransactionDB`.
 impl<T: ThreadMode> OptimisticTransactionDB<T> {
     /// Opens a database with default options.
@@ -228,7 +225,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
         cfs_v: &[ColumnFamilyDescriptor],
         cfnames: &[*const c_char],
         cfopts: &[*const ffi::rocksdb_options_t],
-        cfhandles: &mut Vec<*mut ffi::rocksdb_column_family_handle_t>,
+        cfhandles: &mut [*mut ffi::rocksdb_column_family_handle_t],
     ) -> Result<*mut ffi::rocksdb_optimistictransactiondb_t, Error> {
         unsafe {
             let db = ffi_try!(ffi::rocksdb_optimistictransactiondb_open_column_families(
@@ -276,8 +273,8 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
         writeopts: &WriteOptions,
     ) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_write(
-                self.inner.inner(),
+            ffi_try!(ffi::rocksdb_optimistictransactiondb_write(
+                self.inner.db,
                 writeopts.inner,
                 batch.inner
             ));

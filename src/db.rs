@@ -135,13 +135,13 @@ pub struct DBCommon<T: ThreadMode, I: DBInner> {
 /// Minimal set of DB-related methods, intended to be generic over
 /// `DBWithThreadMode<T>`. Mainly used internally
 pub trait DBAccess {
-    fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t;
+    unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t;
 
-    fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t);
+    unsafe fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t);
 
-    fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t;
+    unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t;
 
-    fn create_iterator_cf(
+    unsafe fn create_iterator_cf(
         &self,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
@@ -205,26 +205,24 @@ pub trait DBAccess {
 }
 
 impl<T: ThreadMode, I: DBInner> DBAccess for DBCommon<T, I> {
-    fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
-        unsafe { ffi::rocksdb_create_snapshot(self.inner.inner()) }
+    unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
+        ffi::rocksdb_create_snapshot(self.inner.inner())
     }
 
-    fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
-        unsafe {
-            ffi::rocksdb_release_snapshot(self.inner.inner(), snapshot);
-        }
+    unsafe fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
+        ffi::rocksdb_release_snapshot(self.inner.inner(), snapshot);
     }
 
-    fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        unsafe { ffi::rocksdb_create_iterator(self.inner.inner(), readopts.inner) }
+    unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
+        ffi::rocksdb_create_iterator(self.inner.inner(), readopts.inner)
     }
 
-    fn create_iterator_cf(
+    unsafe fn create_iterator_cf(
         &self,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        unsafe { ffi::rocksdb_create_iterator_cf(self.inner.inner(), readopts.inner, cf_handle) }
+        ffi::rocksdb_create_iterator_cf(self.inner.inner(), readopts.inner, cf_handle)
     }
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -261,26 +259,26 @@ impl<T: ThreadMode, I: DBInner> DBAccess for DBCommon<T, I> {
         self.get_pinned_cf_opt(cf, key, readopts)
     }
 
-    fn multi_get_opt<K, I>(
+    fn multi_get_opt<K, Iter>(
         &self,
-        keys: I,
+        keys: Iter,
         readopts: &ReadOptions,
     ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>,
+        Iter: IntoIterator<Item = K>,
     {
         self.multi_get_opt(keys, readopts)
     }
 
-    fn multi_get_cf_opt<'b, K, I, W>(
+    fn multi_get_cf_opt<'b, K, Iter, W>(
         &self,
-        keys_cf: I,
+        keys_cf: Iter,
         readopts: &ReadOptions,
     ) -> Vec<Result<Option<Vec<u8>>, Error>>
     where
         K: AsRef<[u8]>,
-        I: IntoIterator<Item = (&'b W, K)>,
+        Iter: IntoIterator<Item = (&'b W, K)>,
         W: AsColumnFamilyRef + 'b,
     {
         self.multi_get_cf_opt(keys_cf, readopts)
@@ -356,11 +354,11 @@ pub type DB = DBWithThreadMode<MultiThreaded>;
 // Safety note: auto-implementing Send on most db-related types is prevented by the inner FFI
 // pointer. In most cases, however, this pointer is Send-safe because it is never aliased and
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
-unsafe impl<T: ThreadMode + Send> Send for DBWithThreadMode<T> {}
+unsafe impl<T: ThreadMode + Send, I: DBInner> Send for DBCommon<T, I> {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
-unsafe impl<T: ThreadMode> Sync for DBWithThreadMode<T> {}
+unsafe impl<T: ThreadMode, I: DBInner> Sync for DBCommon<T, I> {}
 
 // Specifies whether open DB for read only.
 enum AccessType<'a> {
@@ -894,7 +892,10 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     /// the data to disk.
     pub fn flush_wal(&self, sync: bool) -> Result<(), Error> {
         unsafe {
-            ffi_try!(ffi::rocksdb_flush_wal(self.inner(), c_uchar::from(sync)));
+            ffi_try!(ffi::rocksdb_flush_wal(
+                self.inner.inner(),
+                c_uchar::from(sync)
+            ));
         }
         Ok(())
     }
@@ -2058,7 +2059,7 @@ impl<T: ThreadMode, Inner: DBInner> DBCommon<T, Inner> {
     /// Request stopping background work, if wait is true wait until it's done.
     pub fn cancel_all_background_work(&self, wait: bool) {
         unsafe {
-            ffi::rocksdb_cancel_all_background_work(self.inner(), c_uchar::from(wait));
+            ffi::rocksdb_cancel_all_background_work(self.inner.inner(), c_uchar::from(wait));
         }
     }
 
@@ -2188,7 +2189,7 @@ fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Err
         .collect()
 }
 
-fn convert_values(
+pub(crate) fn convert_values(
     values: Vec<*mut c_char>,
     values_sizes: Vec<usize>,
     errors: Vec<*mut c_char>,
