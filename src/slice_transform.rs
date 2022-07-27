@@ -15,9 +15,9 @@
 use std::ffi::CString;
 use std::slice;
 
-use libc::{c_char, c_void, size_t};
+use libc::{c_char, c_uchar, c_void, size_t};
 
-use crate::ffi;
+use crate::{ffi, ffi_util::CStrLike};
 
 /// A `SliceTransform` is a generic pluggable way of transforming one string
 /// to another. Its primary use-case is in configuring rocksdb
@@ -35,12 +35,12 @@ pub struct SliceTransform {
 
 impl SliceTransform {
     pub fn create(
-        name: &str,
+        name: impl CStrLike,
         transform_fn: TransformFn,
         in_domain_fn: Option<InDomainFn>,
     ) -> SliceTransform {
         let cb = Box::into_raw(Box::new(TransformCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             transform_fn,
             in_domain_fn,
         }));
@@ -108,9 +108,8 @@ pub unsafe extern "C" fn in_domain_callback(
     raw_cb: *mut c_void,
     raw_key: *const c_char,
     key_len: size_t,
-) -> u8 {
+) -> c_uchar {
     let cb = &mut *(raw_cb as *mut TransformCallback);
     let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
-    cb.in_domain_fn
-        .map_or(0xff, |in_domain| u8::from(in_domain(key)))
+    c_uchar::from(cb.in_domain_fn.map_or(true, |in_domain| in_domain(key)))
 }

@@ -123,7 +123,20 @@ fn build_rocksdb() {
             config.flag_if_supported("-msse4.2");
             config.define("HAVE_SSE42", Some("1"));
         }
-
+        // Pass along additional target features as defined in
+        // build_tools/build_detect_platform.
+        if target_features.contains(&"avx2") {
+            config.flag_if_supported("-mavx2");
+            config.define("HAVE_AVX2", Some("1"));
+        }
+        if target_features.contains(&"bmi1") {
+            config.flag_if_supported("-mbmi");
+            config.define("HAVE_BMI", Some("1"));
+        }
+        if target_features.contains(&"lzcnt") {
+            config.flag_if_supported("-mlzcnt");
+            config.define("HAVE_LZCNT", Some("1"));
+        }
         if !target.contains("android") && target_features.contains(&"pclmulqdq") {
             config.define("HAVE_PCLMUL", Some("1"));
             config.flag_if_supported("-mpclmul");
@@ -134,7 +147,18 @@ fn build_rocksdb() {
         lib_sources.push("util/crc32c_arm64.cc")
     }
 
-    if target.contains("darwin") {
+    if target.contains("apple-ios") {
+        config.define("OS_MACOSX", None);
+
+        config.define("IOS_CROSS_COMPILE", None);
+        config.define("PLATFORM", "IOS");
+        config.define("NIOSTATS_CONTEXT", None);
+        config.define("NPERF_CONTEXT", None);
+        config.define("ROCKSDB_PLATFORM_POSIX", None);
+        config.define("ROCKSDB_LIB_IO_POSIX", None);
+
+        env::set_var("IPHONEOS_DEPLOYMENT_TARGET", "11.0");
+    } else if target.contains("darwin") {
         config.define("OS_MACOSX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
@@ -158,7 +182,7 @@ fn build_rocksdb() {
         config.define("_MBCS", None);
         config.define("WIN64", None);
         config.define("NOMINMAX", None);
-        config.define("WITH_WINDOWS_UTF8_FILENAMES", "ON");
+        config.define("ROCKSDB_WINDOWS_UTF8_FILENAMES", None);
 
         if &target == "x86_64-pc-windows-gnu" {
             // Tell MinGW to create localtime_r wrapper of localtime_s function.
@@ -211,6 +235,7 @@ fn build_rocksdb() {
     } else {
         config.flag(&cxx_standard());
         // matches the flags in CMakeLists.txt from rocksdb
+        config.define("HAVE_UINT128_EXTENSION", Some("1"));
         config.flag("-Wsign-compare");
         config.flag("-Wshadow");
         config.flag("-Wno-unused-parameter");

@@ -85,6 +85,7 @@ mod db;
 mod db_iterator;
 mod db_options;
 mod db_pinnable_slice;
+mod iter_range;
 pub mod merge_operator;
 pub mod perf;
 pub mod properties;
@@ -116,6 +117,8 @@ pub use crate::{
         UniversalCompactOptions, UniversalCompactionStopStyle, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
+    ffi_util::CStrLike,
+    iter_range::{IterateBounds, PrefixRange},
     merge_operator::MergeOperands,
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,

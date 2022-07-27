@@ -16,8 +16,22 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::DB;
+use rocksdb::{DBAccess, DBRawIteratorWithThreadMode, DB};
 use util::DBPath;
+
+fn assert_item<D: DBAccess>(iter: &DBRawIteratorWithThreadMode<'_, D>, key: &[u8], value: &[u8]) {
+    assert!(iter.valid());
+    assert_eq!(iter.key(), Some(key));
+    assert_eq!(iter.value(), Some(value));
+    assert_eq!(iter.item(), Some((key, value)));
+}
+
+fn assert_no_item<D: DBAccess>(iter: &DBRawIteratorWithThreadMode<'_, D>) {
+    assert!(!iter.valid());
+    assert_eq!(iter.key(), None);
+    assert_eq!(iter.value(), None);
+    assert_eq!(iter.item(), None);
+}
 
 #[test]
 pub fn test_forwards_iteration() {
@@ -31,24 +45,16 @@ pub fn test_forwards_iteration() {
 
         let mut iter = db.raw_iterator();
         iter.seek_to_first();
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k1".as_ref()));
-        assert_eq!(iter.value(), Some(b"v1".as_ref()));
+        assert_item(&iter, b"k1", b"v1");
 
         iter.next();
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k2".as_ref()));
-        assert_eq!(iter.value(), Some(b"v2".as_ref()));
+        assert_item(&iter, b"k2", b"v2");
 
         iter.next(); // k3
         iter.next(); // k4
-        iter.next(); // invalid!
 
-        assert!(!iter.valid());
-        assert_eq!(iter.key(), None);
-        assert_eq!(iter.value(), None);
+        iter.next(); // invalid!
+        assert_no_item(&iter);
     }
 }
 
@@ -64,24 +70,16 @@ pub fn test_seek_last() {
 
         let mut iter = db.raw_iterator();
         iter.seek_to_last();
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k4".as_ref()));
-        assert_eq!(iter.value(), Some(b"v4".as_ref()));
+        assert_item(&iter, b"k4", b"v4");
 
         iter.prev();
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k3".as_ref()));
-        assert_eq!(iter.value(), Some(b"v3".as_ref()));
+        assert_item(&iter, b"k3", b"v3");
 
         iter.prev(); // k2
         iter.prev(); // k1
-        iter.prev(); // invalid!
 
-        assert!(!iter.valid());
-        assert_eq!(iter.key(), None);
-        assert_eq!(iter.value(), None);
+        iter.prev(); // invalid!
+        assert_no_item(&iter);
     }
 }
 
@@ -97,16 +95,11 @@ pub fn test_seek() {
         let mut iter = db.raw_iterator();
         iter.seek(b"k2");
 
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k2".as_ref()));
-        assert_eq!(iter.value(), Some(b"v2".as_ref()));
+        assert_item(&iter, b"k2", b"v2");
 
         // Check it gets the next key when the key doesn't exist
         iter.seek(b"k3");
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k4".as_ref()));
-        assert_eq!(iter.value(), Some(b"v4".as_ref()));
+        assert_item(&iter, b"k4", b"v4");
     }
 }
 
@@ -121,10 +114,7 @@ pub fn test_seek_to_nonexistant() {
 
         let mut iter = db.raw_iterator();
         iter.seek(b"k2");
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k3".as_ref()));
-        assert_eq!(iter.value(), Some(b"v3".as_ref()));
+        assert_item(&iter, b"k3", b"v3");
     }
 }
 
@@ -139,16 +129,10 @@ pub fn test_seek_for_prev() {
 
         let mut iter = db.raw_iterator();
         iter.seek(b"k2");
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k2".as_ref()));
-        assert_eq!(iter.value(), Some(b"v2".as_ref()));
+        assert_item(&iter, b"k2", b"v2");
 
         // Check it gets the previous key when the key doesn't exist
         iter.seek_for_prev(b"k3");
-
-        assert!(iter.valid());
-        assert_eq!(iter.key(), Some(b"k2".as_ref()));
-        assert_eq!(iter.value(), Some(b"v2".as_ref()));
+        assert_item(&iter, b"k2", b"v2");
     }
 }

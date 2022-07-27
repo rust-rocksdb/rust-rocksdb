@@ -1,10 +1,11 @@
+#![allow(dead_code)]
+
 use std::path::{Path, PathBuf};
 
 use rocksdb::{Options, DB};
 
 /// Temporary database path which calls DB::Destroy when DBPath is dropped.
 pub struct DBPath {
-    #[allow(dead_code)]
     dir: tempfile::TempDir, // kept for cleaning up during drop
     path: PathBuf,
 }
@@ -37,4 +38,28 @@ impl AsRef<Path> for &DBPath {
     fn as_ref(&self) -> &Path {
         &self.path
     }
+}
+
+type Pair = (Box<[u8]>, Box<[u8]>);
+
+pub fn pair(left: &[u8], right: &[u8]) -> Pair {
+    (Box::from(left), Box::from(right))
+}
+
+#[track_caller]
+pub fn assert_iter<D: rocksdb::DBAccess>(
+    iter: rocksdb::DBIteratorWithThreadMode<'_, D>,
+    want: &[Pair],
+) {
+    assert_eq!(iter.collect::<Vec<_>>().as_slice(), want);
+}
+
+#[track_caller]
+pub fn assert_iter_reversed<D: rocksdb::DBAccess>(
+    iter: rocksdb::DBIteratorWithThreadMode<'_, D>,
+    want: &[Pair],
+) {
+    let mut got = iter.collect::<Vec<_>>();
+    got.reverse();
+    assert_eq!(got.as_slice(), want);
 }
