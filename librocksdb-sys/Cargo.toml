@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "0.8.0+7.4.3"
+version = "0.8.0+7.4.4"
 edition = "2018"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
