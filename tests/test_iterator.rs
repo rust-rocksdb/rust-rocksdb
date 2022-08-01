@@ -100,7 +100,7 @@ fn test_iterator() {
             assert_eq!(None, iterator1.next());
         }
         {
-            // Chock that set_mode resets the iterator
+            // Check that set_mode resets the iterator
             let mode = IteratorMode::From(K3, Direction::Forward);
             let mut iterator = db.iterator(mode);
             assert_iter(&mut iterator, &expected2[2..]);
