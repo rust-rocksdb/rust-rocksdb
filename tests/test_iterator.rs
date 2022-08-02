@@ -286,6 +286,7 @@ fn test_iter_range() {
         ro.set_iterate_range(range);
         let got = db
             .iterator_opt(mode, ro)
+            .map(Result::unwrap)
             .map(|(key, _value)| key)
             .collect::<Vec<_>>();
         let mut got = got.iter().map(Box::as_ref).collect::<Vec<_>>();
