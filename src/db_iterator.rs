@@ -72,9 +72,14 @@ pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
     inner: std::ptr::NonNull<ffi::rocksdb_iterator_t>,
 
-    /// When iterate_upper_bound is set, the inner C iterator keeps a pointer to the upper bound
-    /// inside `_readopts`. Storing this makes sure the upper bound is always alive when the
+    /// When iterate_lower_bound or iterate_upper_bound are set, the inner
+    /// C iterator keeps a pointer to the upper bound inside `_readopts`.
+    /// Storing this makes sure the upper bound is always alive when the
     /// iterator is being used.
+    ///
+    /// And yes, we need to store the entire ReadOptions structure since C++
+    /// ReadOptions keep reference to C rocksdb_readoptions_t wrapper which
+    /// point to vectors we own.  See issue #660.
     _readopts: ReadOptions,
 
     db: PhantomData<&'a D>,
