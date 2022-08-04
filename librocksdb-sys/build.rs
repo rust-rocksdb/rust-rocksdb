@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::{env, fs, path::PathBuf, process::Command};
+use std::io::Write;
 
 fn link(name: &str, bundled: bool) {
     use std::env::var;
@@ -337,10 +338,8 @@ fn cxx_standard() -> String {
     })
 }
 
-fn update_submodules() {
-    let program = "git";
-    let dir = "../";
-    let args = ["submodule", "update", "--init"];
+
+fn run_command(program: &str, dir: &str, args: &Vec<&str>) {
     println!(
         "Running command: \"{} {}\" in dir: {}",
         program,
@@ -357,9 +356,40 @@ fn update_submodules() {
     }
 }
 
+fn update_submodules() {
+    let program = "git";
+    let dir = "../";
+    let args: Vec<&str> = vec!["submodule", "update", "--init"];
+    run_command(program, dir, &args);
+}
+
+fn cherry_pick_commits(commits: &Vec<&str>) {
+    for commit in commits {
+        let program = "git";
+        let dir = "rocksdb/";
+        let args: Vec<&str> = vec!["cherry-pick", &commit];
+        run_command(program, dir, &args);
+    }
+}
+
+fn apply_patches(patches: &Vec<&str>) {
+    for patch in patches {
+        let program = "git";
+        let dir = "rocksdb/";
+        let args: Vec<&str> = vec!["apply", &patch];
+        run_command(program, dir, &args);
+    }
+}
+
 fn main() {
     if !Path::new("rocksdb/AUTHORS").exists() {
         update_submodules();
+        if let Ok(commits_to_cherry_pick) = env::var("ROCKSDB_COMMITS_TO_CHERRY_PICK") {
+            cherry_pick_commits(&commits_to_cherry_pick.split(' ').collect());
+        }
+        if let Ok(patches_to_apply) = env::var("ROCKSDB_PATCHES_TO_APPLY") {
+            apply_patches(&patches_to_apply.split(' ').collect());
+        }
     }
     bindgen_rocksdb();
 
