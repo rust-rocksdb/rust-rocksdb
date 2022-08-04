@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::{env, fs, path::PathBuf, process::Command};
-use std::io::Write;
 
 fn link(name: &str, bundled: bool) {
     use std::env::var;
