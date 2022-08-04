@@ -338,7 +338,7 @@ fn cxx_standard() -> String {
 }
 
 
-fn run_command(program: &str, dir: &str, args: &Vec<&str>) {
+fn run_command(program: &str, dir: &str, args: &[&str]) {
     println!(
         "Running command: \"{} {}\" in dir: {}",
         program,
@@ -358,7 +358,7 @@ fn run_command(program: &str, dir: &str, args: &Vec<&str>) {
 fn update_submodules() {
     let program = "git";
     let dir = "../";
-    let args: Vec<&str> = vec!["submodule", "update", "--init"];
+    let args = ["submodule", "update", "--init"];
     run_command(program, dir, &args);
 }
 
@@ -366,7 +366,7 @@ fn cherry_pick_commits(commits: &Vec<&str>) {
     for commit in commits {
         let program = "git";
         let dir = "rocksdb/";
-        let args: Vec<&str> = vec!["cherry-pick", &commit];
+        let args = ["cherry-pick", &commit];
         run_command(program, dir, &args);
     }
 }
@@ -375,7 +375,7 @@ fn apply_patches(patches: &Vec<&str>) {
     for patch in patches {
         let program = "git";
         let dir = "rocksdb/";
-        let args: Vec<&str> = vec!["apply", &patch];
+        let args = ["apply", &patch];
         run_command(program, dir, &args);
     }
 }
