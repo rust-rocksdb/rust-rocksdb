@@ -269,13 +269,13 @@ fn iterator_test() {
         ];
 
         let iter = db.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
 
         // Test that it's idempotent
         let iter = db.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
         let iter = db.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
 
         // Test in reverse
         let iter = db.iterator(IteratorMode::End);
@@ -290,13 +290,16 @@ fn iterator_test() {
             (k3.clone(), v3.clone()),
             (k4.clone(), v4.clone()),
         ];
-        assert_eq!(old_iter.collect::<Vec<_>>(), expected);
+        assert_eq!(old_iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
 
         let iter = db.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected2);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected2);
 
         let iter = db.iterator(IteratorMode::From(b"k3", Direction::Forward));
-        assert_eq!(iter.collect::<Vec<_>>(), vec![(k3, v3), (k4, v4)]);
+        assert_eq!(
+            iter.map(Result::unwrap).collect::<Vec<_>>(),
+            vec![(k3, v3), (k4, v4)]
+        );
     }
 }
 
@@ -344,7 +347,7 @@ fn prefix_extract_and_iterate_test() {
             .into_iter()
             .map(|(k, v)| (k.to_vec().into_boxed_slice(), v.to_vec().into_boxed_slice()))
             .collect();
-        assert_eq!(expected, iter.collect::<Vec<_>>());
+        assert_eq!(expected, iter.map(Result::unwrap).collect::<Vec<_>>());
     }
 }
 
@@ -448,13 +451,13 @@ fn transaction_iterator() {
         let txn = db.transaction();
 
         let iter = txn.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
 
         // Test that it's idempotent
         let iter = txn.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
         let iter = txn.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
 
         // Test in reverse
         let iter = txn.iterator(IteratorMode::End);
@@ -469,13 +472,16 @@ fn transaction_iterator() {
             (k3.clone(), v3.clone()),
             (k4.clone(), v4.clone()),
         ];
-        assert_eq!(old_iter.collect::<Vec<_>>(), expected);
+        assert_eq!(old_iter.map(Result::unwrap).collect::<Vec<_>>(), expected);
 
         let iter = txn.iterator(IteratorMode::Start);
-        assert_eq!(iter.collect::<Vec<_>>(), expected2);
+        assert_eq!(iter.map(Result::unwrap).collect::<Vec<_>>(), expected2);
 
         let iter = txn.iterator(IteratorMode::From(b"k3", Direction::Forward));
-        assert_eq!(iter.collect::<Vec<_>>(), vec![(k3, v3), (k4, v4)]);
+        assert_eq!(
+            iter.map(Result::unwrap).collect::<Vec<_>>(),
+            vec![(k3, v3), (k4, v4)]
+        );
     }
 }
 

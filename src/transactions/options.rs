@@ -14,7 +14,6 @@
 //
 
 use crate::ffi;
-use core::panic;
 
 pub struct TransactionOptions {
     pub(crate) inner: *mut ffi::rocksdb_transaction_options_t,
@@ -51,7 +50,7 @@ impl TransactionOptions {
     ///
     /// If a transaction has a snapshot set, the transaction will ensure that
     /// any keys successfully written(or fetched via `get_for_update`) have not
-    /// been modified outside of this transaction since the time the snapshot was
+    /// been modified outside this transaction since the time the snapshot was
     /// set.
     /// If a snapshot has not been set, the transaction guarantees that keys have
     /// not been modified since the time each key was first written (or fetched via
@@ -149,7 +148,7 @@ impl Default for TransactionDBOptions {
         let txn_db_opts = unsafe { ffi::rocksdb_transactiondb_options_create() };
         assert!(
             !txn_db_opts.is_null(),
-            "Could not create RocksDB transactiondb options"
+            "Could not create RocksDB transaction_db options"
         );
         Self { inner: txn_db_opts }
     }
@@ -161,7 +160,7 @@ impl TransactionDBOptions {
     }
 
     /// Specifies the wait timeout in milliseconds when writing a key
-    /// outside of a transaction (ie. by calling `TransactionDB::put` directly).
+    /// outside a transaction (i.e. by calling `TransactionDB::put` directly).
     ///
     /// If 0, no waiting is done if a lock cannot instantly be acquired.
     /// If negative, there is no timeout and will block indefinitely when acquiring
@@ -183,8 +182,8 @@ impl TransactionDBOptions {
         }
     }
 
-    /// Specifies the default wait timeout in milliseconds when a stransaction
-    /// attempts to lock a key if not secified in `TransactionOptions`.
+    /// Specifies the default wait timeout in milliseconds when a transaction
+    /// attempts to lock a key if not specified in `TransactionOptions`.
     ///
     /// If 0, no waiting is done if a lock cannot instantly be acquired.
     /// If negative, there is no timeout.  Not using a timeout is not recommended
@@ -266,7 +265,7 @@ impl OptimisticTransactionOptions {
     ///
     /// If a transaction has a snapshot set, the transaction will ensure that
     /// any keys successfully written(or fetched via `get_for_update`) have not
-    /// been modified outside of this transaction since the time the snapshot was
+    /// been modified outside the transaction since the time the snapshot was
     /// set.
     /// If a snapshot has not been set, the transaction guarantees that keys have
     /// not been modified since the time each key was first written (or fetched via
