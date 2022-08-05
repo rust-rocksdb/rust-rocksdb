@@ -2,9 +2,39 @@
 
 ## [Unreleased]
 
+## 0.19.0 (2022-08-05)
+
+* Add support for building with `io_uring` on Linux (parazyd)
+* Change iterators to return Result (mina86)
+* Support RocksDB transaction (yiyuanliu)
+* Avoid pulling in dependencies via static feature flag (niklasf)
+* Bump `rocksdb` to 7.4.4 (niklasf)
+* Bump `tikv-jemalloc-sys` to 0.5 (niklasf)
+* Update `set_use_fsync` comment (nazar-pc)
+* Introduce ReadOptions::set_iterate_range and PrefixRange (mina86)
+* Bump `rocksdb` to 7.4.3 (aleksuss)
+* Don’t hold onto ReadOptions.inner when iterating (mina86)
+* Bump `zstd-sys` from 1.6 to 2.0 (slightknack)
+* Enable a building on the iOS platform (dignifiedquire)
+* Add DBRawIteratorWithThreadMode::item method (mina86)
+* Use NonNull in DBRawIteratorWithThreadMode (mina86)
+* Tiny refactoring including fix for UB (niklasf)
+* Add batched version MultiGet API (yhchiang-sol)
+* Upgrade to rocksdb v7.3.1 (yhchiang-sol)
+* Consistently use `ffi_util::to_cpath` to convert `Path` to `CString` (mina86)
+* Convert properties to `&CStr` (mina86)
+* Allow passing `&CStr` arguments (mina86)
+* Fix memory leak when reading properties and avoid memory allocation (mina86)
+* Fix Windows UTF-8 build flag (rajivshah3)
+* Use more target features to build librocksdb-sys (niklasf)
+* Fix `bz_internal_error` symbol multiply defined (nanpuyue)
+* Bump rocksdb to 7.1.2 (dignifiedquire)
+* Add BlobDB options (dignifiedquire)
+* Add snapshot `PinnableSlice` based API (zheland)
+
 ## 0.18.0 (2022-02-03)
 
-* Add open_cf_descriptor methods for Seoncdary and ReadOnly AccessType (steviez)
+* Add open_cf_descriptor methods for Secondary and ReadOnly AccessType (steviez)
 * Make Ribbon filters available (niklasf)
 * Change versioning scheme of `librocksdb-sys` crate (aleksuss)
 * Upgrade to RocksDB 6.28.2 (akrylysov)
@@ -30,7 +60,7 @@
 * Support UTF-8 file paths on Windows (rajivshah3)
 * Support building RocksDB with jemalloc (akrylysov)
 * Add rocksdb WAL flush api (duarten)
-* Update rocksdb to v6.22.1 (#540)
+* Update rocksdb to v6.22.1 (duarten)
 
 ## 0.17.0 (2021-07-22)
 

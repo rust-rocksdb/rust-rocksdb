@@ -5,6 +5,7 @@ rust-rocksdb
 [![documentation](https://docs.rs/rocksdb/badge.svg)](https://docs.rs/rocksdb)
 [![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/rust-rocksdb/rust-rocksdb/blob/master/LICENSE)
 [![Gitter chat](https://badges.gitter.im/rust-rocksdb/gitter.png)](https://gitter.im/rust-rocksdb/lobby)
+![rust 1.60.0 required](https://img.shields.io/badge/rust-1.60.0-blue.svg?label=MSRV)
 
 
 ![GitHub commits (since latest release)](https://img.shields.io/github/commits-since/rust-rocksdb/rust-rocksdb/latest.svg)
@@ -42,7 +43,7 @@ default-features = false
 features = ["lz4"]
 ```
 
-## Multi-threaded ColumnFamily alternation
+## Multithreaded ColumnFamily alternation
 
 The underlying RocksDB does allow column families to be created and dropped
 from multiple threads concurrently. But this crate doesn't allow it by default
