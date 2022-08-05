@@ -92,6 +92,7 @@ pub mod properties;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
+mod transactions;
 mod write_batch;
 
 pub use crate::{
@@ -100,7 +101,10 @@ pub use crate::{
         ColumnFamilyRef, DEFAULT_COLUMN_FAMILY_NAME,
     },
     compaction_filter::Decision as CompactionDecision,
-    db::{DBAccess, DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode, DB},
+    db::{
+        DBAccess, DBCommon, DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode,
+        DB,
+    },
     db_iterator::{
         DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
         DBWALIterator, Direction, IteratorMode,
@@ -120,13 +124,38 @@ pub use crate::{
     slice_transform::SliceTransform,
     snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
-    write_batch::{WriteBatch, WriteBatchIterator},
+    transactions::{
+        OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
+        TransactionDBOptions, TransactionOptions,
+    },
+    write_batch::{WriteBatch, WriteBatchIterator, WriteBatchWithTransaction},
 };
 
 use librocksdb_sys as ffi;
 
 use std::error;
 use std::fmt;
+
+/// RocksDB error kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+    NotFound,
+    Corruption,
+    NotSupported,
+    InvalidArgument,
+    IOError,
+    MergeInProgress,
+    Incomplete,
+    ShutdownInProgress,
+    TimedOut,
+    Aborted,
+    Busy,
+    Expired,
+    TryAgain,
+    CompactionTooLarge,
+    ColumnFamilyDropped,
+    Unknown,
+}
 
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
@@ -142,6 +171,28 @@ impl Error {
 
     pub fn into_string(self) -> String {
         self.into()
+    }
+
+    /// Parse corresponding [`ErrorKind`] from error message.
+    pub fn kind(&self) -> ErrorKind {
+        match self.message.split(':').next().unwrap_or("") {
+            "NotFound" => ErrorKind::NotFound,
+            "Corruption" => ErrorKind::Corruption,
+            "Not implemented" => ErrorKind::NotSupported,
+            "Invalid argument" => ErrorKind::InvalidArgument,
+            "IO error" => ErrorKind::IOError,
+            "Merge in progress" => ErrorKind::MergeInProgress,
+            "Result incomplete" => ErrorKind::Incomplete,
+            "Shutdown in progress" => ErrorKind::ShutdownInProgress,
+            "Operation timed out" => ErrorKind::TimedOut,
+            "Operation aborted" => ErrorKind::Aborted,
+            "Resource busy" => ErrorKind::Busy,
+            "Operation expired" => ErrorKind::Expired,
+            "Operation failed. Try again." => ErrorKind::TryAgain,
+            "Compaction too large" => ErrorKind::CompactionTooLarge,
+            "Column family dropped" => ErrorKind::ColumnFamilyDropped,
+            _ => ErrorKind::Unknown,
+        }
     }
 }
 
@@ -171,6 +222,11 @@ impl fmt::Display for Error {
 
 #[cfg(test)]
 mod test {
+    use crate::{
+        OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
+        TransactionDBOptions, TransactionOptions,
+    };
+
     use super::{
         column_family::UnboundColumnFamily,
         db_options::{CacheWrapper, EnvWrapper},
@@ -209,6 +265,12 @@ mod test {
         is_send::<CacheWrapper>();
         is_send::<Env>();
         is_send::<EnvWrapper>();
+        is_send::<TransactionDB>();
+        is_send::<OptimisticTransactionDB>();
+        is_send::<Transaction<'_, TransactionDB>>();
+        is_send::<TransactionDBOptions>();
+        is_send::<OptimisticTransactionOptions>();
+        is_send::<TransactionOptions>();
     }
 
     #[test]
@@ -234,5 +296,10 @@ mod test {
         is_sync::<CacheWrapper>();
         is_sync::<Env>();
         is_sync::<EnvWrapper>();
+        is_sync::<TransactionDB>();
+        is_sync::<OptimisticTransactionDB>();
+        is_sync::<TransactionDBOptions>();
+        is_sync::<OptimisticTransactionOptions>();
+        is_sync::<TransactionOptions>();
     }
 }

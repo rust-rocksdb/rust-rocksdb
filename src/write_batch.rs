@@ -16,25 +16,37 @@ use crate::{ffi, AsColumnFamilyRef};
 use libc::{c_char, c_void, size_t};
 use std::slice;
 
+/// A type alias to keep compatibility. See [`WriteBatchWithTransaction`] for details
+pub type WriteBatch = WriteBatchWithTransaction<false>;
+
 /// An atomic batch of write operations.
+///
+/// [`delete_range`] is not supported in [`Transaction`].
 ///
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, Options, WriteBatch};
+/// use rocksdb::{DB, Options, WriteBatchWithTransaction};
 ///
 /// let path = "_path_for_rocksdb_storage1";
 /// {
 ///     let db = DB::open_default(path).unwrap();
-///     let mut batch = WriteBatch::default();
+///     let mut batch = WriteBatchWithTransaction::<false>::default();
 ///     batch.put(b"my key", b"my value");
 ///     batch.put(b"key2", b"value2");
 ///     batch.put(b"key3", b"value3");
+///
+///     // DeleteRange is supported when use without transaction
+///     batch.delete_range(b"key2", b"key3");
+///
 ///     db.write(batch); // Atomically commits the batch
 /// }
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
-pub struct WriteBatch {
+///
+/// [`DeleteRange`]: Self::delete_range
+/// [`Transaction`]: crate::Transaction
+pub struct WriteBatchWithTransaction<const TRANSACTION: bool> {
     pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
 }
 
@@ -77,7 +89,7 @@ unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_
     leaked_cb.delete(key.to_vec().into_boxed_slice());
 }
 
-impl WriteBatch {
+impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     pub fn len(&self) -> usize {
         unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
     }
@@ -219,6 +231,15 @@ impl WriteBatch {
         }
     }
 
+    /// Clear all updates buffered in this batch.
+    pub fn clear(&mut self) {
+        unsafe {
+            ffi::rocksdb_writebatch_clear(self.inner);
+        }
+    }
+}
+
+impl WriteBatchWithTransaction<false> {
     /// Remove database entries from start key to end key.
     ///
     /// Removes the database entries in the range ["begin_key", "end_key"), i.e.,
@@ -257,16 +278,9 @@ impl WriteBatch {
             );
         }
     }
-
-    /// Clear all updates buffered in this batch.
-    pub fn clear(&mut self) {
-        unsafe {
-            ffi::rocksdb_writebatch_clear(self.inner);
-        }
-    }
 }
 
-impl Default for WriteBatch {
+impl<const TRANSACTION: bool> Default for WriteBatchWithTransaction<TRANSACTION> {
     fn default() -> Self {
         Self {
             inner: unsafe { ffi::rocksdb_writebatch_create() },
@@ -274,7 +288,7 @@ impl Default for WriteBatch {
     }
 }
 
-impl Drop for WriteBatch {
+impl<const TRANSACTION: bool> Drop for WriteBatchWithTransaction<TRANSACTION> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writebatch_destroy(self.inner);
@@ -282,4 +296,4 @@ impl Drop for WriteBatch {
     }
 }
 
-unsafe impl Send for WriteBatch {}
+unsafe impl<const TRANSACTION: bool> Send for WriteBatchWithTransaction<TRANSACTION> {}

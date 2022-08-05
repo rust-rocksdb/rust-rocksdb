@@ -14,7 +14,7 @@
 
 use libc::{c_int, c_uchar, c_void};
 
-use crate::{ffi, ffi_util::from_cstr, Cache, Error, DB};
+use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error, DB};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i32)]
@@ -242,7 +242,7 @@ impl MemoryUsageBuilder {
     /// Add a DB instance to collect memory usage from it and add up in total stats
     fn add_db(&mut self, db: &DB) {
         unsafe {
-            ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner);
+            ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner.inner());
         }
     }
 

@@ -44,7 +44,7 @@ pub struct SnapshotWithThreadMode<'a, D: DBAccess> {
 impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
     /// Creates a new `SnapshotWithThreadMode` of the database `db`.
     pub fn new(db: &'a D) -> Self {
-        let snapshot = unsafe { ffi::rocksdb_create_snapshot(db.inner()) };
+        let snapshot = unsafe { db.create_snapshot() };
         Self {
             db,
             inner: snapshot,
@@ -258,7 +258,7 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
 impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {
     fn drop(&mut self) {
         unsafe {
-            ffi::rocksdb_release_snapshot(self.db.inner(), self.inner);
+            self.db.release_snapshot(self.inner);
         }
     }
 }

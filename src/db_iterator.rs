@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::db::{DBAccess, DB};
-use crate::{ffi, Error, ReadOptions, WriteBatch};
+use crate::{
+    db::{DBAccess, DB},
+    ffi, Error, ReadOptions, WriteBatch,
+};
 use libc::{c_char, c_uchar, size_t};
-use std::marker::PhantomData;
-use std::slice;
+use std::{marker::PhantomData, slice};
 
 /// A type alias to keep compatibility. See [`DBRawIteratorWithThreadMode`] for details
 pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
@@ -87,7 +88,7 @@ pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
 
 impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions) -> Self {
-        let inner = unsafe { ffi::rocksdb_create_iterator(db.inner(), readopts.inner) };
+        let inner = unsafe { db.create_iterator(&readopts) };
         Self::from_inner(inner, readopts)
     }
 
@@ -96,16 +97,15 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: ReadOptions,
     ) -> Self {
-        let inner =
-            unsafe { ffi::rocksdb_create_iterator_cf(db.inner(), readopts.inner, cf_handle) };
+        let inner = unsafe { db.create_iterator_cf(cf_handle, &readopts) };
         Self::from_inner(inner, readopts)
     }
 
     fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
         // This unwrap will never fail since rocksdb_create_iterator and
-        // rocksdb_create_iterator_cf functions always return non-null.  They
-        // use new and deference the result so any nulls would end up in SIGSEGV
-        // there and we have bigger issue.
+        // rocksdb_create_iterator_cf functions always return non-null. They
+        // use new and deference the result so any nulls would end up with SIGSEGV
+        // there and we would have a bigger issue.
         let inner = std::ptr::NonNull::new(inner).unwrap();
         Self {
             inner,

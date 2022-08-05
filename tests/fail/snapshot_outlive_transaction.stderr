@@ -1,0 +1,10 @@
+error[E0597]: `txn` does not live long enough
+ --> tests/fail/snapshot_outlive_transaction.rs:7:9
+  |
+5 |     let _snapshot = {
+  |         --------- borrow later stored here
+6 |         let txn = db.transaction();
+7 |         txn.snapshot()
+  |         ^^^^^^^^^^^^^^ borrowed value does not live long enough
+8 |     };
+  |     - `txn` dropped here while still borrowed

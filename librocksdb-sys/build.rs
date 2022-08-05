@@ -98,13 +98,8 @@ fn build_rocksdb() {
         .trim()
         .split('\n')
         .map(str::trim)
-        .collect::<Vec<&'static str>>();
-
-    // We have a pregenerated a version of build_version.cc in the local directory
-    lib_sources = lib_sources
-        .iter()
-        .cloned()
-        .filter(|&file| file != "util/build_version.cc")
+        // We have a pre-generated a version of build_version.cc in the local directory
+        .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
 
     if target.contains("x86_64") {
@@ -141,10 +136,6 @@ fn build_rocksdb() {
             config.define("HAVE_PCLMUL", Some("1"));
             config.flag_if_supported("-mpclmul");
         }
-    }
-
-    if target.contains("aarch64") {
-        lib_sources.push("util/crc32c_arm64.cc")
     }
 
     if target.contains("apple-ios") {
@@ -248,8 +239,7 @@ fn build_rocksdb() {
     }
 
     for file in lib_sources {
-        let file = "rocksdb/".to_string() + file;
-        config.file(&file);
+        config.file(&format!("rocksdb/{file}"));
     }
 
     config.file("build_version.cc");

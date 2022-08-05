@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use crate::{ffi, ffi_util::to_cpath, Error, DB};
+use crate::{db::DBInner, ffi, ffi_util::to_cpath, Error, DB};
 
 use libc::{c_int, c_uchar};
 use std::path::Path;
@@ -82,7 +82,7 @@ impl BackupEngine {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
                 self.inner,
-                db.inner,
+                db.inner.inner(),
                 c_uchar::from(flush_before_backup),
             ));
             Ok(())

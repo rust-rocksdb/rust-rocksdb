@@ -17,9 +17,8 @@
 //!
 //! [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
 
-use crate::{ffi, ffi_util::to_cpath, Error, DB};
-use std::marker::PhantomData;
-use std::path::Path;
+use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode};
+use std::{marker::PhantomData, path::Path};
 
 /// Undocumented parameter for `ffi::rocksdb_checkpoint_create` function. Zero by default.
 const LOG_SIZE_FOR_FLUSH: u64 = 0_u64;
@@ -36,11 +35,11 @@ impl<'db> Checkpoint<'db> {
     ///
     /// Does not actually produce checkpoints, call `.create_checkpoint()` method to produce
     /// a DB checkpoint.
-    pub fn new(db: &'db DB) -> Result<Self, Error> {
+    pub fn new<T: ThreadMode, I: DBInner>(db: &'db DBCommon<T, I>) -> Result<Self, Error> {
         let checkpoint: *mut ffi::rocksdb_checkpoint_t;
 
         unsafe {
-            checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner));
+            checkpoint = ffi_try!(ffi::rocksdb_checkpoint_object_create(db.inner.inner()));
         }
 
         if checkpoint.is_null() {

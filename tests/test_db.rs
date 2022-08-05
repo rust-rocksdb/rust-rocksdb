@@ -21,8 +21,8 @@ use pretty_assertions::assert_eq;
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
-    DBWithThreadMode, Env, Error, FifoCompactOptions, IteratorMode, MultiThreaded, Options,
-    PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
+    DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
+    Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
 };
 use util::{assert_iter, pair, DBPath};
@@ -72,7 +72,7 @@ fn errors_do_stuff() {
     match DB::destroy(&opts, &path) {
         Err(s) => {
             let message = s.to_string();
-            assert!(message.contains("IO error:"));
+            assert_eq!(s.kind(), ErrorKind::IOError);
             assert!(message.contains("_rust_rocksdb_error"));
             assert!(message.contains("/LOCK:"));
         }
