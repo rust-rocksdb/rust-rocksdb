@@ -15,6 +15,7 @@ links = "rocksdb"
 default = [ "static" ]
 jemalloc = ["tikv-jemalloc-sys"]
 static = ["libz-sys?/static", "bzip2-sys?/static"]
+io-uring = ["pkg-config"]
 snappy = []
 lz4 = []
 zstd = ["zstd-sys"]
@@ -37,3 +38,4 @@ uuid = { version = "1.0", features = ["v4"] }
 cc = { version = "1.0", features = ["parallel"] }
 bindgen = { version = "0.60", default-features = false, features = ["runtime"] }
 glob = "0.3"
+pkg-config = { version = "0.3", optional = true }
