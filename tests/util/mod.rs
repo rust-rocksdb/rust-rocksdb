@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use rocksdb::{Options, DB};
+use rocksdb::{Error, Options, DB};
 
 /// Temporary database path which calls DB::Destroy when DBPath is dropped.
 pub struct DBPath {
@@ -47,19 +47,14 @@ pub fn pair(left: &[u8], right: &[u8]) -> Pair {
 }
 
 #[track_caller]
-pub fn assert_iter<D: rocksdb::DBAccess>(
-    iter: rocksdb::DBIteratorWithThreadMode<'_, D>,
-    want: &[Pair],
-) {
-    assert_eq!(iter.collect::<Vec<_>>().as_slice(), want);
+pub fn assert_iter(iter: impl Iterator<Item = Result<Pair, Error>>, want: &[Pair]) {
+    let got = iter.collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(got.as_slice(), want);
 }
 
 #[track_caller]
-pub fn assert_iter_reversed<D: rocksdb::DBAccess>(
-    iter: rocksdb::DBIteratorWithThreadMode<'_, D>,
-    want: &[Pair],
-) {
-    let mut got = iter.collect::<Vec<_>>();
+pub fn assert_iter_reversed(iter: impl Iterator<Item = Result<Pair, Error>>, want: &[Pair]) {
+    let mut got = iter.collect::<Result<Vec<_>, _>>().unwrap();
     got.reverse();
     assert_eq!(got.as_slice(), want);
 }

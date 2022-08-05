@@ -73,29 +73,39 @@ fn test_iterator() {
         );
 
         {
-            let iterator1 = db.iterator(IteratorMode::From(b"k0", Direction::Forward));
-            assert!(iterator1.valid());
-            let iterator2 = db.iterator(IteratorMode::From(b"k1", Direction::Forward));
-            assert!(iterator2.valid());
-            let iterator3 = db.iterator(IteratorMode::From(b"k11", Direction::Forward));
-            assert!(iterator3.valid());
-            let iterator4 = db.iterator(IteratorMode::From(b"k5", Direction::Forward));
-            assert!(!iterator4.valid());
-            let iterator5 = db.iterator(IteratorMode::From(b"k0", Direction::Reverse));
-            assert!(!iterator5.valid());
-            let iterator6 = db.iterator(IteratorMode::From(b"k1", Direction::Reverse));
-            assert!(iterator6.valid());
-            let iterator7 = db.iterator(IteratorMode::From(b"k11", Direction::Reverse));
-            assert!(iterator7.valid());
-            let iterator8 = db.iterator(IteratorMode::From(b"k5", Direction::Reverse));
-            assert!(iterator8.valid());
+            let test = |valid, key, dir| {
+                let mut it = db.iterator(IteratorMode::From(key, dir));
+                let value = it.next();
+                if valid {
+                    assert!(matches!(value, Some(Ok(_))), "{:?}", value);
+                } else {
+                    assert_eq!(None, value);
+                    assert_eq!(None, it.next()); // Iterator is fused
+                }
+            };
+
+            test(true, b"k0", Direction::Forward);
+            test(true, b"k1", Direction::Forward);
+            test(true, b"k11", Direction::Forward);
+            test(false, b"k5", Direction::Forward);
+            test(false, b"k0", Direction::Reverse);
+            test(true, b"k1", Direction::Reverse);
+            test(true, b"k11", Direction::Reverse);
+            test(true, b"k5", Direction::Reverse);
         }
         {
             let mut iterator1 = db.iterator(IteratorMode::From(b"k4", Direction::Forward));
-            iterator1.next();
-            assert!(iterator1.valid());
-            iterator1.next();
-            assert!(!iterator1.valid());
+            iterator1.next().unwrap().unwrap();
+            assert_eq!(None, iterator1.next());
+            assert_eq!(None, iterator1.next());
+        }
+        {
+            // Check that set_mode resets the iterator
+            let mode = IteratorMode::From(K3, Direction::Forward);
+            let mut iterator = db.iterator(mode);
+            assert_iter(&mut iterator, &expected2[2..]);
+            iterator.set_mode(mode);
+            assert_iter(&mut iterator, &expected2[2..]);
         }
     }
 }
@@ -217,6 +227,7 @@ fn test_full_iterator() {
 
 fn custom_iter(db: &'_ DB) -> impl Iterator<Item = usize> + '_ {
     db.iterator(IteratorMode::Start)
+        .map(Result::unwrap)
         .map(|(_, db_value)| db_value.len())
 }
 
@@ -275,6 +286,7 @@ fn test_iter_range() {
         ro.set_iterate_range(range);
         let got = db
             .iterator_opt(mode, ro)
+            .map(Result::unwrap)
             .map(|(key, _value)| key)
             .collect::<Vec<_>>();
         let mut got = got.iter().map(Box::as_ref).collect::<Vec<_>>();

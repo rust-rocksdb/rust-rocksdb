@@ -147,7 +147,7 @@ fn iterator_test() {
 
         let iter = db.iterator(IteratorMode::Start);
 
-        for (idx, (db_key, db_value)) in iter.enumerate() {
+        for (idx, (db_key, db_value)) in iter.map(Result::unwrap).enumerate() {
             let (key, value) = data[idx];
             assert_eq!((&key[..], &value[..]), (db_key.as_ref(), db_value.as_ref()));
         }
@@ -188,7 +188,7 @@ fn iterator_test_tailing() {
         }
 
         let mut tot = 0;
-        for (i, (k, v)) in tail_iter.enumerate() {
+        for (i, (k, v)) in tail_iter.map(Result::unwrap).enumerate() {
             assert_eq!(
                 (k.to_vec(), v.to_vec()),
                 (data[i].0.to_vec(), data[i].1.to_vec())
@@ -424,13 +424,13 @@ fn test_get_updates_since_multiple_batches() {
         puts: 0,
         deletes: 0,
     };
-    let (seq, batch) = iter.next().unwrap();
+    let (seq, batch) = iter.next().unwrap().unwrap();
     assert_eq!(seq, 2);
     batch.iterate(&mut counts);
-    let (seq, batch) = iter.next().unwrap();
+    let (seq, batch) = iter.next().unwrap().unwrap();
     assert_eq!(seq, 3);
     batch.iterate(&mut counts);
-    let (seq, batch) = iter.next().unwrap();
+    let (seq, batch) = iter.next().unwrap().unwrap();
     assert_eq!(seq, 4);
     batch.iterate(&mut counts);
     assert!(iter.next().is_none());
@@ -457,7 +457,7 @@ fn test_get_updates_since_one_batch() {
         puts: 0,
         deletes: 0,
     };
-    let (seq, batch) = iter.next().unwrap();
+    let (seq, batch) = iter.next().unwrap().unwrap();
     assert_eq!(seq, 2);
     batch.iterate(&mut counts);
     assert!(iter.next().is_none());
@@ -857,7 +857,7 @@ fn get_with_cache_and_bulkload_test() {
 
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
-        for (expected, (k, _)) in iter.enumerate() {
+        for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
 
@@ -918,7 +918,7 @@ fn get_with_cache_and_bulkload_test() {
 
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
-        for (expected, (k, _)) in iter.enumerate() {
+        for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
     }
@@ -992,7 +992,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
 
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
-        for (expected, (k, _)) in iter.enumerate() {
+        for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
 
@@ -1053,7 +1053,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
 
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
-        for (expected, (k, _)) in iter.enumerate() {
+        for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
             assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
         }
     }

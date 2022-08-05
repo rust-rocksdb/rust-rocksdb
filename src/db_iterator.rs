@@ -377,22 +377,26 @@ pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward
-///     for (key, value) in iter {
+///     for item in iter {
+///         let (key, value) = item.unwrap();
 ///         println!("Saw {:?} {:?}", key, value);
 ///     }
 ///     iter = db.iterator(IteratorMode::End);  // Always iterates backward
-///     for (key, value) in iter {
+///     for item in iter {
+///         let (key, value) = item.unwrap();
 ///         println!("Saw {:?} {:?}", key, value);
 ///     }
 ///     iter = db.iterator(IteratorMode::From(b"my key", Direction::Forward)); // From a key in Direction::{forward,reverse}
-///     for (key, value) in iter {
+///     for item in iter {
+///         let (key, value) = item.unwrap();
 ///         println!("Saw {:?} {:?}", key, value);
 ///     }
 ///
 ///     // You can seek with an existing Iterator instance, too
 ///     iter = db.iterator(IteratorMode::Start);
 ///     iter.set_mode(IteratorMode::From(b"another key", Direction::Reverse));
-///     for (key, value) in iter {
+///     for item in iter {
+///         let (key, value) = item.unwrap();
 ///         println!("Saw {:?} {:?}", key, value);
 ///     }
 /// }
@@ -401,9 +405,10 @@ pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 pub struct DBIteratorWithThreadMode<'a, D: DBAccess> {
     raw: DBRawIteratorWithThreadMode<'a, D>,
     direction: Direction,
-    just_seeked: bool,
+    done: bool,
 }
 
+#[derive(Copy, Clone)]
 pub enum Direction {
     Forward,
     Reverse,
@@ -411,6 +416,7 @@ pub enum Direction {
 
 pub type KVBytes = (Box<[u8]>, Box<[u8]>);
 
+#[derive(Copy, Clone)]
 pub enum IteratorMode<'a> {
     Start,
     End,
@@ -419,13 +425,7 @@ pub enum IteratorMode<'a> {
 
 impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
     pub(crate) fn new(db: &D, readopts: ReadOptions, mode: IteratorMode) -> Self {
-        let mut rv = DBIteratorWithThreadMode {
-            raw: DBRawIteratorWithThreadMode::new(db, readopts),
-            direction: Direction::Forward, // blown away by set_mode()
-            just_seeked: false,
-        };
-        rv.set_mode(mode);
-        rv
+        Self::from_raw(DBRawIteratorWithThreadMode::new(db, readopts), mode)
     }
 
     pub(crate) fn new_cf(
@@ -434,75 +434,66 @@ impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
         readopts: ReadOptions,
         mode: IteratorMode,
     ) -> Self {
+        Self::from_raw(
+            DBRawIteratorWithThreadMode::new_cf(db, cf_handle, readopts),
+            mode,
+        )
+    }
+
+    fn from_raw(raw: DBRawIteratorWithThreadMode<'a, D>, mode: IteratorMode) -> Self {
         let mut rv = DBIteratorWithThreadMode {
-            raw: DBRawIteratorWithThreadMode::new_cf(db, cf_handle, readopts),
+            raw,
             direction: Direction::Forward, // blown away by set_mode()
-            just_seeked: false,
+            done: false,
         };
         rv.set_mode(mode);
         rv
     }
 
     pub fn set_mode(&mut self, mode: IteratorMode) {
-        match mode {
+        self.done = false;
+        self.direction = match mode {
             IteratorMode::Start => {
                 self.raw.seek_to_first();
-                self.direction = Direction::Forward;
+                Direction::Forward
             }
             IteratorMode::End => {
                 self.raw.seek_to_last();
-                self.direction = Direction::Reverse;
+                Direction::Reverse
             }
             IteratorMode::From(key, Direction::Forward) => {
                 self.raw.seek(key);
-                self.direction = Direction::Forward;
+                Direction::Forward
             }
             IteratorMode::From(key, Direction::Reverse) => {
                 self.raw.seek_for_prev(key);
-                self.direction = Direction::Reverse;
+                Direction::Reverse
             }
         };
-
-        self.just_seeked = true;
-    }
-
-    /// See [`valid`](DBRawIteratorWithThreadMode::valid)
-    pub fn valid(&self) -> bool {
-        self.raw.valid()
-    }
-
-    /// See [`status`](DBRawIteratorWithThreadMode::status)
-    pub fn status(&self) -> Result<(), Error> {
-        self.raw.status()
     }
 }
 
 impl<'a, D: DBAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
-    type Item = KVBytes;
+    type Item = Result<KVBytes, Error>;
 
-    fn next(&mut self) -> Option<KVBytes> {
-        if !self.raw.valid() {
-            return None;
-        }
-
-        // Initial call to next() after seeking should not move the iterator
-        // or the first item will not be returned
-        if self.just_seeked {
-            self.just_seeked = false;
-        } else {
+    fn next(&mut self) -> Option<Result<KVBytes, Error>> {
+        if self.done {
+            None
+        } else if let Some((key, value)) = self.raw.item() {
+            let item = (Box::from(key), Box::from(value));
             match self.direction {
                 Direction::Forward => self.raw.next(),
                 Direction::Reverse => self.raw.prev(),
             }
-        }
-
-        if let Some((key, value)) = self.raw.item() {
-            Some((Box::from(key), Box::from(value)))
+            Some(Ok(item))
         } else {
-            None
+            self.done = true;
+            self.raw.status().err().map(Result::Err)
         }
     }
 }
+
+impl<'a, D: DBAccess> std::iter::FusedIterator for DBIteratorWithThreadMode<'a, D> {}
 
 impl<'a, D: DBAccess> Into<DBRawIteratorWithThreadMode<'a, D>> for DBIteratorWithThreadMode<'a, D> {
     fn into(self) -> DBRawIteratorWithThreadMode<'a, D> {
@@ -548,9 +539,9 @@ impl DBWALIterator {
 }
 
 impl Iterator for DBWALIterator {
-    type Item = (u64, WriteBatch);
+    type Item = Result<(u64, WriteBatch), Error>;
 
-    fn next(&mut self) -> Option<(u64, WriteBatch)> {
+    fn next(&mut self) -> Option<Self::Item> {
         if !self.valid() {
             return None;
         }
@@ -562,9 +553,9 @@ impl Iterator for DBWALIterator {
         if self.valid() {
             let mut seq: u64 = 0;
             let inner = unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) };
-            Some((seq, WriteBatch { inner }))
+            Some(Ok((seq, WriteBatch { inner })))
         } else {
-            None
+            self.status().err().map(Result::Err)
         }
     }
 }
