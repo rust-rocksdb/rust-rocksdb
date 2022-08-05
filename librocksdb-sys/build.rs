@@ -220,6 +220,13 @@ fn build_rocksdb() {
         config.define("WITH_JEMALLOC", "ON");
     }
 
+    #[cfg(feature = "io-uring")]
+    if target.contains("linux") {
+        pkg_config::probe_library("liburing")
+            .expect("The io-uring feature was requested but the library is not available");
+        config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
+    }
+
     if target.contains("msvc") {
         config.flag("-EHsc");
         config.flag("-std:c++17");
