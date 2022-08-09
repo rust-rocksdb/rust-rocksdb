@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::{env, fs, path::PathBuf, process::Command};
+use std::io::Write;
 
 fn link(name: &str, bundled: bool) {
     use std::env::var;
@@ -355,6 +356,13 @@ fn run_command(program: &str, dir: &str, args: &[&str]) {
     }
 }
 
+fn reset_local_changes() {
+    let program = "git";
+    let dir = "rocksdb/";
+    let args = ["reset", "--hard"];
+    run_command(program, dir, &args);
+}
+
 fn update_submodules() {
     let program = "git";
     let dir = "../";
@@ -364,6 +372,9 @@ fn update_submodules() {
 
 fn cherry_pick_commits(commits: &Vec<&str>) {
     for commit in commits {
+        if commit.is_empty() {
+            continue;
+        }
         let program = "git";
         let dir = "rocksdb/";
         let args = ["cherry-pick", &commit];
@@ -373,6 +384,9 @@ fn cherry_pick_commits(commits: &Vec<&str>) {
 
 fn apply_patches(patches: &Vec<&str>) {
     for patch in patches {
+        if patch.is_empty() {
+            continue;
+        }
         let program = "git";
         let dir = "rocksdb/";
         let args = ["apply", &patch];
@@ -380,15 +394,44 @@ fn apply_patches(patches: &Vec<&str>) {
     }
 }
 
+fn env_state_changed(commits_to_cherry_pick: &str, patches_to_apply: &str) -> bool {
+    let env_state_path = Path::new("rocksdb/__build_environment__");
+    let new_env_state = String::from(format!("{}\n{}\n", commits_to_cherry_pick, patches_to_apply));
+    let old_env_state = String::from(fs::read_to_string(env_state_path).unwrap_or("".into()));
+
+    if old_env_state == new_env_state {
+        println!("Skipping rocksdb reset since env state didn't change");
+        return false
+    }
+
+    let mut env_state_file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(env_state_path)
+        .unwrap();
+    write!(env_state_file, "{}", new_env_state).expect("Can't write env state to file");
+    println!("Resetting rocksdb since env state has changed old: {} {} {} new: {} {} {}", old_env_state, new_env_state,
+             old_env_state.len(), new_env_state.len(), old_env_state.as_bytes()[0], new_env_state.as_bytes()[0]);
+    true
+}
+
 fn main() {
-    if !Path::new("rocksdb/AUTHORS").exists() {
+    let commits_to_cherry_pick = env::var("ROCKSDB_COMMITS_TO_CHERRY_PICK").unwrap_or("".into());
+    let patches_to_apply = env::var("ROCKSDB_PATCHES_TO_APPLY").unwrap_or("".into());
+
+    let rocksdb_exists = Path::new("rocksdb/AUTHORS").exists();
+    let need_to_reset = !rocksdb_exists || env_state_changed(&commits_to_cherry_pick, &patches_to_apply);
+
+    if need_to_reset {
+        if rocksdb_exists {
+            reset_local_changes();
+        }
         update_submodules();
-        if let Ok(commits_to_cherry_pick) = env::var("ROCKSDB_COMMITS_TO_CHERRY_PICK") {
-            cherry_pick_commits(&commits_to_cherry_pick.split(' ').collect());
-        }
-        if let Ok(patches_to_apply) = env::var("ROCKSDB_PATCHES_TO_APPLY") {
-            apply_patches(&patches_to_apply.split(' ').collect());
-        }
+    }
+
+    if need_to_reset {
+        cherry_pick_commits(&commits_to_cherry_pick.split(' ').collect());
+        apply_patches(&patches_to_apply.split(' ').collect());
     }
     bindgen_rocksdb();
 
