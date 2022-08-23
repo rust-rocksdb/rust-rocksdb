@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use crate::{db::DBInner, ffi, ffi_util::to_cpath, Error, DB};
+use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode};
 
 use libc::{c_int, c_uchar};
 use std::path::Path;
@@ -66,7 +66,10 @@ impl BackupEngine {
     ///
     /// Note: no flush before backup is performed. User might want to
     /// use `create_new_backup_flush` instead.
-    pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
+    pub fn create_new_backup<T: ThreadMode, D: DBInner>(
+        &mut self,
+        db: &DBCommon<T, D>,
+    ) -> Result<(), Error> {
         self.create_new_backup_flush(db, false)
     }
 
@@ -74,9 +77,9 @@ impl BackupEngine {
     ///
     /// Set flush_before_backup=true to avoid losing unflushed key/value
     /// pairs from the memtable.
-    pub fn create_new_backup_flush(
+    pub fn create_new_backup_flush<T: ThreadMode, D: DBInner>(
         &mut self,
-        db: &DB,
+        db: &DBCommon<T, D>,
         flush_before_backup: bool,
     ) -> Result<(), Error> {
         unsafe {
