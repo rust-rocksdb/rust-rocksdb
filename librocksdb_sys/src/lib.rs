@@ -1214,6 +1214,7 @@ extern "C" {
         writeopts: *const DBWriteOptions,
         batch: *const *mut DBWriteBatch,
         batchlen: size_t,
+        seq: *mut u64,
         err: *mut *mut c_char,
     );
     pub fn crocksdb_writebatch_create() -> *mut DBWriteBatch;

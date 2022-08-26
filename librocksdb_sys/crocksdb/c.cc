@@ -1081,12 +1081,13 @@ void crocksdb_write_seq(crocksdb_t* db, const crocksdb_writeoptions_t* options,
 void crocksdb_write_multi_batch(crocksdb_t* db,
                                 const crocksdb_writeoptions_t* options,
                                 crocksdb_writebatch_t** batches,
-                                size_t batch_size, char** errptr) {
+                                size_t batch_size, uint64_t* seq,
+                                char** errptr) {
   std::vector<WriteBatch*> ws;
   for (size_t i = 0; i < batch_size; i++) {
     ws.push_back(&batches[i]->rep);
   }
-  SaveError(errptr, db->rep->MultiBatchWrite(options->rep, std::move(ws)));
+  SaveError(errptr, db->rep->MultiBatchWrite(options->rep, std::move(ws), seq));
 }
 
 char* crocksdb_get(crocksdb_t* db, const crocksdb_readoptions_t* options,

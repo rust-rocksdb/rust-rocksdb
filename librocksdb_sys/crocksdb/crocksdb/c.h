@@ -392,7 +392,8 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_write_seq(
 
 extern C_ROCKSDB_LIBRARY_API void crocksdb_write_multi_batch(
     crocksdb_t* db, const crocksdb_writeoptions_t* options,
-    crocksdb_writebatch_t** batches, size_t batch_size, char** errptr);
+    crocksdb_writebatch_t** batches, size_t batch_size, uint64_t* seq,
+    char** errptr);
 
 /* Returns NULL if not found.  A malloc()ed array otherwise.
    Stores the length of the array in *vallen. */
