@@ -16,7 +16,7 @@ use libc::{c_int, c_uchar, c_void};
 
 use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error, DB};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
 pub enum PerfStatsLevel {
     /// Unknown settings
@@ -36,7 +36,7 @@ pub enum PerfStatsLevel {
     OutOfBound,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[repr(i32)]
 pub enum PerfMetric {
