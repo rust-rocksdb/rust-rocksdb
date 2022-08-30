@@ -233,7 +233,6 @@ fn build_rocksdb() {
     } else {
         config.flag(&cxx_standard());
         // matches the flags in CMakeLists.txt from rocksdb
-        config.define("HAVE_UINT128_EXTENSION", Some("1"));
         config.flag("-Wsign-compare");
         config.flag("-Wshadow");
         config.flag("-Wno-unused-parameter");
