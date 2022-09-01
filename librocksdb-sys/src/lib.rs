@@ -22,6 +22,8 @@
 extern crate bzip2_sys;
 #[cfg(feature = "zlib")]
 extern crate libz_sys;
+#[cfg(feature = "lz4")]
+extern crate lz4_sys;
 #[cfg(feature = "zstd")]
 extern crate zstd_sys;
 
