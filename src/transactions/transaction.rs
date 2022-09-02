@@ -138,7 +138,7 @@ impl<'db, DB> Transaction<'db, DB> {
     /// [`Busy`]: crate::ErrorKind::Busy
     /// [`TryAgain`]: crate::ErrorKind::TryAgain
     /// [`Options::set_max_write_buffer_size_to_maintain`]: crate::Options::set_max_write_buffer_size_to_maintain
-    pub fn commit(self) -> Result<(), Error> {
+    pub fn commit(&self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_commit(self.inner));
         }
