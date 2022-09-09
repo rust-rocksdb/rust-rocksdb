@@ -29,8 +29,7 @@ static_libcpp = []
 
 [build-dependencies]
 cc = "1.0.3"
-# Update when the fix to https://github.com/rust-lang/cmake-rs/issues/131 has been released.
-cmake = "=0.1.45"
+cmake = "0.1"
 bindgen = { version = "0.57", default-features = false, features = ["runtime"] }
 
 [dependencies.tikv-jemalloc-sys]

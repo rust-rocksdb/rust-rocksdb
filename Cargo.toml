@@ -32,3 +32,7 @@ crc = "1.8"
 lazy_static = "1.4.0"
 rand = "0.7"
 tempfile = "3.1"
+
+[patch.crates-io]
+# Remove this when a new version is release. We need to solve rust-lang/cmake-rs#143.
+cmake = { git = "https://github.com/rust-lang/cmake-rs" }
