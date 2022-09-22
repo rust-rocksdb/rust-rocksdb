@@ -27,6 +27,7 @@ extern crate tempfile;
 #[macro_use]
 extern crate lazy_static;
 
+pub use checkpoint::Checkpointer;
 pub use compaction_filter::{
     new_compaction_filter, new_compaction_filter_factory, new_compaction_filter_raw,
     CompactionFilter, CompactionFilterContext, CompactionFilterDecision, CompactionFilterFactory,
@@ -83,6 +84,7 @@ pub use write_batch::{WriteBatch, WriteBatchIter, WriteBatchRef};
 #[allow(deprecated)]
 pub use rocksdb::Kv;
 
+mod checkpoint;
 mod compaction_filter;
 pub mod comparator;
 #[cfg(feature = "encryption")]

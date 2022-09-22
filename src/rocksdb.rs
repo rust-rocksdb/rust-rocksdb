@@ -1856,6 +1856,10 @@ impl DB {
         DB::open_default(restore_db_path)
     }
 
+    pub fn new_checkpointer(&self) -> Result<crate::Checkpointer, String> {
+        crate::Checkpointer::new(self.inner, self.is_titan())
+    }
+
     pub fn get_block_cache_usage(&self) -> u64 {
         self.get_options().get_block_cache_usage()
     }

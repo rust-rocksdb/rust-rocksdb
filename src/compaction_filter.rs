@@ -523,7 +523,6 @@ mod tests {
         db.compact_range_cf(cfh, None, None);
         let sk = rx.recv().unwrap();
         let ek = rx.recv().unwrap();
-        println!("sk:{:?} ek:{:?}", sk, ek);
         let sk = str::from_utf8(&sk).unwrap();
         let ek = str::from_utf8(&ek).unwrap();
         assert_eq!("key0", sk);

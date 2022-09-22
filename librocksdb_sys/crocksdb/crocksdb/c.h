@@ -80,6 +80,7 @@ typedef struct crocksdb_lru_cache_options_t crocksdb_lru_cache_options_t;
 typedef struct crocksdb_cache_t crocksdb_cache_t;
 typedef struct crocksdb_memory_allocator_t crocksdb_memory_allocator_t;
 typedef struct crocksdb_compactionfilter_t crocksdb_compactionfilter_t;
+typedef struct crocksdb_checkpoint_t crocksdb_checkpoint_t;
 enum {
   crocksdb_table_file_creation_reason_flush = 0,
   crocksdb_table_file_creation_reason_compaction = 1,
@@ -244,6 +245,16 @@ extern C_ROCKSDB_LIBRARY_API void crocksdb_status_ptr_get_error(
     crocksdb_status_ptr_t*, char** errptr);
 
 extern C_ROCKSDB_LIBRARY_API void rocksdb_resume(crocksdb_t* db, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API crocksdb_checkpoint_t*
+crocksdb_checkpoint_object_create(crocksdb_t* db, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void crocksdb_checkpoint_create(
+    crocksdb_checkpoint_t* checkpoint, const char* checkpoint_dir,
+    uint64_t log_size_for_flush, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void crocksdb_checkpoint_object_destroy(
+    crocksdb_checkpoint_t* checkpoint);
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_backup_engine_t*
 crocksdb_backup_engine_open(const crocksdb_options_t* options, const char* path,
@@ -2533,6 +2544,7 @@ struct ctitandb_blob_index_t {
 typedef struct ctitandb_options_t ctitandb_options_t;
 typedef struct ctitandb_readoptions_t ctitandb_readoptions_t;
 typedef struct ctitandb_blob_index_t ctitandb_blob_index_t;
+typedef struct ctitandb_checkpoint_t ctitandb_checkpoint_t;
 
 extern C_ROCKSDB_LIBRARY_API crocksdb_t* ctitandb_open_column_families(
     const char* name, const ctitandb_options_t* tdb_options,
@@ -2544,6 +2556,17 @@ extern C_ROCKSDB_LIBRARY_API crocksdb_column_family_handle_t*
 ctitandb_create_column_family(
     crocksdb_t* db, const ctitandb_options_t* titan_column_family_options,
     const char* column_family_name, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API ctitandb_checkpoint_t*
+ctitandb_checkpoint_object_create(crocksdb_t* db, char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_checkpoint_create(
+    ctitandb_checkpoint_t* checkpoint, const char* basedb_checkpoint_dir,
+    const char* titan_checkpoint_dir, uint64_t log_size_for_flush,
+    char** errptr);
+
+extern C_ROCKSDB_LIBRARY_API void ctitandb_checkpoint_object_destroy(
+    ctitandb_checkpoint_t* checkpoint);
 
 /* TitanDBOptions */
 

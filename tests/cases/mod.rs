@@ -1,3 +1,4 @@
+mod test_checkpoint;
 mod test_column_family;
 mod test_compact_range;
 mod test_compaction_filter;

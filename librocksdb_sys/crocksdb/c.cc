@@ -48,6 +48,7 @@
 #include "rocksdb/types.h"
 #include "rocksdb/universal_compaction.h"
 #include "rocksdb/utilities/backupable_db.h"
+#include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/db_ttl.h"
 #include "rocksdb/utilities/debug.h"
 #include "rocksdb/utilities/options_util.h"
@@ -57,6 +58,7 @@
 #include "table/block_based/block_based_table_factory.h"
 #include "table/sst_file_writer_collectors.h"
 #include "table/table_reader.h"
+#include "titan/checkpoint.h"
 #include "titan/db.h"
 #include "titan/options.h"
 #include "util/coding.h"
@@ -77,6 +79,7 @@ using rocksdb::BackupInfo;
 using rocksdb::BlockBasedTableOptions;
 using rocksdb::BlockCipher;
 using rocksdb::Cache;
+using rocksdb::Checkpoint;
 using rocksdb::ColumnFamilyDescriptor;
 using rocksdb::ColumnFamilyHandle;
 using rocksdb::ColumnFamilyOptions;
@@ -171,6 +174,7 @@ using rocksdb::ExternalSstFilePropertyNames;
 using rocksdb::IOStatsContext;
 using rocksdb::LDBTool;
 using rocksdb::LevelMetaData;
+using rocksdb::MemoryAllocator;
 using rocksdb::PerfContext;
 using rocksdb::PerfLevel;
 using rocksdb::PutFixed64;
@@ -193,8 +197,7 @@ using rocksdb::titandb::TitanDB;
 using rocksdb::titandb::TitanDBOptions;
 using rocksdb::titandb::TitanOptions;
 using rocksdb::titandb::TitanReadOptions;
-
-using rocksdb::MemoryAllocator;
+using TitanCheckpoint = rocksdb::titandb::Checkpoint;
 
 #ifdef OPENSSL
 using rocksdb::encryption::EncryptionMethod;
@@ -222,6 +225,9 @@ struct crocksdb_backup_engine_t {
 };
 struct crocksdb_backup_engine_info_t {
   std::vector<BackupInfo> rep;
+};
+struct crocksdb_checkpoint_t {
+  Checkpoint* rep;
 };
 struct crocksdb_restore_options_t {
   RestoreOptions rep;
@@ -754,6 +760,29 @@ void crocksdb_status_ptr_get_error(crocksdb_status_ptr_t* status,
 
 void crocksdb_resume(crocksdb_t* db, char** errptr) {
   SaveError(errptr, db->rep->Resume());
+}
+
+crocksdb_checkpoint_t* crocksdb_checkpoint_object_create(crocksdb_t* db,
+                                                         char** errptr) {
+  Checkpoint* checkpoint;
+  if (SaveError(errptr, Checkpoint::Create(db->rep, &checkpoint))) {
+    return nullptr;
+  }
+  crocksdb_checkpoint_t* result = new crocksdb_checkpoint_t;
+  result->rep = checkpoint;
+  return result;
+}
+
+void crocksdb_checkpoint_create(crocksdb_checkpoint_t* checkpoint,
+                                const char* checkpoint_dir,
+                                uint64_t log_size_for_flush, char** errptr) {
+  SaveError(errptr, checkpoint->rep->CreateCheckpoint(
+                        std::string(checkpoint_dir), log_size_for_flush));
+}
+
+void crocksdb_checkpoint_object_destroy(crocksdb_checkpoint_t* checkpoint) {
+  delete checkpoint->rep;
+  delete checkpoint;
 }
 
 crocksdb_backup_engine_t* crocksdb_backup_engine_open(
@@ -6383,9 +6412,39 @@ void crocksdb_run_sst_dump_tool(int argc, char** argv,
 }
 
 /* Titan */
+struct ctitandb_checkpoint_t {
+  TitanCheckpoint* rep;
+};
+
 struct ctitandb_options_t {
   TitanOptions rep;
 };
+
+ctitandb_checkpoint_t* ctitandb_checkpoint_object_create(crocksdb_t* db,
+                                                         char** errptr) {
+  TitanCheckpoint* checkpoint;
+  if (SaveError(errptr, TitanCheckpoint::Create(static_cast<TitanDB*>(db->rep),
+                                                &checkpoint))) {
+    return nullptr;
+  }
+  ctitandb_checkpoint_t* result = new ctitandb_checkpoint_t;
+  result->rep = checkpoint;
+  return result;
+}
+
+void ctitandb_checkpoint_create(ctitandb_checkpoint_t* checkpoint,
+                                const char* basedb_checkpoint_dir,
+                                const char* titan_checkpoint_dir,
+                                uint64_t log_size_for_flush, char** errptr) {
+  SaveError(errptr, checkpoint->rep->CreateCheckpoint(
+                        std::string(basedb_checkpoint_dir),
+                        std::string(titan_checkpoint_dir), log_size_for_flush));
+}
+
+void ctitandb_checkpoint_object_destroy(ctitandb_checkpoint_t* checkpoint) {
+  delete checkpoint->rep;
+  delete checkpoint;
+}
 
 crocksdb_t* ctitandb_open_column_families(
     const char* name, const ctitandb_options_t* tdb_options,
