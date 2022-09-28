@@ -436,6 +436,22 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
     }
 
+    /// Opens a database with the given database options and column family names.
+    ///
+    /// Column families opened using given `Options`.
+    pub fn open_cf_with_opts<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = (N, Options)>,
+        N: AsRef<str>,
+    {
+        let cfs = cfs
+            .into_iter()
+            .map(|(name, opts)| ColumnFamilyDescriptor::new(name.as_ref(), opts));
+
+        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
+    }
+
     /// Opens a database for read only with the given database options and column family names.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
