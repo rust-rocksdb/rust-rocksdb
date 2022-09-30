@@ -77,7 +77,7 @@ pub struct MergeOperatorCallback<F: MergeFn, PF: MergeFn> {
 }
 
 pub unsafe extern "C" fn destructor_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) {
-    Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>);
+    drop(Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>));
 }
 
 pub unsafe extern "C" fn delete_callback(
@@ -86,10 +86,10 @@ pub unsafe extern "C" fn delete_callback(
     value_length: size_t,
 ) {
     if !value.is_null() {
-        Box::from_raw(slice::from_raw_parts_mut(
+        drop(Box::from_raw(slice::from_raw_parts_mut(
             value as *mut u8,
             value_length as usize,
-        ));
+        )));
     }
 }
 

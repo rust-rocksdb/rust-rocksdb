@@ -26,7 +26,7 @@ pub struct ComparatorCallback {
 }
 
 pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
-    Box::from_raw(raw_cb as *mut ComparatorCallback);
+    drop(Box::from_raw(raw_cb as *mut ComparatorCallback));
 }
 
 pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
