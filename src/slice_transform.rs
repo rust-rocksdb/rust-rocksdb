@@ -83,7 +83,7 @@ pub struct TransformCallback<'a> {
 }
 
 pub unsafe extern "C" fn slice_transform_destructor_callback(raw_cb: *mut c_void) {
-    Box::from_raw(raw_cb as *mut TransformCallback);
+    drop(Box::from_raw(raw_cb as *mut TransformCallback));
 }
 
 pub unsafe extern "C" fn slice_transform_name_callback(raw_cb: *mut c_void) -> *const c_char {

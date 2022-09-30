@@ -100,7 +100,7 @@ pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
 where
     F: CompactionFilter,
 {
-    Box::from_raw(raw_cb as *mut F);
+    drop(Box::from_raw(raw_cb as *mut F));
 }
 
 pub unsafe extern "C" fn name_callback<F>(raw_cb: *mut c_void) -> *const c_char
