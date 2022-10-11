@@ -288,16 +288,19 @@ fn build_snappy() {
 }
 
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
+    println!("cargo:rerun-if-env-changed={}_COMPILE", lib_name);
     if let Ok(v) = env::var(&format!("{}_COMPILE", lib_name)) {
         if v.to_lowercase() == "true" || v == "1" {
             return false;
         }
     }
 
+    println!("cargo:rerun-if-env-changed={}_LIB_DIR", lib_name);
+    println!("cargo:rerun-if-env-changed={}_STATIC", lib_name);
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
-        let mode = match env::var_os(&format!("{}_STATIC", lib_name)) {
-            Some(_) => "static",
+        let mode = match env::var(&format!("{}_STATIC", lib_name)) {
+            Some("") | Some("true") | Some("1") | Some("static") => "static",
             None => "dylib",
         };
         println!("cargo:rustc-link-lib={}={}", mode, lib_name.to_lowercase());
