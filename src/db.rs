@@ -449,7 +449,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             .into_iter()
             .map(|(name, opts)| ColumnFamilyDescriptor::new(name.as_ref(), opts));
 
-        Self::open_cf_descriptors_internal(opts, path, cfs, &AccessType::ReadWrite)
+        Self::open_cf_descriptors(opts, path, cfs)
     }
 
     /// Opens a database for read only with the given database options and column family names.
