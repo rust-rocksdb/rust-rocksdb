@@ -90,6 +90,20 @@ unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
+    /// Construct with a reference to a byte array serialized by [`WriteBatch`].
+    pub fn from_data(data: &[u8]) -> Self {
+        unsafe {
+            let ptr = data.as_ptr();
+            let len = data.len();
+            Self {
+                inner: ffi::rocksdb_writebatch_create_from(
+                    ptr as *const libc::c_char,
+                    len as size_t,
+                ),
+            }
+        }
+    }
+
     pub fn len(&self) -> usize {
         unsafe { ffi::rocksdb_writebatch_count(self.inner) as usize }
     }
@@ -100,6 +114,15 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
             let mut batch_size: size_t = 0;
             ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
             batch_size as usize
+        }
+    }
+
+    /// Return a reference to a byte array which represents a serialized version of the batch.
+    pub fn data(&self) -> &[u8] {
+        unsafe {
+            let mut batch_size: size_t = 0;
+            let batch_data = ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
+            std::slice::from_raw_parts(batch_data as _, batch_size as usize)
         }
     }
 
