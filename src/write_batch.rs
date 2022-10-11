@@ -90,8 +90,8 @@ unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
-    /// Construct with a serialized string object.
-    pub fn new(data: &[u8]) -> Self {
+    /// Construct with a reference to a byte array serialized by [`WriteBatch`].
+    pub fn from_data(data: &[u8]) -> Self {
         unsafe {
             let ptr = data.as_ptr();
             let len = data.len();
@@ -117,7 +117,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
-    /// Retrieve the serialized version of this batch.
+    /// Return a reference to a byte array which represents a serialized version of the batch.
     pub fn data(&self) -> &[u8] {
         unsafe {
             let mut batch_size: size_t = 0;
