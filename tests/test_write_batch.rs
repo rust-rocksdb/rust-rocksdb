@@ -62,7 +62,7 @@ fn test_write_batch_with_serialized_data() {
     }
     let data = b1.data();
 
-    let b2 = WriteBatch::new(data);
+    let b2 = WriteBatch::from_data(data);
     let mut it = Iterator { data: kvs };
     b2.iterate(&mut it);
 }
