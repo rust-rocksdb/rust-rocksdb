@@ -157,6 +157,31 @@ fn test_create_missing_column_family() {
 }
 
 #[test]
+fn test_open_column_family_with_opts() {
+    let n = DBPath::new("_rust_rocksdb_open_cf_with_opts");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // We can use different parameters for different column family.
+        let mut cf1_opts = Options::default();
+        cf1_opts.set_min_write_buffer_number(2);
+        cf1_opts.set_min_write_buffer_number_to_merge(4);
+        let mut cf2_opts = Options::default();
+        cf2_opts.set_min_write_buffer_number(5);
+        cf2_opts.set_min_write_buffer_number_to_merge(10);
+
+        let cfs = vec![("cf1", cf1_opts), ("cf2", cf2_opts)];
+        match DB::open_cf_with_opts(&opts, &n, cfs) {
+            Ok(_db) => println!("successfully opened column family with the specified options"),
+            Err(e) => panic!("failed to open cf with options: {}", e),
+        }
+    }
+}
+
+#[test]
 #[ignore]
 fn test_merge_operator() {
     let n = DBPath::new("_rust_rocksdb_cftest_merge");
