@@ -2353,6 +2353,10 @@ uint64_t crocksdb_memtableinfo_earliest_seqno(
     const crocksdb_memtableinfo_t* info) {
   return info->rep.earliest_seqno;
 }
+uint64_t crocksdb_memtableinfo_largest_seqno(
+    const crocksdb_memtableinfo_t* info) {
+  return info->rep.largest_seqno;
+}
 uint64_t crocksdb_memtableinfo_num_entries(
     const crocksdb_memtableinfo_t* info) {
   return info->rep.num_entries;

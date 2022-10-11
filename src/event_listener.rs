@@ -243,6 +243,9 @@ impl MemTableInfo {
     pub fn earliest_seqno(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_memtableinfo_earliest_seqno(&self.0) }
     }
+    pub fn largest_seqno(&self) -> u64 {
+        unsafe { crocksdb_ffi::crocksdb_memtableinfo_largest_seqno(&self.0) }
+    }
     pub fn num_entries(&self) -> u64 {
         unsafe { crocksdb_ffi::crocksdb_memtableinfo_num_entries(&self.0) }
     }

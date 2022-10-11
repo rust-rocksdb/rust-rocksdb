@@ -41,6 +41,18 @@ impl Drop for EventCounter {
 }
 
 impl EventListener for EventCounter {
+    fn on_memtable_sealed(&self, info: &MemTableInfo) {
+        assert!(!info.cf_name().is_empty());
+        assert_ne!(info.largest_seqno(), 0);
+        assert!(info.earliest_seqno() <= info.largest_seqno());
+    }
+
+    fn on_flush_begin(&self, info: &FlushJobInfo) {
+        assert!(!info.cf_name().is_empty());
+        assert_ne!(info.largest_seqno(), 0);
+        assert!(info.smallest_seqno() <= info.largest_seqno());
+    }
+
     fn on_flush_completed(&self, info: &FlushJobInfo) {
         assert!(!info.cf_name().is_empty());
         assert!(info.file_path().exists());

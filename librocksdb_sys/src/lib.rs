@@ -2299,6 +2299,7 @@ extern "C" {
     ) -> *const c_char;
     pub fn crocksdb_memtableinfo_first_seqno(info: *const DBMemTableInfo) -> u64;
     pub fn crocksdb_memtableinfo_earliest_seqno(info: *const DBMemTableInfo) -> u64;
+    pub fn crocksdb_memtableinfo_largest_seqno(info: *const DBMemTableInfo) -> u64;
     pub fn crocksdb_memtableinfo_num_entries(info: *const DBMemTableInfo) -> u64;
     pub fn crocksdb_memtableinfo_num_deletes(info: *const DBMemTableInfo) -> u64;
 

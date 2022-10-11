@@ -934,6 +934,8 @@ crocksdb_memtableinfo_first_seqno(const crocksdb_memtableinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_memtableinfo_earliest_seqno(const crocksdb_memtableinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
+crocksdb_memtableinfo_largest_seqno(const crocksdb_memtableinfo_t*);
+extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_memtableinfo_num_entries(const crocksdb_memtableinfo_t*);
 extern C_ROCKSDB_LIBRARY_API uint64_t
 crocksdb_memtableinfo_num_deletes(const crocksdb_memtableinfo_t*);
