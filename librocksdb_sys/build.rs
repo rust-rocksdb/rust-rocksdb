@@ -15,7 +15,7 @@ extern crate bindgen;
 extern crate cc;
 extern crate cmake;
 
-use cc::Build;
+use cc::{Build, Tool};
 use cmake::Config;
 use std::path::{Path, PathBuf};
 use std::{env, str};
@@ -79,24 +79,29 @@ fn main() {
         build.flag("-std=c++11");
         build.flag("-fno-rtti");
     }
-    link_cpp(&mut build);
+
+    let tool = build.get_compiler();
+
+    if tool.is_like_gnu() {
+        link_lib("libstdc++.a", &tool);
+        build.cpp_link_stdlib(None);
+    } else if tool.is_like_clang() {
+        link_lib("libc++.a", &tool);
+        build.cpp_link_stdlib(None);
+    } else {
+        // Don't link to c++ statically on windows.
+    };
+
+    link_lib("liburing.a", &tool);
+
     build.warnings(false).compile("libcrocksdb.a");
 }
 
-fn link_cpp(build: &mut Build) {
-    let tool = build.get_compiler();
-    let stdlib = if tool.is_like_gnu() {
-        "libstdc++.a"
-    } else if tool.is_like_clang() {
-        "libc++.a"
-    } else {
-        // Don't link to c++ statically on windows.
-        return;
-    };
+fn link_lib(lib: &str, tool: &Tool) {
     let output = tool
         .to_command()
         .arg("--print-file-name")
-        .arg(stdlib)
+        .arg(lib)
         .output()
         .unwrap();
     if !output.status.success() || output.stdout.is_empty() {
@@ -111,7 +116,7 @@ fn link_cpp(build: &mut Build) {
         return;
     }
     // remove lib prefix and .a postfix.
-    let libname = &stdlib[3..stdlib.len() - 2];
+    let libname = &lib[3..lib.len() - 2];
     // optional static linking
     if cfg!(feature = "static_libcpp") {
         println!("cargo:rustc-link-lib=static={}", &libname);
@@ -122,7 +127,6 @@ fn link_cpp(build: &mut Build) {
         "cargo:rustc-link-search=native={}",
         path.parent().unwrap().display()
     );
-    build.cpp_link_stdlib(None);
 }
 
 fn build_rocksdb() -> Build {
