@@ -303,7 +303,7 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
             .as_ref()
             .and_then(|s| s.to_str())
         {
-            Some("") | Some("true") | Some("1") | Some("static") => "static",
+            Some("") | Some("true") | Some("1") | Some("yes") | Some("static") => "static",
             _ => "dylib",
         };
         println!("cargo:rustc-link-lib={}={}", mode, lib_name.to_lowercase());
