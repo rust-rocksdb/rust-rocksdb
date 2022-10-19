@@ -297,13 +297,13 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 
     println!("cargo:rerun-if-env-changed={}_LIB_DIR", lib_name);
     println!("cargo:rerun-if-env-changed={}_STATIC", lib_name);
+
     if let Ok(lib_dir) = env::var(&format!("{}_LIB_DIR", lib_name)) {
         println!("cargo:rustc-link-search=native={}", lib_dir);
         let mode = match env::var_os(&format!("{}_STATIC", lib_name))
             .as_ref()
-            .and_then(|s| s.to_str())
         {
-            Some("") | Some("true") | Some("1") | Some("yes") | Some("static") => "static",
+            Some(_) => "static",
             _ => "dylib",
         };
         println!("cargo:rustc-link-lib={}={}", mode, lib_name.to_lowercase());
