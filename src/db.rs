@@ -1876,7 +1876,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     ) -> Result<(), Error> {
         let paths_v: Vec<CString> = paths
             .iter()
-            .map(|path| to_cpath(&path))
+            .map(to_cpath)
             .collect::<Result<Vec<_>, _>>()?;
 
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
@@ -1904,7 +1904,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     ) -> Result<(), Error> {
         let paths_v: Vec<CString> = paths
             .iter()
-            .map(|path| to_cpath(&path))
+            .map(to_cpath)
             .collect::<Result<Vec<_>, _>>()?;
 
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
