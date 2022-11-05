@@ -78,7 +78,7 @@ fn test_column_family() {
     {
         let mut opts = Options::default();
         opts.set_merge_operator_associative("test operator", test_provided_merge);
-        match DB::open_cf(&opts, &n, &["cf1"]) {
+        match DB::open_cf(&opts, &n, ["cf1"]) {
             Ok(_db) => println!("successfully opened db with column family"),
             Err(e) => panic!("failed to open db with column family: {}", e),
         }
@@ -101,9 +101,9 @@ fn test_column_family() {
     // should b able to drop a cf
     {
         #[cfg(feature = "multi-threaded-cf")]
-        let db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let db = DB::open_cf(&Options::default(), &n, ["cf1"]).unwrap();
         #[cfg(not(feature = "multi-threaded-cf"))]
-        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::default(), &n, ["cf1"]).unwrap();
 
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
@@ -149,7 +149,7 @@ fn test_create_missing_column_family() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        match DB::open_cf(&opts, &n, &["cf1"]) {
+        match DB::open_cf(&opts, &n, ["cf1"]) {
             Ok(_db) => println!("successfully created new column family"),
             Err(e) => panic!("failed to create new column family: {}", e),
         }
@@ -189,7 +189,7 @@ fn test_merge_operator() {
     {
         let mut opts = Options::default();
         opts.set_merge_operator_associative("test operator", test_provided_merge);
-        let db = match DB::open_cf(&opts, &n, &["cf1"]) {
+        let db = match DB::open_cf(&opts, &n, ["cf1"]) {
             Ok(db) => {
                 println!("successfully opened db with column family");
                 db
@@ -297,9 +297,9 @@ fn test_create_duplicate_column_family() {
         opts.create_missing_column_families(true);
 
         #[cfg(feature = "multi-threaded-cf")]
-        let db = DB::open_cf(&opts, &n, &["cf1"]).unwrap();
+        let db = DB::open_cf(&opts, &n, ["cf1"]).unwrap();
         #[cfg(not(feature = "multi-threaded-cf"))]
-        let mut db = DB::open_cf(&opts, &n, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&opts, &n, ["cf1"]).unwrap();
 
         assert!(db.create_cf("cf1", &opts).is_err());
     }
@@ -321,7 +321,7 @@ fn test_no_leaked_column_family() {
         let db = DB::open(&opts, &n).unwrap();
         #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open(&opts, &n).unwrap();
-        let large_blob = [0x20; 1024 * 1024];
+        let large_blob = &[0x20; 1024 * 1024];
 
         #[cfg(feature = "multi-threaded-cf")]
         let mut outlived_cf = None;
@@ -335,7 +335,7 @@ fn test_no_leaked_column_family() {
 
             let mut batch = rocksdb::WriteBatch::default();
             for key_index in 0..100 {
-                batch.put_cf(&cf, format!("k{}", key_index), &large_blob);
+                batch.put_cf(&cf, format!("k{}", key_index), large_blob);
             }
             db.write_opt(batch, &write_options).unwrap();
 
@@ -362,7 +362,7 @@ fn test_no_leaked_column_family() {
         #[cfg(feature = "multi-threaded-cf")]
         {
             let outlived_cf = outlived_cf.unwrap();
-            assert_eq!(db.get_cf(&outlived_cf, "k0").unwrap().unwrap(), &large_blob);
+            assert_eq!(db.get_cf(&outlived_cf, "k0").unwrap().unwrap(), large_blob);
             drop(outlived_cf);
         }
 

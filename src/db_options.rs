@@ -14,10 +14,14 @@
 
 use std::ffi::CStr;
 use std::path::Path;
+use std::ptr::null_mut;
+use std::slice::from_raw_parts;
 use std::sync::Arc;
 
-use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
+use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, free, size_t};
+use librocksdb_sys::rocksdb_options_t;
 
+use crate::ffi_util::from_cstr;
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
@@ -29,7 +33,7 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
-    Error, SnapshotWithThreadMode,
+    ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
 
 fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
@@ -872,6 +876,74 @@ pub enum LogLevel {
 }
 
 impl Options {
+    /// Constructs the DBOptions and ColumnFamilyDescriptors by loading the
+    /// latest RocksDB options file stored in the specified rocksdb database.
+    pub fn load_latest<P: AsRef<Path>>(
+        path: P,
+        env: Env,
+        ignore_unknown_options: bool,
+        cache: Cache,
+    ) -> Result<(Options, Vec<ColumnFamilyDescriptor>), Error> {
+        let path = to_cpath(path)?;
+        let mut db_options: *mut rocksdb_options_t = null_mut();
+        let mut num_column_families: usize = 0;
+        let mut column_family_names: *mut *mut c_char = null_mut();
+        let mut column_family_options: *mut *mut rocksdb_options_t = null_mut();
+        unsafe {
+            ffi_try!(ffi::rocksdb_load_latest_options(
+                path.as_ptr(),
+                env.0.inner,
+                ignore_unknown_options,
+                cache.0.inner,
+                &mut db_options,
+                &mut num_column_families,
+                &mut column_family_names,
+                &mut column_family_options,
+            ));
+        }
+        let options = Options {
+            inner: db_options,
+            outlive: OptionsMustOutliveDB::default(),
+        };
+        let column_families = unsafe {
+            Options::read_column_descriptors(
+                num_column_families,
+                column_family_names,
+                column_family_options,
+            )
+        };
+        Ok((options, column_families))
+    }
+
+    /// read column descriptors from c pointers
+    #[inline]
+    unsafe fn read_column_descriptors(
+        num_column_families: usize,
+        column_family_names: *mut *mut c_char,
+        column_family_options: *mut *mut rocksdb_options_t,
+    ) -> Vec<ColumnFamilyDescriptor> {
+        let column_family_names_iter = from_raw_parts(column_family_names, num_column_families)
+            .iter()
+            .map(|ptr| from_cstr(*ptr));
+        let column_family_options_iter = from_raw_parts(column_family_options, num_column_families)
+            .iter()
+            .map(|ptr| Options {
+                inner: *ptr,
+                outlive: OptionsMustOutliveDB::default(),
+            });
+        let column_descriptors = column_family_names_iter
+            .zip(column_family_options_iter)
+            .map(|(name, options)| ColumnFamilyDescriptor { name, options })
+            .collect::<Vec<_>>();
+        // free pointers
+        from_raw_parts(column_family_names, num_column_families)
+            .iter()
+            .for_each(|ptr| free(*ptr as *mut c_void));
+        free(column_family_names as *mut c_void);
+        free(column_family_options as *mut c_void);
+        column_descriptors
+    }
+
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
     /// `total_threads` is used. Good value for `total_threads` is the number of
