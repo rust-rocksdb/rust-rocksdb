@@ -17,9 +17,9 @@ use libc::{c_char, c_void, size_t};
 use std::{marker::PhantomData, ptr};
 
 use crate::{
-    AsColumnFamilyRef,
-    db::{convert_values, DBAccess}, DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode, Direction,
-    Error, ffi, IteratorMode, ReadOptions, SnapshotWithThreadMode, WriteBatchWithTransaction,
+    db::{convert_values, DBAccess},
+    ffi, AsColumnFamilyRef, DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode,
+    Direction, Error, IteratorMode, ReadOptions, SnapshotWithThreadMode, WriteBatchWithTransaction,
 };
 
 /// RocksDB Transaction.
