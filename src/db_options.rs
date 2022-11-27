@@ -3303,7 +3303,7 @@ impl ReadOptions {
     /// Sets the snapshot which should be used for the read.
     /// The snapshot must belong to the DB that is being read and must
     /// not have been released.
-    pub(crate) fn set_snapshot<D: DBAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
+    pub fn set_snapshot<D: DBAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }
