@@ -1275,8 +1275,10 @@ fn key_may_exist() {
 
     {
         let db = DB::open_default(&path).unwrap();
-        assert!(!db.key_may_exist("nonexistent"));
-        assert!(!db.key_may_exist_opt("nonexistent", &ReadOptions::default()));
+        db.put("key1", "value1").unwrap();
+        assert!(db.key_may_exist("key1").is_some());
+        assert!(db.key_may_exist("nonexistent").is_none());
+        assert!(db.key_may_exist_opt("nonexistent", &ReadOptions::default()).is_none());
     }
 }
 
@@ -1290,9 +1292,11 @@ fn key_may_exist_cf() {
         opts.create_missing_column_families(true);
         let db = DB::open_cf(&opts, &path, &["cf"]).unwrap();
         let cf = db.cf_handle("cf").unwrap();
+        db.put_cf(&cf, "key1", "value1").unwrap();
 
-        assert!(!db.key_may_exist_cf(&cf, "nonexistent"));
-        assert!(!db.key_may_exist_cf_opt(&cf, "nonexistent", &ReadOptions::default()));
+        assert!(db.key_may_exist_cf(&cf, "key1").is_some());
+        assert!(db.key_may_exist_cf(&cf, "nonexistent").is_none());
+        assert!(db.key_may_exist_cf_opt(&cf, "nonexistent", &ReadOptions::default()).is_none());
     }
 }
 

@@ -27,7 +27,7 @@ use crate::{
 };
 
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, mem::MaybeUninit, borrow::BorrowMut};
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fs;
@@ -1217,59 +1217,77 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
-    /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
-    /// `true`. This function uses default `ReadOptions`.
-    pub fn key_may_exist<K: AsRef<[u8]>>(&self, key: K) -> bool {
+    /// Returns `None` if the given key definitely doesn't exist in the database, otherwise returns
+    /// `Some(Vec<u8>)` which include associated value. This function uses default `ReadOptions`.
+    pub fn key_may_exist<K: AsRef<[u8]>>(&self, key: K) -> Option<Vec<u8>> {
         self.key_may_exist_opt(key, &ReadOptions::default())
     }
 
-    /// Returns `false` if the given key definitely doesn't exist in the database, otherwise returns
-    /// `true`.
-    pub fn key_may_exist_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> bool {
+    /// Returns `None` if the given key definitely doesn't exist in the database, otherwise returns
+    /// `Some(Vec<u8>)`.
+    pub fn key_may_exist_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> Option<Vec<u8>> {
         let key = key.as_ref();
+        let mut value = MaybeUninit::<*mut i8>::uninit();
+        let mut val_size = MaybeUninit::<size_t>::uninit();
         unsafe {
-            0 != ffi::rocksdb_key_may_exist(
+            let res = ffi::rocksdb_key_may_exist(
                 self.inner.inner(),
                 readopts.inner,
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
-                ptr::null_mut(), /*value*/
-                ptr::null_mut(), /*val_len*/
+                value.as_mut_ptr(),
+                val_size.as_mut_ptr(),
                 ptr::null(),     /*timestamp*/
                 0,               /*timestamp_len*/
-                ptr::null_mut(), /*value_found*/
-            )
+                1.borrow_mut()
+            );
+            if 0 != res {
+                let value = value.assume_init() as *mut u8;
+                let val_size = val_size.assume_init();
+                Some(slice::from_raw_parts(value, val_size).to_vec())
+            } else {
+                None
+            }
         }
     }
 
-    /// Returns `false` if the given key definitely doesn't exist in the specified column family,
-    /// otherwise returns `true`. This function uses default `ReadOptions`.
-    pub fn key_may_exist_cf<K: AsRef<[u8]>>(&self, cf: &impl AsColumnFamilyRef, key: K) -> bool {
+    /// Returns `None` if the given key definitely doesn't exist in the specified column family,
+    /// otherwise returns `Some(Vec<u8>)` which include associated value. This function uses default `ReadOptions`.
+    pub fn key_may_exist_cf<K: AsRef<[u8]>>(&self, cf: &impl AsColumnFamilyRef, key: K) -> Option<Vec<u8>> {
         self.key_may_exist_cf_opt(cf, key, &ReadOptions::default())
     }
 
-    /// Returns `false` if the given key definitely doesn't exist in the specified column family,
-    /// otherwise returns `true`.
+    /// Returns `None` if the given key definitely doesn't exist in the specified column family,
+    /// otherwise returns `Some(Vec<u8>)`.
     pub fn key_may_exist_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> bool {
+    ) -> Option<Vec<u8>> {
         let key = key.as_ref();
-        0 != unsafe {
-            ffi::rocksdb_key_may_exist_cf(
+        let mut value = MaybeUninit::<*mut i8>::uninit();
+        let mut val_size = MaybeUninit::<size_t>::uninit();
+        unsafe {
+            let res = ffi::rocksdb_key_may_exist_cf(
                 self.inner.inner(),
                 readopts.inner,
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
-                ptr::null_mut(), /*value*/
-                ptr::null_mut(), /*val_len*/
+                value.as_mut_ptr(),
+                val_size.as_mut_ptr(),
                 ptr::null(),     /*timestamp*/
                 0,               /*timestamp_len*/
-                ptr::null_mut(), /*value_found*/
-            )
+                1.borrow_mut()
+            );
+            if 0 != res {
+                let value = value.assume_init() as *mut u8;
+                let val_size = val_size.assume_init();
+                Some(slice::from_raw_parts(value, val_size).to_vec())
+            } else {
+                None
+            }
         }
     }
 
