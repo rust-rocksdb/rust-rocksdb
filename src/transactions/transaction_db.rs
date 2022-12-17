@@ -931,6 +931,24 @@ impl<T: ThreadMode> TransactionDB<T> {
     pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
         SnapshotWithThreadMode::<Self>::new(self)
     }
+
+    fn drop_column_family<C>(
+        &self,
+        cf_inner: *mut ffi::rocksdb_column_family_handle_t,
+        cf: C,
+    ) -> Result<(), Error> {
+        unsafe {
+            // first mark the column family as dropped
+            ffi_try!(ffi::rocksdb_drop_column_family(
+                self.inner as *mut ffi::rocksdb_t,
+                cf_inner
+            ));
+        }
+        // then finally reclaim any resources (mem, files) by destroying the only single column
+        // family handle by drop()-ing it
+        drop(cf);
+        Ok(())
+    }
 }
 
 impl TransactionDB<SingleThreaded> {
@@ -946,6 +964,15 @@ impl TransactionDB<SingleThreaded> {
     /// Returns the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
         self.cfs.cfs.get(name)
+    }
+
+    /// Drops the column family with the given name
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.cfs.remove(name) {
+            self.drop_column_family(cf.inner, cf)
+        } else {
+            Err(Error::new(format!("Invalid column family: {}", name)))
+        }
     }
 }
 
@@ -969,6 +996,16 @@ impl TransactionDB<MultiThreaded> {
             .get(name)
             .cloned()
             .map(UnboundColumnFamily::bound_column_family)
+    }
+
+    /// Drops the column family with the given name by internally locking the inner column
+    /// family map. This avoids needing `&mut self` reference
+    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
+            self.drop_column_family(cf.inner, cf)
+        } else {
+            Err(Error::new(format!("Invalid column family: {}", name)))
+        }
     }
 }
 
