@@ -324,6 +324,7 @@ fn test_no_leaked_column_family() {
 
         #[cfg(feature = "multi-threaded-cf")]
         let mut outlived_cf = None;
+
         let large_blob = vec![0x20; 1024 * 1024];
 
         // repeat creating and dropping cfs many time to indirectly detect
@@ -361,7 +362,10 @@ fn test_no_leaked_column_family() {
         #[cfg(feature = "multi-threaded-cf")]
         {
             let outlived_cf = outlived_cf.unwrap();
-            assert_eq!(db.get_cf(&outlived_cf, "k0").unwrap().unwrap(), &large_blob);
+            assert_eq!(
+                &db.get_cf(&outlived_cf, "k0").unwrap().unwrap(),
+                &large_blob
+            );
             drop(outlived_cf);
         }
 
