@@ -103,7 +103,7 @@ fn test_column_family() {
         #[cfg(feature = "multi-threaded-cf")]
         let db = DB::open_cf(&Options::default(), &n, ["cf1"]).unwrap();
         #[cfg(not(feature = "multi-threaded-cf"))]
-        let mut db = DB::open_cf(&Options::default(), &n, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&Options::default(), &n, ["cf1"]).unwrap();
 
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
@@ -299,7 +299,7 @@ fn test_create_duplicate_column_family() {
         #[cfg(feature = "multi-threaded-cf")]
         let db = DB::open_cf(&opts, &n, ["cf1"]).unwrap();
         #[cfg(not(feature = "multi-threaded-cf"))]
-        let mut db = DB::open_cf(&opts, &n, &["cf1"]).unwrap();
+        let mut db = DB::open_cf(&opts, &n, ["cf1"]).unwrap();
 
         assert!(db.create_cf("cf1", &opts).is_err());
     }
