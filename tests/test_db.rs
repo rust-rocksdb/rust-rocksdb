@@ -740,7 +740,7 @@ fn env_and_dbpaths_test() {
         opts.create_missing_column_families(true);
 
         {
-            let mut env = Env::default().unwrap();
+            let mut env = Env::new().unwrap();
             env.lower_high_priority_thread_pool_cpu_priority();
             opts.set_env(&env);
         }
@@ -909,7 +909,7 @@ fn get_with_cache_and_bulkload_test() {
         opts.set_stats_persist_period_sec(0);
 
         // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
-        let mut env = Env::default().unwrap();
+        let mut env = Env::new().unwrap();
         env.set_bottom_priority_background_threads(0);
         opts.set_env(&env);
 
@@ -1044,7 +1044,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         opts.set_stats_persist_period_sec(0);
 
         // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
-        let mut env = Env::default().unwrap();
+        let mut env = Env::new().unwrap();
         env.set_bottom_priority_background_threads(0);
         opts.set_env(&env);
 

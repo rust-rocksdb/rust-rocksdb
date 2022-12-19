@@ -107,7 +107,7 @@ impl Drop for EnvWrapper {
 
 impl Env {
     /// Returns default env
-    pub fn default() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Error> {
         let env = unsafe { ffi::rocksdb_create_default_env() };
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))

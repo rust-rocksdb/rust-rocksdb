@@ -133,7 +133,7 @@ fn test_can_open_db_with_results_of_list_cf() {
     {
         let options = Options::default();
         let cfs = DB::list_cf(&options, &n).unwrap();
-        let db = DB::open_cf(&options, &n, &cfs).unwrap();
+        let db = DB::open_cf(&options, &n, cfs).unwrap();
 
         assert!(db.cf_handle("cf1").is_some());
     }
@@ -321,10 +321,10 @@ fn test_no_leaked_column_family() {
         let db = DB::open(&opts, &n).unwrap();
         #[cfg(not(feature = "multi-threaded-cf"))]
         let mut db = DB::open(&opts, &n).unwrap();
-        let large_blob = [0x20; 1024 * 1024];
 
         #[cfg(feature = "multi-threaded-cf")]
         let mut outlived_cf = None;
+        let large_blob = vec![0x20; 1024 * 1024];
 
         // repeat creating and dropping cfs many time to indirectly detect
         // possible leak via large dir.
@@ -335,13 +335,12 @@ fn test_no_leaked_column_family() {
 
             let mut batch = rocksdb::WriteBatch::default();
             for key_index in 0..100 {
-                batch.put_cf(&cf, format!("k{}", key_index), large_blob);
+                batch.put_cf(&cf, format!("k{}", key_index), &large_blob);
             }
             db.write_opt(batch, &write_options).unwrap();
 
             // force create an SST file
             db.flush_cf(&cf).unwrap();
-
             db.drop_cf(&cf_name).unwrap();
 
             #[cfg(feature = "multi-threaded-cf")]
