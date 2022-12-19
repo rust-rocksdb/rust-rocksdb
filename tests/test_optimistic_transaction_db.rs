@@ -81,7 +81,7 @@ fn multi_get() {
         let k1_snap = db.snapshot();
         db.put(b"k2", b"v2").unwrap();
 
-        let _ = db.multi_get(&[b"k0"; 40]);
+        let _ = db.multi_get([b"k0"; 40]);
 
         let assert_values = |values: Vec<_>| {
             assert_eq!(3, values.len());
@@ -91,14 +91,14 @@ fn multi_get() {
         };
 
         let values = db
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
 
         assert_values(values);
 
-        let values = DBAccess::multi_get_opt(&db, &[b"k0", b"k1", b"k2"], &Default::default())
+        let values = DBAccess::multi_get_opt(&db, [b"k0", b"k1", b"k2"], &Default::default())
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -107,7 +107,7 @@ fn multi_get() {
 
         let values = db
             .snapshot()
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -115,7 +115,7 @@ fn multi_get() {
         assert_values(values);
 
         let none_values = initial_snap
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -123,7 +123,7 @@ fn multi_get() {
         assert_eq!(none_values, vec![None; 3]);
 
         let k1_only = k1_snap
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -132,7 +132,7 @@ fn multi_get() {
 
         let txn = db.transaction();
         let values = txn
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -150,7 +150,7 @@ fn multi_get_cf() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
         let db: OptimisticTransactionDB =
-            OptimisticTransactionDB::open_cf(&opts, &path, &["cf0", "cf1", "cf2"]).unwrap();
+            OptimisticTransactionDB::open_cf(&opts, &path, ["cf0", "cf1", "cf2"]).unwrap();
 
         let cf0 = db.cf_handle("cf0").unwrap();
 

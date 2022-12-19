@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+* Bump rocksdb to 7.8.3 (aleksuss)
+
 ## 0.19.0 (2022-08-05)
 
 * Add support for building with `io_uring` on Linux (parazyd)
