@@ -128,8 +128,8 @@ where
     use self::Decision::{Change, Keep, Remove};
 
     let cb = &mut *(raw_cb as *mut F);
-    let key = slice::from_raw_parts(raw_key as *const u8, key_length as usize);
-    let oldval = slice::from_raw_parts(existing_value as *const u8, value_length as usize);
+    let key = slice::from_raw_parts(raw_key as *const u8, key_length);
+    let oldval = slice::from_raw_parts(existing_value as *const u8, value_length);
     let result = cb.filter(level as u32, key, oldval);
     match result {
         Keep => 0,

@@ -43,8 +43,8 @@ pub unsafe extern "C" fn compare_callback(
     b_len: size_t,
 ) -> c_int {
     let cb: &mut ComparatorCallback = &mut *(raw_cb as *mut ComparatorCallback);
-    let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len as usize);
-    let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len as usize);
+    let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len);
+    let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len);
     match (cb.f)(a, b) {
         Ordering::Less => -1,
         Ordering::Equal => 0,
