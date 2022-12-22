@@ -935,7 +935,7 @@ impl<T: ThreadMode> TransactionDB<T> {
     fn drop_column_family<C>(
         &self,
         cf_inner: *mut ffi::rocksdb_column_family_handle_t,
-        cf: C,
+        _cf: C,
     ) -> Result<(), Error> {
         unsafe {
             // first mark the column family as dropped
@@ -944,9 +944,8 @@ impl<T: ThreadMode> TransactionDB<T> {
                 cf_inner
             ));
         }
-        // then finally reclaim any resources (mem, files) by destroying the only single column
-        // family handle by drop()-ing it
-        drop(cf);
+        // Since `_cf` is dropped here, the column family handle is destroyed
+        // and any resources (mem, files) are reclaimed.
         Ok(())
     }
 }
@@ -971,7 +970,7 @@ impl TransactionDB<SingleThreaded> {
         if let Some(cf) = self.cfs.cfs.remove(name) {
             self.drop_column_family(cf.inner, cf)
         } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
+            Err(Error::new(format!("Invalid column family: {name}")))
         }
     }
 }
@@ -1004,7 +1003,7 @@ impl TransactionDB<MultiThreaded> {
         if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
             self.drop_column_family(cf.inner, cf)
         } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
+            Err(Error::new(format!("Invalid column family: {name}")))
         }
     }
 }

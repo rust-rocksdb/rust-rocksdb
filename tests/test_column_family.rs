@@ -191,10 +191,6 @@ fn test_column_family_with_transactiondb() {
         }
     }
 
-    // TODO should be able to use writebatch ops with a cf
-    {}
-    // TODO should be able to iterate over a cf
-    {}
     // should b able to drop a cf
     {
         let opts = Options::default();
