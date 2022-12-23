@@ -79,25 +79,10 @@ jobs:
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
-      - name: Run librocksdb-sys tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=librocksdb-sys/Cargo.toml
-      - name: Run rocksdb tests (single-threaded cf)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-      - name: Run rocksdb tests (multi-threaded cf)
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: -Awarnings # Suppress "variable does not need to be mutable" warnings
-        with:
-          command: test
-          args: --features multi-threaded-cf
+      - name: Run rocksdb tests
+        run: |
+          cargo test --all
+          cargo test --all --features multi-threaded-cf
       - name: Run rocksdb tests (jemalloc)
         if: runner.os != 'Windows'
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --features jemalloc
+        run: cargo test --all --features jemalloc

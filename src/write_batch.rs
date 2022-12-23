@@ -72,8 +72,8 @@ unsafe extern "C" fn writebatch_put_callback(
     // freeing the resource before we are done with it
     let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
     let leaked_cb = Box::leak(boxed_cb);
-    let key = slice::from_raw_parts(k as *const u8, klen as usize);
-    let value = slice::from_raw_parts(v as *const u8, vlen as usize);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    let value = slice::from_raw_parts(v as *const u8, vlen);
     leaked_cb.put(
         key.to_vec().into_boxed_slice(),
         value.to_vec().into_boxed_slice(),
@@ -85,7 +85,7 @@ unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_
     // freeing the resource before we are done with it
     let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
     let leaked_cb = Box::leak(boxed_cb);
-    let key = slice::from_raw_parts(k as *const u8, klen as usize);
+    let key = slice::from_raw_parts(k as *const u8, klen);
     leaked_cb.delete(key.to_vec().into_boxed_slice());
 }
 
@@ -113,7 +113,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         unsafe {
             let mut batch_size: size_t = 0;
             ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
-            batch_size as usize
+            batch_size
         }
     }
 
@@ -122,7 +122,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         unsafe {
             let mut batch_size: size_t = 0;
             let batch_data = ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
-            std::slice::from_raw_parts(batch_data as _, batch_size as usize)
+            std::slice::from_raw_parts(batch_data as _, batch_size)
         }
     }
 

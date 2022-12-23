@@ -174,7 +174,7 @@ fn test_prefix_iterator_uses_full_prefix() {
         }
 
         assert_iter(
-            db.prefix_iterator(&[0, 1, 1]),
+            db.prefix_iterator([0, 1, 1]),
             &[
                 pair(&[0, 1, 1, 1], b"444"),
                 pair(&[0, 1, 2, 1], b"555"),

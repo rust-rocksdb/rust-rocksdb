@@ -1874,11 +1874,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         opts: &IngestExternalFileOptions,
         paths: Vec<P>,
     ) -> Result<(), Error> {
-        let paths_v: Vec<CString> = paths
-            .iter()
-            .map(|path| to_cpath(&path))
-            .collect::<Result<Vec<_>, _>>()?;
-
+        let paths_v: Vec<CString> = paths.iter().map(to_cpath).collect::<Result<Vec<_>, _>>()?;
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
         self.ingest_external_file_raw(opts, &paths_v, &cpaths)
@@ -1902,11 +1898,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         opts: &IngestExternalFileOptions,
         paths: Vec<P>,
     ) -> Result<(), Error> {
-        let paths_v: Vec<CString> = paths
-            .iter()
-            .map(|path| to_cpath(&path))
-            .collect::<Result<Vec<_>, _>>()?;
-
+        let paths_v: Vec<CString> = paths.iter().map(to_cpath).collect::<Result<Vec<_>, _>>()?;
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
         self.ingest_external_file_raw_cf(cf, opts, &paths_v, &cpaths)
@@ -1966,7 +1958,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                         from_cstr(ffi::rocksdb_livefiles_column_family_name(files, i));
                     let name = from_cstr(ffi::rocksdb_livefiles_name(files, i));
                     let size = ffi::rocksdb_livefiles_size(files, i);
-                    let level = ffi::rocksdb_livefiles_level(files, i) as i32;
+                    let level = ffi::rocksdb_livefiles_level(files, i);
 
                     // get smallest key inside file
                     let smallest_key = ffi::rocksdb_livefiles_smallestkey(files, i, &mut key_size);
@@ -2083,7 +2075,7 @@ impl<I: DBInner> DBCommon<SingleThreaded, I> {
         if let Some(cf) = self.cfs.cfs.remove(name) {
             self.drop_column_family(cf.inner, cf)
         } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
+            Err(Error::new(format!("Invalid column family: {name}")))
         }
     }
 
@@ -2110,7 +2102,7 @@ impl<I: DBInner> DBCommon<MultiThreaded, I> {
         if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
             self.drop_column_family(cf.inner, cf)
         } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
+            Err(Error::new(format!("Invalid column family: {name}")))
         }
     }
 
@@ -2164,11 +2156,11 @@ fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Err
         .map(|(name, value)| {
             let cname = match CString::new(name.as_bytes()) {
                 Ok(cname) => cname,
-                Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
+                Err(e) => return Err(Error::new(format!("Invalid option name `{e}`"))),
             };
             let cvalue = match CString::new(value.as_bytes()) {
                 Ok(cvalue) => cvalue,
-                Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
+                Err(e) => return Err(Error::new(format!("Invalid option value: `{e}`"))),
             };
             Ok((cname, cvalue))
         })

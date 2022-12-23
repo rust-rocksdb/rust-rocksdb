@@ -165,7 +165,7 @@ impl<'db, DB> Transaction<'db, DB> {
                 None
             } else {
                 let mut vec = vec![0; name_len];
-                std::ptr::copy_nonoverlapping(name as *mut u8, vec.as_mut_ptr(), name_len as usize);
+                std::ptr::copy_nonoverlapping(name as *mut u8, vec.as_mut_ptr(), name_len);
                 ffi::rocksdb_free(name as *mut c_void);
                 Some(vec)
             }
