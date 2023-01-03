@@ -16,16 +16,18 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{
-    ColumnFamilyDescriptor, MergeOperands, MultiThreaded, Options, SingleThreaded, DB,
-    DEFAULT_COLUMN_FAMILY_NAME,
-};
+use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
 use rocksdb::{TransactionDB, TransactionDBOptions};
 use util::DBPath;
 
 use std::fs;
 use std::io;
 use std::path::Path;
+
+#[cfg(feature = "multi-threaded-cf")]
+use rocksdb::MultiThreaded;
+#[cfg(not(feature = "multi-threaded-cf"))]
+use rocksdb::SingleThreaded;
 
 fn dir_size(path: impl AsRef<Path>) -> io::Result<u64> {
     fn dir_size(mut dir: fs::ReadDir) -> io::Result<u64> {
