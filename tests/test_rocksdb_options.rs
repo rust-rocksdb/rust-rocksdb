@@ -37,9 +37,9 @@ fn test_load_latest() {
         Cache::new_lru_cache(1024 * 8).unwrap(),
     )
     .unwrap();
-    assert!(cfs.iter().find(|cf| cf.name() == "default").is_some());
-    assert!(cfs.iter().find(|cf| cf.name() == "cf0").is_some());
-    assert!(cfs.iter().find(|cf| cf.name() == "cf1").is_some());
+    assert!(cfs.iter().any(|cf| cf.name() == "default"));
+    assert!(cfs.iter().any(|cf| cf.name() == "cf0"));
+    assert!(cfs.iter().any(|cf| cf.name() == "cf1"));
 }
 
 #[test]
