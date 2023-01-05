@@ -17,11 +17,17 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
+use rocksdb::{TransactionDB, TransactionDBOptions};
 use util::DBPath;
 
 use std::fs;
 use std::io;
 use std::path::Path;
+
+#[cfg(feature = "multi-threaded-cf")]
+use rocksdb::MultiThreaded;
+#[cfg(not(feature = "multi-threaded-cf"))]
+use rocksdb::SingleThreaded;
 
 fn dir_size(path: impl AsRef<Path>) -> io::Result<u64> {
     fn dir_size(mut dir: fs::ReadDir) -> io::Result<u64> {
@@ -109,6 +115,128 @@ fn test_column_family() {
             Ok(_) => println!("cf1 successfully dropped."),
             Err(e) => panic!("failed to drop column family: {}", e),
         }
+    }
+}
+
+#[test]
+fn test_column_family_with_transactiondb() {
+    let n = DBPath::new("_rust_rocksdb_cftest");
+
+    // should be able to create column families
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = TransactionDB::open(&opts, &TransactionDBOptions::default(), &n).unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
+        let db = TransactionDB::open(&opts, &TransactionDBOptions::default(), &n).unwrap();
+        let opts = Options::default();
+        match db.create_cf("cf1", &opts) {
+            Ok(()) => println!("cf1 created successfully"),
+            Err(e) => {
+                panic!("could not create column family: {}", e);
+            }
+        }
+    }
+
+    // should fail to open db without specifying same column families
+    {
+        let mut opts = Options::default();
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = TransactionDB::<MultiThreaded>::open(&opts, &TransactionDBOptions::default(), &n);
+        #[cfg(not(feature = "multi-threaded-cf"))]
+        let db = TransactionDB::<SingleThreaded>::open(&opts, &TransactionDBOptions::default(), &n);
+        match db {
+            Ok(_db) => panic!(
+                "should not have opened TransactionDB successfully without \
+                        specifying column
+            families"
+            ),
+            Err(e) => assert!(e.to_string().starts_with("Invalid argument")),
+        }
+    }
+
+    // should properly open db when specyfing all column families
+    {
+        let mut opts = Options::default();
+        opts.set_merge_operator_associative("test operator", test_provided_merge);
+        let cfs = &["cf1"];
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = TransactionDB::<MultiThreaded>::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &n,
+            cfs,
+        );
+        #[cfg(not(feature = "multi-threaded-cf"))]
+        let db = TransactionDB::<SingleThreaded>::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &n,
+            cfs,
+        );
+        match db {
+            Ok(_db) => println!("successfully opened db with column family"),
+            Err(e) => panic!("failed to open db with column family: {}", e),
+        }
+    }
+
+    // should be able to list a cf
+    {
+        let opts = Options::default();
+        let vec = DB::list_cf(&opts, &n);
+        match vec {
+            Ok(vec) => assert_eq!(vec, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf1"]),
+            Err(e) => panic!("failed to drop column family: {}", e),
+        }
+    }
+
+    // should b able to drop a cf
+    {
+        let opts = Options::default();
+        let cfs = &["cf1"];
+        #[cfg(feature = "multi-threaded-cf")]
+        let mut db = TransactionDB::<MultiThreaded>::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &n,
+            cfs,
+        )
+        .unwrap();
+        #[cfg(not(feature = "multi-threaded-cf"))]
+        let mut db = TransactionDB::<SingleThreaded>::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &n,
+            cfs,
+        )
+        .unwrap();
+        match db.drop_cf("cf1") {
+            Ok(_) => println!("cf1 successfully dropped."),
+            Err(e) => panic!("failed to drop column family: {}", e),
+        }
+    }
+    // should not be able to open cf after dropping.
+    {
+        let opts = Options::default();
+        let cfs = &["cf1"];
+        #[cfg(feature = "multi-threaded-cf")]
+        let db = TransactionDB::<MultiThreaded>::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &n,
+            cfs,
+        );
+        #[cfg(not(feature = "multi-threaded-cf"))]
+        let db = TransactionDB::<SingleThreaded>::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &n,
+            cfs,
+        );
+        assert!(db.is_err())
     }
 }
 
