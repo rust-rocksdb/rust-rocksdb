@@ -176,4 +176,3 @@ fn compaction_filter_test() {
     let result = DB::destroy(&opts, path);
     assert!(result.is_ok());
 }
-
