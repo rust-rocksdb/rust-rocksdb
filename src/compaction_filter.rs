@@ -28,7 +28,7 @@ pub enum Decision {
     /// Remove the object from the database
     Remove,
     /// Change the value for the key
-    Change(&'static [u8]),
+    Change(Vec<u8>),
 }
 
 /// CompactionFilter allows an application to modify/delete a key-value at
@@ -73,6 +73,7 @@ pub trait CompactionFilter {
 ///
 ///  [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
 pub trait CompactionFilterFn: FnMut(u32, &[u8], &[u8]) -> Decision {}
+
 impl<F> CompactionFilterFn for F where F: FnMut(u32, &[u8], &[u8]) -> Decision + Send + 'static {}
 
 pub struct CompactionFilterCallback<F>
@@ -135,8 +136,8 @@ where
         Keep => 0,
         Remove => 1,
         Change(newval) => {
-            *new_value = newval.as_ptr() as *mut c_char;
             *new_value_length = newval.len() as size_t;
+            *new_value = Box::into_raw(newval.into_boxed_slice()) as *mut c_char;
             *value_changed = 1_u8;
             0
         }
@@ -149,7 +150,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
     use self::Decision::{Change, Keep, Remove};
     match key.first() {
         Some(&b'_') => Remove,
-        Some(&b'%') => Change(b"secret"),
+        Some(&b'%') => Change(b"secret".to_vec()),
         _ => Keep,
     }
 }
