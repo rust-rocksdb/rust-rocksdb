@@ -234,8 +234,7 @@ impl<T: ThreadMode> TransactionDB<T> {
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
+                "Failed to create RocksDB directory: `{e:?}`."
             )));
         }
 
