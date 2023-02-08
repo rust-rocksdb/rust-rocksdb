@@ -234,8 +234,7 @@ impl<T: ThreadMode> TransactionDB<T> {
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
+                "Failed to create RocksDB directory: `{e:?}`."
             )));
         }
 
@@ -360,13 +359,12 @@ impl<T: ThreadMode> TransactionDB<T> {
         name: &str,
         opts: &Options,
     ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
-        let cf_name = if let Ok(c) = CString::new(name.as_bytes()) {
-            c
-        } else {
+        let Ok(cf_name) = CString::new(name.as_bytes()) else {
             return Err(Error::new(
                 "Failed to convert path to CString when creating cf".to_owned(),
             ));
         };
+
         Ok(unsafe {
             ffi_try!(ffi::rocksdb_transactiondb_create_column_family(
                 self.inner,

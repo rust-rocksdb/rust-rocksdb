@@ -710,7 +710,7 @@ fn fifo_compaction_test() {
 
         let block_cache_hit_count = ctx.metric(PerfMetric::BlockCacheHitCount);
         if block_cache_hit_count > 0 {
-            let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
+            let expect = format!("block_cache_hit_count = {block_cache_hit_count}");
             assert!(ctx.report(true).contains(&expect));
         }
 
@@ -829,7 +829,7 @@ fn get_with_cache_and_bulkload_test() {
         // write a lot
         let mut batch = WriteBatch::default();
         for i in 0..10_000 {
-            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+            batch.put(format!("{i:0>4}").as_bytes(), b"v");
         }
         assert!(db.write(batch).is_ok());
 
@@ -858,7 +858,7 @@ fn get_with_cache_and_bulkload_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
 
         // check live files (sst files meta)
@@ -919,7 +919,7 @@ fn get_with_cache_and_bulkload_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
     }
 }
@@ -964,7 +964,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         // write a lot
         let mut batch = WriteBatch::default();
         for i in 0..10_000 {
-            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+            batch.put(format!("{i:0>4}").as_bytes(), b"v");
         }
         assert!(db.write(batch).is_ok());
 
@@ -993,7 +993,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
 
         // check live files (sst files meta)
@@ -1054,7 +1054,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
     }
 }

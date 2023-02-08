@@ -6,7 +6,7 @@ fn link(name: &str, bundled: bool) {
     let target = var("TARGET").unwrap();
     let target: Vec<_> = target.split('-').collect();
     if target.get(2) == Some(&"windows") {
-        println!("cargo:rustc-link-lib=dylib={}", name);
+        println!("cargo:rustc-link-lib=dylib={name}");
         if bundled && target.get(3) == Some(&"gnu") {
             let dir = var("CARGO_MANIFEST_DIR").unwrap();
             println!("cargo:rustc-link-search=native={}/{}", dir, target[0]);
@@ -16,10 +16,7 @@ fn link(name: &str, bundled: bool) {
 
 fn fail_on_empty_directory(name: &str) {
     if fs::read_dir(name).unwrap().count() == 0 {
-        println!(
-            "The `{}` directory is empty, did you forget to pull the submodules?",
-            name
-        );
+        println!("The `{name}` directory is empty, did you forget to pull the submodules?");
         println!("Try `git submodule update --init --recursive`");
         panic!();
     }
@@ -288,19 +285,19 @@ fn build_snappy() {
 }
 
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
-    println!("cargo:rerun-if-env-changed={}_COMPILE", lib_name);
-    if let Ok(v) = env::var(format!("{}_COMPILE", lib_name)) {
+    println!("cargo:rerun-if-env-changed={lib_name}_COMPILE");
+    if let Ok(v) = env::var(format!("{lib_name}_COMPILE")) {
         if v.to_lowercase() == "true" || v == "1" {
             return false;
         }
     }
 
-    println!("cargo:rerun-if-env-changed={}_LIB_DIR", lib_name);
-    println!("cargo:rerun-if-env-changed={}_STATIC", lib_name);
+    println!("cargo:rerun-if-env-changed={lib_name}_LIB_DIR");
+    println!("cargo:rerun-if-env-changed={lib_name}_STATIC");
 
-    if let Ok(lib_dir) = env::var(format!("{}_LIB_DIR", lib_name)) {
-        println!("cargo:rustc-link-search=native={}", lib_dir);
-        let mode = match env::var_os(format!("{}_STATIC", lib_name)) {
+    if let Ok(lib_dir) = env::var(format!("{lib_name}_LIB_DIR")) {
+        println!("cargo:rustc-link-search=native={lib_dir}");
+        let mode = match env::var_os(format!("{lib_name}_STATIC")) {
             Some(_) => "static",
             None => "dylib",
         };
@@ -313,7 +310,7 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 fn cxx_standard() -> String {
     env::var("ROCKSDB_CXX_STD").map_or("-std=c++17".to_owned(), |cxx_std| {
         if !cxx_std.starts_with("-std=") {
-            format!("-std={}", cxx_std)
+            format!("-std={cxx_std}")
         } else {
             cxx_std
         }
