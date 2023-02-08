@@ -334,11 +334,11 @@ fn test_merge_operator() {
         db.merge_cf(&cf1, b"k1", b"d").unwrap();
         db.merge_cf(&cf1, b"k1", b"efg").unwrap();
         let m = db.merge_cf(&cf1, b"k1", b"h");
-        println!("m is {:?}", m);
+        println!("m is {m:?}");
         // TODO assert!(m.is_ok());
         match db.get(b"k1") {
             Ok(Some(value)) => match std::str::from_utf8(&value) {
-                Ok(v) => println!("retrieved utf8 value: {}", v),
+                Ok(v) => println!("retrieved utf8 value: {v}"),
                 Err(_) => println!("did not read valid utf-8 out of the db"),
             },
             Err(_) => println!("error reading value"),
@@ -458,13 +458,13 @@ fn test_no_leaked_column_family() {
         // repeat creating and dropping cfs many time to indirectly detect
         // possible leak via large dir.
         for cf_index in 0..20 {
-            let cf_name = format!("cf{}", cf_index);
+            let cf_name = format!("cf{cf_index}");
             db.create_cf(&cf_name, &Options::default()).unwrap();
             let cf = db.cf_handle(&cf_name).unwrap();
 
             let mut batch = rocksdb::WriteBatch::default();
             for key_index in 0..100 {
-                batch.put_cf(&cf, format!("k{}", key_index), &large_blob);
+                batch.put_cf(&cf, format!("k{key_index}"), &large_blob);
             }
             db.write_opt(batch, &write_options).unwrap();
 
@@ -480,11 +480,8 @@ fn test_no_leaked_column_family() {
 
         // if we're not leaking, the dir bytes should be well under 10M bytes in total
         let dir_bytes = dir_size(&n).unwrap();
-        assert!(
-            dir_bytes < 10_000_000,
-            "{} is too large (maybe leaking...)",
-            dir_bytes
-        );
+        let leak_msg = format!("{dir_bytes} is too large (maybe leaking...)");
+        assert!(dir_bytes < 10_000_000, "{}", leak_msg);
 
         // only if MultiThreaded, cf can outlive db.drop_cf() and shouldn't cause SEGV...
         #[cfg(feature = "multi-threaded-cf")]

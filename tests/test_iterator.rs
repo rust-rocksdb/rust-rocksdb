@@ -77,7 +77,8 @@ fn test_iterator() {
                 let mut it = db.iterator(IteratorMode::From(key, dir));
                 let value = it.next();
                 if valid {
-                    assert!(matches!(value, Some(Ok(_))), "{:?}", value);
+                    let expect = format!("{value:?}");
+                    assert!(matches!(value, Some(Ok(_))), "{:?}", &expect);
                 } else {
                     assert_eq!(None, value);
                     assert_eq!(None, it.next()); // Iterator is fused
