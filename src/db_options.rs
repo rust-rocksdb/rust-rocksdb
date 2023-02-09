@@ -941,9 +941,9 @@ impl Options {
         // free pointers
         slice::from_raw_parts(column_family_names, num_column_families)
             .iter()
-            .for_each(|ptr| libc::free(*ptr as *mut c_void));
-        libc::free(column_family_names as *mut c_void);
-        libc::free(column_family_options as *mut c_void);
+            .for_each(|ptr| ffi::rocksdb_free(*ptr as *mut c_void));
+        ffi::rocksdb_free(column_family_names as *mut c_void);
+        ffi::rocksdb_free(column_family_options as *mut c_void);
         column_descriptors
     }
 
