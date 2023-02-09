@@ -42,6 +42,7 @@ impl ColumnFamilyDescriptor {
         }
     }
 
+    /// Get the name of the ColumnFamilyDescriptor.
     pub fn name(&self) -> &str {
         &self.name
     }
