@@ -224,19 +224,17 @@ impl BackupEngine {
 }
 
 impl BackupEngineOptions {
-    /// Initializes BackupEngineOptions with the directory to be used for storing/accessing the
+    /// Initializes `BackupEngineOptions` with the directory to be used for storing/accessing the
     /// backup files.
     pub fn new<P: AsRef<Path>>(backup_dir: P) -> Result<Self, Error> {
         let backup_dir = backup_dir.as_ref();
-        let c_backup_dir = if let Ok(c) = CString::new(backup_dir.to_string_lossy().as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
+        let c_backup_dir = CString::new(backup_dir.to_string_lossy().as_bytes()).map_err(|_| {
+            Error::new(
                 "Failed to convert backup_dir to CString \
                      when constructing BackupEngineOptions"
                     .to_owned(),
-            ));
-        };
+            )
+        })?;
 
         unsafe {
             let opts = ffi::rocksdb_backup_engine_options_create(c_backup_dir.as_ptr());
@@ -246,7 +244,7 @@ impl BackupEngineOptions {
         }
     }
 
-    /// Sets the number of operations (such as file copies or file checksums) that RocksDB may
+    /// Sets the number of operations (such as file copies or file checksums) that `RocksDB` may
     /// perform in parallel when executing a backup or restore.
     ///
     /// Default: 1

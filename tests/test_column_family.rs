@@ -198,7 +198,7 @@ fn test_column_family_with_transactiondb() {
         let opts = Options::default();
         let cfs = &["cf1"];
         #[cfg(feature = "multi-threaded-cf")]
-        let mut db = TransactionDB::<MultiThreaded>::open_cf(
+        let db = TransactionDB::<MultiThreaded>::open_cf(
             &opts,
             &TransactionDBOptions::default(),
             &n,
