@@ -231,6 +231,11 @@ fn build_rocksdb() {
         config.flag("-std:c++17");
     } else {
         config.flag(&cxx_standard());
+
+        if has_u128_support() {
+            config.define("HAVE_UINT128_EXTENSION", Some("1"));
+        }
+
         // matches the flags in CMakeLists.txt from rocksdb
         config.flag("-Wsign-compare");
         config.flag("-Wshadow");
@@ -334,6 +339,16 @@ fn update_submodules() {
         Ok((false, None)) => panic!("Command got killed"),
         Err(e) => panic!("Command failed with error: {}", e),
     }
+}
+
+fn has_u128_support() -> bool {
+    if let Ok(v) = env::var("HAVE_UINT128_EXTENSION") {
+        if v == "0" {
+            return false;
+        }
+    }
+
+    true
 }
 
 fn main() {
