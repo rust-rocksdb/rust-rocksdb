@@ -16,8 +16,31 @@ mod util;
 
 use std::{fs, io::Read as _};
 
-use rocksdb::{BlockBasedOptions, DBCompressionType, DataBlockIndexType, Options, ReadOptions, DB};
+use rocksdb::{
+    BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, Options, ReadOptions, DB,
+};
 use util::DBPath;
+
+#[test]
+fn test_load_latest() {
+    let n = DBPath::new("_rust_rocksdb_test_load_latest");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let _ = DB::open_cf(&opts, &n, vec!["cf0", "cf1"]).unwrap();
+    }
+    let (_, cfs) = Options::load_latest(
+        &n,
+        Env::new().unwrap(),
+        true,
+        Cache::new_lru_cache(1024 * 8).unwrap(),
+    )
+    .unwrap();
+    assert!(cfs.iter().any(|cf| cf.name() == "default"));
+    assert!(cfs.iter().any(|cf| cf.name() == "cf0"));
+    assert!(cfs.iter().any(|cf| cf.name() == "cf1"));
+}
 
 #[test]
 fn test_set_num_levels() {
