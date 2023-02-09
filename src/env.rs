@@ -5,7 +5,7 @@ use libc::{self, c_int};
 use crate::{ffi, Error};
 
 /// An Env is an interface used by the rocksdb implementation to access
-/// operating system functionality like the filesystem etc.  Callers
+/// operating system functionality like the filesystem etc. Callers
 /// may wish to provide a custom Env object when opening a database to
 /// get fine gain control; e.g., to rate limit file system operations.
 ///
