@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+* Bump rocksdb to 7.9.2 (kwek20)
 * Bump rocksdb to 7.8.3 (aleksuss)
 
 ## 0.19.0 (2022-08-05)
