@@ -60,7 +60,7 @@ fn merge_test() {
     match db.get(b"k1") {
         Ok(Some(value)) => {
             if let Ok(v) = std::str::from_utf8(&value) {
-                println!("retrieved utf8 value: {}", v)
+                println!("retrieved utf8 value: {v}")
             } else {
                 println!("did not read valid utf-8 out of the db")
             }
