@@ -25,7 +25,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> CompactionDecision {
     use self::CompactionDecision::*;
     match key.first() {
         Some(&b'_') => Remove,
-        Some(&b'%') => Change(b"secret".to_vec()),
+        Some(&b'%') => Change(b"secret"),
         _ => Keep,
     }
 }
