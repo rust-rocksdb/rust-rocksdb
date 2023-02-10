@@ -2,6 +2,7 @@
 name = "librocksdb-sys"
 version = "0.10.0+7.9.2"
 edition = "2018"
+rust-version = "1.60"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
