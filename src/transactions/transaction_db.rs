@@ -57,7 +57,7 @@ type DefaultThreadMode = crate::MultiThreaded;
 /// {
 ///     let db: TransactionDB = TransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();
-///     
+///
 ///     // create transaction
 ///     let txn = db.transaction();
 ///     txn.put(b"key2", b"value2");
@@ -359,11 +359,9 @@ impl<T: ThreadMode> TransactionDB<T> {
         name: &str,
         opts: &Options,
     ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
-        let Ok(cf_name) = CString::new(name.as_bytes()) else {
-            return Err(Error::new(
-                "Failed to convert path to CString when creating cf".to_owned(),
-            ));
-        };
+        let cf_name = CString::new(name.as_bytes()).map_err(|_| {
+            Error::new("Failed to convert path to CString when creating cf".to_owned())
+        })?;
 
         Ok(unsafe {
             ffi_try!(ffi::rocksdb_transactiondb_create_column_family(

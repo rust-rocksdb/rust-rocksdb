@@ -1,6 +1,8 @@
 name: RocksDB CI
 
 on: [push, pull_request]
+env:
+  RUST_VERSION: 1.60.0
 
 jobs:
   fmt:
@@ -12,7 +14,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt
           profile: minimal
           override: true
@@ -31,7 +33,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           components: clippy
           profile: minimal
           override: true
@@ -69,7 +71,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust || 'stable' }}
+          toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.target }}
           profile: minimal
           override: true
