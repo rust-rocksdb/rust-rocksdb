@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## 0.20.1 (2023-02-10)
+
+* Fix supporting MSRV 1.60.0 (aleksuss)
+
 ## 0.20.0 (2023-02-09)
 
 * Support RocksDB 7.x `BackupEngineOptions` (exabytes18)
