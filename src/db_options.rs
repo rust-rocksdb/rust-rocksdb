@@ -145,8 +145,6 @@ impl BlockBasedOptionsMustOutliveDB {
 ///    opts.set_level_zero_stop_writes_trigger(2000);
 ///    opts.set_level_zero_slowdown_writes_trigger(0);
 ///    opts.set_compaction_style(DBCompactionStyle::Universal);
-///    opts.set_max_background_compactions(4);
-///    opts.set_max_background_flushes(4);
 ///    opts.set_disable_auto_compactions(true);
 ///
 ///    DB::open(&opts, path).unwrap()
@@ -1708,10 +1706,10 @@ impl Options {
     /// # Examples
     ///
     /// ```
-    /// #[allow(deprecated)]
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
+    /// #[allow(deprecated)]
     /// opts.set_allow_os_buffer(false);
     /// ```
     #[deprecated(
@@ -2134,6 +2132,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
+    /// #[allow(deprecated)]
     /// opts.set_max_background_compactions(2);
     /// ```
     #[deprecated(
@@ -2169,6 +2168,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
+    /// #[allow(deprecated)]
     /// opts.set_max_background_flushes(2);
     /// ```
     #[deprecated(
