@@ -24,6 +24,25 @@ jobs:
           command: fmt
           args: --all -- --check
 
+  doc-check:
+    name: Rustdoc-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rust-docs
+          profile: minimal
+          override: true
+      - name: Run cargo rustdoc
+        uses: actions-rs/cargo@v1
+        with:
+          command: rustdoc
+          args: -- -D warnings -A rustdoc::broken-intra-doc-links
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest

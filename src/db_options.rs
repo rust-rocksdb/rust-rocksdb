@@ -2999,7 +2999,7 @@ impl Options {
 
     /// Enable the use of key-value separation.
     ///
-    /// More details can be found here: http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html.
+    /// More details can be found here: [Integrated BlobDB](http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html).
     ///
     /// Default: false (disable)
     ///
