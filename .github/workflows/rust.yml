@@ -41,7 +41,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: rustdoc
-          args: -- -D warnings -A rustdoc::broken-intra-doc-links
+          args: -- -D warnings
 
   clippy:
     name: Clippy
