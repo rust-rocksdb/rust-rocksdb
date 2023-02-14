@@ -83,15 +83,15 @@ macro_rules! ffi_try_impl {
 /// Value which can be converted into a C string.
 ///
 /// The trait is used as argument to functions which wish to accept either
-/// [`&str`] or [`&CStr`] arguments while internally need to interact with
+/// [`&str`] or [`&CStr`](CStr) arguments while internally need to interact with
 /// C APIs.  Accepting [`&str`] may be more convenient for users but requires
 /// conversion into [`CString`] internally which requires allocation.  With this
-/// trait, latency-conscious users may choose to prepare `CStr` in advance and
+/// trait, latency-conscious users may choose to prepare [`CStr`] in advance and
 /// then pass it directly without having to incur the conversion cost.
 ///
 /// To use the trait, function should accept `impl CStrLike` and after baking
-/// the argument (with [`CStrLike::bake`] method) it can use it as a `&CStr`
-/// (since the baked result dereferences into `CStr`).
+/// the argument (with [`CStrLike::bake`] method) it can use it as a [`&CStr`](CStr)
+/// (since the baked result dereferences into [`CStr`]).
 ///
 /// # Example
 ///
@@ -114,7 +114,7 @@ pub trait CStrLike {
     type Baked: std::ops::Deref<Target = CStr>;
     type Error: std::fmt::Debug + std::fmt::Display;
 
-    /// Bakes self into value which can be freely converted into [`&CStr`].
+    /// Bakes self into value which can be freely converted into [`&CStr`](CStr).
     ///
     /// This may require allocation and may fail if `self` has invalid value.
     fn bake(self) -> Result<Self::Baked, Self::Error>;

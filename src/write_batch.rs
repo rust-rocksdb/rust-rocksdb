@@ -21,7 +21,7 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 
 /// An atomic batch of write operations.
 ///
-/// [`delete_range`] is not supported in [`Transaction`].
+/// [`delete_range`](#method.delete_range) is not supported in [`Transaction`].
 ///
 /// Making an atomic commit of several writes:
 ///
@@ -36,7 +36,7 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 ///     batch.put(b"key2", b"value2");
 ///     batch.put(b"key3", b"value3");
 ///
-///     // DeleteRange is supported when use without transaction
+///     // delete_range is supported when use without transaction
 ///     batch.delete_range(b"key2", b"key3");
 ///
 ///     db.write(batch); // Atomically commits the batch
@@ -44,7 +44,6 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
-/// [`DeleteRange`]: Self::delete_range
 /// [`Transaction`]: crate::Transaction
 pub struct WriteBatchWithTransaction<const TRANSACTION: bool> {
     pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
