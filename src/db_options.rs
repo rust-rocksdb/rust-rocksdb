@@ -657,6 +657,15 @@ impl BlockBasedOptions {
             ffi::rocksdb_block_based_options_set_whole_key_filtering(self.inner, c_uchar::from(v));
         }
     }
+
+    /// Use the specified checksum type.
+    /// Newly created table files will be protected with this checksum type.
+    /// Old table files will still be readable, even though they have different checksum type.
+    pub fn set_checksum_type(&mut self, checksum_type: ChecksumType) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_checksum(self.inner, checksum_type as c_char);
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
@@ -3579,6 +3588,15 @@ pub enum MemtableFactory {
     HashLinkList {
         bucket_count: usize,
     },
+}
+
+/// Used by BlockBasedOptions::set_checksum_type.
+pub enum ChecksumType {
+    NoChecksum = 0,
+    CRC32c = 1,
+    XXHash = 2,
+    XXHash64 = 3,
+    XXH3 = 4, // Supported since RocksDB 6.27
 }
 
 /// Used with DBOptions::set_plain_table_factory.
