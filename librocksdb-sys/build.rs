@@ -226,6 +226,11 @@ fn build_rocksdb() {
         config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
     }
 
+    if env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64" {
+        config.define("_FILE_OFFSET_BITS", Some("64"));
+        config.define("_LARGEFILE64_SOURCE", Some("1"));
+    }
+
     if target.contains("msvc") {
         config.flag("-EHsc");
         config.flag("-std:c++17");
