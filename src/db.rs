@@ -1305,12 +1305,12 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             };
         // The value is only allocated (using malloc) and returned if it is found and
         // value_found isn't NULL. In that case the user is responsible for freeing it.
-        if value_found == 0 {
-            (may_exists, None)
-        } else {
+        if may_exists && value_found != 0 {
             let value =
                 unsafe { Box::from_raw(slice::from_raw_parts_mut(val as *mut u8, val_len)) };
             (may_exists, Some(value))
+        } else {
+            (may_exists, None)
         }
     }
 
