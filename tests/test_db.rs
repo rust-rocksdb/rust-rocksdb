@@ -1308,28 +1308,23 @@ fn key_may_exist_cf_value() {
         let db = DB::open_cf(&opts, &path, ["cf"]).unwrap();
         let cf = db.cf_handle("cf").unwrap();
 
+        // put some entry into db
         for i in 0..10000i32 {
             let _ = db.put_cf(&cf, i.to_le_bytes(), i.to_le_bytes());
         }
 
-        let mut may_exist_count = 0;
-        let mut value_found = Vec::new();
+        // call `key_may_exist_cf_opt_value`
         for i in 0..10000i32 {
             let (may_exist, value) =
                 db.key_may_exist_cf_opt_value(&cf, i.to_le_bytes(), &ReadOptions::default());
 
-            if may_exist {
-                may_exist_count += 1;
-            }
+            // all these numbers may exist
+            assert!(may_exist);
 
+            // check value correctness
             if let Some(value) = value {
-                value_found.push((i, i32::from_le_bytes(value.as_ref().try_into().unwrap())))
+                assert_eq!(i32::from_le_bytes(value.as_ref().try_into().unwrap()), i);
             }
-        }
-
-        assert!(value_found.len() <= may_exist_count);
-        for (i, j) in value_found {
-            assert_eq!(i, j)
         }
     }
 }
