@@ -101,12 +101,15 @@ fn build_rocksdb() {
         .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
 
-    if target.contains("x86_64") {
+    if let (true, Ok(target_feature_value)) = (
+        target.contains("x86_64"),
+        env::var("CARGO_CFG_TARGET_FEATURE"),
+    ) {
         // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
         // (about 2011).
-        let target_feature = env::var("CARGO_CFG_TARGET_FEATURE").unwrap();
-        let target_features: Vec<_> = target_feature.split(',').collect();
+        let target_features: Vec<_> = target_feature_value.split(',').collect();
+
         if target_features.contains(&"sse2") {
             config.flag_if_supported("-msse2");
         }
