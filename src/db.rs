@@ -1272,6 +1272,48 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    // If the key definitely does not exist in the database, then this method
+    // returns false, else true. If the caller wants to obtain value when the key
+    // is found in memory, a bool for 'value_found' must be passed. 'value_found'
+    // will be true on return if value has been set properly.
+    // This check is potentially lighter-weight than invoking DB::Get(). One way
+    // to make this lighter weight is to avoid doing any IOs.
+    pub fn key_may_exist_cf_opt_value<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> (bool, Option<Box<[u8]>>) {
+        let key = key.as_ref();
+        let mut val: *mut c_char = ptr::null_mut();
+        let mut val_len: usize = 0;
+        let mut value_found: c_uchar = 0;
+        let may_exists = 0
+            != unsafe {
+                ffi::rocksdb_key_may_exist_cf(
+                    self.inner.inner(),
+                    readopts.inner,
+                    cf.inner(),
+                    key.as_ptr() as *const c_char,
+                    key.len() as size_t,
+                    &mut val,         /*value*/
+                    &mut val_len,     /*val_len*/
+                    ptr::null(),      /*timestamp*/
+                    0,                /*timestamp_len*/
+                    &mut value_found, /*value_found*/
+                )
+            };
+        // The value is only allocated (using malloc) and returned if it is found and
+        // value_found isn't NULL. In that case the user is responsible for freeing it.
+        if value_found == 0 {
+            (may_exists, None)
+        } else {
+            let value =
+                unsafe { Box::from_raw(slice::from_raw_parts_mut(val as *mut u8, val_len)) };
+            (may_exists, Some(value))
+        }
+    }
+
     fn create_inner_cf_handle(
         &self,
         name: impl CStrLike,
