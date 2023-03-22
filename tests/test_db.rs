@@ -14,6 +14,7 @@
 
 mod util;
 
+use std::convert::TryInto;
 use std::{mem, sync::Arc, thread, time::Duration};
 
 use pretty_assertions::assert_eq;
@@ -1293,6 +1294,43 @@ fn key_may_exist_cf() {
 
         assert!(!db.key_may_exist_cf(&cf, "nonexistent"));
         assert!(!db.key_may_exist_cf_opt(&cf, "nonexistent", &ReadOptions::default()));
+    }
+}
+
+#[test]
+fn key_may_exist_cf_value() {
+    let path = DBPath::new("_rust_key_may_exist_cf_value");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, ["cf"]).unwrap();
+        let cf = db.cf_handle("cf").unwrap();
+
+        for i in 0..10000i32 {
+            let _ = db.put_cf(&cf, i.to_le_bytes(), i.to_le_bytes());
+        }
+
+        let mut may_exist_count = 0;
+        let mut value_found = Vec::new();
+        for i in 0..10000i32 {
+            let (may_exist, value) =
+                db.key_may_exist_cf_opt_value(&cf, i.to_le_bytes(), &ReadOptions::default());
+
+            if may_exist {
+                may_exist_count += 1;
+            }
+
+            if let Some(value) = value {
+                value_found.push((i, i32::from_le_bytes(value.as_ref().try_into().unwrap())))
+            }
+        }
+
+        assert!(value_found.len() <= may_exist_count);
+        for (i, j) in value_found {
+            assert_eq!(i, j)
+        }
     }
 }
 
