@@ -267,7 +267,12 @@ fn failed_merge_test() {
     match res.and_then(|_e| db.get(b"key")) {
         Ok(val) => panic!("expected merge failure to propagate, got: {:?}", val),
         Err(e) => {
-            assert!(e.into_string().contains("Could not perform merge."));
+            let msg = e.into_string();
+            assert!(
+                msg.contains("Merge operator failed"),
+                "unexpected merge error message: {}",
+                msg
+            );
         }
     }
 }
