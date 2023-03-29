@@ -1307,7 +1307,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         // The value is only allocated (using malloc) and returned if it is found and
         // value_found isn't NULL. In that case the user is responsible for freeing it.
         if may_exists && value_found != 0 {
-            (may_exists, Some(CSlice::new(val, val_len)))
+            (
+                may_exists,
+                Some(unsafe { CSlice::from_raw_parts(val, val_len) }),
+            )
         } else {
             (may_exists, None)
         }

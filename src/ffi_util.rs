@@ -203,7 +203,14 @@ pub struct CSlice {
 }
 
 impl CSlice {
-    pub(crate) fn new(data: *const c_char, len: size_t) -> Self {
+    /// Constructing such a slice may be unsafe.
+    ///
+    /// # Safety
+    /// The caller must ensure that the pointer and length are valid.
+    /// Moreover, `CSlice` takes the ownership of the memory and will free it using `libc::free`.
+    /// The caller must ensure that the memory is allocated by `libc::malloc`
+    /// and will not be freed by any other means.
+    pub(crate) unsafe fn from_raw_parts(data: *const c_char, len: size_t) -> Self {
         Self { data, len }
     }
 }
