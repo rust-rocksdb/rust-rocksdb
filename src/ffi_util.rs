@@ -195,6 +195,8 @@ impl<'a> CStrLike for &'a CString {
     }
 }
 
+/// Owned malloc-allocated memory slice.
+/// Do not derive `Clone` for this because it will cause double-free.
 pub struct CSlice {
     pub data: *const c_char,
     pub len: size_t,
