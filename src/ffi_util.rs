@@ -14,7 +14,7 @@
 //
 
 use crate::Error;
-use libc::{self, c_char, c_void};
+use libc::{self, c_char, c_void, size_t};
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
@@ -192,6 +192,25 @@ impl<'a> CStrLike for &'a CString {
     }
     fn into_c_string(self) -> Result<CString, Self::Error> {
         Ok(self.clone())
+    }
+}
+
+pub struct CSlice {
+    pub data: *const c_char,
+    pub len: size_t,
+}
+
+impl AsRef<[u8]> for CSlice {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.data as *const u8, self.len) }
+    }
+}
+
+impl Drop for CSlice {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.data as *mut c_void);
+        }
     }
 }
 

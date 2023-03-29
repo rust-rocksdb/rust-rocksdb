@@ -26,6 +26,7 @@ use crate::{
     WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
+use crate::ffi_util::CSlice;
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
@@ -1283,7 +1284,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> (bool, Option<Box<[u8]>>) {
+    ) -> (bool, Option<CSlice>) {
         let key = key.as_ref();
         let mut val: *mut c_char = ptr::null_mut();
         let mut val_len: usize = 0;
@@ -1306,9 +1307,13 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         // The value is only allocated (using malloc) and returned if it is found and
         // value_found isn't NULL. In that case the user is responsible for freeing it.
         if may_exists && value_found != 0 {
-            let value =
-                unsafe { Box::from_raw(slice::from_raw_parts_mut(val as *mut u8, val_len)) };
-            (may_exists, Some(value))
+            (
+                may_exists,
+                Some(CSlice {
+                    data: val,
+                    len: val_len,
+                }),
+            )
         } else {
             (may_exists, None)
         }
