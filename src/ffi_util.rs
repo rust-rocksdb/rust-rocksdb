@@ -198,8 +198,14 @@ impl<'a> CStrLike for &'a CString {
 /// Owned malloc-allocated memory slice.
 /// Do not derive `Clone` for this because it will cause double-free.
 pub struct CSlice {
-    pub data: *const c_char,
-    pub len: size_t,
+    data: *const c_char,
+    len: size_t,
+}
+
+impl CSlice {
+    pub(crate) fn new(data: *const c_char, len: size_t) -> Self {
+        Self { data, len }
+    }
 }
 
 impl AsRef<[u8]> for CSlice {
