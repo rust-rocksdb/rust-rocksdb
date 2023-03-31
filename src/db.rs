@@ -1273,12 +1273,12 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
-    // If the key definitely does not exist in the database, then this method
-    // returns false, else true. If the caller wants to obtain value when the key
-    // is found in memory, a bool for 'value_found' must be passed. 'value_found'
-    // will be true on return if value has been set properly.
-    // This check is potentially lighter-weight than invoking DB::Get(). One way
-    // to make this lighter weight is to avoid doing any IOs.
+    /// If the key definitely does not exist in the database, then this method
+    /// returns `(false, None)`, else `(true, None)` if it may.
+    /// If the key is found in memory, then it returns `(true, Some<CSlice>)`.
+    ///
+    /// This check is potentially lighter-weight than calling `get()`. One way
+    /// to make this lighter weight is to avoid doing any IOs.
     pub fn key_may_exist_cf_opt_value<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
