@@ -249,7 +249,7 @@ impl MemoryUsageBuilder {
     /// Add a cache to collect memory usage from it and add up in total stats
     fn add_cache(&mut self, cache: &Cache) {
         unsafe {
-            ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.0.inner);
+            ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.0.inner.as_ptr());
         }
     }
 
