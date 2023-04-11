@@ -1323,7 +1323,6 @@ impl Options {
         }
     }
 
-
     pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
         unsafe {
             ffi::rocksdb_options_optimize_for_point_lookup(self.inner, cache_size);
