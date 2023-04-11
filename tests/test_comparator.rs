@@ -44,9 +44,7 @@ pub fn write_to_db_with_comparator(
 /// Keep in mind that this variable must be moved to the clojure
 /// Then run a test with a reverse sorting clojure and make sure the order is reverted
 fn test_comparator() {
-    let local_compare = move |one: &[u8], two: &[u8]| {
-        one.cmp(two)
-    };
+    let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
 
     let x = 0;
     let local_compare_reverse = move |one: &[u8], two: &[u8]| {
