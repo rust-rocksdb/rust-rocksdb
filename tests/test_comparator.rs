@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 
 /// This function is for ensuring test of backwards compatibility
 pub fn rocks_old_compare(one: &[u8], two: &[u8]) -> Ordering {
-    return one.cmp(two);
+    one.cmp(two)
 }
 
 /// create database add some values, and iterate over these
@@ -34,7 +34,7 @@ pub fn write_to_db_with_comparator(
         }
     }
     let _ = DB::destroy(&Options::default(), path);
-    return result_vec;
+    result_vec
 }
 
 #[test]
@@ -45,7 +45,7 @@ pub fn write_to_db_with_comparator(
 /// Then run a test with a reverse sorting clojure and make sure the order is reverted
 fn test_comparator() {
     let local_compare = move |one: &[u8], two: &[u8]| {
-        return one.cmp(two);
+        one.cmp(two)
     };
 
     let x = 0;
@@ -54,11 +54,11 @@ fn test_comparator() {
             "Use the x value from the closure scope to do something smart: {:?}",
             x
         );
-        return match one.cmp(two) {
+        match one.cmp(two) {
             Ordering::Less => Ordering::Greater,
             Ordering::Equal => Ordering::Equal,
             Ordering::Greater => Ordering::Less,
-        };
+        }
     };
 
     let old_res = write_to_db_with_comparator(Box::new(rocks_old_compare));
