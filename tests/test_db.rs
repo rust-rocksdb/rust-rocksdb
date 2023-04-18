@@ -409,6 +409,39 @@ fn test_get_updates_since_empty() {
 }
 
 #[test]
+fn test_get_updates_since_start() {
+    let path = DBPath::new("_rust_rocksdb_test_test_get_updates_since_start");
+    let db = DB::open_default(&path).unwrap();
+    // add some records and collect sequence numbers,
+    // verify 4 batches of 1 put each were done
+    let seq0 = db.latest_sequence_number();
+    db.put(b"key1", b"value1").unwrap();
+    db.put(b"key2", b"value2").unwrap();
+    db.put(b"key3", b"value3").unwrap();
+    db.put(b"key4", b"value4").unwrap();
+    let mut iter = db.get_updates_since(seq0).unwrap();
+    let mut counts = OperationCounts {
+        puts: 0,
+        deletes: 0,
+    };
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 1);
+    batch.iterate(&mut counts);
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 2);
+    batch.iterate(&mut counts);
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 3);
+    batch.iterate(&mut counts);
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 4);
+    batch.iterate(&mut counts);
+    assert!(iter.next().is_none());
+    assert_eq!(counts.puts, 4);
+    assert_eq!(counts.deletes, 0);
+}
+
+#[test]
 fn test_get_updates_since_multiple_batches() {
     let path = DBPath::new("_rust_rocksdb_test_get_updates_since_multiple_batches");
     let db = DB::open_default(&path).unwrap();

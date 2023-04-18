@@ -513,6 +513,7 @@ impl<'a, D: DBAccess> Into<DBRawIteratorWithThreadMode<'a, D>> for DBIteratorWit
 ///
 pub struct DBWALIterator {
     pub(crate) inner: *mut ffi::rocksdb_wal_iterator_t,
+    pub(crate) start_seq_number: u64,
 }
 
 impl DBWALIterator {
@@ -546,17 +547,39 @@ impl Iterator for DBWALIterator {
             return None;
         }
 
+        let mut seq: u64 = 0;
+        let mut batch = WriteBatch {
+            inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) },
+        };
+
+        // if the initial sequence number is what was requested we skip it to
+        // only provide changes *after* it
+        if seq == self.start_seq_number {
+            unsafe {
+                ffi::rocksdb_wal_iter_next(self.inner);
+            }
+
+            if !self.valid() {
+                return None;
+            }
+
+            // this drops which in turn frees the skipped batch
+            batch = WriteBatch {
+                inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) },
+            };
+        }
+
+        if !self.valid() {
+            return self.status().err().map(Result::Err);
+        }
+
         // Seek to the next write batch.
+        // Note that WriteBatches live independently of the WAL iterator so this is safe to do
         unsafe {
             ffi::rocksdb_wal_iter_next(self.inner);
         }
-        if self.valid() {
-            let mut seq: u64 = 0;
-            let inner = unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) };
-            Some(Ok((seq, WriteBatch { inner })))
-        } else {
-            self.status().err().map(Result::Err)
-        }
+
+        Some(Ok((seq, batch)))
     }
 }
 
