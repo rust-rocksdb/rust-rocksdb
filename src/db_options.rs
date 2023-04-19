@@ -3417,6 +3417,17 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_pin_data(self.inner, c_uchar::from(v));
         }
     }
+
+    /// Asynchronously prefetch some data.
+    ///
+    /// Used for sequential reads and internal automatic prefetching.
+    ///
+    /// Default: `false`
+    pub fn set_async_io(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_async_io(self.inner, c_uchar::from(v));
+        }
+    }
 }
 
 impl Default for ReadOptions {
