@@ -34,7 +34,7 @@ fn test_load_latest() {
         &n,
         Env::new().unwrap(),
         true,
-        Cache::new_lru_cache(1024 * 8).unwrap(),
+        Cache::new_lru_cache(1024 * 8),
     )
     .unwrap();
     assert!(cfs.iter().any(|cf| cf.name() == "default"));
