@@ -74,7 +74,7 @@ impl Cache {
     /// * If the estimate is substantially too low (e.g., less than half),
     ///   then meta data space overhead is substantially higher.
     ///
-    /// The latter is generally peferable, and picking the larger of
+    /// The latter is generally preferable, and picking the larger of
     /// block size and meta data block size is a reasonable choice that
     /// errs towards this side.
     pub fn new_hyper_clock_cache(capacity: size_t, estimated_entry_charge: size_t) -> Cache {
