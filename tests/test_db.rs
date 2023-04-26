@@ -14,6 +14,7 @@
 
 mod util;
 
+use std::convert::TryInto;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{mem, sync::Arc, thread, time::Duration};
 
@@ -573,7 +574,7 @@ fn test_open_cf_with_ttl() {
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.create_missing_column_families(true);
-    let db = DB::open_cf_with_ttl(&opts, &path, &["test_cf"], Duration::from_secs(1)).unwrap();
+    let db = DB::open_cf_with_ttl(&opts, &path, ["test_cf"], Duration::from_secs(1)).unwrap();
     let cf = db.cf_handle("test_cf").unwrap();
     db.put_cf(&cf, b"key1", b"value1").unwrap();
 
@@ -711,7 +712,7 @@ fn fifo_compaction_test() {
 
         let block_cache_hit_count = ctx.metric(PerfMetric::BlockCacheHitCount);
         if block_cache_hit_count > 0 {
-            let expect = format!("block_cache_hit_count = {}", block_cache_hit_count);
+            let expect = format!("block_cache_hit_count = {block_cache_hit_count}");
             assert!(ctx.report(true).contains(&expect));
         }
 
@@ -741,7 +742,7 @@ fn env_and_dbpaths_test() {
         opts.create_missing_column_families(true);
 
         {
-            let mut env = Env::default().unwrap();
+            let mut env = Env::new().unwrap();
             env.lower_high_priority_thread_pool_cpu_priority();
             opts.set_env(&env);
         }
@@ -817,7 +818,7 @@ fn get_with_cache_and_bulkload_test() {
 
     {
         // set block based table and cache
-        let cache = Cache::new_lru_cache(512 << 10).unwrap();
+        let cache = Cache::new_lru_cache(512 << 10);
         assert_eq!(cache.get_usage(), 0);
         let mut block_based_opts = BlockBasedOptions::default();
         block_based_opts.set_block_cache(&cache);
@@ -830,7 +831,7 @@ fn get_with_cache_and_bulkload_test() {
         // write a lot
         let mut batch = WriteBatch::default();
         for i in 0..10_000 {
-            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+            batch.put(format!("{i:0>4}").as_bytes(), b"v");
         }
         assert!(db.write(batch).is_ok());
 
@@ -859,7 +860,7 @@ fn get_with_cache_and_bulkload_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
 
         // check live files (sst files meta)
@@ -910,7 +911,7 @@ fn get_with_cache_and_bulkload_test() {
         opts.set_stats_persist_period_sec(0);
 
         // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
-        let mut env = Env::default().unwrap();
+        let mut env = Env::new().unwrap();
         env.set_bottom_priority_background_threads(0);
         opts.set_env(&env);
 
@@ -920,7 +921,7 @@ fn get_with_cache_and_bulkload_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
     }
 }
@@ -952,7 +953,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
 
     {
         // set block based table and cache
-        let cache = Cache::new_lru_cache(512 << 10).unwrap();
+        let cache = Cache::new_lru_cache(512 << 10);
         assert_eq!(cache.get_usage(), 0);
         let mut block_based_opts = BlockBasedOptions::default();
         block_based_opts.set_block_cache(&cache);
@@ -965,7 +966,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         // write a lot
         let mut batch = WriteBatch::default();
         for i in 0..10_000 {
-            batch.put(format!("{:0>4}", i).as_bytes(), b"v");
+            batch.put(format!("{i:0>4}").as_bytes(), b"v");
         }
         assert!(db.write(batch).is_ok());
 
@@ -994,7 +995,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
 
         // check live files (sst files meta)
@@ -1045,7 +1046,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         opts.set_stats_persist_period_sec(0);
 
         // test Env::Default()->SetBackgroundThreads(0, Env::Priority::BOTTOM);
-        let mut env = Env::default().unwrap();
+        let mut env = Env::new().unwrap();
         env.set_bottom_priority_background_threads(0);
         opts.set_env(&env);
 
@@ -1055,7 +1056,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
         // try to get key
         let iter = db.iterator(IteratorMode::Start);
         for (expected, (k, _)) in iter.map(Result::unwrap).enumerate() {
-            assert_eq!(k.as_ref(), format!("{:0>4}", expected).as_bytes());
+            assert_eq!(k.as_ref(), format!("{expected:0>4}").as_bytes());
         }
     }
 }
@@ -1162,7 +1163,7 @@ fn multi_get() {
         let k1_snap = db.snapshot();
         db.put(b"k2", b"v2").unwrap();
 
-        let _ = db.multi_get(&[b"k0"; 40]);
+        let _ = db.multi_get([b"k0"; 40]);
 
         let assert_values = |values: Vec<_>| {
             assert_eq!(3, values.len());
@@ -1172,14 +1173,14 @@ fn multi_get() {
         };
 
         let values = db
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
 
         assert_values(values);
 
-        let values = DBAccess::multi_get_opt(&db, &[b"k0", b"k1", b"k2"], &Default::default())
+        let values = DBAccess::multi_get_opt(&db, [b"k0", b"k1", b"k2"], &Default::default())
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -1188,7 +1189,7 @@ fn multi_get() {
 
         let values = db
             .snapshot()
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -1196,7 +1197,7 @@ fn multi_get() {
         assert_values(values);
 
         let none_values = initial_snap
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -1204,7 +1205,7 @@ fn multi_get() {
         assert_eq!(none_values, vec![None; 3]);
 
         let k1_only = k1_snap
-            .multi_get(&[b"k0", b"k1", b"k2"])
+            .multi_get([b"k0", b"k1", b"k2"])
             .into_iter()
             .map(Result::unwrap)
             .collect::<Vec<_>>();
@@ -1221,7 +1222,7 @@ fn multi_get_cf() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = DB::open_cf(&opts, &path, &["cf0", "cf1", "cf2"]).unwrap();
+        let db = DB::open_cf(&opts, &path, ["cf0", "cf1", "cf2"]).unwrap();
 
         let cf0 = db.cf_handle("cf0").unwrap();
 
@@ -1251,7 +1252,7 @@ fn batched_multi_get_cf() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = DB::open_cf(&opts, &path, &["cf0"]).unwrap();
+        let db = DB::open_cf(&opts, &path, ["cf0"]).unwrap();
 
         let cf = db.cf_handle("cf0").unwrap();
         db.put_cf(&cf, b"k1", b"v1").unwrap();
@@ -1289,11 +1290,43 @@ fn key_may_exist_cf() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        let db = DB::open_cf(&opts, &path, &["cf"]).unwrap();
+        let db = DB::open_cf(&opts, &path, ["cf"]).unwrap();
         let cf = db.cf_handle("cf").unwrap();
 
         assert!(!db.key_may_exist_cf(&cf, "nonexistent"));
         assert!(!db.key_may_exist_cf_opt(&cf, "nonexistent", &ReadOptions::default()));
+    }
+}
+
+#[test]
+fn key_may_exist_cf_value() {
+    let path = DBPath::new("_rust_key_may_exist_cf_value");
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, ["cf"]).unwrap();
+        let cf = db.cf_handle("cf").unwrap();
+
+        // put some entry into db
+        for i in 0..10000i32 {
+            let _ = db.put_cf(&cf, i.to_le_bytes(), i.to_le_bytes());
+        }
+
+        // call `key_may_exist_cf_opt_value`
+        for i in 0..10000i32 {
+            let (may_exist, value) =
+                db.key_may_exist_cf_opt_value(&cf, i.to_le_bytes(), &ReadOptions::default());
+
+            // all these numbers may exist
+            assert!(may_exist);
+
+            // check value correctness
+            if let Some(value) = value {
+                assert_eq!(i32::from_le_bytes(value.as_ref().try_into().unwrap()), i);
+            }
+        }
     }
 }
 

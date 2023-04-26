@@ -18,7 +18,7 @@ use pretty_assertions::assert_eq;
 
 use rocksdb::{
     backup::{BackupEngine, BackupEngineOptions, RestoreOptions},
-    DB,
+    Env, DB,
 };
 use util::DBPath;
 
@@ -33,9 +33,11 @@ fn restore_from_latest() {
         let value = db.get(b"k1");
         assert_eq!(value.unwrap().unwrap(), b"v1111");
         {
-            let backup_path = DBPath::new("backup_path_1");
-            let backup_opts = BackupEngineOptions::default();
-            let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
+            let backup_path = DBPath::new("restore_from_latest_test_backup");
+            let env = Env::new().unwrap();
+            let backup_opts = BackupEngineOptions::new(&backup_path).unwrap();
+
+            let mut backup_engine = BackupEngine::open(&backup_opts, &env).unwrap();
             assert!(backup_engine.create_new_backup(&db).is_ok());
 
             // check backup info
@@ -73,9 +75,11 @@ fn restore_from_backup() {
         let value = db.get(b"k1");
         assert_eq!(value.unwrap().unwrap(), b"v1111");
         {
-            let backup_path = DBPath::new("backup_path_2");
-            let backup_opts = BackupEngineOptions::default();
-            let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
+            let backup_path = DBPath::new("restore_from_latest_test_backup");
+            let env = Env::new().unwrap();
+            let backup_opts = BackupEngineOptions::new(&backup_path).unwrap();
+
+            let mut backup_engine = BackupEngine::open(&backup_opts, &env).unwrap();
             assert!(backup_engine.create_new_backup(&db).is_ok());
 
             // check backup info

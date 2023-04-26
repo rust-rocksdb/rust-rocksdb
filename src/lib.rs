@@ -85,6 +85,7 @@ mod db;
 mod db_iterator;
 mod db_options;
 mod db_pinnable_slice;
+mod env;
 mod iter_range;
 pub mod merge_operator;
 pub mod perf;
@@ -110,13 +111,14 @@ pub use crate::{
         DBWALIterator, Direction, IteratorMode,
     },
     db_options::{
-        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
-        CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath, DBRecoveryMode,
-        DataBlockIndexType, Env, FifoCompactOptions, FlushOptions, IngestExternalFileOptions,
-        LogLevel, MemtableFactory, Options, PlainTableFactoryOptions, ReadOptions,
-        UniversalCompactOptions, UniversalCompactionStopStyle, WriteOptions,
+        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, ChecksumType,
+        CompactOptions, CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath,
+        DBRecoveryMode, DataBlockIndexType, FifoCompactOptions, FlushOptions,
+        IngestExternalFileOptions, LogLevel, MemtableFactory, Options, PlainTableFactoryOptions,
+        ReadOptions, UniversalCompactOptions, UniversalCompactionStopStyle, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
+    env::Env,
     ffi_util::CStrLike,
     iter_range::{IterateBounds, PrefixRange},
     merge_operator::MergeOperands,
@@ -229,11 +231,11 @@ mod test {
 
     use super::{
         column_family::UnboundColumnFamily,
-        db_options::{CacheWrapper, EnvWrapper},
+        db_options::CacheWrapper,
+        env::{Env, EnvWrapper},
         BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor,
-        DBIterator, DBRawIterator, Env, IngestExternalFileOptions, Options,
-        PlainTableFactoryOptions, ReadOptions, Snapshot, SstFileWriter, WriteBatch, WriteOptions,
-        DB,
+        DBIterator, DBRawIterator, IngestExternalFileOptions, Options, PlainTableFactoryOptions,
+        ReadOptions, Snapshot, SstFileWriter, WriteBatch, WriteOptions, DB,
     };
 
     #[test]

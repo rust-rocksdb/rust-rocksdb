@@ -1,7 +1,8 @@
 [package]
 name = "librocksdb-sys"
-version = "0.8.0+7.4.4"
+version = "0.11.0+8.1.1"
 edition = "2018"
+rust-version = "1.60"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
@@ -37,6 +38,6 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
-bindgen = { version = "0.60", default-features = false, features = ["runtime"] }
+bindgen = { version = "0.64", default-features = false, features = ["runtime"] }
 glob = "0.3"
 pkg-config = { version = "0.3", optional = true }

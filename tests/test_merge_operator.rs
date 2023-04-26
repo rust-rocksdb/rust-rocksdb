@@ -60,7 +60,7 @@ fn merge_test() {
     match db.get(b"k1") {
         Ok(Some(value)) => {
             if let Ok(v) = std::str::from_utf8(&value) {
-                println!("retrieved utf8 value: {}", v)
+                println!("retrieved utf8 value: {v}")
             } else {
                 println!("did not read valid utf-8 out of the db")
             }
@@ -267,7 +267,12 @@ fn failed_merge_test() {
     match res.and_then(|_e| db.get(b"key")) {
         Ok(val) => panic!("expected merge failure to propagate, got: {:?}", val),
         Err(e) => {
-            assert!(e.into_string().contains("Could not perform merge."));
+            let msg = e.into_string();
+            assert!(
+                msg.contains("Merge operator failed"),
+                "unexpected merge error message: {}",
+                msg
+            );
         }
     }
 }

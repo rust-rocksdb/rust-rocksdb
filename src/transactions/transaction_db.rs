@@ -57,7 +57,7 @@ type DefaultThreadMode = crate::MultiThreaded;
 /// {
 ///     let db: TransactionDB = TransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();
-///     
+///
 ///     // create transaction
 ///     let txn = db.transaction();
 ///     txn.put(b"key2", b"value2");
@@ -234,8 +234,7 @@ impl<T: ThreadMode> TransactionDB<T> {
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
+                "Failed to create RocksDB directory: `{e:?}`."
             )));
         }
 
@@ -360,13 +359,10 @@ impl<T: ThreadMode> TransactionDB<T> {
         name: &str,
         opts: &Options,
     ) -> Result<*mut ffi::rocksdb_column_family_handle_t, Error> {
-        let cf_name = if let Ok(c) = CString::new(name.as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
-                "Failed to convert path to CString when creating cf".to_owned(),
-            ));
-        };
+        let cf_name = CString::new(name.as_bytes()).map_err(|_| {
+            Error::new("Failed to convert path to CString when creating cf".to_owned())
+        })?;
+
         Ok(unsafe {
             ffi_try!(ffi::rocksdb_transactiondb_create_column_family(
                 self.inner,
@@ -948,6 +944,23 @@ impl<T: ThreadMode> TransactionDB<T> {
     pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
         SnapshotWithThreadMode::<Self>::new(self)
     }
+
+    fn drop_column_family<C>(
+        &self,
+        cf_inner: *mut ffi::rocksdb_column_family_handle_t,
+        _cf: C,
+    ) -> Result<(), Error> {
+        unsafe {
+            // first mark the column family as dropped
+            ffi_try!(ffi::rocksdb_drop_column_family(
+                self.inner as *mut ffi::rocksdb_t,
+                cf_inner
+            ));
+        }
+        // Since `_cf` is dropped here, the column family handle is destroyed
+        // and any resources (mem, files) are reclaimed.
+        Ok(())
+    }
 }
 
 impl TransactionDB<SingleThreaded> {
@@ -963,6 +976,15 @@ impl TransactionDB<SingleThreaded> {
     /// Returns the underlying column family handle.
     pub fn cf_handle(&self, name: &str) -> Option<&ColumnFamily> {
         self.cfs.cfs.get(name)
+    }
+
+    /// Drops the column family with the given name
+    pub fn drop_cf(&mut self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.cfs.remove(name) {
+            self.drop_column_family(cf.inner, cf)
+        } else {
+            Err(Error::new(format!("Invalid column family: {name}")))
+        }
     }
 }
 
@@ -986,6 +1008,16 @@ impl TransactionDB<MultiThreaded> {
             .get(name)
             .cloned()
             .map(UnboundColumnFamily::bound_column_family)
+    }
+
+    /// Drops the column family with the given name by internally locking the inner column
+    /// family map. This avoids needing `&mut self` reference
+    pub fn drop_cf(&self, name: &str) -> Result<(), Error> {
+        if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
+            self.drop_column_family(cf.inner, cf)
+        } else {
+            Err(Error::new(format!("Invalid column family: {name}")))
+        }
     }
 }
 

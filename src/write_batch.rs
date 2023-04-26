@@ -21,7 +21,7 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 
 /// An atomic batch of write operations.
 ///
-/// [`delete_range`] is not supported in [`Transaction`].
+/// [`delete_range`](#method.delete_range) is not supported in [`Transaction`].
 ///
 /// Making an atomic commit of several writes:
 ///
@@ -36,7 +36,7 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 ///     batch.put(b"key2", b"value2");
 ///     batch.put(b"key3", b"value3");
 ///
-///     // DeleteRange is supported when use without transaction
+///     // delete_range is supported when use without transaction
 ///     batch.delete_range(b"key2", b"key3");
 ///
 ///     db.write(batch); // Atomically commits the batch
@@ -44,7 +44,6 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 /// let _ = DB::destroy(&Options::default(), path);
 /// ```
 ///
-/// [`DeleteRange`]: Self::delete_range
 /// [`Transaction`]: crate::Transaction
 pub struct WriteBatchWithTransaction<const TRANSACTION: bool> {
     pub(crate) inner: *mut ffi::rocksdb_writebatch_t,
@@ -72,8 +71,8 @@ unsafe extern "C" fn writebatch_put_callback(
     // freeing the resource before we are done with it
     let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
     let leaked_cb = Box::leak(boxed_cb);
-    let key = slice::from_raw_parts(k as *const u8, klen as usize);
-    let value = slice::from_raw_parts(v as *const u8, vlen as usize);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    let value = slice::from_raw_parts(v as *const u8, vlen);
     leaked_cb.put(
         key.to_vec().into_boxed_slice(),
         value.to_vec().into_boxed_slice(),
@@ -85,7 +84,7 @@ unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_
     // freeing the resource before we are done with it
     let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
     let leaked_cb = Box::leak(boxed_cb);
-    let key = slice::from_raw_parts(k as *const u8, klen as usize);
+    let key = slice::from_raw_parts(k as *const u8, klen);
     leaked_cb.delete(key.to_vec().into_boxed_slice());
 }
 
@@ -113,7 +112,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         unsafe {
             let mut batch_size: size_t = 0;
             ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
-            batch_size as usize
+            batch_size
         }
     }
 
@@ -122,7 +121,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         unsafe {
             let mut batch_size: size_t = 0;
             let batch_data = ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
-            std::slice::from_raw_parts(batch_data as _, batch_size as usize)
+            std::slice::from_raw_parts(batch_data as _, batch_size)
         }
     }
 

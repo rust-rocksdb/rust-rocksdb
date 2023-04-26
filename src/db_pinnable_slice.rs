@@ -34,7 +34,7 @@ unsafe impl<'a> Sync for DBPinnableSlice<'a> {}
 impl<'a> AsRef<[u8]> for DBPinnableSlice<'a> {
     fn as_ref(&self) -> &[u8] {
         // Implement this via Deref so as not to repeat ourselves
-        &**self
+        self
     }
 }
 

@@ -1,6 +1,8 @@
 name: RocksDB CI
 
 on: [push, pull_request]
+env:
+  RUST_VERSION: 1.60.0
 
 jobs:
   fmt:
@@ -12,7 +14,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt
           profile: minimal
           override: true
@@ -21,6 +23,25 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+  doc-check:
+    name: Rustdoc-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rust-docs
+          profile: minimal
+          override: true
+      - name: Run cargo rustdoc
+        uses: actions-rs/cargo@v1
+        with:
+          command: rustdoc
+          args: -- -D warnings
 
   clippy:
     name: Clippy
@@ -31,7 +52,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           components: clippy
           profile: minimal
           override: true
@@ -69,7 +90,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust || 'stable' }}
+          toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.target }}
           profile: minimal
           override: true
@@ -79,25 +100,10 @@ jobs:
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
-      - name: Run librocksdb-sys tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=librocksdb-sys/Cargo.toml
-      - name: Run rocksdb tests (single-threaded cf)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-      - name: Run rocksdb tests (multi-threaded cf)
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: -Awarnings # Suppress "variable does not need to be mutable" warnings
-        with:
-          command: test
-          args: --features multi-threaded-cf
+      - name: Run rocksdb tests
+        run: |
+          cargo test --all
+          cargo test --all --features multi-threaded-cf
       - name: Run rocksdb tests (jemalloc)
         if: runner.os != 'Windows'
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --features jemalloc
+        run: cargo test --all --features jemalloc

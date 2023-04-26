@@ -13,9 +13,11 @@
 // limitations under the License.
 //
 
+use crate::env::Env;
 use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode};
 
-use libc::{c_int, c_uchar};
+use libc::c_uchar;
+use std::ffi::CString;
 use std::path::Path;
 
 /// Represents information of a backup including timestamp of the backup
@@ -35,10 +37,11 @@ pub struct BackupEngineInfo {
 
 pub struct BackupEngine {
     inner: *mut ffi::rocksdb_backup_engine_t,
+    _outlive: Env,
 }
 
 pub struct BackupEngineOptions {
-    inner: *mut ffi::rocksdb_options_t,
+    inner: *mut ffi::rocksdb_backup_engine_options_t,
 }
 
 pub struct RestoreOptions {
@@ -46,20 +49,24 @@ pub struct RestoreOptions {
 }
 
 impl BackupEngine {
-    /// Open a backup engine with the specified options.
-    pub fn open<P: AsRef<Path>>(opts: &BackupEngineOptions, path: P) -> Result<Self, Error> {
-        let cpath = to_cpath(path)?;
-
+    /// Open a backup engine with the specified options and RocksDB Env.
+    pub fn open(opts: &BackupEngineOptions, env: &Env) -> Result<Self, Error> {
         let be: *mut ffi::rocksdb_backup_engine_t;
         unsafe {
-            be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr()));
+            be = ffi_try!(ffi::rocksdb_backup_engine_open_opts(
+                opts.inner,
+                env.0.inner
+            ));
         }
 
         if be.is_null() {
             return Err(Error::new("Could not initialize backup engine.".to_owned()));
         }
 
-        Ok(Self { inner: be })
+        Ok(Self {
+            inner: be,
+            _outlive: env.clone(),
+        })
     }
 
     /// Captures the state of the database in the latest backup.
@@ -217,27 +224,50 @@ impl BackupEngine {
 }
 
 impl BackupEngineOptions {
-    //
-}
+    /// Initializes `BackupEngineOptions` with the directory to be used for storing/accessing the
+    /// backup files.
+    pub fn new<P: AsRef<Path>>(backup_dir: P) -> Result<Self, Error> {
+        let backup_dir = backup_dir.as_ref();
+        let c_backup_dir = CString::new(backup_dir.to_string_lossy().as_bytes()).map_err(|_| {
+            Error::new(
+                "Failed to convert backup_dir to CString \
+                     when constructing BackupEngineOptions"
+                    .to_owned(),
+            )
+        })?;
 
-impl RestoreOptions {
-    pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
         unsafe {
-            ffi::rocksdb_restore_options_set_keep_log_files(
+            let opts = ffi::rocksdb_backup_engine_options_create(c_backup_dir.as_ptr());
+            assert!(!opts.is_null(), "Could not create RocksDB backup options");
+
+            Ok(Self { inner: opts })
+        }
+    }
+
+    /// Sets the number of operations (such as file copies or file checksums) that `RocksDB` may
+    /// perform in parallel when executing a backup or restore.
+    ///
+    /// Default: 1
+    pub fn set_max_background_operations(&mut self, max_background_operations: i32) {
+        unsafe {
+            ffi::rocksdb_backup_engine_options_set_max_background_operations(
                 self.inner,
-                c_int::from(keep_log_files),
+                max_background_operations,
             );
         }
     }
 }
 
-impl Default for BackupEngineOptions {
-    fn default() -> Self {
+impl RestoreOptions {
+    /// Sets `keep_log_files`. If true, restore won't overwrite the existing log files in wal_dir.
+    /// It will also move all log files from archive directory to wal_dir. Use this option in
+    /// combination with BackupEngineOptions::backup_log_files = false for persisting in-memory
+    /// databases.
+    ///
+    /// Default: false
+    pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
         unsafe {
-            let opts = ffi::rocksdb_options_create();
-            assert!(!opts.is_null(), "Could not create RocksDB backup options");
-
-            Self { inner: opts }
+            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, i32::from(keep_log_files));
         }
     }
 }
@@ -264,7 +294,7 @@ impl Drop for BackupEngine {
 impl Drop for BackupEngineOptions {
     fn drop(&mut self) {
         unsafe {
-            ffi::rocksdb_options_destroy(self.inner);
+            ffi::rocksdb_backup_engine_options_destroy(self.inner);
         }
     }
 }

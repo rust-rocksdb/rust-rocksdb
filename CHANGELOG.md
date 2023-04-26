@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## 0.20.1 (2023-02-10)
+
+* Fix supporting MSRV 1.60.0 (aleksuss)
+
+## 0.20.0 (2023-02-09)
+
+* Support RocksDB 7.x `BackupEngineOptions` (exabytes18)
+* Fix `int128` compatibility check (Dirreke)
+* Add `Options::load_latest` method to load the latest options from RockDB (Congyuwang)
+* Bump bindgen to 0.64.0 (cwlittle)
+* Bump rocksdb to 7.9.2 (kwek20)
+* Make `set_snapshot` method public (a14e)
+* Add `drop_cf` function to `TransactionDB` (bothra90)
+* Bump rocksdb to 7.8.3 (aleksuss)
+* Add doc for `set_cache_index_and_filter_blocks` (guerinoni)
+* Re-run `build.rs` if env vars change (drahnr)
+* Add `WriteBatch::data` method (w41ter)
+* Add `DB::open_cf_with_opts` method (w41ter)
+* Use lz4-sys crate rather then submodule (niklasf)
+* Make create_new_backup_flush generic (minshao)
+
 ## 0.19.0 (2022-08-05)
 
 * Add support for building with `io_uring` on Linux (parazyd)

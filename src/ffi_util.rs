@@ -14,7 +14,7 @@
 //
 
 use crate::Error;
-use libc::{self, c_char, c_void};
+use libc::{self, c_char, c_void, size_t};
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
@@ -54,8 +54,7 @@ pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
         Ok(c) => Ok(c),
         Err(e) => Err(Error::new(format!(
-            "Failed to convert path to CString: {}",
-            e,
+            "Failed to convert path to CString: {e}"
         ))),
     }
 }
@@ -84,15 +83,15 @@ macro_rules! ffi_try_impl {
 /// Value which can be converted into a C string.
 ///
 /// The trait is used as argument to functions which wish to accept either
-/// [`&str`] or [`&CStr`] arguments while internally need to interact with
+/// [`&str`] or [`&CStr`](CStr) arguments while internally need to interact with
 /// C APIs.  Accepting [`&str`] may be more convenient for users but requires
 /// conversion into [`CString`] internally which requires allocation.  With this
-/// trait, latency-conscious users may choose to prepare `CStr` in advance and
+/// trait, latency-conscious users may choose to prepare [`CStr`] in advance and
 /// then pass it directly without having to incur the conversion cost.
 ///
 /// To use the trait, function should accept `impl CStrLike` and after baking
-/// the argument (with [`CStrLike::bake`] method) it can use it as a `&CStr`
-/// (since the baked result dereferences into `CStr`).
+/// the argument (with [`CStrLike::bake`] method) it can use it as a [`&CStr`](CStr)
+/// (since the baked result dereferences into [`CStr`]).
 ///
 /// # Example
 ///
@@ -115,7 +114,7 @@ pub trait CStrLike {
     type Baked: std::ops::Deref<Target = CStr>;
     type Error: std::fmt::Debug + std::fmt::Display;
 
-    /// Bakes self into value which can be freely converted into [`&CStr`].
+    /// Bakes self into value which can be freely converted into [`&CStr`](CStr).
     ///
     /// This may require allocation and may fail if `self` has invalid value.
     fn bake(self) -> Result<Self::Baked, Self::Error>;
@@ -193,6 +192,40 @@ impl<'a> CStrLike for &'a CString {
     }
     fn into_c_string(self) -> Result<CString, Self::Error> {
         Ok(self.clone())
+    }
+}
+
+/// Owned malloc-allocated memory slice.
+/// Do not derive `Clone` for this because it will cause double-free.
+pub struct CSlice {
+    data: *const c_char,
+    len: size_t,
+}
+
+impl CSlice {
+    /// Constructing such a slice may be unsafe.
+    ///
+    /// # Safety
+    /// The caller must ensure that the pointer and length are valid.
+    /// Moreover, `CSlice` takes the ownership of the memory and will free it using `libc::free`.
+    /// The caller must ensure that the memory is allocated by `libc::malloc`
+    /// and will not be freed by any other means.
+    pub(crate) unsafe fn from_raw_parts(data: *const c_char, len: size_t) -> Self {
+        Self { data, len }
+    }
+}
+
+impl AsRef<[u8]> for CSlice {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.data as *const u8, self.len) }
+    }
+}
+
+impl Drop for CSlice {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.data as *mut c_void);
+        }
     }
 }
 

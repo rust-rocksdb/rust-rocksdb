@@ -41,6 +41,11 @@ impl ColumnFamilyDescriptor {
             options,
         }
     }
+
+    /// Get the name of the ColumnFamilyDescriptor.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 /// An opaque type used to represent a column family. Returned from some functions, and used

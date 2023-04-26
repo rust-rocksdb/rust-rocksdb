@@ -1,13 +1,17 @@
 cache/cache.cc
 cache/cache_entry_roles.cc
 cache/cache_key.cc
+cache/cache_helpers.cc
 cache/cache_reservation_manager.cc
+cache/charged_cache.cc
 cache/clock_cache.cc
-cache/fast_lru_cache.cc
 cache/lru_cache.cc
 cache/compressed_secondary_cache.cc
+cache/secondary_cache.cc
+cache/secondary_cache_adapter.cc
 cache/sharded_cache.cc
 db/arena_wrapped_db_iter.cc
+db/blob/blob_contents.cc
 db/blob/blob_fetcher.cc
 db/blob/blob_file_addition.cc
 db/blob/blob_file_builder.cc
@@ -31,7 +35,11 @@ db/compaction/compaction_picker.cc
 db/compaction/compaction_picker_fifo.cc
 db/compaction/compaction_picker_level.cc
 db/compaction/compaction_picker_universal.cc
+db/compaction/compaction_service_job.cc
+db/compaction/compaction_state.cc
+db/compaction/compaction_outputs.cc
 db/compaction/sst_partitioner.cc
+db/compaction/subcompaction_state.cc
 db/convenience.cc
 db/db_filesnapshot.cc
 db/db_impl/compacted_db_impl.cc
@@ -66,10 +74,11 @@ db/memtable_list.cc
 db/merge_helper.cc
 db/merge_operator.cc
 db/output_validator.cc
-db/periodic_work_scheduler.cc
+db/periodic_task_scheduler.cc
 db/range_del_aggregator.cc
 db/range_tombstone_fragmenter.cc
 db/repair.cc
+db/seqno_to_time_mapping.cc
 db/snapshot_impl.cc
 db/table_cache.cc
 db/table_properties_collector.cc
@@ -82,9 +91,11 @@ db/version_set.cc
 db/wal_edit.cc
 db/wal_manager.cc
 db/wide/wide_column_serialization.cc
+db/wide/wide_columns.cc
 db/write_batch.cc
 db/write_batch_base.cc
 db/write_controller.cc
+db/write_stall_stats.cc
 db/write_thread.cc
 env/composite_env.cc
 env/env.cc
@@ -144,6 +155,7 @@ options/db_options.cc
 options/options.cc
 options/options_helper.cc
 options/options_parser.cc
+port/mmap.cc
 port/port_posix.cc
 port/stack_trace.cc
 table/adaptive/adaptive_table_factory.cc
@@ -154,6 +166,7 @@ table/block_based/block_based_table_factory.cc
 table/block_based/block_based_table_iterator.cc
 table/block_based/block_based_table_reader.cc
 table/block_based/block_builder.cc
+table/block_based/block_cache.cc
 table/block_based/block_prefetcher.cc
 table/block_based/block_prefix_index.cc
 table/block_based/data_block_hash_index.cc
@@ -179,6 +192,7 @@ table/format.cc
 table/get_context.cc
 table/iterator.cc
 table/merging_iterator.cc
+table/compaction_merging_iterator.cc
 table/meta_blocks.cc
 table/persistent_cache_helper.cc
 table/plain/plain_table_bloom.cc
@@ -215,6 +229,7 @@ util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
 util/crc32c_arm64.cc
+util/data_structure.cc
 util/dynamic_bloom.cc
 util/hash.cc
 util/murmurhash.cc
@@ -224,6 +239,7 @@ util/ribbon_config.cc
 util/slice.cc
 util/file_checksum_helper.cc
 util/status.cc
+util/stderr_logger.cc
 util/string_util.cc
 util/thread_local.cc
 util/threadpool_imp.cc

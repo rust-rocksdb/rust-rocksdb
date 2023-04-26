@@ -26,6 +26,7 @@ use crate::{
     WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
+use crate::ffi_util::CSlice;
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
 use std::ffi::{CStr, CString};
@@ -603,8 +604,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
         if let Err(e) = fs::create_dir_all(&path) {
             return Err(Error::new(format!(
-                "Failed to create RocksDB directory: `{:?}`.",
-                e
+                "Failed to create RocksDB directory: `{e:?}`."
             )));
         }
 
@@ -1282,6 +1282,49 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// If the key definitely does not exist in the database, then this method
+    /// returns `(false, None)`, else `(true, None)` if it may.
+    /// If the key is found in memory, then it returns `(true, Some<CSlice>)`.
+    ///
+    /// This check is potentially lighter-weight than calling `get()`. One way
+    /// to make this lighter weight is to avoid doing any IOs.
+    pub fn key_may_exist_cf_opt_value<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> (bool, Option<CSlice>) {
+        let key = key.as_ref();
+        let mut val: *mut c_char = ptr::null_mut();
+        let mut val_len: usize = 0;
+        let mut value_found: c_uchar = 0;
+        let may_exists = 0
+            != unsafe {
+                ffi::rocksdb_key_may_exist_cf(
+                    self.inner.inner(),
+                    readopts.inner,
+                    cf.inner(),
+                    key.as_ptr() as *const c_char,
+                    key.len() as size_t,
+                    &mut val,         /*value*/
+                    &mut val_len,     /*val_len*/
+                    ptr::null(),      /*timestamp*/
+                    0,                /*timestamp_len*/
+                    &mut value_found, /*value_found*/
+                )
+            };
+        // The value is only allocated (using malloc) and returned if it is found and
+        // value_found isn't NULL. In that case the user is responsible for freeing it.
+        if may_exists && value_found != 0 {
+            (
+                may_exists,
+                Some(unsafe { CSlice::from_raw_parts(val, val_len) }),
+            )
+        } else {
+            (may_exists, None)
+        }
+    }
+
     fn create_inner_cf_handle(
         &self,
         name: impl CStrLike,
@@ -1742,8 +1785,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             Ok(prop_name) => get_property(prop_name.as_ptr()),
             Err(e) => {
                 return Err(Error::new(format!(
-                    "Failed to convert property name to CString: {}",
-                    e
+                    "Failed to convert property name to CString: {e}"
                 )));
             }
         };
@@ -1753,8 +1795,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         let result = match unsafe { CStr::from_ptr(value) }.to_str() {
             Ok(s) => parse(s).map(|value| Some(value)),
             Err(e) => Err(Error::new(format!(
-                "Failed to convert property value to string: {}",
-                e
+                "Failed to convert property value to string: {e}"
             ))),
         };
         unsafe {
@@ -1796,8 +1837,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     fn parse_property_int_value(value: &str) -> Result<u64, Error> {
         value.parse::<u64>().map_err(|err| {
             Error::new(format!(
-                "Failed to convert property value {} to int: {}",
-                value, err
+                "Failed to convert property value {value} to int: {err}"
             ))
         })
     }
@@ -1883,11 +1923,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         opts: &IngestExternalFileOptions,
         paths: Vec<P>,
     ) -> Result<(), Error> {
-        let paths_v: Vec<CString> = paths
-            .iter()
-            .map(|path| to_cpath(&path))
-            .collect::<Result<Vec<_>, _>>()?;
-
+        let paths_v: Vec<CString> = paths.iter().map(to_cpath).collect::<Result<Vec<_>, _>>()?;
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
         self.ingest_external_file_raw(opts, &paths_v, &cpaths)
@@ -1911,11 +1947,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         opts: &IngestExternalFileOptions,
         paths: Vec<P>,
     ) -> Result<(), Error> {
-        let paths_v: Vec<CString> = paths
-            .iter()
-            .map(|path| to_cpath(&path))
-            .collect::<Result<Vec<_>, _>>()?;
-
+        let paths_v: Vec<CString> = paths.iter().map(to_cpath).collect::<Result<Vec<_>, _>>()?;
         let cpaths: Vec<_> = paths_v.iter().map(|path| path.as_ptr()).collect();
 
         self.ingest_external_file_raw_cf(cf, opts, &paths_v, &cpaths)
@@ -1975,7 +2007,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                         from_cstr(ffi::rocksdb_livefiles_column_family_name(files, i));
                     let name = from_cstr(ffi::rocksdb_livefiles_name(files, i));
                     let size = ffi::rocksdb_livefiles_size(files, i);
-                    let level = ffi::rocksdb_livefiles_level(files, i) as i32;
+                    let level = ffi::rocksdb_livefiles_level(files, i);
 
                     // get smallest key inside file
                     let smallest_key = ffi::rocksdb_livefiles_smallestkey(files, i, &mut key_size);
@@ -2092,7 +2124,7 @@ impl<I: DBInner> DBCommon<SingleThreaded, I> {
         if let Some(cf) = self.cfs.cfs.remove(name) {
             self.drop_column_family(cf.inner, cf)
         } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
+            Err(Error::new(format!("Invalid column family: {name}")))
         }
     }
 
@@ -2119,7 +2151,7 @@ impl<I: DBInner> DBCommon<MultiThreaded, I> {
         if let Some(cf) = self.cfs.cfs.write().unwrap().remove(name) {
             self.drop_column_family(cf.inner, cf)
         } else {
-            Err(Error::new(format!("Invalid column family: {}", name)))
+            Err(Error::new(format!("Invalid column family: {name}")))
         }
     }
 
@@ -2173,11 +2205,11 @@ fn convert_options(opts: &[(&str, &str)]) -> Result<Vec<(CString, CString)>, Err
         .map(|(name, value)| {
             let cname = match CString::new(name.as_bytes()) {
                 Ok(cname) => cname,
-                Err(e) => return Err(Error::new(format!("Invalid option name `{}`", e))),
+                Err(e) => return Err(Error::new(format!("Invalid option name `{e}`"))),
             };
             let cvalue = match CString::new(value.as_bytes()) {
                 Ok(cvalue) => cvalue,
-                Err(e) => return Err(Error::new(format!("Invalid option value: `{}`", e))),
+                Err(e) => return Err(Error::new(format!("Invalid option value: `{e}`"))),
             };
             Ok((cname, cvalue))
         })
