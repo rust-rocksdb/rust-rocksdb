@@ -14,7 +14,7 @@
 //
 
 use crate::Error;
-use libc::{self, c_char, c_void};
+use libc::{self, c_char, c_void, size_t};
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
@@ -192,6 +192,40 @@ impl<'a> CStrLike for &'a CString {
     }
     fn into_c_string(self) -> Result<CString, Self::Error> {
         Ok(self.clone())
+    }
+}
+
+/// Owned malloc-allocated memory slice.
+/// Do not derive `Clone` for this because it will cause double-free.
+pub struct CSlice {
+    data: *const c_char,
+    len: size_t,
+}
+
+impl CSlice {
+    /// Constructing such a slice may be unsafe.
+    ///
+    /// # Safety
+    /// The caller must ensure that the pointer and length are valid.
+    /// Moreover, `CSlice` takes the ownership of the memory and will free it using `libc::free`.
+    /// The caller must ensure that the memory is allocated by `libc::malloc`
+    /// and will not be freed by any other means.
+    pub(crate) unsafe fn from_raw_parts(data: *const c_char, len: size_t) -> Self {
+        Self { data, len }
+    }
+}
+
+impl AsRef<[u8]> for CSlice {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.data as *const u8, self.len) }
+    }
+}
+
+impl Drop for CSlice {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.data as *mut c_void);
+        }
     }
 }
 
