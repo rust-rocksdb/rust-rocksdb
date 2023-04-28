@@ -18,11 +18,11 @@ use std::cmp::Ordering;
 use std::ffi::CString;
 use std::slice;
 
-pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
+pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering;
 
 pub struct ComparatorCallback {
     pub name: CString,
-    pub f: CompareFn,
+    pub f: Box<CompareFn>,
 }
 
 pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {

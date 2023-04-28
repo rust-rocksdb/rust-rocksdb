@@ -57,6 +57,35 @@ impl Cache {
         Cache(Arc::new(CacheWrapper { inner }))
     }
 
+    /// Creates a HyperClockCache with capacity in bytes.
+    ///
+    /// `estimated_entry_charge` is an important tuning parameter. The optimal
+    /// choice at any given time is
+    /// `(cache.get_usage() - 64 * cache.get_table_address_count()) /
+    /// cache.get_occupancy_count()`, or approximately `cache.get_usage() /
+    /// cache.get_occupancy_count()`.
+    ///
+    /// However, the value cannot be changed dynamically, so as the cache
+    /// composition changes at runtime, the following tradeoffs apply:
+    ///
+    /// * If the estimate is substantially too high (e.g., 25% higher),
+    ///   the cache may have to evict entries to prevent load factors that
+    ///   would dramatically affect lookup times.
+    /// * If the estimate is substantially too low (e.g., less than half),
+    ///   then meta data space overhead is substantially higher.
+    ///
+    /// The latter is generally preferable, and picking the larger of
+    /// block size and meta data block size is a reasonable choice that
+    /// errs towards this side.
+    pub fn new_hyper_clock_cache(capacity: size_t, estimated_entry_charge: size_t) -> Cache {
+        Cache(Arc::new(CacheWrapper {
+            inner: NonNull::new(unsafe {
+                ffi::rocksdb_cache_create_hyper_clock(capacity, estimated_entry_charge)
+            })
+            .unwrap(),
+        }))
+    }
+
     /// Returns the cache memory usage in bytes.
     pub fn get_usage(&self) -> usize {
         unsafe { ffi::rocksdb_cache_get_usage(self.0.inner.as_ptr()) }
@@ -1300,7 +1329,7 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: CompareFn) {
+    pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
         let cb = Box::new(ComparatorCallback {
             name: name.into_c_string().unwrap(),
             f: compare_fn,
@@ -1321,14 +1350,6 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner);
         }
-    }
-
-    #[deprecated(
-        since = "0.5.0",
-        note = "add_comparator has been renamed to set_comparator"
-    )]
-    pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
-        self.set_comparator(name, compare_fn);
     }
 
     pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
