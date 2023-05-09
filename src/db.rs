@@ -1889,7 +1889,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 seq_number,
                 opts
             ));
-            Ok(DBWALIterator { inner: iter })
+            Ok(DBWALIterator {
+                inner: iter,
+                start_seq_number: seq_number,
+            })
         }
     }
 
