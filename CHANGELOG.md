@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## 0.21.0 (2023-05-09)
+
+* Add doc-check to CI with fix warnings in docs (YuraKotov)
+* Fix rustdoc::broken-intra-doc-links errors (YuraKotov)
+* Fix 32-bit ARM build (EyeOfPython)
+* Allow specifying checksum type (romanz)
+* Enable librocksdb-sys to be built by rustc_codegen_cranelift (ZePedroResende)
+* Update to RocksDB 8.0.0 (niklasf)
+* Block cache creation failure is not recoverable (niklasf)
+* Update iOS min version to 12 in the build script (mighty840)
+* Actually enable `io-uring` (niklasf)
+* Update to RocksDB 8.1.1 (niklasf)
+* Add `Cache::new_hyper_clock_cache()` (niklasf)
+* Retrieve Value from KeyMayExist if value found in Cache or Memory (Congyuwang)
+* Support for comparators as closures (pegesund)
+* Fix bug in DBWALIterator that would miss updates (Zagitta)
+
 ## 0.20.1 (2023-02-10)
 
 * Fix supporting MSRV 1.60.0 (aleksuss)
