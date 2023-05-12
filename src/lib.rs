@@ -113,7 +113,7 @@ pub use crate::{
     db_options::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, ChecksumType,
         CompactOptions, CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath,
-        DBRecoveryMode, DataBlockIndexType, FifoCompactOptions, FlushOptions,
+        DBRecoveryMode, DataBlockIndexType, EncodingType, FifoCompactOptions, FlushOptions,
         IngestExternalFileOptions, LogLevel, MemtableFactory, Options, PlainTableFactoryOptions,
         ReadOptions, UniversalCompactOptions, UniversalCompactionStopStyle, WriteOptions,
     },

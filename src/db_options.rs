@@ -2446,6 +2446,10 @@ impl Options {
                 options.bloom_bits_per_key,
                 options.hash_table_ratio,
                 options.index_sparseness,
+                options.huge_page_tlb_size,
+                options.encoding_type as _,
+                options.full_scan_mode as _,
+                options.store_index_in_file as _,
             );
         }
     }
@@ -3578,6 +3582,32 @@ pub enum ChecksumType {
     XXH3 = 4, // Supported since RocksDB 6.27
 }
 
+/// Used by [`PlainTableFactoryOptions`]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncodingType {
+    /// Always write full keys without any special encoding.
+    Plain = 0,
+    /// Find opportunity to write the same prefix once for multiple rows.
+    /// In some cases, when a key follows a previous key with the same prefix,
+    /// instead of writing out the full key, it just writes out the size of the
+    /// shared prefix, as well as other bytes, to save some bytes.
+    //
+    /// When using this option, the user is required to use the same prefix
+    /// extractor to make sure the same prefix will be extracted from the same key.
+    /// The Name() value of the prefix extractor will be stored in the file. When
+    /// reopening the file, the name of the options.prefix_extractor given will be
+    /// bitwise compared to the prefix extractors stored in the file. An error
+    /// will be returned if the two don't match.
+    Prefix = 1,
+}
+
+impl Default for EncodingType {
+    fn default() -> Self {
+        Self::Plain
+    }
+}
+
 /// Used with DBOptions::set_plain_table_factory.
 /// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
 /// information.
@@ -3587,11 +3617,19 @@ pub enum ChecksumType {
 ///  bloom_bits_per_key: 10
 ///  hash_table_ratio: 0.75
 ///  index_sparseness: 16
+///  huge_page_tlb_size: 0
+///  encoding_type: EncodingType::Plain
+///  full_scan_mode: false
+///  store_index_in_file: false
 pub struct PlainTableFactoryOptions {
     pub user_key_length: u32,
     pub bloom_bits_per_key: i32,
     pub hash_table_ratio: f64,
     pub index_sparseness: usize,
+    pub huge_page_tlb_size: usize,
+    pub encoding_type: EncodingType,
+    pub full_scan_mode: bool,
+    pub store_index_in_file: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
