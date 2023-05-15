@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+* Convert properties to `&PropName` which can be converted at no-cost to `&CStr`
+  and `&str` (mina86)
+
 ## 0.21.0 (2023-05-09)
 
 * Add doc-check to CI with fix warnings in docs (YuraKotov)
