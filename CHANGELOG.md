@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-* Convert properties to `&PropName` which can be converted at no-cost to `&CStr`
+* Convert properties to `&PropName` which can be converted at no cost to `&CStr`
   and `&str` (mina86)
 
 ## 0.21.0 (2023-05-09)
