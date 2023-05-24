@@ -24,6 +24,7 @@ impl PropName {
             !bytes.is_empty() && bytes[idx] == 0,
             "input was not nul-terminated"
         );
+        // Check all other bytes are non-NUL ASCII bytes.
         while idx > 0 {
             idx -= 1;
             assert!(
@@ -77,6 +78,7 @@ impl core::convert::AsRef<CStr> for PropName {
 }
 
 impl core::convert::AsRef<str> for PropName {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }
@@ -85,6 +87,7 @@ impl core::convert::AsRef<str> for PropName {
 impl std::borrow::ToOwned for PropName {
     type Owned = PropertyName;
 
+    #[inline]
     fn to_owned(&self) -> Self::Owned {
         PropertyName(self.0.to_owned())
     }
@@ -110,24 +113,28 @@ impl core::fmt::Debug for PropName {
 }
 
 impl core::cmp::PartialEq<CStr> for PropName {
+    #[inline]
     fn eq(&self, other: &CStr) -> bool {
         self.as_c_str().eq(other)
     }
 }
 
 impl core::cmp::PartialEq<str> for PropName {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         self.as_str().eq(other)
     }
 }
 
 impl core::cmp::PartialEq<PropName> for CStr {
+    #[inline]
     fn eq(&self, other: &PropName) -> bool {
         self.eq(other.as_c_str())
     }
 }
 
 impl core::cmp::PartialEq<PropName> for str {
+    #[inline]
     fn eq(&self, other: &PropName) -> bool {
         self.eq(other.as_str())
     }
@@ -151,7 +158,7 @@ impl<'a> CStrLike for &'a PropName {
 /// An owned name of a RocksDB property.
 ///
 /// The value is guaranteed to be a NUL-terminated UTF-8 string.  This means it
-/// can be converted to [`CString`] and [`String`] at no zero cost.
+/// can be converted to [`CString`] and [`String`] at zero cost.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct PropertyName(CString);
@@ -159,6 +166,7 @@ pub struct PropertyName(CString);
 impl PropertyName {
     /// Creates a new object from valid NUL-terminated UTF-8 string.  The string
     /// must not contain interior NUL bytes.
+    #[inline]
     unsafe fn from_vec_with_nul_unchecked(inner: Vec<u8>) -> Self {
         // SAFETY: Caller promises inner is NUL-terminated and valid UTF-8.
         Self(CString::from_vec_with_nul_unchecked(inner))
@@ -201,12 +209,14 @@ impl core::convert::AsRef<CStr> for PropertyName {
 }
 
 impl core::convert::AsRef<str> for PropertyName {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
 impl std::borrow::Borrow<PropName> for PropertyName {
+    #[inline]
     fn borrow(&self) -> &PropName {
         self
     }
@@ -227,24 +237,28 @@ impl core::fmt::Debug for PropertyName {
 }
 
 impl core::cmp::PartialEq<CString> for PropertyName {
+    #[inline]
     fn eq(&self, other: &CString) -> bool {
         self.as_c_str().eq(other.as_c_str())
     }
 }
 
 impl core::cmp::PartialEq<String> for PropertyName {
+    #[inline]
     fn eq(&self, other: &String) -> bool {
         self.as_str().eq(other.as_str())
     }
 }
 
 impl core::cmp::PartialEq<PropertyName> for CString {
+    #[inline]
     fn eq(&self, other: &PropertyName) -> bool {
         self.as_c_str().eq(other.as_c_str())
     }
 }
 
 impl core::cmp::PartialEq<PropertyName> for String {
+    #[inline]
     fn eq(&self, other: &PropertyName) -> bool {
         self.as_str().eq(other.as_str())
     }
