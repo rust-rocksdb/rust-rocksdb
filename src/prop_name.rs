@@ -4,43 +4,37 @@ use std::ffi::{CStr, CString};
 
 /// A borrowed name of a RocksDB property.
 ///
-/// The value is guaranteed to be a NUL-terminated UTF-8 string.  This means it
-/// can be converted to [`CStr`] and [`str`] with at zero cost.
+/// The value is guaranteed to be a nul-terminated UTF-8 string.  This means it
+/// can be converted to [`CStr`] and [`str`] at zero cost.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct PropName(CStr);
 
 impl PropName {
-    /// Creates a new object from a NUL-terminated ASCII string.
+    /// Creates a new object from a nul-terminated string with no internal nul
+    /// bytes.
     ///
-    /// Panics if the `value` contains non-ASCII bytes, isn’t terminated by
-    /// a NUL byte or contains interior NUL bytes.
+    /// Panics if the `value` isn’t terminated by a nul byte or contains
+    /// interior nul bytes.
     pub(crate) const fn new_unwrap(value: &str) -> &Self {
-        let bytes = value.as_bytes();
+        let bytes = if let Some((&0, bytes)) = value.as_bytes().split_last() {
+            bytes
+        } else {
+            panic!("input was not nul-terminated");
+        };
 
-        // Check terminating NUL byte.
-        let mut idx = bytes.len().saturating_sub(1);
-        assert!(
-            !bytes.is_empty() && bytes[idx] == 0,
-            "input was not nul-terminated"
-        );
-        // Check all other bytes are non-NUL ASCII bytes.
-        while idx > 0 {
-            idx -= 1;
-            assert!(
-                bytes[idx].is_ascii() && bytes[idx] != 0,
-                "input contained interior nul or non-ASCII byte"
-            );
+        let mut idx = 0;
+        while idx < bytes.len() {
+            assert!(bytes[idx] != 0, "input contained interior nul byte");
+            idx += 1;
         }
 
-        // SAFETY:
-        // 1. We’ve just verified `bytes` is a NUL-terminated ASCII string
-        //    with no interior NUL bytes.
-        // 2. Self and CStr have the same representation so casting is
-        //    sound.
+        // SAFETY: 1. We’ve just verified `value` is a nul-terminated with no
+        // interior nul bytes and since its `str` it’s also valid UTF-8.
+        // 2. Self and CStr have the same representation so casting is sound.
         unsafe {
-            let cstr = CStr::from_bytes_with_nul_unchecked(bytes);
-            &*(cstr as *const CStr as *const Self)
+            let value = CStr::from_bytes_with_nul_unchecked(value.as_bytes());
+            &*(value as *const CStr as *const Self)
         }
     }
 
@@ -52,7 +46,7 @@ impl PropName {
 
     /// Converts the value into a string slice.
     ///
-    /// NUL byte terminating the underlying C string is not included in the
+    /// Nul byte terminating the underlying C string is not included in the
     /// returned slice.
     #[inline]
     pub fn as_str(&self) -> &str {
@@ -157,35 +151,35 @@ impl<'a> CStrLike for &'a PropName {
 
 /// An owned name of a RocksDB property.
 ///
-/// The value is guaranteed to be a NUL-terminated UTF-8 string.  This means it
+/// The value is guaranteed to be a nul-terminated UTF-8 string.  This means it
 /// can be converted to [`CString`] and [`String`] at zero cost.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct PropertyName(CString);
 
 impl PropertyName {
-    /// Creates a new object from valid NUL-terminated UTF-8 string.  The string
-    /// must not contain interior NUL bytes.
+    /// Creates a new object from valid nul-terminated UTF-8 string.  The string
+    /// must not contain interior nul bytes.
     #[inline]
     unsafe fn from_vec_with_nul_unchecked(inner: Vec<u8>) -> Self {
-        // SAFETY: Caller promises inner is NUL-terminated and valid UTF-8.
+        // SAFETY: Caller promises inner is nul-terminated and valid UTF-8.
         Self(CString::from_vec_with_nul_unchecked(inner))
-    }
-
-    /// Converts the property name into a string.
-    ///
-    /// NUL byte terminating the underlying C string is not included in the
-    /// returned value.
-    #[inline]
-    pub fn into_string(self) -> String {
-        // SAFETY: self.0 is guaranteed to be valid UTF-8.
-        unsafe { String::from_utf8_unchecked(self.0.into_bytes()) }
     }
 
     /// Converts the value into a C string.
     #[inline]
     pub fn into_c_string(self) -> CString {
         self.0
+    }
+
+    /// Converts the property name into a string.
+    ///
+    /// Nul byte terminating the underlying C string is not included in the
+    /// returned value.
+    #[inline]
+    pub fn into_string(self) -> String {
+        // SAFETY: self.0 is guaranteed to be valid UTF-8.
+        unsafe { String::from_utf8_unchecked(self.0.into_bytes()) }
     }
 }
 
@@ -195,7 +189,7 @@ impl std::ops::Deref for PropertyName {
     #[inline]
     fn deref(&self) -> &Self::Target {
         // SAFETY: 1. PropName and CStr have the same representation so casting
-        // is safe.  2. self.0 is guaranteed to be valid NUL-terminated UTF-8
+        // is safe.  2. self.0 is guaranteed to be valid nul-terminated UTF-8
         // string.
         unsafe { &*(self.0.as_c_str() as *const CStr as *const PropName) }
     }
@@ -300,11 +294,11 @@ impl<'a> CStrLike for &'a PropertyName {
 /// `level` is level to get statistics of.  The property name is constructed as
 /// `"rocksdb.<name><level>"`.
 ///
-/// Expects `name` not to contain any interior NUL bytes.
+/// Expects `name` not to contain any interior nul bytes.
 pub(crate) unsafe fn level_property(name: &str, level: usize) -> PropertyName {
     let bytes = format!("rocksdb.{name}{level}\0").into_bytes();
-    // SAFETY: We’re appending terminating NUL and caller promises `name` has no
-    // interior NUL bytes.
+    // SAFETY: We’re appending terminating nul and caller promises `name` has no
+    // interior nul bytes.
     PropertyName::from_vec_with_nul_unchecked(bytes)
 }
 
