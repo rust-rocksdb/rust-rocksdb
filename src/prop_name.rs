@@ -310,3 +310,15 @@ fn sanity_checks() {
     let want = "rocksdb.num-files-at-level5";
     assert_eq!(want, &*crate::properties::num_files_at_level(5));
 }
+
+#[test]
+#[should_panic]
+fn test_interior_nul() {
+    PropName::new_unwrap("interior nul\0\0");
+}
+
+#[test]
+#[should_panic]
+fn test_non_nul_terminated() {
+    PropName::new_unwrap("no nul terminator");
+}
