@@ -32,6 +32,7 @@ fn rocksdb_include_dir() -> String {
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
         .header(rocksdb_include_dir() + "/rocksdb/c.h")
+        .header("rocks/c.h")
         .derive_debug(false)
         .blocklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
@@ -52,6 +53,7 @@ fn build_rocksdb() {
     config.include("rocksdb/include/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.8.1/fused-src/");
+    config.include("rocks/");
 
     if cfg!(feature = "snappy") {
         config.define("SNAPPY", Some("1"));
@@ -254,7 +256,7 @@ fn build_rocksdb() {
     for file in lib_sources {
         config.file(format!("rocksdb/{file}"));
     }
-
+    config.file("rocks/write_buffer_manager.cc");
     config.file("build_version.cc");
 
     config.cpp(true);
