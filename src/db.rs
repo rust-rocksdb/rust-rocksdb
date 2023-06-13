@@ -915,6 +915,28 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         Ok(())
     }
 
+    /// Flushes multiple column families.
+    ///
+    /// If atomic flush is not enabled, it is equivalent to calling flush_cf multiple times.
+    /// If atomic flush is enabled, it will flush all column families specified in `cfs` up to the latest sequence
+    /// number at the time when flush is requested.
+    pub fn flush_cfs_opt(
+        &self,
+        cfs: &[&impl AsColumnFamilyRef],
+        opts: &FlushOptions,
+    ) -> Result<(), Error> {
+        let mut cfs = cfs.iter().map(|cf| cf.inner()).collect::<Vec<_>>();
+        unsafe {
+            ffi_try!(ffi::rocksdb_flush_cfs(
+                self.inner.inner(),
+                opts.inner,
+                cfs.as_mut_ptr(),
+                cfs.len() as libc::c_int,
+            ));
+        }
+        Ok(())
+    }
+
     /// Flushes database memtables to SST files on the disk for a given column family using default
     /// options.
     pub fn flush_cf(&self, cf: &impl AsColumnFamilyRef) -> Result<(), Error> {
