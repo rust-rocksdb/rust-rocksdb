@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-use crate::Error;
+use crate::{ffi, Error};
 use libc::{self, c_char, c_void, size_t};
 use std::ffi::{CStr, CString};
 use std::path::Path;
@@ -38,7 +38,7 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
 pub fn error_message(ptr: *const c_char) -> String {
     unsafe {
         let s = from_cstr(ptr);
-        libc::free(ptr as *mut c_void);
+        ffi::rocksdb_free(ptr as *mut c_void);
         s
     }
 }
@@ -207,9 +207,10 @@ impl CSlice {
     ///
     /// # Safety
     /// The caller must ensure that the pointer and length are valid.
-    /// Moreover, `CSlice` takes the ownership of the memory and will free it using `libc::free`.
-    /// The caller must ensure that the memory is allocated by `libc::malloc`
-    /// and will not be freed by any other means.
+    /// Moreover, `CSlice` takes the ownership of the memory and will free it
+    /// using `rocksdb_free`. The caller must ensure that the memory is
+    /// allocated by `malloc` in RocksDB and will not be freed by any other
+    /// means.
     pub(crate) unsafe fn from_raw_parts(data: *const c_char, len: size_t) -> Self {
         Self { data, len }
     }
@@ -224,7 +225,7 @@ impl AsRef<[u8]> for CSlice {
 impl Drop for CSlice {
     fn drop(&mut self) {
         unsafe {
-            libc::free(self.data as *mut c_void);
+            ffi::rocksdb_free(self.data as *mut c_void);
         }
     }
 }

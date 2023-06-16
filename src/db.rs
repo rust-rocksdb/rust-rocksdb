@@ -1790,7 +1790,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             ))),
         };
         unsafe {
-            libc::free(value as *mut c_void);
+            ffi::rocksdb_free(value as *mut c_void);
         }
         result
     }

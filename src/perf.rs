@@ -155,7 +155,7 @@ impl PerfContext {
             let ptr =
                 ffi::rocksdb_perfcontext_report(self.inner, c_uchar::from(exclude_zero_counters));
             let report = from_cstr(ptr);
-            libc::free(ptr as *mut c_void);
+            ffi::rocksdb_free(ptr as *mut c_void);
             report
         }
     }
