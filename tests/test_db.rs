@@ -1397,3 +1397,48 @@ fn cuckoo() {
         assert!(db.get(b"k1").unwrap().is_none());
     }
 }
+
+#[test]
+fn test_atomic_flush_cfs() {
+    let n = DBPath::new("_rust_rocksdb_atomic_flush_cfs");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_atomic_flush(true);
+
+        let db = DB::open_cf(&opts, &n, ["cf1", "cf2"]).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+
+        let mut write_options = rocksdb::WriteOptions::new();
+        write_options.disable_wal(true);
+
+        db.put_cf_opt(cf1, "k11", "v11", &write_options).unwrap();
+        db.put_cf_opt(cf2, "k21", "v21", &write_options).unwrap();
+
+        let mut opts = rocksdb::FlushOptions::new();
+        opts.set_wait(true);
+        db.flush_cfs_opt(&[cf1, cf2], &opts).unwrap();
+    }
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_atomic_flush(true);
+
+        let db = DB::open_cf(&opts, &n, ["cf1", "cf2"]).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+
+        assert_eq!(
+            db.get_cf(cf1, "k11").unwrap(),
+            Some("v11".as_bytes().to_vec())
+        );
+        assert_eq!(
+            db.get_cf(cf2, "k21").unwrap(),
+            Some("v21".as_bytes().to_vec())
+        );
+    }
+}
