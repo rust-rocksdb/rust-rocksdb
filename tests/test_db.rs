@@ -1414,12 +1414,12 @@ fn test_atomic_flush_cfs() {
         let mut write_options = rocksdb::WriteOptions::new();
         write_options.disable_wal(true);
 
-        db.put_cf_opt(cf1, "k11", "v11", &write_options).unwrap();
-        db.put_cf_opt(cf2, "k21", "v21", &write_options).unwrap();
+        db.put_cf_opt(&cf1, "k11", "v11", &write_options).unwrap();
+        db.put_cf_opt(&cf2, "k21", "v21", &write_options).unwrap();
 
         let mut opts = rocksdb::FlushOptions::new();
         opts.set_wait(true);
-        db.flush_cfs_opt(&[cf1, cf2], &opts).unwrap();
+        db.flush_cfs_opt(&[&cf1, &cf2], &opts).unwrap();
     }
 
     {
@@ -1433,11 +1433,11 @@ fn test_atomic_flush_cfs() {
         let cf2 = db.cf_handle("cf2").unwrap();
 
         assert_eq!(
-            db.get_cf(cf1, "k11").unwrap(),
+            db.get_cf(&cf1, "k11").unwrap(),
             Some("v11".as_bytes().to_vec())
         );
         assert_eq!(
-            db.get_cf(cf2, "k21").unwrap(),
+            db.get_cf(&cf2, "k21").unwrap(),
             Some("v21".as_bytes().to_vec())
         );
     }
