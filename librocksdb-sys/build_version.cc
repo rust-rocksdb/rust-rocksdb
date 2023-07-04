@@ -8,17 +8,17 @@
 
 // The build script may replace these values with real values based
 // on whether or not GIT is available and the platform settings
-static const std::string rocksdb_build_git_sha  = "6a436150417120a3f9732d65a2a5c2b8d19b60fc";
-static const std::string rocksdb_build_git_tag = "rocksdb_build_git_tag:v8.1.1";
+static const std::string rocksdb_build_git_sha  = "3f7c92b9753b697ce6a5ea737086d2751f17956c";
+static const std::string rocksdb_build_git_tag = "rocksdb_build_git_tag:v8.3.2";
 #define HAS_GIT_CHANGES 0
 #if HAS_GIT_CHANGES == 0
 // If HAS_GIT_CHANGES is 0, the GIT date is used.
 // Use the time the branch/tag was last modified
-static const std::string rocksdb_build_date = "rocksdb_build_date:2023-04-06 16:38:52";
+static const std::string rocksdb_build_date = "rocksdb_build_date:2023-06-15 05:32:14";
 #else
 // If HAS_GIT_CHANGES is > 0, the branch/tag has modifications.
 // Use the time the build was created.
-static const std::string rocksdb_build_date = "rocksdb_build_date:2023-04-06 16:38:52";
+static const std::string rocksdb_build_date = "rocksdb_build_date:2023-06-15 05:32:14";
 #endif
 
 std::unordered_map<std::string, ROCKSDB_NAMESPACE::RegistrarFunc> ROCKSDB_NAMESPACE::ObjectRegistry::builtins_ = {};
