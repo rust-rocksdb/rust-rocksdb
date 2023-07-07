@@ -358,10 +358,12 @@ fn main() {
             println!("cargo:rustc-link-lib=dylib=stdc++");
         }
     }
-    if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
-        println!("cargo:rerun-if-changed=snappy/");
-        fail_on_empty_directory("snappy");
-        build_snappy();
+    if cfg!(feature = "snappy") {
+        if !try_to_find_and_link_lib("SNAPPY") {
+            println!("cargo:rerun-if-changed=snappy/");
+            fail_on_empty_directory("snappy");
+            build_snappy();
+        }
     }
 
     // Allow dependent crates to locate the sources and output directory of
