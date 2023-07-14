@@ -1200,10 +1200,12 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         K: AsRef<[u8]> + 'a + ?Sized,
         I: IntoIterator<Item = &'a K>,
     {
-        let keys: Vec<&[u8]> = keys.into_iter().map(|k| k.as_ref()).collect::<Vec<_>>();
         let (ptr_keys, keys_sizes): (Vec<_>, Vec<_>) = keys
             .into_iter()
-            .map(|k| (k.as_ptr() as *const c_char, k.len()))
+            .map(|k| {
+                let k = k.as_ref();
+                (k.as_ptr() as *const c_char, k.len())
+            })
             .unzip();
 
         let mut pinned_values = vec![ptr::null_mut(); ptr_keys.len()];
