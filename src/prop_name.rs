@@ -151,7 +151,7 @@ impl<'a> CStrLike for &'a PropName {
 
 /// An owned name of a RocksDB property.
 ///
-/// The value is guaranteed to be a nul-terminated UTF-8 string.  This means it
+/// The value is guaranteed to be a nul-terminated UTF-8 string. This means it
 /// can be converted to [`CString`] and [`String`] at zero cost.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
