@@ -1173,23 +1173,23 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// Return the values associated with the given keys and the specified column family
     /// where internally the read requests are processed in batch if block-based table
     /// SST format is used.  It is a more optimized version of multi_get_cf.
-    pub fn batched_multi_get_cf<K, I>(
+    pub fn batched_multi_get_cf<'a, K, I>(
         &self,
         cf: &impl AsColumnFamilyRef,
         keys: I,
         sorted_input: bool,
     ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
     where
-        K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>,
+        K: AsRef<[u8]> + 'a + ?Sized,
+        I: IntoIterator<Item = &'a K>,
     {
         self.batched_multi_get_cf_opt(cf, keys, sorted_input, &ReadOptions::default())
     }
 
     /// Return the values associated with the given keys and the specified column family
     /// where internally the read requests are processed in batch if block-based table
-    /// SST format is used.  It is a more optimized version of multi_get_cf_opt.
-    pub fn batched_multi_get_cf_opt<K, I>(
+    /// SST format is used. It is a more optimized version of multi_get_cf_opt.
+    pub fn batched_multi_get_cf_opt<'a, K, I>(
         &self,
         cf: &impl AsColumnFamilyRef,
         keys: I,
@@ -1197,14 +1197,16 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         readopts: &ReadOptions,
     ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
     where
-        K: AsRef<[u8]>,
-        I: IntoIterator<Item = K>,
+        K: AsRef<[u8]> + 'a + ?Sized,
+        I: IntoIterator<Item = &'a K>,
     {
-        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+        let (ptr_keys, keys_sizes): (Vec<_>, Vec<_>) = keys
             .into_iter()
-            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .map(|k| {
+                let k = k.as_ref();
+                (k.as_ptr() as *const c_char, k.len())
+            })
             .unzip();
-        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
 
         let mut pinned_values = vec![ptr::null_mut(); ptr_keys.len()];
         let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
