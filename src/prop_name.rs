@@ -88,7 +88,7 @@ impl std::borrow::ToOwned for PropName {
 
     #[inline]
     fn clone_into(&self, target: &mut Self::Owned) {
-        self.0.clone_into(&mut target.0)
+        self.0.clone_into(&mut target.0);
     }
 }
 
