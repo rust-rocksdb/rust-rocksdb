@@ -86,10 +86,10 @@ impl std::borrow::ToOwned for PropName {
         PropertyName(self.0.to_owned())
     }
 
-    // TODO: Uncomment once compiler version is updated to 1.63.
-    // fn cone_into(&self, target: &mut Self::Owned) {
-    //     self.0.clone_into(&mut target.0)
-    // }
+    #[inline]
+    fn clone_into(&self, target: &mut Self::Owned) {
+        self.0.clone_into(&mut target.0)
+    }
 }
 
 impl core::fmt::Display for PropName {
