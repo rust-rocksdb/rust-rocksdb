@@ -158,7 +158,7 @@ impl<'a> CStrLike for &'a PropName {
 pub struct PropertyName(CString);
 
 impl PropertyName {
-    /// Creates a new object from valid nul-terminated UTF-8 string.  The string
+    /// Creates a new object from valid nul-terminated UTF-8 string. The string
     /// must not contain interior nul bytes.
     #[inline]
     unsafe fn from_vec_with_nul_unchecked(inner: Vec<u8>) -> Self {
