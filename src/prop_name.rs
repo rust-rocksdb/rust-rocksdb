@@ -189,7 +189,7 @@ impl std::ops::Deref for PropertyName {
     #[inline]
     fn deref(&self) -> &Self::Target {
         // SAFETY: 1. PropName and CStr have the same representation so casting
-        // is safe.  2. self.0 is guaranteed to be valid nul-terminated UTF-8
+        // is safe. 2. self.0 is guaranteed to be valid nul-terminated UTF-8
         // string.
         unsafe { &*(self.0.as_c_str() as *const CStr as *const PropName) }
     }
