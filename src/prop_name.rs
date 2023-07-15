@@ -4,7 +4,7 @@ use std::ffi::{CStr, CString};
 
 /// A borrowed name of a RocksDB property.
 ///
-/// The value is guaranteed to be a nul-terminated UTF-8 string.  This means it
+/// The value is guaranteed to be a nul-terminated UTF-8 string. This means it
 /// can be converted to [`CStr`] and [`str`] at zero cost.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
