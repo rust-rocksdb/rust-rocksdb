@@ -291,7 +291,7 @@ impl<'a> CStrLike for &'a PropertyName {
 /// Constructs a property name for an ‘at level’ property.
 ///
 /// `name` is the infix of the property name (e.g. `"num-files-at-level"`) and
-/// `level` is level to get statistics of.  The property name is constructed as
+/// `level` is level to get statistics of. The property name is constructed as
 /// `"rocksdb.<name><level>"`.
 ///
 /// Expects `name` not to contain any interior nul bytes.
