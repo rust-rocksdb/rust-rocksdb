@@ -3074,7 +3074,6 @@ impl Options {
             ffi::rocksdb_options_set_allow_ingest_behind(self.inner, c_uchar::from(val));
         }
     }
-
 }
 
 impl Default for Options {
