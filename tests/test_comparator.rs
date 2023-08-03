@@ -7,10 +7,10 @@ pub fn rocks_old_compare(one: &[u8], two: &[u8]) -> Ordering {
     one.cmp(two)
 }
 
+type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering;
+
 /// create database add some values, and iterate over these
-pub fn write_to_db_with_comparator(
-    compare_fn: Box<dyn Fn(&[u8], &[u8]) -> Ordering>,
-) -> Vec<String> {
+pub fn write_to_db_with_comparator(compare_fn: Box<CompareFn>) -> Vec<String> {
     let mut result_vec = Vec::new();
 
     let path = "_path_for_rocksdb_storage";
