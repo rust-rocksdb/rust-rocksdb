@@ -25,6 +25,7 @@ use rocksdb::{
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
     Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
+    DEFAULT_COLUMN_FAMILY_NAME,
 };
 use util::{assert_iter, pair, DBPath};
 
@@ -372,6 +373,36 @@ fn set_option_cf_test() {
             ("report_bg_io_stats", "true"),
         ];
         db.set_options(&multiple_options).unwrap();
+    }
+}
+
+#[test]
+fn set_column_family_metadata_test() {
+    let path = DBPath::new("_set_column_family_metadata_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf2"]).unwrap();
+
+        let cf1 = db.cf_handle(DEFAULT_COLUMN_FAMILY_NAME).unwrap();
+        db.put_cf(&cf1, b"key1", b"value").unwrap();
+
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(&cf2, b"key1", b"value").unwrap();
+        db.put_cf(&cf2, b"key2", b"value").unwrap();
+        db.put_cf(&cf2, b"key3", b"value").unwrap();
+
+        db.flush_cf(&cf1).unwrap();
+        db.flush_cf(&cf2).unwrap();
+
+        let default_cf_metadata = db.get_column_family_metadata().unwrap();
+        assert_eq!(default_cf_metadata.size > 150, true);
+        assert_eq!(default_cf_metadata.file_count, 1);
+
+        let cf2_metadata = db.get_column_family_metadata_cf(&cf2).unwrap();
+        assert_eq!(cf2_metadata.size > default_cf_metadata.size, true);
+        assert_eq!(cf2_metadata.file_count, 1);
     }
 }
 

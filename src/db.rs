@@ -2007,6 +2007,45 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    pub fn get_column_family_metadata(&self) -> Result<ColumnFamilyMetaData, Error> {
+        unsafe {
+            let ptr = ffi::rocksdb_get_column_family_metadata(self.inner.inner());
+
+            let metadata = ColumnFamilyMetaData {
+                size: ffi::rocksdb_column_family_metadata_get_size(ptr),
+                name: from_cstr(ffi::rocksdb_column_family_metadata_get_name(ptr)),
+                file_count: ffi::rocksdb_column_family_metadata_get_file_count(ptr),
+            };
+
+            // destroy
+            ffi::rocksdb_column_family_metadata_destroy(ptr);
+
+            // return
+            Ok(metadata)
+        }
+    }
+
+    pub fn get_column_family_metadata_cf(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+    ) -> Result<ColumnFamilyMetaData, Error> {
+        unsafe {
+            let ptr = ffi::rocksdb_get_column_family_metadata_cf(self.inner.inner(), cf.inner());
+
+            let metadata = ColumnFamilyMetaData {
+                size: ffi::rocksdb_column_family_metadata_get_size(ptr),
+                name: from_cstr(ffi::rocksdb_column_family_metadata_get_name(ptr)),
+                file_count: ffi::rocksdb_column_family_metadata_get_file_count(ptr),
+            };
+
+            // destroy
+            ffi::rocksdb_column_family_metadata_destroy(ptr);
+
+            // return
+            Ok(metadata)
+        }
+    }
+
     /// Returns a list of all table files with their level, start key
     /// and end key
     pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
@@ -2195,6 +2234,18 @@ impl<T: ThreadMode, I: DBInner> fmt::Debug for DBCommon<T, I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "RocksDB {{ path: {:?} }}", self.path())
     }
+}
+
+/// The metadata that describes a column family.
+#[derive(Debug, Clone)]
+pub struct ColumnFamilyMetaData {
+    // The size of this column family in bytes, which is equal to the sum of
+    // the file size of its "levels".
+    pub size: u64,
+    // The name of the column family.
+    pub name: String,
+    // The number of files in this column family.
+    pub file_count: usize,
 }
 
 /// The metadata that describes a SST file
