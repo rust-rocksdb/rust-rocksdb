@@ -104,6 +104,8 @@ jobs:
         run: |
           cargo test --all
           cargo test --all --features multi-threaded-cf
+      - name: Free disk space
+        run: cargo clean
       - name: Run rocksdb tests (jemalloc)
         if: runner.os != 'Windows'
         run: cargo test --all --features jemalloc
