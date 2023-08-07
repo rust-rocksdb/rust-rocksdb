@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+* Bump MSRV to 1.63.0 (mina86)
+* Convert properties to `&PropName` which can be converted at no cost to `&CStr`
+  and `&str` (mina86)
+
 ## 0.21.0 (2023-05-09)
 
 * Add doc-check to CI with fix warnings in docs (YuraKotov)
@@ -109,10 +113,10 @@
 * Bump `librocksdb-sys` up to 6.20.3 (olegnn, akrylysov)
 * Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
 * Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
-* Mark Cache and Env as Send and Sync (akrylysov)  
+* Mark Cache and Env as Send and Sync (akrylysov)
 * Allow cloning the Cache and Env (duarten)
-* Make SSE inclusion conditional for target features (mbargull)  
-* Use Self where possible (adamnemecek)  
+* Make SSE inclusion conditional for target features (mbargull)
+* Use Self where possible (adamnemecek)
 * Don't leak dropped column families (ryoqun)
 
 ## 0.16.0 (2021-04-18)
@@ -169,23 +173,23 @@
 * Add `set_max_total_wal_size` to the `Options` (wqfish)
 * Simplify conversion on iterator item (zhangsoledad)
 * Add `flush_cf` method to the `DB` (wqfish)
-* Fix potential segfault when calling `next` on the `DBIterator` that is at the end of the range (wqfish) 
+* Fix potential segfault when calling `next` on the `DBIterator` that is at the end of the range (wqfish)
 * Move to Rust 2018 (wqfish)
 * Fix doc for `WriteBatch::delete` (wqfish)
 * Bump `uuid` and `bindgen` dependencies (jonhoo)
 * Change APIs that never return error to not return `Result` (wqfish)
 * Fix lifetime parameter for iterators (wqfish)
-* Add a doc for `optimize_level_style_compaction` method (NikVolf)  
+* Add a doc for `optimize_level_style_compaction` method (NikVolf)
 * Make `DBPath` use `tempfile` (jder)
 * Refactor `db.rs` and `lib.rs` into smaller pieces (jder)
 * Check if we're on a big endian system and act upon it (knarz)
 * Bump internal snappy version up to 1.1.8 (aleksuss)
 * Bump rocksdb version up to 6.7.3 (aleksuss)
-* Atomic flush option (mappum)  
+* Atomic flush option (mappum)
 * Make `set_iterate_upper_bound` method safe (wqfish)
 * Add support for data block hash index (dvdplm)
 * Add some extra config options (casualjim)
-* Add support for range delete APIs (wqfish)  
+* Add support for range delete APIs (wqfish)
 * Improve building `librocksdb-sys` with system libraries (basvandijk)
 * Add support for `open_for_read_only` APIs (wqfish)
 * Fix doc for `DBRawIterator::prev` and `next` methods (wqfish)

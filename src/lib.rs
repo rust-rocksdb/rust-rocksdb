@@ -89,6 +89,7 @@ mod env;
 mod iter_range;
 pub mod merge_operator;
 pub mod perf;
+mod prop_name;
 pub mod properties;
 mod slice_transform;
 mod snapshot;
