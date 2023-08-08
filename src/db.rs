@@ -2007,7 +2007,8 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
-    pub fn get_column_family_metadata(&self) -> Result<ColumnFamilyMetaData, Error> {
+    /// Obtains the LSM-tree meta data of the default column family of the DB
+    pub fn get_column_family_metadata(&self) -> ColumnFamilyMetaData {
         unsafe {
             let ptr = ffi::rocksdb_get_column_family_metadata(self.inner.inner());
 
@@ -2021,14 +2022,15 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             ffi::rocksdb_column_family_metadata_destroy(ptr);
 
             // return
-            Ok(metadata)
+            metadata
         }
     }
 
+    /// Obtains the LSM-tree meta data of the specified column family of the DB
     pub fn get_column_family_metadata_cf(
         &self,
         cf: &impl AsColumnFamilyRef,
-    ) -> Result<ColumnFamilyMetaData, Error> {
+    ) -> ColumnFamilyMetaData {
         unsafe {
             let ptr = ffi::rocksdb_get_column_family_metadata_cf(self.inner.inner(), cf.inner());
 
@@ -2042,7 +2044,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             ffi::rocksdb_column_family_metadata_destroy(ptr);
 
             // return
-            Ok(metadata)
+            metadata
         }
     }
 
