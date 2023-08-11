@@ -398,7 +398,7 @@ impl BlockBasedOptions {
     }
 
     /// Sets global cache for blocks (user data is stored in a set of blocks, and
-    /// a block is the unit of reading from disk). Cache must outlive DB instance which uses it.
+    /// a block is the unit of reading from disk).
     ///
     /// If set, use the specified cache for blocks.
     /// By default, rocksdb will automatically create and use an 8MB internal cache.
@@ -2820,7 +2820,7 @@ impl Options {
         }
     }
 
-    /// Sets global cache for table-level rows. Cache must outlive DB instance which uses it.
+    /// Sets global cache for table-level rows.
     ///
     /// Default: null (disabled)
     /// Not supported in ROCKSDB_LITE mode!
