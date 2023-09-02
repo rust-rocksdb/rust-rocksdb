@@ -2446,6 +2446,10 @@ impl Options {
                 options.bloom_bits_per_key,
                 options.hash_table_ratio,
                 options.index_sparseness,
+                options.huge_page_tlb_size,
+                options.encoding_type as c_char,
+                c_uchar::from(options.full_scan_mode),
+                c_uchar::from(options.store_index_in_file),
             );
         }
     }
@@ -3596,6 +3600,15 @@ pub enum ChecksumType {
     XXH3 = 4, // Supported since RocksDB 6.27
 }
 
+/// Used in [`PlainTableFactoryOptions`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum EncodingType {
+    /// Always write full keys.
+    Plain,
+    /// Find opportunities to write the same prefix for multiple rows.
+    Prefix,
+}
+
 /// Used with DBOptions::set_plain_table_factory.
 /// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
 /// information.
@@ -3610,6 +3623,10 @@ pub struct PlainTableFactoryOptions {
     pub bloom_bits_per_key: i32,
     pub hash_table_ratio: f64,
     pub index_sparseness: usize,
+    pub huge_page_tlb_size: usize,
+    pub encoding_type: EncodingType,
+    pub full_scan_mode: bool,
+    pub store_index_in_file: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
