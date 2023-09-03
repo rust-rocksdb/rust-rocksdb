@@ -20,8 +20,8 @@ use std::{mem, sync::Arc, thread, time::Duration};
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    perf::get_memory_usage_stats, properties::STATS, BlockBasedOptions, BottommostLevelCompaction,
-    Cache, ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
+    perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
+    ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
     Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
