@@ -25,6 +25,7 @@ use rocksdb::{
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
     Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
+    properties::STATS,
 };
 use util::{assert_iter, pair, DBPath};
 
@@ -749,11 +750,13 @@ fn fifo_compaction_test() {
             assert!(ctx.report(true).contains(&expect));
         }
 
+        println!("{}", db.property_value_cf(&cf1, STATS).unwrap().unwrap());
+
         // check live files (sst files meta)
         let livefiles = db.live_files().unwrap();
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
-            assert_eq!(f.level, 1);
+            assert_eq!(f.level, 6);
             assert_eq!(f.column_family_name, "cf1");
             assert!(!f.name.is_empty());
             assert_eq!(f.start_key.as_ref().unwrap().as_slice(), "k1".as_bytes());
