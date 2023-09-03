@@ -20,12 +20,11 @@ use std::{mem, sync::Arc, thread, time::Duration};
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
+    perf::get_memory_usage_stats, properties::STATS, BlockBasedOptions, BottommostLevelCompaction,
+    Cache, ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
     Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
     UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
-    properties::STATS,
 };
 use util::{assert_iter, pair, DBPath};
 
@@ -749,8 +748,6 @@ fn fifo_compaction_test() {
             let expect = format!("block_cache_hit_count = {block_cache_hit_count}");
             assert!(ctx.report(true).contains(&expect));
         }
-
-        println!("{}", db.property_value_cf(&cf1, STATS).unwrap().unwrap());
 
         // check live files (sst files meta)
         let livefiles = db.live_files().unwrap();

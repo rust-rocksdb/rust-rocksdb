@@ -2426,7 +2426,7 @@ impl Options {
     /// # Examples
     ///
     /// ```
-    /// use rocksdb::{Options, PlainTableFactoryOptions};
+    /// use rocksdb::{EncodingType, Options, PlainTableFactoryOptions};
     ///
     /// let mut opts = Options::default();
     /// let factory_opts = PlainTableFactoryOptions {
@@ -2434,6 +2434,10 @@ impl Options {
     ///   bloom_bits_per_key: 20,
     ///   hash_table_ratio: 0.75,
     ///   index_sparseness: 16,
+    ///   huge_page_tlb_size: 0,
+    ///   encoding_type: EncodingType::Plain,
+    ///   full_scan_mode: false,
+    ///   store_index_in_file: false,
     /// };
     ///
     /// opts.set_plain_table_factory(&factory_opts);
