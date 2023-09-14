@@ -396,11 +396,11 @@ fn set_column_family_metadata_test() {
         db.flush_cf(&cf1).unwrap();
         db.flush_cf(&cf2).unwrap();
 
-        let default_cf_metadata = db.get_column_family_metadata().unwrap();
+        let default_cf_metadata = db.get_column_family_metadata();
         assert_eq!(default_cf_metadata.size > 150, true);
         assert_eq!(default_cf_metadata.file_count, 1);
 
-        let cf2_metadata = db.get_column_family_metadata_cf(&cf2).unwrap();
+        let cf2_metadata = db.get_column_family_metadata_cf(&cf2);
         assert_eq!(cf2_metadata.size > default_cf_metadata.size, true);
         assert_eq!(cf2_metadata.file_count, 1);
     }
