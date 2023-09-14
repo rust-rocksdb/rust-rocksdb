@@ -171,6 +171,18 @@ fn set_compression_options_zstd_max_train_bytes() {
     }
 }
 
+#[test]
+#[cfg(feature = "zstd")]
+fn set_wal_compression_zstd() {
+    let path = DBPath::new("_set_wal_compression_zstd");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_wal_compression_type(DBCompressionType::Zstd);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+}
+
 fn test_compression_type(ty: DBCompressionType) {
     let path = DBPath::new("_test_compression_type");
 
