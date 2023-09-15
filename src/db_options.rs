@@ -2426,7 +2426,7 @@ impl Options {
     /// # Examples
     ///
     /// ```
-    /// use rocksdb::{EncodingType, Options, PlainTableFactoryOptions};
+    /// use rocksdb::{KeyEncodingType, Options, PlainTableFactoryOptions};
     ///
     /// let mut opts = Options::default();
     /// let factory_opts = PlainTableFactoryOptions {
@@ -2435,7 +2435,7 @@ impl Options {
     ///   hash_table_ratio: 0.75,
     ///   index_sparseness: 16,
     ///   huge_page_tlb_size: 0,
-    ///   encoding_type: EncodingType::Plain,
+    ///   encoding_type: KeyEncodingType::Plain,
     ///   full_scan_mode: false,
     ///   store_index_in_file: false,
     /// };
@@ -3606,11 +3606,17 @@ pub enum ChecksumType {
 
 /// Used in [`PlainTableFactoryOptions`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum EncodingType {
+pub enum KeyEncodingType {
     /// Always write full keys.
-    Plain,
+    Plain = 0,
     /// Find opportunities to write the same prefix for multiple rows.
-    Prefix,
+    Prefix = 1,
+}
+
+impl Default for KeyEncodingType {
+    fn default() -> Self {
+        KeyEncodingType::Plain
+    }
 }
 
 /// Used with DBOptions::set_plain_table_factory.
@@ -3622,13 +3628,17 @@ pub enum EncodingType {
 ///  bloom_bits_per_key: 10
 ///  hash_table_ratio: 0.75
 ///  index_sparseness: 16
+///  huge_page_tlb_size: 0
+///  encoding_type: KeyEncodingType::Plain
+///  full_scan_mode: false
+///  store_index_in_file: false
 pub struct PlainTableFactoryOptions {
     pub user_key_length: u32,
     pub bloom_bits_per_key: i32,
     pub hash_table_ratio: f64,
     pub index_sparseness: usize,
     pub huge_page_tlb_size: usize,
-    pub encoding_type: EncodingType,
+    pub encoding_type: KeyEncodingType,
     pub full_scan_mode: bool,
     pub store_index_in_file: bool,
 }
