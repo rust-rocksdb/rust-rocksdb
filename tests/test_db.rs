@@ -750,6 +750,7 @@ fn fifo_compaction_test() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
+        opts.set_level_compaction_dynamic_level_bytes(false);
 
         // set compaction style
         {
@@ -783,7 +784,7 @@ fn fifo_compaction_test() {
         let livefiles = db.live_files().unwrap();
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
-            assert_eq!(f.level, 1);
+            assert_eq!(f.level, 6);
             assert_eq!(f.column_family_name, "cf1");
             assert!(!f.name.is_empty());
             assert_eq!(f.start_key.as_ref().unwrap().as_slice(), "k1".as_bytes());
@@ -875,6 +876,7 @@ fn get_with_cache_and_bulkload_test() {
     opts.set_db_log_dir(&log_path);
     opts.set_memtable_whole_key_filtering(true);
     opts.set_dump_malloc_stats(true);
+    opts.set_level_compaction_dynamic_level_bytes(false);
 
     // trigger all sst files in L1/2 instead of L0
     opts.set_max_bytes_for_level_base(64 << 10); // 64KB
@@ -1010,6 +1012,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
     opts.set_dump_malloc_stats(true);
     opts.set_enable_blob_files(true);
     opts.set_min_blob_size(256); // set small to ensure it is actually used
+    opts.set_level_compaction_dynamic_level_bytes(false);
 
     // trigger all sst files in L1/2 instead of L0
     opts.set_max_bytes_for_level_base(64 << 10); // 64KB
