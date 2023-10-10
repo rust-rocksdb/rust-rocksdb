@@ -15,17 +15,16 @@
 mod util;
 
 use pretty_assertions::assert_eq;
-
-use rocksdb::merge_operator::MergeFn;
-use rocksdb::{DBCompactionStyle, MergeOperands, Options, DB};
+use rocksdb::{merge_operator::MergeFn, DBCompactionStyle, MergeOperands, Options, DB};
+use serde::{Deserialize, Serialize};
 use util::DBPath;
 
 fn test_provided_merge(
     _new_key: &[u8],
     existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
-    let nops = operands.size_hint().0;
+    let nops = operands.len();
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     if let Some(v) = existing_val {
         for e in v {
@@ -61,7 +60,7 @@ fn merge_test() {
     match db.get(b"k1") {
         Ok(Some(value)) => {
             if let Ok(v) = std::str::from_utf8(&value) {
-                println!("retrieved utf8 value: {}", v)
+                println!("retrieved utf8 value: {v}")
             } else {
                 println!("did not read valid utf-8 out of the db")
             }
@@ -77,26 +76,7 @@ fn merge_test() {
     assert!(db.get(b"k1").unwrap().is_none());
 }
 
-unsafe fn to_slice<T: Sized>(p: &T) -> &[u8] {
-    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
-}
-
-fn from_slice<T: Sized>(s: &[u8]) -> Option<&T> {
-    if std::mem::size_of::<T>() == s.len() {
-        unsafe { Some(&*(s.as_ptr() as *const T)) }
-    } else {
-        println!(
-            "slice {:?} is len {}, but T is size {}",
-            s,
-            s.len(),
-            std::mem::size_of::<T>()
-        );
-        None
-    }
-}
-
-#[repr(packed)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Default)]
 struct ValueCounts {
     num_a: u32,
     num_b: u32,
@@ -104,12 +84,22 @@ struct ValueCounts {
     num_d: u32,
 }
 
+impl ValueCounts {
+    fn from_slice(slice: &[u8]) -> Option<Self> {
+        bincode::deserialize::<Self>(slice).ok()
+    }
+
+    fn as_bytes(&self) -> Option<Vec<u8>> {
+        bincode::serialize(self).ok()
+    }
+}
+
 fn test_counting_partial_merge(
     _new_key: &[u8],
     _existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
-    let nops = operands.size_hint().0;
+    let nops = operands.len();
     let mut result: Vec<u8> = Vec::with_capacity(nops);
     for op in operands {
         for e in op {
@@ -122,13 +112,11 @@ fn test_counting_partial_merge(
 fn test_counting_full_merge(
     _new_key: &[u8],
     existing_val: Option<&[u8]>,
-    operands: &mut MergeOperands,
+    operands: &MergeOperands,
 ) -> Option<Vec<u8>> {
-    let mut counts = if let Some(v) = existing_val {
-        *from_slice::<ValueCounts>(v).unwrap_or(&ValueCounts::default())
-    } else {
-        ValueCounts::default()
-    };
+    let mut counts = existing_val
+        .and_then(ValueCounts::from_slice)
+        .unwrap_or_default();
 
     for op in operands {
         for e in op {
@@ -141,15 +129,13 @@ fn test_counting_full_merge(
             }
         }
     }
-    let slc = unsafe { to_slice(&counts) };
-    Some(slc.to_vec())
+
+    counts.as_bytes()
 }
 
 #[test]
-#[allow(clippy::too_many_lines)]
 fn counting_merge_test() {
-    use std::sync::Arc;
-    use std::thread;
+    use std::{sync::Arc, thread};
 
     let db_path = DBPath::new("_rust_rocksdb_partial_merge_test");
     let mut opts = Options::default();
@@ -234,35 +220,29 @@ fn counting_merge_test() {
         }
     });
     let m = db.merge(b"k1", b"b");
+
     assert!(m.is_ok());
     h3.join().unwrap();
     h1.join().unwrap();
-    match db.get(b"k2") {
-        Ok(Some(value)) => match from_slice::<ValueCounts>(&*value) {
-            Some(v) => unsafe {
-                assert_eq!(v.num_a, 1000);
-                assert_eq!(v.num_b, 500);
-                assert_eq!(v.num_c, 2000);
-                assert_eq!(v.num_d, 500);
-            },
-            None => panic!("Failed to get ValueCounts from db"),
-        },
+
+    let value_getter = |key| match db.get(key) {
+        Ok(Some(value)) => ValueCounts::from_slice(&value)
+            .map_or_else(|| panic!("unable to create ValueCounts from bytes"), |v| v),
+        Ok(None) => panic!("value not present"),
         Err(e) => panic!("error reading value {:?}", e),
-        _ => panic!("value not present"),
-    }
-    match db.get(b"k1") {
-        Ok(Some(value)) => match from_slice::<ValueCounts>(&*value) {
-            Some(v) => unsafe {
-                assert_eq!(v.num_a, 3);
-                assert_eq!(v.num_b, 2);
-                assert_eq!(v.num_c, 0);
-                assert_eq!(v.num_d, 1);
-            },
-            None => panic!("Failed to get ValueCounts from db"),
-        },
-        Err(e) => panic!("error reading value {:?}", e),
-        _ => panic!("value not present"),
-    }
+    };
+
+    let counts = value_getter(b"k2");
+    assert_eq!(counts.num_a, 1000);
+    assert_eq!(counts.num_b, 500);
+    assert_eq!(counts.num_c, 2000);
+    assert_eq!(counts.num_d, 500);
+
+    let counts = value_getter(b"k1");
+    assert_eq!(counts.num_a, 3);
+    assert_eq!(counts.num_b, 2);
+    assert_eq!(counts.num_c, 0);
+    assert_eq!(counts.num_d, 1);
 }
 
 #[test]
@@ -270,7 +250,7 @@ fn failed_merge_test() {
     fn test_failing_merge(
         _key: &[u8],
         _val: Option<&[u8]>,
-        _operands: &mut MergeOperands,
+        _operands: &MergeOperands,
     ) -> Option<Vec<u8>> {
         None
     }
@@ -287,13 +267,18 @@ fn failed_merge_test() {
     match res.and_then(|_e| db.get(b"key")) {
         Ok(val) => panic!("expected merge failure to propagate, got: {:?}", val),
         Err(e) => {
-            assert!(e.into_string().contains("Could not perform merge."));
+            let msg = e.into_string();
+            assert!(
+                msg.contains("Merge operator failed"),
+                "unexpected merge error message: {}",
+                msg
+            );
         }
     }
 }
 
 fn make_merge_max_with_limit(limit: u64) -> impl MergeFn + Clone {
-    move |_key: &[u8], first: Option<&[u8]>, rest: &mut MergeOperands| {
+    move |_key: &[u8], first: Option<&[u8]>, rest: &MergeOperands| {
         let max = first
             .into_iter()
             .chain(rest)
@@ -311,7 +296,7 @@ fn make_merge_max_with_limit(limit: u64) -> impl MergeFn + Clone {
 #[test]
 fn test_merge_state() {
     use {Options, DB};
-    let path = "_rust_rocksdb_mergetest_state";
+    let path = "_rust_rocksdb_merge_test_state";
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_merge_operator_associative("max-limit-12", make_merge_max_with_limit(12));

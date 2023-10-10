@@ -12,179 +12,127 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ffi::{CStr, CString};
-use std::mem;
+use std::ffi::CStr;
 use std::path::Path;
+use std::ptr::{null_mut, NonNull};
+use std::slice;
+use std::sync::Arc;
 
-use libc::{self, c_char, c_int, c_uchar, c_uint, c_void, size_t};
+use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
     comparator::{self, ComparatorCallback, CompareFn},
+    db::DBAccess,
+    env::Env,
     ffi,
+    ffi_util::{from_cstr, to_cpath, CStrLike},
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
-    Error, Snapshot,
+    ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
 
-fn new_cache(capacity: size_t) -> *mut ffi::rocksdb_cache_t {
-    unsafe { ffi::rocksdb_cache_create_lru(capacity) }
+pub(crate) struct CacheWrapper {
+    pub(crate) inner: NonNull<ffi::rocksdb_cache_t>,
 }
 
-pub struct Cache {
-    pub(crate) inner: *mut ffi::rocksdb_cache_t,
+impl Drop for CacheWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_cache_destroy(self.inner.as_ptr());
+        }
+    }
 }
+
+#[derive(Clone)]
+pub struct Cache(pub(crate) Arc<CacheWrapper>);
 
 impl Cache {
-    /// Create a lru cache with capacity
-    pub fn new_lru_cache(capacity: size_t) -> Result<Cache, Error> {
-        let cache = new_cache(capacity);
-        if cache.is_null() {
-            Err(Error::new("Could not create Cache".to_owned()))
-        } else {
-            Ok(Cache { inner: cache })
-        }
+    /// Creates an LRU cache with capacity in bytes.
+    pub fn new_lru_cache(capacity: size_t) -> Cache {
+        let inner = NonNull::new(unsafe { ffi::rocksdb_cache_create_lru(capacity) }).unwrap();
+        Cache(Arc::new(CacheWrapper { inner }))
     }
 
-    /// Returns the Cache memory usage
+    /// Creates a HyperClockCache with capacity in bytes.
+    ///
+    /// `estimated_entry_charge` is an important tuning parameter. The optimal
+    /// choice at any given time is
+    /// `(cache.get_usage() - 64 * cache.get_table_address_count()) /
+    /// cache.get_occupancy_count()`, or approximately `cache.get_usage() /
+    /// cache.get_occupancy_count()`.
+    ///
+    /// However, the value cannot be changed dynamically, so as the cache
+    /// composition changes at runtime, the following tradeoffs apply:
+    ///
+    /// * If the estimate is substantially too high (e.g., 25% higher),
+    ///   the cache may have to evict entries to prevent load factors that
+    ///   would dramatically affect lookup times.
+    /// * If the estimate is substantially too low (e.g., less than half),
+    ///   then meta data space overhead is substantially higher.
+    ///
+    /// The latter is generally preferable, and picking the larger of
+    /// block size and meta data block size is a reasonable choice that
+    /// errs towards this side.
+    pub fn new_hyper_clock_cache(capacity: size_t, estimated_entry_charge: size_t) -> Cache {
+        Cache(Arc::new(CacheWrapper {
+            inner: NonNull::new(unsafe {
+                ffi::rocksdb_cache_create_hyper_clock(capacity, estimated_entry_charge)
+            })
+            .unwrap(),
+        }))
+    }
+
+    /// Returns the cache memory usage in bytes.
     pub fn get_usage(&self) -> usize {
-        unsafe { ffi::rocksdb_cache_get_usage(self.inner) }
+        unsafe { ffi::rocksdb_cache_get_usage(self.0.inner.as_ptr()) }
     }
 
-    /// Returns pinned memory usage
+    /// Returns the pinned memory usage in bytes.
     pub fn get_pinned_usage(&self) -> usize {
-        unsafe { ffi::rocksdb_cache_get_pinned_usage(self.inner) }
+        unsafe { ffi::rocksdb_cache_get_pinned_usage(self.0.inner.as_ptr()) }
     }
 
-    /// Sets cache capacity
+    /// Sets cache capacity in bytes.
     pub fn set_capacity(&mut self, capacity: size_t) {
         unsafe {
-            ffi::rocksdb_cache_set_capacity(self.inner, capacity);
+            ffi::rocksdb_cache_set_capacity(self.0.inner.as_ptr(), capacity);
         }
     }
 }
 
-impl Drop for Cache {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::rocksdb_cache_destroy(self.inner);
+#[derive(Default)]
+pub(crate) struct OptionsMustOutliveDB {
+    env: Option<Env>,
+    row_cache: Option<Cache>,
+    block_based: Option<BlockBasedOptionsMustOutliveDB>,
+}
+
+impl OptionsMustOutliveDB {
+    pub(crate) fn clone(&self) -> Self {
+        Self {
+            env: self.env.as_ref().map(Env::clone),
+            row_cache: self.row_cache.as_ref().map(Cache::clone),
+            block_based: self
+                .block_based
+                .as_ref()
+                .map(BlockBasedOptionsMustOutliveDB::clone),
         }
     }
 }
 
-/// An Env is an interface used by the rocksdb implementation to access
-/// operating system functionality like the filesystem etc.  Callers
-/// may wish to provide a custom Env object when opening a database to
-/// get fine gain control; e.g., to rate limit file system operations.
-///
-/// All Env implementations are safe for concurrent access from
-/// multiple threads without any external synchronization.
-///
-/// Note: currently, C API behinds C++ API for various settings.
-/// See also: `rocksdb/include/env.h`
-pub struct Env {
-    pub(crate) inner: *mut ffi::rocksdb_env_t,
+#[derive(Default)]
+struct BlockBasedOptionsMustOutliveDB {
+    block_cache: Option<Cache>,
 }
 
-impl Drop for Env {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::rocksdb_env_destroy(self.inner);
-        }
-    }
-}
-
-impl Env {
-    /// Returns default env
-    pub fn default() -> Result<Env, Error> {
-        let env = unsafe { ffi::rocksdb_create_default_env() };
-        if env.is_null() {
-            Err(Error::new("Could not create mem env".to_owned()))
-        } else {
-            Ok(Env { inner: env })
-        }
-    }
-
-    /// Returns a new environment that stores its data in memory and delegates
-    /// all non-file-storage tasks to base_env.
-    pub fn mem_env() -> Result<Env, Error> {
-        let env = unsafe { ffi::rocksdb_create_mem_env() };
-        if env.is_null() {
-            Err(Error::new("Could not create mem env".to_owned()))
-        } else {
-            Ok(Env { inner: env })
-        }
-    }
-
-    /// Sets the number of background worker threads of a specific thread pool for this environment.
-    /// `LOW` is the default pool.
-    ///
-    /// Default: 1
-    pub fn set_background_threads(&mut self, num_threads: c_int) {
-        unsafe {
-            ffi::rocksdb_env_set_background_threads(self.inner, num_threads);
-        }
-    }
-
-    /// Sets the size of the high priority thread pool that can be used to
-    /// prevent compactions from stalling memtable flushes.
-    pub fn set_high_priority_background_threads(&mut self, n: c_int) {
-        unsafe {
-            ffi::rocksdb_env_set_high_priority_background_threads(self.inner, n);
-        }
-    }
-
-    /// Sets the size of the low priority thread pool that can be used to
-    /// prevent compactions from stalling memtable flushes.
-    pub fn set_low_priority_background_threads(&mut self, n: c_int) {
-        unsafe {
-            ffi::rocksdb_env_set_low_priority_background_threads(self.inner, n);
-        }
-    }
-
-    /// Sets the size of the bottom priority thread pool that can be used to
-    /// prevent compactions from stalling memtable flushes.
-    pub fn set_bottom_priority_background_threads(&mut self, n: c_int) {
-        unsafe {
-            ffi::rocksdb_env_set_bottom_priority_background_threads(self.inner, n);
-        }
-    }
-
-    /// Wait for all threads started by StartThread to terminate.
-    pub fn join_all_threads(&mut self) {
-        unsafe {
-            ffi::rocksdb_env_join_all_threads(self.inner);
-        }
-    }
-
-    /// Lowering IO priority for threads from the specified pool.
-    pub fn lower_thread_pool_io_priority(&mut self) {
-        unsafe {
-            ffi::rocksdb_env_lower_thread_pool_io_priority(self.inner);
-        }
-    }
-
-    /// Lowering IO priority for high priority thread pool.
-    pub fn lower_high_priority_thread_pool_io_priority(&mut self) {
-        unsafe {
-            ffi::rocksdb_env_lower_high_priority_thread_pool_io_priority(self.inner);
-        }
-    }
-
-    /// Lowering CPU priority for threads from the specified pool.
-    pub fn lower_thread_pool_cpu_priority(&mut self) {
-        unsafe {
-            ffi::rocksdb_env_lower_thread_pool_cpu_priority(self.inner);
-        }
-    }
-
-    /// Lowering CPU priority for high priority thread pool.
-    pub fn lower_high_priority_thread_pool_cpu_priority(&mut self) {
-        unsafe {
-            ffi::rocksdb_env_lower_high_priority_thread_pool_cpu_priority(self.inner);
+impl BlockBasedOptionsMustOutliveDB {
+    fn clone(&self) -> Self {
+        Self {
+            block_cache: self.block_cache.as_ref().map(Cache::clone),
         }
     }
 }
@@ -216,8 +164,6 @@ impl Env {
 ///    opts.set_level_zero_stop_writes_trigger(2000);
 ///    opts.set_level_zero_slowdown_writes_trigger(0);
 ///    opts.set_compaction_style(DBCompactionStyle::Universal);
-///    opts.set_max_background_compactions(4);
-///    opts.set_max_background_flushes(4);
 ///    opts.set_disable_auto_compactions(true);
 ///
 ///    DB::open(&opts, path).unwrap()
@@ -225,6 +171,7 @@ impl Env {
 /// ```
 pub struct Options {
     pub(crate) inner: *mut ffi::rocksdb_options_t,
+    pub(crate) outlive: OptionsMustOutliveDB,
 }
 
 /// Optionally disable WAL or sync for this write.
@@ -283,12 +230,18 @@ pub struct FlushOptions {
 /// For configuring block-based file storage.
 pub struct BlockBasedOptions {
     pub(crate) inner: *mut ffi::rocksdb_block_based_table_options_t,
+    outlive: BlockBasedOptionsMustOutliveDB,
 }
 
 pub struct ReadOptions {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
     iterate_upper_bound: Option<Vec<u8>>,
     iterate_lower_bound: Option<Vec<u8>>,
+}
+
+/// Configuration of cuckoo-based storage.
+pub struct CuckooTableOptions {
+    pub(crate) inner: *mut ffi::rocksdb_cuckoo_table_options_t,
 }
 
 /// For configuring external files ingestion.
@@ -325,16 +278,20 @@ pub struct IngestExternalFileOptions {
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
 unsafe impl Send for BlockBasedOptions {}
+unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
 unsafe impl Send for IngestExternalFileOptions {}
+unsafe impl Send for CacheWrapper {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
 unsafe impl Sync for BlockBasedOptions {}
+unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
 unsafe impl Sync for IngestExternalFileOptions {}
+unsafe impl Sync for CacheWrapper {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -347,10 +304,12 @@ impl Drop for Options {
 impl Clone for Options {
     fn clone(&self) -> Self {
         let inner = unsafe { ffi::rocksdb_options_create_copy(self.inner) };
-        if inner.is_null() {
-            panic!("Could not copy RocksDB options");
+        assert!(!inner.is_null(), "Could not copy RocksDB options");
+
+        Self {
+            inner,
+            outlive: self.outlive.clone(),
         }
-        Self { inner }
     }
 }
 
@@ -358,6 +317,14 @@ impl Drop for BlockBasedOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_block_based_options_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for CuckooTableOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_destroy(self.inner);
         }
     }
 }
@@ -380,13 +347,17 @@ impl Drop for WriteOptions {
 
 impl Drop for ReadOptions {
     fn drop(&mut self) {
-        unsafe { ffi::rocksdb_readoptions_destroy(self.inner) }
+        unsafe {
+            ffi::rocksdb_readoptions_destroy(self.inner);
+        }
     }
 }
 
 impl Drop for IngestExternalFileOptions {
     fn drop(&mut self) {
-        unsafe { ffi::rocksdb_ingestexternalfileoptions_destroy(self.inner) }
+        unsafe {
+            ffi::rocksdb_ingestexternalfileoptions_destroy(self.inner);
+        }
     }
 }
 
@@ -422,86 +393,111 @@ impl BlockBasedOptions {
     /// incompatible with block-based filters.
     pub fn set_partition_filters(&mut self, size: bool) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_partition_filters(self.inner, size as c_uchar);
-        }
-    }
-
-    /// When provided: use the specified cache for blocks.
-    /// Otherwise rocksdb will automatically create and use an 8MB internal cache.
-    #[deprecated(
-        since = "0.15.0",
-        note = "This function will be removed in next release. Use set_block_cache instead"
-    )]
-    pub fn set_lru_cache(&mut self, size: size_t) {
-        let cache = new_cache(size);
-        unsafe {
-            // Since cache is wrapped in shared_ptr, we don't need to
-            // call rocksdb_cache_destroy explicitly.
-            ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache);
-        }
-    }
-
-    /// When configured: use the specified cache for compressed blocks.
-    /// Otherwise rocksdb will not use a compressed block cache.
-    ///
-    /// Note: though it looks similar to `block_cache`, RocksDB doesn't put the
-    /// same type of object there.
-    #[deprecated(
-        since = "0.15.0",
-        note = "This function will be removed in next release. Use set_block_cache_compressed instead"
-    )]
-    pub fn set_lru_cache_compressed(&mut self, size: size_t) {
-        let cache = new_cache(size);
-        unsafe {
-            // Since cache is wrapped in shared_ptr, we don't need to
-            // call rocksdb_cache_destroy explicitly.
-            ffi::rocksdb_block_based_options_set_block_cache_compressed(self.inner, cache);
+            ffi::rocksdb_block_based_options_set_partition_filters(self.inner, c_uchar::from(size));
         }
     }
 
     /// Sets global cache for blocks (user data is stored in a set of blocks, and
-    /// a block is the unit of reading from disk). Cache must outlive DB instance which uses it.
+    /// a block is the unit of reading from disk).
     ///
     /// If set, use the specified cache for blocks.
     /// By default, rocksdb will automatically create and use an 8MB internal cache.
     pub fn set_block_cache(&mut self, cache: &Cache) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache.inner);
+            ffi::rocksdb_block_based_options_set_block_cache(self.inner, cache.0.inner.as_ptr());
         }
-    }
-
-    /// Sets global cache for compressed blocks. Cache must outlive DB instance which uses it.
-    ///
-    /// By default, rocksdb will not use a compressed block cache.
-    pub fn set_block_cache_compressed(&mut self, cache: &Cache) {
-        unsafe {
-            ffi::rocksdb_block_based_options_set_block_cache_compressed(self.inner, cache.inner);
-        }
+        self.outlive.block_cache = Some(cache.clone());
     }
 
     /// Disable block cache
     pub fn disable_cache(&mut self) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, true as c_uchar);
+            ffi::rocksdb_block_based_options_set_no_block_cache(self.inner, c_uchar::from(true));
         }
     }
 
-    /// Sets the filter policy to reduce disk reads
-    pub fn set_bloom_filter(&mut self, bits_per_key: c_int, block_based: bool) {
+    /// Sets a [Bloom filter](https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter)
+    /// policy to reduce disk reads.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_bloom_filter(10.0, true);
+    /// ```
+    pub fn set_bloom_filter(&mut self, bits_per_key: c_double, block_based: bool) {
         unsafe {
             let bloom = if block_based {
-                ffi::rocksdb_filterpolicy_create_bloom(bits_per_key)
+                ffi::rocksdb_filterpolicy_create_bloom(bits_per_key as _)
             } else {
-                ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key)
+                ffi::rocksdb_filterpolicy_create_bloom_full(bits_per_key as _)
             };
 
             ffi::rocksdb_block_based_options_set_filter_policy(self.inner, bloom);
         }
     }
 
+    /// Sets a [Ribbon filter](http://rocksdb.org/blog/2021/12/29/ribbon-filter.html)
+    /// policy to reduce disk reads.
+    ///
+    /// Ribbon filters use less memory in exchange for slightly more CPU usage
+    /// compared to an equivalent bloom filter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_ribbon_filter(10.0);
+    /// ```
+    pub fn set_ribbon_filter(&mut self, bloom_equivalent_bits_per_key: c_double) {
+        unsafe {
+            let ribbon = ffi::rocksdb_filterpolicy_create_ribbon(bloom_equivalent_bits_per_key);
+            ffi::rocksdb_block_based_options_set_filter_policy(self.inner, ribbon);
+        }
+    }
+
+    /// Sets a hybrid [Ribbon filter](http://rocksdb.org/blog/2021/12/29/ribbon-filter.html)
+    /// policy to reduce disk reads.
+    ///
+    /// Uses Bloom filters before the given level, and Ribbon filters for all
+    /// other levels. This combines the memory savings from Ribbon filters
+    /// with the lower CPU usage of Bloom filters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_hybrid_ribbon_filter(10.0, 2);
+    /// ```
+    pub fn set_hybrid_ribbon_filter(
+        &mut self,
+        bloom_equivalent_bits_per_key: c_double,
+        bloom_before_level: c_int,
+    ) {
+        unsafe {
+            let ribbon = ffi::rocksdb_filterpolicy_create_ribbon_hybrid(
+                bloom_equivalent_bits_per_key,
+                bloom_before_level,
+            );
+            ffi::rocksdb_block_based_options_set_filter_policy(self.inner, ribbon);
+        }
+    }
+
+    /// If cache_index_and_filter_blocks is enabled, cache index and filter blocks with high priority.
+    /// If set to true, depending on implementation of block cache,
+    /// index and filter blocks may be less likely to be evicted than data blocks.
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(self.inner, v as u8);
+            ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(
+                self.inner,
+                c_uchar::from(v),
+            );
         }
     }
 
@@ -533,7 +529,7 @@ impl BlockBasedOptions {
         unsafe {
             ffi::rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache(
                 self.inner,
-                v as c_uchar,
+                c_uchar::from(v),
             );
         }
     }
@@ -549,7 +545,7 @@ impl BlockBasedOptions {
         unsafe {
             ffi::rocksdb_block_based_options_set_pin_top_level_index_and_filter(
                 self.inner,
-                v as c_uchar,
+                c_uchar::from(v),
             );
         }
     }
@@ -611,7 +607,9 @@ impl BlockBasedOptions {
     /// ```
     pub fn set_data_block_index_type(&mut self, index_type: DataBlockIndexType) {
         let index_t = index_type as i32;
-        unsafe { ffi::rocksdb_block_based_options_set_data_block_index_type(self.inner, index_t) }
+        unsafe {
+            ffi::rocksdb_block_based_options_set_data_block_index_type(self.inner, index_t);
+        }
     }
 
     /// Set the data block hash index utilization ratio.
@@ -622,21 +620,194 @@ impl BlockBasedOptions {
     ///
     /// Default: 0.75
     pub fn set_data_block_hash_ratio(&mut self, ratio: f64) {
-        unsafe { ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio) }
+        unsafe {
+            ffi::rocksdb_block_based_options_set_data_block_hash_ratio(self.inner, ratio);
+        }
+    }
+
+    /// If false, place only prefixes in the filter, not whole keys.
+    ///
+    /// Defaults to true.
+    pub fn set_whole_key_filtering(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_whole_key_filtering(self.inner, c_uchar::from(v));
+        }
+    }
+
+    /// Use the specified checksum type.
+    /// Newly created table files will be protected with this checksum type.
+    /// Old table files will still be readable, even though they have different checksum type.
+    pub fn set_checksum_type(&mut self, checksum_type: ChecksumType) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_checksum(self.inner, checksum_type as c_char);
+        }
     }
 }
 
 impl Default for BlockBasedOptions {
-    fn default() -> BlockBasedOptions {
+    fn default() -> Self {
         let block_opts = unsafe { ffi::rocksdb_block_based_options_create() };
-        if block_opts.is_null() {
-            panic!("Could not create RocksDB block based options");
+        assert!(
+            !block_opts.is_null(),
+            "Could not create RocksDB block based options"
+        );
+
+        Self {
+            inner: block_opts,
+            outlive: BlockBasedOptionsMustOutliveDB::default(),
         }
-        BlockBasedOptions { inner: block_opts }
     }
 }
 
+impl CuckooTableOptions {
+    /// Determines the utilization of hash tables. Smaller values
+    /// result in larger hash tables with fewer collisions.
+    /// Default: 0.9
+    pub fn set_hash_ratio(&mut self, ratio: f64) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_set_hash_ratio(self.inner, ratio);
+        }
+    }
+
+    /// A property used by builder to determine the depth to go to
+    /// to search for a path to displace elements in case of
+    /// collision. See Builder.MakeSpaceForKey method. Higher
+    /// values result in more efficient hash tables with fewer
+    /// lookups but take more time to build.
+    /// Default: 100
+    pub fn set_max_search_depth(&mut self, depth: u32) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_set_max_search_depth(self.inner, depth);
+        }
+    }
+
+    /// In case of collision while inserting, the builder
+    /// attempts to insert in the next cuckoo_block_size
+    /// locations before skipping over to the next Cuckoo hash
+    /// function. This makes lookups more cache friendly in case
+    /// of collisions.
+    /// Default: 5
+    pub fn set_cuckoo_block_size(&mut self, size: u32) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_set_cuckoo_block_size(self.inner, size);
+        }
+    }
+
+    /// If this option is enabled, user key is treated as uint64_t and its value
+    /// is used as hash value directly. This option changes builder's behavior.
+    /// Reader ignore this option and behave according to what specified in
+    /// table property.
+    /// Default: false
+    pub fn set_identity_as_first_hash(&mut self, flag: bool) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_set_identity_as_first_hash(self.inner, c_uchar::from(flag));
+        }
+    }
+
+    /// If this option is set to true, module is used during hash calculation.
+    /// This often yields better space efficiency at the cost of performance.
+    /// If this option is set to false, # of entries in table is constrained to
+    /// be power of two, and bit and is used to calculate hash, which is faster in general.
+    /// Default: true
+    pub fn set_use_module_hash(&mut self, flag: bool) {
+        unsafe {
+            ffi::rocksdb_cuckoo_options_set_use_module_hash(self.inner, c_uchar::from(flag));
+        }
+    }
+}
+
+impl Default for CuckooTableOptions {
+    fn default() -> Self {
+        let opts = unsafe { ffi::rocksdb_cuckoo_options_create() };
+        assert!(!opts.is_null(), "Could not create RocksDB cuckoo options");
+
+        Self { inner: opts }
+    }
+}
+
+// Verbosity of the LOG.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(i32)]
+pub enum LogLevel {
+    Debug = 0,
+    Info,
+    Warn,
+    Error,
+    Fatal,
+    Header,
+}
+
 impl Options {
+    /// Constructs the DBOptions and ColumnFamilyDescriptors by loading the
+    /// latest RocksDB options file stored in the specified rocksdb database.
+    pub fn load_latest<P: AsRef<Path>>(
+        path: P,
+        env: Env,
+        ignore_unknown_options: bool,
+        cache: Cache,
+    ) -> Result<(Options, Vec<ColumnFamilyDescriptor>), Error> {
+        let path = to_cpath(path)?;
+        let mut db_options: *mut ffi::rocksdb_options_t = null_mut();
+        let mut num_column_families: usize = 0;
+        let mut column_family_names: *mut *mut c_char = null_mut();
+        let mut column_family_options: *mut *mut ffi::rocksdb_options_t = null_mut();
+        unsafe {
+            ffi_try!(ffi::rocksdb_load_latest_options(
+                path.as_ptr(),
+                env.0.inner,
+                ignore_unknown_options,
+                cache.0.inner.as_ptr(),
+                &mut db_options,
+                &mut num_column_families,
+                &mut column_family_names,
+                &mut column_family_options,
+            ));
+        }
+        let options = Options {
+            inner: db_options,
+            outlive: OptionsMustOutliveDB::default(),
+        };
+        let column_families = unsafe {
+            Options::read_column_descriptors(
+                num_column_families,
+                column_family_names,
+                column_family_options,
+            )
+        };
+        Ok((options, column_families))
+    }
+
+    /// read column descriptors from c pointers
+    #[inline]
+    unsafe fn read_column_descriptors(
+        num_column_families: usize,
+        column_family_names: *mut *mut c_char,
+        column_family_options: *mut *mut ffi::rocksdb_options_t,
+    ) -> Vec<ColumnFamilyDescriptor> {
+        let column_family_names_iter =
+            slice::from_raw_parts(column_family_names, num_column_families)
+                .iter()
+                .map(|ptr| from_cstr(*ptr));
+        let column_family_options_iter =
+            slice::from_raw_parts(column_family_options, num_column_families)
+                .iter()
+                .map(|ptr| Options {
+                    inner: *ptr,
+                    outlive: OptionsMustOutliveDB::default(),
+                });
+        let column_descriptors = column_family_names_iter
+            .zip(column_family_options_iter)
+            .map(|(name, options)| ColumnFamilyDescriptor { name, options })
+            .collect::<Vec<_>>();
+        // free pointers
+        slice::from_raw_parts(column_family_names, num_column_families)
+            .iter()
+            .for_each(|ptr| ffi::rocksdb_free(*ptr as *mut c_void));
+        ffi::rocksdb_free(column_family_names as *mut c_void);
+        ffi::rocksdb_free(column_family_options as *mut c_void);
+        column_descriptors
+    }
+
     /// By default, RocksDB uses only one background thread for flush and
     /// compaction. Calling this function will set it up such that total of
     /// `total_threads` is used. Good value for `total_threads` is the number of
@@ -721,7 +892,10 @@ impl Options {
     /// ```
     pub fn create_if_missing(&mut self, create_if_missing: bool) {
         unsafe {
-            ffi::rocksdb_options_set_create_if_missing(self.inner, create_if_missing as c_uchar);
+            ffi::rocksdb_options_set_create_if_missing(
+                self.inner,
+                c_uchar::from(create_if_missing),
+            );
         }
     }
 
@@ -742,7 +916,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_create_missing_column_families(
                 self.inner,
-                create_missing_cfs as c_uchar,
+                c_uchar::from(create_missing_cfs),
             );
         }
     }
@@ -752,7 +926,7 @@ impl Options {
     /// Default: false
     pub fn set_error_if_exists(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_error_if_exists(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_error_if_exists(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -770,7 +944,7 @@ impl Options {
     /// Default: false
     pub fn set_paranoid_checks(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_paranoid_checks(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_paranoid_checks(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -818,8 +992,9 @@ impl Options {
     /// Default: Env::default()
     pub fn set_env(&mut self, env: &Env) {
         unsafe {
-            ffi::rocksdb_options_set_env(self.inner, env.inner);
+            ffi::rocksdb_options_set_env(self.inner, env.0.inner);
         }
+        self.outlive.env = Some(env.clone());
     }
 
     /// Sets the compression algorithm that will be used for compressing blocks.
@@ -838,6 +1013,30 @@ impl Options {
     pub fn set_compression_type(&mut self, t: DBCompressionType) {
         unsafe {
             ffi::rocksdb_options_set_compression(self.inner, t as c_int);
+        }
+    }
+
+    /// Sets the bottom-most compression algorithm that will be used for
+    /// compressing blocks at the bottom-most level.
+    ///
+    /// Note that to actually unable bottom-most compression configuration after
+    /// setting the compression type it needs to be enabled by calling
+    /// [`set_bottommost_compression_options`](#method.set_bottommost_compression_options) or
+    /// [`set_bottommost_zstd_max_train_bytes`](#method.set_bottommost_zstd_max_train_bytes) method with `enabled` argument
+    /// set to `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_zstd_max_train_bytes(0, true);
+    /// ```
+    pub fn set_bottommost_compression_type(&mut self, t: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression(self.inner, t as c_int);
         }
     }
 
@@ -870,7 +1069,7 @@ impl Options {
                 self.inner,
                 level_types.as_mut_ptr(),
                 level_types.len() as size_t,
-            )
+            );
         }
     }
 
@@ -917,6 +1116,72 @@ impl Options {
         }
     }
 
+    /// Sets compression options for blocks at the bottom-most level.  Meaning
+    /// of all settings is the same as in [`set_compression_options`](#method.set_compression_options) method but
+    /// affect only the bottom-most compression which is set using
+    /// [`set_bottommost_compression_type`](#method.set_bottommost_compression_type) method.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    /// opts.set_bottommost_compression_options(4, 5, 6, 7, true);
+    /// ```
+    pub fn set_bottommost_compression_options(
+        &mut self,
+        w_bits: c_int,
+        level: c_int,
+        strategy: c_int,
+        max_dict_bytes: c_int,
+        enabled: bool,
+    ) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options(
+                self.inner,
+                w_bits,
+                level,
+                strategy,
+                max_dict_bytes,
+                c_uchar::from(enabled),
+            );
+        }
+    }
+
+    /// Sets maximum size of training data passed to zstd's dictionary trainer. Using zstd's
+    /// dictionary trainer can achieve even better compression ratio improvements than using
+    /// `max_dict_bytes` alone.
+    ///
+    /// The training data will be used to generate a dictionary of max_dict_bytes.
+    ///
+    /// Default: 0.
+    pub fn set_zstd_max_train_bytes(&mut self, value: c_int) {
+        unsafe {
+            ffi::rocksdb_options_set_compression_options_zstd_max_train_bytes(self.inner, value);
+        }
+    }
+
+    /// Sets maximum size of training data passed to zstd's dictionary trainer
+    /// when compressing the bottom-most level. Using zstd's dictionary trainer
+    /// can achieve even better compression ratio improvements than using
+    /// `max_dict_bytes` alone.
+    ///
+    /// The training data will be used to generate a dictionary of
+    /// `max_dict_bytes`.
+    ///
+    /// Default: 0.
+    pub fn set_bottommost_zstd_max_train_bytes(&mut self, value: c_int, enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_bottommost_compression_options_zstd_max_train_bytes(
+                self.inner,
+                value,
+                c_uchar::from(enabled),
+            );
+        }
+    }
+
     /// If non-zero, we perform bigger reads when doing compaction. If you're
     /// running RocksDB on spinning disks, you should set this to at least 2MB.
     /// That way RocksDB's compaction is doing sequential instead of random reads.
@@ -927,10 +1192,7 @@ impl Options {
     /// Default: `0`
     pub fn set_compaction_readahead_size(&mut self, compaction_readahead_size: usize) {
         unsafe {
-            ffi::rocksdb_options_compaction_readahead_size(
-                self.inner,
-                compaction_readahead_size as usize,
-            );
+            ffi::rocksdb_options_compaction_readahead_size(self.inner, compaction_readahead_size);
         }
     }
 
@@ -941,28 +1203,31 @@ impl Options {
     /// Default: false.
     pub fn set_level_compaction_dynamic_level_bytes(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_options_set_level_compaction_dynamic_level_bytes(self.inner, v as c_uchar);
+            ffi::rocksdb_options_set_level_compaction_dynamic_level_bytes(
+                self.inner,
+                c_uchar::from(v),
+            );
         }
     }
 
     pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
-        name: &str,
+        name: impl CStrLike,
         full_merge_fn: F,
     ) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             full_merge_fn: full_merge_fn.clone(),
             partial_merge_fn: full_merge_fn,
         });
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, F>),
                 Some(full_merge_callback::<F, F>),
                 Some(partial_merge_callback::<F, F>),
-                None,
+                Some(merge_operator::delete_callback),
                 Some(merge_operator::name_callback::<F, F>),
             );
             ffi::rocksdb_options_set_merge_operator(self.inner, mo);
@@ -971,23 +1236,23 @@ impl Options {
 
     pub fn set_merge_operator<F: MergeFn, PF: MergeFn>(
         &mut self,
-        name: &str,
+        name: impl CStrLike,
         full_merge_fn: F,
         partial_merge_fn: PF,
     ) {
         let cb = Box::new(MergeOperatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             full_merge_fn,
             partial_merge_fn,
         });
 
         unsafe {
             let mo = ffi::rocksdb_mergeoperator_create(
-                Box::into_raw(cb) as _,
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(merge_operator::destructor_callback::<F, PF>),
                 Some(full_merge_callback::<F, PF>),
                 Some(partial_merge_callback::<F, PF>),
-                None,
+                Some(merge_operator::delete_callback),
                 Some(merge_operator::name_callback::<F, PF>),
             );
             ffi::rocksdb_options_set_merge_operator(self.inner, mo);
@@ -1012,18 +1277,18 @@ impl Options {
     ///
     /// If multi-threaded compaction is used, `filter_fn` may be called multiple times
     /// simultaneously.
-    pub fn set_compaction_filter<F>(&mut self, name: &str, filter_fn: F)
+    pub fn set_compaction_filter<F>(&mut self, name: impl CStrLike, filter_fn: F)
     where
         F: CompactionFilterFn + Send + 'static,
     {
         let cb = Box::new(CompactionFilterCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             filter_fn,
         });
 
         unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
@@ -1048,7 +1313,7 @@ impl Options {
 
         unsafe {
             let cff = ffi::rocksdb_compactionfilterfactory_create(
-                Box::into_raw(factory) as *mut c_void,
+                Box::into_raw(factory).cast::<c_void>(),
                 Some(compaction_filter_factory::destructor_callback::<F>),
                 Some(compaction_filter_factory::create_compaction_filter_callback::<F>),
                 Some(compaction_filter_factory::name_callback::<F>),
@@ -1064,15 +1329,15 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator(&mut self, name: &str, compare_fn: CompareFn) {
+    pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
         let cb = Box::new(ComparatorCallback {
-            name: CString::new(name.as_bytes()).unwrap(),
+            name: name.into_c_string().unwrap(),
             f: compare_fn,
         });
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
-                mem::transmute(cb),
+                Box::into_raw(cb).cast::<c_void>(),
                 Some(comparator::destructor_callback),
                 Some(comparator::compare_callback),
                 Some(comparator::name_callback),
@@ -1082,15 +1347,9 @@ impl Options {
     }
 
     pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
-        unsafe { ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner) }
-    }
-
-    #[deprecated(
-        since = "0.5.0",
-        note = "add_comparator has been renamed to set_comparator"
-    )]
-    pub fn add_comparator(&mut self, name: &str, compare_fn: CompareFn) {
-        self.set_comparator(name, compare_fn);
+        unsafe {
+            ffi::rocksdb_options_set_prefix_extractor(self.inner, prefix_extractor.inner);
+        }
     }
 
     pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
@@ -1115,7 +1374,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_optimize_filters_for_hits(
                 self.inner,
-                optimize_for_hits as c_int,
+                c_int::from(optimize_for_hits),
             );
         }
     }
@@ -1175,10 +1434,14 @@ impl Options {
         }
     }
 
-    /// If true, then every store to stable storage will issue a fsync.
-    /// If false, then every store to stable storage will issue a fdatasync.
-    /// This parameter should be set to true while storing data to
-    /// filesystem like ext3 that can lose files after a reboot.
+    /// By default, writes to stable storage use fdatasync (on platforms
+    /// where this function is available). If this option is true,
+    /// fsync is used instead.
+    ///
+    /// fsync and fdatasync are equally safe for our purposes and fdatasync is
+    /// faster, so it is rarely necessary to set this option. It is provided
+    /// as a workaround for kernel/filesystem bugs, such as one that affected
+    /// fdatasync with ext4 in kernel versions prior to 3.7.
     ///
     /// Default: `false`
     ///
@@ -1191,7 +1454,9 @@ impl Options {
     /// opts.set_use_fsync(true);
     /// ```
     pub fn set_use_fsync(&mut self, useit: bool) {
-        unsafe { ffi::rocksdb_options_set_use_fsync(self.inner, useit as c_int) }
+        unsafe {
+            ffi::rocksdb_options_set_use_fsync(self.inner, c_int::from(useit));
+        }
     }
 
     /// Specifies the absolute info LOG dir.
@@ -1203,9 +1468,28 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_log_dir<P: AsRef<Path>>(&mut self, path: P) {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path).unwrap();
         unsafe {
             ffi::rocksdb_options_set_db_log_dir(self.inner, p.as_ptr());
+        }
+    }
+
+    /// Specifies the log level.
+    /// Consider the `LogLevel` enum for a list of possible levels.
+    ///
+    /// Default: Info
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, LogLevel};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_log_level(LogLevel::Warn);
+    /// ```
+    pub fn set_log_level(&mut self, level: LogLevel) {
+        unsafe {
+            ffi::rocksdb_options_set_info_log_level(self.inner, level as c_int);
         }
     }
 
@@ -1283,7 +1567,10 @@ impl Options {
     /// ```
     pub fn set_allow_concurrent_memtable_write(&mut self, allow: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_concurrent_memtable_write(self.inner, allow as c_uchar)
+            ffi::rocksdb_options_set_allow_concurrent_memtable_write(
+                self.inner,
+                c_uchar::from(allow),
+            );
         }
     }
 
@@ -1297,7 +1584,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_enable_write_thread_adaptive_yield(
                 self.inner,
-                enabled as c_uchar,
+                c_uchar::from(enabled),
             );
         }
     }
@@ -1334,7 +1621,7 @@ impl Options {
     /// ```
     pub fn set_use_direct_reads(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_use_direct_reads(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_use_direct_reads(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -1360,7 +1647,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_use_direct_io_for_flush_and_compaction(
                 self.inner,
-                enabled as c_uchar,
+                c_uchar::from(enabled),
             );
         }
     }
@@ -1370,18 +1657,7 @@ impl Options {
     /// Default: true
     pub fn set_is_fd_close_on_exec(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_is_fd_close_on_exec(self.inner, enabled as c_uchar);
-        }
-    }
-
-    /// Enable/disable skipping of log corruption error on recovery (If client is ok with
-    /// losing most recent changes)
-    ///
-    /// Default: false
-    #[deprecated(since = "0.15.0", note = "This option is no longer used")]
-    pub fn set_skip_log_error_on_recovery(&mut self, enabled: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_skip_log_error_on_recovery(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_is_fd_close_on_exec(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -1407,10 +1683,10 @@ impl Options {
     /// # Examples
     ///
     /// ```
-    /// #[allow(deprecated)]
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
+    /// #[allow(deprecated)]
     /// opts.set_allow_os_buffer(false);
     /// ```
     #[deprecated(
@@ -1446,7 +1722,7 @@ impl Options {
     /// Dynamically changeable through SetOptions() API
     pub fn set_target_file_size_multiplier(&mut self, multiplier: i32) {
         unsafe {
-            ffi::rocksdb_options_set_target_file_size_multiplier(self.inner, multiplier as c_int)
+            ffi::rocksdb_options_set_target_file_size_multiplier(self.inner, multiplier as c_int);
         }
     }
 
@@ -1787,7 +2063,7 @@ impl Options {
     /// Default: false
     pub fn set_unordered_write(&mut self, unordered: bool) {
         unsafe {
-            ffi::rocksdb_options_set_unordered_write(self.inner, unordered as c_uchar);
+            ffi::rocksdb_options_set_unordered_write(self.inner, c_uchar::from(unordered));
         }
     }
 
@@ -1833,6 +2109,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
+    /// #[allow(deprecated)]
     /// opts.set_max_background_compactions(2);
     /// ```
     #[deprecated(
@@ -1868,6 +2145,7 @@ impl Options {
     /// use rocksdb::Options;
     ///
     /// let mut opts = Options::default();
+    /// #[allow(deprecated)]
     /// opts.set_max_background_flushes(2);
     /// ```
     #[deprecated(
@@ -1896,7 +2174,9 @@ impl Options {
     /// opts.set_disable_auto_compactions(true);
     /// ```
     pub fn set_disable_auto_compactions(&mut self, disable: bool) {
-        unsafe { ffi::rocksdb_options_set_disable_auto_compactions(self.inner, disable as c_int) }
+        unsafe {
+            ffi::rocksdb_options_set_disable_auto_compactions(self.inner, c_int::from(disable));
+        }
     }
 
     /// SetMemtableHugePageSize sets the page size for huge page for
@@ -1911,7 +2191,9 @@ impl Options {
     ///
     /// Dynamically changeable through SetOptions() API
     pub fn set_memtable_huge_page_size(&mut self, size: size_t) {
-        unsafe { ffi::rocksdb_options_set_memtable_huge_page_size(self.inner, size) }
+        unsafe {
+            ffi::rocksdb_options_set_memtable_huge_page_size(self.inner, size);
+        }
     }
 
     /// Sets the maximum number of successive merge operations on a key in the memtable.
@@ -1956,7 +2238,7 @@ impl Options {
     /// Default: false.
     pub fn set_inplace_update_support(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_inplace_update_support(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_inplace_update_support(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -1983,7 +2265,7 @@ impl Options {
                 self.inner,
                 level_values.as_ptr() as *mut c_int,
                 count,
-            )
+            );
         }
     }
 
@@ -1999,8 +2281,8 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
                 self.inner,
-                value as c_uchar,
-            )
+                c_uchar::from(value),
+            );
         }
     }
 
@@ -2035,7 +2317,9 @@ impl Options {
     /// be set to the value of 'max_write_buffer_number * write_buffer_size'
     /// if it is not explicitly set by the user.  Otherwise, the default is 0.
     pub fn set_max_write_buffer_size_to_maintain(&mut self, size: i64) {
-        unsafe { ffi::rocksdb_options_set_max_write_buffer_size_to_maintain(self.inner, size) }
+        unsafe {
+            ffi::rocksdb_options_set_max_write_buffer_size_to_maintain(self.inner, size);
+        }
     }
 
     /// By default, a single write thread queue is maintained. The thread gets
@@ -2052,7 +2336,9 @@ impl Options {
     ///
     /// Default: false
     pub fn set_enable_pipelined_write(&mut self, value: bool) {
-        unsafe { ffi::rocksdb_options_set_enable_pipelined_write(self.inner, value as c_uchar) }
+        unsafe {
+            ffi::rocksdb_options_set_enable_pipelined_write(self.inner, c_uchar::from(value));
+        }
     }
 
     /// Defines the underlying memtable implementation.
@@ -2100,6 +2386,33 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_block_based_table_factory(self.inner, factory.inner);
         }
+        self.outlive.block_based = Some(factory.outlive.clone());
+    }
+
+    /// Sets the table factory to a CuckooTableFactory (the default table
+    /// factory is a block-based table factory that provides a default
+    /// implementation of TableBuilder and TableReader with default
+    /// BlockBasedTableOptions).
+    /// See official [wiki](https://github.com/facebook/rocksdb/wiki/CuckooTable-Format) for more information on this table format.
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, CuckooTableOptions};
+    ///
+    /// let mut opts = Options::default();
+    /// let mut factory_opts = CuckooTableOptions::default();
+    /// factory_opts.set_hash_ratio(0.8);
+    /// factory_opts.set_max_search_depth(20);
+    /// factory_opts.set_cuckoo_block_size(10);
+    /// factory_opts.set_identity_as_first_hash(true);
+    /// factory_opts.set_use_module_hash(false);
+    ///
+    /// opts.set_cuckoo_table_factory(&factory_opts);
+    /// ```
+    pub fn set_cuckoo_table_factory(&mut self, factory: &CuckooTableOptions) {
+        unsafe {
+            ffi::rocksdb_options_set_cuckoo_table_factory(self.inner, factory.inner);
+        }
     }
 
     // This is a factory that provides TableFactory objects.
@@ -2113,7 +2426,7 @@ impl Options {
     /// # Examples
     ///
     /// ```
-    /// use rocksdb::{Options, PlainTableFactoryOptions};
+    /// use rocksdb::{KeyEncodingType, Options, PlainTableFactoryOptions};
     ///
     /// let mut opts = Options::default();
     /// let factory_opts = PlainTableFactoryOptions {
@@ -2121,6 +2434,10 @@ impl Options {
     ///   bloom_bits_per_key: 20,
     ///   hash_table_ratio: 0.75,
     ///   index_sparseness: 16,
+    ///   huge_page_tlb_size: 0,
+    ///   encoding_type: KeyEncodingType::Plain,
+    ///   full_scan_mode: false,
+    ///   store_index_in_file: false,
     /// };
     ///
     /// opts.set_plain_table_factory(&factory_opts);
@@ -2133,6 +2450,10 @@ impl Options {
                 options.bloom_bits_per_key,
                 options.hash_table_ratio,
                 options.index_sparseness,
+                options.huge_page_tlb_size,
+                options.encoding_type as c_char,
+                c_uchar::from(options.full_scan_mode),
+                c_uchar::from(options.store_index_in_file),
             );
         }
     }
@@ -2158,7 +2479,7 @@ impl Options {
     /// ```
     pub fn set_report_bg_io_stats(&mut self, enable: bool) {
         unsafe {
-            ffi::rocksdb_options_set_report_bg_io_stats(self.inner, enable as c_int);
+            ffi::rocksdb_options_set_report_bg_io_stats(self.inner, c_int::from(enable));
         }
     }
 
@@ -2216,7 +2537,7 @@ impl Options {
 
             // Must have valid UTF-8 format.
             let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
-            libc::free(value as *mut c_void);
+            ffi::rocksdb_free(value as *mut c_void);
             Some(s)
         }
     }
@@ -2263,7 +2584,9 @@ impl Options {
     ///
     /// Default: `true`
     pub fn set_advise_random_on_open(&mut self, advise: bool) {
-        unsafe { ffi::rocksdb_options_set_advise_random_on_open(self.inner, advise as c_uchar) }
+        unsafe {
+            ffi::rocksdb_options_set_advise_random_on_open(self.inner, c_uchar::from(advise));
+        }
     }
 
     /// Specifies the file access pattern once a compaction is started.
@@ -2286,7 +2609,7 @@ impl Options {
     /// Default: false
     pub fn set_use_adaptive_mutex(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_use_adaptive_mutex(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_use_adaptive_mutex(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -2346,7 +2669,7 @@ impl Options {
     /// opts.set_wal_dir("/path/to/dir");
     /// ```
     pub fn set_wal_dir<P: AsRef<Path>>(&mut self, path: P) {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path).unwrap();
         unsafe {
             ffi::rocksdb_options_set_wal_dir(self.inner, p.as_ptr());
         }
@@ -2397,18 +2720,6 @@ impl Options {
         }
     }
 
-    /// Enable/disable purging of duplicate/deleted keys when a memtable is flushed to storage.
-    ///
-    /// Default: true
-    pub fn set_purge_redundant_kvs_while_flush(&mut self, enabled: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_purge_redundant_kvs_while_flush(
-                self.inner,
-                enabled as c_uchar,
-            );
-        }
-    }
-
     /// If true, then DB::Open() will not update the statistics used to optimize
     /// compaction decision by loading table properties from many files.
     /// Turning off this feature will improve DBOpen time especially in disk environment.
@@ -2416,7 +2727,7 @@ impl Options {
     /// Default: false
     pub fn set_skip_stats_update_on_db_open(&mut self, skip: bool) {
         unsafe {
-            ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, skip as c_uchar);
+            ffi::rocksdb_options_set_skip_stats_update_on_db_open(self.inner, c_uchar::from(skip));
         }
     }
 
@@ -2452,7 +2763,7 @@ impl Options {
     /// ```
     pub fn set_allow_mmap_writes(&mut self, is_enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_mmap_writes(self.inner, is_enabled as c_uchar);
+            ffi::rocksdb_options_set_allow_mmap_writes(self.inner, c_uchar::from(is_enabled));
         }
     }
 
@@ -2470,7 +2781,27 @@ impl Options {
     /// ```
     pub fn set_allow_mmap_reads(&mut self, is_enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_allow_mmap_reads(self.inner, is_enabled as c_uchar);
+            ffi::rocksdb_options_set_allow_mmap_reads(self.inner, c_uchar::from(is_enabled));
+        }
+    }
+
+    /// If enabled, WAL is not flushed automatically after each write. Instead it
+    /// relies on manual invocation of `DB::flush_wal()` to write the WAL buffer
+    /// to its file.
+    ///
+    /// Default: false
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::Options;
+    ///
+    /// let mut options = Options::default();
+    /// options.set_manual_wal_flush(true);
+    /// ```
+    pub fn set_manual_wal_flush(&mut self, is_enabled: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_manual_wal_flush(self.inner, c_uchar::from(is_enabled));
         }
     }
 
@@ -2493,18 +2824,19 @@ impl Options {
     /// ```
     pub fn set_atomic_flush(&mut self, atomic_flush: bool) {
         unsafe {
-            ffi::rocksdb_options_set_atomic_flush(self.inner, atomic_flush as c_uchar);
+            ffi::rocksdb_options_set_atomic_flush(self.inner, c_uchar::from(atomic_flush));
         }
     }
 
-    /// Sets global cache for table-level rows. Cache must outlive DB instance which uses it.
+    /// Sets global cache for table-level rows.
     ///
     /// Default: null (disabled)
     /// Not supported in ROCKSDB_LITE mode!
     pub fn set_row_cache(&mut self, cache: &Cache) {
         unsafe {
-            ffi::rocksdb_options_set_row_cache(self.inner, cache.inner);
+            ffi::rocksdb_options_set_row_cache(self.inner, cache.0.inner.as_ptr());
         }
+        self.outlive.row_cache = Some(cache.clone());
     }
 
     /// Use to control write rate of flush and compaction. Flush has higher
@@ -2593,32 +2925,6 @@ impl Options {
         }
     }
 
-    /// Sets the soft rate limit.
-    ///
-    /// Puts are delayed 0-1 ms when any level has a compaction score that exceeds
-    /// soft_rate_limit. This is ignored when == 0.0.
-    /// CONSTRAINT: soft_rate_limit <= hard_rate_limit. If this constraint does not
-    /// hold, RocksDB will set soft_rate_limit = hard_rate_limit
-    ///
-    /// Default: 0.0 (disabled)
-    pub fn set_soft_rate_limit(&mut self, limit: f64) {
-        unsafe {
-            ffi::rocksdb_options_set_soft_rate_limit(self.inner, limit);
-        }
-    }
-
-    /// Sets the hard rate limit.
-    ///
-    /// Puts are delayed 1ms at a time when any level has a compaction score that
-    /// exceeds hard_rate_limit. This is ignored when <= 1.0.
-    ///
-    /// Default: 0.0 (disabled)
-    pub fn set_hard_rate_limit(&mut self, limit: f64) {
-        unsafe {
-            ffi::rocksdb_options_set_hard_rate_limit(self.inner, limit);
-        }
-    }
-
     /// Sets the threshold at which all writes will be slowed down to at least delayed_write_rate if estimated
     /// bytes needed to be compaction exceed this threshold.
     ///
@@ -2639,16 +2945,6 @@ impl Options {
         }
     }
 
-    /// Sets the max time a put will be stalled when hard_rate_limit is enforced.
-    /// If 0, then there is no limit.
-    ///
-    /// Default: 1000
-    pub fn set_rate_limit_delay_max_milliseconds(&mut self, millis: c_uint) {
-        unsafe {
-            ffi::rocksdb_options_set_rate_limit_delay_max_milliseconds(self.inner, millis);
-        }
-    }
-
     /// Sets the size of one block in arena memory allocation.
     ///
     /// If <= 0, a proper value is automatically calculated (usually 1/10 of
@@ -2666,7 +2962,7 @@ impl Options {
     /// Default: false
     pub fn set_dump_malloc_stats(&mut self, enabled: bool) {
         unsafe {
-            ffi::rocksdb_options_set_dump_malloc_stats(self.inner, enabled as c_uchar);
+            ffi::rocksdb_options_set_dump_malloc_stats(self.inner, c_uchar::from(enabled));
         }
     }
 
@@ -2681,20 +2977,123 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_memtable_whole_key_filtering(
                 self.inner,
-                whole_key_filter as c_uchar,
+                c_uchar::from(whole_key_filter),
             );
+        }
+    }
+
+    /// Enable the use of key-value separation.
+    ///
+    /// More details can be found here: [Integrated BlobDB](http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html).
+    ///
+    /// Default: false (disable)
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_enable_blob_files(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_blob_files(self.inner, u8::from(val));
+        }
+    }
+
+    /// Sets the minimum threshold value at or above which will be written
+    /// to blob files during flush or compaction.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_min_blob_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_min_blob_size(self.inner, val);
+        }
+    }
+
+    /// Sets the size limit for blob files.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_file_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_file_size(self.inner, val);
+        }
+    }
+
+    /// Sets the blob compression type. All blob files use the same
+    /// compression type.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_compression_type(&mut self, val: DBCompressionType) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_compression_type(self.inner, val as _);
+        }
+    }
+
+    /// If this is set to true RocksDB will actively relocate valid blobs from the oldest blob files
+    /// as they are encountered during compaction.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_enable_blob_gc(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_enable_blob_gc(self.inner, u8::from(val));
+        }
+    }
+
+    /// Sets the threshold that the GC logic uses to determine which blob files should be considered “old.”
+    ///
+    /// For example, the default value of 0.25 signals to RocksDB that blobs residing in the
+    /// oldest 25% of blob files should be relocated by GC. This parameter can be tuned to adjust
+    /// the trade-off between write amplification and space amplification.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_gc_age_cutoff(&mut self, val: c_double) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_gc_age_cutoff(self.inner, val);
+        }
+    }
+
+    /// Sets the blob GC force threshold.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_gc_force_threshold(&mut self, val: c_double) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_gc_force_threshold(self.inner, val);
+        }
+    }
+
+    /// Sets the blob compaction read ahead size.
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_blob_compaction_readahead_size(&mut self, val: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_compaction_readahead_size(self.inner, val);
+        }
+    }
+
+    /// Set this option to true during creation of database if you want
+    /// to be able to ingest behind (call IngestExternalFile() skipping keys
+    /// that already exist, rather than overwriting matching keys).
+    /// Setting this option to true has the following effects:
+    /// 1) Disable some internal optimizations around SST file compression.
+    /// 2) Reserve the last level for ingested files only.
+    /// 3) Compaction will not include any file from the last level.
+    /// Note that only Universal Compaction supports allow_ingest_behind.
+    /// `num_levels` should be >= 3 if this option is turned on.
+    ///
+    /// DEFAULT: false
+    /// Immutable.
+    pub fn set_allow_ingest_behind(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_allow_ingest_behind(self.inner, c_uchar::from(val));
         }
     }
 }
 
 impl Default for Options {
-    fn default() -> Options {
+    fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB options");
+            assert!(!opts.is_null(), "Could not create RocksDB options");
+
+            Self {
+                inner: opts,
+                outlive: OptionsMustOutliveDB::default(),
             }
-            Options { inner: opts }
         }
     }
 }
@@ -2718,18 +3117,20 @@ impl FlushOptions {
     /// ```
     pub fn set_wait(&mut self, wait: bool) {
         unsafe {
-            ffi::rocksdb_flushoptions_set_wait(self.inner, wait as c_uchar);
+            ffi::rocksdb_flushoptions_set_wait(self.inner, c_uchar::from(wait));
         }
     }
 }
 
 impl Default for FlushOptions {
-    fn default() -> FlushOptions {
+    fn default() -> Self {
         let flush_opts = unsafe { ffi::rocksdb_flushoptions_create() };
-        if flush_opts.is_null() {
-            panic!("Could not create RocksDB flush options");
-        }
-        FlushOptions { inner: flush_opts }
+        assert!(
+            !flush_opts.is_null(),
+            "Could not create RocksDB flush options"
+        );
+
+        Self { inner: flush_opts }
     }
 }
 
@@ -2745,7 +3146,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_sync(&mut self, sync: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_sync(self.inner, sync as c_uchar);
+            ffi::rocksdb_writeoptions_set_sync(self.inner, c_uchar::from(sync));
         }
     }
 
@@ -2756,7 +3157,7 @@ impl WriteOptions {
     /// Default: false
     pub fn disable_wal(&mut self, disable: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_disable_WAL(self.inner, disable as c_int);
+            ffi::rocksdb_writeoptions_disable_WAL(self.inner, c_int::from(disable));
         }
     }
 
@@ -2769,7 +3170,7 @@ impl WriteOptions {
         unsafe {
             ffi::rocksdb_writeoptions_set_ignore_missing_column_families(
                 self.inner,
-                ignore as c_uchar,
+                c_uchar::from(ignore),
             );
         }
     }
@@ -2780,7 +3181,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_no_slowdown(&mut self, no_slowdown: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_no_slowdown(self.inner, no_slowdown as c_uchar);
+            ffi::rocksdb_writeoptions_set_no_slowdown(self.inner, c_uchar::from(no_slowdown));
         }
     }
 
@@ -2793,7 +3194,7 @@ impl WriteOptions {
     /// Default: false
     pub fn set_low_pri(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_low_pri(self.inner, v as c_uchar);
+            ffi::rocksdb_writeoptions_set_low_pri(self.inner, c_uchar::from(v));
         }
     }
 
@@ -2806,22 +3207,28 @@ impl WriteOptions {
     /// Default: false
     pub fn set_memtable_insert_hint_per_batch(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_writeoptions_set_memtable_insert_hint_per_batch(self.inner, v as c_uchar);
+            ffi::rocksdb_writeoptions_set_memtable_insert_hint_per_batch(
+                self.inner,
+                c_uchar::from(v),
+            );
         }
     }
 }
 
 impl Default for WriteOptions {
-    fn default() -> WriteOptions {
+    fn default() -> Self {
         let write_opts = unsafe { ffi::rocksdb_writeoptions_create() };
-        if write_opts.is_null() {
-            panic!("Could not create RocksDB write options");
-        }
-        WriteOptions { inner: write_opts }
+        assert!(
+            !write_opts.is_null(),
+            "Could not create RocksDB write options"
+        );
+
+        Self { inner: write_opts }
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum ReadTier {
     /// Reads data in memtable, block cache, OS cache or storage.
@@ -2842,51 +3249,96 @@ impl ReadOptions {
     /// Default: true
     pub fn fill_cache(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_fill_cache(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_fill_cache(self.inner, c_uchar::from(v));
         }
     }
 
     /// Sets the snapshot which should be used for the read.
     /// The snapshot must belong to the DB that is being read and must
     /// not have been released.
-    pub(crate) fn set_snapshot(&mut self, snapshot: &Snapshot) {
+    pub fn set_snapshot<D: DBAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }
     }
 
+    /// Sets the lower bound for an iterator.
+    pub fn set_iterate_lower_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
+        self.set_lower_bound_impl(Some(key.into()));
+    }
+
     /// Sets the upper bound for an iterator.
     /// The upper bound itself is not included on the iteration result.
     pub fn set_iterate_upper_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
-        self.iterate_upper_bound = Some(key.into());
-        let upper_bound = self
-            .iterate_upper_bound
-            .as_ref()
-            .expect("iterate_upper_bound must exist.");
+        self.set_upper_bound_impl(Some(key.into()));
+    }
 
+    /// Sets lower and upper bounds based on the provided range.  This is
+    /// similar to setting lower and upper bounds separately except that it also
+    /// allows either bound to be reset.
+    ///
+    /// The argument can be a regular Rust range, e.g. `lower..upper`.  However,
+    /// since RocksDB upper bound is always excluded (i.e. range can never be
+    /// fully closed) inclusive ranges (`lower..=upper` and `..=upper`) are not
+    /// supported.  For example:
+    ///
+    /// ```
+    /// let mut options = rocksdb::ReadOptions::default();
+    /// options.set_iterate_range("xy".as_bytes().."xz".as_bytes());
+    /// ```
+    ///
+    /// In addition, [`crate::PrefixRange`] can be used to specify a range of
+    /// keys with a given prefix.  In particular, the above example is
+    /// equivalent to:
+    ///
+    /// ```
+    /// let mut options = rocksdb::ReadOptions::default();
+    /// options.set_iterate_range(rocksdb::PrefixRange("xy".as_bytes()));
+    /// ```
+    ///
+    /// Note that setting range using this method is separate to using prefix
+    /// iterators.  Prefix iterators use prefix extractor configured for
+    /// a column family.  Setting bounds via [`crate::PrefixRange`] is more akin
+    /// to using manual prefix.
+    ///
+    /// Using this method clears any previously set bounds.  In other words, the
+    /// bounds can be reset by setting the range to `..` as in:
+    ///
+    /// ```
+    /// let mut options = rocksdb::ReadOptions::default();
+    /// options.set_iterate_range(..);
+    /// ```
+    pub fn set_iterate_range(&mut self, range: impl crate::IterateBounds) {
+        let (lower, upper) = range.into_bounds();
+        self.set_lower_bound_impl(lower);
+        self.set_upper_bound_impl(upper);
+    }
+
+    fn set_lower_bound_impl(&mut self, bound: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref bound) = bound {
+            (bound.as_ptr() as *const c_char, bound.len())
+        } else if self.iterate_lower_bound.is_some() {
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.iterate_lower_bound = bound;
         unsafe {
-            ffi::rocksdb_readoptions_set_iterate_upper_bound(
-                self.inner,
-                upper_bound.as_ptr() as *const c_char,
-                upper_bound.len() as size_t,
-            );
+            ffi::rocksdb_readoptions_set_iterate_lower_bound(self.inner, ptr, len);
         }
     }
 
-    /// Sets the lower bound for an iterator.
-    pub fn set_iterate_lower_bound<K: Into<Vec<u8>>>(&mut self, key: K) {
-        self.iterate_lower_bound = Some(key.into());
-        let lower_bound = self
-            .iterate_lower_bound
-            .as_ref()
-            .expect("iterate_lower_bound must exist.");
-
+    fn set_upper_bound_impl(&mut self, bound: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref bound) = bound {
+            (bound.as_ptr() as *const c_char, bound.len())
+        } else if self.iterate_upper_bound.is_some() {
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.iterate_upper_bound = bound;
         unsafe {
-            ffi::rocksdb_readoptions_set_iterate_lower_bound(
-                self.inner,
-                lower_bound.as_ptr() as *const c_char,
-                lower_bound.len() as size_t,
-            );
+            ffi::rocksdb_readoptions_set_iterate_upper_bound(self.inner, ptr, len);
         }
     }
 
@@ -2910,7 +3362,9 @@ impl ReadOptions {
     ///
     /// Default: false
     pub fn set_prefix_same_as_start(&mut self, v: bool) {
-        unsafe { ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, v as c_uchar) }
+        unsafe {
+            ffi::rocksdb_readoptions_set_prefix_same_as_start(self.inner, c_uchar::from(v));
+        }
     }
 
     /// Enable a total order seek regardless of index format (e.g. hash index)
@@ -2921,7 +3375,9 @@ impl ReadOptions {
     /// block based table. It provides a way to read existing data after
     /// changing implementation of prefix extractor.
     pub fn set_total_order_seek(&mut self, v: bool) {
-        unsafe { ffi::rocksdb_readoptions_set_total_order_seek(self.inner, v as c_uchar) }
+        unsafe {
+            ffi::rocksdb_readoptions_set_total_order_seek(self.inner, c_uchar::from(v));
+        }
     }
 
     /// Sets a threshold for the number of keys that can be skipped
@@ -2939,11 +3395,11 @@ impl ReadOptions {
     /// in the flush job queue and delete obsolete files in background.
     ///
     /// Default: false
-    pub fn set_background_purge_on_interator_cleanup(&mut self, v: bool) {
+    pub fn set_background_purge_on_iterator_cleanup(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_background_purge_on_iterator_cleanup(
                 self.inner,
-                v as c_uchar,
+                c_uchar::from(v),
             );
         }
     }
@@ -2955,7 +3411,7 @@ impl ReadOptions {
     /// Default: false
     pub fn set_ignore_range_deletions(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, c_uchar::from(v));
         }
     }
 
@@ -2965,7 +3421,7 @@ impl ReadOptions {
     /// Default: true
     pub fn set_verify_checksums(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_verify_checksums(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_verify_checksums(self.inner, c_uchar::from(v));
         }
     }
 
@@ -2991,7 +3447,7 @@ impl ReadOptions {
     /// or seek_to_last are not supported.
     pub fn set_tailing(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_tailing(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_tailing(self.inner, c_uchar::from(v));
         }
     }
 
@@ -3005,15 +3461,26 @@ impl ReadOptions {
     /// Default: false
     pub fn set_pin_data(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_readoptions_set_pin_data(self.inner, v as c_uchar);
+            ffi::rocksdb_readoptions_set_pin_data(self.inner, c_uchar::from(v));
+        }
+    }
+
+    /// Asynchronously prefetch some data.
+    ///
+    /// Used for sequential reads and internal automatic prefetching.
+    ///
+    /// Default: `false`
+    pub fn set_async_io(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_async_io(self.inner, c_uchar::from(v));
         }
     }
 }
 
 impl Default for ReadOptions {
-    fn default() -> ReadOptions {
+    fn default() -> Self {
         unsafe {
-            ReadOptions {
+            Self {
                 inner: ffi::rocksdb_readoptions_create(),
                 iterate_upper_bound: None,
                 iterate_lower_bound: None,
@@ -3026,7 +3493,7 @@ impl IngestExternalFileOptions {
     /// Can be set to true to move the files instead of copying them.
     pub fn set_move_files(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_ingestexternalfileoptions_set_move_files(self.inner, v as c_uchar);
+            ffi::rocksdb_ingestexternalfileoptions_set_move_files(self.inner, c_uchar::from(v));
         }
     }
 
@@ -3036,7 +3503,7 @@ impl IngestExternalFileOptions {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_snapshot_consistency(
                 self.inner,
-                v as c_uchar,
+                c_uchar::from(v),
             );
         }
     }
@@ -3045,7 +3512,10 @@ impl IngestExternalFileOptions {
     /// overlaps with existing keys or tombstones in the DB.
     pub fn set_allow_global_seqno(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_ingestexternalfileoptions_set_allow_global_seqno(self.inner, v as c_uchar);
+            ffi::rocksdb_ingestexternalfileoptions_set_allow_global_seqno(
+                self.inner,
+                c_uchar::from(v),
+            );
         }
     }
 
@@ -3055,7 +3525,7 @@ impl IngestExternalFileOptions {
         unsafe {
             ffi::rocksdb_ingestexternalfileoptions_set_allow_blocking_flush(
                 self.inner,
-                v as c_uchar,
+                c_uchar::from(v),
             );
         }
     }
@@ -3069,15 +3539,15 @@ impl IngestExternalFileOptions {
     /// All files will be ingested at the bottommost level with seqno=0.
     pub fn set_ingest_behind(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_ingestexternalfileoptions_set_ingest_behind(self.inner, v as c_uchar);
+            ffi::rocksdb_ingestexternalfileoptions_set_ingest_behind(self.inner, c_uchar::from(v));
         }
     }
 }
 
 impl Default for IngestExternalFileOptions {
-    fn default() -> IngestExternalFileOptions {
+    fn default() -> Self {
         unsafe {
-            IngestExternalFileOptions {
+            Self {
                 inner: ffi::rocksdb_ingestexternalfileoptions_create(),
             }
         }
@@ -3125,6 +3595,30 @@ pub enum MemtableFactory {
     },
 }
 
+/// Used by BlockBasedOptions::set_checksum_type.
+pub enum ChecksumType {
+    NoChecksum = 0,
+    CRC32c = 1,
+    XXHash = 2,
+    XXHash64 = 3,
+    XXH3 = 4, // Supported since RocksDB 6.27
+}
+
+/// Used in [`PlainTableFactoryOptions`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum KeyEncodingType {
+    /// Always write full keys.
+    Plain = 0,
+    /// Find opportunities to write the same prefix for multiple rows.
+    Prefix = 1,
+}
+
+impl Default for KeyEncodingType {
+    fn default() -> Self {
+        KeyEncodingType::Plain
+    }
+}
+
 /// Used with DBOptions::set_plain_table_factory.
 /// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
 /// information.
@@ -3134,14 +3628,23 @@ pub enum MemtableFactory {
 ///  bloom_bits_per_key: 10
 ///  hash_table_ratio: 0.75
 ///  index_sparseness: 16
+///  huge_page_tlb_size: 0
+///  encoding_type: KeyEncodingType::Plain
+///  full_scan_mode: false
+///  store_index_in_file: false
 pub struct PlainTableFactoryOptions {
     pub user_key_length: u32,
     pub bloom_bits_per_key: i32,
     pub hash_table_ratio: f64,
     pub index_sparseness: usize,
+    pub huge_page_tlb_size: usize,
+    pub encoding_type: KeyEncodingType,
+    pub full_scan_mode: bool,
+    pub store_index_in_file: bool,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 pub enum DBCompressionType {
     None = ffi::rocksdb_no_compression as isize,
     Snappy = ffi::rocksdb_snappy_compression as isize,
@@ -3152,14 +3655,16 @@ pub enum DBCompressionType {
     Zstd = ffi::rocksdb_zstd_compression as isize,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 pub enum DBCompactionStyle {
     Level = ffi::rocksdb_level_compaction as isize,
     Universal = ffi::rocksdb_universal_compaction as isize,
     Fifo = ffi::rocksdb_fifo_compaction as isize,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 pub enum DBRecoveryMode {
     TolerateCorruptedTailRecords = ffi::rocksdb_tolerate_corrupted_tail_records_recovery as isize,
     AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
@@ -3168,7 +3673,8 @@ pub enum DBRecoveryMode {
 }
 
 /// File access pattern once a compaction has started
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum AccessHint {
     None = 0,
@@ -3182,12 +3688,14 @@ pub struct FifoCompactOptions {
 }
 
 impl Default for FifoCompactOptions {
-    fn default() -> FifoCompactOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_fifo_compaction_options_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB Fifo Compaction Options");
-        }
-        FifoCompactOptions { inner: opts }
+        assert!(
+            !opts.is_null(),
+            "Could not create RocksDB Fifo Compaction Options"
+        );
+
+        Self { inner: opts }
     }
 }
 
@@ -3213,7 +3721,8 @@ impl FifoCompactOptions {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 pub enum UniversalCompactionStopStyle {
     Similar = ffi::rocksdb_similar_size_compaction_stop_style as isize,
     Total = ffi::rocksdb_total_size_compaction_stop_style as isize,
@@ -3224,12 +3733,14 @@ pub struct UniversalCompactOptions {
 }
 
 impl Default for UniversalCompactOptions {
-    fn default() -> UniversalCompactOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_universal_compaction_options_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB Universal Compaction Options");
-        }
-        UniversalCompactOptions { inner: opts }
+        assert!(
+            !opts.is_null(),
+            "Could not create RocksDB Universal Compaction Options"
+        );
+
+        Self { inner: opts }
     }
 }
 
@@ -3326,7 +3837,8 @@ impl UniversalCompactOptions {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum BottommostLevelCompaction {
     /// Skip bottommost level compaction
@@ -3346,12 +3858,11 @@ pub struct CompactOptions {
 }
 
 impl Default for CompactOptions {
-    fn default() -> CompactOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_compactoptions_create() };
-        if opts.is_null() {
-            panic!("Could not create RocksDB Compact Options");
-        }
-        CompactOptions { inner: opts }
+        assert!(!opts.is_null(), "Could not create RocksDB Compact Options");
+
+        Self { inner: opts }
     }
 }
 
@@ -3371,7 +3882,10 @@ impl CompactOptions {
     /// and wait for existing automatic compaction jobs to finish.
     pub fn set_exclusive_manual_compaction(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_compactoptions_set_exclusive_manual_compaction(self.inner, v as c_uchar);
+            ffi::rocksdb_compactoptions_set_exclusive_manual_compaction(
+                self.inner,
+                c_uchar::from(v),
+            );
         }
     }
 
@@ -3386,7 +3900,7 @@ impl CompactOptions {
     /// of holding the data or given level (specified non-negative target_level).
     pub fn set_change_level(&mut self, v: bool) {
         unsafe {
-            ffi::rocksdb_compactoptions_set_change_level(self.inner, v as c_uchar);
+            ffi::rocksdb_compactoptions_set_change_level(self.inner, c_uchar::from(v));
         }
     }
 
@@ -3407,12 +3921,12 @@ pub struct DBPath {
 impl DBPath {
     /// Create a new path
     pub fn new<P: AsRef<Path>>(path: P, target_size: u64) -> Result<Self, Error> {
-        let p = CString::new(path.as_ref().to_string_lossy().as_bytes()).unwrap();
+        let p = to_cpath(path.as_ref()).unwrap();
         let dbpath = unsafe { ffi::rocksdb_dbpath_create(p.as_ptr(), target_size) };
         if dbpath.is_null() {
             Err(Error::new(format!(
                 "Could not create path for storing sst files at location: {}",
-                path.as_ref().to_string_lossy()
+                path.as_ref().display()
             )))
         } else {
             Ok(DBPath { inner: dbpath })

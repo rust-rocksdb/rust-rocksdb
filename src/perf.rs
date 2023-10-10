@@ -14,9 +14,9 @@
 
 use libc::{c_int, c_uchar, c_void};
 
-use crate::{ffi, ffi_util::from_cstr, Cache, Error, DB};
+use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error, DB};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
 pub enum PerfStatsLevel {
     /// Unknown settings
@@ -36,7 +36,7 @@ pub enum PerfStatsLevel {
     OutOfBound,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[repr(i32)]
 pub enum PerfMetric {
@@ -125,12 +125,11 @@ pub struct PerfContext {
 }
 
 impl Default for PerfContext {
-    fn default() -> PerfContext {
+    fn default() -> Self {
         let ctx = unsafe { ffi::rocksdb_perfcontext_create() };
-        if ctx.is_null() {
-            panic!("Could not create Perf Context");
-        }
-        PerfContext { inner: ctx }
+        assert!(!ctx.is_null(), "Could not create Perf Context");
+
+        Self { inner: ctx }
     }
 }
 
@@ -153,9 +152,10 @@ impl PerfContext {
     /// Get the report on perf
     pub fn report(&self, exclude_zero_counters: bool) -> String {
         unsafe {
-            let ptr = ffi::rocksdb_perfcontext_report(self.inner, exclude_zero_counters as c_uchar);
+            let ptr =
+                ffi::rocksdb_perfcontext_report(self.inner, c_uchar::from(exclude_zero_counters));
             let report = from_cstr(ptr);
-            libc::free(ptr as *mut c_void);
+            ffi::rocksdb_free(ptr as *mut c_void);
             report
         }
     }
@@ -242,14 +242,14 @@ impl MemoryUsageBuilder {
     /// Add a DB instance to collect memory usage from it and add up in total stats
     fn add_db(&mut self, db: &DB) {
         unsafe {
-            ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner);
+            ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner.inner());
         }
     }
 
     /// Add a cache to collect memory usage from it and add up in total stats
     fn add_cache(&mut self, cache: &Cache) {
         unsafe {
-            ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.inner);
+            ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.0.inner.as_ptr());
         }
     }
 

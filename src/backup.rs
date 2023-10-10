@@ -13,9 +13,10 @@
 // limitations under the License.
 //
 
-use crate::{ffi, Error, DB};
+use crate::env::Env;
+use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode};
 
-use libc::{c_int, c_uchar};
+use libc::c_uchar;
 use std::ffi::CString;
 use std::path::Path;
 
@@ -36,10 +37,11 @@ pub struct BackupEngineInfo {
 
 pub struct BackupEngine {
     inner: *mut ffi::rocksdb_backup_engine_t,
+    _outlive: Env,
 }
 
 pub struct BackupEngineOptions {
-    inner: *mut ffi::rocksdb_options_t,
+    inner: *mut ffi::rocksdb_backup_engine_options_t,
 }
 
 pub struct RestoreOptions {
@@ -47,37 +49,34 @@ pub struct RestoreOptions {
 }
 
 impl BackupEngine {
-    /// Open a backup engine with the specified options.
-    pub fn open<P: AsRef<Path>>(
-        opts: &BackupEngineOptions,
-        path: P,
-    ) -> Result<BackupEngine, Error> {
-        let path = path.as_ref();
-        let cpath = if let Ok(e) = CString::new(path.to_string_lossy().as_bytes()) {
-            e
-        } else {
-            return Err(Error::new(
-                "Failed to convert path to CString \
-                     when opening backup engine"
-                    .to_owned(),
-            ));
-        };
-
+    /// Open a backup engine with the specified options and RocksDB Env.
+    pub fn open(opts: &BackupEngineOptions, env: &Env) -> Result<Self, Error> {
         let be: *mut ffi::rocksdb_backup_engine_t;
-        unsafe { be = ffi_try!(ffi::rocksdb_backup_engine_open(opts.inner, cpath.as_ptr())) }
+        unsafe {
+            be = ffi_try!(ffi::rocksdb_backup_engine_open_opts(
+                opts.inner,
+                env.0.inner
+            ));
+        }
 
         if be.is_null() {
             return Err(Error::new("Could not initialize backup engine.".to_owned()));
         }
 
-        Ok(BackupEngine { inner: be })
+        Ok(Self {
+            inner: be,
+            _outlive: env.clone(),
+        })
     }
 
     /// Captures the state of the database in the latest backup.
     ///
     /// Note: no flush before backup is performed. User might want to
     /// use `create_new_backup_flush` instead.
-    pub fn create_new_backup(&mut self, db: &DB) -> Result<(), Error> {
+    pub fn create_new_backup<T: ThreadMode, D: DBInner>(
+        &mut self,
+        db: &DBCommon<T, D>,
+    ) -> Result<(), Error> {
         self.create_new_backup_flush(db, false)
     }
 
@@ -85,16 +84,16 @@ impl BackupEngine {
     ///
     /// Set flush_before_backup=true to avoid losing unflushed key/value
     /// pairs from the memtable.
-    pub fn create_new_backup_flush(
+    pub fn create_new_backup_flush<T: ThreadMode, D: DBInner>(
         &mut self,
-        db: &DB,
+        db: &DBCommon<T, D>,
         flush_before_backup: bool,
     ) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_create_new_backup_flush(
                 self.inner,
-                db.inner,
-                flush_before_backup as c_uchar,
+                db.inner.inner(),
+                c_uchar::from(flush_before_backup),
             ));
             Ok(())
         }
@@ -138,27 +137,8 @@ impl BackupEngine {
         wal_dir: W,
         opts: &RestoreOptions,
     ) -> Result<(), Error> {
-        let db_dir = db_dir.as_ref();
-        let c_db_dir = if let Ok(c) = CString::new(db_dir.to_string_lossy().as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
-                "Failed to convert db_dir to CString \
-                     when restoring from latest backup"
-                    .to_owned(),
-            ));
-        };
-
-        let wal_dir = wal_dir.as_ref();
-        let c_wal_dir = if let Ok(c) = CString::new(wal_dir.to_string_lossy().as_bytes()) {
-            c
-        } else {
-            return Err(Error::new(
-                "Failed to convert wal_dir to CString \
-                     when restoring from latest backup"
-                    .to_owned(),
-            ));
-        };
+        let c_db_dir = to_cpath(db_dir)?;
+        let c_wal_dir = to_cpath(wal_dir)?;
 
         unsafe {
             ffi_try!(ffi::rocksdb_backup_engine_restore_db_from_latest_backup(
@@ -166,6 +146,31 @@ impl BackupEngine {
                 c_db_dir.as_ptr(),
                 c_wal_dir.as_ptr(),
                 opts.inner,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Restore from a specified backup
+    ///
+    /// The specified backup id should be passed in as an additional parameter.
+    pub fn restore_from_backup<D: AsRef<Path>, W: AsRef<Path>>(
+        &mut self,
+        db_dir: D,
+        wal_dir: W,
+        opts: &RestoreOptions,
+        backup_id: u32,
+    ) -> Result<(), Error> {
+        let c_db_dir = to_cpath(db_dir)?;
+        let c_wal_dir = to_cpath(wal_dir)?;
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_backup_engine_restore_db_from_backup(
+                self.inner,
+                c_db_dir.as_ptr(),
+                c_wal_dir.as_ptr(),
+                opts.inner,
+                backup_id,
             ));
         }
         Ok(())
@@ -207,7 +212,7 @@ impl BackupEngine {
                     backup_id: ffi::rocksdb_backup_engine_info_backup_id(i, index),
                     size: ffi::rocksdb_backup_engine_info_size(i, index),
                     num_files: ffi::rocksdb_backup_engine_info_number_files(i, index),
-                })
+                });
             }
 
             // destroy backup info object
@@ -219,37 +224,61 @@ impl BackupEngine {
 }
 
 impl BackupEngineOptions {
-    //
-}
+    /// Initializes `BackupEngineOptions` with the directory to be used for storing/accessing the
+    /// backup files.
+    pub fn new<P: AsRef<Path>>(backup_dir: P) -> Result<Self, Error> {
+        let backup_dir = backup_dir.as_ref();
+        let c_backup_dir = CString::new(backup_dir.to_string_lossy().as_bytes()).map_err(|_| {
+            Error::new(
+                "Failed to convert backup_dir to CString \
+                     when constructing BackupEngineOptions"
+                    .to_owned(),
+            )
+        })?;
 
-impl RestoreOptions {
-    pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
         unsafe {
-            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, keep_log_files as c_int);
+            let opts = ffi::rocksdb_backup_engine_options_create(c_backup_dir.as_ptr());
+            assert!(!opts.is_null(), "Could not create RocksDB backup options");
+
+            Ok(Self { inner: opts })
+        }
+    }
+
+    /// Sets the number of operations (such as file copies or file checksums) that `RocksDB` may
+    /// perform in parallel when executing a backup or restore.
+    ///
+    /// Default: 1
+    pub fn set_max_background_operations(&mut self, max_background_operations: i32) {
+        unsafe {
+            ffi::rocksdb_backup_engine_options_set_max_background_operations(
+                self.inner,
+                max_background_operations,
+            );
         }
     }
 }
 
-impl Default for BackupEngineOptions {
-    fn default() -> BackupEngineOptions {
+impl RestoreOptions {
+    /// Sets `keep_log_files`. If true, restore won't overwrite the existing log files in wal_dir.
+    /// It will also move all log files from archive directory to wal_dir. Use this option in
+    /// combination with BackupEngineOptions::backup_log_files = false for persisting in-memory
+    /// databases.
+    ///
+    /// Default: false
+    pub fn set_keep_log_files(&mut self, keep_log_files: bool) {
         unsafe {
-            let opts = ffi::rocksdb_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB backup options".to_owned());
-            }
-            BackupEngineOptions { inner: opts }
+            ffi::rocksdb_restore_options_set_keep_log_files(self.inner, i32::from(keep_log_files));
         }
     }
 }
 
 impl Default for RestoreOptions {
-    fn default() -> RestoreOptions {
+    fn default() -> Self {
         unsafe {
             let opts = ffi::rocksdb_restore_options_create();
-            if opts.is_null() {
-                panic!("Could not create RocksDB restore options".to_owned());
-            }
-            RestoreOptions { inner: opts }
+            assert!(!opts.is_null(), "Could not create RocksDB restore options");
+
+            Self { inner: opts }
         }
     }
 }
@@ -265,7 +294,7 @@ impl Drop for BackupEngine {
 impl Drop for BackupEngineOptions {
     fn drop(&mut self) {
         unsafe {
-            ffi::rocksdb_options_destroy(self.inner);
+            ffi::rocksdb_backup_engine_options_destroy(self.inner);
         }
     }
 }

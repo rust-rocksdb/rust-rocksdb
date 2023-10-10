@@ -16,8 +16,31 @@ mod util;
 
 use std::{fs, io::Read as _};
 
-use rocksdb::{BlockBasedOptions, DataBlockIndexType, Options, ReadOptions, DB};
+use rocksdb::{
+    BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, Options, ReadOptions, DB,
+};
 use util::DBPath;
+
+#[test]
+fn test_load_latest() {
+    let n = DBPath::new("_rust_rocksdb_test_load_latest");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let _ = DB::open_cf(&opts, &n, vec!["cf0", "cf1"]).unwrap();
+    }
+    let (_, cfs) = Options::load_latest(
+        &n,
+        Env::new().unwrap(),
+        true,
+        Cache::new_lru_cache(1024 * 8),
+    )
+    .unwrap();
+    assert!(cfs.iter().any(|cf| cf.name() == "default"));
+    assert!(cfs.iter().any(|cf| cf.name() == "cf0"));
+    assert!(cfs.iter().any(|cf| cf.name() == "cf1"));
+}
 
 #[test]
 fn test_set_num_levels() {
@@ -133,4 +156,72 @@ fn test_set_data_block_index_type() {
         assert!(settings.contains("data_block_index_type: 1"));
         assert!(settings.contains("data_block_hash_table_util_ratio: 0.350000"));
     }
+}
+
+#[test]
+#[cfg(feature = "zstd")]
+fn set_compression_options_zstd_max_train_bytes() {
+    let path = DBPath::new("_rust_set_compression_options_zstd_max_train_bytes");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_compression_options(4, 5, 6, 7);
+        opts.set_zstd_max_train_bytes(100);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+}
+
+fn test_compression_type(ty: DBCompressionType) {
+    let path = DBPath::new("_test_compression_type");
+
+    let mut opts = Options::default();
+    opts.set_compression_type(ty);
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &path);
+
+    let should_open = match ty {
+        DBCompressionType::None => true,
+        DBCompressionType::Snappy => cfg!(feature = "snappy"),
+        DBCompressionType::Zlib => cfg!(feature = "zlib"),
+        DBCompressionType::Bz2 => cfg!(feature = "bzip2"),
+        DBCompressionType::Lz4 | DBCompressionType::Lz4hc => cfg!(feature = "lz4"),
+        DBCompressionType::Zstd => cfg!(feature = "zstd"),
+    };
+
+    if should_open {
+        let _db = db.unwrap();
+    } else {
+        let _err = db.unwrap_err();
+    }
+}
+
+#[test]
+fn test_none_compression() {
+    test_compression_type(DBCompressionType::None);
+}
+
+#[test]
+fn test_snappy_compression() {
+    test_compression_type(DBCompressionType::Snappy);
+}
+
+#[test]
+fn test_zlib_compression() {
+    test_compression_type(DBCompressionType::Zlib);
+}
+
+#[test]
+fn test_bz2_compression() {
+    test_compression_type(DBCompressionType::Bz2);
+}
+
+#[test]
+fn test_lz4_compression() {
+    test_compression_type(DBCompressionType::Lz4);
+    test_compression_type(DBCompressionType::Lz4hc);
+}
+
+#[test]
+fn test_zstd_compression() {
+    test_compression_type(DBCompressionType::Zstd);
 }

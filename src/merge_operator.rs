@@ -20,10 +20,10 @@
 //!
 //! fn concat_merge(new_key: &[u8],
 //!                 existing_val: Option<&[u8]>,
-//!                 operands: &mut MergeOperands)
+//!                 operands: &MergeOperands)
 //!                 -> Option<Vec<u8>> {
 //!
-//!    let mut result: Vec<u8> = Vec::with_capacity(operands.size_hint().0);
+//!    let mut result: Vec<u8> = Vec::with_capacity(operands.len());
 //!    existing_val.map(|v| {
 //!        for e in v {
 //!            result.push(*e)
@@ -62,11 +62,11 @@ use std::ptr;
 use std::slice;
 
 pub trait MergeFn:
-    Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
+    Fn(&[u8], Option<&[u8]>, &MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
 {
 }
 impl<F> MergeFn for F where
-    F: Fn(&[u8], Option<&[u8]>, &mut MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
+    F: Fn(&[u8], Option<&[u8]>, &MergeOperands) -> Option<Vec<u8>> + Send + Sync + 'static
 {
 }
 
@@ -77,8 +77,7 @@ pub struct MergeOperatorCallback<F: MergeFn, PF: MergeFn> {
 }
 
 pub unsafe extern "C" fn destructor_callback<F: MergeFn, PF: MergeFn>(raw_cb: *mut c_void) {
-    let _: Box<MergeOperatorCallback<F, PF>> =
-        Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>);
+    drop(Box::from_raw(raw_cb as *mut MergeOperatorCallback<F, PF>));
 }
 
 pub unsafe extern "C" fn delete_callback(
@@ -87,10 +86,10 @@ pub unsafe extern "C" fn delete_callback(
     value_length: size_t,
 ) {
     if !value.is_null() {
-        let _ = Box::from_raw(slice::from_raw_parts_mut(
+        drop(Box::from_raw(slice::from_raw_parts_mut(
             value as *mut u8,
-            value_length as usize,
-        ));
+            value_length,
+        )));
     }
 }
 
@@ -114,14 +113,14 @@ pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
     new_value_length: *mut size_t,
 ) -> *mut c_char {
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
-    let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
-    let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+    let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
+    let key = slice::from_raw_parts(raw_key as *const u8, key_len);
     let oldval = if existing_value.is_null() {
         None
     } else {
         Some(slice::from_raw_parts(
             existing_value as *const u8,
-            existing_value_len as usize,
+            existing_value_len,
         ))
     };
     (cb.full_merge_fn)(key, oldval, operands).map_or_else(
@@ -149,8 +148,8 @@ pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
     new_value_length: *mut size_t,
 ) -> *mut c_char {
     let cb = &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>);
-    let operands = &mut MergeOperands::new(operands_list, operands_list_len, num_operands);
-    let key = slice::from_raw_parts(raw_key as *const u8, key_len as usize);
+    let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
+    let key = slice::from_raw_parts(raw_key as *const u8, key_len);
     (cb.partial_merge_fn)(key, None, operands).map_or_else(
         || {
             *new_value_length = 0;
@@ -169,7 +168,6 @@ pub struct MergeOperands {
     operands_list: *const *const c_char,
     operands_list_len: *const size_t,
     num_operands: usize,
-    cursor: usize,
 }
 
 impl MergeOperands {
@@ -183,16 +181,26 @@ impl MergeOperands {
             operands_list,
             operands_list_len,
             num_operands: num_operands as usize,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.num_operands
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.num_operands == 0
+    }
+
+    pub fn iter(&self) -> MergeOperandsIter {
+        MergeOperandsIter {
+            operands: self,
             cursor: 0,
         }
     }
-}
 
-impl<'a> Iterator for &'a mut MergeOperands {
-    type Item = &'a [u8];
-
-    fn next(&mut self) -> Option<&'a [u8]> {
-        if self.cursor == self.num_operands {
+    fn get_operand(&self, index: usize) -> Option<&[u8]> {
+        if index >= self.num_operands {
             None
         } else {
             unsafe {
@@ -200,20 +208,46 @@ impl<'a> Iterator for &'a mut MergeOperands {
                 let base_len = self.operands_list_len as usize;
                 let spacing = mem::size_of::<*const *const u8>();
                 let spacing_len = mem::size_of::<*const size_t>();
-                let len_ptr = (base_len + (spacing_len * self.cursor)) as *const size_t;
-                let len = *len_ptr as usize;
-                let ptr = base + (spacing * self.cursor);
-                self.cursor += 1;
-                Some(mem::transmute(slice::from_raw_parts(
+                let len_ptr = (base_len + (spacing_len * index)) as *const size_t;
+                let len = *len_ptr;
+                let ptr = base + (spacing * index);
+                Some(slice::from_raw_parts(
                     *(ptr as *const *const u8) as *const u8,
                     len,
-                )))
+                ))
             }
         }
     }
+}
+
+pub struct MergeOperandsIter<'a> {
+    operands: &'a MergeOperands,
+    cursor: usize,
+}
+
+impl<'a> Iterator for MergeOperandsIter<'a> {
+    type Item = &'a [u8];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let operand = self.operands.get_operand(self.cursor)?;
+        self.cursor += 1;
+        Some(operand)
+    }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.num_operands - self.cursor;
+        let remaining = self.operands.num_operands - self.cursor;
         (remaining, Some(remaining))
+    }
+}
+
+impl<'a> IntoIterator for &'a MergeOperands {
+    type Item = &'a [u8];
+    type IntoIter = MergeOperandsIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            operands: self,
+            cursor: 0,
+        }
     }
 }

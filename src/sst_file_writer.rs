@@ -43,20 +43,20 @@ impl Drop for EnvOptions {
 }
 
 impl Default for EnvOptions {
-    fn default() -> EnvOptions {
+    fn default() -> Self {
         let opts = unsafe { ffi::rocksdb_envoptions_create() };
-        EnvOptions { inner: opts }
+        Self { inner: opts }
     }
 }
 
 impl<'a> SstFileWriter<'a> {
     /// Initializes SstFileWriter with given DB options.
-    pub fn create(opts: &'a Options) -> SstFileWriter {
+    pub fn create(opts: &'a Options) -> Self {
         let env_options = EnvOptions::default();
 
-        let writer = SstFileWriter::create_raw(opts, &env_options);
+        let writer = Self::create_raw(opts, &env_options);
 
-        SstFileWriter {
+        Self {
             inner: writer,
             phantom: PhantomData,
         }
@@ -94,7 +94,9 @@ impl<'a> SstFileWriter<'a> {
     /// returns the current file size
     pub fn file_size(&self) -> u64 {
         let mut file_size: u64 = 0;
-        unsafe { ffi::rocksdb_sstfilewriter_file_size(self.inner, &mut file_size) };
+        unsafe {
+            ffi::rocksdb_sstfilewriter_file_size(self.inner, &mut file_size);
+        }
         file_size
     }
 

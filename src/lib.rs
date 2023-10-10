@@ -60,16 +60,16 @@
     clippy::cast_possible_wrap, clippy::cast_possible_truncation, clippy::cast_sign_loss,
     // Next lints produce too much noise/false positives.
     clippy::module_name_repetitions, clippy::similar_names, clippy::must_use_candidate,
-    clippy::pub_enum_variant_names,
     // '... may panic' lints.
-    clippy::indexing_slicing,
     // Too much work to fix.
     clippy::missing_errors_doc,
     // False positive: WebSocket
     clippy::doc_markdown,
     clippy::missing_safety_doc,
     clippy::needless_pass_by_value,
-    clippy::option_if_let_else,
+    clippy::ptr_as_ptr,
+    clippy::missing_panics_doc,
+    clippy::from_over_into,
 )]
 
 #[macro_use]
@@ -85,32 +85,54 @@ mod db;
 mod db_iterator;
 mod db_options;
 mod db_pinnable_slice;
+mod env;
+mod iter_range;
 pub mod merge_operator;
 pub mod perf;
+mod prop_name;
+pub mod properties;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
+mod transactions;
 mod write_batch;
 
 pub use crate::{
-    column_family::{ColumnFamily, ColumnFamilyDescriptor, DEFAULT_COLUMN_FAMILY_NAME},
+    column_family::{
+        AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
+        ColumnFamilyRef, DEFAULT_COLUMN_FAMILY_NAME,
+    },
     compaction_filter::Decision as CompactionDecision,
-    db::{LiveFile, DB},
-    db_iterator::{DBIterator, DBRawIterator, DBWALIterator, Direction, IteratorMode},
+    db::{
+        DBAccess, DBCommon, DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode,
+        DB,
+    },
+    db_iterator::{
+        DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
+        DBWALIterator, Direction, IteratorMode,
+    },
     db_options::{
-        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, CompactOptions,
-        DBCompactionStyle, DBCompressionType, DBPath, DBRecoveryMode, DataBlockIndexType, Env,
-        FifoCompactOptions, FlushOptions, IngestExternalFileOptions, MemtableFactory, Options,
-        PlainTableFactoryOptions, ReadOptions, UniversalCompactOptions,
+        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, ChecksumType,
+        CompactOptions, CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath,
+        DBRecoveryMode, DataBlockIndexType, FifoCompactOptions, FlushOptions,
+        IngestExternalFileOptions, KeyEncodingType, LogLevel, MemtableFactory, Options,
+        PlainTableFactoryOptions, ReadOptions, ReadTier, UniversalCompactOptions,
         UniversalCompactionStopStyle, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
+    env::Env,
+    ffi_util::CStrLike,
+    iter_range::{IterateBounds, PrefixRange},
     merge_operator::MergeOperands,
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
-    snapshot::Snapshot,
+    snapshot::{Snapshot, SnapshotWithThreadMode},
     sst_file_writer::SstFileWriter,
-    write_batch::{WriteBatch, WriteBatchIterator},
+    transactions::{
+        OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
+        TransactionDBOptions, TransactionOptions,
+    },
+    write_batch::{WriteBatch, WriteBatchIterator, WriteBatchWithTransaction},
 };
 
 use librocksdb_sys as ffi;
@@ -118,9 +140,30 @@ use librocksdb_sys as ffi;
 use std::error;
 use std::fmt;
 
+/// RocksDB error kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+    NotFound,
+    Corruption,
+    NotSupported,
+    InvalidArgument,
+    IOError,
+    MergeInProgress,
+    Incomplete,
+    ShutdownInProgress,
+    TimedOut,
+    Aborted,
+    Busy,
+    Expired,
+    TryAgain,
+    CompactionTooLarge,
+    ColumnFamilyDropped,
+    Unknown,
+}
+
 /// A simple wrapper round a string, used for errors reported from
 /// ffi calls.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error {
     message: String,
 }
@@ -132,6 +175,28 @@ impl Error {
 
     pub fn into_string(self) -> String {
         self.into()
+    }
+
+    /// Parse corresponding [`ErrorKind`] from error message.
+    pub fn kind(&self) -> ErrorKind {
+        match self.message.split(':').next().unwrap_or("") {
+            "NotFound" => ErrorKind::NotFound,
+            "Corruption" => ErrorKind::Corruption,
+            "Not implemented" => ErrorKind::NotSupported,
+            "Invalid argument" => ErrorKind::InvalidArgument,
+            "IO error" => ErrorKind::IOError,
+            "Merge in progress" => ErrorKind::MergeInProgress,
+            "Result incomplete" => ErrorKind::Incomplete,
+            "Shutdown in progress" => ErrorKind::ShutdownInProgress,
+            "Operation timed out" => ErrorKind::TimedOut,
+            "Operation aborted" => ErrorKind::Aborted,
+            "Resource busy" => ErrorKind::Busy,
+            "Operation expired" => ErrorKind::Expired,
+            "Operation failed. Try again." => ErrorKind::TryAgain,
+            "Compaction too large" => ErrorKind::CompactionTooLarge,
+            "Column family dropped" => ErrorKind::ColumnFamilyDropped,
+            _ => ErrorKind::Unknown,
+        }
     }
 }
 
@@ -161,10 +226,18 @@ impl fmt::Display for Error {
 
 #[cfg(test)]
 mod test {
+    use crate::{
+        OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
+        TransactionDBOptions, TransactionOptions,
+    };
+
     use super::{
-        BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBIterator, DBRawIterator,
-        IngestExternalFileOptions, Options, PlainTableFactoryOptions, ReadOptions, Snapshot,
-        SstFileWriter, WriteBatch, WriteOptions, DB,
+        column_family::UnboundColumnFamily,
+        db_options::CacheWrapper,
+        env::{Env, EnvWrapper},
+        BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor,
+        DBIterator, DBRawIterator, IngestExternalFileOptions, Options, PlainTableFactoryOptions,
+        ReadOptions, Snapshot, SstFileWriter, WriteBatch, WriteOptions, DB,
     };
 
     #[test]
@@ -188,8 +261,20 @@ mod test {
         is_send::<PlainTableFactoryOptions>();
         is_send::<ColumnFamilyDescriptor>();
         is_send::<ColumnFamily>();
+        is_send::<BoundColumnFamily<'_>>();
+        is_send::<UnboundColumnFamily>();
         is_send::<SstFileWriter>();
         is_send::<WriteBatch>();
+        is_send::<Cache>();
+        is_send::<CacheWrapper>();
+        is_send::<Env>();
+        is_send::<EnvWrapper>();
+        is_send::<TransactionDB>();
+        is_send::<OptimisticTransactionDB>();
+        is_send::<Transaction<'_, TransactionDB>>();
+        is_send::<TransactionDBOptions>();
+        is_send::<OptimisticTransactionOptions>();
+        is_send::<TransactionOptions>();
     }
 
     #[test]
@@ -208,7 +293,17 @@ mod test {
         is_sync::<IngestExternalFileOptions>();
         is_sync::<BlockBasedOptions>();
         is_sync::<PlainTableFactoryOptions>();
+        is_sync::<UnboundColumnFamily>();
         is_sync::<ColumnFamilyDescriptor>();
         is_sync::<SstFileWriter>();
+        is_sync::<Cache>();
+        is_sync::<CacheWrapper>();
+        is_sync::<Env>();
+        is_sync::<EnvWrapper>();
+        is_sync::<TransactionDB>();
+        is_sync::<OptimisticTransactionDB>();
+        is_sync::<TransactionDBOptions>();
+        is_sync::<OptimisticTransactionOptions>();
+        is_sync::<TransactionOptions>();
     }
 }

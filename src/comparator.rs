@@ -16,18 +16,17 @@
 use libc::{c_char, c_int, c_void, size_t};
 use std::cmp::Ordering;
 use std::ffi::CString;
-use std::mem;
 use std::slice;
 
-pub type CompareFn = fn(&[u8], &[u8]) -> Ordering;
+pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering;
 
 pub struct ComparatorCallback {
     pub name: CString,
-    pub f: CompareFn,
+    pub f: Box<CompareFn>,
 }
 
 pub unsafe extern "C" fn destructor_callback(raw_cb: *mut c_void) {
-    let _: Box<ComparatorCallback> = mem::transmute(raw_cb);
+    drop(Box::from_raw(raw_cb as *mut ComparatorCallback));
 }
 
 pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
@@ -44,8 +43,8 @@ pub unsafe extern "C" fn compare_callback(
     b_len: size_t,
 ) -> c_int {
     let cb: &mut ComparatorCallback = &mut *(raw_cb as *mut ComparatorCallback);
-    let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len as usize);
-    let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len as usize);
+    let a: &[u8] = slice::from_raw_parts(a_raw as *const u8, a_len);
+    let b: &[u8] = slice::from_raw_parts(b_raw as *const u8, b_len);
     match (cb.f)(a, b) {
         Ordering::Less => -1,
         Ordering::Equal => 0,

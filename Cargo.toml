@@ -1,8 +1,9 @@
 [package]
 name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
-version = "0.15.0"
+version = "0.21.0"
 edition = "2018"
+rust-version = "1.63"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 repository = "https://github.com/rust-rocksdb/rust-rocksdb"
 license = "Apache-2.0"
@@ -16,20 +17,31 @@ exclude = [
     "test/**/*",
 ]
 
+[workspace]
+members = ["librocksdb-sys"]
+
 [features]
 default = ["snappy", "lz4", "zstd", "zlib", "bzip2"]
+jemalloc = ["librocksdb-sys/jemalloc"]
+io-uring = ["librocksdb-sys/io-uring"]
 valgrind = []
 snappy = ["librocksdb-sys/snappy"]
 lz4 = ["librocksdb-sys/lz4"]
 zstd = ["librocksdb-sys/zstd"]
 zlib = ["librocksdb-sys/zlib"]
 bzip2 = ["librocksdb-sys/bzip2"]
+rtti = ["librocksdb-sys/rtti"]
+multi-threaded-cf = []
+serde1 = ["serde"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "6.15.4" }
+librocksdb-sys = { path = "librocksdb-sys", version = "0.12.0" }
+serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]
-trybuild = "1.0.21"
-tempfile = "3.1.0"
-pretty_assertions = "0.6.1"
+trybuild = "1.0"
+tempfile = "3.1"
+pretty_assertions = "1.0"
+bincode = "1.3"
+serde = { version = "1", features = [ "derive" ] }

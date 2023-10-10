@@ -1,6 +1,8 @@
 name: RocksDB CI
 
 on: [push, pull_request]
+env:
+  RUST_VERSION: 1.63.0
 
 jobs:
   fmt:
@@ -12,7 +14,7 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt
           profile: minimal
           override: true
@@ -22,18 +24,35 @@ jobs:
           command: fmt
           args: --all -- --check
 
+  doc-check:
+    name: Rustdoc-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rust-docs
+          profile: minimal
+          override: true
+      - name: Run cargo rustdoc
+        uses: actions-rs/cargo@v1
+        with:
+          command: rustdoc
+          args: -- -D warnings
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          submodules: true
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           components: clippy
           profile: minimal
           override: true
@@ -41,7 +60,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: -- -D warnings
+          args: --all-targets -- -D warnings
 
   audit:
     name: Security audit
@@ -73,12 +92,10 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          submodules: true
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust || 'stable' }}
+          toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.target }}
           profile: minimal
           override: true
@@ -88,12 +105,12 @@ jobs:
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
-      - name: Run librocksdb-sys tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=librocksdb-sys/Cargo.toml
       - name: Run rocksdb tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: |
+          cargo test --all
+          cargo test --all --features multi-threaded-cf
+      - name: Free disk space
+        run: cargo clean
+      - name: Run rocksdb tests (jemalloc)
+        if: runner.os != 'Windows'
+        run: cargo test --all --features jemalloc

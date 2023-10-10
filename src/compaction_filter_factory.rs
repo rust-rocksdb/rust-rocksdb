@@ -30,7 +30,7 @@ pub unsafe extern "C" fn destructor_callback<F>(raw_self: *mut c_void)
 where
     F: CompactionFilterFactory,
 {
-    let _: Box<F> = Box::from_raw(raw_self as *mut F);
+    drop(Box::from_raw(raw_self as *mut F));
 }
 
 pub unsafe extern "C" fn name_callback<F>(raw_self: *mut c_void) -> *const c_char
@@ -56,7 +56,7 @@ impl CompactionFilterContext {
         let is_manual_compaction =
             ffi::rocksdb_compactionfiltercontext_is_manual_compaction(ptr) != 0;
 
-        CompactionFilterContext {
+        Self {
             is_full_compaction,
             is_manual_compaction,
         }
@@ -122,15 +122,15 @@ mod tests {
 
     #[test]
     fn compaction_filter_factory_test() {
-        let path = "_rust_rocksdb_filterfactorytest";
+        let path = "_rust_rocksdb_filter_factory_test";
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compaction_filter_factory(TestFactory(CString::new("TestFactory").unwrap()));
         {
             let db = DB::open(&opts, path).unwrap();
-            let _ = db.put(b"k1", b"a");
-            let _ = db.put(b"_k", b"b");
-            let _ = db.put(b"%k", b"c");
+            let _r = db.put(b"k1", b"a");
+            let _r = db.put(b"_rk", b"b");
+            let _r = db.put(b"%k", b"c");
             db.compact_range(None::<&[u8]>, None::<&[u8]>);
             assert_eq!(db.get(b"%k1").unwrap(), None);
         }

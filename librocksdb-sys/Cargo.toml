@@ -1,7 +1,8 @@
 [package]
 name = "librocksdb-sys"
-version = "6.15.4"
+version = "0.12.0+8.5.3"
 edition = "2018"
+rust-version = "1.63"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
@@ -13,21 +14,30 @@ links = "rocksdb"
 
 [features]
 default = [ "static" ]
-static = []
+jemalloc = ["tikv-jemalloc-sys"]
+static = ["libz-sys?/static", "bzip2-sys?/static"]
+io-uring = ["pkg-config"]
 snappy = []
-lz4 = []
-zstd = []
-zlib = []
-bzip2 = []
+lz4 = ["lz4-sys"]
+zstd = ["zstd-sys"]
+zlib = ["libz-sys"]
+bzip2 = ["bzip2-sys"]
+rtti = []
 
 [dependencies]
 libc = "0.2"
+tikv-jemalloc-sys = { version = "0.5", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
+lz4-sys = { version = "1.9", optional = true }
+zstd-sys = { version = "2.0", features = ["zdict_builder"], optional = true }
+libz-sys = { version = "1.1", default-features = false, optional = true }
+bzip2-sys = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
 const-cstr = "0.3"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
-cc = { version = "^1.0", features = ["parallel"] }
-bindgen = { version = "0.55", default-features = false, features = ["runtime"] }
+cc = { version = "1.0", features = ["parallel"] }
+bindgen = { version = "0.65", default-features = false, features = ["runtime"] }
 glob = "0.3"
+pkg-config = { version = "0.3", optional = true }

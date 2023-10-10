@@ -17,10 +17,14 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
+// Ensure the libraries are linked in, despite it not being used directly
 #[cfg(feature = "bzip2")]
-#[no_mangle]
-pub fn bz_internal_error(errcode: libc::c_int) {
-    panic!("bz internal error: {}", errcode);
-}
+extern crate bzip2_sys;
+#[cfg(feature = "zlib")]
+extern crate libz_sys;
+#[cfg(feature = "lz4")]
+extern crate lz4_sys;
+#[cfg(feature = "zstd")]
+extern crate zstd_sys;
+
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
