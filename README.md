@@ -5,7 +5,7 @@ rust-rocksdb
 [![documentation](https://docs.rs/rocksdb/badge.svg)](https://docs.rs/rocksdb)
 [![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/rust-rocksdb/rust-rocksdb/blob/master/LICENSE)
 [![Gitter chat](https://badges.gitter.im/rust-rocksdb/gitter.png)](https://gitter.im/rust-rocksdb/lobby)
-![rust 1.63.0 required](https://img.shields.io/badge/rust-1.63.0-blue.svg?label=MSRV)
+![rust 1.66.0 required](https://img.shields.io/badge/rust-1.66.0-blue.svg?label=MSRV)
 
 
 ![GitHub commits (since latest release)](https://img.shields.io/github/commits-since/rust-rocksdb/rust-rocksdb/latest.svg)

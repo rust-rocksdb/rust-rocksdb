@@ -12,18 +12,18 @@ macro_rules! property {
     };
 }
 
-/// "rocksdb.num-files-at-level<N>" - returns string containing the number
-/// of files at level <N>, where <N> is an ASCII representation of a
+/// "rocksdb.num-files-at-level<`N`>" - returns string containing the number
+/// of files at level <`N`>, where <`N`> is an ASCII representation of a
 /// level number (e.g., "0").
 pub fn num_files_at_level(level: usize) -> PropertyName {
     unsafe { level_property("num-files-at-level", level) }
 }
 
-/// "rocksdb.compression-ratio-at-level<N>" - returns string containing the
-/// compression ratio of data at level <N>, where <N> is an ASCII
+/// "rocksdb.compression-ratio-at-level<`N`>" - returns string containing the
+/// compression ratio of data at level <`N`>, where <`N`> is an ASCII
 /// representation of a level number (e.g., "0"). Here, compression
 /// ratio is defined as uncompressed data size / compressed file size.
-/// Returns "-1.0" if no open files at level <N>.
+/// Returns "-1.0" if no open files at level <`N`>.
 pub fn compression_ratio_at_level(level: usize) -> PropertyName {
     unsafe { level_property("compression-ratio-at-level", level) }
 }
@@ -42,7 +42,7 @@ pub const SSTABLES: &PropName = property!("sstables");
 pub const CFSTATS: &PropName = property!("CFSTATS");
 
 /// "rocksdb.cfstats-no-file-histogram" - returns a multi-line string with
-/// general columm family stats per-level over db's lifetime ("L<n>"),
+/// general column family stats per-level over db's lifetime ("`L<n>`"),
 /// aggregated over db's lifetime ("Sum"), and aggregated over the
 /// interval since the last retrieval ("Int").
 /// It could also be used to return the stats in the format of the map.
@@ -190,7 +190,7 @@ pub const ESTIMATE_PENDING_COMPACTION_BYTES: &PropName =
 /// of the aggregated table properties of the target column family.
 pub const AGGREGATED_TABLE_PROPERTIES: &PropName = property!("aggregated-table-properties");
 
-/// "rocksdb.aggregated-table-properties-at-level<N>", same as the previous
+/// "rocksdb.aggregated-table-properties-at-`level<N>`", same as the previous
 /// one but only returns the aggregated table properties of the
 /// specified level "N" at the target column family.
 pub fn aggregated_table_properties_at_level(level: usize) -> PropertyName {
