@@ -2,7 +2,7 @@ name: RocksDB CI
 
 on: [push, pull_request]
 env:
-  RUST_VERSION: 1.63.0
+  RUST_VERSION: 1.66.0
 
 jobs:
   fmt:
