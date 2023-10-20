@@ -51,3 +51,9 @@ for compatibility. If you need to modify column families concurrently, enable
 crate feature called `multi-threaded-cf`, which makes this binding's
 data structures to use RwLock by default. Alternatively, you can directly create
 `DBWithThreadMode<MultiThreaded>` without enabling the crate feature.
+
+## Sortable keys
+
+There is a library which enables sortable, composable keys [here](https://github.com/pegesund/sortable_rocksdb_keys/tree/master)
+
+This library supports basic types as well as both ascending/descending sorting.
