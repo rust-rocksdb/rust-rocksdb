@@ -289,15 +289,19 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
 
     /// Seeks to the next key.
     pub fn next(&mut self) {
-        unsafe {
-            ffi::rocksdb_iter_next(self.inner.as_ptr());
+        if self.valid() {
+            unsafe {
+                ffi::rocksdb_iter_next(self.inner.as_ptr());
+            }
         }
     }
 
     /// Seeks to the previous key.
     pub fn prev(&mut self) {
-        unsafe {
-            ffi::rocksdb_iter_prev(self.inner.as_ptr());
+        if self.valid() {
+            unsafe {
+                ffi::rocksdb_iter_prev(self.inner.as_ptr());
+            }
         }
     }
 
