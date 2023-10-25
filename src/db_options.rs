@@ -1041,6 +1041,30 @@ impl Options {
         }
     }
 
+    /// Number of threads for parallel compression.
+    /// Parallel compression is enabled only if threads > 1.
+    /// THE FEATURE IS STILL EXPERIMENTAL
+    ///
+    /// See [code](https://github.com/facebook/rocksdb/blob/v8.6.7/include/rocksdb/advanced_options.h#L116-L127)
+    /// for more information.
+    ///
+    /// Default: 1
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compression_type(DBCompressionType::Zstd);
+    /// opts.set_compression_options_parallel_threads(3);
+    /// ```
+    pub fn set_compression_options_parallel_threads(&mut self, num: i32) {
+        unsafe {
+            ffi::rocksdb_options_set_compression_options_parallel_threads(self.inner, num);
+        }
+    }
+
     /// Sets the bottom-most compression algorithm that will be used for
     /// compressing blocks at the bottom-most level.
     ///
