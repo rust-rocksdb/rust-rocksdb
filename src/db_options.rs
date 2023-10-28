@@ -104,6 +104,28 @@ impl Cache {
     }
 }
 
+pub(crate) struct WriteBufferManagerWrapper {
+    pub(crate) inner: NonNull<ffi::rocksdb_write_buffer_manager_t>,
+}
+
+impl Drop for WriteBufferManagerWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_write_buffer_manager_destroy(self.inner.as_ptr());
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct WriteBufferManager(pub(crate) Arc<WriteBufferManagerWrapper>);
+
+impl WriteBufferManager {
+    pub fn new(buffer_size: size_t) -> WriteBufferManager {
+        let inner = NonNull::new(unsafe { ffi::rocksdb_write_buffer_manager_create(buffer_size) }).unwrap();
+        WriteBufferManager(Arc::new(WriteBufferManagerWrapper { inner }))
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct OptionsMustOutliveDB {
     env: Option<Env>,
@@ -3129,6 +3151,12 @@ impl Options {
     pub fn set_allow_ingest_behind(&mut self, val: bool) {
         unsafe {
             ffi::rocksdb_options_set_allow_ingest_behind(self.inner, c_uchar::from(val));
+        }
+    }
+
+    pub fn set_write_buffer_manager(&mut self, write_buffer_manager: &WriteBufferManager) {
+        unsafe {
+            ffi::rocksdb_options_set_write_buffer_manager(self.inner, write_buffer_manager.0.inner.as_ptr());
         }
     }
 }
