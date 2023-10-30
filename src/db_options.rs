@@ -552,10 +552,10 @@ impl BlockBasedOptions {
 
     /// Format version, reserved for backward compatibility.
     ///
-    /// See full [list](https://github.com/facebook/rocksdb/blob/f059c7d9b96300091e07429a60f4ad55dac84859/include/rocksdb/table.h#L249-L274)
+    /// See full [list](https://github.com/facebook/rocksdb/blob/v8.6.7/include/rocksdb/table.h#L493-L521)
     /// of the supported versions.
     ///
-    /// Default: 2.
+    /// Default: 5.
     pub fn set_format_version(&mut self, version: i32) {
         unsafe {
             ffi::rocksdb_block_based_options_set_format_version(self.inner, version);
@@ -640,6 +640,31 @@ impl BlockBasedOptions {
     pub fn set_checksum_type(&mut self, checksum_type: ChecksumType) {
         unsafe {
             ffi::rocksdb_block_based_options_set_checksum(self.inner, checksum_type as c_char);
+        }
+    }
+
+    /// If true, generate Bloom/Ribbon filters that minimize memory internal
+    /// fragmentation.
+    /// See official [wiki](
+    /// https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter#reducing-internal-fragmentation)
+    /// for more information.
+    ///
+    /// Defaults to false.
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::BlockBasedOptions;
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_bloom_filter(10.0, true);
+    /// opts.set_optimize_filters_for_memory(true);
+    /// ```
+    pub fn set_optimize_filters_for_memory(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_optimize_filters_for_memory(
+                self.inner,
+                c_uchar::from(v),
+            );
         }
     }
 }
@@ -1013,6 +1038,30 @@ impl Options {
     pub fn set_compression_type(&mut self, t: DBCompressionType) {
         unsafe {
             ffi::rocksdb_options_set_compression(self.inner, t as c_int);
+        }
+    }
+
+    /// Number of threads for parallel compression.
+    /// Parallel compression is enabled only if threads > 1.
+    /// THE FEATURE IS STILL EXPERIMENTAL
+    ///
+    /// See [code](https://github.com/facebook/rocksdb/blob/v8.6.7/include/rocksdb/advanced_options.h#L116-L127)
+    /// for more information.
+    ///
+    /// Default: 1
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compression_type(DBCompressionType::Zstd);
+    /// opts.set_compression_options_parallel_threads(3);
+    /// ```
+    pub fn set_compression_options_parallel_threads(&mut self, num: i32) {
+        unsafe {
+            ffi::rocksdb_options_set_compression_options_parallel_threads(self.inner, num);
         }
     }
 

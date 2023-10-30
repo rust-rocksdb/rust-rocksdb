@@ -136,3 +136,17 @@ pub fn test_seek_for_prev() {
         assert_item(&iter, b"k2", b"v2");
     }
 }
+
+#[test]
+pub fn test_next_without_seek() {
+    let n = DBPath::new("test_forgot_seek");
+    {
+        let db = DB::open_default(&n).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+
+        let mut iter = db.raw_iterator();
+        iter.next();
+    }
+}
