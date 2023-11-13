@@ -1078,10 +1078,15 @@ impl Options {
     ///
     /// let mut opts = Options::default();
     /// opts.set_wal_compression_type(DBCompressionType::Zstd);
+    /// // Or None to disable it
+    /// opts.set_wal_compression_type(DBCompressionType::None);
     /// ```
     pub fn set_wal_compression_type(&mut self, t: DBCompressionType) {
-        unsafe {
-            ffi::rocksdb_options_set_wal_compression(self.inner, t as c_int);
+        match t {
+            DBCompressionType::None | DBCompressionType::Zstd => unsafe {
+                ffi::rocksdb_options_set_wal_compression(self.inner, t as c_int);
+            },
+            other => unimplemented!("{:?} is not supported for WAL compression", other),
         }
     }
 
