@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "0.13.0+8.6.7"
+version = "0.14.0+8.8.1"
 edition = "2018"
 rust-version = "1.66.0"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
@@ -38,6 +38,6 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
-bindgen = { version = "0.68", default-features = false, features = ["runtime"] }
+bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
 glob = "0.3"
 pkg-config = { version = "0.3", optional = true }
