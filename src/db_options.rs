@@ -1068,8 +1068,8 @@ impl Options {
     /// Sets the bottom-most compression algorithm that will be used for
     /// compressing blocks at the bottom-most level.
     ///
-    /// Note that to actually unable bottom-most compression configuration after
-    /// setting the compression type it needs to be enabled by calling
+    /// Note that to actually enable bottom-most compression configuration after
+    /// setting the compression type, it needs to be enabled by calling
     /// [`set_bottommost_compression_options`](#method.set_bottommost_compression_options) or
     /// [`set_bottommost_zstd_max_train_bytes`](#method.set_bottommost_zstd_max_train_bytes) method with `enabled` argument
     /// set to `true`.
