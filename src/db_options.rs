@@ -1065,6 +1065,31 @@ impl Options {
         }
     }
 
+    /// Sets the compression algorithm that will be used for compressing WAL.
+    ///
+    /// At present, only ZSTD compression is supported!
+    ///
+    /// Default: `DBCompressionType::None`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_wal_compression_type(DBCompressionType::Zstd);
+    /// // Or None to disable it
+    /// opts.set_wal_compression_type(DBCompressionType::None);
+    /// ```
+    pub fn set_wal_compression_type(&mut self, t: DBCompressionType) {
+        match t {
+            DBCompressionType::None | DBCompressionType::Zstd => unsafe {
+                ffi::rocksdb_options_set_wal_compression(self.inner, t as c_int);
+            },
+            other => unimplemented!("{:?} is not supported for WAL compression", other),
+        }
+    }
+
     /// Sets the bottom-most compression algorithm that will be used for
     /// compressing blocks at the bottom-most level.
     ///
