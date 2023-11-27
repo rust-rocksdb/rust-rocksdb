@@ -1260,10 +1260,7 @@ impl Options {
     /// running RocksDB on spinning disks, you should set this to at least 2MB.
     /// That way RocksDB's compaction is doing sequential instead of random reads.
     ///
-    /// When non-zero, we also force new_table_reader_for_compaction_inputs to
-    /// true.
-    ///
-    /// Default: `0`
+    /// Default: 2 * 1024 * 1024 (2 MB)
     pub fn set_compaction_readahead_size(&mut self, compaction_readahead_size: usize) {
         unsafe {
             ffi::rocksdb_options_compaction_readahead_size(self.inner, compaction_readahead_size);
