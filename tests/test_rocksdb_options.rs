@@ -171,6 +171,28 @@ fn set_compression_options_zstd_max_train_bytes() {
     }
 }
 
+#[test]
+fn set_wal_compression_zstd() {
+    let path = DBPath::new("_set_wal_compression_zstd");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_wal_compression_type(DBCompressionType::None);
+        opts.set_wal_compression_type(DBCompressionType::Zstd);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+}
+
+#[test]
+#[should_panic(expected = "Lz4 is not supported for WAL compression")]
+fn set_wal_compression_unsupported() {
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_wal_compression_type(DBCompressionType::Lz4);
+    }
+}
+
 fn test_compression_type(ty: DBCompressionType) {
     let path = DBPath::new("_test_compression_type");
 

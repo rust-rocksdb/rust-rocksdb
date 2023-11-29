@@ -1065,11 +1065,36 @@ impl Options {
         }
     }
 
+    /// Sets the compression algorithm that will be used for compressing WAL.
+    ///
+    /// At present, only ZSTD compression is supported!
+    ///
+    /// Default: `DBCompressionType::None`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, DBCompressionType};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_wal_compression_type(DBCompressionType::Zstd);
+    /// // Or None to disable it
+    /// opts.set_wal_compression_type(DBCompressionType::None);
+    /// ```
+    pub fn set_wal_compression_type(&mut self, t: DBCompressionType) {
+        match t {
+            DBCompressionType::None | DBCompressionType::Zstd => unsafe {
+                ffi::rocksdb_options_set_wal_compression(self.inner, t as c_int);
+            },
+            other => unimplemented!("{:?} is not supported for WAL compression", other),
+        }
+    }
+
     /// Sets the bottom-most compression algorithm that will be used for
     /// compressing blocks at the bottom-most level.
     ///
-    /// Note that to actually unable bottom-most compression configuration after
-    /// setting the compression type it needs to be enabled by calling
+    /// Note that to actually enable bottom-most compression configuration after
+    /// setting the compression type, it needs to be enabled by calling
     /// [`set_bottommost_compression_options`](#method.set_bottommost_compression_options) or
     /// [`set_bottommost_zstd_max_train_bytes`](#method.set_bottommost_zstd_max_train_bytes) method with `enabled` argument
     /// set to `true`.
@@ -1235,10 +1260,7 @@ impl Options {
     /// running RocksDB on spinning disks, you should set this to at least 2MB.
     /// That way RocksDB's compaction is doing sequential instead of random reads.
     ///
-    /// When non-zero, we also force new_table_reader_for_compaction_inputs to
-    /// true.
-    ///
-    /// Default: `0`
+    /// Default: 2 * 1024 * 1024 (2 MB)
     pub fn set_compaction_readahead_size(&mut self, compaction_readahead_size: usize) {
         unsafe {
             ffi::rocksdb_options_compaction_readahead_size(self.inner, compaction_readahead_size);
