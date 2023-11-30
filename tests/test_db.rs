@@ -531,6 +531,38 @@ fn test_get_updates_since_one_batch() {
 }
 
 #[test]
+fn test_get_updates_since_batches() {
+    let path = DBPath::new("_rust_rocksdb_test_get_updates_since_one_batch");
+    let db = DB::open_default(&path).unwrap();
+    db.put(b"key2", b"value2").unwrap();
+
+    assert_eq!(db.latest_sequence_number(), 1);
+    let mut batch = WriteBatch::default();
+    batch.put(b"key1", b"value1");
+    batch.delete(b"key2");
+    db.write(batch).unwrap();
+    let seq2 = db.latest_sequence_number();
+    assert_eq!(seq2, 3);
+    let mut batch = WriteBatch::default();
+    batch.put(b"key3", b"value1");
+    batch.put(b"key4", b"value1");
+    db.write(batch).unwrap();
+    assert_eq!(db.latest_sequence_number(), 5);
+    let mut iter = db.get_updates_since(seq2).unwrap();
+    let mut counts = OperationCounts {
+        puts: 0,
+        deletes: 0,
+    };
+    // Verify we get the 2nd batch with 2 puts back and not the first
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 4);
+    batch.iterate(&mut counts);
+    assert!(iter.next().is_none());
+    assert_eq!(counts.puts, 2);
+    assert_eq!(counts.deletes, 0);
+}
+
+#[test]
 fn test_get_updates_since_nothing() {
     let path = DBPath::new("_rust_rocksdb_test_get_updates_since_nothing");
     let db = DB::open_default(&path).unwrap();
