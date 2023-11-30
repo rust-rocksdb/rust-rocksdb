@@ -247,3 +247,21 @@ fn test_lz4_compression() {
 fn test_zstd_compression() {
     test_compression_type(DBCompressionType::Zstd);
 }
+
+#[test]
+fn test_add_compact_on_deletion_collector_factory() {
+    let n = DBPath::new("_rust_rocksdb_test_add_compact_on_deletion_collector_factory");
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.add_compact_on_deletion_collector_factory(5, 10, 0.5);
+    let _db = DB::open(&opts, &n).unwrap();
+
+    let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
+        .expect("rocksdb creates a LOG file");
+    let mut settings = String::new();
+    rocksdb_log
+        .read_to_string(&mut settings)
+        .expect("can read the LOG file");
+    assert!(settings.contains("CompactOnDeletionCollector (Sliding window size = 5 Deletion trigger = 10 Deletion ratio = 0.5)"));
+}

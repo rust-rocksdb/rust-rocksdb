@@ -3153,6 +3153,31 @@ impl Options {
             ffi::rocksdb_options_set_allow_ingest_behind(self.inner, c_uchar::from(val));
         }
     }
+
+    // A factory of a table property collector that marks an SST
+    // file as need-compaction when it observe at least "D" deletion
+    // entries in any "N" consecutive entries, or the ratio of tombstone
+    // entries >= deletion_ratio.
+    //
+    // `window_size`: is the sliding window size "N"
+    // `num_dels_trigger`: is the deletion trigger "D"
+    // `deletion_ratio`: if <= 0 or > 1, disable triggering compaction based on
+    // deletion ratio.
+    pub fn add_compact_on_deletion_collector_factory(
+        &mut self,
+        window_size: size_t,
+        num_dels_trigger: size_t,
+        deletion_ratio: f64,
+    ) {
+        unsafe {
+            ffi::rocksdb_options_add_compact_on_deletion_collector_factory_del_ratio(
+                self.inner,
+                window_size,
+                num_dels_trigger,
+                deletion_ratio,
+            );
+        }
+    }
 }
 
 impl Default for Options {
