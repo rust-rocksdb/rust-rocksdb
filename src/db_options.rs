@@ -3538,6 +3538,15 @@ impl ReadOptions {
         }
     }
 
+    /// Automatically trim readahead size when iterating with an upper bound.
+    ///
+    /// Default: `false`
+    pub fn set_auto_readahead_size(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_auto_readahead_size(self.inner, c_uchar::from(v));
+        }
+    }
+
     /// If true, create a tailing iterator. Note that tailing iterators
     /// only support moving in the forward direction. Iterating in reverse
     /// or seek_to_last are not supported.
