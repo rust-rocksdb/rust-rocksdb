@@ -3538,6 +3538,15 @@ impl ReadOptions {
         }
     }
 
+    /// Automatically trim readahead size when iterating with an upper bound.
+    ///
+    /// Default: `false`
+    pub fn set_auto_readahead_size(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_auto_readahead_size(self.inner, c_uchar::from(v));
+        }
+    }
+
     /// If true, create a tailing iterator. Note that tailing iterators
     /// only support moving in the forward direction. Iterating in reverse
     /// or seek_to_last are not supported.
@@ -4005,6 +4014,65 @@ impl CompactOptions {
     pub fn set_target_level(&mut self, lvl: c_int) {
         unsafe {
             ffi::rocksdb_compactoptions_set_target_level(self.inner, lvl);
+        }
+    }
+}
+
+pub struct WaitForCompactOptions {
+    pub(crate) inner: *mut ffi::rocksdb_wait_for_compact_options_t,
+}
+
+impl Default for WaitForCompactOptions {
+    fn default() -> Self {
+        let opts = unsafe { ffi::rocksdb_wait_for_compact_options_create() };
+        assert!(
+            !opts.is_null(),
+            "Could not create RocksDB Wait For Compact Options"
+        );
+
+        Self { inner: opts }
+    }
+}
+
+impl Drop for WaitForCompactOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_wait_for_compact_options_destroy(self.inner);
+        }
+    }
+}
+
+impl WaitForCompactOptions {
+    /// If true, abort waiting if background jobs are paused. If false,
+    /// ContinueBackgroundWork() must be called to resume the background jobs.
+    /// Otherwise, jobs that were queued, but not scheduled yet may never finish
+    /// and WaitForCompact() may wait indefinitely (if timeout is set, it will
+    /// abort after the timeout).
+    ///
+    /// Default: false
+    pub fn set_abort_on_pause(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_wait_for_compact_options_set_abort_on_pause(self.inner, c_uchar::from(v));
+        }
+    }
+
+    /// If true, flush all column families before starting to wait.
+    ///
+    /// Default: false
+    pub fn set_flush(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_wait_for_compact_options_set_flush(self.inner, c_uchar::from(v));
+        }
+    }
+
+    /// Timeout in microseconds for waiting for compaction to complete.
+    /// when timeout == 0, WaitForCompact() will wait as long as there's background
+    /// work to finish.
+    ///
+    /// Default: 0
+    pub fn set_timeout(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_wait_for_compact_options_set_timeout(self.inner, microseconds);
         }
     }
 }
