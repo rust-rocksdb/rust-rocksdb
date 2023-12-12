@@ -24,7 +24,7 @@ use rocksdb::{
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
     Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
-    UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
+    UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions, WriteBatch, DB,
     DEFAULT_COLUMN_FAMILY_NAME,
 };
 use util::{assert_iter, pair, DBPath};
@@ -531,6 +531,38 @@ fn test_get_updates_since_one_batch() {
 }
 
 #[test]
+fn test_get_updates_since_batches() {
+    let path = DBPath::new("_rust_rocksdb_test_get_updates_since_one_batch");
+    let db = DB::open_default(&path).unwrap();
+    db.put(b"key2", b"value2").unwrap();
+
+    assert_eq!(db.latest_sequence_number(), 1);
+    let mut batch = WriteBatch::default();
+    batch.put(b"key1", b"value1");
+    batch.delete(b"key2");
+    db.write(batch).unwrap();
+    let seq2 = db.latest_sequence_number();
+    assert_eq!(seq2, 3);
+    let mut batch = WriteBatch::default();
+    batch.put(b"key3", b"value1");
+    batch.put(b"key4", b"value1");
+    db.write(batch).unwrap();
+    assert_eq!(db.latest_sequence_number(), 5);
+    let mut iter = db.get_updates_since(seq2).unwrap();
+    let mut counts = OperationCounts {
+        puts: 0,
+        deletes: 0,
+    };
+    // Verify we get the 2nd batch with 2 puts back and not the first
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 4);
+    batch.iterate(&mut counts);
+    assert!(iter.next().is_none());
+    assert_eq!(counts.puts, 2);
+    assert_eq!(counts.deletes, 0);
+}
+
+#[test]
 fn test_get_updates_since_nothing() {
     let path = DBPath::new("_rust_rocksdb_test_get_updates_since_nothing");
     let db = DB::open_default(&path).unwrap();
@@ -792,6 +824,38 @@ fn fifo_compaction_test() {
             assert_eq!(f.num_entries, 5);
             assert_eq!(f.num_deletions, 0);
         });
+    }
+}
+
+#[test]
+fn wait_for_compact_test() {
+    let path = DBPath::new("_rust_rocksdb_wait_for_compact_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // set wait for compact options
+        let mut wait_for_compact_opts: WaitForCompactOptions = WaitForCompactOptions::default();
+        wait_for_compact_opts.set_abort_on_pause(false);
+        wait_for_compact_opts.set_flush(true);
+
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(&cf1, b"k2", b"v2").unwrap();
+        db.put_cf(&cf1, b"k3", b"v3").unwrap();
+        db.put_cf(&cf1, b"k4", b"v4").unwrap();
+        db.put_cf(&cf1, b"k5", b"v5").unwrap();
+
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        db.wait_for_compact(&wait_for_compact_opts).unwrap()
     }
 }
 

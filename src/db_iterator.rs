@@ -558,7 +558,7 @@ impl Iterator for DBWALIterator {
 
         // if the initial sequence number is what was requested we skip it to
         // only provide changes *after* it
-        if seq == self.start_seq_number {
+        while seq <= self.start_seq_number {
             unsafe {
                 ffi::rocksdb_wal_iter_next(self.inner);
             }
