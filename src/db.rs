@@ -23,7 +23,7 @@ use crate::{
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
-    WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+    WaitForCompactOptions, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use crate::ffi_util::CSlice;
@@ -1744,6 +1744,24 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 end.map_or(0, <[u8]>::len) as size_t,
             );
         }
+    }
+
+    /// Wait for all flush and compactions jobs to finish. Jobs to wait include the
+    /// unscheduled (queued, but not scheduled yet).
+    ///
+    /// NOTE: This may also never return if there's sufficient ongoing writes that
+    /// keeps flush and compaction going without stopping. The user would have to
+    /// cease all the writes to DB to make this eventually return in a stable
+    /// state. The user may also use timeout option in WaitForCompactOptions to
+    /// make this stop waiting and return when timeout expires.
+    pub fn wait_for_compact(&self, opts: &WaitForCompactOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_wait_for_compact(
+                self.inner.inner(),
+                opts.inner
+            ));
+        }
+        Ok(())
     }
 
     pub fn set_options(&self, opts: &[(&str, &str)]) -> Result<(), Error> {
