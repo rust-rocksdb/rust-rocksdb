@@ -265,3 +265,14 @@ fn test_add_compact_on_deletion_collector_factory() {
         .expect("can read the LOG file");
     assert!(settings.contains("CompactOnDeletionCollector (Sliding window size = 5 Deletion trigger = 10 Deletion ratio = 0.5)"));
 }
+
+#[test]
+fn test_set_periodic_compaction_seconds() {
+    let path = DBPath::new("_set_periodic_compaction_seconds");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_periodic_compaction_seconds(5);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+}

@@ -1281,6 +1281,55 @@ impl Options {
         }
     }
 
+    /// This option has different meanings for different compaction styles:
+    ///
+    /// Leveled: files older than `periodic_compaction_seconds` will be picked up
+    /// for compaction and will be re-written to the same level as they were
+    /// before.
+    ///
+    /// FIFO: not supported. Setting this option has no effect for FIFO compaction.
+    ///
+    /// Universal: when there are files older than `periodic_compaction_seconds`,
+    /// rocksdb will try to do as large a compaction as possible including the
+    /// last level. Such compaction is only skipped if only last level is to
+    /// be compacted and no file in last level is older than
+    /// `periodic_compaction_seconds`. See more in
+    /// UniversalCompactionBuilder::PickPeriodicCompaction().
+    /// For backward compatibility, the effective value of this option takes
+    /// into account the value of option `ttl`. The logic is as follows:
+    ///    - both options are set to 30 days if they have the default value.
+    ///    - if both options are zero, zero is picked. Otherwise, we take the min
+    ///    value among non-zero options values (i.e. takes the stricter limit).
+    ///
+    /// One main use of the feature is to make sure a file goes through compaction
+    /// filters periodically. Users can also use the feature to clear up SST
+    /// files using old format.
+    ///
+    /// A file's age is computed by looking at file_creation_time or creation_time
+    /// table properties in order, if they have valid non-zero values; if not, the
+    /// age is based on the file's last modified time (given by the underlying
+    /// Env).
+    ///
+    /// This option only supports block based table format for any compaction
+    /// style.
+    ///
+    /// unit: seconds. Ex: 7 days = 7 * 24 * 60 * 60
+    ///
+    /// Values:
+    /// 0: Turn off Periodic compactions.
+    /// UINT64_MAX - 1 (0xfffffffffffffffe) is special flag to allow RocksDB to
+    /// pick default.
+    ///
+    /// Default: 30 days if using block based table format + compaction filter +
+    /// leveled compaction or block based table format + universal compaction.
+    /// 0 (disabled) otherwise.
+    ///
+    pub fn set_periodic_compaction_seconds(&mut self, secs: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_periodic_compaction_seconds(self.inner, secs);
+        }
+    }
+
     pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
         name: impl CStrLike,
