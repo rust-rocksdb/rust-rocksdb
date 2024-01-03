@@ -5,6 +5,7 @@
 * Bump MSRV to 1.63.0 (mina86)
 * Convert properties to `&PropName` which can be converted at no cost to `&CStr`
   and `&str` (mina86)
+* Add WriteBufferManager support (benoitmeriaux)
 
 ## 0.21.0 (2023-05-09)
 
