@@ -73,7 +73,7 @@ impl WriteBufferManager {
     /// buffer_size: the memory limit in bytes.
     /// allow_stall: If set true, it will enable stalling of all writers when memory usage exceeds buffer_size (soft limit).
     ///             It will wait for flush to complete and memory usage to drop down
-    pub fn new_write_buffer_manager(buffer_size: size_t, allow_stall: bool) -> WriteBufferManager {
+    pub fn new_write_buffer_manager(buffer_size: size_t, allow_stall: bool) -> Self {
         let inner = NonNull::new(unsafe {
             ffi::rocksdb_write_buffer_manager_create(buffer_size, allow_stall)
         })
@@ -81,7 +81,7 @@ impl WriteBufferManager {
         WriteBufferManager(Arc::new(WriteBufferManagerWrapper { inner }))
     }
 
-    /// users can set up RocksDB to cost memory used by memtables to block cache.
+    /// Users can set up RocksDB to cost memory used by memtables to block cache.
     /// This can happen no matter whether you enable memtable memory limit or not.
     /// This option is added to manage memory (memtables + block cache) under a single limit.
     ///
@@ -93,7 +93,7 @@ impl WriteBufferManager {
         buffer_size: size_t,
         allow_stall: bool,
         cache: Cache,
-    ) -> WriteBufferManager {
+    ) -> Self {
         let inner = NonNull::new(unsafe {
             ffi::rocksdb_write_buffer_manager_create_with_cache(
                 buffer_size,
