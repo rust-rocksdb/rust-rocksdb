@@ -51,7 +51,7 @@ impl Drop for WriteBufferManagerWrapper {
 pub struct WriteBufferManager(pub(crate) Arc<WriteBufferManagerWrapper>);
 
 impl WriteBufferManager {
-    /// https://github.com/facebook/rocksdb/wiki/Write-Buffer-Manager
+    /// <https://github.com/facebook/rocksdb/wiki/Write-Buffer-Manager>
     /// Write buffer manager helps users control the total memory used by memtables across multiple column families and/or DB instances.
     /// Users can enable this control by 2 ways:
     ///
@@ -118,7 +118,7 @@ impl WriteBufferManager {
     /// Set the buffer size in bytes.
     pub fn set_buffer_size(&self, new_size: usize) {
         unsafe {
-            ffi::rocksdb_write_buffer_manager_set_buffer_size(self.0.inner.as_ptr(), new_size)
+            ffi::rocksdb_write_buffer_manager_set_buffer_size(self.0.inner.as_ptr(), new_size);
         }
     }
 
@@ -130,7 +130,7 @@ impl WriteBufferManager {
     /// set the allow_stall flag.
     pub fn set_allow_stall(&self, allow_stall: bool) {
         unsafe {
-            ffi::rocksdb_write_buffer_manager_set_allow_stall(self.0.inner.as_ptr(), allow_stall)
+            ffi::rocksdb_write_buffer_manager_set_allow_stall(self.0.inner.as_ptr(), allow_stall);
         }
     }
 }
@@ -3337,7 +3337,7 @@ impl Options {
         }
     }
 
-    /// https://github.com/facebook/rocksdb/wiki/Write-Buffer-Manager
+    /// <https://github.com/facebook/rocksdb/wiki/Write-Buffer-Manager>
     /// Write buffer manager helps users control the total memory used by memtables across multiple column families and/or DB instances.
     /// Users can enable this control by 2 ways:
     ///
@@ -3887,18 +3887,16 @@ pub enum ChecksumType {
 
 /// Used in [`PlainTableFactoryOptions`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Default)]
 pub enum KeyEncodingType {
     /// Always write full keys.
+    #[default]
     Plain = 0,
     /// Find opportunities to write the same prefix for multiple rows.
     Prefix = 1,
 }
 
-impl Default for KeyEncodingType {
-    fn default() -> Self {
-        KeyEncodingType::Plain
-    }
-}
+
 
 /// Used with DBOptions::set_plain_table_factory.
 /// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
