@@ -3886,8 +3886,7 @@ pub enum ChecksumType {
 }
 
 /// Used in [`PlainTableFactoryOptions`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum KeyEncodingType {
     /// Always write full keys.
     #[default]
@@ -3895,8 +3894,6 @@ pub enum KeyEncodingType {
     /// Find opportunities to write the same prefix for multiple rows.
     Prefix = 1,
 }
-
-
 
 /// Used with DBOptions::set_plain_table_factory.
 /// See official [wiki](https://github.com/facebook/rocksdb/wiki/PlainTable-Format) for more
