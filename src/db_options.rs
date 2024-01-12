@@ -3589,9 +3589,16 @@ impl ReadOptions {
         }
     }
 
-    /// Automatically trim readahead size when iterating with an upper bound.
+    /// If auto_readahead_size is set to true, it will auto tune the readahead_size
+    /// during scans internally.
+    /// For this feature to be enabled, iterate_upper_bound must also be specified.
     ///
-    /// Default: `false`
+    /// NOTE: - Recommended for forward Scans only.
+    ///       - If there is a backward scans, this option will be
+    ///         disabled internally and won't be enabled again if the forward scan
+    ///         is issued again.
+    ///
+    /// Default: true
     pub fn set_auto_readahead_size(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_auto_readahead_size(self.inner, c_uchar::from(v));
