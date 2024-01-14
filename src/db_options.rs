@@ -57,6 +57,13 @@ impl Cache {
         Cache(Arc::new(CacheWrapper { inner }))
     }
 
+    /// Creates an LRU cache with custom options.
+    pub fn new_lru_cache_opts(opts: &LruCacheOptions) -> Cache {
+        let inner =
+            NonNull::new(unsafe { ffi::rocksdb_cache_create_lru_opts(opts.inner) }).unwrap();
+        Cache(Arc::new(CacheWrapper { inner }))
+    }
+
     /// Creates a HyperClockCache with capacity in bytes.
     ///
     /// `estimated_entry_charge` is an important tuning parameter. The optimal
@@ -108,6 +115,7 @@ impl Cache {
 pub(crate) struct OptionsMustOutliveDB {
     env: Option<Env>,
     row_cache: Option<Cache>,
+    blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
 }
 
@@ -116,6 +124,7 @@ impl OptionsMustOutliveDB {
         Self {
             env: self.env.as_ref().map(Env::clone),
             row_cache: self.row_cache.as_ref().map(Cache::clone),
+            blob_cache: self.blob_cache.as_ref().map(Cache::clone),
             block_based: self
                 .block_based
                 .as_ref()
@@ -203,6 +212,10 @@ pub struct WriteOptions {
     pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
+pub struct LruCacheOptions {
+    pub(crate) inner: *mut ffi::rocksdb_lru_cache_options_t,
+}
+
 /// Optionally wait for the memtable flush to be performed.
 ///
 /// # Examples
@@ -277,6 +290,7 @@ pub struct IngestExternalFileOptions {
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
+unsafe impl Send for LruCacheOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
@@ -288,6 +302,7 @@ unsafe impl Send for CompactOptions {}
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
+unsafe impl Sync for LruCacheOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
@@ -343,6 +358,14 @@ impl Drop for WriteOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for LruCacheOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_destroy(self.inner);
         }
     }
 }
@@ -3187,6 +3210,35 @@ impl Options {
         }
     }
 
+    /// The Cache object to use for blobs. Using a dedicated object for blobs and
+    /// using the same object for the block and blob caches are both supported. In
+    /// the latter case, note that blobs are less valuable from a caching
+    /// perspective than SST blocks, and some cache implementations have
+    /// configuration options that can be used to prioritize items accordingly.
+    ///
+    /// Default: disabled
+    pub fn set_blob_cache(&mut self, cache: &Cache) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_cache(self.inner, cache.0.inner.as_ptr());
+        }
+        self.outlive.blob_cache = Some(cache.clone());
+    }
+
+    // Enable/disable prepopulating the blob cache. When set to
+    // [`PrepopulateBlobCache::FlushOnly`], BlobDB will insert newly written blobs
+    // into the blob cache during flush. This can improve performance when reading
+    // back these blobs would otherwise be expensive (e.g. when using direct I/O or
+    // remote storage), or when the workload has a high temporal locality.
+    //
+    // Default: disabled
+    //
+    // Dynamically changeable through the SetOptions() API
+    pub fn set_prepopulate_blob_cache(&mut self, val: PrepopulateBlobCache) {
+        unsafe {
+            ffi::rocksdb_options_set_prepopulate_blob_cache(self.inner, val as c_int);
+        }
+    }
+
     /// Set this option to true during creation of database if you want
     /// to be able to ingest behind (call IngestExternalFile() skipping keys
     /// that already exist, rather than overwriting matching keys).
@@ -3371,6 +3423,39 @@ impl Default for WriteOptions {
         );
 
         Self { inner: write_opts }
+    }
+}
+
+impl LruCacheOptions {
+    /// Capacity of the cache, in the same units as the `charge` of each entry.
+    /// This is typically measured in bytes, but can be a different unit if using
+    /// kDontChargeCacheMetadata.
+    pub fn set_capaicty(&mut self, cap: usize) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_set_capacity(self.inner, cap);
+        }
+    }
+
+    /// Cache is sharded into 2^num_shard_bits shards, by hash of key.
+    /// If < 0, a good default is chosen based on the capacity and the
+    /// implementation. (Mutex-based implementations are much more reliant
+    /// on many shards for parallel scalability.)
+    pub fn set_num_shard_bits(&mut self, val: c_int) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_set_num_shard_bits(self.inner, val);
+        }
+    }
+}
+
+impl Default for LruCacheOptions {
+    fn default() -> Self {
+        let inner = unsafe { ffi::rocksdb_lru_cache_options_create() };
+        assert!(
+            !inner.is_null(),
+            "Could not create RocksDB LRU cache options"
+        );
+
+        Self { inner }
     }
 }
 
@@ -3844,6 +3929,16 @@ pub enum AccessHint {
     Normal,
     Sequential,
     WillNeed,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u8)]
+pub enum PrepopulateBlobCache {
+    /// Disable prepopulate blob cache
+    Disable = 0,
+    /// Prepopulate blobs during flush only
+    FlushOnly,
 }
 
 pub struct FifoCompactOptions {
