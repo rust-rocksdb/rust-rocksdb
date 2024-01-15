@@ -94,6 +94,7 @@ pub mod properties;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
+pub mod statistics;
 mod transactions;
 mod write_batch;
 
