@@ -2672,10 +2672,12 @@ impl Options {
         unsafe { ffi::rocksdb_options_set_statistics_level(self.inner, level as c_int) }
     }
 
+    /// Returns the value of cumulative db counters if stat collection is enabled.
     pub fn get_ticker_count(&self, ticker: Ticker) -> u64 {
         unsafe { ffi::rocksdb_options_statistics_get_ticker_count(self.inner, ticker as u32) }
     }
 
+    /// Gets Histogram data from collected db stats. Requires stats to be enabled.
     pub fn get_histogram_data(&self, histogram: Histogram) -> HistogramData {
         unsafe {
             let data = HistogramData::default();
