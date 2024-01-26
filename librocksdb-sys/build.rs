@@ -231,14 +231,14 @@ fn build_rocksdb() {
             "port/win/win_logger.cc",
         ]);
 
-        if cfg!(feature = "jemalloc") {
+        if cfg!(all(feature = "jemalloc", not(windows))) {
             lib_sources.push("port/win/win_jemalloc.cc");
         }
     }
 
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
-    if cfg!(feature = "jemalloc") {
+    if cfg!(all(feature = "jemalloc", not(windows))) {
         config.define("WITH_JEMALLOC", "ON");
     }
 
