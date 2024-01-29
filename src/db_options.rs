@@ -1581,9 +1581,12 @@ impl Options {
         }
     }
 
-    pub fn optimize_for_point_lookup(&mut self, cache_size: u64) {
+    // Use this if you don't need to keep the data sorted, i.e. you'll never use
+    // an iterator, only Put() and Get() API calls
+    //
+    pub fn optimize_for_point_lookup(&mut self, block_cache_size_mb: u64) {
         unsafe {
-            ffi::rocksdb_options_optimize_for_point_lookup(self.inner, cache_size);
+            ffi::rocksdb_options_optimize_for_point_lookup(self.inner, block_cache_size_mb);
         }
     }
 
