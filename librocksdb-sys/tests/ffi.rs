@@ -25,7 +25,7 @@
 
 use const_cstr::const_cstr;
 use libc::*;
-use librocksdb_sys::*;
+use rust_librocksdb_sys::*;
 use std::borrow::Cow;
 use std::env;
 use std::ffi::{CStr, CString};

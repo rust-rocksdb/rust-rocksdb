@@ -1,5 +1,5 @@
 [package]
-name = "librocksdb-sys"
+name = "rust-librocksdb-sys"
 version = "0.16.0+8.10.0"
 edition = "2021"
 rust-version = "1.75.0"
@@ -7,7 +7,7 @@ authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@et
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
 readme = "README.md"
-repository = "https://github.com/rust-rocksdb/rust-rocksdb"
+repository = "https://github.com/zaidoon1/rust-rocksdb"
 keywords = [ "bindings", "ffi", "rocksdb" ]
 categories = [ "api-bindings", "database", "external-ffi-bindings" ]
 links = "rocksdb"

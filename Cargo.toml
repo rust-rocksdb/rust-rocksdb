@@ -1,7 +1,7 @@
 [package]
 name = "rust-rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
-version = "0.22.0"
+version = "0.22.1"
 edition = "2021"
 rust-version = "1.75.0"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
@@ -22,21 +22,21 @@ members = ["librocksdb-sys"]
 
 [features]
 default = ["snappy", "lz4", "zstd", "zlib", "bzip2"]
-jemalloc = ["librocksdb-sys/jemalloc"]
-io-uring = ["librocksdb-sys/io-uring"]
+jemalloc = ["rust-librocksdb-sys/jemalloc"]
+io-uring = ["rust-librocksdb-sys/io-uring"]
 valgrind = []
-snappy = ["librocksdb-sys/snappy"]
-lz4 = ["librocksdb-sys/lz4"]
-zstd = ["librocksdb-sys/zstd"]
-zlib = ["librocksdb-sys/zlib"]
-bzip2 = ["librocksdb-sys/bzip2"]
-rtti = ["librocksdb-sys/rtti"]
+snappy = ["rust-librocksdb-sys/snappy"]
+lz4 = ["rust-librocksdb-sys/lz4"]
+zstd = ["rust-librocksdb-sys/zstd"]
+zlib = ["rust-librocksdb-sys/zlib"]
+bzip2 = ["rust-librocksdb-sys/bzip2"]
+rtti = ["rust-librocksdb-sys/rtti"]
 multi-threaded-cf = []
 serde1 = ["serde"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.16.0" }
+rust-librocksdb-sys = { path = "librocksdb-sys", version = "0.16.0" }
 serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]
