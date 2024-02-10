@@ -2,14 +2,14 @@
 name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.21.0"
-edition = "2018"
-rust-version = "1.66.0"
+edition = "2021"
+rust-version = "1.75.0"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
-repository = "https://github.com/rust-rocksdb/rust-rocksdb"
+repository = "https://github.com/zaidoon1/rust-rocksdb"
 license = "Apache-2.0"
 categories = [ "database" ]
 keywords = ["database", "embedded", "LSM-tree", "persistence"]
-homepage = "https://github.com/rust-rocksdb/rust-rocksdb"
+homepage = "https://github.com/zaidoon1/rust-rocksdb"
 exclude = [
     ".gitignore",
     ".travis.yml",
@@ -40,8 +40,8 @@ librocksdb-sys = { path = "librocksdb-sys", version = "0.16.0" }
 serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]
-trybuild = "1.0"
-tempfile = "3.1"
-pretty_assertions = "1.0"
-bincode = "1.3"
+trybuild = "1"
+tempfile = "3"
+pretty_assertions = "1"
+bincode = "1"
 serde = { version = "1", features = [ "derive" ] }

@@ -63,6 +63,7 @@
     // '... may panic' lints.
     // Too much work to fix.
     clippy::missing_errors_doc,
+    clippy::should_panic_without_expect,
     // False positive: WebSocket
     clippy::doc_markdown,
     clippy::missing_safety_doc,

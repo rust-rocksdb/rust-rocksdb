@@ -659,7 +659,7 @@ fn two_phase_commit() {
         let txns = db.prepared_transactions();
         assert_eq!(txns.len(), 2);
 
-        for (_, txn) in txns.into_iter().enumerate() {
+        for txn in txns.into_iter() {
             let name = txn.get_name().unwrap();
 
             if name == b"t1" {

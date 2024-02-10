@@ -166,7 +166,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
 
             let cfopts: Vec<_> = cfs_v
                 .iter()
-                .map(|cf| cf.options.inner as *const _)
+                .map(|cf| cf.options.inner.cast_const())
                 .collect();
 
             db = Self::open_cf_raw(opts, &cpath, &cfs_v, &cfnames, &cfopts, &mut cfhandles)?;
@@ -262,7 +262,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
                     std::ptr::null_mut(),
                 )
             },
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
