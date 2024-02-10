@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{DBAccess, DBRawIteratorWithThreadMode, DB};
+use rust_rocksdb::{DBAccess, DBRawIteratorWithThreadMode, DB};
 use util::DBPath;
 
 fn assert_item<D: DBAccess>(iter: &DBRawIteratorWithThreadMode<'_, D>, key: &[u8], value: &[u8]) {

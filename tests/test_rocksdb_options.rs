@@ -16,7 +16,7 @@ mod util;
 
 use std::{fs, io::Read as _};
 
-use rocksdb::{
+use rust_rocksdb::{
     BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, Options, ReadOptions, DB,
 };
 use util::DBPath;

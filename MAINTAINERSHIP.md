@@ -31,9 +31,7 @@ If any maintainer thinks an issue is major, it is major.
 #### Releasing, Publishing
 
 * Releases adhere to [semver](https://semver.org/)
-* To cut a release, an issue should be opened for it and reach the required approval based on the above `Categories of Work` section above
-* When progress is possible, the issue may be closed and the proposer may publish to crates.io. This is controlled by those in the [crate publishers organization-level team](https://github.com/orgs/rust-rocksdb/teams/crate-publishers).
-* Releases should have an associated tag pushed to this repo. I recommend doing this after the publish to crates.io succeeds to prevent any mishaps around pushing a tag for something that can't actually be published.
+* Releases should have an associated tag pushed to this repo.
 * The changelog serves as a sort of logical staging area for releases
 * If a breaking API change happens, and the changelog has not advanced to a new major version, we roll the changelog to a new major version and open an issue to release the previous patch (and post-1.0, minor) version.
 * Before rolling to a new major version, it would be nice to release a non-breaking point release to let current users silently take advantage of any improvements

@@ -1,8 +1,6 @@
 rust-rocksdb
 ============
 
-[![crates.io](https://img.shields.io/crates/v/rocksdb.svg)](https://crates.io/crates/rocksdb)
-[![documentation](https://docs.rs/rocksdb/badge.svg)](https://docs.rs/rocksdb)
 [![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/zaidoon1/rust-rocksdb/blob/master/LICENSE)
 ![rust 1.75.0 required](https://img.shields.io/badge/rust-1.75.0-blue.svg?label=MSRV)
 

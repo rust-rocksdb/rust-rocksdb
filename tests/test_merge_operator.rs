@@ -15,7 +15,7 @@
 mod util;
 
 use pretty_assertions::assert_eq;
-use rocksdb::{merge_operator::MergeFn, DBCompactionStyle, MergeOperands, Options, DB};
+use rust_rocksdb::{merge_operator::MergeFn, DBCompactionStyle, MergeOperands, Options, DB};
 use serde::{Deserialize, Serialize};
 use util::DBPath;
 

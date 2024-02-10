@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{WriteBatch, WriteBatchIterator};
+use rust_rocksdb::{WriteBatch, WriteBatchIterator};
 
 #[test]
 fn test_write_batch_clear() {

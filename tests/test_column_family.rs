@@ -16,8 +16,10 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME};
-use rocksdb::{TransactionDB, TransactionDBOptions};
+use rust_rocksdb::{
+    ColumnFamilyDescriptor, MergeOperands, Options, DB, DEFAULT_COLUMN_FAMILY_NAME,
+};
+use rust_rocksdb::{TransactionDB, TransactionDBOptions};
 use util::DBPath;
 
 use std::fs;
@@ -25,9 +27,9 @@ use std::io;
 use std::path::Path;
 
 #[cfg(feature = "multi-threaded-cf")]
-use rocksdb::MultiThreaded;
+use rust_rocksdb::MultiThreaded;
 #[cfg(not(feature = "multi-threaded-cf"))]
-use rocksdb::SingleThreaded;
+use rust_rocksdb::SingleThreaded;
 
 fn dir_size(path: impl AsRef<Path>) -> io::Result<u64> {
     fn dir_size(mut dir: fs::ReadDir) -> io::Result<u64> {
@@ -441,7 +443,7 @@ fn test_no_leaked_column_family() {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
 
-        let mut write_options = rocksdb::WriteOptions::default();
+        let mut write_options = rust_rocksdb::WriteOptions::default();
         write_options.set_sync(false);
         write_options.disable_wal(true);
 
@@ -462,7 +464,7 @@ fn test_no_leaked_column_family() {
             db.create_cf(&cf_name, &Options::default()).unwrap();
             let cf = db.cf_handle(&cf_name).unwrap();
 
-            let mut batch = rocksdb::WriteBatch::default();
+            let mut batch = rust_rocksdb::WriteBatch::default();
             for key_index in 0..100 {
                 batch.put_cf(&cf, format!("k{key_index}"), &large_blob);
             }

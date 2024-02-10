@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Error, Options, SstFileWriter, DB};
+use rust_rocksdb::{Error, Options, SstFileWriter, DB};
 use util::DBPath;
 
 #[test]

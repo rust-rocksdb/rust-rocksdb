@@ -17,7 +17,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{
+use rust_rocksdb::{
     CuckooTableOptions, DBAccess, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
     SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions,
     WriteBatchWithTransaction, WriteOptions, DB,

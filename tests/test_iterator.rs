@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
+use rust_rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
 use util::{assert_iter, assert_iter_reversed, pair, DBPath};
 
 #[test]
@@ -120,7 +120,7 @@ fn test_prefix_iterator() {
         const B1: &[u8] = b"bbb1";
         const B2: &[u8] = b"bbb2";
 
-        let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
+        let prefix_extractor = rust_rocksdb::SliceTransform::create_fixed_prefix(3);
 
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -162,7 +162,7 @@ fn test_prefix_iterator_uses_full_prefix() {
             ([2, 2, 2, 2], b"888"),
         ];
 
-        let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(1);
+        let prefix_extractor = rust_rocksdb::SliceTransform::create_fixed_prefix(1);
 
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -194,7 +194,7 @@ fn test_full_iterator() {
         const B1: &[u8] = b"bbb1";
         const B2: &[u8] = b"bbb2";
 
-        let prefix_extractor = rocksdb::SliceTransform::create_fixed_prefix(3);
+        let prefix_extractor = rust_rocksdb::SliceTransform::create_fixed_prefix(3);
         let factory = MemtableFactory::HashSkipList {
             bucket_count: 1_000_000,
             height: 4,
@@ -276,11 +276,11 @@ fn test_iter_range() {
     fn test(
         db: &DB,
         mode: IteratorMode,
-        range: impl rocksdb::IterateBounds,
+        range: impl rust_rocksdb::IterateBounds,
         want: std::ops::Range<usize>,
         reverse: bool,
     ) {
-        let mut ro = rocksdb::ReadOptions::default();
+        let mut ro = rust_rocksdb::ReadOptions::default();
         // Set bounds to test that set_iterate_range clears old bounds.
         ro.set_iterate_lower_bound(vec![b'z']);
         ro.set_iterate_upper_bound(vec![b'z']);
@@ -297,15 +297,15 @@ fn test_iter_range() {
         assert_eq!(&ALL_KEYS[want], got);
     }
 
-    fn prefix(key: &[u8]) -> rocksdb::PrefixRange<&[u8]> {
-        rocksdb::PrefixRange(key)
+    fn prefix(key: &[u8]) -> rust_rocksdb::PrefixRange<&[u8]> {
+        rust_rocksdb::PrefixRange(key)
     }
 
     // Test Start and End modes
     {
         fn check<R>(db: &DB, range: R, want: std::ops::Range<usize>)
         where
-            R: rocksdb::IterateBounds + Clone,
+            R: rust_rocksdb::IterateBounds + Clone,
         {
             test(db, IteratorMode::Start, range.clone(), want.clone(), false);
             test(db, IteratorMode::End, range, want, true);
@@ -327,7 +327,7 @@ fn test_iter_range() {
     {
         fn check<R>(db: &DB, from: &[u8], range: R, want: std::ops::Range<usize>)
         where
-            R: rocksdb::IterateBounds + Clone,
+            R: rust_rocksdb::IterateBounds + Clone,
         {
             let mode = IteratorMode::From(from, Direction::Forward);
             test(db, mode, range, want, false);
@@ -355,7 +355,7 @@ fn test_iter_range() {
     {
         fn check<R>(db: &DB, from: &[u8], range: R, want: std::ops::Range<usize>)
         where
-            R: rocksdb::IterateBounds + Clone,
+            R: rust_rocksdb::IterateBounds + Clone,
         {
             let mode = IteratorMode::From(from, Direction::Reverse);
             test(db, mode, range, want, true);

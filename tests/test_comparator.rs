@@ -1,4 +1,4 @@
-use rocksdb::{Options, DB};
+use rust_rocksdb::{Options, DB};
 use std::cmp::Ordering;
 use std::iter::FromIterator;
 
