@@ -1,5 +1,5 @@
 [package]
-name = "rocksdb"
+name = "rust-rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.21.0"
 edition = "2021"

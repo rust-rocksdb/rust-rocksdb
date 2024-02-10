@@ -1,14 +1,10 @@
 rust-rocksdb
 ============
-![RocksDB build](https://github.com/rust-rocksdb/rust-rocksdb/workflows/RocksDB%20build/badge.svg?branch=master)
+
 [![crates.io](https://img.shields.io/crates/v/rocksdb.svg)](https://crates.io/crates/rocksdb)
 [![documentation](https://docs.rs/rocksdb/badge.svg)](https://docs.rs/rocksdb)
-[![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/rust-rocksdb/rust-rocksdb/blob/master/LICENSE)
-[![Gitter chat](https://badges.gitter.im/rust-rocksdb/gitter.png)](https://gitter.im/rust-rocksdb/lobby)
-![rust 1.66.0 required](https://img.shields.io/badge/rust-1.66.0-blue.svg?label=MSRV)
-
-
-![GitHub commits (since latest release)](https://img.shields.io/github/commits-since/rust-rocksdb/rust-rocksdb/latest.svg)
+[![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/zaidoon1/rust-rocksdb/blob/master/LICENSE)
+![rust 1.75.0 required](https://img.shields.io/badge/rust-1.75.0-blue.svg?label=MSRV)
 
 ## Requirements
 
@@ -29,6 +25,7 @@ compression submodules:
     git submodule update --init --recursive
 
 ## Compression Support
+
 By default, support for the [Snappy](https://github.com/google/snappy),
 [LZ4](https://github.com/lz4/lz4), [Zstd](https://github.com/facebook/zstd),
 [Zlib](https://zlib.net), and [Bzip2](http://www.bzip.org) compression
