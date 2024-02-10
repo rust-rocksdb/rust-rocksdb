@@ -1,8 +1,18 @@
 rust-rocksdb
 ============
 
-[![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/zaidoon1/rust-rocksdb/blob/master/LICENSE)
+[![crates.io](https://img.shields.io/crates/v/rust-rocksdb.svg)](https://crates.io/crates/rust-rocksdb)
+[![documentation](https://docs.rs/rust-rocksdb/badge.svg)](https://docs.rs/rust-rocksdb)
+[![license](https://img.shields.io/crates/l/rust-rocksdb.svg)](https://github.com/zaidoon1/rust-rocksdb/blob/master/LICENSE)
 ![rust 1.75.0 required](https://img.shields.io/badge/rust-1.75.0-blue.svg?label=MSRV)
+
+## Why The Fork
+
+The original rust-rocksdb repo is amazing and I appreciate all the work that has
+been done, however, for my use case, I need to stay up to date with the latest
+rocksdb releases as well as the latest rust releases so in order to to keep
+everything up to date, I decided to fork the original repo so I can have total
+control and be able to create regular releases.
 
 ## Requirements
 
