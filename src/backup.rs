@@ -120,10 +120,10 @@ impl BackupEngine {
     /// # Examples
     ///
     /// ```ignore
-    /// use rocksdb::backup::{BackupEngine, BackupEngineOptions};
+    /// use rust_rocksdb::backup::{BackupEngine, BackupEngineOptions};
     /// let backup_opts = BackupEngineOptions::default();
     /// let mut backup_engine = BackupEngine::open(&backup_opts, &backup_path).unwrap();
-    /// let mut restore_option = rocksdb::backup::RestoreOptions::default();
+    /// let mut restore_option = rust_rocksdb::backup::RestoreOptions::default();
     /// restore_option.set_keep_log_files(true); /// true to keep log files
     /// if let Err(e) = backup_engine.restore_from_latest_backup(&db_path, &wal_dir, &restore_option) {
     ///     error!("Failed to restore from the backup. Error:{:?}", e);

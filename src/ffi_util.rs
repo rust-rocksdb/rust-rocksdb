@@ -97,7 +97,7 @@ macro_rules! ffi_try_impl {
 ///
 /// ```
 /// use std::ffi::{CStr, CString};
-/// use rocksdb::CStrLike;
+/// use rust_rocksdb::CStrLike;
 ///
 /// fn strlen(arg: impl CStrLike) -> std::result::Result<usize, String> {
 ///     let baked = arg.bake().map_err(|err| err.to_string())?;

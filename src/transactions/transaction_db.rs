@@ -52,7 +52,7 @@ type DefaultThreadMode = crate::MultiThreaded;
 /// if feature `multi-threaded-cf` is not enabled.
 ///
 /// ```
-/// use rocksdb::{DB, Options, TransactionDB, SingleThreaded};
+/// use rust_rocksdb::{DB, Options, TransactionDB, SingleThreaded};
 /// let path = "_path_for_transaction_db";
 /// {
 ///     let db: TransactionDB = TransactionDB::open_default(path).unwrap();

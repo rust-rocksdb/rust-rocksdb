@@ -1,4 +1,4 @@
-use rocksdb::{TransactionDB, SingleThreaded};
+use rust_rocksdb::{SingleThreaded, TransactionDB};
 
 fn main() {
     let _txn = {

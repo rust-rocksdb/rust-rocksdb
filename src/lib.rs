@@ -18,7 +18,7 @@
 //! # Examples
 //!
 //! ```
-//! use rocksdb::{DB, Options};
+//! use rust_rocksdb::{DB, Options};
 //! // NB: db is automatically closed at end of lifetime
 //! let path = "_path_for_rocksdb_storage";
 //! {
@@ -37,7 +37,7 @@
 //! Opening a database and a single column family with custom options:
 //!
 //! ```
-//! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//! use rust_rocksdb::{DB, ColumnFamilyDescriptor, Options};
 //!
 //! let path = "_path_for_rocksdb_storage_with_cfs";
 //! let mut cf_opts = Options::default();

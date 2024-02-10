@@ -1,4 +1,4 @@
-use rocksdb::DB;
+use rust_rocksdb::DB;
 
 fn main() {
     let _snapshot = {

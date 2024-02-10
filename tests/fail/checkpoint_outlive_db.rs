@@ -1,4 +1,4 @@
-use rocksdb::{DB, checkpoint::Checkpoint};
+use rust_rocksdb::{checkpoint::Checkpoint, DB};
 
 fn main() {
     let _checkpoint = {

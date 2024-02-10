@@ -26,7 +26,7 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 /// Making an atomic commit of several writes:
 ///
 /// ```
-/// use rocksdb::{DB, Options, WriteBatchWithTransaction};
+/// use rust_rocksdb::{DB, Options, WriteBatchWithTransaction};
 ///
 /// let path = "_path_for_rocksdb_storage1";
 /// {
