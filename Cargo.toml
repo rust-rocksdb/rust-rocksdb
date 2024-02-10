@@ -43,6 +43,3 @@ tempfile = "3"
 pretty_assertions = "1"
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
-
-[profile.release]
-lto = "fat"

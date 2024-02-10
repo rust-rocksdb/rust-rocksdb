@@ -46,6 +46,3 @@ cc = { version = "1.0", features = ["parallel"] }
 bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
 glob = "0.3"
 pkg-config = { version = "0.3", optional = true }
-
-[profile.release]
-lto = "fat"
