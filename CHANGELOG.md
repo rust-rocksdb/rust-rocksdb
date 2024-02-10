@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## 0.22.1 (2024-02-10)
+
+* rename librocksdb-sys library (zaidoon1)
+
 ## 0.22.0 (2024-02-10)
 
 * update code imports after package name change and clean up README/MAINTAINERHSIP (zaidoon1)
@@ -277,7 +281,6 @@
 * Added `iterator_cf_opt` function to `DB` (elichai)
 * Added `set_allow_mmap_writes` and `set_allow_mmap_reads` functions to `Options` (aleksuss)
 
-
 ## 0.12.0 (2019-03-10)
 
 ### Changes
@@ -295,7 +298,6 @@
 * Updated main example in doc tests (mohanson)
 * Updated requirements documentation (jamesray1)
 * Implemented `AsRef<[u8]>` for `DBVector` (iSynaptic)
-
 
 ## 0.11.0 (2019-01-10)
 
@@ -323,7 +325,6 @@
 * exposed `keep_log_file_num` option (romanz)
 * added ability to retrieve `WriteBatch` serialized size (romanz)
 * added `set_options` method to `DB` to allow changing options without closing and re-opening the database (romanz)
-
 
 ## 0.10.1 (2018-07-17)
 
