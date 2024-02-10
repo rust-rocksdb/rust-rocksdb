@@ -2,10 +2,41 @@
 
 ## [Unreleased]
 
-* Bump MSRV to 1.63.0 (mina86)
-* Convert properties to `&PropName` which can be converted at no cost to `&CStr`
-  and `&str` (mina86)
+## 0.22.0 (2024-02-10)
+
+* update code imports after package name change and clean up README/MAINTAINERHSIP (zaidoon1)
+* update README and package name (zaidoon1)
+* bump dependencies & upgrade to latest rust version (zaidoon1)
+* update doc and para name for optimize_for_point_lookup  (XiangpengHao)
 * Add WriteBufferManager support (benoitmeriaux)
+* Update to RocksDB 8.10.0 (zaidoon1)
+* Make `CompactOptions` `Send` and `Sync` (GodTamIt)
+* Update hash commit of the rocksdb submodule to corresponding v8.9.1 tag (aleksuss)
+* feat: Expose set_periodic_compaction_seconds (zaidoon1)
+* Update RocksDB to 8.9.1 (zaidoon1)
+* feat: Expose set_auto_readahead_size (niklasf)
+* feat: Expose wait_for_compact (zaidoon1)
+* Fix bug in DBWALIterator that would return updates before the given sequence (schmidek)
+* feat: Expose compact_on_deletion_collector_factory (zaidoon1)
+* Update RocksDB to 8.8.1 (zaidoon1)
+* feat: Expose set_wal_compression_type (ovr)
+* Fix typo in documentation (jazarine)
+* fix: add raw iterator validation before calling next method (aleksuss)
+* feat: expose compression option parallel_threads (zaidoon1)
+* feat: expose set_optimize_filters_for_memory (zaidoon1)
+* Update RocksDB to 8.6.7 (aleksuss)
+* Expose `ReadTier` publicly (tinct-martini)
+* Update RocksDB to 8.5.3 (niklasf)
+* feat: support column_family_metadata, column_family_metadata_cf (ovr)
+* Remove wrong outlive requirements for cache in docs (zheland)
+* Add `allow_ingest_behind` ffi call for DB Options (siyuan0322)
+* Wrap prop names into a PropName type offering free conversion to str (mina86)
+* Remove temporary boxed keys in batched_multi_get (axnsan12)
+* Update to RocksDB 8.3.2 (niklasf)
+* Expose flush_cfs_opt to flush multiple column families (lizhanhui)
+* Prefer rocksdb_free to free for RocksDB memory (niklasf)
+* Update snappy to 1.1.10 (timsueberkrueb)
+* Free memory on writebatch index and avoid unnecessary clones (jkurian)
 
 ## 0.21.0 (2023-05-09)
 
@@ -271,7 +302,7 @@
 ### Announcements
 
 * This is the first release under the new [Maintainership](MAINTAINERSHIP.md) model.
-  Three contributors have been selected to help maintain this library -- Oleksandr Anyshchenko ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
+  Three contributors have been selected to help maintain this library -- (aleksuss) ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
 
 * A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "staffed", it may help to collaborate on changes to `rust-rocksdb`.
 
