@@ -37,7 +37,7 @@ pub unsafe extern "C" fn name_callback<F>(raw_self: *mut c_void) -> *const c_cha
 where
     F: CompactionFilterFactory,
 {
-    let self_ = &*(raw_self as *const c_void as *const F);
+    let self_ = &*(raw_self.cast_const() as *const F);
     self_.name().as_ptr()
 }
 

@@ -2,15 +2,16 @@ name: RocksDB CI
 
 on: [push, pull_request]
 env:
-  RUST_VERSION: 1.66.0
+  RUST_VERSION: 1.75.0
 
 jobs:
-  fmt:
+  style:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -18,6 +19,7 @@ jobs:
           components: rustfmt
           profile: minimal
           override: true
+
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
         with:
@@ -30,6 +32,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -37,6 +40,7 @@ jobs:
           components: rust-docs
           profile: minimal
           override: true
+
       - name: Run cargo rustdoc
         uses: actions-rs/cargo@v1
         with:
@@ -49,6 +53,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -56,6 +61,7 @@ jobs:
           components: clippy
           profile: minimal
           override: true
+
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
@@ -87,6 +93,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -94,18 +101,23 @@ jobs:
           target: ${{ matrix.target }}
           profile: minimal
           override: true
+
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
+
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
+
       - name: Run rocksdb tests
         run: |
           cargo test --all
           cargo test --all --features multi-threaded-cf
+
       - name: Free disk space
         run: cargo clean
+
       - name: Run rocksdb tests (jemalloc)
         if: runner.os != 'Windows'
         run: cargo test --all --features jemalloc

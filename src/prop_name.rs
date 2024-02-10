@@ -17,24 +17,22 @@ impl PropName {
     /// Panics if the `value` isn’t terminated by a nul byte or contains
     /// interior nul bytes.
     pub(crate) const fn new_unwrap(value: &str) -> &Self {
-        let bytes = if let Some((&0, bytes)) = value.as_bytes().split_last() {
-            bytes
+        if let Some((&0, bytes)) = value.as_bytes().split_last() {
+            let mut idx = 0;
+            while idx < bytes.len() {
+                assert!(bytes[idx] != 0, "input contained interior nul byte");
+                idx += 1;
+            }
+
+            // SAFETY: 1. We’ve just verified `value` is a nul-terminated with no
+            // interior nul bytes and since its `str` it’s also valid UTF-8.
+            // 2. Self and CStr have the same representation so casting is sound.
+            unsafe {
+                let value = CStr::from_bytes_with_nul_unchecked(value.as_bytes());
+                &*(value as *const CStr as *const Self)
+            }
         } else {
             panic!("input was not nul-terminated");
-        };
-
-        let mut idx = 0;
-        while idx < bytes.len() {
-            assert!(bytes[idx] != 0, "input contained interior nul byte");
-            idx += 1;
-        }
-
-        // SAFETY: 1. We’ve just verified `value` is a nul-terminated with no
-        // interior nul bytes and since its `str` it’s also valid UTF-8.
-        // 2. Self and CStr have the same representation so casting is sound.
-        unsafe {
-            let value = CStr::from_bytes_with_nul_unchecked(value.as_bytes());
-            &*(value as *const CStr as *const Self)
         }
     }
 

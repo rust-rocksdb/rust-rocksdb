@@ -1108,10 +1108,7 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_paths(&mut self, paths: &[DBPath]) {
-        let mut paths: Vec<_> = paths
-            .iter()
-            .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
-            .collect();
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
@@ -2495,7 +2492,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_max_bytes_for_level_multiplier_additional(
                 self.inner,
-                level_values.as_ptr() as *mut c_int,
+                level_values.as_ptr().cast_mut(),
                 count,
             );
         }
