@@ -19,6 +19,7 @@ use std::{mem, sync::Arc, thread, time::Duration};
 
 use pretty_assertions::assert_eq;
 
+use rust_rocksdb::statistics::{Histogram, StatsLevel, Ticker};
 use rust_rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
@@ -373,6 +374,34 @@ fn set_option_cf_test() {
             ("report_bg_io_stats", "true"),
         ];
         db.set_options(&multiple_options).unwrap();
+    }
+}
+
+#[test]
+fn get_statistics_test() {
+    let path = DBPath::new("_rust_rocksdb_get_statisticstest");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.enable_statistics();
+        opts.set_statistics_level(StatsLevel::All);
+        let db = DB::open_cf(&opts, &path, vec!["cf1"]).unwrap();
+        let cf = db.cf_handle("cf1").unwrap();
+
+        let initial_bytes_written = opts.get_ticker_count(Ticker::BytesWritten);
+        db.put_cf(&cf, b"key1", b"value").unwrap();
+        db.put_cf(&cf, b"key2", b"value").unwrap();
+        db.put_cf(&cf, b"key3", b"value").unwrap();
+        db.flush_cf(&cf).unwrap();
+
+        assert!(opts.get_ticker_count(Ticker::BytesWritten) > 0);
+        // We should see some counters increased
+        assert!(opts.get_ticker_count(Ticker::BytesWritten) > initial_bytes_written);
+
+        let histogram_data = opts.get_histogram_data(Histogram::DbWrite);
+        assert!(histogram_data.count() > 0);
+        assert!(histogram_data.max().is_normal());
     }
 }
 

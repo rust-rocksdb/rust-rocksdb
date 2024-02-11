@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
+use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
@@ -32,6 +33,7 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
+    statistics::Ticker,
     ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
 
@@ -2768,6 +2770,30 @@ impl Options {
             let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
             ffi::rocksdb_free(value as *mut c_void);
             Some(s)
+        }
+    }
+
+    /// StatsLevel can be used to reduce statistics overhead by skipping certain
+    /// types of stats in the stats collection process.
+    pub fn set_statistics_level(&self, level: StatsLevel) {
+        unsafe { ffi::rocksdb_options_set_statistics_level(self.inner, level as c_int) }
+    }
+
+    /// Returns the value of cumulative db counters if stat collection is enabled.
+    pub fn get_ticker_count(&self, ticker: Ticker) -> u64 {
+        unsafe { ffi::rocksdb_options_statistics_get_ticker_count(self.inner, ticker as u32) }
+    }
+
+    /// Gets Histogram data from collected db stats. Requires stats to be enabled.
+    pub fn get_histogram_data(&self, histogram: Histogram) -> HistogramData {
+        unsafe {
+            let data = HistogramData::default();
+            ffi::rocksdb_options_statistics_get_histogram_data(
+                self.inner,
+                histogram as u32,
+                data.inner,
+            );
+            data
         }
     }
 
