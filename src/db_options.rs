@@ -384,6 +384,7 @@ pub struct IngestExternalFileOptions {
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
+unsafe impl Send for FlushOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
 unsafe impl Send for ReadOptions {}
@@ -396,6 +397,7 @@ unsafe impl Send for WriteBufferManagerWrapper {}
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
+unsafe impl Sync for FlushOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
 unsafe impl Sync for ReadOptions {}
