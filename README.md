@@ -8,7 +8,7 @@ rust-rocksdb
 
 ## Why The Fork
 
-The original rust-rocksdb repo is amazing and I appreciate all the work that has
+The original [rust-rocksdb repo](https://github.com/rust-rocksdb/rust-rocksdb) is amazing and I appreciate all the work that has
 been done, however, for my use case, I need to stay up to date with the latest
 rocksdb releases as well as the latest rust releases so in order to to keep
 everything up to date, I decided to fork the original repo so I can have total
