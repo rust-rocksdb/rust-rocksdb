@@ -14,7 +14,8 @@
 
 use libc::{c_int, c_uchar, c_void};
 
-use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error, DB};
+use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error};
+use crate::{DBCommon, ThreadMode, DB};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
@@ -179,7 +180,7 @@ pub struct MemoryUsageStats {
 }
 
 /// Wrap over memory_usage_t. Hold current memory usage of the specified DB instances and caches
-struct MemoryUsage {
+pub struct MemoryUsage {
     inner: *mut ffi::rocksdb_memory_usage_t,
 }
 
@@ -193,28 +194,28 @@ impl Drop for MemoryUsage {
 
 impl MemoryUsage {
     /// Approximate memory usage of all the mem-tables
-    fn approximate_mem_table_total(&self) -> u64 {
+    pub fn approximate_mem_table_total(&self) -> u64 {
         unsafe { ffi::rocksdb_approximate_memory_usage_get_mem_table_total(self.inner) }
     }
 
     /// Approximate memory usage of un-flushed mem-tables
-    fn approximate_mem_table_unflushed(&self) -> u64 {
+    pub fn approximate_mem_table_unflushed(&self) -> u64 {
         unsafe { ffi::rocksdb_approximate_memory_usage_get_mem_table_unflushed(self.inner) }
     }
 
     /// Approximate memory usage of all the table readers
-    fn approximate_mem_table_readers_total(&self) -> u64 {
+    pub fn approximate_mem_table_readers_total(&self) -> u64 {
         unsafe { ffi::rocksdb_approximate_memory_usage_get_mem_table_readers_total(self.inner) }
     }
 
     /// Approximate memory usage by cache
-    fn approximate_cache_total(&self) -> u64 {
+    pub fn approximate_cache_total(&self) -> u64 {
         unsafe { ffi::rocksdb_approximate_memory_usage_get_cache_total(self.inner) }
     }
 }
 
 /// Builder for MemoryUsage
-struct MemoryUsageBuilder {
+pub struct MemoryUsageBuilder {
     inner: *mut ffi::rocksdb_memory_consumers_t,
 }
 
@@ -228,7 +229,7 @@ impl Drop for MemoryUsageBuilder {
 
 impl MemoryUsageBuilder {
     /// Create new instance
-    fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Error> {
         let mc = unsafe { ffi::rocksdb_memory_consumers_create() };
         if mc.is_null() {
             Err(Error::new(
@@ -240,21 +241,21 @@ impl MemoryUsageBuilder {
     }
 
     /// Add a DB instance to collect memory usage from it and add up in total stats
-    fn add_db(&mut self, db: &DB) {
+    pub fn add_db<T: ThreadMode, D: DBInner>(&mut self, db: &DBCommon<T, D>) {
         unsafe {
             ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner.inner());
         }
     }
 
     /// Add a cache to collect memory usage from it and add up in total stats
-    fn add_cache(&mut self, cache: &Cache) {
+    pub fn add_cache(&mut self, cache: &Cache) {
         unsafe {
             ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.0.inner.as_ptr());
         }
     }
 
     /// Build up MemoryUsage
-    fn build(&self) -> Result<MemoryUsage, Error> {
+    pub fn build(&self) -> Result<MemoryUsage, Error> {
         unsafe {
             let mu = ffi_try!(ffi::rocksdb_approximate_memory_usage_create(self.inner));
             Ok(MemoryUsage { inner: mu })
