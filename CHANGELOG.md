@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## 0.22.2 (2024-02-12)
+
+* Expose rocksdb cumulative statistics and histograms (AhmedSoliman)
+
 ## 0.22.1 (2024-02-10)
 
 * rename librocksdb-sys library (zaidoon1)
