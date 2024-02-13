@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 0.22.3 (2024-02-13)
+
+* Export memory usage builder and MemoryUsage structs to users (AhmedSoliman)
+* Make FlushOptions Send and Sync (jansegre)
+
 ## 0.22.2 (2024-02-12)
 
 * Expose rocksdb cumulative statistics and histograms (AhmedSoliman)
