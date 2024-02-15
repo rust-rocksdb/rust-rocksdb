@@ -31,7 +31,7 @@ git submodule update --init --recursive
 
 ## Compression Support
 
-By default, support for the [Snappy](https://github.com/google/snappy),
+By default, support for [Snappy](https://github.com/google/snappy),
 [LZ4](https://github.com/lz4/lz4), [Zstd](https://github.com/facebook/zstd),
 [Zlib](https://zlib.net), and [Bzip2](http://www.bzip.org) compression
 is enabled through crate features. If support for all of these compression
@@ -47,8 +47,8 @@ features = ["lz4"]
 
 ## Multithreaded ColumnFamily alternation
 
-The underlying RocksDB does allow column families to be created and dropped
-from multiple threads concurrently. But this crate doesn't allow it by default
+RocksDB allows column families to be created and dropped
+from multiple threads concurrently, but this crate doesn't allow it by default
 for compatibility. If you need to modify column families concurrently, enable
 the crate feature `multi-threaded-cf`, which makes this binding's
 data structures use `RwLock` by default. Alternatively, you can directly create
