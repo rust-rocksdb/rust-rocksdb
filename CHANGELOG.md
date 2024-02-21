@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## 0.22.4 (2024-02-20)
+
+* Update to RocksDB 8.10.2 (zaidoon1)
+* Fix build status badge and other bits in README.md (jdanford)
+
 ## 0.22.3 (2024-02-13)
 
 * Export memory usage builder and MemoryUsage structs to users (AhmedSoliman)
