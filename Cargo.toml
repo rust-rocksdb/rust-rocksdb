@@ -31,6 +31,7 @@ bzip2 = ["rust-librocksdb-sys/bzip2"]
 rtti = ["rust-librocksdb-sys/rtti"]
 multi-threaded-cf = []
 serde1 = ["serde"]
+malloc-usable-size = ["rust-librocksdb-sys/malloc-usable-size"]
 
 [dependencies]
 libc = "0.2"
