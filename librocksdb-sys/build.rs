@@ -218,8 +218,19 @@ fn build_rocksdb() {
 
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
-    if cfg!(feature = "jemalloc") {
-        config.define("WITH_JEMALLOC", "ON");
+    #[cfg(feature = "jemalloc")]
+    {
+        if target.contains("linux") {
+            pkg_config::probe_library("jemalloc")
+                .expect("The jemalloc feature was requested but jemalloc is not installed");
+            config.define("ROCKSDB_JEMALLOC", Some("1"));
+            config.define("JEMALLOC_NO_DEMANGLE", Some("1"));
+        } else {
+            // this doesn't actually enable jemalloc, but mac/windows needs more
+            // work to make it work (statically link tikv-jemalloc). For now,
+            // I'll keep this as is.
+            config.define("WITH_JEMALLOC", "ON");
+        }
     }
 
     #[cfg(feature = "io-uring")]
