@@ -35,7 +35,7 @@ malloc-usable-size = ["rust-librocksdb-sys/malloc-usable-size"]
 
 [dependencies]
 libc = "0.2"
-rust-librocksdb-sys = { path = "librocksdb-sys", version = "0.17.1" }
+rust-librocksdb-sys = { path = "librocksdb-sys", version = "0.18.0" }
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
