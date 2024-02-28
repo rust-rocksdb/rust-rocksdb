@@ -276,3 +276,14 @@ fn test_set_periodic_compaction_seconds() {
         let _db = DB::open(&opts, &path).unwrap();
     }
 }
+
+#[test]
+fn test_set_ttl() {
+    let path = DBPath::new("_set_ttl");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ttl(5);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+}
