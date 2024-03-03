@@ -29,7 +29,7 @@ exclude = [
 
 [features]
 default = ["static"]
-jemalloc = ["tikv-jemalloc-sys", "pkg-config"]
+jemalloc = ["tikv-jemalloc-sys"]
 static = ["libz-sys?/static", "bzip2-sys?/static"]
 io-uring = ["pkg-config"]
 snappy = []

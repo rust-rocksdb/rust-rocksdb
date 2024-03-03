@@ -109,10 +109,6 @@ jobs:
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
-      
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get install libjemalloc-dev
 
       - name: Run rocksdb tests
         run: |
