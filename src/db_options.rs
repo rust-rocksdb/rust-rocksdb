@@ -3831,6 +3831,30 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_async_io(self.inner, c_uchar::from(v));
         }
     }
+
+    /// Deadline for completing an API call (Get/MultiGet/Seek/Next for now)
+    /// in microseconds.
+    /// It should be set to microseconds since epoch, i.e, gettimeofday or
+    /// equivalent plus allowed duration in microseconds.
+    /// This is best effort. The call may exceed the deadline if there is IO
+    /// involved and the file system doesn't support deadlines, or due to
+    /// checking for deadline periodically rather than for every key if
+    /// processing a batch
+    pub fn set_deadline(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_deadline(self.inner, microseconds);
+        }
+    }
+
+    /// A timeout in microseconds to be passed to the underlying FileSystem for
+    /// reads. As opposed to deadline, this determines the timeout for each
+    /// individual file read request. If a MultiGet/Get/Seek/Next etc call
+    /// results in multiple reads, each read can last up to io_timeout us.
+    pub fn set_io_timeout(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_io_timeout(self.inner, microseconds);
+        }
+    }
 }
 
 impl Default for ReadOptions {

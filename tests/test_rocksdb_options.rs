@@ -110,6 +110,8 @@ fn test_block_based_options() {
 fn test_read_options() {
     let mut read_opts = ReadOptions::default();
     read_opts.set_verify_checksums(false);
+    read_opts.set_deadline(121);
+    read_opts.set_io_timeout(343);
 }
 
 #[test]
