@@ -27,6 +27,7 @@ use const_cstr::const_cstr;
 use libc::*;
 use rust_librocksdb_sys::*;
 use std::borrow::Cow;
+use std::cmp::Ordering;
 use std::env;
 use std::ffi::{CStr, CString};
 use std::io::Write;
@@ -44,7 +45,7 @@ macro_rules! cstrp {
     ($($arg:tt)*) => (const_cstr!($($arg)*).as_ptr());
 }
 
-static mut phase: &'static str = "";
+static mut phase: &str = "";
 // static mut dbname: *mut c_uchar = ptr::null_mut();
 // static mut dbbackupname: *mut c_uchar = ptr::null_mut();
 
@@ -61,10 +62,10 @@ unsafe fn rstr<'a>(s: *const c_char) -> Cow<'a, str> {
 }
 
 fn GetTempDir() -> PathBuf {
-    return match option_env!("TEST_TMPDIR") {
+    match option_env!("TEST_TMPDIR") {
         Some("") | None => env::temp_dir(),
         Some(s) => s.into(),
-    };
+    }
 }
 
 unsafe fn StartPhase(name: &'static str) {
@@ -89,17 +90,11 @@ macro_rules! CheckCondition {
 }
 
 unsafe fn CheckEqual(expected: *const c_char, actual: *const c_char, n: size_t) {
-    let is_equal = if expected.is_null() && actual.is_null() {
-        true
-    } else if !expected.is_null()
-        && !actual.is_null()
-        && n == strlen(expected)
-        && memcmp(expected as *const c_void, actual as *const c_void, n) == 0
-    {
-        true
-    } else {
-        false
-    };
+    let is_equal = (expected.is_null() && actual.is_null())
+        || (!expected.is_null()
+            && !actual.is_null()
+            && n == strlen(expected)
+            && memcmp(expected as *const c_void, actual as *const c_void, n) == 0);
 
     if !is_equal {
         panic!(
@@ -208,12 +203,13 @@ unsafe extern "C" fn CmpCompare(
     let n = if alen < blen { alen } else { blen };
     let mut r = memcmp(a as *const c_void, b as *const c_void, n);
     if r == 0 {
-        if alen < blen {
-            r = -1;
-        } else if alen > blen {
-            r = 1;
+        match alen.cmp(&blen) {
+            Ordering::Greater => r = 1,
+            Ordering::Less => r = -1,
+            Ordering::Equal => {}
         }
     }
+
     r
 }
 
@@ -787,7 +783,7 @@ fn ffi() {
             fake_filter_result = 1;
             CheckGet(db, roptions, cstrp!("foo"), cstrp!("foovalue"));
             CheckGet(db, roptions, cstrp!("bar"), cstrp!("barvalue"));
-            if phase == "" {
+            if phase.is_empty() {
                 // Must not find value when custom filter returns false
                 fake_filter_result = 0;
                 CheckGet(db, roptions, cstrp!("foo"), ptr::null());
@@ -1054,8 +1050,8 @@ fn ffi() {
 
             rocksdb_drop_column_family(db, handles[1], &mut err);
             CheckNoError!(err);
-            for i in 0..2 {
-                rocksdb_column_family_handle_destroy(handles[i]);
+            for handle in handles {
+                rocksdb_column_family_handle_destroy(handle);
             }
             rocksdb_close(db);
             rocksdb_destroy_db(options, dbname, &mut err);
