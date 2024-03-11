@@ -23,7 +23,6 @@
     unused_variables
 )]
 
-use const_cstr::const_cstr;
 use libc::*;
 use rust_librocksdb_sys::*;
 use std::borrow::Cow;
@@ -42,7 +41,7 @@ macro_rules! err_println {
 }
 
 macro_rules! cstrp {
-    ($($arg:tt)*) => (const_cstr!($($arg)*).as_ptr());
+    ($($arg:tt)*) => (const_str::cstr!($($arg)*).as_ptr());
 }
 
 static mut phase: &str = "";

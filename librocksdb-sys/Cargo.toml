@@ -51,7 +51,7 @@ libz-sys = { version = "1.1", default-features = false, optional = true }
 bzip2-sys = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-const-cstr = "0.3"
+const-str = "0.5"
 uuid = { version = "1", features = ["v4"] }
 
 [build-dependencies]
