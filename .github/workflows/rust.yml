@@ -1,8 +1,6 @@
 name: RocksDB CI
 
 on: [push, pull_request]
-env:
-  RUST_VERSION: 1.75.0
 
 jobs:
   style:
@@ -15,7 +13,6 @@ jobs:
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt
 
       - name: Run rustfmt
@@ -31,7 +28,6 @@ jobs:
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_VERSION }}
           components: rust-docs
 
       - name: Run cargo rustdoc
@@ -47,7 +43,6 @@ jobs:
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_VERSION }}
           components: clippy
 
       - name: Run clippy
@@ -83,7 +78,6 @@ jobs:
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.target }}
 
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
