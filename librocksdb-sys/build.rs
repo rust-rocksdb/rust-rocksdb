@@ -90,6 +90,10 @@ fn build_rocksdb() {
         config.define("USE_RTTI", Some("1"));
     }
 
+    if cfg!(feature = "portable") {
+        config.define("PORTABLE", Some("1"));
+    }
+
     config.include(".");
     config.define("NDEBUG", Some("1"));
 
