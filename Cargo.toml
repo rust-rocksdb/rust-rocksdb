@@ -33,6 +33,7 @@ mt_static = ["librocksdb-sys/mt_static"]
 multi-threaded-cf = []
 serde1 = ["serde"]
 malloc-usable-size = ["rust-librocksdb-sys/malloc-usable-size"]
+portable = ["librocksdb-sys/portable"]
 
 [dependencies]
 libc = "0.2"
