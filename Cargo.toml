@@ -34,6 +34,7 @@ bzip2 = ["librocksdb-sys/bzip2"]
 rtti = ["librocksdb-sys/rtti"]
 multi-threaded-cf = []
 serde1 = ["serde"]
+portable = ["librocksdb-sys/portable"]
 
 [dependencies]
 libc = "0.2"
