@@ -29,11 +29,11 @@ zstd = ["rust-librocksdb-sys/zstd"]
 zlib = ["rust-librocksdb-sys/zlib"]
 bzip2 = ["rust-librocksdb-sys/bzip2"]
 rtti = ["rust-librocksdb-sys/rtti"]
-mt_static = ["librocksdb-sys/mt_static"]
+mt_static = ["rust-librocksdb-sys/mt_static"]
 multi-threaded-cf = []
 serde1 = ["serde"]
 malloc-usable-size = ["rust-librocksdb-sys/malloc-usable-size"]
-portable = ["librocksdb-sys/portable"]
+portable = ["rust-librocksdb-sys/portable"]
 
 [dependencies]
 libc = "0.2"
