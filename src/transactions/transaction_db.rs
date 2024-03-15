@@ -300,8 +300,8 @@ impl<T: ThreadMode> TransactionDB<T> {
             let mut cnt = 0;
             let ptr = ffi::rocksdb_transactiondb_get_prepared_transactions(db, &mut cnt);
             let mut vec = vec![std::ptr::null_mut(); cnt];
-            std::ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), cnt);
             if !ptr.is_null() {
+                std::ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), cnt);
                 ffi::rocksdb_free(ptr as *mut c_void);
             }
             vec
