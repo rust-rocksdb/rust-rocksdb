@@ -230,6 +230,9 @@ fn build_rocksdb() {
     }
 
     if target.contains("msvc") {
+        if cfg!(feature = "mt_static") {
+            config.static_crt(true);
+        }
         config.flag("-EHsc");
         config.flag("-std:c++17");
     } else {
@@ -269,6 +272,9 @@ fn build_snappy() {
 
     if target.contains("msvc") {
         config.flag("-EHsc");
+        if cfg!(feature = "mt_static") {
+            config.static_crt(true);
+        }
     } else {
         // Snappy requires C++11.
         // See: https://github.com/google/snappy/blob/master/CMakeLists.txt#L32-L38
