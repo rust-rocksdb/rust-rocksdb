@@ -31,6 +31,7 @@ exclude = [
 default = ["static"]
 jemalloc = ["tikv-jemalloc-sys"]
 static = ["libz-sys?/static", "bzip2-sys?/static"]
+mt_static = []
 io-uring = ["pkg-config"]
 snappy = []
 lz4 = ["lz4-sys"]
