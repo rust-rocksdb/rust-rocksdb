@@ -146,6 +146,38 @@ iterable_named_enum! {
         /// # of bytes written into cache.
         BlockCacheBytesWrite("rocksdb.block.cache.bytes.write"),
 
+        BlockCacheCompressionDictMiss("rocksdb.block.cache.compression.dict.miss"),
+        BlockCacheCompressionDictHit("rocksdb.block.cache.compression.dict.hit"),
+        BlockCacheCompressionDictAdd("rocksdb.block.cache.compression.dict.add"),
+        BlockCacheCompressionDictBytesInsert("rocksdb.block.cache.compression.dict.bytes.insert"),
+
+        /// # of blocks redundantly inserted into block cache.
+        /// REQUIRES: BLOCK_CACHE_ADD_REDUNDANT <= BLOCK_CACHE_ADD
+        BlockCacheAddRedundant("rocksdb.block.cache.add.redundant"),
+        /// # of index blocks redundantly inserted into block cache.
+        /// REQUIRES: BLOCK_CACHE_INDEX_ADD_REDUNDANT <= BLOCK_CACHE_INDEX_ADD
+        BlockCacheIndexAddRedundant("rocksdb.block.cache.index.add.redundant"),
+        /// # of filter blocks redundantly inserted into block cache.
+        /// REQUIRES: BLOCK_CACHE_FILTER_ADD_REDUNDANT <= BLOCK_CACHE_FILTER_ADD
+        BlockCacheFilterAddRedundant("rocksdb.block.cache.filter.add.redundant"),
+        /// # of data blocks redundantly inserted into block cache.
+        /// REQUIRES: BLOCK_CACHE_DATA_ADD_REDUNDANT <= BLOCK_CACHE_DATA_ADD
+        BlockCacheDataAddRedundant("rocksdb.block.cache.data.add.redundant"),
+        // # of dict blocks redundantly inserted into block cache.
+        // REQUIRES: BLOCK_CACHE_COMPRESSION_DICT_ADD_REDUNDANT
+        //           <= BLOCK_CACHE_COMPRESSION_DICT_ADD
+        BlockCacheCompressionDictAddRedundant("rocksdb.block.cache.compression.dict.add.redundant"),
+
+        SecondaryCacheHits("rocksdb.secondary.cache.hits"),
+        SecondaryCacheFilterHits("rocksdb.secondary.cache.filter.hits"),
+        SecondaryCacheIndexHits("rocksdb.secondary.cache.index.hits"),
+        SecondaryCacheDataHits("rocksdb.secondary.cache.data.hits"),
+
+        CompressedSecondaryCacheDummyHits("rocksdb.compressed.secondary.cache.dummy.hits"),
+        CompressedSecondaryCacheHits("rocksdb.compressed.secondary.cache.hits"),
+        CompressedSecondaryCachePromotions("rocksdb.compressed.secondary.cache.promotions"),
+        CompressedSecondaryCachePromotionSkips("rocksdb.compressed.secondary.cache.promotion.skips"),
+
         /// # of times bloom filter has avoided file reads, i.e., negatives.
         BloomFilterUseful("rocksdb.bloom.filter.useful"),
         /// # of times bloom FullFilter has not avoided the reads.
@@ -153,6 +185,16 @@ iterable_named_enum! {
         /// # of times bloom FullFilter has not avoided the reads and data actually
         /// exist.
         BloomFilterFullTruePositive("rocksdb.bloom.filter.full.true.positive"),
+        /// Prefix filter stats when used for point lookups (Get / MultiGet).
+        /// (For prefix filter stats on iterators, see *_LEVEL_Seek_*.)
+        /// Checked: filter was queried
+        BloomFilterPrefixChecked("rocksdb.bloom.filter.prefix.checked"),
+        /// Useful: filter returned false so prevented accessing data+index blocks
+        BloomFilterPrefixUseful("rocksdb.bloom.filter.prefix.useful"),
+        /// True positive: found a key matching the point query. When another key
+        /// with the same prefix matches, it is considered a false positive by
+        /// these statistics even though the filter returned a true positive.
+        BloomFilterPrefixTruePositive("rocksdb.bloom.filter.prefix.true.positive"),
 
         /// # persistent cache hit
         PersistentCacheHit("rocksdb.persistent.cache.hit"),
@@ -221,6 +263,16 @@ iterable_named_enum! {
         /// The number of uncompressed bytes read from an iterator.
         /// Includes size of key and value.
         IterBytesRead("rocksdb.db.iter.bytes.read"),
+        /// Number of internal keys skipped by Iterator
+        NumberIterSkip("rocksdb.number.iter.skip"),
+        /// Number of times we had to reseek inside an iteration to skip
+        /// over large number of keys with same userkey.
+        NumberOfReseeksInIteration("rocksdb.number.reseeks.iteration"),
+
+        NoIteratorCreated("rocksdb.num.iterator.created"),
+        /// number of iterators created
+        NoIteratorDeleted("rocksdb.num.iterator.deleted"),
+
         NoFileOpens("rocksdb.no.file.opens"),
         NoFileErrors("rocksdb.no.file.errors"),
         /// Writer has to wait for compaction or flush to finish.
@@ -233,23 +285,9 @@ iterable_named_enum! {
         NumberMultigetCalls("rocksdb.number.multiget.get"),
         NumberMultigetKeysRead("rocksdb.number.multiget.keys.read"),
         NumberMultigetBytesRead("rocksdb.number.multiget.bytes.read"),
+        NumberMultigetKeysFound("rocksdb.number.multiget.keys.found"),
 
         NumberMergeFailures("rocksdb.number.merge.failures"),
-
-        /// Prefix filter stats when used for point lookups (Get / MultiGet).
-        /// (For prefix filter stats on iterators, see *_LEVEL_Seek_*.)
-        /// Checked: filter was queried
-        BloomFilterPrefixChecked("rocksdb.bloom.filter.prefix.checked"),
-        /// Useful: filter returned false so prevented accessing data+index blocks
-        BloomFilterPrefixUseful("rocksdb.bloom.filter.prefix.useful"),
-        /// True positive: found a key matching the point query. When another key
-        /// with the same prefix matches, it is considered a false positive by
-        /// these statistics even though the filter returned a true positive.
-        BloomFilterPrefixTruePositive("rocksdb.bloom.filter.prefix.true.positive"),
-
-        /// Number of times we had to reseek inside an iteration to skip
-        /// over large number of keys with same userkey.
-        NumberOfReseeksInIteration("rocksdb.number.reseeks.iteration"),
 
         /// Record the number of calls to GetUpdatesSince. Useful to keep track of
         /// transaction log iterator refreshes
@@ -291,9 +329,33 @@ iterable_named_enum! {
         /// # of compressions/decompressions executed
         NumberBlockCompressed("rocksdb.number.block.compressed"),
         NumberBlockDecompressed("rocksdb.number.block.decompressed"),
-
-        /// DEPRECATED / unused (see NumberBlockCompression_*)
-        NumberBlockNotCompressed("rocksdb.number.block.not_compressed"),
+        /// Number of input bytes (uncompressed) to compression for SST blocks that
+        /// are stored compressed.
+        BytesCompressedFrom("rocksdb.bytes.compressed.from"),
+        /// Number of output bytes (compressed) from compression for SST blocks that
+        /// are stored compressed.
+        BytesCompressedTo("rocksdb.bytes.compressed.to"),
+        /// Number of uncompressed bytes for SST blocks that are stored uncompressed
+        /// because compression type is kNoCompression, or some error case caused
+        /// compression not to run or produce an output. Index blocks are only counted
+        /// if enable_index_compression is true.
+        BytesCompressionBypassed("rocksdb.bytes.compression_bypassed"),
+        /// Number of input bytes (uncompressed) to compression for SST blocks that
+        /// are stored uncompressed because the compression result was rejected,
+        /// either because the ratio was not acceptable (see
+        /// CompressionOptions::max_compressed_bytes_per_kb) or found invalid by the
+        /// `verify_compression` option.
+        BytesCompressionRejected("rocksdb.bytes.compression.rejected"),
+        /// Like BytesCompressionBypassed but counting number of blocks
+        NumberBlockCompressionBypassed("rocksdb.number.block_compression_bypassed"),
+        /// Like BytesCompressionRejected but counting number of blocks
+        NumberBlockCompressionRejected("rocksdb.number.block_compression_rejected"),
+        /// Number of input bytes (compressed) to decompression in reading compressed
+        /// SST blocks from storage.
+        BytesDecompressedFrom("rocksdb.bytes.decompressed.from"),
+        /// Number of output bytes (uncompressed) from decompression in reading
+        /// compressed SST blocks from storage.
+        BytesDecompressedTo("rocksdb.bytes.decompressed.to"),
 
         /// Tickers that record cumulative time.
         MergeOperationTotalTime("rocksdb.merge.operation.time.nanos"),
@@ -316,9 +378,6 @@ iterable_named_enum! {
 
         /// Number of refill intervals where rate limiter's bytes are fully consumed.
         NumberRateLimiterDrains("rocksdb.number.rate_limiter.drains"),
-
-        /// Number of internal keys skipped by Iterator
-        NumberIterSkip("rocksdb.number.iter.skip"),
 
         /// BlobDB specific stats
         /// # of Put/PutTtl/PutUntil to BlobDB. Only applicable to legacy BlobDB.
@@ -398,6 +457,20 @@ iterable_named_enum! {
         /// applicable to legacy BlobDB.
         BlobDbFifoBytesEvicted("rocksdb.blobdb.fifo.bytes.evicted"),
 
+        /// Integrated BlobDB specific stats
+        /// # of times cache miss when accessing blob from blob cache.
+        BlobDbCacheMiss("rocksdb.blobdb.cache.miss"),
+        /// # of times cache hit when accessing blob from blob cache.
+        BlobDbCacheHit("rocksdb.blobdb.cache.hit"),
+        /// # of data blocks added to blob cache.
+        BlobDbCacheAdd("rocksdb.blobdb.cache.add"),
+        /// # of failures when adding blobs to blob cache.
+        BlobDbCacheAddFailures("rocksdb.blobdb.cache.add.failures"),
+        /// # of bytes read from blob cache.
+        BlobDbCacheBytesRead("rocksdb.blobdb.cache.bytes.read"),
+        /// # of bytes written into blob cache.
+        BlobDbCacheBytesWrite("rocksdb.blobdb.cache.bytes.write"),
+
         /// These counters indicate a performance issue in WritePrepared transactions.
         /// We should not seem them ticking them much.
         /// # of times prepare_mutex_ is acquired in the fast path.
@@ -410,37 +483,6 @@ iterable_named_enum! {
         TxnSnapshotMutexOverhead("rocksdb.txn.overhead.mutex.snapshot"),
         /// # of times ::Get returned TryAgain due to expired snapshot seq
         TxnGetTryAgain("rocksdb.txn.get.tryagain"),
-
-        /// Number of keys actually found in MultiGet calls (vs number requested by
-        /// caller)
-        /// NumberMultigetKeys_Read gives the number requested by caller
-        NumberMultigetKeysFound("rocksdb.number.multiget.keys.found"),
-
-        NoIteratorCreated("rocksdb.num.iterator.created"),
-        /// number of iterators created
-        NoIteratorDeleted("rocksdb.num.iterator.deleted"),
-        /// number of iterators deleted
-        BlockCacheCompressionDictMiss("rocksdb.block.cache.compression.dict.miss"),
-        BlockCacheCompressionDictHit("rocksdb.block.cache.compression.dict.hit"),
-        BlockCacheCompressionDictAdd("rocksdb.block.cache.compression.dict.add"),
-        BlockCacheCompressionDictBytesInsert("rocksdb.block.cache.compression.dict.bytes.insert"),
-
-        /// # of blocks redundantly inserted into block cache.
-        /// REQUIRES: BlockCacheAddRedundant <= BlockCacheAdd
-        BlockCacheAddRedundant("rocksdb.block.cache.add.redundant"),
-        /// # of index blocks redundantly inserted into block cache.
-        /// REQUIRES: BlockCacheIndexAddRedundant <= BlockCacheIndexAdd
-        BlockCacheIndexAddRedundant("rocksdb.block.cache.index.add.redundant"),
-        /// # of filter blocks redundantly inserted into block cache.
-        /// REQUIRES: BlockCacheFilterAddRedundant <= BlockCacheFilterAdd
-        BlockCacheFilterAddRedundant("rocksdb.block.cache.filter.add.redundant"),
-        /// # of data blocks redundantly inserted into block cache.
-        /// REQUIRES: BlockCacheDataAddRedundant <= BlockCacheDataAdd
-        BlockCacheDataAddRedundant("rocksdb.block.cache.data.add.redundant"),
-        /// # of dict blocks redundantly inserted into block cache.
-        /// REQUIRES: BlockCacheCompressionDictAddRedundant
-        ///           <= BlockCacheCompressionDictAdd
-        BlockCacheCompressionDictAddRedundant("rocksdb.block.cache.compression.dict.add.redundant"),
 
         /// # of files marked as trash by sst file manager and will be deleted
         /// later by background thread.
@@ -456,11 +498,8 @@ iterable_named_enum! {
         /// The misspelled versions are deprecated and only kept for compatibility.
         /// ToDO: remove the misspelled tickers in the next major release.
         ErrorHandlerBgErrorCount("rocksdb.error.handler.bg.error.count"),
-        ErrorHandlerBgErrorCountMisspelled("rocksdb.error.handler.bg.errro.count"),
         ErrorHandlerBgIoErrorCount("rocksdb.error.handler.bg.io.error.count"),
-        ErrorHandlerBgIoErrorCountMisspelled("rocksdb.error.handler.bg.io.errro.count"),
         ErrorHandlerBgRetryableIoErrorCount("rocksdb.error.handler.bg.retryable.io.error.count"),
-        ErrorHandlerBgRetryableIoErrorCountMisspelled("rocksdb.error.handler.bg.retryable.io.errro.count"),
         ErrorHandlerAutoResumeCount("rocksdb.error.handler.autoresume.count"),
         ErrorHandlerAutoResumeRetryTotalCount("rocksdb.error.handler.autoresume.retry.total.count"),
         ErrorHandlerAutoResumeSuccessCount("rocksdb.error.handler.autoresume.success.count"),
@@ -470,9 +509,6 @@ iterable_named_enum! {
         MemtablePayloadBytesAtFlush("rocksdb.memtable.payload.bytes.at.flush"),
         /// Outdated bytes of data present on memtable at flush time.
         MemtableGarbageBytesAtFlush("rocksdb.memtable.garbage.bytes.at.flush"),
-
-        /// Secondary cache statistics
-        SecondaryCacheHits("rocksdb.secondary.cache.hits"),
 
         /// Bytes read by `VerifyChecksum()` and `VerifyFileChecksums()` APIs.
         VerifyChecksumReadBytes("rocksdb.verify_checksum.read.bytes"),
@@ -534,29 +570,10 @@ iterable_named_enum! {
 
         MultigetCoroutineCount("rocksdb.multiget.coroutine.count"),
 
-        /// Integrated BlobDB specific stats
-        /// # of times cache miss when accessing blob from blob cache.
-        BlobDbCacheMiss("rocksdb.blobdb.cache.miss"),
-        /// # of times cache hit when accessing blob from blob cache.
-        BlobDbCacheHit("rocksdb.blobdb.cache.hit"),
-        /// # of data blocks added to blob cache.
-        BlobDbCacheAdd("rocksdb.blobdb.cache.add"),
-        /// # of failures when adding blobs to blob cache.
-        BlobDbCacheAddFailures("rocksdb.blobdb.cache.add.failures"),
-        /// # of bytes read from blob cache.
-        BlobDbCacheBytesRead("rocksdb.blobdb.cache.bytes.read"),
-        /// # of bytes written into blob cache.
-        BlobDbCacheBytesWrite("rocksdb.blobdb.cache.bytes.write"),
-
         /// Time spent in the ReadAsync file system call
         ReadAsyncMicros("rocksdb.read.async.micros"),
         /// Number of errors returned to the async read callback
         AsyncReadErrorCount("rocksdb.async.read.error.count"),
-
-        /// Fine grained secondary cache stats
-        SecondaryCacheFilterHits("rocksdb.secondary.cache.filter.hits"),
-        SecondaryCacheIndexHits("rocksdb.secondary.cache.index.hits"),
-        SecondaryCacheDataHits("rocksdb.secondary.cache.data.hits"),
 
         /// Number of lookup into the prefetched tail (see
         /// `TableOpenPrefetchTailReadBytes`)
@@ -572,36 +589,6 @@ iterable_named_enum! {
         TimestampFilterTableChecked("rocksdb.timestamp.filter.table.checked"),
         /// # of times timestamps can successfully help skip the table access
         TimestampFilterTableFiltered("rocksdb.timestamp.filter.table.filtered"),
-
-        /// Number of input bytes (uncompressed) to compression for SST blocks that
-        /// are stored compressed.
-        BytesCompressedFrom("rocksdb.bytes.compressed.from"),
-        /// Number of output bytes (compressed) from compression for SST blocks that
-        /// are stored compressed.
-        BytesCompressedTo("rocksdb.bytes.compressed.to"),
-        /// Number of uncompressed bytes for SST blocks that are stored uncompressed
-        /// because compression type is kNoCompression, or some error case caused
-        /// compression not to run or produce an output. Index blocks are only counted
-        /// if enable_index_compression is true.
-        BytesCompressionBypassed("rocksdb.bytes.compression_bypassed"),
-        /// Number of input bytes (uncompressed) to compression for SST blocks that
-        /// are stored uncompressed because the compression result was rejected,
-        /// either because the ratio was not acceptable (see
-        /// CompressionOptions::max_compressed_bytes_per_kb) or found invalid by the
-        /// `verify_compression` option.
-        BytesCompressionRejected("rocksdb.bytes.compression.rejected"),
-
-        /// Like BytesCompressionBypassed but counting number of blocks
-        NumberBlockCompressionBypassed("rocksdb.number.block_compression_bypassed"),
-        /// Like BytesCompressionRejected but counting number of blocks
-        NumberBlockCompressionRejected("rocksdb.number.block_compression_rejected"),
-
-        /// Number of input bytes (compressed) to decompression in reading compressed
-        /// SST blocks from storage.
-        BytesDecompressedFrom("rocksdb.bytes.decompressed.from"),
-        /// Number of output bytes (uncompressed) from decompression in reading
-        /// compressed SST blocks from storage.
-        BytesDecompressedTo("rocksdb.bytes.decompressed.to"),
 
         /// Number of times readahead is trimmed during scans when
         /// ReadOptions.auto_readahead_size is set.
@@ -619,12 +606,6 @@ iterable_named_enum! {
 
         /// Number of FS reads avoided due to scan prefetching
         PrefetchHits("rocksdb.prefetch.hits"),
-
-        /// Compressed secondary cache related stats
-        CompressedSecondaryCacheDummyHits("rocksdb.compressed.secondary.cache.dummy.hits"),
-        CompressedSecondaryCacheHits("rocksdb.compressed.secondary.cache.hits"),
-        CompressedSecondaryCachePromotions("rocksdb.compressed.secondary.cache.promotions"),
-        CompressedSecondaryCachePromotionSkips("rocksdb.compressed.secondary.cache.promotion.skips"),
     }
 }
 
@@ -803,6 +784,6 @@ fn sanity_checks() {
     assert_eq!(want, Ticker::BlockCacheIndexMiss.to_string());
 
     // assert enum lengths
-    assert_eq!(Ticker::iter().count(), 215 /* TICKER_ENUM_MAX */);
+    assert_eq!(Ticker::iter().count(), 211 /* TICKER_ENUM_MAX */);
     assert_eq!(Histogram::iter().count(), 60 /* HISTOGRAM_ENUM_MAX */);
 }

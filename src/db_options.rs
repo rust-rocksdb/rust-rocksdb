@@ -2886,17 +2886,6 @@ impl Options {
         }
     }
 
-    /// Specifies the file access pattern once a compaction is started.
-    ///
-    /// It will be applied to all input files of a compaction.
-    ///
-    /// Default: Normal
-    pub fn set_access_hint_on_compaction_start(&mut self, pattern: AccessHint) {
-        unsafe {
-            ffi::rocksdb_options_set_access_hint_on_compaction_start(self.inner, pattern as c_int);
-        }
-    }
-
     /// Enable/disable adaptive mutex, which spins in the user space before resorting to kernel.
     ///
     /// This could reduce context switch when the mutex is not
@@ -4045,17 +4034,6 @@ pub enum DBRecoveryMode {
     AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
     PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
     SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
-}
-
-/// File access pattern once a compaction has started
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
-pub enum AccessHint {
-    None = 0,
-    Normal,
-    Sequential,
-    WillNeed,
 }
 
 pub struct FifoCompactOptions {
