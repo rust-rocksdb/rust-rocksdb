@@ -668,7 +668,7 @@ impl BlockBasedOptions {
     /// See full [list](https://github.com/facebook/rocksdb/blob/v8.6.7/include/rocksdb/table.h#L493-L521)
     /// of the supported versions.
     ///
-    /// Default: 5.
+    /// Default: 6.
     pub fn set_format_version(&mut self, version: i32) {
         unsafe {
             ffi::rocksdb_block_based_options_set_format_version(self.inner, version);
@@ -3154,6 +3154,55 @@ impl Options {
         }
     }
 
+    /// Create a RateLimiter object, which can be shared among RocksDB instances to
+    /// control write rate of flush and compaction.
+    ///
+    /// rate_bytes_per_sec: this is the only parameter you want to set most of the
+    /// time. It controls the total write rate of compaction and flush in bytes per
+    /// second. Currently, RocksDB does not enforce rate limit for anything other
+    /// than flush and compaction, e.g. write to WAL.
+    ///
+    /// refill_period_us: this controls how often tokens are refilled. For example,
+    /// when rate_bytes_per_sec is set to 10MB/s and refill_period_us is set to
+    /// 100ms, then 1MB is refilled every 100ms internally. Larger value can lead to
+    /// burstier writes while smaller value introduces more CPU overhead.
+    /// The default should work for most cases.
+    ///
+    /// fairness: RateLimiter accepts high-pri requests and low-pri requests.
+    /// A low-pri request is usually blocked in favor of hi-pri request. Currently,
+    /// RocksDB assigns low-pri to request from compaction and high-pri to request
+    /// from flush. Low-pri requests can get blocked if flush requests come in
+    /// continuously. This fairness parameter grants low-pri requests permission by
+    /// 1/fairness chance even though high-pri requests exist to avoid starvation.
+    /// You should be good by leaving it at default 10.
+    ///
+    /// mode: Mode indicates which types of operations count against the limit.
+    ///
+    /// auto_tuned: Enables dynamic adjustment of rate limit within the range
+    ///              `[rate_bytes_per_sec / 20, rate_bytes_per_sec]`, according to
+    ///              the recent demand for background I/O.
+    pub fn set_ratelimiter_with_mode(
+        &mut self,
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+        mode: RateLimiterMode,
+        auto_tuned: bool,
+    ) {
+        unsafe {
+            let ratelimiter = ffi::rocksdb_ratelimiter_create_with_mode(
+                rate_bytes_per_sec,
+                refill_period_us,
+                fairness,
+                mode as c_int,
+                auto_tuned,
+            );
+            // Since limiter is wrapped in shared_ptr, we don't need to
+            // call rocksdb_ratelimiter_destroy explicitly.
+            ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+        }
+    }
+
     /// Sets the maximal size of the info log file.
     ///
     /// If the log file is larger than `max_log_file_size`, a new info log file
@@ -4034,6 +4083,14 @@ pub enum DBRecoveryMode {
     AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
     PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
     SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(i32)]
+pub enum RateLimiterMode {
+    KReadsOnly = 0,
+    KWritesOnly = 1,
+    KAllIo = 2,
 }
 
 pub struct FifoCompactOptions {

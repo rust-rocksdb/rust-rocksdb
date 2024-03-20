@@ -24,9 +24,9 @@ use rust_rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
-    Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
-    UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions, WriteBatch, DB,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    Options, PerfContext, PerfMetric, RateLimiterMode, ReadOptions, SingleThreaded, SliceTransform,
+    Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions,
+    WriteBatch, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use util::{assert_iter, pair, DBPath};
 
@@ -1567,5 +1567,37 @@ fn test_atomic_flush_cfs() {
             db.get_cf(&cf2, "k21").unwrap(),
             Some("v21".as_bytes().to_vec())
         );
+    }
+}
+
+#[test]
+fn ratelimiter_with_mode_test() {
+    let path = DBPath::new("_rust_rocksdb_ratelimiter_with_mode_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_ratelimiter_with_mode(10000000, 100000, 10, RateLimiterMode::KAllIo, true);
+
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(&cf1, b"k2", b"v2").unwrap();
+        db.put_cf(&cf1, b"k3", b"v3").unwrap();
+        db.put_cf(&cf1, b"k4", b"v4").unwrap();
+        db.put_cf(&cf1, b"k5", b"v5").unwrap();
+
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        let mut wait_for_compact_opts: WaitForCompactOptions = WaitForCompactOptions::default();
+        wait_for_compact_opts.set_abort_on_pause(false);
+        wait_for_compact_opts.set_flush(true);
+
+        db.wait_for_compact(&wait_for_compact_opts).unwrap()
     }
 }
