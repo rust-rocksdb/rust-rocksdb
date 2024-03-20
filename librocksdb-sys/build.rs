@@ -100,10 +100,6 @@ fn build_rocksdb() {
         config.define("ROCKSDB_MALLOC_USABLE_SIZE", Some("1"));
     }
 
-    if cfg!(feature = "portable") {
-        config.define("PORTABLE", Some("1"));
-    }
-
     config.include(".");
     config.define("NDEBUG", Some("1"));
 
