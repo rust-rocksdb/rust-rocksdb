@@ -1,17 +1,21 @@
 error[E0596]: cannot borrow `*db_ref1` as mutable, as it is behind a `&` reference
  --> tests/fail/open_with_multiple_refs_as_single_threaded.rs:8:5
   |
-5 |     let db_ref1 = &db;
-  |                   --- help: consider changing this to be a mutable reference: `&mut db`
-...
 8 |     db_ref1.create_cf("cf1", &opts).unwrap();
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `db_ref1` is a `&` reference, so the data it refers to cannot be borrowed as mutable
+  |
+help: consider changing this to be a mutable reference
+  |
+5 |     let db_ref1 = &mut db;
+  |                   ~~~~~~~
 
 error[E0596]: cannot borrow `*db_ref2` as mutable, as it is behind a `&` reference
  --> tests/fail/open_with_multiple_refs_as_single_threaded.rs:9:5
   |
-6 |     let db_ref2 = &db;
-  |                   --- help: consider changing this to be a mutable reference: `&mut db`
-...
 9 |     db_ref2.create_cf("cf2", &opts).unwrap();
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `db_ref2` is a `&` reference, so the data it refers to cannot be borrowed as mutable
+  |
+help: consider changing this to be a mutable reference
+  |
+6 |     let db_ref2 = &mut db;
+  |                   ~~~~~~~
