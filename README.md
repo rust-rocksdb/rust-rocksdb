@@ -54,21 +54,9 @@ the crate feature `multi-threaded-cf`, which makes this binding's
 data structures use `RwLock` by default. Alternatively, you can directly create
 `DBWithThreadMode<MultiThreaded>` without enabling the crate feature.
 
-## Portable builds
-
-RocksDB's build, unlike Cargo, will default to setting `-march=native`, which
-generate code that fully takes advantage of build machine's CPU's features.
-This may create a binary that isn't compatible with other CPUs on the same
-architecture. For example, building on a machine with AVX512 support will create
-a binary that fails with `SIGILL` on machines without AVX512.
-
-Set the `portable` feature on this crate to pass `PORTABLE=1` to RocksDB's build,
-which will create a portable binary at the cost of some performance.
-
 ## Switch between /MT or /MD run time library (Only for Windows)
 
 The feature `mt_static` will request the library to be built with [/MT](https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170)
 flag, which results in library using the static version of the run-time library.
 *This can be useful in case there's a conflict in the dependecy tree between different
 run-time versions.*
-
