@@ -107,3 +107,10 @@ fn restore_from_backup() {
         }
     }
 }
+
+fn assert_send_generic<T: Send>() {}
+
+#[test]
+fn assert_send() {
+    assert_send_generic::<BackupEngine>();
+}

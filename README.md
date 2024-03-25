@@ -53,3 +53,10 @@ for compatibility. If you need to modify column families concurrently, enable
 the crate feature `multi-threaded-cf`, which makes this binding's
 data structures use `RwLock` by default. Alternatively, you can directly create
 `DBWithThreadMode<MultiThreaded>` without enabling the crate feature.
+
+## Switch between /MT or /MD run time library (Only for Windows)
+
+The feature `mt_static` will request the library to be built with [/MT](https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170)
+flag, which results in library using the static version of the run-time library.
+*This can be useful in case there's a conflict in the dependecy tree between different
+run-time versions.*
