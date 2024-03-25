@@ -37,11 +37,11 @@ serde1 = ["serde"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.16.0" }
+librocksdb-sys = { path = "librocksdb-sys", version = "0.17.0" }
 serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]
-trybuild = "1.0"
+trybuild = "<=1.0.89" # trybuild 1.0.90 needs MSRV 1.70
 tempfile = "3.1"
 pretty_assertions = "1.0"
 bincode = "1.3"
