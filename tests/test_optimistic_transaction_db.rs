@@ -581,3 +581,31 @@ fn transaction_snapshot() {
         assert_eq!(snapshot.get(b"k3").unwrap().unwrap(), b"v3");
     }
 }
+
+#[test]
+fn delete_range_test() {
+    let path = DBPath::new("_rust_rocksdb_optimistic_transaction_db_delete_range_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let cfs = vec!["cf1"];
+        let db: OptimisticTransactionDB =
+            OptimisticTransactionDB::open_cf(&opts, &path, cfs).unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(&cf1, b"k2", b"v2").unwrap();
+        db.put_cf(&cf1, b"k3", b"v3").unwrap();
+        db.put_cf(&cf1, b"k4", b"v4").unwrap();
+        db.put_cf(&cf1, b"k5", b"v5").unwrap();
+
+        db.delete_range_cf(&cf1, b"k2", b"k4").unwrap();
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+        assert_eq!(db.get_cf(&cf1, b"k4").unwrap().unwrap(), b"v4");
+        assert_eq!(db.get_cf(&cf1, b"k5").unwrap().unwrap(), b"v5");
+        assert!(db.get_cf(&cf1, b"k2").unwrap().is_none());
+        assert!(db.get_cf(&cf1, b"k3").unwrap().is_none());
+    }
+}
