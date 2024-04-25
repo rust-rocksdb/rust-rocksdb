@@ -4,6 +4,7 @@ error[E0597]: `txn` does not live long enough
 5 |     let _snapshot = {
   |         --------- borrow later stored here
 6 |         let txn = db.transaction();
+  |             --- binding `txn` declared here
 7 |         txn.snapshot()
   |         ^^^^^^^^^^^^^^ borrowed value does not live long enough
 8 |     };

@@ -4,6 +4,7 @@ error[E0597]: `db` does not live long enough
 4 |     let _snapshot = {
   |         --------- borrow later stored here
 5 |         let db = DB::open_default("foo").unwrap();
+  |             -- binding `db` declared here
 6 |         db.snapshot()
   |         ^^^^^^^^^^^^^ borrowed value does not live long enough
 7 |     };

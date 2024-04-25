@@ -17,12 +17,9 @@ impl PropName {
     /// Panics if the `value` isn’t terminated by a nul byte or contains
     /// interior nul bytes.
     pub(crate) const fn new_unwrap(value: &str) -> &Self {
-        let bytes = if let Some((&0, bytes)) = value.as_bytes().split_last() {
-            bytes
-        } else {
+        let Some((&0, bytes)) = value.as_bytes().split_last() else {
             panic!("input was not nul-terminated");
         };
-
         let mut idx = 0;
         while idx < bytes.len() {
             assert!(bytes[idx] != 0, "input contained interior nul byte");
