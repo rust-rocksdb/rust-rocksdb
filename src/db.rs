@@ -408,6 +408,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens a database with the given database with a Time to Live compaction filter and
     /// column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_with_ttl<P, I>(
         opts: &Options,
         path: P,
@@ -454,6 +456,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens a database for read only with the given database options and column family names.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
         path: P,
@@ -480,6 +484,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens a database for read only with the given database options and column family names.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_with_opts_for_read_only<P, I, N>(
         db_opts: &Options,
         path: P,
@@ -507,6 +513,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens a database for ready only with the given database options and
     /// column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_read_only<P, I>(
         opts: &Options,
         path: P,
@@ -528,6 +536,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens the database as a secondary with the given database options and column family names.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_as_secondary<P, I, N>(
         opts: &Options,
         primary_path: P,
@@ -555,6 +565,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens the database as a secondary with the given database options and
     /// column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_as_secondary<P, I>(
         opts: &Options,
         path: P,
@@ -576,6 +588,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens a database with the given database options and column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
     where
         P: AsRef<Path>,

@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+* Document that `default` column family doesn't inherit open options of db (
+  0xdeafbeef)
 
 ## 0.22.0 (2024-02-13)
 

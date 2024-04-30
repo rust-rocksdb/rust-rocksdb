@@ -100,6 +100,9 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
     /// Opens a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
+    /// *NOTE*: `default` column family will be opened with the `Options::default()`.
+    /// If you want to open `default` column family with custom options, use `open_cf_descriptors` and
+    /// provide a `ColumnFamilyDescriptor` with the desired options.
     pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
     where
         P: AsRef<Path>,
