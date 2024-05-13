@@ -284,6 +284,19 @@ fn build_rocksdb() {
 }
 
 fn build_snappy() {
+    /// The name of the compiled library.
+    const ARCHIVE: &str = "libsnappy.a";
+
+    // Check if snappy has already been built.
+    if env::var("OUT_DIR")
+        .map(PathBuf::from)
+        .unwrap()
+        .join(ARCHIVE)
+        .exists()
+    {
+        return;
+    }
+
     let target = env::var("TARGET").unwrap();
     let endianness = env::var("CARGO_CFG_TARGET_ENDIAN").unwrap();
     let mut config = cc::Build::new();
@@ -312,7 +325,7 @@ fn build_snappy() {
     config.file("snappy/snappy-sinksource.cc");
     config.file("snappy/snappy-c.cc");
     config.cpp(true);
-    config.compile("libsnappy.a");
+    config.compile(ARCHIVE);
 }
 
 fn try_to_find_and_link_lib(lib_name: &str) -> bool {
