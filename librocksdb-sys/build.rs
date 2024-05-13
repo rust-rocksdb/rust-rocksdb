@@ -53,6 +53,19 @@ fn bindgen_rocksdb() {
 }
 
 fn build_rocksdb() {
+    /// The name of the compiled library.
+    const ARCHIVE: &str = "librocksdb.a";
+
+    // Check if rocksdb has already been built.
+    if env::var("OUT_DIR")
+        .map(PathBuf::from)
+        .unwrap()
+        .join(ARCHIVE)
+        .exists()
+    {
+        return;
+    }
+
     let target = env::var("TARGET").unwrap();
 
     let mut config = cc::Build::new();
@@ -267,7 +280,7 @@ fn build_rocksdb() {
 
     config.cpp(true);
     config.flag_if_supported("-std=c++17");
-    config.compile("librocksdb.a");
+    config.compile(ARCHIVE);
 }
 
 fn build_snappy() {
