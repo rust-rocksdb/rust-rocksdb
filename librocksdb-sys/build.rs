@@ -30,18 +30,25 @@ fn rocksdb_include_dir() -> String {
 }
 
 fn bindgen_rocksdb() {
-    let bindings = bindgen::Builder::default()
+    let out_path = env::var("OUT_DIR")
+        .map(PathBuf::from)
+        .unwrap()
+        .join("bindings.rs");
+
+    // Check if the bindings to rocksdb have already been generated.
+    if out_path.exists() {
+        return;
+    }
+
+    bindgen::Builder::default()
         .header(rocksdb_include_dir() + "/rocksdb/c.h")
         .derive_debug(false)
         .blocklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
         .size_t_is_usize(true)
         .generate()
-        .expect("unable to generate rocksdb bindings");
-
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
+        .expect("unable to generate rocksdb bindings")
+        .write_to_file(out_path)
         .expect("unable to write rocksdb bindings");
 }
 
