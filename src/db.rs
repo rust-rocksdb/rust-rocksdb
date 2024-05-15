@@ -650,7 +650,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
             let cfopts: Vec<_> = cfs_v
                 .iter()
-                .map(|cf| cf.options.inner as *const _)
+                .map(|cf| cf.options.inner.cast_const())
                 .collect();
 
             db = Self::open_cf_raw(
@@ -1161,7 +1161,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             .collect();
         let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|(c, _)| c.inner() as *const _)
+            .map(|(c, _)| c.inner().cast_const())
             .collect();
 
         let mut values = vec![ptr::null_mut(); ptr_keys.len()];
@@ -1239,7 +1239,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             );
             pinned_values
                 .into_iter()
-                .zip(errors.into_iter())
+                .zip(errors)
                 .map(|(v, e)| {
                     if e.is_null() {
                         if v.is_null() {
@@ -2014,7 +2014,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 self.inner.inner(),
                 cpaths.as_ptr(),
                 paths_v.len(),
-                opts.inner as *const _
+                opts.inner.cast_const()
             ));
             Ok(())
         }
@@ -2033,7 +2033,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 cf.inner(),
                 cpaths.as_ptr(),
                 paths_v.len(),
-                opts.inner as *const _
+                opts.inner.cast_const()
             ));
             Ok(())
         }
@@ -2326,8 +2326,8 @@ pub(crate) fn convert_values(
 ) -> Vec<Result<Option<Vec<u8>>, Error>> {
     values
         .into_iter()
-        .zip(values_sizes.into_iter())
-        .zip(errors.into_iter())
+        .zip(values_sizes)
+        .zip(errors)
         .map(|((v, s), e)| {
             if e.is_null() {
                 let value = unsafe { crate::ffi_util::raw_data(v, s) };

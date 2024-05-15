@@ -309,13 +309,13 @@ fn sanity_checks() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected = "input contained interior nul byte")]
 fn test_interior_nul() {
     PropName::new_unwrap("interior nul\0\0");
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected = "input was not nul-terminated")]
 fn test_non_nul_terminated() {
     PropName::new_unwrap("no nul terminator");
 }

@@ -217,16 +217,13 @@ pub(crate) struct OptionsMustOutliveDB {
 impl OptionsMustOutliveDB {
     pub(crate) fn clone(&self) -> Self {
         Self {
-            env: self.env.as_ref().map(Env::clone),
-            row_cache: self.row_cache.as_ref().map(Cache::clone),
+            env: self.env.clone(),
+            row_cache: self.row_cache.clone(),
             block_based: self
                 .block_based
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
-            write_buffer_manager: self
-                .write_buffer_manager
-                .as_ref()
-                .map(WriteBufferManager::clone),
+            write_buffer_manager: self.write_buffer_manager.clone(),
         }
     }
 }
@@ -239,7 +236,7 @@ struct BlockBasedOptionsMustOutliveDB {
 impl BlockBasedOptionsMustOutliveDB {
     fn clone(&self) -> Self {
         Self {
-            block_cache: self.block_cache.as_ref().map(Cache::clone),
+            block_cache: self.block_cache.clone(),
         }
     }
 }
@@ -1112,10 +1109,7 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_paths(&mut self, paths: &[DBPath]) {
-        let mut paths: Vec<_> = paths
-            .iter()
-            .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
-            .collect();
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
@@ -2499,7 +2493,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_max_bytes_for_level_multiplier_additional(
                 self.inner,
-                level_values.as_ptr() as *mut c_int,
+                level_values.as_ptr().cast_mut(),
                 count,
             );
         }
