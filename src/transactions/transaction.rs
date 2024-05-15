@@ -556,7 +556,7 @@ impl<'db, DB> Transaction<'db, DB> {
             .collect();
         let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|(c, _)| c.inner() as *const _)
+            .map(|(c, _)| c.inner().cast_const())
             .collect();
 
         let mut values = vec![ptr::null_mut(); ptr_keys.len()];
