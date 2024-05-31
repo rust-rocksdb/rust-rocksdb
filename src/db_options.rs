@@ -3523,7 +3523,7 @@ pub enum ReadTier {
     BlockCache,
     /// Reads persisted data. When WAL is disabled, this option will skip data in memtable.
     Persisted,
-    /// Reads data in memtable.  Used for memtable only iterators.
+    /// Reads data in memtable. Used for memtable only iterators.
     Memtable,
 }
 
