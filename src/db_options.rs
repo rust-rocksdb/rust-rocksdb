@@ -3368,6 +3368,19 @@ impl Options {
         }
         self.outlive.write_buffer_manager = Some(write_buffer_manager.clone());
     }
+
+    /// If true, working thread may avoid doing unnecessary and long-latency
+    /// operation (such as deleting obsolete files directly or deleting memtable)
+    /// and will instead schedule a background job to do it.
+    ///
+    /// Use it if you're latency-sensitive.
+    ///
+    /// Default: false (disabled)
+    pub fn set_avoid_unnecessary_blocking_io(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_avoid_unnecessary_blocking_io(self.inner, u8::from(val));
+        }
+    }
 }
 
 impl Default for Options {

@@ -267,6 +267,19 @@ fn test_add_compact_on_deletion_collector_factory() {
 }
 
 #[test]
+fn test_set_avoid_unnecessary_blocking_io() {
+    let path = DBPath::new("_set_avoid_unnecessary_blocking_io");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_avoid_unnecessary_blocking_io(true);
+        let db = DB::open(&opts, &path).unwrap();
+        let _ = db.put(b"k1", b"a");
+        assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
+    }
+}
+
+#[test]
 fn test_set_periodic_compaction_seconds() {
     let path = DBPath::new("_set_periodic_compaction_seconds");
     {
