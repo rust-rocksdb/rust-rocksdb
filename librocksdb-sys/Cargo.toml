@@ -8,12 +8,12 @@ license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
 readme = "README.md"
 repository = "https://github.com/rust-rocksdb/rust-rocksdb"
-keywords = [ "bindings", "ffi", "rocksdb" ]
-categories = [ "api-bindings", "database", "external-ffi-bindings" ]
+keywords = ["bindings", "ffi", "rocksdb"]
+categories = ["api-bindings", "database", "external-ffi-bindings"]
 links = "rocksdb"
 
 [features]
-default = [ "static" ]
+default = ["static"]
 jemalloc = ["tikv-jemalloc-sys"]
 static = ["libz-sys?/static", "bzip2-sys?/static"]
 mt_static = []
@@ -23,10 +23,12 @@ lz4 = ["lz4-sys"]
 zstd = ["zstd-sys"]
 zlib = ["libz-sys"]
 bzip2 = ["bzip2-sys"]
+encryption = ["openssl-sys"]
 rtti = []
 
 [dependencies]
 libc = "0.2"
+openssl-sys = { version = "0.9.55", optional = true }
 tikv-jemalloc-sys = { version = "0.5", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
 lz4-sys = { version = "1.9", optional = true }
 zstd-sys = { version = "2.0", features = ["zdict_builder"], optional = true }

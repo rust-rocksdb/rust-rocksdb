@@ -16,28 +16,21 @@ fn link(name: &str, bundled: bool) {
 
 fn fail_on_empty_directory(name: &str) {
     if fs::read_dir(name).unwrap().count() == 0 {
-        println!("The `{name}` directory is empty, did you forget to pull the submodules?");
+        println!("The `{name}` directory is empty,did you forget to pull the submodules?");
         println!("Try `git submodule update --init --recursive`");
         panic!();
     }
 }
 
-fn rocksdb_include_dir() -> String {
-    match env::var("ROCKSDB_INCLUDE_DIR") {
-        Ok(val) => val,
-        Err(_) => "rocksdb/include".to_string(),
-    }
-}
-
 fn bindgen_rocksdb() {
     let bindings = bindgen::Builder::default()
-        .header(rocksdb_include_dir() + "/rocksdb/c.h")
+        .header("rocksdb_ext/rocksdb_ext/c.h")
         .derive_debug(false)
         .blocklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .ctypes_prefix("libc")
         .size_t_is_usize(true)
         .generate()
-        .expect("unable to generate rocksdb bindings");
+        .expect("unable to  generate rocksdb bindings");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
@@ -49,7 +42,11 @@ fn build_rocksdb() {
     let target = env::var("TARGET").unwrap();
 
     let mut config = cc::Build::new();
+    config.file("rocksdb_ext/c.cc");
+    config.file("rocksdb_ext/rocksdb_ext/encrypted.cc");
+    config.include("rocksdb_ext/");
     config.include("rocksdb/include/");
+    config.include("rocksdb/");
     config.include("rocksdb/");
     config.include("rocksdb/third-party/gtest-1.8.1/fused-src/");
 
@@ -88,6 +85,17 @@ fn build_rocksdb() {
 
     if cfg!(feature = "rtti") {
         config.define("USE_RTTI", Some("1"));
+    }
+
+    if cfg!(feature = "encryption") {
+        config
+            .define("OPENSSL", Some("1"))
+            .define("WITH_OPENSSL", "ON");
+
+        if let Some(path) = env::var_os("DEP_OPENSSL_INCLUDE") {
+            config.include(path);
+        }
+        println!("cargo:rustc-link-lib=static=crypto");
     }
 
     config.include(".");
@@ -342,7 +350,7 @@ fn update_submodules() {
 
     match ret.map(|status| (status.success(), status.code())) {
         Ok((true, _)) => (),
-        Ok((false, Some(c))) => panic!("Command failed with error code {}", c),
+        Ok((false, Some(c))) => panic!("Command  failed with error code {}", c),
         Ok((false, None)) => panic!("Command got killed"),
         Err(e) => panic!("Command failed with error: {}", e),
     }

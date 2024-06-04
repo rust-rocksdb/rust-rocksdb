@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use libc::{self, c_int};
+use libc::{self, c_char, c_int};
 
-use crate::{ffi, Error};
+use crate::{ffi, DBEncryptionMethod, Error};
 
 /// An Env is an interface used by the rocksdb implementation to access
 /// operating system functionality like the filesystem etc. Callers
@@ -19,6 +19,8 @@ pub struct Env(pub(crate) Arc<EnvWrapper>);
 
 pub(crate) struct EnvWrapper {
     pub(crate) inner: *mut ffi::rocksdb_env_t,
+    #[allow(dead_code)]
+    pub(crate) base: Option<Arc<Env>>,
 }
 
 impl Drop for EnvWrapper {
@@ -36,7 +38,35 @@ impl Env {
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))
         } else {
-            Ok(Self(Arc::new(EnvWrapper { inner: env })))
+            Ok(Self(Arc::new(EnvWrapper {
+                inner: env,
+                base: None,
+            })))
+        }
+    }
+
+    #[cfg(feature = "encryption")]
+    pub fn new_encrypted_env(
+        base_env: Arc<Env>,
+        method: DBEncryptionMethod,
+        ciphertext: &[u8],
+    ) -> Result<Self, Error> {
+        let len = ciphertext.len();
+        let env = unsafe {
+            ffi::crocksdb_ctr_aes_encrypted_env_create(
+                base_env.0.inner,
+                ciphertext.as_ptr() as *const c_char,
+                len,
+                method as u32,
+            )
+        };
+        if env.is_null() {
+            Err(Error::new("Could not create encrypted env".to_owned()))
+        } else {
+            Ok(Self(Arc::new(EnvWrapper {
+                inner: env,
+                base: Some(base_env),
+            })))
         }
     }
 
@@ -47,7 +77,10 @@ impl Env {
         if env.is_null() {
             Err(Error::new("Could not create mem env".to_owned()))
         } else {
-            Ok(Self(Arc::new(EnvWrapper { inner: env })))
+            Ok(Self(Arc::new(EnvWrapper {
+                inner: env,
+                base: None,
+            })))
         }
     }
 
