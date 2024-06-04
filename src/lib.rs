@@ -141,6 +141,15 @@ use librocksdb_sys as ffi;
 use std::error;
 use std::fmt;
 
+#[cfg(feature = "encryption")]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum DBEncryptionMethod {
+    Aes128Ctr = 0,
+    Aes192Ctr = 1,
+    Aes256Ctr = 2,
+}
+
 /// RocksDB error kind.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorKind {

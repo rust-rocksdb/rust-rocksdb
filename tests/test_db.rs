@@ -23,10 +23,10 @@ use rocksdb::statistics::{Histogram, StatsLevel, Ticker};
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
-    DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
-    Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
-    UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions, WriteBatch, DB,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    DBEncryptionMethod, DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode,
+    MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform,
+    Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions,
+    WriteBatch, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use util::{assert_iter, pair, DBPath};
 
@@ -902,6 +902,44 @@ fn env_and_dbpaths_test() {
             let mut env = Env::new().unwrap();
             env.lower_high_priority_thread_pool_cpu_priority();
             opts.set_env(&env);
+        }
+
+        {
+            let paths = vec![
+                rocksdb::DBPath::new(&path1, 20 << 20).unwrap(),
+                rocksdb::DBPath::new(&path2, 30 << 20).unwrap(),
+            ];
+            opts.set_db_paths(&paths);
+        }
+
+        let db = DB::open(&opts, &path).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+        std::assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+    }
+}
+
+#[test]
+#[cfg(feature = "encryption")]
+fn encrypted_env_and_dbpaths_test() {
+    let path = DBPath::new("_rust_rocksdb_dbpath_test");
+    let path1 = DBPath::new("_rust_rocksdb_dbpath_test_1");
+    let path2 = DBPath::new("_rust_rocksdb_dbpath_test_2");
+    let env = Arc::new(Env::new().unwrap());
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        {
+            // let mut encrypted_env = Env::new().unwrap();
+            let mut encrypted_env = Env::new_encrypted_env(
+                env,
+                DBEncryptionMethod::Aes128Ctr,
+                &[1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+            )
+            .unwrap();
+            encrypted_env.lower_high_priority_thread_pool_cpu_priority();
+            opts.set_env(&encrypted_env);
         }
 
         {
