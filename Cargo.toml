@@ -3,7 +3,7 @@ name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.22.0"
 edition = "2018"
-rust-version = "1.66.0"
+rust-version = "1.70.0"
 authors = ["Tyler Neely <t@jujit.su>", "David Greenberg <dsg123456789@gmail.com>"]
 repository = "https://github.com/rust-rocksdb/rust-rocksdb"
 license = "Apache-2.0"
@@ -34,15 +34,14 @@ bzip2 = ["librocksdb-sys/bzip2"]
 rtti = ["librocksdb-sys/rtti"]
 multi-threaded-cf = []
 serde1 = ["serde"]
-portable = ["librocksdb-sys/portable"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.16.0" }
+librocksdb-sys = { path = "librocksdb-sys", version = "0.17.0" }
 serde = { version = "1", features = [ "derive" ], optional = true }
 
 [dev-dependencies]
-trybuild = "1.0"
+trybuild = "<=1.0.89" # trybuild 1.0.90 needs MSRV 1.70
 tempfile = "3.1"
 pretty_assertions = "1.0"
 bincode = "1.3"

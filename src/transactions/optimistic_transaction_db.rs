@@ -15,12 +15,15 @@
 
 use std::{collections::BTreeMap, ffi::CString, fs, iter, marker::PhantomData, path::Path, ptr};
 
-use libc::{c_char, c_int};
+use libc::{c_char, c_int, size_t};
 
 use crate::{
-    db::DBCommon, db::DBInner, ffi, ffi_util::to_cpath, write_batch::WriteBatchWithTransaction,
-    ColumnFamilyDescriptor, Error, OptimisticTransactionOptions, Options, ThreadMode, Transaction,
-    WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+    db::{DBCommon, DBInner},
+    ffi,
+    ffi_util::to_cpath,
+    write_batch::WriteBatchWithTransaction,
+    AsColumnFamilyRef, ColumnFamilyDescriptor, Error, OptimisticTransactionOptions, Options,
+    ThreadMode, Transaction, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 /// A type alias to RocksDB Optimistic Transaction DB.
@@ -42,7 +45,7 @@ use crate::{
 /// {
 ///     let db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();
-///     
+///
 ///     // create transaction
 ///     let txn = db.transaction();
 ///     txn.put(b"key2", b"value2");
@@ -97,6 +100,9 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
     /// Opens a database with the given database options and column family names.
     ///
     /// Column families opened using this function will be created with default `Options`.
+    /// *NOTE*: `default` column family will be opened with the `Options::default()`.
+    /// If you want to open `default` column family with custom options, use `open_cf_descriptors` and
+    /// provide a `ColumnFamilyDescriptor` with the desired options.
     pub fn open_cf<P, I, N>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
     where
         P: AsRef<Path>,
@@ -166,7 +172,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
 
             let cfopts: Vec<_> = cfs_v
                 .iter()
-                .map(|cf| cf.options.inner as *const _)
+                .map(|cf| cf.options.inner.cast_const())
                 .collect();
 
             db = Self::open_cf_raw(opts, &cpath, &cfs_v, &cfnames, &cfopts, &mut cfhandles)?;
@@ -262,7 +268,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
                     std::ptr::null_mut(),
                 )
             },
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -289,5 +295,40 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
         let mut wo = WriteOptions::new();
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
+    }
+
+    /// Removes the database entries in the range `["from", "to")` using given write options.
+    pub fn delete_range_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        from: K,
+        to: K,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
+        let from = from.as_ref();
+        let to = to.as_ref();
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_range_cf(
+                self.inner.inner(),
+                writeopts.inner,
+                cf.inner(),
+                from.as_ptr() as *const c_char,
+                from.len() as size_t,
+                to.as_ptr() as *const c_char,
+                to.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Removes the database entries in the range `["from", "to")` using default write options.
+    pub fn delete_range_cf<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        from: K,
+        to: K,
+    ) -> Result<(), Error> {
+        self.delete_range_cf_opt(cf, from, to, &WriteOptions::default())
     }
 }

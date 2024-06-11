@@ -90,10 +90,6 @@ fn build_rocksdb() {
         config.define("USE_RTTI", Some("1"));
     }
 
-    if cfg!(feature = "portable") {
-        config.define("PORTABLE", Some("1"));
-    }
-
     config.include(".");
     config.define("NDEBUG", Some("1"));
 
@@ -253,7 +249,10 @@ fn build_rocksdb() {
         config.flag("-Wno-strict-aliasing");
         config.flag("-Wno-invalid-offsetof");
     }
-
+    if target.contains("riscv64gc") {
+        // link libatomic required to build for riscv64gc
+        println!("cargo:rustc-link-lib=atomic");
+    }
     for file in lib_sources {
         config.file(format!("rocksdb/{file}"));
     }

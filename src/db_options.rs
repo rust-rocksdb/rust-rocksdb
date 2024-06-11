@@ -217,16 +217,13 @@ pub(crate) struct OptionsMustOutliveDB {
 impl OptionsMustOutliveDB {
     pub(crate) fn clone(&self) -> Self {
         Self {
-            env: self.env.as_ref().map(Env::clone),
-            row_cache: self.row_cache.as_ref().map(Cache::clone),
+            env: self.env.clone(),
+            row_cache: self.row_cache.clone(),
             block_based: self
                 .block_based
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
-            write_buffer_manager: self
-                .write_buffer_manager
-                .as_ref()
-                .map(WriteBufferManager::clone),
+            write_buffer_manager: self.write_buffer_manager.clone(),
         }
     }
 }
@@ -239,7 +236,7 @@ struct BlockBasedOptionsMustOutliveDB {
 impl BlockBasedOptionsMustOutliveDB {
     fn clone(&self) -> Self {
         Self {
-            block_cache: self.block_cache.as_ref().map(Cache::clone),
+            block_cache: self.block_cache.clone(),
         }
     }
 }
@@ -1112,10 +1109,7 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_paths(&mut self, paths: &[DBPath]) {
-        let mut paths: Vec<_> = paths
-            .iter()
-            .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
-            .collect();
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
@@ -2499,7 +2493,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_max_bytes_for_level_multiplier_additional(
                 self.inner,
-                level_values.as_ptr() as *mut c_int,
+                level_values.as_ptr().cast_mut(),
                 count,
             );
         }
@@ -2849,17 +2843,6 @@ impl Options {
         }
     }
 
-    /// Specifies the file access pattern once a compaction is started.
-    ///
-    /// It will be applied to all input files of a compaction.
-    ///
-    /// Default: Normal
-    pub fn set_access_hint_on_compaction_start(&mut self, pattern: AccessHint) {
-        unsafe {
-            ffi::rocksdb_options_set_access_hint_on_compaction_start(self.inner, pattern as c_int);
-        }
-    }
-
     /// Enable/disable adaptive mutex, which spins in the user space before resorting to kernel.
     ///
     /// This could reduce context switch when the mutex is not
@@ -3122,9 +3105,30 @@ impl Options {
         unsafe {
             let ratelimiter =
                 ffi::rocksdb_ratelimiter_create(rate_bytes_per_sec, refill_period_us, fairness);
-            // Since limiter is wrapped in shared_ptr, we don't need to
-            // call rocksdb_ratelimiter_destroy explicitly.
             ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+            ffi::rocksdb_ratelimiter_destroy(ratelimiter);
+        }
+    }
+
+    /// Use to control write rate of flush and compaction. Flush has higher
+    /// priority than compaction.
+    /// If rate limiter is enabled, bytes_per_sync is set to 1MB by default.
+    ///
+    /// Default: disable
+    pub fn set_auto_tuned_ratelimiter(
+        &mut self,
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+    ) {
+        unsafe {
+            let ratelimiter = ffi::rocksdb_ratelimiter_create_auto_tuned(
+                rate_bytes_per_sec,
+                refill_period_us,
+                fairness,
+            );
+            ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+            ffi::rocksdb_ratelimiter_destroy(ratelimiter);
         }
     }
 
@@ -3385,6 +3389,19 @@ impl Options {
         }
         self.outlive.write_buffer_manager = Some(write_buffer_manager.clone());
     }
+
+    /// If true, working thread may avoid doing unnecessary and long-latency
+    /// operation (such as deleting obsolete files directly or deleting memtable)
+    /// and will instead schedule a background job to do it.
+    ///
+    /// Use it if you're latency-sensitive.
+    ///
+    /// Default: false (disabled)
+    pub fn set_avoid_unnecessary_blocking_io(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_avoid_unnecessary_blocking_io(self.inner, u8::from(val));
+        }
+    }
 }
 
 impl Default for Options {
@@ -3538,6 +3555,10 @@ pub enum ReadTier {
     All = 0,
     /// Reads data in memtable or block cache.
     BlockCache,
+    /// Reads persisted data. When WAL is disabled, this option will skip data in memtable.
+    Persisted,
+    /// Reads data in memtable. Used for memtable only iterators.
+    Memtable,
 }
 
 impl ReadOptions {
@@ -3984,17 +4005,6 @@ pub enum DBRecoveryMode {
     AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
     PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
     SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
-}
-
-/// File access pattern once a compaction has started
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
-pub enum AccessHint {
-    None = 0,
-    Normal,
-    Sequential,
-    WillNeed,
 }
 
 pub struct FifoCompactOptions {

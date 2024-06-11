@@ -267,6 +267,19 @@ fn test_add_compact_on_deletion_collector_factory() {
 }
 
 #[test]
+fn test_set_avoid_unnecessary_blocking_io() {
+    let path = DBPath::new("_set_avoid_unnecessary_blocking_io");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_avoid_unnecessary_blocking_io(true);
+        let db = DB::open(&opts, &path).unwrap();
+        let _ = db.put(b"k1", b"a");
+        assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
+    }
+}
+
+#[test]
 fn test_set_periodic_compaction_seconds() {
     let path = DBPath::new("_set_periodic_compaction_seconds");
     {
@@ -274,5 +287,29 @@ fn test_set_periodic_compaction_seconds() {
         opts.create_if_missing(true);
         opts.set_periodic_compaction_seconds(5);
         let _db = DB::open(&opts, &path).unwrap();
+    }
+}
+
+#[test]
+fn test_set_ratelimiter() {
+    let path = DBPath::new("_set_ratelimiter");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ratelimiter(1024000, 1000, 1);
+        let db = DB::open(&opts, &path).unwrap();
+
+        let _ = db.put(b"k1", b"a");
+        assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
+    }
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_auto_tuned_ratelimiter(1024000, 1000, 1);
+        let db = DB::open(&opts, &path).unwrap();
+
+        let _ = db.put(b"k2", b"a");
+        assert_eq!(&*db.get(b"k2").unwrap().unwrap(), b"a");
     }
 }

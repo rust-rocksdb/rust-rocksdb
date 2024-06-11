@@ -17,12 +17,9 @@ impl PropName {
     /// Panics if the `value` isn’t terminated by a nul byte or contains
     /// interior nul bytes.
     pub(crate) const fn new_unwrap(value: &str) -> &Self {
-        let bytes = if let Some((&0, bytes)) = value.as_bytes().split_last() {
-            bytes
-        } else {
+        let Some((&0, bytes)) = value.as_bytes().split_last() else {
             panic!("input was not nul-terminated");
         };
-
         let mut idx = 0;
         while idx < bytes.len() {
             assert!(bytes[idx] != 0, "input contained interior nul byte");
@@ -312,13 +309,13 @@ fn sanity_checks() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected = "input contained interior nul byte")]
 fn test_interior_nul() {
     PropName::new_unwrap("interior nul\0\0");
 }
 
 #[test]
-#[should_panic]
+#[should_panic(expected = "input was not nul-terminated")]
 fn test_non_nul_terminated() {
     PropName::new_unwrap("no nul terminator");
 }

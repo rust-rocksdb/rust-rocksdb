@@ -266,7 +266,7 @@ impl<T: ThreadMode> TransactionDB<T> {
 
             let cfopts: Vec<_> = cfs_v
                 .iter()
-                .map(|cf| cf.options.inner as *const _)
+                .map(|cf| cf.options.inner.cast_const())
                 .collect();
 
             db = Self::open_cf_raw(
@@ -408,7 +408,7 @@ impl<T: ThreadMode> TransactionDB<T> {
                     std::ptr::null_mut(),
                 )
             },
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -423,7 +423,7 @@ impl<T: ThreadMode> TransactionDB<T> {
             .drain(0..)
             .map(|inner| Transaction {
                 inner,
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             })
             .collect()
     }
@@ -600,7 +600,7 @@ impl<T: ThreadMode> TransactionDB<T> {
             .collect();
         let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|(c, _)| c.inner() as *const _)
+            .map(|(c, _)| c.inner().cast_const())
             .collect();
 
         let mut values = vec![ptr::null_mut(); ptr_keys.len()];
