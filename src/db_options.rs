@@ -210,6 +210,7 @@ impl Cache {
 pub(crate) struct OptionsMustOutliveDB {
     env: Option<Env>,
     row_cache: Option<Cache>,
+    blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
 }
@@ -219,6 +220,7 @@ impl OptionsMustOutliveDB {
         Self {
             env: self.env.clone(),
             row_cache: self.row_cache.clone(),
+            blob_cache: self.blob_cache.clone(),
             block_based: self
                 .block_based
                 .as_ref()
@@ -3327,6 +3329,14 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_blob_compaction_readahead_size(self.inner, val);
         }
+    }
+
+    /// Sets the blob cache.
+    pub fn set_blob_cache(&mut self, cache: &Cache) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_cache(self.inner, cache.0.inner.as_ptr());
+        }
+        self.outlive.blob_cache = Some(cache.clone());
     }
 
     /// Set this option to true during creation of database if you want
