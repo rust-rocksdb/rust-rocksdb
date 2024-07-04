@@ -3332,6 +3332,14 @@ impl Options {
     }
 
     /// Sets the blob cache.
+    ///
+    /// Using a dedicated object for blobs and using the same object for the block and blob caches
+    /// are both supported. In the latter case, note that blobs are less valuable from a caching
+    /// perspective than SST blocks, and some cache implementations have configuration options that
+    /// can be used to prioritize items accordingly (see Cache::Priority and
+    /// LRUCacheOptions::{high,low}_pri_pool_ratio).
+    ///
+    /// Default: disabled
     pub fn set_blob_cache(&mut self, cache: &Cache) {
         unsafe {
             ffi::rocksdb_options_set_blob_cache(self.inner, cache.0.inner.as_ptr());
