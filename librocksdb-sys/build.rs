@@ -157,8 +157,6 @@ fn build_rocksdb() {
 
         if &target == "armv7-linux-androideabi" {
             config.define("_FILE_OFFSET_BITS", Some("32"));
-        } else if &target == "aarch64-linux-android" {
-            config.define("_FILE_OFFSET_BITS", Some("64"));
         }
     } else if target.contains("linux") {
         config.define("OS_LINUX", None);
@@ -228,6 +226,13 @@ fn build_rocksdb() {
         pkg_config::probe_library("liburing")
             .expect("The io-uring feature was requested but the library is not available");
         config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
+    }
+
+    if &target != "armv7-linux-androideabi"
+        && env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64"
+    {
+        config.define("_FILE_OFFSET_BITS", Some("64"));
+        config.define("_LARGEFILE64_SOURCE", Some("1"));
     }
 
     if target.contains("msvc") {
