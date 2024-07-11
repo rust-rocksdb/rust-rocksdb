@@ -38,13 +38,11 @@ pub fn decode_timestamp(ptr: &[u8]) -> u64 {
 pub fn compare_ts(a: &[u8], b: &[u8]) -> c_int {
     let a = decode_timestamp(a);
     let b = decode_timestamp(b);
-    return if a < b {
-        -1
-    } else if a > b {
-        1
-    } else {
-        0
-    };
+    match a.cmp(&b) {
+        Ordering::Less => -1,
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+    }
 }
 
 pub struct ComparatorCallback {
@@ -91,7 +89,7 @@ pub unsafe extern "C" fn compare_ts_callback(
     assert_eq!(b_ts_len, size_of::<u64>());
     let a: &[u8] = slice::from_raw_parts(a_ts as *const u8, a_ts_len);
     let b: &[u8] = slice::from_raw_parts(b_ts as *const u8, b_ts_len);
-    return compare_ts(a, b);
+    compare_ts(a, b)
 }
 
 pub unsafe extern "C" fn compare_with_ts_callback(
@@ -118,7 +116,7 @@ pub unsafe extern "C" fn compare_with_ts_callback(
     }
     let a_ts = extract_timestamp_from_user_key(a, ts_sz);
     let b_ts = extract_timestamp_from_user_key(b, ts_sz);
-    return -compare_ts(a_ts, b_ts);
+    -compare_ts(a_ts, b_ts)
 }
 
 pub unsafe extern "C" fn compare_without_ts_callback(

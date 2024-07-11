@@ -4297,6 +4297,8 @@ impl CompactOptions {
         }
     }
 
+    /// Set user-defined timestamp low bound, the data with older timestamp than
+    /// low bound maybe GCed by compaction. Default: nullptr
     pub fn set_full_history_ts_low<S: AsRef<[u8]>>(&mut self, ts: S) {
         let ts = ts.as_ref();
         unsafe {

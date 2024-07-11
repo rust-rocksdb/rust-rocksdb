@@ -46,7 +46,6 @@ pub fn write_to_db_with_comparator(compare_fn: Box<CompareFn>) -> Vec<String> {
 fn test_comparator() {
     let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
 
-    let x = 0;
     let local_compare_reverse = move |one: &[u8], two: &[u8]| {
         println!("{:?} versus {:?}", one, two);
         match one.cmp(two) {
@@ -77,7 +76,7 @@ pub fn encode_timestamp(ts: u64) -> [u8; 8] {
 
 #[test]
 fn test_comparator_with_ts() {
-    let path = "_path_for_rocksdb_storage";
+    let path = "_path_for_rocksdb_storage_with_ts";
     let _ = DB::destroy(&Options::default(), path);
 
     {

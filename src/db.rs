@@ -2365,20 +2365,44 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         Ok(())
     }
 
-    fn rocksdb_increase_full_history_ts_low<S: AsRef<[u8]>>(
+    /// Increase the full_history_ts of column family. The new ts_low value should
+    /// be newer than current full_history_ts value.
+    /// If another thread updates full_history_ts_low concurrently to a higher
+    /// timestamp than the requested ts_low, a try again error will be returned.
+    pub fn increase_full_history_ts_low<S: AsRef<[u8]>>(
         &self,
-        cf_inner: *mut ffi::rocksdb_column_family_handle_t,
+        cf: &impl AsColumnFamilyRef,
         ts: S,
     ) -> Result<(), Error> {
         let ts = ts.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_increase_full_history_ts_low(
                 self.inner.inner(),
-                cf_inner,
+                cf.inner(),
                 ts.as_ptr() as *const c_char,
                 ts.len() as size_t,
             ));
             Ok(())
+        }
+    }
+
+    pub fn get_full_history_ts_low(&self, cf: &impl AsColumnFamilyRef) -> Result<Vec<u8>, Error> {
+        unsafe {
+            let mut ts_lowlen = 0;
+            let ts = ffi_try!(ffi::rocksdb_get_full_history_ts_low(
+                self.inner.inner(),
+                cf.inner(),
+                &mut ts_lowlen,
+            ));
+
+            if ts.is_null() {
+                Err(Error::new("Could not get full_history_ts_low".to_owned()))
+            } else {
+                let mut vec = vec![0; ts_lowlen];
+                ptr::copy_nonoverlapping(ts as *mut u8, vec.as_mut_ptr(), ts_lowlen);
+                ffi::rocksdb_free(ts as *mut c_void);
+                Ok(vec)
+            }
         }
     }
 }
