@@ -313,3 +313,27 @@ fn test_set_ratelimiter() {
         assert_eq!(&*db.get(b"k2").unwrap().unwrap(), b"a");
     }
 }
+
+#[test]
+fn test_set_blob_cache() {
+    let path = DBPath::new("_set_blob_cache");
+    let cache = Cache::new_hyper_clock_cache(1024 * 1024, 4 * 1024);
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.set_enable_blob_files(true);
+    opts.set_min_blob_size(16);
+    opts.set_blob_cache(&cache);
+
+    let db = DB::open(&opts, &path).unwrap();
+
+    const KEY: &[u8] = b"k1";
+    const VALUE: &[u8] = b"01234567890123456789";
+    db.put(KEY, VALUE).unwrap();
+
+    // Cache miss
+    assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
+
+    // Cache hit
+    assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
+}
