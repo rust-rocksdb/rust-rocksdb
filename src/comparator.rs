@@ -22,20 +22,23 @@ use std::slice;
 
 pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering;
 
-pub fn strip_timestamp_from_user_key(user_key: &[u8], ts_sz: usize) -> &[u8] {
+// Use u64 as the timestamp. This is based on two reasons:
+// 1. Follows the logic of [BytewiseComparatorWithU64Ts](https://github.com/facebook/rocksdb/blob/3db030d7ee1b887ce818ec6f6a8d10949f9e9a22/util/comparator.cc#L238)
+// 2. u64 is the return type of [Duration::as_secs()](https://doc.rust-lang.org/nightly/std/time/struct.Duration.html#method.as_secs)
+fn strip_timestamp_from_user_key(user_key: &[u8], ts_sz: usize) -> &[u8] {
     &user_key[..user_key.len() - ts_sz]
 }
 
-pub fn extract_timestamp_from_user_key(user_key: &[u8], ts_sz: usize) -> &[u8] {
+fn extract_timestamp_from_user_key(user_key: &[u8], ts_sz: usize) -> &[u8] {
     &user_key[user_key.len() - ts_sz..]
 }
 
 #[inline]
-pub fn decode_timestamp(ptr: &[u8]) -> u64 {
+fn decode_timestamp(ptr: &[u8]) -> u64 {
     u64::from_be_bytes(ptr[..8].try_into().unwrap())
 }
 
-pub fn compare_ts(a: &[u8], b: &[u8]) -> c_int {
+fn compare_ts(a: &[u8], b: &[u8]) -> c_int {
     let a = decode_timestamp(a);
     let b = decode_timestamp(b);
     match a.cmp(&b) {
@@ -77,6 +80,7 @@ pub unsafe extern "C" fn compare_callback(
     }
 }
 
+// Comparator with 64-bit integer timestamp.
 pub unsafe extern "C" fn compare_ts_callback(
     raw_cb: *mut c_void,
     a_ts: *const c_char,

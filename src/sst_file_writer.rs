@@ -109,7 +109,6 @@ impl<'a> SstFileWriter<'a> {
     {
         let key = key.as_ref();
         let value = value.as_ref();
-
         unsafe {
             ffi_try!(ffi::rocksdb_sstfilewriter_put(
                 self.inner,
