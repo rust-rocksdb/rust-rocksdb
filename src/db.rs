@@ -1544,6 +1544,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Set the database entry for "key" to "value" with WriteOptions.
+    /// If "key" already exists, it will be overwritten.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn put_with_ts_opt<K, V, S>(
         &self,
         key: K,
@@ -1574,6 +1578,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Put with timestamp in a specific column family with WriteOptions.
+    /// If "key" already exists, it will be overwritten.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn put_cf_with_ts_opt<K, V, S>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -1693,6 +1701,9 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Remove the database entry (if any) for "key" with WriteOptions.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn delete_with_ts_opt<K, S>(
         &self,
         key: K,
@@ -1718,6 +1729,9 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Delete with timestamp in a specific column family with WriteOptions.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn delete_cf_with_ts_opt<K, S>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -1761,6 +1775,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         self.put_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
     }
 
+    /// Set the database entry for "key" to "value".
+    /// If "key" already exists, it will be overwritten.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn put_with_ts<K, V, S>(&self, key: K, ts: S, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -1775,6 +1793,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         )
     }
 
+    /// Put with timestamp in a specific column family.
+    /// If "key" already exists, it will be overwritten.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn put_cf_with_ts<K, V, S>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -1824,6 +1846,9 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
     }
 
+    /// Remove the database entry (if any) for "key".
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn delete_with_ts<K: AsRef<[u8]>, S: AsRef<[u8]>>(
         &self,
         key: K,
@@ -1832,6 +1857,9 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         self.delete_with_ts_opt(key.as_ref(), ts.as_ref(), &WriteOptions::default())
     }
 
+    /// Delete with timestamp in a specific column family.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
     pub fn delete_cf_with_ts<K: AsRef<[u8]>, S: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -2386,6 +2414,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Get current full_history_ts value.
     pub fn get_full_history_ts_low(&self, cf: &impl AsColumnFamilyRef) -> Result<Vec<u8>, Error> {
         unsafe {
             let mut ts_lowlen = 0;

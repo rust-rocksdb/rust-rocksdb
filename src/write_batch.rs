@@ -168,6 +168,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Insert a value into the specific column family of the database under the given key.
     pub fn put_cf<K, V>(&mut self, cf: &impl AsColumnFamilyRef, key: K, value: V)
     where
         K: AsRef<[u8]>,
@@ -188,6 +189,8 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Insert a value into the specific column family of the database
+    /// under the given key with timestamp.
     pub fn put_cf_with_ts<K, V, S>(&mut self, cf: &impl AsColumnFamilyRef, key: K, ts: S, value: V)
     where
         K: AsRef<[u8]>,
@@ -263,6 +266,8 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Removes the database entry in the specific column family for key.
+    /// Does nothing if the key was not found.
     pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &impl AsColumnFamilyRef, key: K) {
         let key = key.as_ref();
 
@@ -276,6 +281,8 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Removes the database entry in the specific column family with timestamp for key.
+    /// Does nothing if the key was not found.
     pub fn delete_cf_with_ts<K: AsRef<[u8]>, S: AsRef<[u8]>>(
         &mut self,
         cf: &impl AsColumnFamilyRef,

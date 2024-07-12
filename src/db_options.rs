@@ -1576,6 +1576,13 @@ impl Options {
         }
     }
 
+    /// Sets the comparator that are timestamp-aware, used to define the order of keys in the table,
+    /// taking timestamp into consideration.
+    /// Find more information on timestamp-aware comparator on [here](https://github.com/facebook/rocksdb/wiki/User-defined-Timestamp)
+    ///
+    /// The client must ensure that the comparator supplied here has the same
+    /// name and orders keys *exactly* the same as the comparator provided to
+    /// previous open calls on the same DB.
     pub fn set_comparator_with_ts(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
         let cb = Box::new(ComparatorCallback {
             name: name.into_c_string().unwrap(),
@@ -3855,6 +3862,16 @@ impl ReadOptions {
         }
     }
 
+    /// Timestamp of operation. Read should return the latest data visible to the
+    /// specified timestamp. All timestamps of the same database must be of the
+    /// same length and format. The user is responsible for providing a customized
+    /// compare function via Comparator to order <key, timestamp> tuples.
+    /// For iterator, iter_start_ts is the lower bound (older) and timestamp
+    /// serves as the upper bound. Versions of the same record that fall in
+    /// the timestamp range will be returned. If iter_start_ts is nullptr,
+    /// only the most recent version visible to timestamp is returned.
+    /// The user-specified timestamp feature is still under active development,
+    /// and the API is subject to change.
     pub fn set_timestamp<S: AsRef<[u8]>>(&mut self, ts: S) {
         let ts = ts.as_ref();
         unsafe {
@@ -3866,6 +3883,7 @@ impl ReadOptions {
         }
     }
 
+    /// See `set_timestamp`
     pub fn set_iter_start_ts<S: AsRef<[u8]>>(&mut self, ts: S) {
         let ts = ts.as_ref();
         unsafe {

@@ -82,7 +82,13 @@ pub unsafe extern "C" fn compare_callback(
     }
 }
 
-// Comparator with 64-bit integer timestamp.
+/// For two events e1 and e2 whose timestamps are t1 and t2 respectively,
+/// Returns value:
+/// < 0  iff t1 < t2
+/// == 0 iff t1 == t2
+/// > 0  iff t1 > t2
+/// Note that an all-zero byte array will be the smallest (oldest) timestamp
+/// of the same length, and a byte array with all bits 1 will be the largest.
 pub unsafe extern "C" fn compare_ts_callback(
     raw_cb: *mut c_void,
     a_ts: *const c_char,
@@ -98,6 +104,13 @@ pub unsafe extern "C" fn compare_ts_callback(
     compare_ts(a, b)
 }
 
+/// Three-way comparison.  Returns value:
+///   < 0 iff "a" < "b",
+///   == 0 iff "a" == "b",
+///   > 0 iff "a" > "b"
+/// Note this callback also compares timestamp.
+/// For the same user key with different timestamps, larger (newer)
+/// timestamp comes first.
 pub unsafe extern "C" fn compare_with_ts_callback(
     raw_cb: *mut c_void,
     a_raw: *const c_char,
@@ -125,6 +138,11 @@ pub unsafe extern "C" fn compare_with_ts_callback(
     -compare_ts(a_ts, b_ts)
 }
 
+/// Three-way comparison.  Returns value:
+///   < 0 iff "a" < "b",
+///   == 0 iff "a" == "b",
+///   > 0 iff "a" > "b"
+/// Note this callback ignores timestamp during comparison.
 pub unsafe extern "C" fn compare_without_ts_callback(
     raw_cb: *mut c_void,
     a_raw: *const c_char,

@@ -45,9 +45,12 @@ pub fn write_to_db_with_comparator(compare_fn: Box<CompareFn>) -> Vec<String> {
 /// Then run a test with a reverse sorting clojure and make sure the order is reverted
 fn test_comparator() {
     let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
-
+    let x = 0;
     let local_compare_reverse = move |one: &[u8], two: &[u8]| {
-        println!("{:?} versus {:?}", one, two);
+        println!(
+            "Use the x value from the closure scope to do something smart: {:?}",
+            x
+        );
         match one.cmp(two) {
             Ordering::Less => Ordering::Greater,
             Ordering::Equal => Ordering::Equal,
