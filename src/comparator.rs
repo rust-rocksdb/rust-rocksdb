@@ -33,6 +33,8 @@ fn extract_timestamp_from_user_key(user_key: &[u8], ts_sz: usize) -> &[u8] {
     &user_key[user_key.len() - ts_sz..]
 }
 
+// Caller should ensure the pointer is valid and has at least 8 bytes,
+// As the slice::from_raw_parts does in compare_ts_callback
 #[inline]
 fn decode_timestamp(ptr: &[u8]) -> u64 {
     u64::from_be_bytes(ptr[..8].try_into().unwrap())
