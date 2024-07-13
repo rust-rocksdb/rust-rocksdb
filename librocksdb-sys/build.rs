@@ -154,6 +154,10 @@ fn build_rocksdb() {
         config.define("OS_ANDROID", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
+
+        if &target == "armv7-linux-androideabi" {
+            config.define("_FILE_OFFSET_BITS", Some("32"));
+        }
     } else if target.contains("linux") {
         config.define("OS_LINUX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
@@ -224,7 +228,9 @@ fn build_rocksdb() {
         config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
     }
 
-    if env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64" {
+    if &target != "armv7-linux-androideabi"
+        && env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64"
+    {
         config.define("_FILE_OFFSET_BITS", Some("64"));
         config.define("_LARGEFILE64_SOURCE", Some("1"));
     }
