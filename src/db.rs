@@ -1545,7 +1545,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     }
 
     /// Set the database entry for "key" to "value" with WriteOptions.
-    /// If "key" already exists, it will coexist will previous entry.
+    /// If "key" already exists, it will coexist with previous entry.
     /// `Get` with a timestamp ts specified in ReadOptions will return
     /// the most recent key/value whose timestamp is smaller than or equal to ts.
     /// Takes an additional argument `ts` as the timestamp.
@@ -1581,7 +1581,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     }
 
     /// Put with timestamp in a specific column family with WriteOptions.
-    /// If "key" already exists, it will coexist will previous entry.
+    /// If "key" already exists, it will coexist with previous entry.
     /// `Get` with a timestamp ts specified in ReadOptions will return
     /// the most recent key/value whose timestamp is smaller than or equal to ts.
     /// Takes an additional argument `ts` as the timestamp.
@@ -1780,7 +1780,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     }
 
     /// Set the database entry for "key" to "value".
-    /// If "key" already exists, it will coexist will previous entry.
+    /// If "key" already exists, it will coexist with previous entry.
     /// `Get` with a timestamp ts specified in ReadOptions will return
     /// the most recent key/value whose timestamp is smaller than or equal to ts.
     /// Takes an additional argument `ts` as the timestamp.
@@ -1800,7 +1800,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     }
 
     /// Put with timestamp in a specific column family.
-    /// If "key" already exists, it will coexist will previous entry.
+    /// If "key" already exists, it will coexist with previous entry.
     /// `Get` with a timestamp ts specified in ReadOptions will return
     /// the most recent key/value whose timestamp is smaller than or equal to ts.
     /// Takes an additional argument `ts` as the timestamp.
