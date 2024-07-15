@@ -162,7 +162,7 @@ fn test_comparator_with_ts() {
 
 #[test]
 fn test_comparator_with_column_family_with_ts() {
-    let path = "_path_for_rocksdb_storage_with_ts";
+    let path = "_path_for_rocksdb_storage_with_column_family_with_ts";
     let _ = DB::destroy(&Options::default(), path);
 
     {
