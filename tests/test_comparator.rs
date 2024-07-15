@@ -176,7 +176,7 @@ fn test_comparator_with_column_family_with_ts() {
 
         let cfs = vec![("cf", cf_opts)];
 
-        let db = DB::open_cf_with_opts(&db_opts, &path, cfs).unwrap();
+        let db = DB::open_cf_with_opts(&db_opts, path, cfs).unwrap();
         let cf = db.cf_handle("cf").unwrap();
 
         let key = b"hello";
