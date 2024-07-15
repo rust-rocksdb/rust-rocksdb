@@ -1569,3 +1569,31 @@ fn test_atomic_flush_cfs() {
         );
     }
 }
+
+#[test]
+fn test_full_history_ts_low() {
+    let path = DBPath::new("_rust_full_history_ts_low");
+    let _ = DB::destroy(&Options::default(), &path);
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut cf_opts = Options::default();
+        let compare_fn = move |one: &[u8], two: &[u8]| one.cmp(two);
+        cf_opts.set_comparator_with_ts("cname", Box::new(compare_fn));
+
+        let cfs = vec![("cf", cf_opts)];
+
+        let db = DB::open_cf_with_opts(&opts, &path, cfs).unwrap();
+        let cf = db.cf_handle("cf").unwrap();
+
+        let ts = &1u64.to_be_bytes();
+        db.increase_full_history_ts_low(&cf, ts).unwrap();
+        let ret = db.get_full_history_ts_low(&cf);
+        assert_eq!(ts, ret.unwrap().as_slice());
+
+        let _ = DB::destroy(&Options::default(), &path);
+    }
+}

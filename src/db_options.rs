@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::ffi::CStr;
+use std::mem::size_of;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -1570,6 +1571,33 @@ impl Options {
                 Some(comparator::destructor_callback),
                 Some(comparator::compare_callback),
                 Some(comparator::name_callback),
+            );
+            ffi::rocksdb_options_set_comparator(self.inner, cmp);
+        }
+    }
+
+    /// Sets the comparator that are timestamp-aware, used to define the order of keys in the table,
+    /// taking timestamp into consideration.
+    /// Find more information on timestamp-aware comparator on [here](https://github.com/facebook/rocksdb/wiki/User-defined-Timestamp)
+    ///
+    /// The client must ensure that the comparator supplied here has the same
+    /// name and orders keys *exactly* the same as the comparator provided to
+    /// previous open calls on the same DB.
+    pub fn set_comparator_with_ts(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
+        let cb = Box::new(ComparatorCallback {
+            name: name.into_c_string().unwrap(),
+            f: compare_fn,
+        });
+        let ts_size = size_of::<u64>();
+        unsafe {
+            let cmp = ffi::rocksdb_comparator_with_ts_create(
+                Box::into_raw(cb).cast::<c_void>(),
+                Some(comparator::destructor_callback),
+                Some(comparator::compare_with_ts_callback),
+                Some(comparator::compare_ts_callback),
+                Some(comparator::compare_without_ts_callback),
+                Some(comparator::name_callback),
+                ts_size,
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
         }
@@ -3833,6 +3861,39 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_async_io(self.inner, c_uchar::from(v));
         }
     }
+
+    /// Timestamp of operation. Read should return the latest data visible to the
+    /// specified timestamp. All timestamps of the same database must be of the
+    /// same length and format. The user is responsible for providing a customized
+    /// compare function via Comparator to order <key, timestamp> tuples.
+    /// For iterator, iter_start_ts is the lower bound (older) and timestamp
+    /// serves as the upper bound. Versions of the same record that fall in
+    /// the timestamp range will be returned. If iter_start_ts is nullptr,
+    /// only the most recent version visible to timestamp is returned.
+    /// The user-specified timestamp feature is still under active development,
+    /// and the API is subject to change.
+    pub fn set_timestamp<S: AsRef<[u8]>>(&mut self, ts: S) {
+        let ts = ts.as_ref();
+        unsafe {
+            ffi::rocksdb_readoptions_set_timestamp(
+                self.inner,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+            );
+        }
+    }
+
+    /// See `set_timestamp`
+    pub fn set_iter_start_ts<S: AsRef<[u8]>>(&mut self, ts: S) {
+        let ts = ts.as_ref();
+        unsafe {
+            ffi::rocksdb_readoptions_set_iter_start_ts(
+                self.inner,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+            );
+        }
+    }
 }
 
 impl Default for ReadOptions {
@@ -4251,6 +4312,19 @@ impl CompactOptions {
     pub fn set_target_level(&mut self, lvl: c_int) {
         unsafe {
             ffi::rocksdb_compactoptions_set_target_level(self.inner, lvl);
+        }
+    }
+
+    /// Set user-defined timestamp low bound, the data with older timestamp than
+    /// low bound maybe GCed by compaction. Default: nullptr
+    pub fn set_full_history_ts_low<S: AsRef<[u8]>>(&mut self, ts: S) {
+        let ts = ts.as_ref();
+        unsafe {
+            ffi::rocksdb_compactoptions_set_full_history_ts_low(
+                self.inner,
+                ts.as_ptr() as *mut c_char,
+                ts.len() as size_t,
+            );
         }
     }
 }
