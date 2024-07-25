@@ -1,6 +1,9 @@
+mod util;
+
 use rocksdb::{CompactOptions, Options, ReadOptions, DB};
 use std::cmp::Ordering;
 use std::iter::FromIterator;
+use util::{U64Comparator, U64Timestamp};
 
 /// This function is for ensuring test of backwards compatibility
 pub fn rocks_old_compare(one: &[u8], two: &[u8]) -> Ordering {
@@ -72,11 +75,6 @@ fn test_comparator() {
     assert_eq!(vec!["b-key", "a-key"], res_closure_reverse);
 }
 
-#[inline]
-pub fn encode_timestamp(ts: u64) -> [u8; 8] {
-    ts.to_be_bytes()
-}
-
 #[test]
 fn test_comparator_with_ts() {
     let path = "_path_for_rocksdb_storage_with_ts";
@@ -86,17 +84,21 @@ fn test_comparator_with_ts() {
         let mut db_opts = Options::default();
         db_opts.create_missing_column_families(true);
         db_opts.create_if_missing(true);
-        let compare_fn = move |one: &[u8], two: &[u8]| one.cmp(two);
-        db_opts.set_comparator_with_ts("cname", Box::new(compare_fn));
+        db_opts.set_comparator_with_ts(
+            U64Comparator::NAME,
+            Box::new(U64Comparator::compare),
+            Box::new(U64Comparator::compare_ts),
+            Box::new(U64Comparator::compare_without_ts),
+        );
         let db = DB::open(&db_opts, path).unwrap();
 
         let key = b"hello";
         let val1 = b"world0";
         let val2 = b"world1";
 
-        let ts = encode_timestamp(1);
-        let ts2 = encode_timestamp(2);
-        let ts3 = encode_timestamp(3);
+        let ts = U64Timestamp::new(1);
+        let ts2 = U64Timestamp::new(2);
+        let ts3 = U64Timestamp::new(3);
 
         let mut opts = ReadOptions::default();
         opts.set_timestamp(ts);
@@ -171,8 +173,12 @@ fn test_comparator_with_column_family_with_ts() {
         db_opts.create_if_missing(true);
 
         let mut cf_opts = Options::default();
-        let compare_fn = move |one: &[u8], two: &[u8]| one.cmp(two);
-        cf_opts.set_comparator_with_ts("cname", Box::new(compare_fn));
+        cf_opts.set_comparator_with_ts(
+            U64Comparator::NAME,
+            Box::new(U64Comparator::compare),
+            Box::new(U64Comparator::compare_ts),
+            Box::new(U64Comparator::compare_without_ts),
+        );
 
         let cfs = vec![("cf", cf_opts)];
 
@@ -183,9 +189,9 @@ fn test_comparator_with_column_family_with_ts() {
         let val1 = b"world0";
         let val2 = b"world1";
 
-        let ts = encode_timestamp(1);
-        let ts2 = encode_timestamp(2);
-        let ts3 = encode_timestamp(3);
+        let ts = U64Timestamp::new(1);
+        let ts2 = U64Timestamp::new(2);
+        let ts3 = U64Timestamp::new(3);
 
         let mut opts = ReadOptions::default();
         opts.set_timestamp(ts);
@@ -240,7 +246,7 @@ fn test_comparator_with_column_family_with_ts() {
         // Attempt to read `full_history_ts_low`.
         // It should match the value we set earlier (`ts2`).
         let full_history_ts_low = db.get_full_history_ts_low(cf).unwrap();
-        assert_eq!(full_history_ts_low, ts2);
+        assert_eq!(U64Timestamp::from(full_history_ts_low.as_slice()), ts2);
 
         let mut opts = ReadOptions::default();
         opts.set_timestamp(ts3);

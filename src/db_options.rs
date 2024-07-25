@@ -25,7 +25,9 @@ use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
-    comparator::{self, ComparatorCallback, CompareFn},
+    comparator::{
+        ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
+    },
     db::DBAccess,
     env::Env,
     ffi,
@@ -1568,15 +1570,15 @@ impl Options {
     pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
         let cb = Box::new(ComparatorCallback {
             name: name.into_c_string().unwrap(),
-            f: compare_fn,
+            compare_fn,
         });
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
                 Box::into_raw(cb).cast::<c_void>(),
-                Some(comparator::destructor_callback),
-                Some(comparator::compare_callback),
-                Some(comparator::name_callback),
+                Some(ComparatorCallback::destructor_callback),
+                Some(ComparatorCallback::compare_callback),
+                Some(ComparatorCallback::name_callback),
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
         }
@@ -1589,20 +1591,28 @@ impl Options {
     /// The client must ensure that the comparator supplied here has the same
     /// name and orders keys *exactly* the same as the comparator provided to
     /// previous open calls on the same DB.
-    pub fn set_comparator_with_ts(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
-        let cb = Box::new(ComparatorCallback {
+    pub fn set_comparator_with_ts(
+        &mut self,
+        name: impl CStrLike,
+        compare_fn: Box<CompareFn>,
+        compare_ts_fn: Box<CompareTsFn>,
+        compare_without_ts_fn: Box<CompareWithoutTsFn>,
+    ) {
+        let cb = Box::new(ComparatorWithTsCallback {
             name: name.into_c_string().unwrap(),
-            f: compare_fn,
+            compare_fn,
+            compare_ts_fn,
+            compare_without_ts_fn,
         });
         let ts_size = size_of::<u64>();
         unsafe {
             let cmp = ffi::rocksdb_comparator_with_ts_create(
                 Box::into_raw(cb).cast::<c_void>(),
-                Some(comparator::destructor_callback),
-                Some(comparator::compare_with_ts_callback),
-                Some(comparator::compare_ts_callback),
-                Some(comparator::compare_without_ts_callback),
-                Some(comparator::name_callback),
+                Some(ComparatorWithTsCallback::destructor_callback),
+                Some(ComparatorWithTsCallback::compare_callback),
+                Some(ComparatorWithTsCallback::compare_ts_callback),
+                Some(ComparatorWithTsCallback::compare_without_ts_callback),
+                Some(ComparatorWithTsCallback::name_callback),
                 ts_size,
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
