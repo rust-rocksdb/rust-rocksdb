@@ -245,7 +245,7 @@ fn test_comparator_with_column_family_with_ts() {
 
         // Attempt to read `full_history_ts_low`.
         // It should match the value we set earlier (`ts2`).
-        let full_history_ts_low = db.get_full_history_ts_low(cf).unwrap();
+        let full_history_ts_low = db.get_full_history_ts_low(&cf).unwrap();
         assert_eq!(U64Timestamp::from(full_history_ts_low.as_slice()), ts2);
 
         let mut opts = ReadOptions::default();
