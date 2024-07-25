@@ -86,6 +86,7 @@ fn test_comparator_with_ts() {
         db_opts.create_if_missing(true);
         db_opts.set_comparator_with_ts(
             U64Comparator::NAME,
+            U64Timestamp::SIZE,
             Box::new(U64Comparator::compare),
             Box::new(U64Comparator::compare_ts),
             Box::new(U64Comparator::compare_without_ts),
@@ -175,6 +176,7 @@ fn test_comparator_with_column_family_with_ts() {
         let mut cf_opts = Options::default();
         cf_opts.set_comparator_with_ts(
             U64Comparator::NAME,
+            U64Timestamp::SIZE,
             Box::new(U64Comparator::compare),
             Box::new(U64Comparator::compare_ts),
             Box::new(U64Comparator::compare_without_ts),

@@ -66,10 +66,10 @@ pub fn assert_iter_reversed(iter: impl Iterator<Item = Result<Pair, Error>>, wan
 /// A timestamp type we use in testing [user-defined timestamp](https://github.com/facebook/rocksdb/wiki/User-defined-Timestamp).
 /// This is a `u64` in little endian encoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct U64Timestamp([u8; 8]);
+pub struct U64Timestamp([u8; Self::SIZE]);
 
 impl U64Timestamp {
-    pub const LEN: usize = 8;
+    pub const SIZE: usize = 8;
 
     pub fn new(ts: u64) -> Self {
         Self(ts.to_le_bytes())
@@ -80,10 +80,10 @@ impl From<&[u8]> for U64Timestamp {
     fn from(slice: &[u8]) -> Self {
         assert_eq!(
             slice.len(),
-            Self::LEN,
+            Self::SIZE,
             "incorrect timestamp length: {}, should be {}",
             slice.len(),
-            Self::LEN
+            Self::SIZE
         );
         Self(slice.try_into().unwrap())
     }
@@ -168,9 +168,9 @@ impl U64Comparator {
 }
 
 fn extract_timestamp_from_user_key(key: &[u8]) -> &[u8] {
-    &key[(key.len() - U64Timestamp::LEN)..]
+    &key[(key.len() - U64Timestamp::SIZE)..]
 }
 
 fn strip_timestamp_from_user_key(key: &[u8]) -> &[u8] {
-    &key[..(key.len() - U64Timestamp::LEN)]
+    &key[..(key.len() - U64Timestamp::SIZE)]
 }

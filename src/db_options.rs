@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::ffi::CStr;
-use std::mem::size_of;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -1594,6 +1593,7 @@ impl Options {
     pub fn set_comparator_with_ts(
         &mut self,
         name: impl CStrLike,
+        timestamp_size: usize,
         compare_fn: Box<CompareFn>,
         compare_ts_fn: Box<CompareTsFn>,
         compare_without_ts_fn: Box<CompareWithoutTsFn>,
@@ -1604,7 +1604,7 @@ impl Options {
             compare_ts_fn,
             compare_without_ts_fn,
         });
-        let ts_size = size_of::<u64>();
+
         unsafe {
             let cmp = ffi::rocksdb_comparator_with_ts_create(
                 Box::into_raw(cb).cast::<c_void>(),
@@ -1613,7 +1613,7 @@ impl Options {
                 Some(ComparatorWithTsCallback::compare_ts_callback),
                 Some(ComparatorWithTsCallback::compare_without_ts_callback),
                 Some(ComparatorWithTsCallback::name_callback),
-                ts_size,
+                timestamp_size,
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
         }

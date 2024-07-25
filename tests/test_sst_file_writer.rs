@@ -67,6 +67,7 @@ fn sst_file_writer_with_ts_works() {
         let mut opts = Options::default();
         opts.set_comparator_with_ts(
             U64Comparator::NAME,
+            U64Timestamp::SIZE,
             Box::new(U64Comparator::compare),
             Box::new(U64Comparator::compare_ts),
             Box::new(U64Comparator::compare_without_ts),
@@ -90,6 +91,7 @@ fn sst_file_writer_with_ts_works() {
         db_opts.create_if_missing(true);
         db_opts.set_comparator_with_ts(
             U64Comparator::NAME,
+            U64Timestamp::SIZE,
             Box::new(U64Comparator::compare),
             Box::new(U64Comparator::compare_ts),
             Box::new(U64Comparator::compare_without_ts),

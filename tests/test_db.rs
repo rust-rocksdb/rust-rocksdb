@@ -1583,6 +1583,7 @@ fn test_full_history_ts_low() {
         let mut cf_opts = Options::default();
         cf_opts.set_comparator_with_ts(
             U64Comparator::NAME,
+            U64Timestamp::SIZE,
             Box::new(U64Comparator::compare),
             Box::new(U64Comparator::compare_ts),
             Box::new(U64Comparator::compare_without_ts),
