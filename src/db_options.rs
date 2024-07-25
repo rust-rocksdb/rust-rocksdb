@@ -3889,7 +3889,7 @@ impl ReadOptions {
     /// The user-specified timestamp feature is still under active development,
     /// and the API is subject to change.
     pub fn set_timestamp<S: Into<Vec<u8>>>(&mut self, ts: S) {
-        self.set_timestamp_impl(Some(ts.into()))
+        self.set_timestamp_impl(Some(ts.into()));
     }
 
     fn set_timestamp_impl(&mut self, ts: Option<Vec<u8>>) {
@@ -3911,7 +3911,7 @@ impl ReadOptions {
 
     /// See `set_timestamp`
     pub fn set_iter_start_ts<S: Into<Vec<u8>>>(&mut self, ts: S) {
-        self.set_iter_start_ts_impl(Some(ts.into()))
+        self.set_iter_start_ts_impl(Some(ts.into()));
     }
 
     fn set_iter_start_ts_impl(&mut self, ts: Option<Vec<u8>>) {
@@ -4357,7 +4357,7 @@ impl CompactOptions {
     /// Set user-defined timestamp low bound, the data with older timestamp than
     /// low bound maybe GCed by compaction. Default: nullptr
     pub fn set_full_history_ts_low<S: Into<Vec<u8>>>(&mut self, ts: S) {
-        self.set_full_history_ts_low_impl(Some(ts.into()))
+        self.set_full_history_ts_low_impl(Some(ts.into()));
     }
 
     fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
