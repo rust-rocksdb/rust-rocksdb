@@ -342,6 +342,12 @@ pub struct BlockBasedOptions {
 
 pub struct ReadOptions {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    // The `ReadOptions` owns a copy of the timestamp and iteration bounds.
+    // This is necessary to ensure the pointers we pass over the FFI live as
+    // long as the `ReadOptions`. This way, when performing the read operation,
+    // the pointers are guaranteed to be valid.
+    timestamp: Option<Vec<u8>>,
+    iter_start_ts: Option<Vec<u8>>,
     iterate_upper_bound: Option<Vec<u8>>,
     iterate_lower_bound: Option<Vec<u8>>,
 }
@@ -3872,26 +3878,43 @@ impl ReadOptions {
     /// only the most recent version visible to timestamp is returned.
     /// The user-specified timestamp feature is still under active development,
     /// and the API is subject to change.
-    pub fn set_timestamp<S: AsRef<[u8]>>(&mut self, ts: S) {
-        let ts = ts.as_ref();
+    pub fn set_timestamp<S: Into<Vec<u8>>>(&mut self, ts: S) {
+        self.set_timestamp_impl(Some(ts.into()))
+    }
+
+    fn set_timestamp_impl(&mut self, ts: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref ts) = ts {
+            (ts.as_ptr() as *const c_char, ts.len())
+        } else if self.timestamp.is_some() {
+            // The stored timestamp is a `Some` but we're updating it to a `None`.
+            // This means to cancel a previously set timestamp.
+            // To do this, use a null pointer and zero length.
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.timestamp = ts;
         unsafe {
-            ffi::rocksdb_readoptions_set_timestamp(
-                self.inner,
-                ts.as_ptr() as *const c_char,
-                ts.len() as size_t,
-            );
+            ffi::rocksdb_readoptions_set_timestamp(self.inner, ptr, len);
         }
     }
 
     /// See `set_timestamp`
-    pub fn set_iter_start_ts<S: AsRef<[u8]>>(&mut self, ts: S) {
-        let ts = ts.as_ref();
+    pub fn set_iter_start_ts<S: Into<Vec<u8>>>(&mut self, ts: S) {
+        self.set_iter_start_ts_impl(Some(ts.into()))
+    }
+
+    fn set_iter_start_ts_impl(&mut self, ts: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref ts) = ts {
+            (ts.as_ptr() as *const c_char, ts.len())
+        } else if self.timestamp.is_some() {
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.iter_start_ts = ts;
         unsafe {
-            ffi::rocksdb_readoptions_set_iter_start_ts(
-                self.inner,
-                ts.as_ptr() as *const c_char,
-                ts.len() as size_t,
-            );
+            ffi::rocksdb_readoptions_set_iter_start_ts(self.inner, ptr, len);
         }
     }
 }
@@ -3901,6 +3924,8 @@ impl Default for ReadOptions {
         unsafe {
             Self {
                 inner: ffi::rocksdb_readoptions_create(),
+                timestamp: None,
+                iter_start_ts: None,
                 iterate_upper_bound: None,
                 iterate_lower_bound: None,
             }
@@ -4258,6 +4283,7 @@ pub enum BottommostLevelCompaction {
 
 pub struct CompactOptions {
     pub(crate) inner: *mut ffi::rocksdb_compactoptions_t,
+    full_history_ts_low: Option<Vec<u8>>,
 }
 
 impl Default for CompactOptions {
@@ -4265,7 +4291,10 @@ impl Default for CompactOptions {
         let opts = unsafe { ffi::rocksdb_compactoptions_create() };
         assert!(!opts.is_null(), "Could not create RocksDB Compact Options");
 
-        Self { inner: opts }
+        Self {
+            inner: opts,
+            full_history_ts_low: None,
+        }
     }
 }
 
@@ -4317,14 +4346,21 @@ impl CompactOptions {
 
     /// Set user-defined timestamp low bound, the data with older timestamp than
     /// low bound maybe GCed by compaction. Default: nullptr
-    pub fn set_full_history_ts_low<S: AsRef<[u8]>>(&mut self, ts: S) {
-        let ts = ts.as_ref();
+    pub fn set_full_history_ts_low<S: Into<Vec<u8>>>(&mut self, ts: S) {
+        self.set_full_history_ts_low_impl(Some(ts.into()))
+    }
+
+    fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref ts) = ts {
+            (ts.as_ptr() as *mut c_char, ts.len())
+        } else if self.full_history_ts_low.is_some() {
+            (std::ptr::null::<Vec<u8>>() as *mut c_char, 0)
+        } else {
+            return;
+        };
+        self.full_history_ts_low = ts;
         unsafe {
-            ffi::rocksdb_compactoptions_set_full_history_ts_low(
-                self.inner,
-                ts.as_ptr() as *mut c_char,
-                ts.len() as size_t,
-            );
+            ffi::rocksdb_compactoptions_set_full_history_ts_low(self.inner, ptr, len);
         }
     }
 }

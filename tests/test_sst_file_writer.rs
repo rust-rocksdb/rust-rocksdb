@@ -66,9 +66,9 @@ fn sst_file_writer_with_ts_works() {
     let writer_path = dir.path().join("filewriter");
     let compare_fn = move |one: &[u8], two: &[u8]| one.cmp(two);
 
-    let ts = &encode_timestamp(1);
-    let ts2 = &encode_timestamp(2);
-    let ts3 = &encode_timestamp(3);
+    let ts = encode_timestamp(1);
+    let ts2 = encode_timestamp(2);
+    let ts3 = encode_timestamp(3);
     {
         let mut opts = Options::default();
         opts.set_comparator_with_ts("cname", Box::new(compare_fn));

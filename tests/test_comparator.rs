@@ -94,9 +94,9 @@ fn test_comparator_with_ts() {
         let val1 = b"world0";
         let val2 = b"world1";
 
-        let ts = &encode_timestamp(1);
-        let ts2 = &encode_timestamp(2);
-        let ts3 = &encode_timestamp(3);
+        let ts = encode_timestamp(1);
+        let ts2 = encode_timestamp(2);
+        let ts3 = encode_timestamp(3);
 
         let mut opts = ReadOptions::default();
         opts.set_timestamp(ts);
@@ -183,9 +183,9 @@ fn test_comparator_with_column_family_with_ts() {
         let val1 = b"world0";
         let val2 = b"world1";
 
-        let ts = &encode_timestamp(1);
-        let ts2 = &encode_timestamp(2);
-        let ts3 = &encode_timestamp(3);
+        let ts = encode_timestamp(1);
+        let ts2 = encode_timestamp(2);
+        let ts3 = encode_timestamp(3);
 
         let mut opts = ReadOptions::default();
         opts.set_timestamp(ts);
@@ -236,6 +236,11 @@ fn test_comparator_with_column_family_with_ts() {
         compact_opts.set_full_history_ts_low(ts2);
         db.compact_range_cf_opt(&cf, None::<&[u8]>, None::<&[u8]>, &compact_opts);
         db.flush().unwrap();
+
+        // Attempt to read `full_history_ts_low`.
+        // It should match the value we set earlier (`ts2`).
+        let full_history_ts_low = db.get_full_history_ts_low(cf).unwrap();
+        assert_eq!(full_history_ts_low, ts2);
 
         let mut opts = ReadOptions::default();
         opts.set_timestamp(ts3);
