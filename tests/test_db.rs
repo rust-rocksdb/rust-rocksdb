@@ -28,7 +28,7 @@ use rocksdb::{
     UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions, WriteBatch, DB,
     DEFAULT_COLUMN_FAMILY_NAME,
 };
-use util::{assert_iter, pair, DBPath};
+use util::{assert_iter, pair, DBPath, U64Comparator, U64Timestamp};
 
 #[test]
 fn external() {
@@ -1581,18 +1581,23 @@ fn test_full_history_ts_low() {
         opts.create_missing_column_families(true);
 
         let mut cf_opts = Options::default();
-        let compare_fn = move |one: &[u8], two: &[u8]| one.cmp(two);
-        cf_opts.set_comparator_with_ts("cname", Box::new(compare_fn));
+        cf_opts.set_comparator_with_ts(
+            U64Comparator::NAME,
+            U64Timestamp::SIZE,
+            Box::new(U64Comparator::compare),
+            Box::new(U64Comparator::compare_ts),
+            Box::new(U64Comparator::compare_without_ts),
+        );
 
         let cfs = vec![("cf", cf_opts)];
 
         let db = DB::open_cf_with_opts(&opts, &path, cfs).unwrap();
         let cf = db.cf_handle("cf").unwrap();
 
-        let ts = &1u64.to_be_bytes();
+        let ts = U64Timestamp::new(1);
         db.increase_full_history_ts_low(&cf, ts).unwrap();
-        let ret = db.get_full_history_ts_low(&cf);
-        assert_eq!(ts, ret.unwrap().as_slice());
+        let ret = U64Timestamp::from(db.get_full_history_ts_low(&cf).unwrap().as_slice());
+        assert_eq!(ts, ret);
 
         let _ = DB::destroy(&Options::default(), &path);
     }
