@@ -10,64 +10,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt
-          profile: minimal
-          override: true
       - name: Run rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
   doc-check:
     name: Rustdoc-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rust-docs
-          profile: minimal
-          override: true
       - name: Run cargo rustdoc
-        uses: actions-rs/cargo@v1
-        with:
-          command: rustdoc
-          args: -- -D warnings
+        run: cargo rustdoc -- -D warnings
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          components: clippy
-          profile: minimal
-          override: true
+          components: clippy 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y liburing-dev pkg-config
+      - name: Set PKG_CONFIG_PATH
+        run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
       - name: Run clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   audit:
     name: Security audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/audit-check@v1
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/audit@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -86,14 +75,12 @@ jobs:
             os: windows-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.target }}
-          profile: minimal
-          override: true
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
