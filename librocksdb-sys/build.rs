@@ -359,13 +359,26 @@ fn main() {
         update_submodules();
     }
     bindgen_rocksdb();
+    let target = env::var("TARGET").unwrap();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
+        // rocksdb only works with the prebuilt rocksdb system lib on freebsd.
+        // we dont need to rebuild rocksdb
+        if target.contains("freebsd") {
+            println!("cargo:rustc-link-search=native=/usr/local/lib");
+            let mode = match env::var_os("ROCKSDB_STATIC") {
+                Some(_) => "static",
+                None => "dylib",
+            };
+            println!("cargo:rustc-link-lib={}=rocksdb", mode);
+
+            return;
+        }
+
         println!("cargo:rerun-if-changed=rocksdb/");
         fail_on_empty_directory("rocksdb");
         build_rocksdb();
     } else {
-        let target = env::var("TARGET").unwrap();
         // according to https://github.com/alexcrichton/cc-rs/blob/master/src/lib.rs#L2189
         if target.contains("apple") || target.contains("freebsd") || target.contains("openbsd") {
             println!("cargo:rustc-link-lib=dylib=c++");
