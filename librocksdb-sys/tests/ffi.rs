@@ -23,7 +23,6 @@
     unused_variables
 )]
 
-use const_cstr::const_cstr;
 use libc::*;
 use librocksdb_sys::*;
 use std::borrow::Cow;
@@ -41,7 +40,11 @@ macro_rules! err_println {
 }
 
 macro_rules! cstrp {
-    ($($arg:tt)*) => (const_cstr!($($arg)*).as_ptr());
+    ($s:expr) => {{
+        static CSTR: &CStr =
+            unsafe { CStr::from_bytes_with_nul_unchecked(concat!($s, "\0").as_bytes()) };
+        CSTR.as_ptr()
+    }};
 }
 
 static mut phase: &'static str = "";
