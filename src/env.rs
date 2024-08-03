@@ -51,6 +51,26 @@ impl Env {
         }
     }
 
+    /// Returns a new environment which wraps and takes ownership of the provided
+    /// raw environment.
+    ///
+    /// # Safety
+    ///
+    /// Ownership of `env` is transferred to the returned Env, which becomes
+    /// responsible for freeing it. The caller should forget the raw pointer
+    /// after this call.
+    ///
+    /// # When would I use this?
+    ///
+    /// RocksDB's C++ [Env](https://github.com/facebook/rocksdb/blob/main/include/rocksdb/env.h)
+    /// class provides many extension points for low-level database subsystems, such as file IO.
+    /// These subsystems aren't covered within the scope of the C interface or this crate,
+    /// but from_raw() may be used to hand a pre-instrumented Env to this crate for further use.
+    ///
+    pub unsafe fn from_raw(env: *mut ffi::rocksdb_env_t) -> Self {
+        Self(Arc::new(EnvWrapper { inner: env }))
+    }
+
     /// Sets the number of background worker threads of a specific thread pool for this environment.
     /// `LOW` is the default pool.
     ///
