@@ -1,6 +1,6 @@
 name: RocksDB CI
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 env:
   RUST_VERSION: 1.70.0
 
@@ -43,7 +43,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          components: clippy 
+          components: clippy
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y liburing-dev pkg-config
       - name: Set PKG_CONFIG_PATH
@@ -56,6 +56,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.76.0
       - uses: actions-rust-lang/audit@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +68,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [Linux, macOS, Windows]
+        build: [ Linux, macOS, Windows ]
         include:
           - build: Linux
             os: ubuntu-latest
