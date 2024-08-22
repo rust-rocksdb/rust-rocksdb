@@ -23,7 +23,8 @@ use crate::{
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
-    WaitForCompactOptions, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+    WaitForCompactOptions, WriteBatch, WriteBatchWithIndex, WriteOptions,
+    DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use crate::ffi_util::CSlice;
@@ -834,6 +835,26 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         let mut wo = WriteOptions::new();
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
+    }
+
+    pub fn write_wbwi(&self, wbwi: &WriteBatchWithIndex) -> Result<(), Error> {
+        self.write_wbwi_opt(wbwi, &WriteOptions::default())
+    }
+
+    pub fn write_wbwi_opt(
+        &self,
+        wbwi: &WriteBatchWithIndex,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_write_writebatch_wi(
+                self.inner.inner(),
+                writeopts.inner,
+                wbwi.inner
+            ));
+
+            Ok(())
+        }
     }
 }
 
