@@ -1,7 +1,7 @@
 use crate::db::DBInner;
 use crate::{
-    ffi, AsColumnFamilyRef, DBAccess, DBCommon, DBRawIteratorWithThreadMode, Error, Options,
-    ReadOptions, ThreadMode,
+    ffi, AsColumnFamilyRef, DBAccess, DBCommon, DBPinnableSlice, DBRawIteratorWithThreadMode,
+    Error, Options, ReadOptions, ThreadMode,
 };
 use libc::{c_char, c_uchar, size_t};
 
@@ -111,20 +111,28 @@ impl WriteBatchWithIndex {
         &self,
         db: &DBCommon<T, I>,
         key: K,
-        options: &ReadOptions,
+        readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error>
     where
         T: ThreadMode,
         I: DBInner,
         K: AsRef<[u8]>,
     {
+        if readopts.inner.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
+                    .to_owned(),
+            ));
+        }
+
         let key = key.as_ref();
         unsafe {
             let mut value_size: size_t = 0;
             let value_data = ffi_try!(ffi::rocksdb_writebatch_wi_get_from_batch_and_db(
                 self.inner,
                 db.inner.inner(),
-                options.inner,
+                readopts.inner,
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 &mut value_size
@@ -142,25 +150,70 @@ impl WriteBatchWithIndex {
         }
     }
 
+    pub fn get_pinned_from_batch_and_db<T, I, K>(
+        &self,
+        db: &DBCommon<T, I>,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error>
+    where
+        T: ThreadMode,
+        I: DBInner,
+        K: AsRef<[u8]>,
+    {
+        if readopts.inner.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
+                    .to_owned(),
+            ));
+        }
+
+        let key = key.as_ref();
+        unsafe {
+            let value_data = ffi_try!(ffi::rocksdb_writebatch_wi_get_pinned_from_batch_and_db(
+                self.inner,
+                db.inner.inner(),
+                readopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            ));
+
+            if value_data.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBPinnableSlice::from_c(value_data)))
+            }
+        }
+    }
+
     pub fn get_from_batch_and_db_cf<T, I, K>(
         &self,
         db: &DBCommon<T, I>,
         cf: &impl AsColumnFamilyRef,
         key: K,
-        options: &ReadOptions,
+        readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error>
     where
         T: ThreadMode,
         I: DBInner,
         K: AsRef<[u8]>,
     {
+        if readopts.inner.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
+                    .to_owned(),
+            ));
+        }
+
         let key = key.as_ref();
         unsafe {
             let mut value_size: size_t = 0;
             let value_data = ffi_try!(ffi::rocksdb_writebatch_wi_get_from_batch_and_db_cf(
                 self.inner,
                 db.inner.inner(),
-                options.inner,
+                readopts.inner,
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
@@ -175,6 +228,45 @@ impl WriteBatchWithIndex {
                     value_size,
                     value_size,
                 )))
+            }
+        }
+    }
+
+    pub fn get_pinned_from_batch_and_db_cf<T, I, K>(
+        &self,
+        db: &DBCommon<T, I>,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<DBPinnableSlice>, Error>
+    where
+        T: ThreadMode,
+        I: DBInner,
+        K: AsRef<[u8]>,
+    {
+        if readopts.inner.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
+                    .to_owned(),
+            ));
+        }
+
+        let key = key.as_ref();
+        unsafe {
+            let value_data = ffi_try!(ffi::rocksdb_writebatch_wi_get_pinned_from_batch_and_db_cf(
+                self.inner,
+                db.inner.inner(),
+                readopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            ));
+
+            if value_data.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(DBPinnableSlice::from_c(value_data)))
             }
         }
     }
