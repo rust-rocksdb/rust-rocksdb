@@ -4,6 +4,10 @@
 * Document that `default` column family doesn't inherit open options of db (
   0xdeafbeef)
 
+## [Breaking Changes]
+* Update jemalloc-sys to 0.6.0 (0xdeafbeef)
+* Bump MSRV to 1.71.1 (0xdeafbeef)
+
 ## 0.22.0 (2024-02-13)
 
 * Free memory on writebatch index and avoid unnecessary clones (jkurian)

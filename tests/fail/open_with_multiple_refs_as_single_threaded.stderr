@@ -7,7 +7,7 @@ error[E0596]: cannot borrow `*db_ref1` as mutable, as it is behind a `&` referen
 help: consider changing this to be a mutable reference
   |
 5 |     let db_ref1 = &mut db;
-  |                   ~~~~~~~
+  |                    +++
 
 error[E0596]: cannot borrow `*db_ref2` as mutable, as it is behind a `&` reference
  --> tests/fail/open_with_multiple_refs_as_single_threaded.rs:9:5
@@ -18,4 +18,4 @@ error[E0596]: cannot borrow `*db_ref2` as mutable, as it is behind a `&` referen
 help: consider changing this to be a mutable reference
   |
 6 |     let db_ref2 = &mut db;
-  |                   ~~~~~~~
+  |                    +++
