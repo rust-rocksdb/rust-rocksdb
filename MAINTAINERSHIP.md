@@ -15,6 +15,7 @@ Maintainers are trusted to close issues, merge pull requests, and publish crates
     * breaking changes due to removed functionality in rocksdb
     * require 1 approval from another maintainer. if no maintainer is able to be reached for 2 weeks, then progress may be made anyway
     * patch (and post-1.0, minor) releases to crates.io that contain only the above work
+    * on each update of submodule rocksdb, run `make -C librocksdb-sys gen_statistics`
 2. Major
     * breaking API changes that are not direct consequences of underlying rocksdb changes
     * refactoring, which should generally only be done for clearly functional reasons like to aid in the completion of a specific task
