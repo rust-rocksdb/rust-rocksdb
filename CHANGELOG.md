@@ -3,6 +3,7 @@
 ## [Unreleased]
 * Document that `default` column family doesn't inherit open options of db (
   0xdeafbeef)
+* Expose LRU cache options (athre0z)
 
 ## [Breaking Changes]
 * Update jemalloc-sys to 0.6.0 (0xdeafbeef)

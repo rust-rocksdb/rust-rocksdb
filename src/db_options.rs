@@ -161,6 +161,13 @@ impl Cache {
         Cache(Arc::new(CacheWrapper { inner }))
     }
 
+    /// Creates an LRU cache with custom options.
+    pub fn new_lru_cache_opts(opts: &LruCacheOptions) -> Cache {
+        let inner =
+            NonNull::new(unsafe { ffi::rocksdb_cache_create_lru_opts(opts.inner) }).unwrap();
+        Cache(Arc::new(CacheWrapper { inner }))
+    }
+
     /// Creates a HyperClockCache with capacity in bytes.
     ///
     /// `estimated_entry_charge` is an important tuning parameter. The optimal
@@ -311,6 +318,10 @@ pub struct WriteOptions {
     pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
+pub struct LruCacheOptions {
+    pub(crate) inner: *mut ffi::rocksdb_lru_cache_options_t,
+}
+
 /// Optionally wait for the memtable flush to be performed.
 ///
 /// # Examples
@@ -391,6 +402,7 @@ pub struct IngestExternalFileOptions {
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
+unsafe impl Send for LruCacheOptions {}
 unsafe impl Send for FlushOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
@@ -404,6 +416,7 @@ unsafe impl Send for WriteBufferManagerWrapper {}
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
+unsafe impl Sync for LruCacheOptions {}
 unsafe impl Sync for FlushOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
@@ -461,6 +474,14 @@ impl Drop for WriteOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for LruCacheOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_destroy(self.inner);
         }
     }
 }
@@ -3606,6 +3627,39 @@ impl Default for WriteOptions {
         );
 
         Self { inner: write_opts }
+    }
+}
+
+impl LruCacheOptions {
+    /// Capacity of the cache, in the same units as the `charge` of each entry.
+    /// This is typically measured in bytes, but can be a different unit if using
+    /// kDontChargeCacheMetadata.
+    pub fn set_capacity(&mut self, cap: usize) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_set_capacity(self.inner, cap);
+        }
+    }
+
+    /// Cache is sharded into 2^num_shard_bits shards, by hash of key.
+    /// If < 0, a good default is chosen based on the capacity and the
+    /// implementation. (Mutex-based implementations are much more reliant
+    /// on many shards for parallel scalability.)
+    pub fn set_num_shard_bits(&mut self, val: c_int) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_set_num_shard_bits(self.inner, val);
+        }
+    }
+}
+
+impl Default for LruCacheOptions {
+    fn default() -> Self {
+        let inner = unsafe { ffi::rocksdb_lru_cache_options_create() };
+        assert!(
+            !inner.is_null(),
+            "Could not create RocksDB LRU cache options"
+        );
+
+        Self { inner }
     }
 }
 
