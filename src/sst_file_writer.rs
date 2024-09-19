@@ -109,12 +109,36 @@ impl<'a> SstFileWriter<'a> {
     {
         let key = key.as_ref();
         let value = value.as_ref();
-
         unsafe {
             ffi_try!(ffi::rocksdb_sstfilewriter_put(
                 self.inner,
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Adds a Put key with value to currently opened file
+    /// REQUIRES: key is after any previously added key according to comparator.
+    pub fn put_with_ts<K, V, S>(&mut self, key: K, ts: S, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_sstfilewriter_put_with_ts(
+                self.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
             ));
@@ -154,6 +178,27 @@ impl<'a> SstFileWriter<'a> {
                 self.inner,
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Adds a deletion key to currently opened file
+    /// REQUIRES: key is after any previously added key according to comparator.
+    pub fn delete_with_ts<K: AsRef<[u8]>, S: AsRef<[u8]>>(
+        &mut self,
+        key: K,
+        ts: S,
+    ) -> Result<(), Error> {
+        let key = key.as_ref();
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_sstfilewriter_delete_with_ts(
+                self.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
             ));
             Ok(())
         }

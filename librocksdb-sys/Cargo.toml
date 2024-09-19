@@ -1,8 +1,8 @@
 [package]
 name = "librocksdb-sys"
-version = "0.16.0+8.10.0"
+version = "0.17.0+9.0.0"
 edition = "2018"
-rust-version = "1.66.0"
+rust-version = "1.71.1"
 authors = ["Karl Hobley <karlhobley10@gmail.com>", "Arkadiy Paronyan <arkadiy@ethcore.io>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 description = "Native bindings to librocksdb"
@@ -16,6 +16,7 @@ links = "rocksdb"
 default = [ "static" ]
 jemalloc = ["tikv-jemalloc-sys"]
 static = ["libz-sys?/static", "bzip2-sys?/static"]
+mt_static = []
 io-uring = ["pkg-config"]
 snappy = []
 lz4 = ["lz4-sys"]
@@ -26,14 +27,13 @@ rtti = []
 
 [dependencies]
 libc = "0.2"
-tikv-jemalloc-sys = { version = "0.5", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
-lz4-sys = { version = "1.9", optional = true }
+tikv-jemalloc-sys = { version = "0.6", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
+lz4-sys = { version = "1.10", optional = true }
 zstd-sys = { version = "2.0", features = ["zdict_builder"], optional = true }
 libz-sys = { version = "1.1", default-features = false, optional = true }
 bzip2-sys = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-const-cstr = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]

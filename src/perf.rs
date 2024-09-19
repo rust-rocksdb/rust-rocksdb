@@ -15,7 +15,7 @@
 use libc::{c_int, c_uchar, c_void};
 
 use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error};
-use crate::{DBCommon, ThreadMode, DB};
+use crate::{DBCommon, ThreadMode, TransactionDB, DB};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
@@ -237,6 +237,14 @@ impl MemoryUsageBuilder {
             ))
         } else {
             Ok(Self { inner: mc })
+        }
+    }
+
+    /// Add a DB instance to collect memory usage from it and add up in total stats
+    pub fn add_tx_db<T: ThreadMode>(&mut self, db: &TransactionDB<T>) {
+        unsafe {
+            let base = ffi::rocksdb_transactiondb_get_base_db(db.inner);
+            ffi::rocksdb_memory_consumers_add_db(self.inner, base);
         }
     }
 

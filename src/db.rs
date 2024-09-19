@@ -408,6 +408,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens a database with the given database with a Time to Live compaction filter and
     /// column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_with_ttl<P, I>(
         opts: &Options,
         path: P,
@@ -454,6 +456,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens a database for read only with the given database options and column family names.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_for_read_only<P, I, N>(
         opts: &Options,
         path: P,
@@ -480,6 +484,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens a database for read only with the given database options and column family names.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_with_opts_for_read_only<P, I, N>(
         db_opts: &Options,
         path: P,
@@ -507,6 +513,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens a database for ready only with the given database options and
     /// column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_read_only<P, I>(
         opts: &Options,
         path: P,
@@ -528,6 +536,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens the database as a secondary with the given database options and column family names.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_as_secondary<P, I, N>(
         opts: &Options,
         primary_path: P,
@@ -555,6 +565,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens the database as a secondary with the given database options and
     /// column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_as_secondary<P, I>(
         opts: &Options,
         path: P,
@@ -576,6 +588,8 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens a database with the given database options and column family descriptors.
+    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<Self, Error>
     where
         P: AsRef<Path>,
@@ -636,7 +650,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
             let cfopts: Vec<_> = cfs_v
                 .iter()
-                .map(|cf| cf.options.inner as *const _)
+                .map(|cf| cf.options.inner.cast_const())
                 .collect();
 
             db = Self::open_cf_raw(
@@ -1147,7 +1161,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             .collect();
         let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|(c, _)| c.inner() as *const _)
+            .map(|(c, _)| c.inner().cast_const())
             .collect();
 
         let mut values = vec![ptr::null_mut(); ptr_keys.len()];
@@ -1225,7 +1239,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             );
             pinned_values
                 .into_iter()
-                .zip(errors.into_iter())
+                .zip(errors)
                 .map(|(v, e)| {
                     if e.is_null() {
                         if v.is_null() {
@@ -1530,6 +1544,80 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Set the database entry for "key" to "value" with WriteOptions.
+    /// If "key" already exists, it will coexist with previous entry.
+    /// `Get` with a timestamp ts specified in ReadOptions will return
+    /// the most recent key/value whose timestamp is smaller than or equal to ts.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn put_with_ts_opt<K, V, S>(
+        &self,
+        key: K,
+        ts: S,
+        value: V,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_put_with_ts(
+                self.inner.inner(),
+                writeopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Put with timestamp in a specific column family with WriteOptions.
+    /// If "key" already exists, it will coexist with previous entry.
+    /// `Get` with a timestamp ts specified in ReadOptions will return
+    /// the most recent key/value whose timestamp is smaller than or equal to ts.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn put_cf_with_ts_opt<K, V, S>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        ts: S,
+        value: V,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let value = value.as_ref();
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_put_cf_with_ts(
+                self.inner.inner(),
+                writeopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
     pub fn merge_opt<K, V>(&self, key: K, value: V, writeopts: &WriteOptions) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -1617,6 +1705,64 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// Remove the database entry (if any) for "key" with WriteOptions.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn delete_with_ts_opt<K, S>(
+        &self,
+        key: K,
+        ts: S,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_with_ts(
+                self.inner.inner(),
+                writeopts.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Delete with timestamp in a specific column family with WriteOptions.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn delete_cf_with_ts_opt<K, S>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        ts: S,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_delete_cf_with_ts(
+                self.inner.inner(),
+                writeopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
     pub fn put<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -1631,6 +1777,53 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         V: AsRef<[u8]>,
     {
         self.put_cf_opt(cf, key.as_ref(), value.as_ref(), &WriteOptions::default())
+    }
+
+    /// Set the database entry for "key" to "value".
+    /// If "key" already exists, it will coexist with previous entry.
+    /// `Get` with a timestamp ts specified in ReadOptions will return
+    /// the most recent key/value whose timestamp is smaller than or equal to ts.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn put_with_ts<K, V, S>(&self, key: K, ts: S, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        self.put_with_ts_opt(
+            key.as_ref(),
+            ts.as_ref(),
+            value.as_ref(),
+            &WriteOptions::default(),
+        )
+    }
+
+    /// Put with timestamp in a specific column family.
+    /// If "key" already exists, it will coexist with previous entry.
+    /// `Get` with a timestamp ts specified in ReadOptions will return
+    /// the most recent key/value whose timestamp is smaller than or equal to ts.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn put_cf_with_ts<K, V, S>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        ts: S,
+        value: V,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+        S: AsRef<[u8]>,
+    {
+        self.put_cf_with_ts_opt(
+            cf,
+            key.as_ref(),
+            ts.as_ref(),
+            value.as_ref(),
+            &WriteOptions::default(),
+        )
     }
 
     pub fn merge<K, V>(&self, key: K, value: V) -> Result<(), Error>
@@ -1659,6 +1852,29 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         key: K,
     ) -> Result<(), Error> {
         self.delete_cf_opt(cf, key.as_ref(), &WriteOptions::default())
+    }
+
+    /// Remove the database entry (if any) for "key".
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn delete_with_ts<K: AsRef<[u8]>, S: AsRef<[u8]>>(
+        &self,
+        key: K,
+        ts: S,
+    ) -> Result<(), Error> {
+        self.delete_with_ts_opt(key.as_ref(), ts.as_ref(), &WriteOptions::default())
+    }
+
+    /// Delete with timestamp in a specific column family.
+    /// Takes an additional argument `ts` as the timestamp.
+    /// Note: the DB must be opened with user defined timestamp enabled.
+    pub fn delete_cf_with_ts<K: AsRef<[u8]>, S: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        ts: S,
+    ) -> Result<(), Error> {
+        self.delete_cf_with_ts_opt(cf, key.as_ref(), ts.as_ref(), &WriteOptions::default())
     }
 
     /// Runs a manual compaction on the Range of keys given. This is not likely to be needed for typical usage.
@@ -2000,7 +2216,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 self.inner.inner(),
                 cpaths.as_ptr(),
                 paths_v.len(),
-                opts.inner as *const _
+                opts.inner.cast_const()
             ));
             Ok(())
         }
@@ -2019,7 +2235,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 cf.inner(),
                 cpaths.as_ptr(),
                 paths_v.len(),
-                opts.inner as *const _
+                opts.inner.cast_const()
             ));
             Ok(())
         }
@@ -2184,6 +2400,48 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         drop(cf);
         Ok(())
     }
+
+    /// Increase the full_history_ts of column family. The new ts_low value should
+    /// be newer than current full_history_ts value.
+    /// If another thread updates full_history_ts_low concurrently to a higher
+    /// timestamp than the requested ts_low, a try again error will be returned.
+    pub fn increase_full_history_ts_low<S: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        ts: S,
+    ) -> Result<(), Error> {
+        let ts = ts.as_ref();
+        unsafe {
+            ffi_try!(ffi::rocksdb_increase_full_history_ts_low(
+                self.inner.inner(),
+                cf.inner(),
+                ts.as_ptr() as *const c_char,
+                ts.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Get current full_history_ts value.
+    pub fn get_full_history_ts_low(&self, cf: &impl AsColumnFamilyRef) -> Result<Vec<u8>, Error> {
+        unsafe {
+            let mut ts_lowlen = 0;
+            let ts = ffi_try!(ffi::rocksdb_get_full_history_ts_low(
+                self.inner.inner(),
+                cf.inner(),
+                &mut ts_lowlen,
+            ));
+
+            if ts.is_null() {
+                Err(Error::new("Could not get full_history_ts_low".to_owned()))
+            } else {
+                let mut vec = vec![0; ts_lowlen];
+                ptr::copy_nonoverlapping(ts as *mut u8, vec.as_mut_ptr(), ts_lowlen);
+                ffi::rocksdb_free(ts as *mut c_void);
+                Ok(vec)
+            }
+        }
+    }
 }
 
 impl<I: DBInner> DBCommon<SingleThreaded, I> {
@@ -2312,8 +2570,8 @@ pub(crate) fn convert_values(
 ) -> Vec<Result<Option<Vec<u8>>, Error>> {
     values
         .into_iter()
-        .zip(values_sizes.into_iter())
-        .zip(errors.into_iter())
+        .zip(values_sizes)
+        .zip(errors)
         .map(|((v, s), e)| {
             if e.is_null() {
                 let value = unsafe { crate::ffi_util::raw_data(v, s) };

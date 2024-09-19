@@ -24,7 +24,9 @@ use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
-    comparator::{self, ComparatorCallback, CompareFn},
+    comparator::{
+        ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
+    },
     db::DBAccess,
     env::Env,
     ffi,
@@ -159,6 +161,13 @@ impl Cache {
         Cache(Arc::new(CacheWrapper { inner }))
     }
 
+    /// Creates an LRU cache with custom options.
+    pub fn new_lru_cache_opts(opts: &LruCacheOptions) -> Cache {
+        let inner =
+            NonNull::new(unsafe { ffi::rocksdb_cache_create_lru_opts(opts.inner) }).unwrap();
+        Cache(Arc::new(CacheWrapper { inner }))
+    }
+
     /// Creates a HyperClockCache with capacity in bytes.
     ///
     /// `estimated_entry_charge` is an important tuning parameter. The optimal
@@ -210,6 +219,7 @@ impl Cache {
 pub(crate) struct OptionsMustOutliveDB {
     env: Option<Env>,
     row_cache: Option<Cache>,
+    blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
 }
@@ -217,16 +227,14 @@ pub(crate) struct OptionsMustOutliveDB {
 impl OptionsMustOutliveDB {
     pub(crate) fn clone(&self) -> Self {
         Self {
-            env: self.env.as_ref().map(Env::clone),
-            row_cache: self.row_cache.as_ref().map(Cache::clone),
+            env: self.env.clone(),
+            row_cache: self.row_cache.clone(),
+            blob_cache: self.blob_cache.clone(),
             block_based: self
                 .block_based
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
-            write_buffer_manager: self
-                .write_buffer_manager
-                .as_ref()
-                .map(WriteBufferManager::clone),
+            write_buffer_manager: self.write_buffer_manager.clone(),
         }
     }
 }
@@ -239,7 +247,7 @@ struct BlockBasedOptionsMustOutliveDB {
 impl BlockBasedOptionsMustOutliveDB {
     fn clone(&self) -> Self {
         Self {
-            block_cache: self.block_cache.as_ref().map(Cache::clone),
+            block_cache: self.block_cache.clone(),
         }
     }
 }
@@ -310,6 +318,10 @@ pub struct WriteOptions {
     pub(crate) inner: *mut ffi::rocksdb_writeoptions_t,
 }
 
+pub struct LruCacheOptions {
+    pub(crate) inner: *mut ffi::rocksdb_lru_cache_options_t,
+}
+
 /// Optionally wait for the memtable flush to be performed.
 ///
 /// # Examples
@@ -342,6 +354,12 @@ pub struct BlockBasedOptions {
 
 pub struct ReadOptions {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    // The `ReadOptions` owns a copy of the timestamp and iteration bounds.
+    // This is necessary to ensure the pointers we pass over the FFI live as
+    // long as the `ReadOptions`. This way, when performing the read operation,
+    // the pointers are guaranteed to be valid.
+    timestamp: Option<Vec<u8>>,
+    iter_start_ts: Option<Vec<u8>>,
     iterate_upper_bound: Option<Vec<u8>>,
     iterate_lower_bound: Option<Vec<u8>>,
 }
@@ -384,6 +402,7 @@ pub struct IngestExternalFileOptions {
 // rocksdb internally does not rely on thread-local information for its user-exposed types.
 unsafe impl Send for Options {}
 unsafe impl Send for WriteOptions {}
+unsafe impl Send for LruCacheOptions {}
 unsafe impl Send for FlushOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
@@ -397,6 +416,7 @@ unsafe impl Send for WriteBufferManagerWrapper {}
 // use within the rocksdb library is generally behind a const reference
 unsafe impl Sync for Options {}
 unsafe impl Sync for WriteOptions {}
+unsafe impl Sync for LruCacheOptions {}
 unsafe impl Sync for FlushOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
@@ -454,6 +474,14 @@ impl Drop for WriteOptions {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_writeoptions_destroy(self.inner);
+        }
+    }
+}
+
+impl Drop for LruCacheOptions {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_destroy(self.inner);
         }
     }
 }
@@ -1112,10 +1140,7 @@ impl Options {
     ///
     /// Default: empty
     pub fn set_db_paths(&mut self, paths: &[DBPath]) {
-        let mut paths: Vec<_> = paths
-            .iter()
-            .map(|path| path.inner as *const ffi::rocksdb_dbpath_t)
-            .collect();
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
@@ -1565,15 +1590,51 @@ impl Options {
     pub fn set_comparator(&mut self, name: impl CStrLike, compare_fn: Box<CompareFn>) {
         let cb = Box::new(ComparatorCallback {
             name: name.into_c_string().unwrap(),
-            f: compare_fn,
+            compare_fn,
         });
 
         unsafe {
             let cmp = ffi::rocksdb_comparator_create(
                 Box::into_raw(cb).cast::<c_void>(),
-                Some(comparator::destructor_callback),
-                Some(comparator::compare_callback),
-                Some(comparator::name_callback),
+                Some(ComparatorCallback::destructor_callback),
+                Some(ComparatorCallback::compare_callback),
+                Some(ComparatorCallback::name_callback),
+            );
+            ffi::rocksdb_options_set_comparator(self.inner, cmp);
+        }
+    }
+
+    /// Sets the comparator that are timestamp-aware, used to define the order of keys in the table,
+    /// taking timestamp into consideration.
+    /// Find more information on timestamp-aware comparator on [here](https://github.com/facebook/rocksdb/wiki/User-defined-Timestamp)
+    ///
+    /// The client must ensure that the comparator supplied here has the same
+    /// name and orders keys *exactly* the same as the comparator provided to
+    /// previous open calls on the same DB.
+    pub fn set_comparator_with_ts(
+        &mut self,
+        name: impl CStrLike,
+        timestamp_size: usize,
+        compare_fn: Box<CompareFn>,
+        compare_ts_fn: Box<CompareTsFn>,
+        compare_without_ts_fn: Box<CompareWithoutTsFn>,
+    ) {
+        let cb = Box::new(ComparatorWithTsCallback {
+            name: name.into_c_string().unwrap(),
+            compare_fn,
+            compare_ts_fn,
+            compare_without_ts_fn,
+        });
+
+        unsafe {
+            let cmp = ffi::rocksdb_comparator_with_ts_create(
+                Box::into_raw(cb).cast::<c_void>(),
+                Some(ComparatorWithTsCallback::destructor_callback),
+                Some(ComparatorWithTsCallback::compare_callback),
+                Some(ComparatorWithTsCallback::compare_ts_callback),
+                Some(ComparatorWithTsCallback::compare_without_ts_callback),
+                Some(ComparatorWithTsCallback::name_callback),
+                timestamp_size,
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
         }
@@ -2499,7 +2560,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_max_bytes_for_level_multiplier_additional(
                 self.inner,
-                level_values.as_ptr() as *mut c_int,
+                level_values.as_ptr().cast_mut(),
                 count,
             );
         }
@@ -2849,17 +2910,6 @@ impl Options {
         }
     }
 
-    /// Specifies the file access pattern once a compaction is started.
-    ///
-    /// It will be applied to all input files of a compaction.
-    ///
-    /// Default: Normal
-    pub fn set_access_hint_on_compaction_start(&mut self, pattern: AccessHint) {
-        unsafe {
-            ffi::rocksdb_options_set_access_hint_on_compaction_start(self.inner, pattern as c_int);
-        }
-    }
-
     /// Enable/disable adaptive mutex, which spins in the user space before resorting to kernel.
     ///
     /// This could reduce context switch when the mutex is not
@@ -3122,9 +3172,30 @@ impl Options {
         unsafe {
             let ratelimiter =
                 ffi::rocksdb_ratelimiter_create(rate_bytes_per_sec, refill_period_us, fairness);
-            // Since limiter is wrapped in shared_ptr, we don't need to
-            // call rocksdb_ratelimiter_destroy explicitly.
             ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+            ffi::rocksdb_ratelimiter_destroy(ratelimiter);
+        }
+    }
+
+    /// Use to control write rate of flush and compaction. Flush has higher
+    /// priority than compaction.
+    /// If rate limiter is enabled, bytes_per_sync is set to 1MB by default.
+    ///
+    /// Default: disable
+    pub fn set_auto_tuned_ratelimiter(
+        &mut self,
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+    ) {
+        unsafe {
+            let ratelimiter = ffi::rocksdb_ratelimiter_create_auto_tuned(
+                rate_bytes_per_sec,
+                refill_period_us,
+                fairness,
+            );
+            ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+            ffi::rocksdb_ratelimiter_destroy(ratelimiter);
         }
     }
 
@@ -3325,6 +3396,22 @@ impl Options {
         }
     }
 
+    /// Sets the blob cache.
+    ///
+    /// Using a dedicated object for blobs and using the same object for the block and blob caches
+    /// are both supported. In the latter case, note that blobs are less valuable from a caching
+    /// perspective than SST blocks, and some cache implementations have configuration options that
+    /// can be used to prioritize items accordingly (see Cache::Priority and
+    /// LRUCacheOptions::{high,low}_pri_pool_ratio).
+    ///
+    /// Default: disabled
+    pub fn set_blob_cache(&mut self, cache: &Cache) {
+        unsafe {
+            ffi::rocksdb_options_set_blob_cache(self.inner, cache.0.inner.as_ptr());
+        }
+        self.outlive.blob_cache = Some(cache.clone());
+    }
+
     /// Set this option to true during creation of database if you want
     /// to be able to ingest behind (call IngestExternalFile() skipping keys
     /// that already exist, rather than overwriting matching keys).
@@ -3384,6 +3471,19 @@ impl Options {
             );
         }
         self.outlive.write_buffer_manager = Some(write_buffer_manager.clone());
+    }
+
+    /// If true, working thread may avoid doing unnecessary and long-latency
+    /// operation (such as deleting obsolete files directly or deleting memtable)
+    /// and will instead schedule a background job to do it.
+    ///
+    /// Use it if you're latency-sensitive.
+    ///
+    /// Default: false (disabled)
+    pub fn set_avoid_unnecessary_blocking_io(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_avoid_unnecessary_blocking_io(self.inner, u8::from(val));
+        }
     }
 }
 
@@ -3530,6 +3630,39 @@ impl Default for WriteOptions {
     }
 }
 
+impl LruCacheOptions {
+    /// Capacity of the cache, in the same units as the `charge` of each entry.
+    /// This is typically measured in bytes, but can be a different unit if using
+    /// kDontChargeCacheMetadata.
+    pub fn set_capacity(&mut self, cap: usize) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_set_capacity(self.inner, cap);
+        }
+    }
+
+    /// Cache is sharded into 2^num_shard_bits shards, by hash of key.
+    /// If < 0, a good default is chosen based on the capacity and the
+    /// implementation. (Mutex-based implementations are much more reliant
+    /// on many shards for parallel scalability.)
+    pub fn set_num_shard_bits(&mut self, val: c_int) {
+        unsafe {
+            ffi::rocksdb_lru_cache_options_set_num_shard_bits(self.inner, val);
+        }
+    }
+}
+
+impl Default for LruCacheOptions {
+    fn default() -> Self {
+        let inner = unsafe { ffi::rocksdb_lru_cache_options_create() };
+        assert!(
+            !inner.is_null(),
+            "Could not create RocksDB LRU cache options"
+        );
+
+        Self { inner }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
@@ -3538,6 +3671,10 @@ pub enum ReadTier {
     All = 0,
     /// Reads data in memtable or block cache.
     BlockCache,
+    /// Reads persisted data. When WAL is disabled, this option will skip data in memtable.
+    Persisted,
+    /// Reads data in memtable. Used for memtable only iterators.
+    Memtable,
 }
 
 impl ReadOptions {
@@ -3794,6 +3931,56 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_async_io(self.inner, c_uchar::from(v));
         }
     }
+
+    /// Timestamp of operation. Read should return the latest data visible to the
+    /// specified timestamp. All timestamps of the same database must be of the
+    /// same length and format. The user is responsible for providing a customized
+    /// compare function via Comparator to order <key, timestamp> tuples.
+    /// For iterator, iter_start_ts is the lower bound (older) and timestamp
+    /// serves as the upper bound. Versions of the same record that fall in
+    /// the timestamp range will be returned. If iter_start_ts is nullptr,
+    /// only the most recent version visible to timestamp is returned.
+    /// The user-specified timestamp feature is still under active development,
+    /// and the API is subject to change.
+    pub fn set_timestamp<S: Into<Vec<u8>>>(&mut self, ts: S) {
+        self.set_timestamp_impl(Some(ts.into()));
+    }
+
+    fn set_timestamp_impl(&mut self, ts: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref ts) = ts {
+            (ts.as_ptr() as *const c_char, ts.len())
+        } else if self.timestamp.is_some() {
+            // The stored timestamp is a `Some` but we're updating it to a `None`.
+            // This means to cancel a previously set timestamp.
+            // To do this, use a null pointer and zero length.
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.timestamp = ts;
+        unsafe {
+            ffi::rocksdb_readoptions_set_timestamp(self.inner, ptr, len);
+        }
+    }
+
+    /// See `set_timestamp`
+    pub fn set_iter_start_ts<S: Into<Vec<u8>>>(&mut self, ts: S) {
+        self.set_iter_start_ts_impl(Some(ts.into()));
+    }
+
+    fn set_iter_start_ts_impl(&mut self, ts: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref ts) = ts {
+            (ts.as_ptr() as *const c_char, ts.len())
+        } else if self.timestamp.is_some() {
+            (std::ptr::null(), 0)
+        } else {
+            return;
+        };
+        self.iter_start_ts = ts;
+        unsafe {
+            ffi::rocksdb_readoptions_set_iter_start_ts(self.inner, ptr, len);
+        }
+    }
 }
 
 impl Default for ReadOptions {
@@ -3801,6 +3988,8 @@ impl Default for ReadOptions {
         unsafe {
             Self {
                 inner: ffi::rocksdb_readoptions_create(),
+                timestamp: None,
+                iter_start_ts: None,
                 iterate_upper_bound: None,
                 iterate_lower_bound: None,
             }
@@ -3986,17 +4175,6 @@ pub enum DBRecoveryMode {
     SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
 }
 
-/// File access pattern once a compaction has started
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
-pub enum AccessHint {
-    None = 0,
-    Normal,
-    Sequential,
-    WillNeed,
-}
-
 pub struct FifoCompactOptions {
     pub(crate) inner: *mut ffi::rocksdb_fifo_compaction_options_t,
 }
@@ -4169,6 +4347,7 @@ pub enum BottommostLevelCompaction {
 
 pub struct CompactOptions {
     pub(crate) inner: *mut ffi::rocksdb_compactoptions_t,
+    full_history_ts_low: Option<Vec<u8>>,
 }
 
 impl Default for CompactOptions {
@@ -4176,7 +4355,10 @@ impl Default for CompactOptions {
         let opts = unsafe { ffi::rocksdb_compactoptions_create() };
         assert!(!opts.is_null(), "Could not create RocksDB Compact Options");
 
-        Self { inner: opts }
+        Self {
+            inner: opts,
+            full_history_ts_low: None,
+        }
     }
 }
 
@@ -4223,6 +4405,26 @@ impl CompactOptions {
     pub fn set_target_level(&mut self, lvl: c_int) {
         unsafe {
             ffi::rocksdb_compactoptions_set_target_level(self.inner, lvl);
+        }
+    }
+
+    /// Set user-defined timestamp low bound, the data with older timestamp than
+    /// low bound maybe GCed by compaction. Default: nullptr
+    pub fn set_full_history_ts_low<S: Into<Vec<u8>>>(&mut self, ts: S) {
+        self.set_full_history_ts_low_impl(Some(ts.into()));
+    }
+
+    fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
+        let (ptr, len) = if let Some(ref ts) = ts {
+            (ts.as_ptr() as *mut c_char, ts.len())
+        } else if self.full_history_ts_low.is_some() {
+            (std::ptr::null::<Vec<u8>>() as *mut c_char, 0)
+        } else {
+            return;
+        };
+        self.full_history_ts_low = ts;
+        unsafe {
+            ffi::rocksdb_compactoptions_set_full_history_ts_low(self.inner, ptr, len);
         }
     }
 }

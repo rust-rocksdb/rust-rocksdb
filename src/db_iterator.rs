@@ -28,7 +28,7 @@ pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 /// This iterator is different to the standard ``DBIteratorWithThreadMode`` as it aims Into
 /// replicate the underlying iterator API within RocksDB itself. This should
 /// give access to more performance and flexibility but departs from the
-/// widely recognised Rust idioms.
+/// widely recognized Rust idioms.
 ///
 /// ```
 /// use rocksdb::{DB, Options};

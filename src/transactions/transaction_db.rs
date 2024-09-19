@@ -23,6 +23,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::CStrLike;
+use std::ffi::CStr;
+
 use crate::{
     column_family::UnboundColumnFamily,
     db::{convert_values, DBAccess},
@@ -266,7 +269,7 @@ impl<T: ThreadMode> TransactionDB<T> {
 
             let cfopts: Vec<_> = cfs_v
                 .iter()
-                .map(|cf| cf.options.inner as *const _)
+                .map(|cf| cf.options.inner.cast_const())
                 .collect();
 
             db = Self::open_cf_raw(
@@ -300,8 +303,8 @@ impl<T: ThreadMode> TransactionDB<T> {
             let mut cnt = 0;
             let ptr = ffi::rocksdb_transactiondb_get_prepared_transactions(db, &mut cnt);
             let mut vec = vec![std::ptr::null_mut(); cnt];
-            std::ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), cnt);
             if !ptr.is_null() {
+                std::ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), cnt);
                 ffi::rocksdb_free(ptr as *mut c_void);
             }
             vec
@@ -408,7 +411,7 @@ impl<T: ThreadMode> TransactionDB<T> {
                     std::ptr::null_mut(),
                 )
             },
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -423,7 +426,7 @@ impl<T: ThreadMode> TransactionDB<T> {
             .drain(0..)
             .map(|inner| Transaction {
                 inner,
-                _marker: PhantomData::default(),
+                _marker: PhantomData,
             })
             .collect()
     }
@@ -600,7 +603,7 @@ impl<T: ThreadMode> TransactionDB<T> {
             .collect();
         let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|(c, _)| c.inner() as *const _)
+            .map(|(c, _)| c.inner().cast_const())
             .collect();
 
         let mut values = vec![ptr::null_mut(); ptr_keys.len()];
@@ -1001,6 +1004,74 @@ impl TransactionDB<MultiThreaded> {
         } else {
             Err(Error::new(format!("Invalid column family: {name}")))
         }
+    }
+
+    /// Implementation for property_value et al methods.
+    ///
+    /// `name` is the name of the property.  It will be converted into a CString
+    /// and passed to `get_property` as argument.  `get_property` reads the
+    /// specified property and either returns NULL or a pointer to a C allocated
+    /// string; this method takes ownership of that string and will free it at
+    /// the end. That string is parsed using `parse` callback which produces
+    /// the returned result.
+    fn property_value_impl<R>(
+        name: impl CStrLike,
+        get_property: impl FnOnce(*const c_char) -> *mut c_char,
+        parse: impl FnOnce(&str) -> Result<R, Error>,
+    ) -> Result<Option<R>, Error> {
+        let value = match name.bake() {
+            Ok(prop_name) => get_property(prop_name.as_ptr()),
+            Err(e) => {
+                return Err(Error::new(format!(
+                    "Failed to convert property name to CString: {e}"
+                )));
+            }
+        };
+        if value.is_null() {
+            return Ok(None);
+        }
+        let result = match unsafe { CStr::from_ptr(value) }.to_str() {
+            Ok(s) => parse(s).map(|value| Some(value)),
+            Err(e) => Err(Error::new(format!(
+                "Failed to convert property value to string: {e}"
+            ))),
+        };
+        unsafe {
+            ffi::rocksdb_free(value as *mut c_void);
+        }
+        result
+    }
+
+    /// Retrieves a RocksDB property by name.
+    ///
+    /// Full list of properties could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
+    pub fn property_value(&self, name: impl CStrLike) -> Result<Option<String>, Error> {
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe { ffi::rocksdb_transactiondb_property_value(self.inner, prop_name) },
+            |str_value| Ok(str_value.to_owned()),
+        )
+    }
+
+    fn parse_property_int_value(value: &str) -> Result<u64, Error> {
+        value.parse::<u64>().map_err(|err| {
+            Error::new(format!(
+                "Failed to convert property value {value} to int: {err}"
+            ))
+        })
+    }
+
+    /// Retrieves a RocksDB property and casts it to an integer.
+    ///
+    /// Full list of properties that return int values could be find
+    /// [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L654-L689).
+    pub fn property_int_value(&self, name: impl CStrLike) -> Result<Option<u64>, Error> {
+        Self::property_value_impl(
+            name,
+            |prop_name| unsafe { ffi::rocksdb_transactiondb_property_value(self.inner, prop_name) },
+            Self::parse_property_int_value,
+        )
     }
 }
 

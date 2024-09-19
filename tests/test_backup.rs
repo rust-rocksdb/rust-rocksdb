@@ -90,7 +90,7 @@ fn restore_from_backup() {
                 assert!(i.size > 0);
             });
 
-            let backup_id = info.get(0).unwrap().backup_id;
+            let backup_id = info.first().unwrap().backup_id;
             let mut restore_option = RestoreOptions::default();
             restore_option.set_keep_log_files(false); // true to keep log files
             let restore_status = backup_engine.restore_from_backup(
@@ -106,4 +106,11 @@ fn restore_from_backup() {
             assert_eq!(value.unwrap().unwrap(), b"v1111");
         }
     }
+}
+
+fn assert_send_generic<T: Send>() {}
+
+#[test]
+fn assert_send() {
+    assert_send_generic::<BackupEngine>();
 }

@@ -17,7 +17,8 @@ mod util;
 use std::{fs, io::Read as _};
 
 use rocksdb::{
-    BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, Options, ReadOptions, DB,
+    BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options,
+    ReadOptions, DB,
 };
 use util::DBPath;
 
@@ -267,6 +268,19 @@ fn test_add_compact_on_deletion_collector_factory() {
 }
 
 #[test]
+fn test_set_avoid_unnecessary_blocking_io() {
+    let path = DBPath::new("_set_avoid_unnecessary_blocking_io");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_avoid_unnecessary_blocking_io(true);
+        let db = DB::open(&opts, &path).unwrap();
+        let _ = db.put(b"k1", b"a");
+        assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
+    }
+}
+
+#[test]
 fn test_set_periodic_compaction_seconds() {
     let path = DBPath::new("_set_periodic_compaction_seconds");
     {
@@ -275,4 +289,81 @@ fn test_set_periodic_compaction_seconds() {
         opts.set_periodic_compaction_seconds(5);
         let _db = DB::open(&opts, &path).unwrap();
     }
+}
+
+#[test]
+fn test_set_ratelimiter() {
+    let path = DBPath::new("_set_ratelimiter");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ratelimiter(1024000, 1000, 1);
+        let db = DB::open(&opts, &path).unwrap();
+
+        let _ = db.put(b"k1", b"a");
+        assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
+    }
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_auto_tuned_ratelimiter(1024000, 1000, 1);
+        let db = DB::open(&opts, &path).unwrap();
+
+        let _ = db.put(b"k2", b"a");
+        assert_eq!(&*db.get(b"k2").unwrap().unwrap(), b"a");
+    }
+}
+
+#[test]
+fn test_set_blob_cache() {
+    let path = DBPath::new("_set_blob_cache");
+    let cache = Cache::new_hyper_clock_cache(1024 * 1024, 4 * 1024);
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.set_enable_blob_files(true);
+    opts.set_min_blob_size(16);
+    opts.set_blob_cache(&cache);
+
+    let db = DB::open(&opts, &path).unwrap();
+
+    const KEY: &[u8] = b"k1";
+    const VALUE: &[u8] = b"01234567890123456789";
+    db.put(KEY, VALUE).unwrap();
+
+    // Cache miss
+    assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
+
+    // Cache hit
+    assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
+}
+
+#[test]
+fn test_lru_cache_custom_opts() {
+    let path = DBPath::new("_set_blob_cache");
+
+    let mut lru_opts = LruCacheOptions::default();
+    lru_opts.set_capacity(16 * 1024 * 1024);
+    lru_opts.set_num_shard_bits(2);
+    let cache = Cache::new_lru_cache_opts(&lru_opts);
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.set_row_cache(&cache);
+
+    // Must work even if we dropped the options: test that.
+    drop(lru_opts);
+
+    let db = DB::open(&opts, &path).unwrap();
+
+    const KEY: &[u8] = b"k1";
+    const VALUE: &[u8] = b"01234567890123456789";
+    db.put(KEY, VALUE).unwrap();
+
+    // Cache miss
+    assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
+
+    // Cache hit
+    assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
 }
