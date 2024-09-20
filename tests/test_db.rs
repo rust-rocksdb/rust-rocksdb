@@ -1598,3 +1598,36 @@ fn test_atomic_flush_cfs() {
         );
     }
 }
+
+#[test]
+fn test_full_history_ts_low() {
+    let path = DBPath::new("_rust_full_history_ts_low");
+    let _ = DB::destroy(&Options::default(), &path);
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut cf_opts = Options::default();
+        cf_opts.set_comparator_with_ts(
+            U64Comparator::NAME,
+            U64Timestamp::SIZE,
+            Box::new(U64Comparator::compare),
+            Box::new(U64Comparator::compare_ts),
+            Box::new(U64Comparator::compare_without_ts),
+        );
+
+        let cfs = vec![("cf", cf_opts)];
+
+        let db = DB::open_cf_with_opts(&opts, &path, cfs).unwrap();
+        let cf = db.cf_handle("cf").unwrap();
+
+        let ts = U64Timestamp::new(1);
+        db.increase_full_history_ts_low(&cf, ts).unwrap();
+        let ret = U64Timestamp::from(db.get_full_history_ts_low(&cf).unwrap().as_slice());
+        assert_eq!(ts, ret);
+
+        let _ = DB::destroy(&Options::default(), &path);
+    }
+}
