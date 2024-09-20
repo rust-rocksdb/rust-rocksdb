@@ -48,6 +48,10 @@ pub struct RestoreOptions {
     inner: *mut ffi::rocksdb_restore_options_t,
 }
 
+// BackupEngine is a simple pointer wrapper, so it's safe to send to another thread
+// since the underlying RocksDB backup engine is thread-safe.
+unsafe impl Send for BackupEngine {}
+
 impl BackupEngine {
     /// Open a backup engine with the specified options and RocksDB Env.
     pub fn open(opts: &BackupEngineOptions, env: &Env) -> Result<Self, Error> {

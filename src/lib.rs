@@ -89,10 +89,12 @@ mod env;
 mod iter_range;
 pub mod merge_operator;
 pub mod perf;
+mod prop_name;
 pub mod properties;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
+pub mod statistics;
 mod transactions;
 mod write_batch;
 
@@ -114,8 +116,9 @@ pub use crate::{
         BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, ChecksumType,
         CompactOptions, CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath,
         DBRecoveryMode, DataBlockIndexType, FifoCompactOptions, FlushOptions,
-        IngestExternalFileOptions, LogLevel, MemtableFactory, Options, PlainTableFactoryOptions,
-        ReadOptions, UniversalCompactOptions, UniversalCompactionStopStyle, WriteOptions,
+        IngestExternalFileOptions, KeyEncodingType, LogLevel, LruCacheOptions, MemtableFactory,
+        Options, PlainTableFactoryOptions, ReadOptions, ReadTier, UniversalCompactOptions,
+        UniversalCompactionStopStyle, WaitForCompactOptions, WriteBufferManager, WriteOptions,
     },
     db_pinnable_slice::DBPinnableSlice,
     env::Env,
@@ -231,11 +234,11 @@ mod test {
 
     use super::{
         column_family::UnboundColumnFamily,
-        db_options::CacheWrapper,
+        db_options::{CacheWrapper, WriteBufferManagerWrapper},
         env::{Env, EnvWrapper},
         BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor,
         DBIterator, DBRawIterator, IngestExternalFileOptions, Options, PlainTableFactoryOptions,
-        ReadOptions, Snapshot, SstFileWriter, WriteBatch, WriteOptions, DB,
+        ReadOptions, Snapshot, SstFileWriter, WriteBatch, WriteBufferManager, WriteOptions, DB,
     };
 
     #[test]
@@ -273,6 +276,8 @@ mod test {
         is_send::<TransactionDBOptions>();
         is_send::<OptimisticTransactionOptions>();
         is_send::<TransactionOptions>();
+        is_send::<WriteBufferManager>();
+        is_send::<WriteBufferManagerWrapper>();
     }
 
     #[test]
@@ -303,5 +308,7 @@ mod test {
         is_sync::<TransactionDBOptions>();
         is_sync::<OptimisticTransactionOptions>();
         is_sync::<TransactionOptions>();
+        is_sync::<WriteBufferManager>();
+        is_sync::<WriteBufferManagerWrapper>();
     }
 }

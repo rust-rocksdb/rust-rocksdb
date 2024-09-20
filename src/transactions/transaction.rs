@@ -566,7 +566,7 @@ impl<'db, DB> Transaction<'db, DB> {
             .collect();
         let ptr_cfs: Vec<_> = cfs_and_keys
             .iter()
-            .map(|(c, _)| c.inner() as *const _)
+            .map(|(c, _)| c.inner().cast_const())
             .collect();
 
         let mut values = vec![ptr::null_mut(); ptr_keys.len()];
@@ -872,8 +872,8 @@ impl<'db, DB> Transaction<'db, DB> {
             let wi = ffi::rocksdb_transaction_get_writebatch_wi(self.inner);
             let mut len: usize = 0;
             let ptr = ffi::rocksdb_writebatch_wi_data(wi, &mut len as _);
-            let data = std::slice::from_raw_parts(ptr, len).to_owned();
-            let writebatch = ffi::rocksdb_writebatch_create_from(data.as_ptr(), data.len());
+            let writebatch = ffi::rocksdb_writebatch_create_from(ptr, len);
+            ffi::rocksdb_free(wi as *mut c_void);
             WriteBatchWithTransaction { inner: writebatch }
         }
     }

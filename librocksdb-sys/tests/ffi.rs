@@ -23,7 +23,6 @@
     unused_variables
 )]
 
-use const_cstr::const_cstr;
 use libc::*;
 use librocksdb_sys::*;
 use std::borrow::Cow;
@@ -41,7 +40,11 @@ macro_rules! err_println {
 }
 
 macro_rules! cstrp {
-    ($($arg:tt)*) => (const_cstr!($($arg)*).as_ptr());
+    ($s:expr) => {{
+        static CSTR: &CStr =
+            unsafe { CStr::from_bytes_with_nul_unchecked(concat!($s, "\0").as_bytes()) };
+        CSTR.as_ptr()
+    }};
 }
 
 static mut phase: &'static str = "";
@@ -1072,7 +1075,7 @@ fn ffi() {
                 rocksdb_slicetransform_create_fixed_prefix(3),
             );
             rocksdb_options_set_hash_skip_list_rep(options, 5000, 4, 4);
-            rocksdb_options_set_plain_table_factory(options, 4, 10, 0.75, 16);
+            rocksdb_options_set_plain_table_factory(options, 4, 10, 0.75, 16, 0, 0, 0, 0);
             rocksdb_options_set_allow_concurrent_memtable_write(options, 0);
 
             db = rocksdb_open(options, dbname, &mut err);

@@ -20,14 +20,16 @@ use std::{mem, sync::Arc, thread, time::Duration};
 
 use pretty_assertions::assert_eq;
 
+use rocksdb::statistics::{Histogram, StatsLevel, Ticker};
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
     ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
     DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
     Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
-    UniversalCompactOptions, UniversalCompactionStopStyle, WriteBatch, DB,
+    UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions, WriteBatch, DB,
+    DEFAULT_COLUMN_FAMILY_NAME,
 };
-use util::{assert_iter, pair, DBPath};
+use util::{assert_iter, pair, DBPath, U64Comparator, U64Timestamp};
 
 #[test]
 fn external() {
@@ -377,6 +379,64 @@ fn set_option_cf_test() {
 }
 
 #[test]
+fn get_statistics_test() {
+    let path = DBPath::new("_rust_rocksdb_get_statisticstest");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.enable_statistics();
+        opts.set_statistics_level(StatsLevel::All);
+        let db = DB::open_cf(&opts, &path, vec!["cf1"]).unwrap();
+        let cf = db.cf_handle("cf1").unwrap();
+
+        let initial_bytes_written = opts.get_ticker_count(Ticker::BytesWritten);
+        db.put_cf(&cf, b"key1", b"value").unwrap();
+        db.put_cf(&cf, b"key2", b"value").unwrap();
+        db.put_cf(&cf, b"key3", b"value").unwrap();
+        db.flush_cf(&cf).unwrap();
+
+        assert!(opts.get_ticker_count(Ticker::BytesWritten) > 0);
+        // We should see some counters increased
+        assert!(opts.get_ticker_count(Ticker::BytesWritten) > initial_bytes_written);
+
+        let histogram_data = opts.get_histogram_data(Histogram::DbWrite);
+        assert!(histogram_data.count() > 0);
+        assert!(histogram_data.max().is_normal());
+    }
+}
+
+#[test]
+fn set_column_family_metadata_test() {
+    let path = DBPath::new("_set_column_family_metadata_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db = DB::open_cf(&opts, &path, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf2"]).unwrap();
+
+        let cf1 = db.cf_handle(DEFAULT_COLUMN_FAMILY_NAME).unwrap();
+        db.put_cf(&cf1, b"key1", b"value").unwrap();
+
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(&cf2, b"key1", b"value").unwrap();
+        db.put_cf(&cf2, b"key2", b"value").unwrap();
+        db.put_cf(&cf2, b"key3", b"value").unwrap();
+
+        db.flush_cf(&cf1).unwrap();
+        db.flush_cf(&cf2).unwrap();
+
+        let default_cf_metadata = db.get_column_family_metadata();
+        assert_eq!(default_cf_metadata.size > 150, true);
+        assert_eq!(default_cf_metadata.file_count, 1);
+
+        let cf2_metadata = db.get_column_family_metadata_cf(&cf2);
+        assert_eq!(cf2_metadata.size > default_cf_metadata.size, true);
+        assert_eq!(cf2_metadata.file_count, 1);
+    }
+}
+
+#[test]
 fn test_sequence_number() {
     let path = DBPath::new("_rust_rocksdb_test_sequence_number");
     {
@@ -408,6 +468,39 @@ fn test_get_updates_since_empty() {
     // get_updates_since() on an empty database
     let mut iter = db.get_updates_since(0).unwrap();
     assert!(iter.next().is_none());
+}
+
+#[test]
+fn test_get_updates_since_start() {
+    let path = DBPath::new("_rust_rocksdb_test_test_get_updates_since_start");
+    let db = DB::open_default(&path).unwrap();
+    // add some records and collect sequence numbers,
+    // verify 4 batches of 1 put each were done
+    let seq0 = db.latest_sequence_number();
+    db.put(b"key1", b"value1").unwrap();
+    db.put(b"key2", b"value2").unwrap();
+    db.put(b"key3", b"value3").unwrap();
+    db.put(b"key4", b"value4").unwrap();
+    let mut iter = db.get_updates_since(seq0).unwrap();
+    let mut counts = OperationCounts {
+        puts: 0,
+        deletes: 0,
+    };
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 1);
+    batch.iterate(&mut counts);
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 2);
+    batch.iterate(&mut counts);
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 3);
+    batch.iterate(&mut counts);
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 4);
+    batch.iterate(&mut counts);
+    assert!(iter.next().is_none());
+    assert_eq!(counts.puts, 4);
+    assert_eq!(counts.deletes, 0);
 }
 
 #[test]
@@ -465,6 +558,38 @@ fn test_get_updates_since_one_batch() {
     assert!(iter.next().is_none());
     assert_eq!(counts.puts, 1);
     assert_eq!(counts.deletes, 1);
+}
+
+#[test]
+fn test_get_updates_since_batches() {
+    let path = DBPath::new("_rust_rocksdb_test_get_updates_since_one_batch");
+    let db = DB::open_default(&path).unwrap();
+    db.put(b"key2", b"value2").unwrap();
+
+    assert_eq!(db.latest_sequence_number(), 1);
+    let mut batch = WriteBatch::default();
+    batch.put(b"key1", b"value1");
+    batch.delete(b"key2");
+    db.write(batch).unwrap();
+    let seq2 = db.latest_sequence_number();
+    assert_eq!(seq2, 3);
+    let mut batch = WriteBatch::default();
+    batch.put(b"key3", b"value1");
+    batch.put(b"key4", b"value1");
+    db.write(batch).unwrap();
+    assert_eq!(db.latest_sequence_number(), 5);
+    let mut iter = db.get_updates_since(seq2).unwrap();
+    let mut counts = OperationCounts {
+        puts: 0,
+        deletes: 0,
+    };
+    // Verify we get the 2nd batch with 2 puts back and not the first
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 4);
+    batch.iterate(&mut counts);
+    assert!(iter.next().is_none());
+    assert_eq!(counts.puts, 2);
+    assert_eq!(counts.deletes, 0);
 }
 
 #[test]
@@ -687,6 +812,7 @@ fn fifo_compaction_test() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
+        opts.set_level_compaction_dynamic_level_bytes(false);
 
         // set compaction style
         {
@@ -720,7 +846,7 @@ fn fifo_compaction_test() {
         let livefiles = db.live_files().unwrap();
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
-            assert_eq!(f.level, 1);
+            assert_eq!(f.level, 6);
             assert_eq!(f.column_family_name, "cf1");
             assert!(!f.name.is_empty());
             assert_eq!(f.start_key.as_ref().unwrap().as_slice(), "k1".as_bytes());
@@ -728,6 +854,38 @@ fn fifo_compaction_test() {
             assert_eq!(f.num_entries, 5);
             assert_eq!(f.num_deletions, 0);
         });
+    }
+}
+
+#[test]
+fn wait_for_compact_test() {
+    let path = DBPath::new("_rust_rocksdb_wait_for_compact_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        // set wait for compact options
+        let mut wait_for_compact_opts: WaitForCompactOptions = WaitForCompactOptions::default();
+        wait_for_compact_opts.set_abort_on_pause(false);
+        wait_for_compact_opts.set_flush(true);
+
+        let cfs = vec!["cf1"];
+        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(&cf1, b"k2", b"v2").unwrap();
+        db.put_cf(&cf1, b"k3", b"v3").unwrap();
+        db.put_cf(&cf1, b"k4", b"v4").unwrap();
+        db.put_cf(&cf1, b"k5", b"v5").unwrap();
+
+        db.put(b"k1", b"v1").unwrap();
+        db.put(b"k2", b"v2").unwrap();
+        db.put(b"k3", b"v3").unwrap();
+        db.put(b"k4", b"v4").unwrap();
+        db.put(b"k5", b"v5").unwrap();
+
+        db.wait_for_compact(&wait_for_compact_opts).unwrap()
     }
 }
 
@@ -812,6 +970,7 @@ fn get_with_cache_and_bulkload_test() {
     opts.set_db_log_dir(&log_path);
     opts.set_memtable_whole_key_filtering(true);
     opts.set_dump_malloc_stats(true);
+    opts.set_level_compaction_dynamic_level_bytes(false);
 
     // trigger all sst files in L1/2 instead of L0
     opts.set_max_bytes_for_level_base(64 << 10); // 64KB
@@ -947,6 +1106,7 @@ fn get_with_cache_and_bulkload_and_blobs_test() {
     opts.set_dump_malloc_stats(true);
     opts.set_enable_blob_files(true);
     opts.set_min_blob_size(256); // set small to ensure it is actually used
+    opts.set_level_compaction_dynamic_level_bytes(false);
 
     // trigger all sst files in L1/2 instead of L0
     opts.set_max_bytes_for_level_base(64 << 10); // 64KB
@@ -1392,4 +1552,49 @@ fn evil_as_ref() {
 
     let result = &db.multi_get([evil])[0];
     assert!(result.as_ref().unwrap().is_none());
+}
+
+#[test]
+fn test_atomic_flush_cfs() {
+    let n = DBPath::new("_rust_rocksdb_atomic_flush_cfs");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_atomic_flush(true);
+
+        let db = DB::open_cf(&opts, &n, ["cf1", "cf2"]).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+
+        let mut write_options = rocksdb::WriteOptions::new();
+        write_options.disable_wal(true);
+
+        db.put_cf_opt(&cf1, "k11", "v11", &write_options).unwrap();
+        db.put_cf_opt(&cf2, "k21", "v21", &write_options).unwrap();
+
+        let mut opts = rocksdb::FlushOptions::new();
+        opts.set_wait(true);
+        db.flush_cfs_opt(&[&cf1, &cf2], &opts).unwrap();
+    }
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_atomic_flush(true);
+
+        let db = DB::open_cf(&opts, &n, ["cf1", "cf2"]).unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+
+        assert_eq!(
+            db.get_cf(&cf1, "k11").unwrap(),
+            Some("v11".as_bytes().to_vec())
+        );
+        assert_eq!(
+            db.get_cf(&cf2, "k21").unwrap(),
+            Some("v21".as_bytes().to_vec())
+        );
+    }
 }

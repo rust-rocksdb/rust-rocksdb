@@ -118,24 +118,19 @@ fn build_rocksdb() {
         }
         if target_features.contains(&"sse4.2") {
             config.flag_if_supported("-msse4.2");
-            config.define("HAVE_SSE42", Some("1"));
         }
         // Pass along additional target features as defined in
         // build_tools/build_detect_platform.
         if target_features.contains(&"avx2") {
             config.flag_if_supported("-mavx2");
-            config.define("HAVE_AVX2", Some("1"));
         }
         if target_features.contains(&"bmi1") {
             config.flag_if_supported("-mbmi");
-            config.define("HAVE_BMI", Some("1"));
         }
         if target_features.contains(&"lzcnt") {
             config.flag_if_supported("-mlzcnt");
-            config.define("HAVE_LZCNT", Some("1"));
         }
         if !target.contains("android") && target_features.contains(&"pclmulqdq") {
-            config.define("HAVE_PCLMUL", Some("1"));
             config.flag_if_supported("-mpclmul");
         }
     }
@@ -159,6 +154,10 @@ fn build_rocksdb() {
         config.define("OS_ANDROID", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
+
+        if &target == "armv7-linux-androideabi" {
+            config.define("_FILE_OFFSET_BITS", Some("32"));
+        }
     } else if target.contains("linux") {
         config.define("OS_LINUX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
@@ -229,12 +228,17 @@ fn build_rocksdb() {
         config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
     }
 
-    if env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64" {
+    if &target != "armv7-linux-androideabi"
+        && env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64"
+    {
         config.define("_FILE_OFFSET_BITS", Some("64"));
         config.define("_LARGEFILE64_SOURCE", Some("1"));
     }
 
     if target.contains("msvc") {
+        if cfg!(feature = "mt_static") {
+            config.static_crt(true);
+        }
         config.flag("-EHsc");
         config.flag("-std:c++17");
     } else {
@@ -250,7 +254,10 @@ fn build_rocksdb() {
         config.flag("-Wno-strict-aliasing");
         config.flag("-Wno-invalid-offsetof");
     }
-
+    if target.contains("riscv64gc") {
+        // link libatomic required to build for riscv64gc
+        println!("cargo:rustc-link-lib=atomic");
+    }
     for file in lib_sources {
         config.file(format!("rocksdb/{file}"));
     }
@@ -274,6 +281,9 @@ fn build_snappy() {
 
     if target.contains("msvc") {
         config.flag("-EHsc");
+        if cfg!(feature = "mt_static") {
+            config.static_crt(true);
+        }
     } else {
         // Snappy requires C++11.
         // See: https://github.com/google/snappy/blob/master/CMakeLists.txt#L32-L38
@@ -349,13 +359,26 @@ fn main() {
         update_submodules();
     }
     bindgen_rocksdb();
+    let target = env::var("TARGET").unwrap();
 
     if !try_to_find_and_link_lib("ROCKSDB") {
+        // rocksdb only works with the prebuilt rocksdb system lib on freebsd.
+        // we dont need to rebuild rocksdb
+        if target.contains("freebsd") {
+            println!("cargo:rustc-link-search=native=/usr/local/lib");
+            let mode = match env::var_os("ROCKSDB_STATIC") {
+                Some(_) => "static",
+                None => "dylib",
+            };
+            println!("cargo:rustc-link-lib={}=rocksdb", mode);
+
+            return;
+        }
+
         println!("cargo:rerun-if-changed=rocksdb/");
         fail_on_empty_directory("rocksdb");
         build_rocksdb();
     } else {
-        let target = env::var("TARGET").unwrap();
         // according to https://github.com/alexcrichton/cc-rs/blob/master/src/lib.rs#L2189
         if target.contains("apple") || target.contains("freebsd") || target.contains("openbsd") {
             println!("cargo:rustc-link-lib=dylib=c++");

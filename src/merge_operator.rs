@@ -211,10 +211,7 @@ impl MergeOperands {
                 let len_ptr = (base_len + (spacing_len * index)) as *const size_t;
                 let len = *len_ptr;
                 let ptr = base + (spacing * index);
-                Some(slice::from_raw_parts(
-                    *(ptr as *const *const u8) as *const u8,
-                    len,
-                ))
+                Some(slice::from_raw_parts(*(ptr as *const *const u8), len))
             }
         }
     }
