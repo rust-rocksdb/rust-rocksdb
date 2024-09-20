@@ -321,12 +321,13 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
+        let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned(
                 self.inner,
                 readopts.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len(),
+                key.as_ptr() as *const c_char,
+                key.len(),
             ));
             if val.is_null() {
                 Ok(None)
@@ -359,13 +360,14 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
+        let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_cf(
                 self.inner,
                 readopts.inner,
                 cf.inner(),
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len(),
+                key.as_ptr() as *const c_char,
+                key.len(),
             ));
             if val.is_null() {
                 Ok(None)
@@ -399,12 +401,13 @@ impl<'db, DB> Transaction<'db, DB> {
         exclusive: bool,
         opts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
+        let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update(
                 self.inner,
                 opts.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
                 u8::from(exclusive),
             ));
             if val.is_null() {
@@ -461,13 +464,14 @@ impl<'db, DB> Transaction<'db, DB> {
         exclusive: bool,
         opts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
+        let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update_cf(
                 self.inner,
                 opts.inner,
                 cf.inner(),
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
                 u8::from(exclusive),
             ));
             if val.is_null() {
@@ -499,7 +503,10 @@ impl<'db, DB> Transaction<'db, DB> {
     {
         let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
             .into_iter()
-            .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
+            .map(|key| {
+                let key = key.as_ref();
+                (Box::from(key), key.len())
+            })
             .unzip();
         let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
 
@@ -548,7 +555,10 @@ impl<'db, DB> Transaction<'db, DB> {
     {
         let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
             .into_iter()
-            .map(|(cf, key)| ((cf, Box::from(key.as_ref())), key.as_ref().len()))
+            .map(|(cf, key)| {
+                let key = key.as_ref();
+                ((cf, Box::from(key)), key.len())
+            })
             .unzip();
         let ptr_keys: Vec<_> = cfs_and_keys
             .iter()
@@ -585,13 +595,15 @@ impl<'db, DB> Transaction<'db, DB> {
     ///
     /// [`put_cf`]: Self::put_cf
     pub fn put<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: K, value: V) -> Result<(), Error> {
+        let key = key.as_ref();
+        let value = value.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_put(
                 self.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
-                value.as_ref().as_ptr() as *const c_char,
-                value.as_ref().len() as size_t,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t,
             ));
             Ok(())
         }
@@ -618,14 +630,16 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
         value: V,
     ) -> Result<(), Error> {
+        let key = key.as_ref();
+        let value = value.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_put_cf(
                 self.inner,
                 cf.inner(),
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
-                value.as_ref().as_ptr() as *const c_char,
-                value.as_ref().len() as size_t,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t,
             ));
             Ok(())
         }
@@ -637,13 +651,15 @@ impl<'db, DB> Transaction<'db, DB> {
     ///
     /// [`merge_cf`]: Self::merge_cf
     pub fn merge<K: AsRef<[u8]>, V: AsRef<[u8]>>(&self, key: K, value: V) -> Result<(), Error> {
+        let key = key.as_ref();
+        let value = value.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge(
                 self.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
-                value.as_ref().as_ptr() as *const c_char,
-                value.as_ref().len() as size_t
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t
             ));
             Ok(())
         }
@@ -670,14 +686,16 @@ impl<'db, DB> Transaction<'db, DB> {
         key: K,
         value: V,
     ) -> Result<(), Error> {
+        let key = key.as_ref();
+        let value = value.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_merge_cf(
                 self.inner,
                 cf.inner(),
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t,
-                value.as_ref().as_ptr() as *const c_char,
-                value.as_ref().len() as size_t
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                value.as_ptr() as *const c_char,
+                value.len() as size_t
             ));
             Ok(())
         }
@@ -689,11 +707,12 @@ impl<'db, DB> Transaction<'db, DB> {
     ///
     /// [`delete_cf`]: Self::delete_cf
     pub fn delete<K: AsRef<[u8]>>(&self, key: K) -> Result<(), Error> {
+        let key = key.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete(
                 self.inner,
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t
+                key.as_ptr() as *const c_char,
+                key.len() as size_t
             ));
         }
         Ok(())
@@ -718,12 +737,13 @@ impl<'db, DB> Transaction<'db, DB> {
         cf: &impl AsColumnFamilyRef,
         key: K,
     ) -> Result<(), Error> {
+        let key = key.as_ref();
         unsafe {
             ffi_try!(ffi::rocksdb_transaction_delete_cf(
                 self.inner,
                 cf.inner(),
-                key.as_ref().as_ptr() as *const c_char,
-                key.as_ref().len() as size_t
+                key.as_ptr() as *const c_char,
+                key.len() as size_t
             ));
         }
         Ok(())
