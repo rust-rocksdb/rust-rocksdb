@@ -97,6 +97,7 @@ mod sst_file_writer;
 pub mod statistics;
 mod transactions;
 mod write_batch;
+mod write_batch_with_index;
 
 pub use crate::{
     column_family::{
@@ -134,6 +135,7 @@ pub use crate::{
         TransactionDBOptions, TransactionOptions,
     },
     write_batch::{WriteBatch, WriteBatchIterator, WriteBatchWithTransaction},
+    write_batch_with_index::WriteBatchWithIndex,
 };
 
 use librocksdb_sys as ffi;
