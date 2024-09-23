@@ -1,7 +1,3 @@
-**Revised README for `rust-rocksdb` Repository**
-
----
-
 # rust-rocksdb
 
 [![RocksDB build](https://github.com/rust-rocksdb/rust-rocksdb/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/rust-rocksdb/rust-rocksdb/actions/workflows/rust.yml)
