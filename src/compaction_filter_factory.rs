@@ -122,7 +122,11 @@ mod tests {
 
     #[test]
     fn compaction_filter_factory_test() {
-        let path = "_rust_rocksdb_filter_factory_test";
+        let tempdir = tempfile::Builder::new()
+            .prefix("_rust_rocksdb_filter_factory_test")
+            .tempdir()
+            .expect("Failed to create temporary path for the _rust_rocksdb_filter_factory_test.");
+        let path = tempdir.path();
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.set_compaction_filter_factory(TestFactory(CString::new("TestFactory").unwrap()));
