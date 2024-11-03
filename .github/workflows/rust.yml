@@ -51,13 +51,13 @@ jobs:
       - name: Run clippy
         run: |
           cargo clippy --all-targets --features \
-            jemalloc \
+            "jemalloc \
             io-uring \
             valgrind \
             mt_static \
             rtti \
             multi-threaded-cf \
-            serde1 \
+            serde1" \
             -- -D warnings
 
   audit:
