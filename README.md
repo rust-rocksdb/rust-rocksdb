@@ -70,3 +70,5 @@ The feature `bindgen-static` will enable the `static` feature of bindgen, which 
 links to libclang. This is suitable for musllinux platforms, such as Alpine linux.
 To build on Alpine linux for example, build with
 `--no-default-features --features bindgen-static,other-features-1,other-features-2`.
+
+Notice that `runtime` and `static` features are mutually exclusive, and won't compile if both enabled.
