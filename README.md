@@ -68,7 +68,12 @@ links to libclang. This is suitable for most platforms, and is enabled by defaul
 
 The feature `bindgen-static` will enable the `static` feature of bindgen, which statically
 links to libclang. This is suitable for musllinux platforms, such as Alpine linux.
-To build on Alpine linux for example, build with
-`--no-default-features --features bindgen-static,other-features-1,other-features-2`.
+To build on Alpine linux for example, make these changes to your Cargo.toml:
+
+```toml
+[dependencies.rocksdb]
+default-features = false
+features = ["bindgen-static", "snappy", "lz4", "zstd", "zlib", "bzip2"]
+```
 
 Notice that `runtime` and `static` features are mutually exclusive, and won't compile if both enabled.
