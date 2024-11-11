@@ -2478,8 +2478,11 @@ impl<I: DBInner> DBCommon<SingleThreaded, I> {
 impl<I: DBInner> DBCommon<MultiThreaded, I> {
     /// Creates column family with given name and options
     pub fn create_cf<N: AsRef<str>>(&self, name: N, opts: &Options) -> Result<(), Error> {
+        // Note that we acquire the cfs lock before inserting: otherwise we might race
+        // another caller who observed the handle as missing.
+        let mut cfs = self.cfs.cfs.write().unwrap();
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
-        self.cfs.cfs.write().unwrap().insert(
+        cfs.insert(
             name.as_ref().to_string(),
             Arc::new(UnboundColumnFamily { inner }),
         );
