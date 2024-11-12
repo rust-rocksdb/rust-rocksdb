@@ -43,7 +43,7 @@ librocksdb-sys = { path = "librocksdb-sys", version = "0.17.0", default-features
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
-trybuild = "<=1.0.89"                            # trybuild 1.0.90 needs MSRV 1.70
+trybuild = "1"
 tempfile = "3.1"
 pretty_assertions = "1.0"
 bincode = "1.3"
