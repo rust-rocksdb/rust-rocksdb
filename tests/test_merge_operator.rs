@@ -296,7 +296,11 @@ fn make_merge_max_with_limit(limit: u64) -> impl MergeFn + Clone {
 #[test]
 fn test_merge_state() {
     use {Options, DB};
-    let path = "_rust_rocksdb_merge_test_state";
+    let tempdir = tempfile::Builder::new()
+        .prefix("_rust_rocksdb_merge_test_state")
+        .tempdir()
+        .expect("Failed to create temporary path for the _rust_rocksdb_merge_test_state.");
+    let path = tempdir.path();
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_merge_operator_associative("max-limit-12", make_merge_max_with_limit(12));
