@@ -162,8 +162,20 @@ fn build_rocksdb() {
         config.define("OS_LINUX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
+    } else if target.contains("dragonfly") {
+        config.define("OS_DRAGONFLYBSD", None);
+        config.define("ROCKSDB_PLATFORM_POSIX", None);
+        config.define("ROCKSDB_LIB_IO_POSIX", None);
     } else if target.contains("freebsd") {
         config.define("OS_FREEBSD", None);
+        config.define("ROCKSDB_PLATFORM_POSIX", None);
+        config.define("ROCKSDB_LIB_IO_POSIX", None);
+    } else if target.contains("netbsd") {
+        config.define("OS_NETBSD", None);
+        config.define("ROCKSDB_PLATFORM_POSIX", None);
+        config.define("ROCKSDB_LIB_IO_POSIX", None);
+    } else if target.contains("openbsd") {
+        config.define("OS_OPENBSD", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
     } else if target.contains("windows") {

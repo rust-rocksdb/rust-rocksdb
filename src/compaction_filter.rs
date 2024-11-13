@@ -158,7 +158,11 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
 fn compaction_filter_test() {
     use crate::{Options, DB};
 
-    let path = "_rust_rocksdb_filter_test";
+    let tempdir = tempfile::Builder::new()
+        .prefix("_rust_rocksdb_filter_test")
+        .tempdir()
+        .expect("Failed to create temporary path for the _rust_rocksdb_filter_test");
+    let path = tempdir.path();
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_compaction_filter("test", test_filter);
