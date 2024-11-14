@@ -56,7 +56,11 @@ type DefaultThreadMode = crate::MultiThreaded;
 ///
 /// ```
 /// use rocksdb::{DB, Options, TransactionDB, SingleThreaded};
-/// let path = "_path_for_transaction_db";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_transaction_db")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_transaction_db");
+/// let path = tempdir.path();
 /// {
 ///     let db: TransactionDB = TransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();

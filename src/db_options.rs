@@ -298,7 +298,11 @@ pub struct Options {
 /// ```
 /// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY1";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storageY1")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storageY1");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatch::default();
@@ -331,7 +335,11 @@ pub struct LruCacheOptions {
 /// ```
 /// use rocksdb::{DB, Options, FlushOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY2";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storageY2")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storageY2");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///
@@ -380,18 +388,26 @@ pub struct CuckooTableOptions {
 ///
 /// let writer_opts = Options::default();
 /// let mut writer = SstFileWriter::create(&writer_opts);
-/// writer.open("_path_for_sst_file").unwrap();
+/// let tempdir = tempfile::Builder::new()
+///     .tempdir()
+///     .expect("Failed to create temporary folder for the _path_for_sst_file");
+/// let path1 = tempdir.path().join("_path_for_sst_file");
+/// writer.open(path1.clone()).unwrap();
 /// writer.put(b"k1", b"v1").unwrap();
 /// writer.finish().unwrap();
 ///
-/// let path = "_path_for_rocksdb_storageY3";
+/// let tempdir2 = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storageY3")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storageY3");
+/// let path2 = tempdir2.path();
 /// {
-///   let db = DB::open_default(&path).unwrap();
+///   let db = DB::open_default(&path2).unwrap();
 ///   let mut ingest_opts = IngestExternalFileOptions::default();
 ///   ingest_opts.set_move_files(true);
-///   db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
+///   db.ingest_external_file_opts(&ingest_opts, vec![path1]).unwrap();
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DB::destroy(&Options::default(), path2);
 /// ```
 pub struct IngestExternalFileOptions {
     pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,

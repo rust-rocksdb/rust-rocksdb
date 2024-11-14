@@ -27,7 +27,11 @@ pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
 /// ```
 /// use rocksdb::{DB, IteratorMode, Options};
 ///
-/// let path = "_path_for_rocksdb_storage3";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storage3")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage3");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope

@@ -28,7 +28,11 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 /// ```
 /// use rocksdb::{DB, Options, WriteBatchWithTransaction};
 ///
-/// let path = "_path_for_rocksdb_storage1";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storage1")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage1");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatchWithTransaction::<false>::default();

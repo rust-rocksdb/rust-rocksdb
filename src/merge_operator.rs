@@ -37,7 +37,11 @@
 //!    Some(result)
 //! }
 //!
-//!let path = "_rust_path_to_rocksdb";
+//!let tempdir = tempfile::Builder::new()
+//!    .prefix("_rust_path_to_rocksdb")
+//!    .tempdir()
+//!    .expect("Failed to create temporary path for the _rust_path_to_rocksdb");
+//!let path = tempdir.path();
 //!let mut opts = Options::default();
 //!
 //!opts.create_if_missing(true);
