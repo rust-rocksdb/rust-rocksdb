@@ -99,12 +99,35 @@ jobs:
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
+      - name: Mark working directory as read-only
+        # to ensure that the tests always use a temporary directory
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p target
+          touch Cargo.lock
+          git submodule update --init --recursive
+          chmod -R a-w .
+          chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests
         run: |
           cargo test --all
           cargo test --all --features multi-threaded-cf
+      - name: Mark working directory as writable
+        if: runner.os == 'Linux'
+        run: chmod -R a+w .
       - name: Free disk space
         run: cargo clean
+      - name: Mark working directory as read-only
+        # to ensure that the tests always use a temporary directory
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p target
+          touch Cargo.lock
+          chmod -R a-w .
+          chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests (jemalloc)
         if: runner.os != 'Windows'
         run: cargo test --all --features jemalloc
+      - name: Mark working directory as writable
+        if: runner.os == 'Linux'
+        run: chmod -R a+w .
