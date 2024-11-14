@@ -33,7 +33,11 @@ pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 /// ```
 /// use rocksdb::{DB, Options};
 ///
-/// let path = "_path_for_rocksdb_storage4";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storage4")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage4.");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut iter = db.raw_iterator();
@@ -143,7 +147,11 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// ```rust
     /// use rocksdb::{DB, Options};
     ///
-    /// let path = "_path_for_rocksdb_storage5";
+    /// let tempdir = tempfile::Builder::new()
+    ///     .prefix("_path_for_rocksdb_storage5")
+    ///     .tempdir()
+    ///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage5.");
+    /// let path = tempdir.path();
     /// {
     ///     let db = DB::open_default(path).unwrap();
     ///     let mut iter = db.raw_iterator();
@@ -180,7 +188,11 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// ```rust
     /// use rocksdb::{DB, Options};
     ///
-    /// let path = "_path_for_rocksdb_storage6";
+    /// let tempdir = tempfile::Builder::new()
+    ///     .prefix("_path_for_rocksdb_storage6")
+    ///     .tempdir()
+    ///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage6.");
+    /// let path = tempdir.path();
     /// {
     ///     let db = DB::open_default(path).unwrap();
     ///     let mut iter = db.raw_iterator();
@@ -220,7 +232,11 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// ```rust
     /// use rocksdb::{DB, Options};
     ///
-    /// let path = "_path_for_rocksdb_storage7";
+    /// let tempdir = tempfile::Builder::new()
+    ///     .prefix("_path_for_rocksdb_storage7")
+    ///     .tempdir()
+    ///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage7.");
+    /// let path = tempdir.path();
     /// {
     ///     let db = DB::open_default(path).unwrap();
     ///     let mut iter = db.raw_iterator();
@@ -259,7 +275,11 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// ```rust
     /// use rocksdb::{DB, Options};
     ///
-    /// let path = "_path_for_rocksdb_storage8";
+    /// let tempdir = tempfile::Builder::new()
+    ///     .prefix("_path_for_rocksdb_storage8")
+    ///     .tempdir()
+    ///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage8.");
+    /// let path = tempdir.path();
     /// {
     ///     let db = DB::open_default(path).unwrap();
     ///     let mut iter = db.raw_iterator();
@@ -377,7 +397,11 @@ pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 /// ```
 /// use rocksdb::{DB, Direction, IteratorMode, Options};
 ///
-/// let path = "_path_for_rocksdb_storage2";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storage2")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage2.");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut iter = db.iterator(IteratorMode::Start); // Always iterates forward

@@ -20,7 +20,11 @@
 //! ```
 //! use rocksdb::{DB, Options};
 //! // NB: db is automatically closed at end of lifetime
-//! let path = "_path_for_rocksdb_storage";
+//! let tempdir = tempfile::Builder::new()
+//!     .prefix("_path_for_rocksdb_storage")
+//!     .tempdir()
+//!     .expect("Failed to create temporary path for the _path_for_rocksdb_storage");
+//! let path = tempdir.path();
 //! {
 //!    let db = DB::open_default(path).unwrap();
 //!    db.put(b"my key", b"my value").unwrap();
@@ -39,7 +43,11 @@
 //! ```
 //! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
 //!
-//! let path = "_path_for_rocksdb_storage_with_cfs";
+//! let tempdir = tempfile::Builder::new()
+//!     .prefix("_path_for_rocksdb_storage_with_cfs")
+//!     .tempdir()
+//!     .expect("Failed to create temporary path for the _path_for_rocksdb_storage_with_cfs.");
+//! let path = tempdir.path();
 //! let mut cf_opts = Options::default();
 //! cf_opts.set_max_write_buffer_number(16);
 //! let cf = ColumnFamilyDescriptor::new("cf1", cf_opts);

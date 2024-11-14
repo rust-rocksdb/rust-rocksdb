@@ -41,7 +41,11 @@ use crate::{
 ///
 /// ```
 /// use rocksdb::{DB, Options, OptimisticTransactionDB, SingleThreaded};
-/// let path = "_path_for_optimistic_transaction_db";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_optimistic_transaction_db")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_optimistic_transaction_db");
+/// let path = tempdir.path();
 /// {
 ///     let db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();

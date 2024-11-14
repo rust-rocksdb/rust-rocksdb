@@ -81,7 +81,11 @@ fn test_comparator() {
 
 #[test]
 fn test_comparator_with_ts() {
-    let path = "_path_for_rocksdb_storage_with_ts";
+    let tempdir = tempfile::Builder::new()
+        .prefix("_path_for_rocksdb_storage_with_ts")
+        .tempdir()
+        .expect("Failed to create temporary path for the _path_for_rocksdb_storage_with_ts.");
+    let path = tempdir.path();
     let _ = DB::destroy(&Options::default(), path);
 
     {
@@ -169,7 +173,11 @@ fn test_comparator_with_ts() {
 
 #[test]
 fn test_comparator_with_column_family_with_ts() {
-    let path = "_path_for_rocksdb_storage_with_column_family_with_ts";
+    let tempdir = tempfile::Builder::new()
+        .prefix("_path_for_rocksdb_storage_with_column_family_with_ts")
+        .tempdir()
+        .expect("Failed to create temporary path for the _path_for_rocksdb_storage_with_column_family_with_ts.");
+    let path = tempdir.path();
     let _ = DB::destroy(&Options::default(), path);
 
     {
