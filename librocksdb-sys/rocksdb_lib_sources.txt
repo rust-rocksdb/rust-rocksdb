@@ -12,6 +12,7 @@ cache/secondary_cache_adapter.cc
 cache/sharded_cache.cc
 cache/tiered_secondary_cache.cc
 db/arena_wrapped_db_iter.cc
+db/attribute_group_iterator_impl.cc
 db/blob/blob_contents.cc
 db/blob/blob_fetcher.cc
 db/blob/blob_file_addition.cc
@@ -28,6 +29,7 @@ db/blob/blob_source.cc
 db/blob/prefetch_buffer_collection.cc
 db/builder.cc
 db/c.cc
+db/coalescing_iterator.cc
 db/column_family.cc
 db/compaction/compaction.cc
 db/compaction/compaction_iterator.cc
@@ -49,6 +51,7 @@ db/db_impl/db_impl_compaction_flush.cc
 db/db_impl/db_impl_debug.cc
 db/db_impl/db_impl_experimental.cc
 db/db_impl/db_impl_files.cc
+db/db_impl/db_impl_follower.cc
 db/db_impl/db_impl_open.cc
 db/db_impl/db_impl_readonly.cc
 db/db_impl/db_impl_secondary.cc
@@ -105,6 +108,7 @@ env/env_chroot.cc
 env/env_encryption.cc
 env/env_posix.cc
 env/file_system.cc
+env/fs_on_demand.cc
 env/fs_posix.cc
 env/fs_remap.cc
 env/file_system_tracer.cc
@@ -292,6 +296,7 @@ utilities/persistent_cache/persistent_cache_tier.cc
 utilities/persistent_cache/volatile_tier_impl.cc
 utilities/simulator_cache/cache_simulator.cc
 utilities/simulator_cache/sim_cache.cc
+utilities/table_properties_collectors/compact_for_tiering_collector.cc
 utilities/table_properties_collectors/compact_on_deletion_collector.cc
 utilities/trace/file_trace_reader_writer.cc
 utilities/trace/replayer_impl.cc
@@ -311,6 +316,7 @@ utilities/transactions/write_prepared_txn_db.cc
 utilities/transactions/write_unprepared_txn.cc
 utilities/transactions/write_unprepared_txn_db.cc
 utilities/ttl/db_ttl_impl.cc
+utilities/types_util.cc
 utilities/wal_filter.cc
 utilities/write_batch_with_index/write_batch_with_index.cc
 utilities/write_batch_with_index/write_batch_with_index_internal.cc
