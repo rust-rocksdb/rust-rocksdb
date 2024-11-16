@@ -37,7 +37,7 @@ bindgen-static = ["librocksdb-sys/bindgen-static"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.17.0", default-features = false, features = [
+librocksdb-sys = { path = "librocksdb-sys", version = "0.17.1", default-features = false, features = [
     "static",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
