@@ -89,6 +89,22 @@ unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
+    /// Create a new `WriteBatch` without allocating memory.
+    pub fn new() -> Self {
+        Self {
+            inner: unsafe { ffi::rocksdb_writebatch_create() },
+        }
+    }
+
+    /// Creates `WriteBatch` with the specified `capacity` in bytes. Allocates immediately.
+    pub fn with_capacity_bytes(capacity_bytes: usize) -> Self {
+        Self {
+            // zeroes from default constructor
+            // https://github.com/facebook/rocksdb/blob/0f35db55d86ea8699ea936c9e2a4e34c82458d6b/include/rocksdb/write_batch.h#L66
+            inner: unsafe { ffi::rocksdb_writebatch_create_with_params(capacity_bytes, 0, 0, 0) },
+        }
+    }
+
     /// Construct with a reference to a byte array serialized by [`WriteBatch`].
     pub fn from_data(data: &[u8]) -> Self {
         unsafe {
@@ -354,9 +370,7 @@ impl WriteBatchWithTransaction<false> {
 
 impl<const TRANSACTION: bool> Default for WriteBatchWithTransaction<TRANSACTION> {
     fn default() -> Self {
-        Self {
-            inner: unsafe { ffi::rocksdb_writebatch_create() },
-        }
+        Self::new()
     }
 }
 
