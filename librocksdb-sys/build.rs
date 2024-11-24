@@ -162,7 +162,7 @@ fn build_rocksdb() {
         config.define("OS_LINUX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
-	    config.define("ROCKSDB_SCHED_GETCPU_PRESENT", None);
+        config.define("ROCKSDB_SCHED_GETCPU_PRESENT", None);
     } else if target.contains("dragonfly") {
         config.define("OS_DRAGONFLYBSD", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
