@@ -5,6 +5,7 @@
   0xdeafbeef)
 * Expose LRU cache options (athre0z)
 * Add `with_capacity_bytes` to `WriteBatch` (0xdeafbeef)
+* Add `set_compaction_pri` to `Options` (0xdeafbeef)
 
 ## [Breaking Changes]
 * Update jemalloc-sys to 0.6.0 (0xdeafbeef)
