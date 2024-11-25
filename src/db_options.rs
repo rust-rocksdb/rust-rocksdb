@@ -2276,6 +2276,29 @@ impl Options {
         }
     }
 
+    /// Sets the compaction priority. When multiple files are picked for compaction from a level,
+    /// this option determines which files to pick first.
+    ///
+    /// Default: `CompactionPri::ByCompensatedSize`
+    ///
+    /// Dynamically changeable through SetOptions() API
+    ///
+    /// See [rocksdb post](https://github.com/facebook/rocksdb/blob/f20d12adc85ece3e75fb238872959c702c0e5535/docs/_posts/2016-01-29-compaction_pri.markdown) for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, CompactionPri};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compaction_pri(CompactionPri::MinOverlappingRatio);
+    /// ```
+    pub fn set_compaction_pri(&mut self, pri: CompactionPri) {
+        unsafe {
+            ffi::rocksdb_options_set_compaction_pri(self.inner, pri as i32);
+        }
+    }
+
     /// Sets the soft limit on number of level-0 files. We start slowing down writes at this
     /// point. A value < `0` means that no writing slow down will be triggered by
     /// number of files in level-0.
@@ -3691,6 +3714,27 @@ pub enum ReadTier {
     Persisted,
     /// Reads data in memtable. Used for memtable only iterators.
     Memtable,
+}
+
+#[repr(i32)]
+pub enum CompactionPri {
+    /// Slightly prioritize larger files by size compensated by #deletes
+    ByCompensatedSize = 0,
+    /// First compact files whose data's latest update time is oldest.
+    /// Try this if you only update some hot keys in small ranges.
+    OldestLargestSeqFirst = 1,
+    /// First compact files whose range hasn't been compacted to the next level
+    /// for the longest. If your updates are random across the key space,
+    /// write amplification is slightly better with this option.
+    OldestSmallestSeqFirst = 2,
+    /// First compact files whose ratio between overlapping size in next level
+    /// and its size is the smallest. It in many cases can optimize write amplification.
+    MinOverlappingRatio = 3,
+    /// Keeps a cursor(s) of the successor of the file (key range) was/were
+    /// compacted before, and always picks the next files (key range) in that
+    /// level. The file picking process will cycle through all the files in a
+    /// round-robin manner.
+    RoundRobin = 4,
 }
 
 impl ReadOptions {
