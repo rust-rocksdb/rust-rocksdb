@@ -4580,7 +4580,7 @@ impl Drop for DBPath {
 #[cfg(test)]
 mod tests {
     use crate::db_options::WriteBufferManager;
-    use crate::{Cache, MemtableFactory, Options};
+    use crate::{Cache, CompactionPri, MemtableFactory, Options};
 
     #[test]
     fn test_enable_statistics() {
@@ -4631,5 +4631,30 @@ mod tests {
 
         // WriteBufferManager outlives options
         assert!(write_buffer_manager.enabled());
+    }
+
+    #[test]
+    fn compaction_pri() {
+        let mut opts = Options::default();
+        opts.set_compaction_pri(CompactionPri::RoundRobin);
+        opts.create_if_missing(true);
+        let tmp = tempfile::tempdir().unwrap();
+        let _db = crate::DB::open(&opts, tmp.path()).unwrap();
+
+        let options = std::fs::read_dir(tmp.path())
+            .unwrap()
+            .find_map(|x| {
+                let x = x.ok()?;
+                x.file_name()
+                    .into_string()
+                    .unwrap()
+                    .contains("OPTIONS")
+                    .then_some(x.path())
+            })
+            .map(std::fs::read_to_string)
+            .unwrap()
+            .unwrap();
+
+        assert!(options.contains("compaction_pri=kRoundRobin"));
     }
 }
