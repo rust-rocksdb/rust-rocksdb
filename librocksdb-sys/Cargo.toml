@@ -29,6 +29,7 @@ zstd = ["zstd-sys"]
 zlib = ["libz-sys"]
 bzip2 = ["bzip2-sys"]
 rtti = []
+lto = []
 
 [dependencies]
 libc = "0.2"
