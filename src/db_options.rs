@@ -3524,6 +3524,30 @@ impl Options {
             ffi::rocksdb_options_set_avoid_unnecessary_blocking_io(self.inner, u8::from(val));
         }
     }
+
+    /// The DB unique ID can be saved in the DB manifest (preferred, this option)
+    /// or an IDENTITY file (historical, deprecated), or both. If this option is
+    /// set to false (old behavior), then `write_identity_file` must be set to true.
+    /// The manifest is preferred because
+    /// 1. The IDENTITY file is not checksummed, so it is not as safe against
+    ///    corruption.
+    /// 2. The IDENTITY file may or may not be copied with the DB (e.g. not
+    ///    copied by BackupEngine), so is not reliable for the provenance of a DB.
+    /// This option might eventually be obsolete and removed as Identity files
+    /// are phased out.
+    ///
+    /// Default: true (enabled)
+    pub fn set_write_dbid_to_manifest(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_write_dbid_to_manifest(self.inner, u8::from(val));
+        }
+    }
+
+    /// Returns the value of the `write_dbid_to_manifest` option.
+    pub fn get_write_dbid_to_manifest(&self) -> bool {
+        let val_u8 = unsafe { ffi::rocksdb_options_get_write_dbid_to_manifest(self.inner) };
+        val_u8 != 0
+    }
 }
 
 impl Default for Options {
