@@ -3538,7 +3538,7 @@ impl Options {
     /// etc. or writing with `WriteOptions::sync=true` to sync the live WAL is not
     /// tracked for performance/efficiency reasons.
     ///
-    /// See: https://github.com/facebook/rocksdb/wiki/Track-WAL-in-MANIFEST
+    /// See: <https://github.com/facebook/rocksdb/wiki/Track-WAL-in-MANIFEST>
     ///
     /// Default: false (disabled)
     pub fn set_track_and_verify_wals_in_manifest(&mut self, val: bool) {
