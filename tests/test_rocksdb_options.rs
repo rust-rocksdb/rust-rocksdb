@@ -282,6 +282,27 @@ fn test_set_avoid_unnecessary_blocking_io() {
 }
 
 #[test]
+fn test_set_track_and_verify_wals_in_manifest() {
+    let path = DBPath::new("_set_track_and_verify_wals_in_manifest");
+
+    // test the defaults and the setter/accessor
+    let mut opts = Options::default();
+    assert!(!opts.get_track_and_verify_wals_in_manifest());
+    opts.set_track_and_verify_wals_in_manifest(true);
+    assert!(opts.get_track_and_verify_wals_in_manifest());
+    opts.set_track_and_verify_wals_in_manifest(false);
+    assert!(!opts.get_track_and_verify_wals_in_manifest());
+
+    // verify that a database created with this option works
+    // TODO: Check that the MANIFEST actually contains WalAddition/WalDeletion records
+    opts.create_if_missing(true);
+    opts.set_track_and_verify_wals_in_manifest(true);
+    let db = DB::open(&opts, &path).unwrap();
+    db.put(b"k1", b"a").expect("put must work");
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"a");
+}
+
+#[test]
 fn test_set_periodic_compaction_seconds() {
     let path = DBPath::new("_set_periodic_compaction_seconds");
     {
