@@ -180,7 +180,7 @@ impl<'db, DB> Transaction<'db, DB> {
     }
 
     /// Returns snapshot associated with transaction if snapshot was enabled in [`TransactionOptions`].
-    /// Otherwise, returns a snapshot with `nullptr` inside which doesn't effect read operations.
+    /// Otherwise, returns a snapshot with `nullptr` inside which doesn't affect read operations.
     ///
     /// [`TransactionOptions`]: crate::TransactionOptions
     pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
@@ -609,7 +609,7 @@ impl<'db, DB> Transaction<'db, DB> {
         }
     }
 
-    /// Put the key value in the given column famuly and do conflict checking on the key.
+    /// Put the key value in the given column family and do conflict checking on the key.
     ///
     /// If this transaction was created by a [`TransactionDB`], it can return error of kind:
     /// * [`Busy`] if there is a write conflict.
