@@ -46,7 +46,7 @@ pub const CFSTATS: &PropName = property!("CFSTATS");
 /// aggregated over db's lifetime ("Sum"), and aggregated over the
 /// interval since the last retrieval ("Int").
 /// It could also be used to return the stats in the format of the map.
-/// In this case there will a pair of string to array of double for
+/// In this case there will be a pair of string to array of double for
 /// each level as well as for "Sum". "Int" stats will not be affected
 /// when this form of stats are retrieved.
 pub const CFSTATS_NO_FILE_HISTOGRAM: &PropName = property!("cfstats-no-file-histogram");

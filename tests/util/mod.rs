@@ -36,7 +36,7 @@ impl Drop for DBPath {
 
 /// Convert a DBPath ref to a Path ref.
 /// We don't implement this for DBPath values because we want them to
-/// exist until the end of their scope, not get passed in to functions and
+/// exist until the end of their scope, not get passed into functions and
 /// dropped early.
 impl AsRef<Path> for &DBPath {
     fn as_ref(&self) -> &Path {
