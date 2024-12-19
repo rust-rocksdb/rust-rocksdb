@@ -2039,7 +2039,7 @@ impl Options {
         }
     }
 
-    /// Sets the minimum number of write buffers that will be merged together
+    /// Sets the minimum number of write buffers that will be merged
     /// before writing to storage.  If set to `1`, then
     /// all write buffers are flushed to L0 as individual files and this increases
     /// read amplification because a get request has to check in all of these
@@ -2300,7 +2300,7 @@ impl Options {
     }
 
     /// Sets the soft limit on number of level-0 files. We start slowing down writes at this
-    /// point. A value < `0` means that no writing slow down will be triggered by
+    /// point. A value < `0` means that no writing slowdown will be triggered by
     /// number of files in level-0.
     ///
     /// Default: `20`
@@ -2385,7 +2385,7 @@ impl Options {
     ///
     /// By default, i.e., when it is false, rocksdb does not advance the sequence
     /// number for new snapshots unless all the writes with lower sequence numbers
-    /// are already finished. This provides the immutability that we except from
+    /// are already finished. This provides the immutability that we expect from
     /// snapshots. Moreover, since Iterator and MultiGet internally depend on
     /// snapshots, the snapshot immutability results into Iterator and MultiGet
     /// offering consistent-point-in-time view. If set to true, although
