@@ -1,6 +1,6 @@
 name: RocksDB CI
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 env:
   RUST_VERSION: 1.71.1
 
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.76.0
+          toolchain: stable
       - uses: actions-rust-lang/audit@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -77,7 +77,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [Linux, macOS, Windows]
+        build: [ Linux, macOS, Windows ]
         include:
           - build: Linux
             os: ubuntu-latest
