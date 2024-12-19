@@ -1965,7 +1965,7 @@ impl Options {
         }
     }
 
-    /// Enable/dsiable child process inherit open files.
+    /// Enable/disable child process inherit open files.
     ///
     /// Default: true
     pub fn set_is_fd_close_on_exec(&mut self, enabled: bool) {

@@ -80,7 +80,7 @@ fn test_column_family() {
         }
     }
 
-    // should properly open db when specyfing all column families
+    // should properly open db when specifying all column families
     {
         let mut opts = Options::default();
         opts.set_merge_operator_associative("test operator", test_provided_merge);
@@ -104,7 +104,7 @@ fn test_column_family() {
     {}
     // TODO should be able to iterate over a cf
     {}
-    // should b able to drop a cf
+    // should be able to drop a cf
     {
         #[cfg(feature = "multi-threaded-cf")]
         let db = DB::open_cf(&Options::default(), &n, ["cf1"]).unwrap();
@@ -193,7 +193,7 @@ fn test_column_family_with_transactiondb() {
         }
     }
 
-    // should b able to drop a cf
+    // should be able to drop a cf
     {
         let opts = Options::default();
         let cfs = &["cf1"];
@@ -455,7 +455,7 @@ fn test_no_leaked_column_family() {
 
         let large_blob = vec![0x20; 1024 * 1024];
 
-        // repeat creating and dropping cfs many time to indirectly detect
+        // repeat creating and dropping cfs many times to indirectly detect
         // possible leak via large dir.
         for cf_index in 0..20 {
             let cf_name = format!("cf{cf_index}");
