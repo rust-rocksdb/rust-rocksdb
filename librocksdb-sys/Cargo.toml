@@ -1,6 +1,6 @@
 [package]
 name = "librocksdb-sys"
-version = "0.17.1+9.7.4"
+version = "0.17.1+9.9.3"
 edition = "2018"
 rust-version = "1.71.1"
 authors = [
