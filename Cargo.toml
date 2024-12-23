@@ -1,8 +1,8 @@
 [package]
 name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
-version = "0.22.0"
-edition = "2018"
+version = "0.23.0"
+edition = "2021"
 rust-version = "1.71.1"
 authors = [
     "Tyler Neely <t@jujit.su>",

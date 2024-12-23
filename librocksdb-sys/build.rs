@@ -23,10 +23,7 @@ fn fail_on_empty_directory(name: &str) {
 }
 
 fn rocksdb_include_dir() -> String {
-    match env::var("ROCKSDB_INCLUDE_DIR") {
-        Ok(val) => val,
-        Err(_) => "rocksdb/include".to_string(),
-    }
+    env::var("ROCKSDB_INCLUDE_DIR").unwrap_or_else(|_| "rocksdb/include".to_string())
 }
 
 fn bindgen_rocksdb() {
@@ -387,7 +384,7 @@ fn main() {
 
     if !try_to_find_and_link_lib("ROCKSDB") {
         // rocksdb only works with the prebuilt rocksdb system lib on freebsd.
-        // we dont need to rebuild rocksdb
+        // we don't need to rebuild rocksdb
         if target.contains("freebsd") {
             println!("cargo:rustc-link-search=native=/usr/local/lib");
             let mode = match env::var_os("ROCKSDB_STATIC") {

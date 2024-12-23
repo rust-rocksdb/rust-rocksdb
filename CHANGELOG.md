@@ -1,16 +1,61 @@
 # Changelog
 
-## [Unreleased]
-* Document that `default` column family doesn't inherit open options of db (
-  0xdeafbeef)
-* Expose LRU cache options (athre0z)
-* Add `with_capacity_bytes` to `WriteBatch` (0xdeafbeef)
-* Add `set_compaction_pri` to `Options` (0xdeafbeef)
-* Add `lto` feature to enable link-time optimization using `linker-plugin-lto` (0xdeafbeef)
+## 0.23.0 (2024-12-23)
 
-## [Breaking Changes]
-* Update jemalloc-sys to 0.6.0 (0xdeafbeef)
-* Bump MSRV to 1.71.1 (0xdeafbeef)
+* Build status badge and other bits in README.md (jdanford)
+* Adds `crt_static` method (spector-9)
+* Fix `ptr::copy` requires both ptrs to be non-null (ruanpetterson)
+* Add portable feature for RocksDB build (sujayakar)
+* Update README.md with a new section for the portable feature (sujayakar)
+* Update to RocksDB 9.0.0 (Dirreke)
+* Add readme for mt_static feature (spector-9)
+* Make `BackupEngine` Send (widagdos)
+* Add linking `libatomic` command to `build.rs` to allow building (willemolding)
+* Revert portable feature as it doesn't do anything (zaidoon1)
+* Add delete_range to `OptimisticTransactionDB` (vadim-su)
+* Update rust toolchain to 1.70.0 (widagdos)
+* Bump snappy to 1.2.0 (aleksuss)
+* Document that `default` column family doesn't inherit open options of db (0xdeafbeef)
+* Toolchain: pin toolchain to rust 1.70.0 (cratelyn)
+* Add clippy MSRV and some clippy fixes (Congyuwang)
+* Port all value of `ReadTier` (w41ter)
+* Update src/db_options.rs (w41ter)
+* Add option `set_avoid_unnecessary_blocking_io` (w41ter)
+* Add option to enable autotuned ratelimiter (w41ter)
+* Add support for enabling blob cache (exabytes18)
+* Fix: android build in 32-bit devices (LucasXu0)
+* Support user defined timestamp in rust bindings (siyuan0322)
+* Bump lz4 1.10 (agourlay)
+* Properties for the `TransactionDB` (4TT1L4)
+* Improvements to user defined timestamp (larry0x)
+* Implement Sync for `{Bound}ColumnFamily` (jhpratt)
+* Use the provided system rocksdb prebuilt on FreeBSD (girlbossceo)
+* Deprecated Node version and outdated GitHub Actions (4TT1L4)
+* Fix cargo audit check in GitHub Actions CI (aleksuss)
+* RUSTSEC-2023-0020: `const-cstr` is Unmaintained (4TT1L4)
+* TransactionDB support in MemoryUsageBuilder (4TT1L4)
+* Bump `tikv-jemalloc-sys` to 0.6 (0xdeafbeef)
+* Improve statistics by auto gen enum Ticker & enum Histogram (rockeet)
+* Expose LRU cache options (athre0z)
+* Add `Env::from_raw` constructor (jgraettinger)
+* Fix unsoundness via impure `AsRef` (niklasf)
+* Fix two tests that want to write to the current working directory (mr-c)
+* Add missing supported BSD OSes (drizzt)
+* Fix column family creation race (stuhood)
+* Allow using static feature for the `bindgen` (Congyuwang)
+* Use `tempfile` instead of the current working directory (mr-c)
+* Update to RocksDB 9.7.4 (niklasf)
+* Add `with_capacity_bytes` to `WriteBatch` (0xdeafbeef)
+* ci: make most directories read-only before running the tests (mr-c)
+* Add `ROCKSDB_SCHED_GETCPU_PRESENT` for Linux build config (popcnt1)
+* Add `set_compaction_pri` to `Options` (0xdeafbeef)
+* Implement get_db_identity using rocksdb_get_db_identity (evanj)
+* Add `lto` feature to enable link-time optimization using `linker-plugin-lto` (0xdeafbeef)
+* Add `set_track_and_verify_wals_in_manifest` (evanj)
+* Fix some typos (DeVikingMark)
+* Fix multiple typos of different importance (crStiv)
+* Bump rust version for cargo audit job (aleksuss)
+* Update to RocksDB 9.9.3 (niklasf)
 
 ## 0.22.0 (2024-02-13)
 
@@ -152,7 +197,8 @@
 * Fix `multi_get` method (mikhailOK)
 * Bump `librocksdb-sys` up to 6.19.3 (olegnn)
 * Add support for the cuckoo table format (rbost)
-* RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (mbargull)
+* RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (
+  mbargull)
 * Bump `librocksdb-sys` up to 6.20.3 (olegnn, akrylysov)
 * Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
 * Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
@@ -288,7 +334,6 @@
 * Added `iterator_cf_opt` function to `DB` (elichai)
 * Added `set_allow_mmap_writes` and `set_allow_mmap_reads` functions to `Options` (aleksuss)
 
-
 ## 0.12.0 (2019-03-10)
 
 ### Changes
@@ -298,24 +343,29 @@
 * Added support for pinnable slices (xxuejie)
 * Added ability to get property values (ekmartin)
 * Simplified opening database when using non-default column families (iSynaptic)
-* `ColumnFamily`, `DBIterator` and `DBRawIterator` now have lifetime parameters to prevent using them after the `DB` has been dropped (iSynaptic)
+* `ColumnFamily`, `DBIterator` and `DBRawIterator` now have lifetime parameters to prevent using them after the `DB` has
+  been dropped (iSynaptic)
 * Creating `DBIterator` and `DBRawIterator` now accept `ReadOptions` (iSynaptic)
-* All database operations that accepted byte slices, `&[u8]`, are now generic and accept anything that implements `AsRef<[u8]>` (iSynaptic)
+* All database operations that accepted byte slices, `&[u8]`, are now generic and accept anything that implements
+  `AsRef<[u8]>` (iSynaptic)
 * Bumped RocksDB to version 5.17.2 (aleksuss)
 * Added `set_readahead_size` to `ReadOptions` (iSynaptic)
 * Updated main example in doc tests (mohanson)
 * Updated requirements documentation (jamesray1)
 * Implemented `AsRef<[u8]>` for `DBVector` (iSynaptic)
 
-
 ## 0.11.0 (2019-01-10)
 
 ### Announcements
 
 * This is the first release under the new [Maintainership](MAINTAINERSHIP.md) model.
-  Three contributors have been selected to help maintain this library -- Oleksandr Anyshchenko ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
+  Three contributors have been selected to help maintain this library -- Oleksandr
+  Anyshchenko ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)),
+  and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler
+  Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
 
-* A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "staffed", it may help to collaborate on changes to `rust-rocksdb`.
+* A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "
+  staffed", it may help to collaborate on changes to `rust-rocksdb`.
 
 ### Changes
 
@@ -334,7 +384,6 @@
 * exposed `keep_log_file_num` option (romanz)
 * added ability to retrieve `WriteBatch` serialized size (romanz)
 * added `set_options` method to `DB` to allow changing options without closing and re-opening the database (romanz)
-
 
 ## 0.10.1 (2018-07-17)
 
@@ -452,9 +501,11 @@
 ### New Features
 
 * Windows support (development by jsgf and arkpar. ported by kaedroho)
-* The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by jsgf and arkpar. ported by kaedroho)
+* The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by
+  jsgf and arkpar. ported by kaedroho)
 * Cleaned up and improved coverage and tests of the ffi module (alexreg)
-* Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2. ported by kaedroho)
+* Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2.
+  ported by kaedroho)
 * Added `len` and `is_empty` methods to `WriteBatch` (development by siddontang. ported by kaedroho)
 * Added `path` mathod to `DB` (development by siddontang. ported by kaedroho)
 * `DB::open` now accepts any type that implements `Into<Path>` as the path argument (kaedroho)
