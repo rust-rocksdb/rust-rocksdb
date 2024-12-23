@@ -79,13 +79,10 @@ features = ["bindgen-static", "snappy", "lz4", "zstd", "zlib", "bzip2"]
 Notice that `runtime` and `static` features are mutually exclusive, and won't compile if both enabled.
 
 ## LTO
-
-Enable the `lto` feature to enable link-time optimization. It will compile rocksdb with `-flto` flag. This feature
-is disabled by default.
+Enable the `lto` feature to enable link-time optimization. It will compile rocksdb with `-flto` flag. This feature is disabled by default.
 
 > [!IMPORTANT]
-> You must use clang as `CC`. Eg. `CC=/usr/bin/clang CXX=/usr/bin/clang++`. Clang llvm version must be the same as the
-> one used by rust compiler.
+> You must use clang as `CC`. Eg. `CC=/usr/bin/clang CXX=/usr/bin/clang++`. Clang llvm version must be the same as the one used by rust compiler.
 > On the rust side you should use `RUSTFLAGS="-Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld"`.
 
 Check the [Rust documentation](https://doc.rust-lang.org/rustc/linker-plugin-lto.html) for more information.

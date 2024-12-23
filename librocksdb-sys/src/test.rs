@@ -15,6 +15,7 @@
 
 use libc::*;
 use std::ffi::{CStr, CString};
+use std::os::unix::prelude::OsStrExt;
 use std::ptr;
 use std::str;
 
@@ -39,8 +40,8 @@ fn internal() {
         rocksdb_options_optimize_level_style_compaction(opts, 0);
         rocksdb_options_set_create_if_missing(opts, u8::from(true));
 
-        let rustpath = "/tmp/_rust_rocksdb_internaltest";
-        let cpath = CString::new(rustpath).unwrap();
+        let rustpath = std::env::temp_dir().join("_rust_rocksdb_internaltest");
+        let cpath = CString::new(rustpath.into_os_string().as_bytes()).unwrap();
 
         let mut err: *mut c_char = ptr::null_mut();
         let err_ptr: *mut *mut c_char = &mut err;

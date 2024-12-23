@@ -197,8 +197,7 @@
 * Fix `multi_get` method (mikhailOK)
 * Bump `librocksdb-sys` up to 6.19.3 (olegnn)
 * Add support for the cuckoo table format (rbost)
-* RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (
-  mbargull)
+* RocksDB is not compiled with SSE4 instructions anymore unless the corresponding features are enabled in rustc (mbargull)
 * Bump `librocksdb-sys` up to 6.20.3 (olegnn, akrylysov)
 * Add `DB::key_may_exist_cf_opt` method (stanislav-tkach)
 * Add `Options::set_zstd_max_train_bytes` method (stanislav-tkach)
@@ -334,6 +333,7 @@
 * Added `iterator_cf_opt` function to `DB` (elichai)
 * Added `set_allow_mmap_writes` and `set_allow_mmap_reads` functions to `Options` (aleksuss)
 
+
 ## 0.12.0 (2019-03-10)
 
 ### Changes
@@ -343,29 +343,24 @@
 * Added support for pinnable slices (xxuejie)
 * Added ability to get property values (ekmartin)
 * Simplified opening database when using non-default column families (iSynaptic)
-* `ColumnFamily`, `DBIterator` and `DBRawIterator` now have lifetime parameters to prevent using them after the `DB` has
-  been dropped (iSynaptic)
+* `ColumnFamily`, `DBIterator` and `DBRawIterator` now have lifetime parameters to prevent using them after the `DB` has been dropped (iSynaptic)
 * Creating `DBIterator` and `DBRawIterator` now accept `ReadOptions` (iSynaptic)
-* All database operations that accepted byte slices, `&[u8]`, are now generic and accept anything that implements
-  `AsRef<[u8]>` (iSynaptic)
+* All database operations that accepted byte slices, `&[u8]`, are now generic and accept anything that implements `AsRef<[u8]>` (iSynaptic)
 * Bumped RocksDB to version 5.17.2 (aleksuss)
 * Added `set_readahead_size` to `ReadOptions` (iSynaptic)
 * Updated main example in doc tests (mohanson)
 * Updated requirements documentation (jamesray1)
 * Implemented `AsRef<[u8]>` for `DBVector` (iSynaptic)
 
+
 ## 0.11.0 (2019-01-10)
 
 ### Announcements
 
 * This is the first release under the new [Maintainership](MAINTAINERSHIP.md) model.
-  Three contributors have been selected to help maintain this library -- Oleksandr
-  Anyshchenko ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)),
-  and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler
-  Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
+  Three contributors have been selected to help maintain this library -- Oleksandr Anyshchenko ([@aleksuss](https://github.com/aleksuss)), Jordan Terrell ([@iSynaptic](https://github.com/iSynaptic)), and Ilya Bogdanov ([@vitvakatu](https://github.com/vitvakatu)). Many thanks to Tyler Neely ([@spacejam](https://github.com/spacejam)) for your support while taking on this new role.
 
-* A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "
-  staffed", it may help to collaborate on changes to `rust-rocksdb`.
+* A [gitter.im chat room](https://gitter.im/rust-rocksdb/Lobby) has been created. Although it's not guaranteed to be "staffed", it may help to collaborate on changes to `rust-rocksdb`.
 
 ### Changes
 
@@ -384,6 +379,7 @@
 * exposed `keep_log_file_num` option (romanz)
 * added ability to retrieve `WriteBatch` serialized size (romanz)
 * added `set_options` method to `DB` to allow changing options without closing and re-opening the database (romanz)
+
 
 ## 0.10.1 (2018-07-17)
 
@@ -501,11 +497,9 @@
 ### New Features
 
 * Windows support (development by jsgf and arkpar. ported by kaedroho)
-* The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by
-  jsgf and arkpar. ported by kaedroho)
+* The RocksDB library is now built at crate compile-time and statically linked with the resulting binary (development by jsgf and arkpar. ported by kaedroho)
 * Cleaned up and improved coverage and tests of the ffi module (alexreg)
-* Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2.
-  ported by kaedroho)
+* Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2. ported by kaedroho)
 * Added `len` and `is_empty` methods to `WriteBatch` (development by siddontang. ported by kaedroho)
 * Added `path` mathod to `DB` (development by siddontang. ported by kaedroho)
 * `DB::open` now accepts any type that implements `Into<Path>` as the path argument (kaedroho)
