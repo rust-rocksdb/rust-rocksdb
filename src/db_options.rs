@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
+use crate::column_family::ColumnFamilyTtl;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -922,6 +923,11 @@ pub enum LogLevel {
 impl Options {
     /// Constructs the DBOptions and ColumnFamilyDescriptors by loading the
     /// latest RocksDB options file stored in the specified rocksdb database.
+    ///
+    /// *IMPORTANT*:
+    /// ROCKSDB DOES NOT STORE cf ttl in the options file. If you have set it via
+    /// [`ColumnFamilyDescriptor::new_with_ttl`] then you need to set it again after loading the options file.
+    /// Tll will be set to [`ColumnFamilyTtl::Disabled`] for all column families for your safety.
     pub fn load_latest<P: AsRef<Path>>(
         path: P,
         env: Env,
@@ -979,7 +985,11 @@ impl Options {
                 });
         let column_descriptors = column_family_names_iter
             .zip(column_family_options_iter)
-            .map(|(name, options)| ColumnFamilyDescriptor { name, options })
+            .map(|(name, options)| ColumnFamilyDescriptor {
+                name,
+                options,
+                ttl: ColumnFamilyTtl::Disabled,
+            })
             .collect::<Vec<_>>();
         // free pointers
         slice::from_raw_parts(column_family_names, num_column_families)

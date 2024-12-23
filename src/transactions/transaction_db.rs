@@ -26,6 +26,7 @@ use std::{
 use crate::CStrLike;
 use std::ffi::CStr;
 
+use crate::column_family::ColumnFamilyTtl;
 use crate::{
     column_family::UnboundColumnFamily,
     db::{convert_values, DBAccess},
@@ -257,6 +258,7 @@ impl<T: ThreadMode> TransactionDB<T> {
                 cfs_v.push(ColumnFamilyDescriptor {
                     name: String::from(DEFAULT_COLUMN_FAMILY_NAME),
                     options: Options::default(),
+                    ttl: ColumnFamilyTtl::SameAsDb, // it will have ttl specified in `DBWithThreadMode::open_with_ttl`
                 });
             }
             // We need to store our CStrings in an intermediate vector

@@ -109,7 +109,7 @@ mod write_batch;
 pub use crate::{
     column_family::{
         AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
-        ColumnFamilyRef, DEFAULT_COLUMN_FAMILY_NAME,
+        ColumnFamilyRef, ColumnFamilyTtl, DEFAULT_COLUMN_FAMILY_NAME,
     },
     compaction_filter::Decision as CompactionDecision,
     db::{

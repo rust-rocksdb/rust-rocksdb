@@ -26,6 +26,7 @@ use crate::{
     WaitForCompactOptions, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
+use crate::column_family::ColumnFamilyTtl;
 use crate::ffi_util::CSlice;
 use libc::{self, c_char, c_int, c_uchar, c_void, size_t};
 use std::collections::BTreeMap;
@@ -377,6 +378,9 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
     }
 
     /// Opens the database with a Time to Live compaction filter.
+    ///
+    /// This applies the given `ttl` to all column families created without an explicit TTL.
+    /// See [`DB::open_cf_descriptors_with_ttl`] for more control over individual column family TTLs.
     pub fn open_with_ttl<P: AsRef<Path>>(
         opts: &Options,
         path: P,
@@ -408,7 +412,16 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
 
     /// Opens a database with the given database with a Time to Live compaction filter and
     /// column family descriptors.
-    /// *NOTE*: `default` column family is opened with `Options::default()`.
+    ///
+    /// Applies the provided `ttl` as the default TTL for all column families.
+    /// Column families will inherit this TTL by default, unless their descriptor explicitly
+    /// sets a different TTL using [`ColumnFamilyTtl::Duration`] or opts out using [`ColumnFamilyTtl::Disabled`].
+    ///
+    /// *NOTE*: The `default` column family is opened with `Options::default()` unless
+    /// explicitly configured within the `cfs` iterator.
+    /// To customize the `default` column family's options, include a `ColumnFamilyDescriptor`
+    /// with the name "default" in the `cfs` iterator.
+    ///
     /// If you want to open `default` cf with different options, set them explicitly in `cfs`.
     pub fn open_cf_descriptors_with_ttl<P, I>(
         opts: &Options,
@@ -634,6 +647,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                 cfs_v.push(ColumnFamilyDescriptor {
                     name: String::from(DEFAULT_COLUMN_FAMILY_NAME),
                     options: Options::default(),
+                    ttl: ColumnFamilyTtl::SameAsDb,
                 });
             }
             // We need to store our CStrings in an intermediate vector
@@ -764,7 +778,15 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                     ))
                 }
                 AccessType::WithTTL { ttl } => {
-                    let ttls_v = vec![ttl.as_secs() as c_int; cfs_v.len()];
+                    let ttls: Vec<_> = cfs_v
+                        .iter()
+                        .map(|cf| match cf.ttl {
+                            ColumnFamilyTtl::Disabled => i32::MAX,
+                            ColumnFamilyTtl::Duration(duration) => duration.as_secs() as i32,
+                            ColumnFamilyTtl::SameAsDb => ttl.as_secs() as i32,
+                        })
+                        .collect();
+
                     ffi_try!(ffi::rocksdb_open_column_families_with_ttl(
                         opts.inner,
                         cpath.as_ptr(),
@@ -772,7 +794,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
                         cfnames.as_ptr(),
                         cfopts.as_ptr(),
                         cfhandles.as_mut_ptr(),
-                        ttls_v.as_ptr(),
+                        ttls.as_ptr(),
                     ))
                 }
             }
