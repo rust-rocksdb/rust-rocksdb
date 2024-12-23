@@ -17,6 +17,7 @@ use std::{collections::BTreeMap, ffi::CString, fs, iter, marker::PhantomData, pa
 
 use libc::{c_char, c_int, size_t};
 
+use crate::column_family::ColumnFamilyTtl;
 use crate::{
     db::{DBCommon, DBInner},
     ffi,
@@ -160,6 +161,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
                 cfs_v.push(ColumnFamilyDescriptor {
                     name: String::from(DEFAULT_COLUMN_FAMILY_NAME),
                     options: Options::default(),
+                    ttl: ColumnFamilyTtl::SameAsDb,
                 });
             }
             // We need to store our CStrings in an intermediate vector

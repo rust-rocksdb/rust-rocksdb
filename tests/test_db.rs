@@ -23,11 +23,11 @@ use pretty_assertions::assert_eq;
 use rocksdb::statistics::{Histogram, StatsLevel, Ticker};
 use rocksdb::{
     perf::get_memory_usage_stats, BlockBasedOptions, BottommostLevelCompaction, Cache,
-    ColumnFamilyDescriptor, CompactOptions, CuckooTableOptions, DBAccess, DBCompactionStyle,
-    DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode, MultiThreaded,
-    Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform, Snapshot,
-    UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions, WriteBatch, DB,
-    DEFAULT_COLUMN_FAMILY_NAME,
+    ColumnFamilyDescriptor, ColumnFamilyTtl, CompactOptions, CuckooTableOptions, DBAccess,
+    DBCompactionStyle, DBWithThreadMode, Env, Error, ErrorKind, FifoCompactOptions, IteratorMode,
+    MultiThreaded, Options, PerfContext, PerfMetric, ReadOptions, SingleThreaded, SliceTransform,
+    Snapshot, UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions,
+    WriteBatch, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use util::{assert_iter, pair, DBPath, U64Comparator, U64Timestamp};
 
@@ -692,6 +692,46 @@ fn test_open_with_ttl() {
     // in the database and drop all expired entries.
     db.compact_range(None::<&[u8]>, None::<&[u8]>);
     assert!(db.get(b"key1").unwrap().is_none());
+}
+
+#[test]
+fn test_ttl_mix() {
+    let path = DBPath::new("_rust_rocksdb_test_open_with_ttl_mix");
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+
+    let cf1 = ColumnFamilyDescriptor::new_with_ttl(
+        "ttl_1",
+        Options::default(),
+        ColumnFamilyTtl::Duration(Duration::from_secs(1)),
+    );
+    let no_ttl = ColumnFamilyDescriptor::new_with_ttl(
+        "no_ttl",
+        Options::default(),
+        ColumnFamilyTtl::Disabled,
+    );
+
+    let db = DB::open_cf_descriptors_with_ttl(&opts, &path, [cf1, no_ttl], Duration::from_secs(1))
+        .unwrap();
+    db.put(b"key1", b"value1").unwrap();
+
+    let cf1 = db.cf_handle("ttl_1").unwrap();
+    let no_ttl = db.cf_handle("no_ttl").unwrap();
+
+    db.put_cf(&cf1, b"key2", b"value2").unwrap();
+    db.put_cf(&no_ttl, b"key3", b"value3").unwrap();
+
+    thread::sleep(Duration::from_secs(2));
+    // Trigger a manual compaction, this will check the TTL filter
+    // in the database and drop all expired entries.
+    db.compact_range(None::<&[u8]>, None::<&[u8]>);
+    db.compact_range_cf(&cf1, None::<&[u8]>, None::<&[u8]>);
+    db.compact_range_cf(&no_ttl, None::<&[u8]>, None::<&[u8]>);
+    assert!(db.get(b"key1").unwrap().is_none());
+    assert!(db.get_cf(&cf1, b"key2").unwrap().is_none());
+    assert!(db.get_cf(&no_ttl, b"key3").unwrap().is_some());
 }
 
 #[test]

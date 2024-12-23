@@ -15,6 +15,7 @@
 use crate::{db::MultiThreaded, ffi, Options};
 
 use std::sync::Arc;
+use std::time::Duration;
 
 /// The name of the default column family.
 ///
@@ -28,10 +29,13 @@ pub const DEFAULT_COLUMN_FAMILY_NAME: &str = "default";
 pub struct ColumnFamilyDescriptor {
     pub(crate) name: String,
     pub(crate) options: Options,
+    pub(crate) ttl: ColumnFamilyTtl,
 }
 
 impl ColumnFamilyDescriptor {
-    // Create a new column family descriptor with the specified name and options.
+    /// Create a new column family descriptor with the specified name and options.
+    /// *WARNING*:
+    /// Will use [`ColumnFamilyTtl::SameAsDb`] as ttl.
     pub fn new<S>(name: S, options: Options) -> Self
     where
         S: Into<String>,
@@ -39,13 +43,51 @@ impl ColumnFamilyDescriptor {
         Self {
             name: name.into(),
             options,
+            ttl: ColumnFamilyTtl::SameAsDb,
         }
+    }
+
+    /// Create a new column family descriptor with the specified name, options, and ttl.
+    /// *WARNING*:
+    /// The ttl is applied only when DB is opened with [`crate::db::DB::open_with_ttl()`].
+    pub fn new_with_ttl<S>(name: S, options: Options, ttl: ColumnFamilyTtl) -> Self
+    where
+        S: Into<String>,
+    {
+        Self {
+            name: name.into(),
+            options,
+            ttl,
+        }
+    }
+
+    /// Sets ttl for the column family. It's applied only when DB is opened with
+    /// [`crate::db::DB::open_with_ttl()`]. Changing ttl after DB is opened has no effect.
+    pub fn set_ttl(&mut self, ttl: ColumnFamilyTtl) {
+        self.ttl = ttl;
     }
 
     /// Get the name of the ColumnFamilyDescriptor.
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    pub fn ttl(&self) -> ColumnFamilyTtl {
+        self.ttl
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+/// Specifies the TTL behavior for a column family.
+/// <https://github.com/facebook/rocksdb/blob/18cecb9c46b4c2a8b148659dac2fcab5a843d32b/include/rocksdb/utilities/db_ttl.h#L16-L46>
+pub enum ColumnFamilyTtl {
+    /// Will internally set TTL to -1 (disabled)
+    #[default]
+    Disabled,
+    /// Will set ttl to the specified duration
+    Duration(Duration),
+    /// Will use ttl specified at db open time
+    SameAsDb,
 }
 
 /// An opaque type used to represent a column family. Returned from some functions, and used

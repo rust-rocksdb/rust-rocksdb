@@ -56,6 +56,7 @@
 * Fix multiple typos of different importance (crStiv)
 * Bump rust version for cargo audit job (aleksuss)
 * Update to RocksDB 9.9.3 (niklasf)
+* Allow to specify ttl per column family (0xdeafbeef)
 
 ## 0.22.0 (2024-02-13)
 
