@@ -39,7 +39,7 @@ fn internal() {
         rocksdb_options_optimize_level_style_compaction(opts, 0);
         rocksdb_options_set_create_if_missing(opts, u8::from(true));
 
-        let rustpath = "_rust_rocksdb_internaltest";
+        let rustpath = "/tmp/_rust_rocksdb_internaltest";
         let cpath = CString::new(rustpath).unwrap();
 
         let mut err: *mut c_char = ptr::null_mut();
