@@ -58,7 +58,7 @@ data structures use `RwLock` by default. Alternatively, you can directly create
 
 The feature `mt_static` will request the library to be built with [/MT](https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170)
 flag, which results in library using the static version of the run-time library.
-*This can be useful in case there's a conflict in the dependecy tree between different
+*This can be useful in case there's a conflict in the dependency tree between different
 run-time versions.*
 
 ## Switch between static and dynamic linking for bindgen (features `bindgen-static` and `bindgen-runtime`)
