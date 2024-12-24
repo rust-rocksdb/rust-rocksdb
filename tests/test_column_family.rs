@@ -158,7 +158,7 @@ fn test_column_family_with_transactiondb() {
         }
     }
 
-    // should properly open db when specyfing all column families
+    // should properly open db when specifying all column families
     {
         let mut opts = Options::default();
         opts.set_merge_operator_associative("test operator", test_provided_merge);
