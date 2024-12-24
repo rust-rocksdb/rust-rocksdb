@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(clippy::all)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(non_upper_case_globals)]
+#![allow(
+    clippy::all,
+    non_snake_case,
+    non_camel_case_types,
+    non_upper_case_globals
+)]
 
 // Ensure the libraries are linked in, despite it not being used directly
 #[cfg(feature = "bzip2")]
@@ -28,3 +30,6 @@ extern crate lz4_sys;
 extern crate zstd_sys;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+#[cfg(test)]
+mod test;
