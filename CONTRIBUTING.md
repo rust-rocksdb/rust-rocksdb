@@ -14,7 +14,7 @@ Thank you for taking an interest in the project, and contributing to it - it's a
 - **Ensure the bug applies to the Rust wrapper, and not the underlying library** - bugs in the RocksDB library should be [reported upstream](https://github.com/facebook/rocksdb/issues).
 - When [creating an issue](https://github.com/rust-rocksdb/rust-rocksdb/issues/new) please try to:
     - **Use a clear and descriptive title** to identify the issue
-    - **Provide enough context** to acurately summarize the issue. Not every issue will need detailed steps to recreate, example code, stack traces, etc. - use your own judgment on what information would be helpful to anyone working on the issue. It's easier for someone to skim over too much context, than stop and wait for a response when context is missing.
+    - **Provide enough context** to accurately summarize the issue. Not every issue will need detailed steps to recreate, example code, stack traces, etc. - use your own judgment on what information would be helpful to anyone working on the issue. It's easier for someone to skim over too much context, than stop and wait for a response when context is missing.
 
 ## Feature Requests
 [feature-requests]: #feature-requests
