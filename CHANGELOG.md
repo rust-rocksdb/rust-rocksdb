@@ -502,7 +502,7 @@
 * Cleaned up and improved coverage and tests of the ffi module (alexreg)
 * Added many new methods to the `Options` type (development by ngaut, BusyJay, zhangjinpeng1987, siddontang and hhkbp2. ported by kaedroho)
 * Added `len` and `is_empty` methods to `WriteBatch` (development by siddontang. ported by kaedroho)
-* Added `path` mathod to `DB` (development by siddontang. ported by kaedroho)
+* Added `path` method to `DB` (development by siddontang. ported by kaedroho)
 * `DB::open` now accepts any type that implements `Into<Path>` as the path argument (kaedroho)
 * `DB` now implements the `Debug` trait (kaedroho)
 * Add iterator_cf to snapshot (jezell)
