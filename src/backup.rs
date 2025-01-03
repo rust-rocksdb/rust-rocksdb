@@ -134,7 +134,6 @@ impl BackupEngine {
     ///     return Err(e.to_string());
     ///  }
     /// ```
-
     pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,
         db_dir: D,

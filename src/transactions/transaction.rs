@@ -33,9 +33,9 @@ pub struct Transaction<'db, DB> {
     pub(crate) _marker: PhantomData<&'db DB>,
 }
 
-unsafe impl<'db, DB> Send for Transaction<'db, DB> {}
+unsafe impl<DB> Send for Transaction<'_, DB> {}
 
-impl<'db, DB> DBAccess for Transaction<'db, DB> {
+impl<DB> DBAccess for Transaction<'_, DB> {
     unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         ffi::rocksdb_transaction_get_snapshot(self.inner)
     }
@@ -116,7 +116,7 @@ impl<'db, DB> DBAccess for Transaction<'db, DB> {
     }
 }
 
-impl<'db, DB> Transaction<'db, DB> {
+impl<DB> Transaction<'_, DB> {
     /// Write all batched keys to the DB atomically.
     ///
     /// May return any error that could be returned by `DB::write`.
@@ -892,7 +892,7 @@ impl<'db, DB> Transaction<'db, DB> {
     }
 }
 
-impl<'db, DB> Drop for Transaction<'db, DB> {
+impl<DB> Drop for Transaction<'_, DB> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_transaction_destroy(self.inner);

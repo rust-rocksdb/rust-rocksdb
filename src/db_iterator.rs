@@ -377,7 +377,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: DBAccess> Drop for DBRawIteratorWithThreadMode<'a, D> {
+impl<D: DBAccess> Drop for DBRawIteratorWithThreadMode<'_, D> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_iter_destroy(self.inner.as_ptr());
@@ -385,8 +385,8 @@ impl<'a, D: DBAccess> Drop for DBRawIteratorWithThreadMode<'a, D> {
     }
 }
 
-unsafe impl<'a, D: DBAccess> Send for DBRawIteratorWithThreadMode<'a, D> {}
-unsafe impl<'a, D: DBAccess> Sync for DBRawIteratorWithThreadMode<'a, D> {}
+unsafe impl<D: DBAccess> Send for DBRawIteratorWithThreadMode<'_, D> {}
+unsafe impl<D: DBAccess> Sync for DBRawIteratorWithThreadMode<'_, D> {}
 
 /// A type alias to keep compatibility. See [`DBIteratorWithThreadMode`] for details
 pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
@@ -501,7 +501,7 @@ impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: DBAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
+impl<D: DBAccess> Iterator for DBIteratorWithThreadMode<'_, D> {
     type Item = Result<KVBytes, Error>;
 
     fn next(&mut self) -> Option<Result<KVBytes, Error>> {
@@ -521,7 +521,7 @@ impl<'a, D: DBAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: DBAccess> std::iter::FusedIterator for DBIteratorWithThreadMode<'a, D> {}
+impl<D: DBAccess> std::iter::FusedIterator for DBIteratorWithThreadMode<'_, D> {}
 
 impl<'a, D: DBAccess> Into<DBRawIteratorWithThreadMode<'a, D>> for DBIteratorWithThreadMode<'a, D> {
     fn into(self) -> DBRawIteratorWithThreadMode<'a, D> {

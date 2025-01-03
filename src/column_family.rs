@@ -138,7 +138,7 @@ impl Drop for ColumnFamily {
 
 // these behaviors must be identical between BoundColumnFamily and UnboundColumnFamily
 // due to the unsafe transmute() in bound_column_family()!
-impl<'a> Drop for BoundColumnFamily<'a> {
+impl Drop for BoundColumnFamily<'_> {
     fn drop(&mut self) {
         destroy_handle(self.inner);
     }
@@ -170,7 +170,7 @@ impl AsColumnFamilyRef for ColumnFamily {
     }
 }
 
-impl<'a> AsColumnFamilyRef for &'a ColumnFamily {
+impl AsColumnFamilyRef for &'_ ColumnFamily {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
         self.inner
     }
@@ -181,7 +181,7 @@ impl<'a> AsColumnFamilyRef for &'a ColumnFamily {
 // isn't expected to be used as naked.
 // Also, ColumnFamilyRef might not be Arc<BoundColumnFamily<'a>> depending crate
 // feature flags so, we can't use the type alias here.
-impl<'a> AsColumnFamilyRef for Arc<BoundColumnFamily<'a>> {
+impl AsColumnFamilyRef for Arc<BoundColumnFamily<'_>> {
     fn inner(&self) -> *mut ffi::rocksdb_column_family_handle_t {
         self.inner
     }
@@ -191,5 +191,5 @@ unsafe impl Send for ColumnFamily {}
 unsafe impl Sync for ColumnFamily {}
 unsafe impl Send for UnboundColumnFamily {}
 unsafe impl Sync for UnboundColumnFamily {}
-unsafe impl<'a> Send for BoundColumnFamily<'a> {}
-unsafe impl<'a> Sync for BoundColumnFamily<'a> {}
+unsafe impl Send for BoundColumnFamily<'_> {}
+unsafe impl Sync for BoundColumnFamily<'_> {}

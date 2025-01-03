@@ -263,7 +263,7 @@ fn build_rocksdb() {
         config.flag("-EHsc");
         config.flag("-std:c++17");
     } else {
-        config.flag(&cxx_standard());
+        config.flag(cxx_standard());
         // matches the flags in CMakeLists.txt from rocksdb
         config.flag("-Wsign-compare");
         config.flag("-Wshadow");
