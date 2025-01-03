@@ -66,7 +66,7 @@ impl<'db> Checkpoint<'db> {
     }
 }
 
-impl<'db> Drop for Checkpoint<'db> {
+impl Drop for Checkpoint<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_checkpoint_object_destroy(self.inner);

@@ -259,7 +259,7 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {
+impl<D: DBAccess> Drop for SnapshotWithThreadMode<'_, D> {
     fn drop(&mut self) {
         unsafe {
             self.db.release_snapshot(self.inner);
@@ -269,5 +269,5 @@ impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {
 
 /// `Send` and `Sync` implementations for `SnapshotWithThreadMode` are safe, because `SnapshotWithThreadMode` is
 /// immutable and can be safely shared between threads.
-unsafe impl<'a, D: DBAccess> Send for SnapshotWithThreadMode<'a, D> {}
-unsafe impl<'a, D: DBAccess> Sync for SnapshotWithThreadMode<'a, D> {}
+unsafe impl<D: DBAccess> Send for SnapshotWithThreadMode<'_, D> {}
+unsafe impl<D: DBAccess> Sync for SnapshotWithThreadMode<'_, D> {}

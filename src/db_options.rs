@@ -1461,9 +1461,10 @@ impl Options {
     /// UniversalCompactionBuilder::PickPeriodicCompaction().
     /// For backward compatibility, the effective value of this option takes
     /// into account the value of option `ttl`. The logic is as follows:
-    ///    - both options are set to 30 days if they have the default value.
-    ///    - if both options are zero, zero is picked. Otherwise, we take the min
-    ///    value among non-zero options values (i.e. takes the stricter limit).
+    ///
+    /// - both options are set to 30 days if they have the default value.
+    /// - if both options are zero, zero is picked. Otherwise, we take the min
+    ///   value among non-zero options values (i.e. takes the stricter limit).
     ///
     /// One main use of the feature is to make sure a file goes through compaction
     /// filters periodically. Users can also use the feature to clear up SST
@@ -1991,8 +1992,8 @@ impl Options {
     /// The exact behavior of this parameter is platform dependent.
     ///
     /// On POSIX systems, after RocksDB reads data from disk it will
-    /// mark the pages as "unneeded". The operating system may - or may not
-    /// - evict these pages from memory, reducing pressure on the system
+    /// mark the pages as "unneeded". The operating system may or may not
+    /// evict these pages from memory, reducing pressure on the system
     /// cache. If the disk block is requested again this can result in
     /// additional disk I/O.
     ///
@@ -3465,9 +3466,11 @@ impl Options {
     /// to be able to ingest behind (call IngestExternalFile() skipping keys
     /// that already exist, rather than overwriting matching keys).
     /// Setting this option to true has the following effects:
-    /// 1) Disable some internal optimizations around SST file compression.
-    /// 2) Reserve the last level for ingested files only.
-    /// 3) Compaction will not include any file from the last level.
+    ///
+    /// 1. Disable some internal optimizations around SST file compression.
+    /// 2. Reserve the last level for ingested files only.
+    /// 3. Compaction will not include any file from the last level.
+    ///
     /// Note that only Universal Compaction supports allow_ingest_behind.
     /// `num_levels` should be >= 3 if this option is turned on.
     ///
@@ -3568,10 +3571,12 @@ impl Options {
     /// or an IDENTITY file (historical, deprecated), or both. If this option is
     /// set to false (old behavior), then `write_identity_file` must be set to true.
     /// The manifest is preferred because
+    ///
     /// 1. The IDENTITY file is not checksummed, so it is not as safe against
     ///    corruption.
     /// 2. The IDENTITY file may or may not be copied with the DB (e.g. not
     ///    copied by BackupEngine), so is not reliable for the provenance of a DB.
+    ///
     /// This option might eventually be obsolete and removed as Identity files
     /// are phased out.
     ///
