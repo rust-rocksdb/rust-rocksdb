@@ -20,7 +20,7 @@ use std::str;
 
 use super::*;
 
-pub fn error_message(ptr: *const i8) -> String {
+pub fn error_message(ptr: *const c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(ptr as *const _) };
     let s = str::from_utf8(c_str.to_bytes()).unwrap().to_owned();
     unsafe {
