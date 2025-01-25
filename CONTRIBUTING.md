@@ -26,7 +26,7 @@ Much of the documentation should mirror or reference the library's [documentatio
 
 ## Discussion
 [discussion]: #discussion
-Discussion around design and development of the wrapper primarily occurs within issues and pull requests. Don't be afraid to participate if you have questions, concerns, insight, or advice.
+Discussion around the design and development of the wrapper primarily occurs within issues and pull requests. Don't be afraid to participate if you have questions, concerns, insight, or advice.
 
 ## Pull Requests
 [pull-requests]: #pull-requests
