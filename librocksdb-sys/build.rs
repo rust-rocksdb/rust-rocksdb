@@ -405,6 +405,9 @@ fn main() {
             println!("cargo:rustc-link-lib=dylib=c++");
         } else if target.contains("linux") {
             println!("cargo:rustc-link-lib=dylib=stdc++");
+        } else if target.contains("aix") {
+            println!("cargo:rustc-link-lib=dylib=c++");
+            println!("cargo:rustc-link-lib=dylib=c++abi");
         }
     }
     if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
