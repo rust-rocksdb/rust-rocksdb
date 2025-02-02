@@ -786,7 +786,7 @@ fn test_open_with_multiple_refs_as_single_threaded() {
 
 #[test]
 fn test_open_utf8_path() {
-    let path = DBPath::new("_rust_rocksdb_utf8_path_temporärer_Ordner");
+    let path = DBPath::new("_rust_rocksdb_utf8_path_temporärer_Order");
 
     {
         let db = DB::open_default(&path).unwrap();
