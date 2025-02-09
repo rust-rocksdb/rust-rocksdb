@@ -2,7 +2,7 @@
 
 Low-level bindings to [RocksDB's](https://github.com/facebook/rocksdb) C API.
 
-Based on original work by Tyler Neely
+Based on the original work by Tyler Neely
 https://github.com/rust-rocksdb/rust-rocksdb
 and Jeremy Fitzhardinge
 https://github.com/jsgf/rocksdb-sys
