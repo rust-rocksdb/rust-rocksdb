@@ -166,6 +166,10 @@ fn build_rocksdb() {
         if &target == "armv7-linux-androideabi" {
             config.define("_FILE_OFFSET_BITS", Some("32"));
         }
+    } else if target.contains("aix") {
+        config.define("OS_AIX", None);
+        config.define("ROCKSDB_PLATFORM_POSIX", None);
+        config.define("ROCKSDB_LIB_IO_POSIX", None);
     } else if target.contains("linux") {
         config.define("OS_LINUX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
@@ -405,6 +409,9 @@ fn main() {
             println!("cargo:rustc-link-lib=dylib=c++");
         } else if target.contains("linux") {
             println!("cargo:rustc-link-lib=dylib=stdc++");
+        } else if target.contains("aix") {
+            println!("cargo:rustc-link-lib=dylib=c++");
+            println!("cargo:rustc-link-lib=dylib=c++abi");
         }
     }
     if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
