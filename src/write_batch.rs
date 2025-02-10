@@ -323,6 +323,28 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    // Append a blob of arbitrary size to the records in this batch. The blob will
+    // be stored in the transaction log but not in any other file. In particular,
+    // it will not be persisted to the SST files. When iterating over this
+    // WriteBatch, WriteBatch::Handler::LogData will be called with the contents
+    // of the blob as it is encountered. Blobs, puts, deletes, and merges will be
+    // encountered in the same order in which they were inserted. The blob will
+    // NOT consume sequence number(s) and will NOT increase the count of the batch
+    //
+    // Example application: add timestamps to the transaction log for use in
+    // replication.
+    pub fn put_log_data<V: AsRef<[u8]>>(&mut self, log_data: V) {
+        let log_data = log_data.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_put_log_data(
+                self.inner,
+                log_data.as_ptr() as *const c_char,
+                log_data.len() as size_t,
+            );
+        }
+    }
+
     /// Clear all updates buffered in this batch.
     pub fn clear(&mut self) {
         unsafe {

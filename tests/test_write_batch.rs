@@ -11,12 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+mod util;
 
 use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{WriteBatch, WriteBatchIterator};
+use rocksdb::{Error, WriteBatch, WriteBatchIterator, DB};
+use util::DBPath;
 
 #[test]
 fn test_write_batch_clear() {
@@ -65,4 +67,40 @@ fn test_write_batch_with_serialized_data() {
     let b2 = WriteBatch::from_data(data);
     let mut it = Iterator { data: kvs };
     b2.iterate(&mut it);
+}
+
+#[test]
+fn test_write_batch_put_log_data() {
+    let path = DBPath::new("writebatch_put_log_data");
+    let db = DB::open_default(&path).unwrap();
+
+    let mut batch = WriteBatch::default();
+    batch.put(b"k1", b"v11111111");
+    batch.put_log_data(b"log_data_value");
+
+    let p = db.write(batch);
+    assert!(p.is_ok());
+
+    let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
+    assert_eq!(r.unwrap().unwrap(), b"v11111111");
+
+    let mut called = false;
+
+    let mut wal_iter = db.get_updates_since(0).unwrap();
+    if let Ok((seq, write_batch)) = wal_iter.next().unwrap() {
+        called = true;
+
+        // Putting LOG data does not increase sequence number, only the put() call does
+        assert_eq!(seq, 1);
+
+        // there is only the put write in the WriteBatch
+        assert_eq!(write_batch.len(), 1);
+
+        // The WriteBatch data has the written "log_data"
+        assert!(String::from_utf8(write_batch.data().to_vec())
+            .unwrap()
+            .contains("log_data_value"));
+    }
+
+    assert!(called);
 }
