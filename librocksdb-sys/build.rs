@@ -293,7 +293,7 @@ fn build_rocksdb() {
     config.flag_if_supported("-std=c++17");
     if target.contains("linux") {
         config.cpp_link_stdlib("stdc++");
-    } else {
+    } else if !target.contains("windows") {
         config.cpp_link_stdlib("c++");
     }
     config.compile("librocksdb.a");
