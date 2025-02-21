@@ -259,6 +259,20 @@ impl BackupEngineOptions {
             );
         }
     }
+
+    /// Sets whether to use fsync(2) to sync file data and metadata to disk after every file write,
+    /// guaranteeing that backups will be consistent after a reboot or if machine crashes. Setting
+    /// it to false will speed things up a bit, but some (newer) backups might be inconsistent. In
+    /// most cases, everything should be fine, though.
+    ///
+    /// Default: false
+    ///
+    /// Documentation: <https://github.com/facebook/rocksdb/wiki/How-to-backup-RocksDB#advanced-usage>
+    pub fn set_sync(&mut self, sync: bool) {
+        unsafe {
+            ffi::rocksdb_backup_engine_options_set_sync(self.inner, c_uchar::from(sync));
+        }
+    }
 }
 
 impl RestoreOptions {
