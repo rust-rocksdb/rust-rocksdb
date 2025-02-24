@@ -1783,6 +1783,12 @@ impl Options {
         }
     }
 
+    /// Returns the value of the `use_fsync` option.
+    pub fn get_use_fsync(&self) -> bool {
+        let val = unsafe { ffi::rocksdb_options_get_use_fsync(self.inner) };
+        val != 0
+    }
+
     /// Specifies the absolute info LOG dir.
     ///
     /// If it is empty, the log files will be in the same dir as data.
