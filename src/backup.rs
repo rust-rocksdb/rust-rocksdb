@@ -273,6 +273,12 @@ impl BackupEngineOptions {
             ffi::rocksdb_backup_engine_options_set_sync(self.inner, c_uchar::from(sync));
         }
     }
+
+    /// Returns the value of the `sync` option.
+    pub fn get_sync(&mut self) -> bool {
+        let val_u8 = unsafe { ffi::rocksdb_backup_engine_options_get_sync(self.inner) };
+        val_u8 != 0
+    }
 }
 
 impl RestoreOptions {
