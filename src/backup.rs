@@ -265,7 +265,7 @@ impl BackupEngineOptions {
     /// it to false will speed things up a bit, but some (newer) backups might be inconsistent. In
     /// most cases, everything should be fine, though.
     ///
-    /// Default: false
+    /// Default: true
     ///
     /// Documentation: <https://github.com/facebook/rocksdb/wiki/How-to-backup-RocksDB#advanced-usage>
     pub fn set_sync(&mut self, sync: bool) {
