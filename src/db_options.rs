@@ -4680,6 +4680,14 @@ mod tests {
     }
 
     #[test]
+    fn test_use_fsync() {
+        let mut opts = Options::default();
+        assert!(!opts.get_use_fsync());
+        opts.set_use_fsync(true);
+        assert!(opts.get_use_fsync());
+    }
+
+    #[test]
     fn test_set_stats_persist_period_sec() {
         let mut opts = Options::default();
         opts.enable_statistics();
