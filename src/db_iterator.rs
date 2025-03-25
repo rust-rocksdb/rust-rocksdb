@@ -22,13 +22,12 @@ use std::{marker::PhantomData, slice};
 /// A type alias to keep compatibility. See [`DBRawIteratorWithThreadMode`] for details
 pub type DBRawIterator<'a> = DBRawIteratorWithThreadMode<'a, DB>;
 
-/// An iterator over a database or column family, with specifiable
-/// ranges and direction.
+/// A low-level iterator over a database or column family, created by [`DB::raw_iterator`]
+/// and other `raw_iterator_*` methods.
 ///
-/// This iterator is different to the standard ``DBIteratorWithThreadMode`` as it aims Into
-/// replicate the underlying iterator API within RocksDB itself. This should
-/// give access to more performance and flexibility but departs from the
-/// widely recognized Rust idioms.
+/// This iterator replicates RocksDB's API. It should provide better
+/// performance and more features than [`DBIteratorWithThreadMode`], which is a standard
+/// Rust [`std::iter::Iterator`].
 ///
 /// ```
 /// use rocksdb::{DB, Options};
@@ -391,8 +390,10 @@ unsafe impl<D: DBAccess> Sync for DBRawIteratorWithThreadMode<'_, D> {}
 /// A type alias to keep compatibility. See [`DBIteratorWithThreadMode`] for details
 pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 
-/// An iterator over a database or column family, with specifiable
-/// ranges and direction.
+/// A standard Rust [`Iterator`] over a database or column family.
+///
+/// As an alternative, [`DBRawIteratorWithThreadMode`] is a low level wrapper around
+/// RocksDB's API, which can provide better performance and more features.
 ///
 /// ```
 /// use rocksdb::{DB, Direction, IteratorMode, Options};
