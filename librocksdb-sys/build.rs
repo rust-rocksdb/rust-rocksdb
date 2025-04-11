@@ -243,7 +243,11 @@ fn build_rocksdb() {
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
     if cfg!(feature = "jemalloc") {
-        config.define("WITH_JEMALLOC", "ON");
+        // Only enable jemalloc in linux.
+        if target.contains("linux") {
+            config.define("ROCKSDB_JEMALLOC", Some("1"));
+            config.define("JEMALLOC_NO_DEMANGLE", Some("1"));
+        }
     }
 
     #[cfg(feature = "io-uring")]
