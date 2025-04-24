@@ -1124,18 +1124,23 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>,
     {
-        let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
+        let keys_data: Vec<_> = keys
             .into_iter()
             .map(|k| {
                 let k = k.as_ref();
                 (Box::from(k), k.len())
             })
-            .unzip();
-        let ptr_keys: Vec<_> = keys.iter().map(|k| k.as_ptr() as *const c_char).collect();
+            .collect();
+        
+        let ptr_keys: Vec<_> = keys_data
+            .iter()
+            .map(|(k, _)| k.as_ptr() as *const c_char)
+            .collect();
+        let keys_sizes: Vec<_> = keys_data.iter().map(|(_, size)| *size).collect();
 
-        let mut values = vec![ptr::null_mut(); keys.len()];
-        let mut values_sizes = vec![0_usize; keys.len()];
-        let mut errors = vec![ptr::null_mut(); keys.len()];
+        let mut values = vec![ptr::null_mut(); keys_data.len()];
+        let mut values_sizes = vec![0_usize; keys_data.len()];
+        let mut errors = vec![ptr::null_mut(); keys_data.len()];
         unsafe {
             ffi::rocksdb_multi_get(
                 self.inner.inner(),
@@ -1294,7 +1299,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     pub fn key_may_exist_opt<K: AsRef<[u8]>>(&self, key: K, readopts: &ReadOptions) -> bool {
         let key = key.as_ref();
         unsafe {
-            0 != ffi::rocksdb_key_may_exist(
+            ffi::rocksdb_key_may_exist(
                 self.inner.inner(),
                 readopts.inner,
                 key.as_ptr() as *const c_char,
@@ -1304,7 +1309,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 ptr::null(),     /*timestamp*/
                 0,               /*timestamp_len*/
                 ptr::null_mut(), /*value_found*/
-            )
+            ) != 0
         }
     }
 
@@ -1323,7 +1328,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         readopts: &ReadOptions,
     ) -> bool {
         let key = key.as_ref();
-        0 != unsafe {
+        unsafe {
             ffi::rocksdb_key_may_exist_cf(
                 self.inner.inner(),
                 readopts.inner,
@@ -1335,7 +1340,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 ptr::null(),     /*timestamp*/
                 0,               /*timestamp_len*/
                 ptr::null_mut(), /*value_found*/
-            )
+            ) != 0
         }
     }
 
@@ -1355,21 +1360,20 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         let mut val: *mut c_char = ptr::null_mut();
         let mut val_len: usize = 0;
         let mut value_found: c_uchar = 0;
-        let may_exists = 0
-            != unsafe {
-                ffi::rocksdb_key_may_exist_cf(
-                    self.inner.inner(),
-                    readopts.inner,
-                    cf.inner(),
-                    key.as_ptr() as *const c_char,
-                    key.len() as size_t,
-                    &mut val,         /*value*/
-                    &mut val_len,     /*val_len*/
-                    ptr::null(),      /*timestamp*/
-                    0,                /*timestamp_len*/
-                    &mut value_found, /*value_found*/
-                )
-            };
+        let may_exists = unsafe {
+            ffi::rocksdb_key_may_exist_cf(
+                self.inner.inner(),
+                readopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                &mut val,         /*value*/
+                &mut val_len,     /*val_len*/
+                ptr::null(),      /*timestamp*/
+                0,                /*timestamp_len*/
+                &mut value_found, /*value_found*/
+            ) != 0
+        };
         // The value is only allocated (using malloc) and returned if it is found and
         // value_found isn't NULL. In that case the user is responsible for freeing it.
         if may_exists && value_found != 0 {
