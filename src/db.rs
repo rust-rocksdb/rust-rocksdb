@@ -43,6 +43,20 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
 
+/// A range of keys, `start_key` is included, but not `end_key`.
+///
+/// You should make sure `end_key` is not less than `start_key`.
+pub struct Range<'a> {
+    start_key: &'a [u8],
+    end_key: &'a [u8],
+}
+
+impl<'a> Range<'a> {
+    pub fn new(start_key: &'a [u8], end_key: &'a [u8]) -> Range<'a> {
+        Range { start_key, end_key }
+    }
+}
+
 /// Marker trait to specify single or multi threaded column family alternations for
 /// [`DBWithThreadMode<T>`]
 ///
@@ -2152,6 +2166,80 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// The sequence number of the most recent transaction.
     pub fn latest_sequence_number(&self) -> u64 {
         unsafe { ffi::rocksdb_get_latest_sequence_number(self.inner.inner()) }
+    }
+
+    /// Return the approximate file system space used by keys in each ranges.
+    ///
+    /// Note that the returned sizes measure file system space usage, so
+    /// if the user data compresses by a factor of ten, the returned
+    /// sizes will be one-tenth the size of the corresponding user data size.
+    ///
+    /// Due to lack of abi, only data flushed to disk is taken into account.
+    pub fn get_approximate_sizes(&self, ranges: &[Range]) -> Vec<u64> {
+        self.get_approximate_sizes_cfopt(None::<&ColumnFamily>, ranges)
+    }
+
+    pub fn get_approximate_sizes_cf(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        ranges: &[Range],
+    ) -> Vec<u64> {
+        self.get_approximate_sizes_cfopt(Some(cf), ranges)
+    }
+
+    fn get_approximate_sizes_cfopt(
+        &self,
+        cf: Option<&impl AsColumnFamilyRef>,
+        ranges: &[Range],
+    ) -> Vec<u64> {
+        let start_keys: Vec<*const c_char> = ranges
+            .iter()
+            .map(|x| x.start_key.as_ptr() as *const c_char)
+            .collect();
+        let start_key_lens: Vec<_> = ranges.iter().map(|x| x.start_key.len()).collect();
+        let end_keys: Vec<*const c_char> = ranges
+            .iter()
+            .map(|x| x.end_key.as_ptr() as *const c_char)
+            .collect();
+        let end_key_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
+        let mut sizes: Vec<u64> = vec![0; ranges.len()];
+        let (n, start_key_ptr, start_key_len_ptr, end_key_ptr, end_key_len_ptr, size_ptr) = (
+            ranges.len() as i32,
+            start_keys.as_ptr(),
+            start_key_lens.as_ptr(),
+            end_keys.as_ptr(),
+            end_key_lens.as_ptr(),
+            sizes.as_mut_ptr(),
+        );
+        let mut err: *mut c_char = ptr::null_mut();
+        match cf {
+            None => unsafe {
+                ffi::rocksdb_approximate_sizes(
+                    self.inner.inner(),
+                    n,
+                    start_key_ptr,
+                    start_key_len_ptr,
+                    end_key_ptr,
+                    end_key_len_ptr,
+                    size_ptr,
+                    &mut err,
+                )
+            },
+            Some(cf) => unsafe {
+                ffi::rocksdb_approximate_sizes_cf(
+                    self.inner.inner(),
+                    cf.inner(),
+                    n,
+                    start_key_ptr,
+                    start_key_len_ptr,
+                    end_key_ptr,
+                    end_key_len_ptr,
+                    size_ptr,
+                    &mut err,
+                )
+            },
+        }
+        sizes
     }
 
     /// Iterate over batches of write operations since a given sequence.
