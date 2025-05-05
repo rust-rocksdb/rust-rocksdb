@@ -2223,7 +2223,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     end_key_len_ptr,
                     size_ptr,
                     &mut err,
-                )
+                );
             },
             Some(cf) => unsafe {
                 ffi::rocksdb_approximate_sizes_cf(
@@ -2236,7 +2236,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     end_key_len_ptr,
                     size_ptr,
                     &mut err,
-                )
+                );
             },
         }
         sizes
