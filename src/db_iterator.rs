@@ -17,6 +17,7 @@ use crate::{
     ffi, Error, ReadOptions, WriteBatch,
 };
 use libc::{c_char, c_uchar, size_t};
+use std::mem::ManuallyDrop;
 use std::{marker::PhantomData, slice};
 
 /// A type alias to keep compatibility. See [`DBRawIteratorWithThreadMode`] for details
@@ -84,7 +85,7 @@ pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
     /// And yes, we need to store the entire ReadOptions structure since C++
     /// ReadOptions keep reference to C rocksdb_readoptions_t wrapper which
     /// point to vectors we own.  See issue #660.
-    _readopts: ReadOptions,
+    readopts: ReadOptions,
 
     db: PhantomData<&'a D>,
 }
@@ -104,7 +105,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         Self::from_inner(inner, readopts)
     }
 
-    fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
+    pub(crate) fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
         // This unwrap will never fail since rocksdb_create_iterator and
         // rocksdb_create_iterator_cf functions always return non-null. They
         // use new and deference the result so any nulls would end up with SIGSEGV
@@ -112,9 +113,18 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         let inner = std::ptr::NonNull::new(inner).unwrap();
         Self {
             inner,
-            _readopts: readopts,
+            readopts,
             db: PhantomData,
         }
+    }
+
+    pub(crate) fn into_inner(self) -> (std::ptr::NonNull<ffi::rocksdb_iterator_t>, ReadOptions) {
+        let value = ManuallyDrop::new(self);
+        // SAFETY: value won't be used beyond this point
+        let inner = unsafe { std::ptr::read(&value.inner) };
+        let readopts = unsafe { std::ptr::read(&value.readopts) };
+
+        (inner, readopts)
     }
 
     /// Returns `true` if the iterator is valid. An iterator is invalidated when
