@@ -3979,10 +3979,12 @@ impl ReadOptions {
     }
 
     /// If true, keys deleted using the DeleteRange() API will be visible to
-    /// readers until they are naturally deleted during compaction. This improves
-    /// read performance in DBs with many range deletions.
+    /// readers until they are naturally deleted during compaction.
     ///
     /// Default: false
+    #[deprecated(
+        note = "deprecated in RocksDB 10.2.1: no performance impact if DeleteRange is not used"
+    )]
     pub fn set_ignore_range_deletions(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, c_uchar::from(v));
