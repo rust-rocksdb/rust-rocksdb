@@ -113,8 +113,8 @@ pub use crate::{
     },
     compaction_filter::Decision as CompactionDecision,
     db::{
-        DBAccess, DBCommon, DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode,
-        DB,
+        DBAccess, DBCommon, DBWithThreadMode, LiveFile, MultiThreaded, Range, SingleThreaded,
+        ThreadMode, DB,
     },
     db_iterator::{
         DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
