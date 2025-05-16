@@ -59,37 +59,78 @@ pub struct WriteBatchWithTransaction<const TRANSACTION: bool> {
 /// iterating the operations within a `WriteBatch`
 pub trait WriteBatchIterator {
     /// Called with a key and value that were `put` into the batch.
-    fn put(&mut self, key: Box<[u8]>, value: Box<[u8]>);
+    fn put(&mut self, key: &[u8], value: &[u8]);
     /// Called with a key that was `delete`d from the batch.
-    fn delete(&mut self, key: Box<[u8]>);
+    fn delete(&mut self, key: &[u8]);
 }
 
-unsafe extern "C" fn writebatch_put_callback(
+pub trait WriteBatchIteratorCf {
+    /// Called with a key and value that were `put` into the batch.
+    fn put_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]);
+    fn delete_cf(&mut self, cf_id: u32, key: &[u8]);
+    fn merge_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]);
+}
+
+unsafe extern "C" fn writebatch_put_callback<T: WriteBatchIterator>(
     state: *mut c_void,
     k: *const c_char,
     klen: usize,
     v: *const c_char,
     vlen: usize,
 ) {
-    // coerce the raw pointer back into a box, but "leak" it so we prevent
-    // freeing the resource before we are done with it
-    let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
-    let leaked_cb = Box::leak(boxed_cb);
+    let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
     let value = slice::from_raw_parts(v as *const u8, vlen);
-    leaked_cb.put(
-        key.to_vec().into_boxed_slice(),
-        value.to_vec().into_boxed_slice(),
-    );
+    callbacks.put(key, value);
 }
 
-unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_char, klen: usize) {
-    // coerce the raw pointer back into a box, but "leak" it so we prevent
-    // freeing the resource before we are done with it
-    let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
-    let leaked_cb = Box::leak(boxed_cb);
+unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
+    state: *mut c_void,
+    k: *const c_char,
+    klen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
-    leaked_cb.delete(key.to_vec().into_boxed_slice());
+    callbacks.delete(key);
+}
+
+unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
+    state: *mut c_void,
+    cfid: u32,
+    k: *const c_char,
+    klen: usize,
+    v: *const c_char,
+    vlen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    let value = slice::from_raw_parts(v as *const u8, vlen);
+    callbacks.put_cf(cfid, key, value)
+}
+
+unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
+    state: *mut c_void,
+    cfid: u32,
+    k: *const c_char,
+    klen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    callbacks.delete_cf(cfid, key)
+}
+
+unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
+    state: *mut c_void,
+    cfid: u32,
+    k: *const c_char,
+    klen: usize,
+    v: *const c_char,
+    vlen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    let value = slice::from_raw_parts(v as *const u8, vlen);
+    callbacks.merge_cf(cfid, key, value)
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
@@ -153,18 +194,28 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     /// this does _not_ return an `Iterator` but instead will invoke the `put()`
     /// and `delete()` member functions of the provided `WriteBatchIterator`
     /// trait implementation.
-    pub fn iterate(&self, callbacks: &mut dyn WriteBatchIterator) {
-        let state = Box::into_raw(Box::new(callbacks));
+    pub fn iterate<T: WriteBatchIterator>(&self, callbacks: &mut T) {
+        let state = callbacks as *mut T as *mut c_void;
         unsafe {
             ffi::rocksdb_writebatch_iterate(
                 self.inner,
-                state as *mut c_void,
-                Some(writebatch_put_callback),
-                Some(writebatch_delete_callback),
-            );
-            // we must manually set the raw box free since there is no
-            // associated "destroy" callback for this object
-            drop(Box::from_raw(state));
+                state,
+                Some(writebatch_put_callback::<T>),
+                Some(writebatch_delete_callback::<T>),
+            )
+        }
+    }
+
+    pub fn iterate_cf<T: WriteBatchIteratorCf>(&self, callbacks: &mut T) {
+        let state = callbacks as *mut T as *mut c_void;
+        unsafe {
+            ffi::rocksdb_writebatch_iterate_cf(
+                self.inner,
+                state,
+                Some(writebatch_put_cf_callback::<T>),
+                Some(writebatch_delete_cf_callback::<T>),
+                Some(writebatch_merge_cf_callback::<T>),
+            )
         }
     }
 
