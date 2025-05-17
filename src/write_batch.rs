@@ -105,7 +105,7 @@ unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
     let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
     let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.put_cf(cfid, key, value)
+    callbacks.put_cf(cfid, key, value);
 }
 
 unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
@@ -116,7 +116,7 @@ unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
 ) {
     let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
-    callbacks.delete_cf(cfid, key)
+    callbacks.delete_cf(cfid, key);
 }
 
 unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
@@ -130,7 +130,7 @@ unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
     let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
     let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.merge_cf(cfid, key, value)
+    callbacks.merge_cf(cfid, key, value);
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
@@ -202,7 +202,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
                 state,
                 Some(writebatch_put_callback::<T>),
                 Some(writebatch_delete_callback::<T>),
-            )
+            );
         }
     }
 
@@ -215,7 +215,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
                 Some(writebatch_put_cf_callback::<T>),
                 Some(writebatch_delete_cf_callback::<T>),
                 Some(writebatch_merge_cf_callback::<T>),
-            )
+            );
         }
     }
 
