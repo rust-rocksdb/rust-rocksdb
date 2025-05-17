@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Error, WriteBatch, WriteBatchIterator, DB};
+use rocksdb::{Error, WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, DB};
 use util::DBPath;
 
 #[test]
@@ -37,7 +37,7 @@ fn test_write_batch_with_serialized_data() {
     }
 
     impl WriteBatchIterator for Iterator {
-        fn put(&mut self, key: Box<[u8]>, value: Box<[u8]>) {
+        fn put(&mut self, key: &[u8], value: &[u8]) {
             match self.data.remove(key.as_ref()) {
                 Some(expect) => {
                     assert_eq!(value.as_ref(), expect.as_slice());
@@ -48,7 +48,7 @@ fn test_write_batch_with_serialized_data() {
             }
         }
 
-        fn delete(&mut self, _: Box<[u8]>) {
+        fn delete(&mut self, _: &[u8]) {
             panic!("invalid delete operation");
         }
     }
@@ -67,6 +67,50 @@ fn test_write_batch_with_serialized_data() {
     let b2 = WriteBatch::from_data(data);
     let mut it = Iterator { data: kvs };
     b2.iterate(&mut it);
+}
+
+#[test]
+fn test_write_batch_cf_with_serialized_data() {
+    struct Iterator {
+        data: HashMap<Vec<u8>, (u32, Vec<u8>)>,
+    }
+
+    impl WriteBatchIteratorCf for Iterator {
+        fn put_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]) {
+            match self.data.remove(key.as_ref()) {
+                Some((expect_cf_id, expect)) => {
+                    assert_eq!(cf_id, expect_cf_id);
+                    assert_eq!(value.as_ref(), expect.as_slice());
+                }
+                None => {
+                    panic!("key not exists");
+                }
+            }
+        }
+
+        fn delete_cf(&mut self, _: u32, _: &[u8]) {
+            panic!("invalid delete operation");
+        }
+
+        fn merge_cf(&mut self, _: u32, _: &[u8], _: &[u8]) {
+            panic!("invalid merge operation");
+        }
+    }
+
+    let mut kvs: HashMap<Vec<u8>, (u32, Vec<u8>)> = HashMap::default();
+    kvs.insert(vec![1], (0, vec![2]));
+    kvs.insert(vec![2], (0, vec![3]));
+    kvs.insert(vec![1, 2, 3, 4, 5], (0, vec![4]));
+
+    let mut b1 = WriteBatch::default();
+    for (k, (_cf, val)) in &kvs {
+        b1.put(k, val);
+    }
+
+    let data = b1.data();
+    let b2 = WriteBatch::from_data(data);
+    let mut it = Iterator { data: kvs };
+    b2.iterate_cf(&mut it);
 }
 
 #[test]
