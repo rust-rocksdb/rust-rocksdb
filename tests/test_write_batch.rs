@@ -40,7 +40,7 @@ fn test_write_batch_with_serialized_data() {
         fn put(&mut self, key: &[u8], value: &[u8]) {
             match self.data.remove(key.as_ref()) {
                 Some(expect) => {
-                    assert_eq!(value.as_ref(), expect.as_slice());
+                    assert_eq!(value, expect.as_slice());
                 }
                 None => {
                     panic!("key not exists");
@@ -80,7 +80,7 @@ fn test_write_batch_cf_with_serialized_data() {
             match self.data.remove(key.as_ref()) {
                 Some((expect_cf_id, expect)) => {
                     assert_eq!(cf_id, expect_cf_id);
-                    assert_eq!(value.as_ref(), expect.as_slice());
+                    assert_eq!(value, expect.as_slice());
                 }
                 None => {
                     panic!("key not exists");
