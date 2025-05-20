@@ -43,7 +43,12 @@ pub fn error_message(ptr: *const c_char) -> String {
     }
 }
 
-pub fn opt_bytes_to_ptr<T: AsRef<[u8]>>(opt: Option<T>) -> *const c_char {
+/// Returns a raw pointer to borrowed bytes, or null if None.
+///
+/// # Safety
+/// - The input must outlive the returned pointer.
+/// - Common types: `&str`, `&[u8]`, `&String`, `&Vec<u8>`
+pub fn opt_bytes_to_ptr<T: AsRef<[u8]> + ?Sized>(opt: Option<&T>) -> *const c_char {
     match opt {
         Some(v) => v.as_ref().as_ptr() as *const c_char,
         None => ptr::null(),
