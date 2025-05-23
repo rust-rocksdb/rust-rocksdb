@@ -454,10 +454,10 @@ struct OperationCounts {
 }
 
 impl rocksdb::WriteBatchIterator for OperationCounts {
-    fn put(&mut self, _key: Box<[u8]>, _value: Box<[u8]>) {
+    fn put(&mut self, _key: &[u8], _value: &[u8]) {
         self.puts += 1;
     }
-    fn delete(&mut self, _key: Box<[u8]>) {
+    fn delete(&mut self, _key: &[u8]) {
         self.deletes += 1;
     }
 }
