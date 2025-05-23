@@ -64,10 +64,25 @@ pub trait WriteBatchIterator {
     fn delete(&mut self, key: &[u8]);
 }
 
+/// Receives the puts, deletes, and merges of a write batch with column family
+/// information.
+///
+/// This trait extends write batch iteration to support column family-specific
+/// operations. The application must implement this trait when iterating
+/// operations within a WriteBatch that contains column family-aware writes.
+///
+/// Note that for the default column family "default", the column family ID is 0.
 pub trait WriteBatchIteratorCf {
-    /// Called with a key and value that were `put` into the batch.
+    /// Called with a column family ID, key, and value that were put into
+    /// the specific column family of the batch.
     fn put_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]);
+    /// Called with a column family ID and key that were `delete`d from the
+    /// specific column family of the batch.
     fn delete_cf(&mut self, cf_id: u32, key: &[u8]);
+    /// Called with a column family ID, key, and value that were `merge`d into
+    /// the specific column family of the batch.
+    /// Merge operations combine the provided value with the existing value at
+    /// the key using a database-defined merge operator.
     fn merge_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]);
 }
 
@@ -206,6 +221,14 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Iterate the put, delete, and merge operations within this write batch with column family
+    /// information. Note that this does _not_ return an `Iterator` but instead will invoke the
+    /// `put_cf()`, `delete_cf()`, and `merge_cf()` member functions of the provided
+    /// `WriteBatchIteratorCf` trait implementation.
+    ///
+    /// # Notes
+    /// - For operations on the default column family ("default"), the `cf_id` parameter passed to
+    ///   the callbacks will be 0
     pub fn iterate_cf<T: WriteBatchIteratorCf>(&self, callbacks: &mut T) {
         let state = callbacks as *mut T as *mut c_void;
         unsafe {
