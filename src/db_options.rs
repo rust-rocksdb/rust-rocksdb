@@ -3421,7 +3421,7 @@ impl Options {
         }
     }
 
-    /// Sets the threshold that the GC logic uses to determine which blob files should be considered “old.”
+    /// Sets the threshold that the GC logic uses to determine which blob files should be considered "old."
     ///
     /// For example, the default value of 0.25 signals to RocksDB that blobs residing in the
     /// oldest 25% of blob files should be relocated by GC. This parameter can be tuned to adjust
