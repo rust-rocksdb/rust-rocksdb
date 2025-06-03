@@ -395,7 +395,17 @@ fn update_submodules() {
 }
 
 fn main() {
-    if !Path::new("rocksdb/AUTHORS").exists() {
+    let rocksdb_library = pkg_config::Config::new()
+        .atleast_version("9.0.0")
+        .probe("rocksdb");
+    if let Ok(lib) = rocksdb_library {
+        let include_dir_key = "ROCKSDB_INCLUDE_DIR";
+        let include_dir_value = lib.include_paths[0].clone();
+        let lib_dir_key = "ROCKSDB_LIB_DIR";
+        let lib_dir_value = lib.link_paths[0].clone();
+        env::set_var(include_dir_key, include_dir_value);
+        env::set_var(lib_dir_key, lib_dir_value);
+    } else if !Path::new("rocksdb/AUTHORS").exists() {
         update_submodules();
     }
     bindgen_rocksdb();
