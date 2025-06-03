@@ -27,7 +27,11 @@ pub type Snapshot<'a> = SnapshotWithThreadMode<'a, DB>;
 /// ```
 /// use rocksdb::{DB, IteratorMode, Options};
 ///
-/// let path = "_path_for_rocksdb_storage3";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storage3")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage3");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let snapshot = db.snapshot(); // Creates a longer-term snapshot of the DB, but closed when goes out of scope
@@ -255,7 +259,7 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
     }
 }
 
-impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {
+impl<D: DBAccess> Drop for SnapshotWithThreadMode<'_, D> {
     fn drop(&mut self) {
         unsafe {
             self.db.release_snapshot(self.inner);
@@ -265,5 +269,5 @@ impl<'a, D: DBAccess> Drop for SnapshotWithThreadMode<'a, D> {
 
 /// `Send` and `Sync` implementations for `SnapshotWithThreadMode` are safe, because `SnapshotWithThreadMode` is
 /// immutable and can be safely shared between threads.
-unsafe impl<'a, D: DBAccess> Send for SnapshotWithThreadMode<'a, D> {}
-unsafe impl<'a, D: DBAccess> Sync for SnapshotWithThreadMode<'a, D> {}
+unsafe impl<D: DBAccess> Send for SnapshotWithThreadMode<'_, D> {}
+unsafe impl<D: DBAccess> Sync for SnapshotWithThreadMode<'_, D> {}

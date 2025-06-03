@@ -104,8 +104,8 @@ pub fn test_seek() {
 }
 
 #[test]
-pub fn test_seek_to_nonexistant() {
-    let n = DBPath::new("seek_to_nonexistant");
+pub fn test_seek_to_nonexistent() {
+    let n = DBPath::new("seek_to_nonexistent");
     {
         let db = DB::open_default(&n).unwrap();
         db.put(b"k1", b"v1").unwrap();

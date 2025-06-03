@@ -1,8 +1,8 @@
 [package]
 name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
-version = "0.22.0"
-edition = "2018"
+version = "0.23.0"
+edition = "2021"
 rust-version = "1.71.1"
 authors = [
     "Tyler Neely <t@jujit.su>",
@@ -34,10 +34,11 @@ multi-threaded-cf = []
 serde1 = ["serde"]
 bindgen-runtime = ["librocksdb-sys/bindgen-runtime"]
 bindgen-static = ["librocksdb-sys/bindgen-static"]
+lto = ["librocksdb-sys/lto"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.17.0", default-features = false, features = [
+librocksdb-sys = { path = "librocksdb-sys", version = "0.17.1", default-features = false, features = [
     "static",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }

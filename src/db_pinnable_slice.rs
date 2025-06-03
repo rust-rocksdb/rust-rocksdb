@@ -28,17 +28,17 @@ pub struct DBPinnableSlice<'a> {
     db: PhantomData<&'a DB>,
 }
 
-unsafe impl<'a> Send for DBPinnableSlice<'a> {}
-unsafe impl<'a> Sync for DBPinnableSlice<'a> {}
+unsafe impl Send for DBPinnableSlice<'_> {}
+unsafe impl Sync for DBPinnableSlice<'_> {}
 
-impl<'a> AsRef<[u8]> for DBPinnableSlice<'a> {
+impl AsRef<[u8]> for DBPinnableSlice<'_> {
     fn as_ref(&self) -> &[u8] {
         // Implement this via Deref so as not to repeat ourselves
         self
     }
 }
 
-impl<'a> Deref for DBPinnableSlice<'a> {
+impl Deref for DBPinnableSlice<'_> {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
@@ -50,7 +50,7 @@ impl<'a> Deref for DBPinnableSlice<'a> {
     }
 }
 
-impl<'a> Drop for DBPinnableSlice<'a> {
+impl Drop for DBPinnableSlice<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_pinnableslice_destroy(self.ptr);
@@ -58,7 +58,7 @@ impl<'a> Drop for DBPinnableSlice<'a> {
     }
 }
 
-impl<'a> DBPinnableSlice<'a> {
+impl DBPinnableSlice<'_> {
     /// Used to wrap a PinnableSlice from rocksdb to avoid unnecessary memcpy
     ///
     /// # Unsafe

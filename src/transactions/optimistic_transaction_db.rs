@@ -17,6 +17,7 @@ use std::{collections::BTreeMap, ffi::CString, fs, iter, marker::PhantomData, pa
 
 use libc::{c_char, c_int, size_t};
 
+use crate::column_family::ColumnFamilyTtl;
 use crate::{
     db::{DBCommon, DBInner},
     ffi,
@@ -41,7 +42,11 @@ use crate::{
 ///
 /// ```
 /// use rocksdb::{DB, Options, OptimisticTransactionDB, SingleThreaded};
-/// let path = "_path_for_optimistic_transaction_db";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_optimistic_transaction_db")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_optimistic_transaction_db");
+/// let path = tempdir.path();
 /// {
 ///     let db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(path).unwrap();
 ///     db.put(b"my key", b"my value").unwrap();
@@ -156,6 +161,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
                 cfs_v.push(ColumnFamilyDescriptor {
                     name: String::from(DEFAULT_COLUMN_FAMILY_NAME),
                     options: Options::default(),
+                    ttl: ColumnFamilyTtl::SameAsDb,
                 });
             }
             // We need to store our CStrings in an intermediate vector

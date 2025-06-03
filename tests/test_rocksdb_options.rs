@@ -16,6 +16,7 @@ mod util;
 
 use std::{fs, io::Read as _};
 
+use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{
     BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options,
     ReadOptions, DB,
@@ -281,6 +282,27 @@ fn test_set_avoid_unnecessary_blocking_io() {
 }
 
 #[test]
+fn test_set_track_and_verify_wals_in_manifest() {
+    let path = DBPath::new("_set_track_and_verify_wals_in_manifest");
+
+    // test the defaults and the setter/accessor
+    let mut opts = Options::default();
+    assert!(!opts.get_track_and_verify_wals_in_manifest());
+    opts.set_track_and_verify_wals_in_manifest(true);
+    assert!(opts.get_track_and_verify_wals_in_manifest());
+    opts.set_track_and_verify_wals_in_manifest(false);
+    assert!(!opts.get_track_and_verify_wals_in_manifest());
+
+    // verify that a database created with this option works
+    // TODO: Check that the MANIFEST actually contains WalAddition/WalDeletion records
+    opts.create_if_missing(true);
+    opts.set_track_and_verify_wals_in_manifest(true);
+    let db = DB::open(&opts, &path).unwrap();
+    db.put(b"k1", b"a").expect("put must work");
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"a");
+}
+
+#[test]
 fn test_set_periodic_compaction_seconds() {
     let path = DBPath::new("_set_periodic_compaction_seconds");
     {
@@ -366,4 +388,38 @@ fn test_lru_cache_custom_opts() {
 
     // Cache hit
     assert_eq!(&*db.get(KEY).unwrap().unwrap(), VALUE);
+}
+
+#[test]
+fn test_set_write_dbid_to_manifest() {
+    let path = DBPath::new("_set_write_dbid_to_manifest");
+
+    // test the defaults and the setter/accessor
+    let mut opts = Options::default();
+    assert!(opts.get_write_dbid_to_manifest());
+    opts.set_write_dbid_to_manifest(false);
+    assert!(!opts.get_write_dbid_to_manifest());
+    opts.set_write_dbid_to_manifest(true);
+    assert!(opts.get_write_dbid_to_manifest());
+
+    // verify the DBID is preserved across checkpoints. If set to false this is not true
+    opts.create_if_missing(true);
+    opts.set_write_dbid_to_manifest(true);
+    let db_orig = DB::open(&opts, &path).unwrap();
+    let db_orig_id = db_orig.get_db_identity().unwrap();
+
+    // a checkpoint from this database has the SAME DBID if it is in the manifest
+    let checkpoint_path = DBPath::new("set_write_dbid_checkpoint");
+    let checkpoint = Checkpoint::new(&db_orig).unwrap();
+    checkpoint.create_checkpoint(&checkpoint_path).unwrap();
+
+    let db_checkpoint = DB::open(&opts, &checkpoint_path).unwrap();
+    let db_checkpoint_id = db_checkpoint.get_db_identity().unwrap();
+    assert_eq!(
+        db_orig_id,
+        db_checkpoint_id,
+        "expected database identity to be preserved across checkpoints; db_orig={} db_checkpoint={}",
+        String::from_utf8_lossy(&db_orig_id),
+        String::from_utf8_lossy(&db_checkpoint_id)
+    );
 }

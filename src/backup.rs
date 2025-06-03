@@ -134,7 +134,6 @@ impl BackupEngine {
     ///     return Err(e.to_string());
     ///  }
     /// ```
-
     pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,
         db_dir: D,
@@ -260,6 +259,26 @@ impl BackupEngineOptions {
             );
         }
     }
+
+    /// Sets whether to use fsync(2) to sync file data and metadata to disk after every file write,
+    /// guaranteeing that backups will be consistent after a reboot or if machine crashes. Setting
+    /// it to false will speed things up a bit, but some (newer) backups might be inconsistent. In
+    /// most cases, everything should be fine, though.
+    ///
+    /// Default: true
+    ///
+    /// Documentation: <https://github.com/facebook/rocksdb/wiki/How-to-backup-RocksDB#advanced-usage>
+    pub fn set_sync(&mut self, sync: bool) {
+        unsafe {
+            ffi::rocksdb_backup_engine_options_set_sync(self.inner, c_uchar::from(sync));
+        }
+    }
+
+    /// Returns the value of the `sync` option.
+    pub fn get_sync(&mut self) -> bool {
+        let val_u8 = unsafe { ffi::rocksdb_backup_engine_options_get_sync(self.inner) };
+        val_u8 != 0
+    }
 }
 
 impl RestoreOptions {
@@ -308,5 +327,23 @@ impl Drop for RestoreOptions {
         unsafe {
             ffi::rocksdb_restore_options_destroy(self.inner);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BackupEngineOptions;
+
+    #[test]
+    fn test_sync() {
+        let dir = tempfile::Builder::new()
+            .prefix("rocksdb-test-sync")
+            .tempdir()
+            .expect("Failed to create temporary path for db.");
+
+        let mut opts = BackupEngineOptions::new(dir.path()).unwrap();
+        assert!(opts.get_sync());
+        opts.set_sync(false);
+        assert!(!opts.get_sync());
     }
 }

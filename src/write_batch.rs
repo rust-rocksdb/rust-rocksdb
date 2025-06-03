@@ -28,7 +28,11 @@ pub type WriteBatch = WriteBatchWithTransaction<false>;
 /// ```
 /// use rocksdb::{DB, Options, WriteBatchWithTransaction};
 ///
-/// let path = "_path_for_rocksdb_storage1";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storage1")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storage1");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatchWithTransaction::<false>::default();
@@ -55,40 +59,112 @@ pub struct WriteBatchWithTransaction<const TRANSACTION: bool> {
 /// iterating the operations within a `WriteBatch`
 pub trait WriteBatchIterator {
     /// Called with a key and value that were `put` into the batch.
-    fn put(&mut self, key: Box<[u8]>, value: Box<[u8]>);
+    fn put(&mut self, key: &[u8], value: &[u8]);
     /// Called with a key that was `delete`d from the batch.
-    fn delete(&mut self, key: Box<[u8]>);
+    fn delete(&mut self, key: &[u8]);
 }
 
-unsafe extern "C" fn writebatch_put_callback(
+/// Receives the puts, deletes, and merges of a write batch with column family
+/// information.
+///
+/// This trait extends write batch iteration to support column family-specific
+/// operations. The application must implement this trait when iterating
+/// operations within a WriteBatch that contains column family-aware writes.
+///
+/// Note that for the default column family "default", the column family ID is 0.
+pub trait WriteBatchIteratorCf {
+    /// Called with a column family ID, key, and value that were put into
+    /// the specific column family of the batch.
+    fn put_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]);
+    /// Called with a column family ID and key that were `delete`d from the
+    /// specific column family of the batch.
+    fn delete_cf(&mut self, cf_id: u32, key: &[u8]);
+    /// Called with a column family ID, key, and value that were `merge`d into
+    /// the specific column family of the batch.
+    /// Merge operations combine the provided value with the existing value at
+    /// the key using a database-defined merge operator.
+    fn merge_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]);
+}
+
+unsafe extern "C" fn writebatch_put_callback<T: WriteBatchIterator>(
     state: *mut c_void,
     k: *const c_char,
     klen: usize,
     v: *const c_char,
     vlen: usize,
 ) {
-    // coerce the raw pointer back into a box, but "leak" it so we prevent
-    // freeing the resource before we are done with it
-    let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
-    let leaked_cb = Box::leak(boxed_cb);
+    let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
     let value = slice::from_raw_parts(v as *const u8, vlen);
-    leaked_cb.put(
-        key.to_vec().into_boxed_slice(),
-        value.to_vec().into_boxed_slice(),
-    );
+    callbacks.put(key, value);
 }
 
-unsafe extern "C" fn writebatch_delete_callback(state: *mut c_void, k: *const c_char, klen: usize) {
-    // coerce the raw pointer back into a box, but "leak" it so we prevent
-    // freeing the resource before we are done with it
-    let boxed_cb = Box::from_raw(state as *mut &mut dyn WriteBatchIterator);
-    let leaked_cb = Box::leak(boxed_cb);
+unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
+    state: *mut c_void,
+    k: *const c_char,
+    klen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
     let key = slice::from_raw_parts(k as *const u8, klen);
-    leaked_cb.delete(key.to_vec().into_boxed_slice());
+    callbacks.delete(key);
+}
+
+unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
+    state: *mut c_void,
+    cfid: u32,
+    k: *const c_char,
+    klen: usize,
+    v: *const c_char,
+    vlen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    let value = slice::from_raw_parts(v as *const u8, vlen);
+    callbacks.put_cf(cfid, key, value);
+}
+
+unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
+    state: *mut c_void,
+    cfid: u32,
+    k: *const c_char,
+    klen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    callbacks.delete_cf(cfid, key);
+}
+
+unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
+    state: *mut c_void,
+    cfid: u32,
+    k: *const c_char,
+    klen: usize,
+    v: *const c_char,
+    vlen: usize,
+) {
+    let callbacks = &mut *(state as *mut T);
+    let key = slice::from_raw_parts(k as *const u8, klen);
+    let value = slice::from_raw_parts(v as *const u8, vlen);
+    callbacks.merge_cf(cfid, key, value);
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
+    /// Create a new `WriteBatch` without allocating memory.
+    pub fn new() -> Self {
+        Self {
+            inner: unsafe { ffi::rocksdb_writebatch_create() },
+        }
+    }
+
+    /// Creates `WriteBatch` with the specified `capacity` in bytes. Allocates immediately.
+    pub fn with_capacity_bytes(capacity_bytes: usize) -> Self {
+        Self {
+            // zeroes from default constructor
+            // https://github.com/facebook/rocksdb/blob/0f35db55d86ea8699ea936c9e2a4e34c82458d6b/include/rocksdb/write_batch.h#L66
+            inner: unsafe { ffi::rocksdb_writebatch_create_with_params(capacity_bytes, 0, 0, 0) },
+        }
+    }
+
     /// Construct with a reference to a byte array serialized by [`WriteBatch`].
     pub fn from_data(data: &[u8]) -> Self {
         unsafe {
@@ -133,18 +209,36 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     /// this does _not_ return an `Iterator` but instead will invoke the `put()`
     /// and `delete()` member functions of the provided `WriteBatchIterator`
     /// trait implementation.
-    pub fn iterate(&self, callbacks: &mut dyn WriteBatchIterator) {
-        let state = Box::into_raw(Box::new(callbacks));
+    pub fn iterate<T: WriteBatchIterator>(&self, callbacks: &mut T) {
+        let state = callbacks as *mut T as *mut c_void;
         unsafe {
             ffi::rocksdb_writebatch_iterate(
                 self.inner,
-                state as *mut c_void,
-                Some(writebatch_put_callback),
-                Some(writebatch_delete_callback),
+                state,
+                Some(writebatch_put_callback::<T>),
+                Some(writebatch_delete_callback::<T>),
             );
-            // we must manually set the raw box free since there is no
-            // associated "destroy" callback for this object
-            drop(Box::from_raw(state));
+        }
+    }
+
+    /// Iterate the put, delete, and merge operations within this write batch with column family
+    /// information. Note that this does _not_ return an `Iterator` but instead will invoke the
+    /// `put_cf()`, `delete_cf()`, and `merge_cf()` member functions of the provided
+    /// `WriteBatchIteratorCf` trait implementation.
+    ///
+    /// # Notes
+    /// - For operations on the default column family ("default"), the `cf_id` parameter passed to
+    ///   the callbacks will be 0
+    pub fn iterate_cf<T: WriteBatchIteratorCf>(&self, callbacks: &mut T) {
+        let state = callbacks as *mut T as *mut c_void;
+        unsafe {
+            ffi::rocksdb_writebatch_iterate_cf(
+                self.inner,
+                state,
+                Some(writebatch_put_cf_callback::<T>),
+                Some(writebatch_delete_cf_callback::<T>),
+                Some(writebatch_merge_cf_callback::<T>),
+            );
         }
     }
 
@@ -303,6 +397,28 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    // Append a blob of arbitrary size to the records in this batch. The blob will
+    // be stored in the transaction log but not in any other file. In particular,
+    // it will not be persisted to the SST files. When iterating over this
+    // WriteBatch, WriteBatch::Handler::LogData will be called with the contents
+    // of the blob as it is encountered. Blobs, puts, deletes, and merges will be
+    // encountered in the same order in which they were inserted. The blob will
+    // NOT consume sequence number(s) and will NOT increase the count of the batch
+    //
+    // Example application: add timestamps to the transaction log for use in
+    // replication.
+    pub fn put_log_data<V: AsRef<[u8]>>(&mut self, log_data: V) {
+        let log_data = log_data.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_put_log_data(
+                self.inner,
+                log_data.as_ptr() as *const c_char,
+                log_data.len() as size_t,
+            );
+        }
+    }
+
     /// Clear all updates buffered in this batch.
     pub fn clear(&mut self) {
         unsafe {
@@ -354,9 +470,7 @@ impl WriteBatchWithTransaction<false> {
 
 impl<const TRANSACTION: bool> Default for WriteBatchWithTransaction<TRANSACTION> {
     fn default() -> Self {
-        Self {
-            inner: unsafe { ffi::rocksdb_writebatch_create() },
-        }
+        Self::new()
     }
 }
 

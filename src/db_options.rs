@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
+use crate::column_family::ColumnFamilyTtl;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -298,7 +299,11 @@ pub struct Options {
 /// ```
 /// use rocksdb::{DB, Options, WriteBatch, WriteOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY1";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storageY1")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storageY1");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///     let mut batch = WriteBatch::default();
@@ -331,7 +336,11 @@ pub struct LruCacheOptions {
 /// ```
 /// use rocksdb::{DB, Options, FlushOptions};
 ///
-/// let path = "_path_for_rocksdb_storageY2";
+/// let tempdir = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storageY2")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storageY2");
+/// let path = tempdir.path();
 /// {
 ///     let db = DB::open_default(path).unwrap();
 ///
@@ -380,18 +389,26 @@ pub struct CuckooTableOptions {
 ///
 /// let writer_opts = Options::default();
 /// let mut writer = SstFileWriter::create(&writer_opts);
-/// writer.open("_path_for_sst_file").unwrap();
+/// let tempdir = tempfile::Builder::new()
+///     .tempdir()
+///     .expect("Failed to create temporary folder for the _path_for_sst_file");
+/// let path1 = tempdir.path().join("_path_for_sst_file");
+/// writer.open(path1.clone()).unwrap();
 /// writer.put(b"k1", b"v1").unwrap();
 /// writer.finish().unwrap();
 ///
-/// let path = "_path_for_rocksdb_storageY3";
+/// let tempdir2 = tempfile::Builder::new()
+///     .prefix("_path_for_rocksdb_storageY3")
+///     .tempdir()
+///     .expect("Failed to create temporary path for the _path_for_rocksdb_storageY3");
+/// let path2 = tempdir2.path();
 /// {
-///   let db = DB::open_default(&path).unwrap();
+///   let db = DB::open_default(&path2).unwrap();
 ///   let mut ingest_opts = IngestExternalFileOptions::default();
 ///   ingest_opts.set_move_files(true);
-///   db.ingest_external_file_opts(&ingest_opts, vec!["_path_for_sst_file"]).unwrap();
+///   db.ingest_external_file_opts(&ingest_opts, vec![path1]).unwrap();
 /// }
-/// let _ = DB::destroy(&Options::default(), path);
+/// let _ = DB::destroy(&Options::default(), path2);
 /// ```
 pub struct IngestExternalFileOptions {
     pub(crate) inner: *mut ffi::rocksdb_ingestexternalfileoptions_t,
@@ -906,6 +923,11 @@ pub enum LogLevel {
 impl Options {
     /// Constructs the DBOptions and ColumnFamilyDescriptors by loading the
     /// latest RocksDB options file stored in the specified rocksdb database.
+    ///
+    /// *IMPORTANT*:
+    /// ROCKSDB DOES NOT STORE cf ttl in the options file. If you have set it via
+    /// [`ColumnFamilyDescriptor::new_with_ttl`] then you need to set it again after loading the options file.
+    /// Tll will be set to [`ColumnFamilyTtl::Disabled`] for all column families for your safety.
     pub fn load_latest<P: AsRef<Path>>(
         path: P,
         env: Env,
@@ -963,7 +985,11 @@ impl Options {
                 });
         let column_descriptors = column_family_names_iter
             .zip(column_family_options_iter)
-            .map(|(name, options)| ColumnFamilyDescriptor { name, options })
+            .map(|(name, options)| ColumnFamilyDescriptor {
+                name,
+                options,
+                ttl: ColumnFamilyTtl::Disabled,
+            })
             .collect::<Vec<_>>();
         // free pointers
         slice::from_raw_parts(column_family_names, num_column_families)
@@ -1435,9 +1461,10 @@ impl Options {
     /// UniversalCompactionBuilder::PickPeriodicCompaction().
     /// For backward compatibility, the effective value of this option takes
     /// into account the value of option `ttl`. The logic is as follows:
-    ///    - both options are set to 30 days if they have the default value.
-    ///    - if both options are zero, zero is picked. Otherwise, we take the min
-    ///    value among non-zero options values (i.e. takes the stricter limit).
+    ///
+    /// - both options are set to 30 days if they have the default value.
+    /// - if both options are zero, zero is picked. Otherwise, we take the min
+    ///   value among non-zero options values (i.e. takes the stricter limit).
     ///
     /// One main use of the feature is to make sure a file goes through compaction
     /// filters periodically. Users can also use the feature to clear up SST
@@ -1756,6 +1783,12 @@ impl Options {
         }
     }
 
+    /// Returns the value of the `use_fsync` option.
+    pub fn get_use_fsync(&self) -> bool {
+        let val = unsafe { ffi::rocksdb_options_get_use_fsync(self.inner) };
+        val != 0
+    }
+
     /// Specifies the absolute info LOG dir.
     ///
     /// If it is empty, the log files will be in the same dir as data.
@@ -1949,7 +1982,7 @@ impl Options {
         }
     }
 
-    /// Enable/dsiable child process inherit open files.
+    /// Enable/disable child process inherit open files.
     ///
     /// Default: true
     pub fn set_is_fd_close_on_exec(&mut self, enabled: bool) {
@@ -1965,8 +1998,8 @@ impl Options {
     /// The exact behavior of this parameter is platform dependent.
     ///
     /// On POSIX systems, after RocksDB reads data from disk it will
-    /// mark the pages as "unneeded". The operating system may - or may not
-    /// - evict these pages from memory, reducing pressure on the system
+    /// mark the pages as "unneeded". The operating system may or may not
+    /// evict these pages from memory, reducing pressure on the system
     /// cache. If the disk block is requested again this can result in
     /// additional disk I/O.
     ///
@@ -2023,7 +2056,7 @@ impl Options {
         }
     }
 
-    /// Sets the minimum number of write buffers that will be merged together
+    /// Sets the minimum number of write buffers that will be merged
     /// before writing to storage.  If set to `1`, then
     /// all write buffers are flushed to L0 as individual files and this increases
     /// read amplification because a get request has to check in all of these
@@ -2260,8 +2293,31 @@ impl Options {
         }
     }
 
+    /// Sets the compaction priority. When multiple files are picked for compaction from a level,
+    /// this option determines which files to pick first.
+    ///
+    /// Default: `CompactionPri::ByCompensatedSize`
+    ///
+    /// Dynamically changeable through SetOptions() API
+    ///
+    /// See [rocksdb post](https://github.com/facebook/rocksdb/blob/f20d12adc85ece3e75fb238872959c702c0e5535/docs/_posts/2016-01-29-compaction_pri.markdown) for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, CompactionPri};
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_compaction_pri(CompactionPri::MinOverlappingRatio);
+    /// ```
+    pub fn set_compaction_pri(&mut self, pri: CompactionPri) {
+        unsafe {
+            ffi::rocksdb_options_set_compaction_pri(self.inner, pri as i32);
+        }
+    }
+
     /// Sets the soft limit on number of level-0 files. We start slowing down writes at this
-    /// point. A value < `0` means that no writing slow down will be triggered by
+    /// point. A value < `0` means that no writing slowdown will be triggered by
     /// number of files in level-0.
     ///
     /// Default: `20`
@@ -2346,7 +2402,7 @@ impl Options {
     ///
     /// By default, i.e., when it is false, rocksdb does not advance the sequence
     /// number for new snapshots unless all the writes with lower sequence numbers
-    /// are already finished. This provides the immutability that we except from
+    /// are already finished. This provides the immutability that we expect from
     /// snapshots. Moreover, since Iterator and MultiGet internally depend on
     /// snapshots, the snapshot immutability results into Iterator and MultiGet
     /// offering consistent-point-in-time view. If set to true, although
@@ -3416,9 +3472,11 @@ impl Options {
     /// to be able to ingest behind (call IngestExternalFile() skipping keys
     /// that already exist, rather than overwriting matching keys).
     /// Setting this option to true has the following effects:
-    /// 1) Disable some internal optimizations around SST file compression.
-    /// 2) Reserve the last level for ingested files only.
-    /// 3) Compaction will not include any file from the last level.
+    ///
+    /// 1. Disable some internal optimizations around SST file compression.
+    /// 2. Reserve the last level for ingested files only.
+    /// 3. Compaction will not include any file from the last level.
+    ///
     /// Note that only Universal Compaction supports allow_ingest_behind.
     /// `num_levels` should be >= 3 if this option is turned on.
     ///
@@ -3484,6 +3542,61 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_avoid_unnecessary_blocking_io(self.inner, u8::from(val));
         }
+    }
+
+    /// If true, the log numbers and sizes of the synced WALs are tracked
+    /// in MANIFEST. During DB recovery, if a synced WAL is missing
+    /// from disk, or the WAL's size does not match the recorded size in
+    /// MANIFEST, an error will be reported and the recovery will be aborted.
+    ///
+    /// This is one additional protection against WAL corruption besides the
+    /// per-WAL-entry checksum.
+    ///
+    /// Note that this option does not work with secondary instance.
+    /// Currently, only syncing closed WALs are tracked. Calling `DB::SyncWAL()`,
+    /// etc. or writing with `WriteOptions::sync=true` to sync the live WAL is not
+    /// tracked for performance/efficiency reasons.
+    ///
+    /// See: <https://github.com/facebook/rocksdb/wiki/Track-WAL-in-MANIFEST>
+    ///
+    /// Default: false (disabled)
+    pub fn set_track_and_verify_wals_in_manifest(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_track_and_verify_wals_in_manifest(self.inner, u8::from(val));
+        }
+    }
+
+    /// Returns the value of the `track_and_verify_wals_in_manifest` option.
+    pub fn get_track_and_verify_wals_in_manifest(&self) -> bool {
+        let val_u8 =
+            unsafe { ffi::rocksdb_options_get_track_and_verify_wals_in_manifest(self.inner) };
+        val_u8 != 0
+    }
+
+    /// The DB unique ID can be saved in the DB manifest (preferred, this option)
+    /// or an IDENTITY file (historical, deprecated), or both. If this option is
+    /// set to false (old behavior), then `write_identity_file` must be set to true.
+    /// The manifest is preferred because
+    ///
+    /// 1. The IDENTITY file is not checksummed, so it is not as safe against
+    ///    corruption.
+    /// 2. The IDENTITY file may or may not be copied with the DB (e.g. not
+    ///    copied by BackupEngine), so is not reliable for the provenance of a DB.
+    ///
+    /// This option might eventually be obsolete and removed as Identity files
+    /// are phased out.
+    ///
+    /// Default: true (enabled)
+    pub fn set_write_dbid_to_manifest(&mut self, val: bool) {
+        unsafe {
+            ffi::rocksdb_options_set_write_dbid_to_manifest(self.inner, u8::from(val));
+        }
+    }
+
+    /// Returns the value of the `write_dbid_to_manifest` option.
+    pub fn get_write_dbid_to_manifest(&self) -> bool {
+        let val_u8 = unsafe { ffi::rocksdb_options_get_write_dbid_to_manifest(self.inner) };
+        val_u8 != 0
     }
 }
 
@@ -3677,6 +3790,27 @@ pub enum ReadTier {
     Memtable,
 }
 
+#[repr(i32)]
+pub enum CompactionPri {
+    /// Slightly prioritize larger files by size compensated by #deletes
+    ByCompensatedSize = 0,
+    /// First compact files whose data's latest update time is oldest.
+    /// Try this if you only update some hot keys in small ranges.
+    OldestLargestSeqFirst = 1,
+    /// First compact files whose range hasn't been compacted to the next level
+    /// for the longest. If your updates are random across the key space,
+    /// write amplification is slightly better with this option.
+    OldestSmallestSeqFirst = 2,
+    /// First compact files whose ratio between overlapping size in next level
+    /// and its size is the smallest. It in many cases can optimize write amplification.
+    MinOverlappingRatio = 3,
+    /// Keeps a cursor(s) of the successor of the file (key range) was/were
+    /// compacted before, and always picks the next files (key range) in that
+    /// level. The file picking process will cycle through all the files in a
+    /// round-robin manner.
+    RoundRobin = 4,
+}
+
 impl ReadOptions {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
@@ -3845,10 +3979,12 @@ impl ReadOptions {
     }
 
     /// If true, keys deleted using the DeleteRange() API will be visible to
-    /// readers until they are naturally deleted during compaction. This improves
-    /// read performance in DBs with many range deletions.
+    /// readers until they are naturally deleted during compaction.
     ///
     /// Default: false
+    #[deprecated(
+        note = "deprecated in RocksDB 10.2.1: no performance impact if DeleteRange is not used"
+    )]
     pub fn set_ignore_range_deletions(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_ignore_range_deletions(self.inner, c_uchar::from(v));
@@ -4520,7 +4656,7 @@ impl Drop for DBPath {
 #[cfg(test)]
 mod tests {
     use crate::db_options::WriteBufferManager;
-    use crate::{Cache, MemtableFactory, Options};
+    use crate::{Cache, CompactionPri, MemtableFactory, Options};
 
     #[test]
     fn test_enable_statistics() {
@@ -4543,6 +4679,14 @@ mod tests {
             height: 4,
             branching_factor: 4,
         });
+    }
+
+    #[test]
+    fn test_use_fsync() {
+        let mut opts = Options::default();
+        assert!(!opts.get_use_fsync());
+        opts.set_use_fsync(true);
+        assert!(opts.get_use_fsync());
     }
 
     #[test]
@@ -4571,5 +4715,30 @@ mod tests {
 
         // WriteBufferManager outlives options
         assert!(write_buffer_manager.enabled());
+    }
+
+    #[test]
+    fn compaction_pri() {
+        let mut opts = Options::default();
+        opts.set_compaction_pri(CompactionPri::RoundRobin);
+        opts.create_if_missing(true);
+        let tmp = tempfile::tempdir().unwrap();
+        let _db = crate::DB::open(&opts, tmp.path()).unwrap();
+
+        let options = std::fs::read_dir(tmp.path())
+            .unwrap()
+            .find_map(|x| {
+                let x = x.ok()?;
+                x.file_name()
+                    .into_string()
+                    .unwrap()
+                    .contains("OPTIONS")
+                    .then_some(x.path())
+            })
+            .map(std::fs::read_to_string)
+            .unwrap()
+            .unwrap();
+
+        assert!(options.contains("compaction_pri=kRoundRobin"));
     }
 }

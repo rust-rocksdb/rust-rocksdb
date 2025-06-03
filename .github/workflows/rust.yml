@@ -3,6 +3,7 @@ name: RocksDB CI
 on: [push, pull_request]
 env:
   RUST_VERSION: 1.71.1
+  CARGO_TERM_COLOR: always
 
 jobs:
   fmt:
@@ -30,9 +31,26 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rust-docs
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Run cargo rustdoc
         run: cargo rustdoc -- -D warnings
-
+  doctest: # doctest are no supported in cargo nextest yet. https://github.com/nextest-rs/nextest/issues/16
+    name: Doctests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Run doctests
+        run: cargo test --doc
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
@@ -44,8 +62,11 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y liburing-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y liburing-dev pkg-config libjemalloc-dev
       - name: Set PKG_CONFIG_PATH
         run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
       - name: Run clippy
@@ -67,7 +88,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.76.0
+          toolchain: stable
       - uses: actions-rust-lang/audit@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -93,18 +114,46 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - uses: taiki-e/install-action@nextest
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
       - name: Install dependencies
         if: runner.os == 'Windows'
         run: choco install llvm -y
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libjemalloc-dev
+      - name: Mark working directory as read-only
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p target
+          touch Cargo.lock
+          git submodule update --init --recursive
+          chmod -R a-w .
+          chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests
         run: |
-          cargo test --all
-          cargo test --all --features multi-threaded-cf
+          cargo nextest run --all
+          cargo nextest run --all --features multi-threaded-cf
+      - name: Mark working directory as writable
+        if: runner.os == 'Linux'
+        run: chmod -R a+w .
       - name: Free disk space
         run: cargo clean
+      - name: Mark working directory as read-only
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p target
+          touch Cargo.lock
+          chmod -R a-w .
+          chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests (jemalloc)
         if: runner.os != 'Windows'
-        run: cargo test --all --features jemalloc
+        run: cargo nextest run --all --features jemalloc
+      - name: Mark working directory as writable
+        if: runner.os == 'Linux'
+        run: chmod -R a+w .
