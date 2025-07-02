@@ -166,6 +166,12 @@ options/options_helper.cc
 options/options_parser.cc
 port/mmap.cc
 port/port_posix.cc
+port/win/env_default.cc
+port/win/env_win.cc
+port/win/io_win.cc
+port/win/port_win.cc
+port/win/win_logger.cc
+port/win/win_thread.cc
 port/stack_trace.cc
 table/adaptive/adaptive_table_factory.cc
 table/block_based/binary_search_index_reader.cc
@@ -197,6 +203,7 @@ table/block_fetcher.cc
 table/cuckoo/cuckoo_table_builder.cc
 table/cuckoo/cuckoo_table_factory.cc
 table/cuckoo/cuckoo_table_reader.cc
+table/external_table.cc
 table/format.cc
 table/get_context.cc
 table/iterator.cc
@@ -296,6 +303,8 @@ utilities/persistent_cache/block_cache_tier_file.cc
 utilities/persistent_cache/block_cache_tier_metadata.cc
 utilities/persistent_cache/persistent_cache_tier.cc
 utilities/persistent_cache/volatile_tier_impl.cc
+utilities/secondary_index/secondary_index_iterator.cc
+utilities/secondary_index/simple_secondary_index.cc
 utilities/simulator_cache/cache_simulator.cc
 utilities/simulator_cache/sim_cache.cc
 utilities/table_properties_collectors/compact_for_tiering_collector.cc
