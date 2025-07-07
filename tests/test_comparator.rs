@@ -54,9 +54,7 @@ fn test_comparator() {
     let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
     let x = 0;
     let local_compare_reverse = move |one: &[u8], two: &[u8]| {
-        println!(
-            "Use the x value from the closure scope to do something smart: {x:?}"
-        );
+        println!("Use the x value from the closure scope to do something smart: {x:?}");
         match one.cmp(two) {
             Ordering::Less => Ordering::Greater,
             Ordering::Equal => Ordering::Equal,
@@ -71,9 +69,7 @@ fn test_comparator() {
     println!("Keys in normal sort order, closure: {res_closure:?}");
     assert_eq!(res_closure, old_res);
     let res_closure_reverse = write_to_db_with_comparator(Box::new(local_compare_reverse));
-    println!(
-        "Keys in reverse sort order, closure: {res_closure_reverse:?}"
-    );
+    println!("Keys in reverse sort order, closure: {res_closure_reverse:?}");
     assert_eq!(vec!["b-key", "a-key"], res_closure_reverse);
 }
 
