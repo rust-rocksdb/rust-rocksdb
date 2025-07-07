@@ -2732,7 +2732,7 @@ impl Options {
             MemtableFactory::HashLinkList { bucket_count } => unsafe {
                 ffi::rocksdb_options_set_hash_link_list_rep(self.inner, bucket_count);
             },
-        };
+        }
     }
 
     pub fn set_block_based_table_factory(&mut self, factory: &BlockBasedOptions) {

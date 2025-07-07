@@ -229,7 +229,7 @@ fn counting_merge_test() {
         Ok(Some(value)) => ValueCounts::from_slice(&value)
             .map_or_else(|| panic!("unable to create ValueCounts from bytes"), |v| v),
         Ok(None) => panic!("value not present"),
-        Err(e) => panic!("error reading value {:?}", e),
+        Err(e) => panic!("error reading value {e:?}"),
     };
 
     let counts = value_getter(b"k2");
@@ -265,13 +265,12 @@ fn failed_merge_test() {
     db.put(b"key", b"value").expect("put_ok");
     let res = db.merge(b"key", b"new value");
     match res.and_then(|_e| db.get(b"key")) {
-        Ok(val) => panic!("expected merge failure to propagate, got: {:?}", val),
+        Ok(val) => panic!("expected merge failure to propagate, got: {val:?}"),
         Err(e) => {
             let msg = e.into_string();
             assert!(
                 msg.contains("Merge operator failed"),
-                "unexpected merge error message: {}",
-                msg
+                "unexpected merge error message: {msg}"
             );
         }
     }
