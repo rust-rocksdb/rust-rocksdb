@@ -388,9 +388,9 @@ fn update_submodules() {
 
     match ret.map(|status| (status.success(), status.code())) {
         Ok((true, _)) => (),
-        Ok((false, Some(c))) => panic!("Command failed with error code {}", c),
+        Ok((false, Some(c))) => panic!("Command failed with error code {c}"),
         Ok((false, None)) => panic!("Command got killed"),
-        Err(e) => panic!("Command failed with error: {}", e),
+        Err(e) => panic!("Command failed with error: {e}"),
     }
 }
 
@@ -410,7 +410,7 @@ fn main() {
                 Some(_) => "static",
                 None => "dylib",
             };
-            println!("cargo:rustc-link-lib={}=rocksdb", mode);
+            println!("cargo:rustc-link-lib={mode}=rocksdb");
 
             return;
         }

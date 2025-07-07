@@ -1699,8 +1699,8 @@ fn test_get_approximate_sizes_cf() {
 
         // Insert some data
         for i in 0..1000 {
-            let key = format!("key_{:04}", i);
-            let value = format!("value_{:04}", i);
+            let key = format!("key_{i:04}");
+            let value = format!("value_{i:04}");
             db.put_cf(&cf, key.as_bytes(), value.as_bytes()).unwrap();
         }
 

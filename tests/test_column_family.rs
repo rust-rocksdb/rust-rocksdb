@@ -61,7 +61,7 @@ fn test_column_family() {
         match db.create_cf("cf1", &opts) {
             Ok(()) => println!("cf1 created successfully"),
             Err(e) => {
-                panic!("could not create column family: {}", e);
+                panic!("could not create column family: {e}");
             }
         }
     }
@@ -86,7 +86,7 @@ fn test_column_family() {
         opts.set_merge_operator_associative("test operator", test_provided_merge);
         match DB::open_cf(&opts, &n, ["cf1"]) {
             Ok(_db) => println!("successfully opened db with column family"),
-            Err(e) => panic!("failed to open db with column family: {}", e),
+            Err(e) => panic!("failed to open db with column family: {e}"),
         }
     }
 
@@ -96,7 +96,7 @@ fn test_column_family() {
         let vec = DB::list_cf(&opts, &n);
         match vec {
             Ok(vec) => assert_eq!(vec, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf1"]),
-            Err(e) => panic!("failed to drop column family: {}", e),
+            Err(e) => panic!("failed to drop column family: {e}"),
         }
     }
 
@@ -113,7 +113,7 @@ fn test_column_family() {
 
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
-            Err(e) => panic!("failed to drop column family: {}", e),
+            Err(e) => panic!("failed to drop column family: {e}"),
         }
     }
 }
@@ -135,7 +135,7 @@ fn test_column_family_with_transactiondb() {
         match db.create_cf("cf1", &opts) {
             Ok(()) => println!("cf1 created successfully"),
             Err(e) => {
-                panic!("could not create column family: {}", e);
+                panic!("could not create column family: {e}");
             }
         }
     }
@@ -179,7 +179,7 @@ fn test_column_family_with_transactiondb() {
         );
         match db {
             Ok(_db) => println!("successfully opened db with column family"),
-            Err(e) => panic!("failed to open db with column family: {}", e),
+            Err(e) => panic!("failed to open db with column family: {e}"),
         }
     }
 
@@ -189,7 +189,7 @@ fn test_column_family_with_transactiondb() {
         let vec = DB::list_cf(&opts, &n);
         match vec {
             Ok(vec) => assert_eq!(vec, vec![DEFAULT_COLUMN_FAMILY_NAME, "cf1"]),
-            Err(e) => panic!("failed to drop column family: {}", e),
+            Err(e) => panic!("failed to drop column family: {e}"),
         }
     }
 
@@ -215,7 +215,7 @@ fn test_column_family_with_transactiondb() {
         .unwrap();
         match db.drop_cf("cf1") {
             Ok(_) => println!("cf1 successfully dropped."),
-            Err(e) => panic!("failed to drop column family: {}", e),
+            Err(e) => panic!("failed to drop column family: {e}"),
         }
     }
     // should not be able to open cf after dropping.
@@ -279,7 +279,7 @@ fn test_create_missing_column_family() {
 
         match DB::open_cf(&opts, &n, ["cf1"]) {
             Ok(_db) => println!("successfully created new column family"),
-            Err(e) => panic!("failed to create new column family: {}", e),
+            Err(e) => panic!("failed to create new column family: {e}"),
         }
     }
 }
@@ -304,7 +304,7 @@ fn test_open_column_family_with_opts() {
         let cfs = vec![("cf1", cf1_opts), ("cf2", cf2_opts)];
         match DB::open_cf_with_opts(&opts, &n, cfs) {
             Ok(_db) => println!("successfully opened column family with the specified options"),
-            Err(e) => panic!("failed to open cf with options: {}", e),
+            Err(e) => panic!("failed to open cf with options: {e}"),
         }
     }
 }
@@ -322,7 +322,7 @@ fn test_merge_operator() {
                 println!("successfully opened db with column family");
                 db
             }
-            Err(e) => panic!("failed to open db with column family: {}", e),
+            Err(e) => panic!("failed to open db with column family: {e}"),
         };
         let cf1 = db.cf_handle("cf1").unwrap();
         assert!(db.put_cf(&cf1, b"k1", b"v1").is_ok());
@@ -388,10 +388,7 @@ fn test_column_family_with_options() {
         match DB::open_cf_descriptors(&opts, &n, cfs) {
             Ok(_db) => println!("created db with column family descriptors successfully"),
             Err(e) => {
-                panic!(
-                    "could not create new database with column family descriptors: {}",
-                    e
-                );
+                panic!("could not create new database with column family descriptors: {e}");
             }
         }
     }
@@ -407,10 +404,7 @@ fn test_column_family_with_options() {
         match DB::open_cf_descriptors(&opts, &n, cfs) {
             Ok(_db) => println!("successfully re-opened database with column family descriptors"),
             Err(e) => {
-                panic!(
-                    "unable to re-open database with column family descriptors: {}",
-                    e
-                );
+                panic!("unable to re-open database with column family descriptors: {e}");
             }
         }
     }

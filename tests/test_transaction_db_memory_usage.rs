@@ -48,13 +48,13 @@ fn test_transaction_db_memory_usage() {
         let memory_usage = builder.build().unwrap();
 
         for i in 1..=1000 {
-            let key = format!("key{}", i);
-            let value = format!("value{}", i);
+            let key = format!("key{i}");
+            let value = format!("value{i}");
             db.put(&key, &value).unwrap();
         }
 
         for i in 1..=1000 {
-            let key = format!("key{}", i);
+            let key = format!("key{i}");
             let result = db.get(&key).unwrap().unwrap();
             let result_str = String::from_utf8(result).unwrap();
             assert_eq!(result_str, format!("value{}", i));
