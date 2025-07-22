@@ -160,7 +160,7 @@ impl PropertyName {
     #[inline]
     unsafe fn from_vec_with_nul_unchecked(inner: Vec<u8>) -> Self {
         // SAFETY: Caller promises inner is nul-terminated and valid UTF-8.
-        Self(CString::from_vec_with_nul_unchecked(inner))
+        Self(unsafe { CString::from_vec_with_nul_unchecked(inner) })
     }
 
     /// Converts the value into a C string.
@@ -296,7 +296,7 @@ pub(crate) unsafe fn level_property(name: &str, level: usize) -> PropertyName {
     let bytes = format!("rocksdb.{name}{level}\0").into_bytes();
     // SAFETY: We’re appending terminating nul and caller promises `name` has no
     // interior nul bytes.
-    PropertyName::from_vec_with_nul_unchecked(bytes)
+    unsafe { PropertyName::from_vec_with_nul_unchecked(bytes) }
 }
 
 #[test]
