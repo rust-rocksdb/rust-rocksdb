@@ -2630,6 +2630,7 @@ impl Options {
     /// not checked at all.
     ///
     /// Default: false
+    #[deprecated(note = "RocksDB >= 10.5: option is ignored: checking done with a thread pool")]
     pub fn set_skip_checking_sst_file_sizes_on_db_open(&mut self, value: bool) {
         unsafe {
             ffi::rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
