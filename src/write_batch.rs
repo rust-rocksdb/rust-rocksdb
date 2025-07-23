@@ -93,10 +93,12 @@ unsafe extern "C" fn writebatch_put_callback<T: WriteBatchIterator>(
     v: *const c_char,
     vlen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.put(key, value);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k as *const u8, klen);
+        let value = slice::from_raw_parts(v as *const u8, vlen);
+        callbacks.put(key, value);
+    }
 }
 
 unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
@@ -104,9 +106,11 @@ unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
     k: *const c_char,
     klen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    callbacks.delete(key);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k as *const u8, klen);
+        callbacks.delete(key);
+    }
 }
 
 unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
@@ -117,10 +121,12 @@ unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
     v: *const c_char,
     vlen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.put_cf(cfid, key, value);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k as *const u8, klen);
+        let value = slice::from_raw_parts(v as *const u8, vlen);
+        callbacks.put_cf(cfid, key, value);
+    }
 }
 
 unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
@@ -129,9 +135,11 @@ unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
     k: *const c_char,
     klen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    callbacks.delete_cf(cfid, key);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k as *const u8, klen);
+        callbacks.delete_cf(cfid, key);
+    }
 }
 
 unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
@@ -142,10 +150,12 @@ unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
     v: *const c_char,
     vlen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.merge_cf(cfid, key, value);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k as *const u8, klen);
+        let value = slice::from_raw_parts(v as *const u8, vlen);
+        callbacks.merge_cf(cfid, key, value);
+    }
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
