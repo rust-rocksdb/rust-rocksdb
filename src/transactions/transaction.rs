@@ -116,7 +116,7 @@ impl<'db, DB> DBAccess for Transaction<'db, DB> {
     }
 }
 
-impl<DB> Transaction<'_, DB> {
+impl<'db, DB> Transaction<'db, DB> {
     /// Write all batched keys to the DB atomically.
     ///
     /// May return any error that could be returned by `DB::write`.
