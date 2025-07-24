@@ -35,7 +35,7 @@ pub struct Transaction<'db, DB> {
 
 unsafe impl<DB> Send for Transaction<'_, DB> {}
 
-impl<DB> DBAccess for Transaction<'_, DB> {
+impl<'db, DB> DBAccess for Transaction<'db, DB> {
     unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         ffi::rocksdb_transaction_get_snapshot(self.inner)
     }
