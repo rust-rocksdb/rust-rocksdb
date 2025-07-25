@@ -247,6 +247,29 @@ fn build_rocksdb() {
 
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
+    let test_code = r#"
+        #define _GNU_SOURCE
+        #include <sched.h>
+        int main() {
+            int cpuid = sched_getcpu();
+            (void)cpuid;
+        }
+    "#;
+    let out_file = PathBuf::from(env::var("OUT_DIR").unwrap()).join("test.c");
+    fs::write(&out_file, test_code).unwrap();
+    if cc::Build::new()
+        .file(&out_file)
+        .try_compile("test_sched_getcpu")
+        .is_ok() 
+    {
+        config.define("ROCKSDB_SCHED_GETCPU_PRESENT", None);
+    }
+    fs::remove_file(&out_file).ok();
+
+    if cfg!(feature = "jemalloc") {
+        config.define("WITH_JEMALLOC", "ON");
+    }
+
     if cfg!(feature = "jemalloc") && NO_JEMALLOC_TARGETS.iter().all(|i| !target.contains(i)) {
         config.define("ROCKSDB_JEMALLOC", Some("1"));
         config.define("JEMALLOC_NO_DEMANGLE", Some("1"));
