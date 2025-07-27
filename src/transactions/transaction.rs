@@ -227,7 +227,10 @@ impl<'db, DB> Transaction<'db, DB> {
         self.get_opt(key, &ReadOptions::default())
     }
 
-    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice<'db>>, Error> {
+    pub fn get_pinned<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_opt(key, &ReadOptions::default())
     }
 
