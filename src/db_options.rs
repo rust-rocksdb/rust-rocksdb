@@ -825,6 +825,80 @@ impl BlockBasedOptions {
             );
         }
     }
+
+    /// Set the top-level index pinning tier.
+    ///
+    /// Controls when top-level index blocks are pinned in block cache memory.
+    /// This affects memory usage and lookup performance for large databases with
+    /// multiple levels.
+    ///
+    /// Default: `BlockBasedTablePinningTier::Fallback`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, BlockBasedTablePinningTier};
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_top_level_index_pinning_tier(BlockBasedTablePinningTier::FlushAndSimilar);
+    /// ```
+    pub fn set_top_level_index_pinning_tier(&mut self, pinning_tier: BlockBasedTablePinningTier) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_top_level_index_pinning_tier(
+                self.inner,
+                pinning_tier as c_int,
+            );
+        }
+    }
+
+    /// Set the partition pinning tier.
+    ///
+    /// Controls when partition blocks (used in partitioned indexes and filters)
+    /// are pinned in block cache memory. This affects performance for databases
+    /// using partitioned metadata.
+    ///
+    /// Default: `BlockBasedTablePinningTier::Fallback`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, BlockBasedTablePinningTier};
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_partition_pinning_tier(BlockBasedTablePinningTier::All);
+    /// ```
+    pub fn set_partition_pinning_tier(&mut self, pinning_tier: BlockBasedTablePinningTier) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_partition_pinning_tier(
+                self.inner,
+                pinning_tier as c_int,
+            );
+        }
+    }
+
+    /// Set the unpartitioned pinning tier.
+    ///
+    /// Controls when unpartitioned metadata blocks (index and filter blocks that
+    /// are not partitioned) are pinned in block cache memory.
+    ///
+    /// Default: `BlockBasedTablePinningTier::Fallback`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{BlockBasedOptions, BlockBasedTablePinningTier};
+    ///
+    /// let mut opts = BlockBasedOptions::default();
+    /// opts.set_unpartitioned_pinning_tier(BlockBasedTablePinningTier::None);
+    /// ```
+    pub fn set_unpartitioned_pinning_tier(&mut self, pinning_tier: BlockBasedTablePinningTier) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_unpartitioned_pinning_tier(
+                self.inner,
+                pinning_tier as c_int,
+            );
+        }
+    }
 }
 
 impl Default for BlockBasedOptions {
@@ -4230,6 +4304,20 @@ pub enum DataBlockIndexType {
     /// compatible with databases created without this feature. Once turned on, existing data will
     /// be gradually converted to the hash index format.
     BinaryAndHash = 1,
+}
+
+/// Used by BlockBasedOptions for setting metadata cache pinning tiers.
+/// Controls how metadata blocks (index, filter, etc.) are pinned in block cache.
+#[repr(C)]
+pub enum BlockBasedTablePinningTier {
+    /// Use fallback pinning tier (context-dependent)
+    Fallback = ffi::rocksdb_block_based_k_fallback_pinning_tier as isize,
+    /// No pinning - blocks can be evicted at any time
+    None = ffi::rocksdb_block_based_k_none_pinning_tier as isize,
+    /// Pin blocks for flushed files and similar scenarios
+    FlushAndSimilar = ffi::rocksdb_block_based_k_flush_and_similar_pinning_tier as isize,
+    /// Pin all blocks (highest priority)
+    All = ffi::rocksdb_block_based_k_all_pinning_tier as isize,
 }
 
 /// Defines the underlying memtable implementation.
