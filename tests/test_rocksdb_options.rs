@@ -18,8 +18,8 @@ use std::{fs, io::Read as _};
 
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{
-    BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options,
-    ReadOptions, DB,
+    BlockBasedOptions, BlockBasedTablePinningTier, Cache, DBCompressionType, DataBlockIndexType,
+    Env, LruCacheOptions, Options, ReadOptions, DB,
 };
 use util::DBPath;
 
@@ -422,4 +422,36 @@ fn test_set_write_dbid_to_manifest() {
         String::from_utf8_lossy(&db_orig_id),
         String::from_utf8_lossy(&db_checkpoint_id)
     );
+}
+
+#[test]
+fn test_block_based_table_pinning_tier() {
+    let path = DBPath::new("_block_based_table_pinning_tier");
+
+    // Test that we can create all enum variants
+    let _fallback = BlockBasedTablePinningTier::Fallback;
+    let _none = BlockBasedTablePinningTier::None;
+    let _flush_and_similar = BlockBasedTablePinningTier::FlushAndSimilar;
+    let _all = BlockBasedTablePinningTier::All;
+
+    // Test that enum values match expected C constants
+    assert_eq!(BlockBasedTablePinningTier::Fallback as i32, 0);
+    assert_eq!(BlockBasedTablePinningTier::None as i32, 1);
+    assert_eq!(BlockBasedTablePinningTier::FlushAndSimilar as i32, 2);
+    assert_eq!(BlockBasedTablePinningTier::All as i32, 3);
+
+    // Test that we can use the setter methods with BlockBasedOptions
+    let mut block_opts = BlockBasedOptions::default();
+    block_opts.set_top_level_index_pinning_tier(BlockBasedTablePinningTier::FlushAndSimilar);
+    block_opts.set_partition_pinning_tier(BlockBasedTablePinningTier::All);
+    block_opts.set_unpartitioned_pinning_tier(BlockBasedTablePinningTier::None);
+
+    // Test that we can create a database with these options
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.set_block_based_table_factory(&block_opts);
+
+    let db = DB::open(&opts, &path).unwrap();
+    db.put(b"test_key", b"test_value").unwrap();
+    assert_eq!(&*db.get(b"test_key").unwrap().unwrap(), b"test_value");
 }
