@@ -266,10 +266,6 @@ fn build_rocksdb() {
     }
     fs::remove_file(&out_file).ok();
 
-    if cfg!(feature = "jemalloc") {
-        config.define("WITH_JEMALLOC", "ON");
-    }
-
     if cfg!(feature = "jemalloc") && NO_JEMALLOC_TARGETS.iter().all(|i| !target.contains(i)) {
         config.define("ROCKSDB_JEMALLOC", Some("1"));
         config.define("JEMALLOC_NO_DEMANGLE", Some("1"));
