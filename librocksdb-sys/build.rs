@@ -247,6 +247,7 @@ fn build_rocksdb() {
 
     config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
 
+/*    
     let test_code = r#"
         #define _GNU_SOURCE
         #include <sched.h>
@@ -265,6 +266,7 @@ fn build_rocksdb() {
         config.define("ROCKSDB_SCHED_GETCPU_PRESENT", None);
     }
     fs::remove_file(&out_file).ok();
+*/    
 
     if cfg!(feature = "jemalloc") && NO_JEMALLOC_TARGETS.iter().all(|i| !target.contains(i)) {
         config.define("ROCKSDB_JEMALLOC", Some("1"));
