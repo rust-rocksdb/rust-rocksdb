@@ -98,14 +98,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [Linux, macOS, Windows]
         include:
           - build: Linux
             os: ubuntu-latest
           - build: macOS
             os: macos-latest
-          - build: Windows
+#          - build: Windows-msvc
+#            os: windows-latest
+#            rust: stable-x86_64-pc-windows-msvc
+#            target: x86_64-pc-windows-msvc
+          - build: Windows-gnu
             os: windows-latest
+            rust: stable-x86_64-pc-windows-gnu
+            target: x86_64-pc-windows-gnu
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
