@@ -14,10 +14,12 @@
 
 mod util;
 
+use bincode::{Decode, Encode};
 use pretty_assertions::assert_eq;
 use rocksdb::{merge_operator::MergeFn, DBCompactionStyle, MergeOperands, Options, DB};
-use serde::{Deserialize, Serialize};
 use util::DBPath;
+
+const BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
 
 fn test_provided_merge(
     _new_key: &[u8],
@@ -76,7 +78,7 @@ fn merge_test() {
     assert!(db.get(b"k1").unwrap().is_none());
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Default)]
+#[derive(Decode, Encode, Copy, Clone, Debug, Default)]
 struct ValueCounts {
     num_a: u32,
     num_b: u32,
@@ -86,11 +88,13 @@ struct ValueCounts {
 
 impl ValueCounts {
     fn from_slice(slice: &[u8]) -> Option<Self> {
-        bincode::deserialize::<Self>(slice).ok()
+        bincode::decode_from_slice(slice, BINCODE_CONFIG)
+            .map(|v| v.0)
+            .ok()
     }
 
     fn as_bytes(&self) -> Option<Vec<u8>> {
-        bincode::serialize(self).ok()
+        bincode::encode_to_vec(self, BINCODE_CONFIG).ok()
     }
 }
 
