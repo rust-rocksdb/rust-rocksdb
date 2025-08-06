@@ -871,7 +871,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             let wi = ffi::rocksdb_transaction_get_writebatch_wi(self.inner);
             let mut len: usize = 0;
-            let ptr = ffi::rocksdb_writebatch_wi_data(wi, &mut len as _);
+            let ptr = ffi::rocksdb_writebatch_wi_data(wi, ptr::from_mut(&mut len));
             let writebatch = ffi::rocksdb_writebatch_create_from(ptr, len);
             ffi::rocksdb_free(wi as *mut c_void);
             WriteBatchWithTransaction { inner: writebatch }

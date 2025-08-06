@@ -111,5 +111,5 @@ pub unsafe extern "C" fn in_domain_callback(
 ) -> c_uchar {
     let cb = unsafe { &mut *(raw_cb as *mut TransformCallback) };
     let key = unsafe { slice::from_raw_parts(raw_key as *const u8, key_len) };
-    c_uchar::from(cb.in_domain_fn.map_or(true, |in_domain| in_domain(key)))
+    c_uchar::from(cb.in_domain_fn.is_none_or(|in_domain| in_domain(key)))
 }

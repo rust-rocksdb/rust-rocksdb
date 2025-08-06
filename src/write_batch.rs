@@ -220,7 +220,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     /// and `delete()` member functions of the provided `WriteBatchIterator`
     /// trait implementation.
     pub fn iterate<T: WriteBatchIterator>(&self, callbacks: &mut T) {
-        let state = callbacks as *mut T as *mut c_void;
+        let state = std::ptr::from_mut::<T>(callbacks) as *mut c_void;
         unsafe {
             ffi::rocksdb_writebatch_iterate(
                 self.inner,
@@ -240,7 +240,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     /// - For operations on the default column family ("default"), the `cf_id` parameter passed to
     ///   the callbacks will be 0
     pub fn iterate_cf<T: WriteBatchIteratorCf>(&self, callbacks: &mut T) {
-        let state = callbacks as *mut T as *mut c_void;
+        let state = std::ptr::from_mut::<T>(callbacks) as *mut c_void;
         unsafe {
             ffi::rocksdb_writebatch_iterate_cf(
                 self.inner,
