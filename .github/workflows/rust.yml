@@ -1,8 +1,8 @@
 name: RocksDB CI
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 env:
-  RUST_VERSION: 1.71.1
+  RUST_VERSION: 1.85.0
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -98,7 +98,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [Linux, macOS, Windows]
+        build: [ Linux, macOS, Windows ]
         include:
           - build: Linux
             os: ubuntu-latest

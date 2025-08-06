@@ -2,7 +2,7 @@
 name = "librocksdb-sys"
 version = "0.17.3+10.2.1"
 edition = "2021"
-rust-version = "1.71.1"
+rust-version = "1.85.0"
 authors = [
   "Karl Hobley <karlhobley10@gmail.com>",
   "Arkadiy Paronyan <arkadiy@ethcore.io>",
@@ -49,5 +49,5 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
-bindgen = { version = "0.69", default-features = false }
+bindgen = { version = "0.72", default-features = false }
 pkg-config = { version = "0.3", optional = true }
