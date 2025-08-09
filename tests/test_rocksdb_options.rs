@@ -455,3 +455,26 @@ fn test_block_based_table_pinning_tier() {
     db.put(b"test_key", b"test_value").unwrap();
     assert_eq!(&*db.get(b"test_key").unwrap().unwrap(), b"test_value");
 }
+
+#[test]
+fn jemalloc_init() {
+    let path = DBPath::new("_jemalloc_init");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let mut rocksdb_log =
+        fs::File::open((&path).as_ref().join("LOG")).expect("rocksdb creates a LOG file");
+    let mut log_content = String::new();
+    rocksdb_log
+        .read_to_string(&mut log_content)
+        .expect("can read the LOG file");
+
+    if cfg!(feature = "jemalloc") {
+        assert!(log_content.contains("Jemalloc supported: 1"));
+    } else {
+        assert!(log_content.contains("Jemalloc supported: 0"));
+    }
+}
