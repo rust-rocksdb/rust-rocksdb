@@ -472,7 +472,16 @@ fn jemalloc_init() {
         .read_to_string(&mut log_content)
         .expect("can read the LOG file");
 
-    if cfg!(feature = "jemalloc") {
+    if cfg!(feature = "jemalloc")
+        && !(
+            // See NO_JEMALLOC_TARGETS in librocksdb-sys/build.rs
+            cfg!(target_os = "android")
+                || cfg!(target_os = "dragonfly")
+                || cfg!(target_env = "musl")
+                || cfg!(target_os = "macos")
+                || cfg!(target_os = "ios")
+        )
+    {
         assert!(log_content.contains("Jemalloc supported: 1"));
     } else {
         assert!(log_content.contains("Jemalloc supported: 0"));
