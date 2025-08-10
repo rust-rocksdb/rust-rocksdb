@@ -235,6 +235,7 @@ util/coding.cc
 util/compaction_job_stats_impl.cc
 util/comparator.cc
 util/compression.cc
+util/auto_skip_compressor.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
@@ -248,6 +249,7 @@ util/rate_limiter.cc
 util/ribbon_config.cc
 util/slice.cc
 util/file_checksum_helper.cc
+util/simple_mixed_compressor.cc
 util/status.cc
 util/stderr_logger.cc
 util/string_util.cc
