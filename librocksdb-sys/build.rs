@@ -97,8 +97,8 @@ fn build_rocksdb() {
         config.flag("-flto");
         if !config.get_compiler().is_like_clang() {
             panic!(
-                "LTO is only supported with clang. Either disable the `lto` feature\
-             or set `CC=/usr/bin/clang CXX=/usr/bin/clang++` environment variables."
+                "LTO is only supported with clang. Either disable the `lto` feature \
+                or set `CC=/usr/bin/clang CXX=/usr/bin/clang++` environment variables."
             );
         }
     }
@@ -232,12 +232,11 @@ fn build_rocksdb() {
         // Add Windows-specific sources
         lib_sources.extend([
             "port/win/env_default.cc",
-            "port/win/port_win.cc",
-            "port/win/xpress_win.cc",
-            "port/win/io_win.cc",
-            "port/win/win_thread.cc",
             "port/win/env_win.cc",
+            "port/win/io_win.cc",
+            "port/win/port_win.cc",
             "port/win/win_logger.cc",
+            "port/win/win_thread.cc",
         ]);
 
         if cfg!(feature = "jemalloc") {
