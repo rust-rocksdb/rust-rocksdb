@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.24.0 (2025-08-10)
+
+### Features
+
+- Support builds on AIX (mustartt)
+- Add `WriteBatch::put_log_data` support (lucasvuillier)
+- Add sync/fsync options and tests for backup engine (timvisee)
+- Add `get_approximate_sizes` function (ran-openai)
+- Implement `WriteBatchIteratorCf` trait (RiversJin)
+- Add `BlockBasedTablePinningTier` enum and setters (JackDrogon)
+
+### Improvements
+
+- Fix clippy warnings (niklasf)
+- Fix error message argument type (NoisyCoil)
+- Improve `opt_bytes_to_str` to avoid use-after-free (Chain-Fox, BurtonQin)
+- Support GCC 15 (tustvold)
+- Deprecate `set_ignore_range_deletions` (RocksDB 10.2.1) (evanj)
+- Mark `set_skip_checking_sst_file_sizes_on_db_open` as deprecated (evanj)
+
+### Bug Fixes
+
+- Fix C++ linking (brndnmtthws)
+- Fix bindgen-static build (Congyuwang)
+- Ensure jemalloc is linked when enabled (ran-openai)
+
+### Documentation
+
+- Minor edits to `db_iterator.rs` (evanj)
+- Update README and CONTRIBUTING.md (nnsW3)
+- Change URL to docs icon in README (petryshkaCODE)
+
+### Dependency Updates
+
+- Bump Rust to 1.85.0 (aleksuss)
+- Update to RocksDB 9.10.0 (niklasf)
+- Update to RocksDB v10.2.1 (humb1t)
+- Update to RocksDB v10.4.2 (aleksuss)
+
+### Contributors
+
+- 0xdeafbeef, zaidoon1, teenager-ETH, niklasf, NoisyCoil, nnsW3, kilavvy, mustartt, lucasvuillier, brndnmtthws,
+  timvisee, evanj, ran-openai, Congyuwang, petryshkaCODE, Chain-Fox, BurtonQin, RiversJin, tustvold, JackDrogon,
+  aleksuss, humb1t
+
 ## 0.23.0 (2024-12-23)
 
 * Build status badge and other bits in README.md (jdanford)
@@ -334,7 +379,6 @@
 * Added `iterator_cf_opt` function to `DB` (elichai)
 * Added `set_allow_mmap_writes` and `set_allow_mmap_reads` functions to `Options` (aleksuss)
 
-
 ## 0.12.0 (2019-03-10)
 
 ### Changes
@@ -352,7 +396,6 @@
 * Updated main example in doc tests (mohanson)
 * Updated requirements documentation (jamesray1)
 * Implemented `AsRef<[u8]>` for `DBVector` (iSynaptic)
-
 
 ## 0.11.0 (2019-01-10)
 
@@ -380,7 +423,6 @@
 * exposed `keep_log_file_num` option (romanz)
 * added ability to retrieve `WriteBatch` serialized size (romanz)
 * added `set_options` method to `DB` to allow changing options without closing and re-opening the database (romanz)
-
 
 ## 0.10.1 (2018-07-17)
 

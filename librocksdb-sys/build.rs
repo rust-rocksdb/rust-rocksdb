@@ -299,12 +299,14 @@ fn build_rocksdb() {
 
     config.cpp(true);
     config.flag_if_supported("-std=c++17");
+
     if target.contains("linux") {
         config.cpp_link_stdlib("stdc++");
     } else if !target.contains("windows") {
         config.cpp_link_stdlib("c++");
+        config.flag("-include").flag("cstdint");
     }
-    config.flag("-include").flag("cstdint");
+
     config.compile("librocksdb.a");
 }
 
