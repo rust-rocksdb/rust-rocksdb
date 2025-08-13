@@ -300,12 +300,13 @@ fn build_rocksdb() {
     config.cpp(true);
     config.flag_if_supported("-std=c++17");
 
-    if target.contains("linux") {
-        config.cpp_link_stdlib("stdc++");
-    } else if !target.contains("windows") {
-        config.cpp_link_stdlib("c++");
+    if !target.contains("windows") {
         config.flag("-include").flag("cstdint");
     }
+
+    // By default `cc` will link C++ standard library automatically,
+    // see https://docs.rs/cc/latest/cc/index.html#c-support.
+    // There is no need to manually set `cpp_link_stdlib`.
 
     config.compile("librocksdb.a");
 }
@@ -395,6 +396,20 @@ fn update_submodules() {
     }
 }
 
+fn cpp_link_stdlib(target: &str) {
+    // according to https://github.com/alexcrichton/cc-rs/blob/master/src/lib.rs#L2189
+    if let Ok(stdlib) = env::var("CXXSTDLIB") {
+        println!("cargo:rustc-link-lib=dylib={stdlib}");
+    } else if target.contains("apple") || target.contains("freebsd") || target.contains("openbsd") {
+        println!("cargo:rustc-link-lib=dylib=c++");
+    } else if target.contains("linux") {
+        println!("cargo:rustc-link-lib=dylib=stdc++");
+    } else if target.contains("aix") {
+        println!("cargo:rustc-link-lib=dylib=c++");
+        println!("cargo:rustc-link-lib=dylib=c++abi");
+    }
+}
+
 fn main() {
     if !Path::new("rocksdb/AUTHORS").exists() {
         update_submodules();
@@ -419,6 +434,8 @@ fn main() {
         println!("cargo:rerun-if-changed=rocksdb/");
         fail_on_empty_directory("rocksdb");
         build_rocksdb();
+    } else {
+        cpp_link_stdlib(&target);
     }
     if cfg!(feature = "snappy") && !try_to_find_and_link_lib("SNAPPY") {
         println!("cargo:rerun-if-changed=snappy/");
