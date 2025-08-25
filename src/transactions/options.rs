@@ -40,7 +40,7 @@ impl TransactionOptions {
 
     pub fn set_skip_prepare(&mut self, skip_prepare: bool) {
         unsafe {
-            ffi::rocksdb_transaction_options_set_set_snapshot(self.inner, u8::from(skip_prepare));
+            ffi::rocksdb_transaction_options_set_skip_prepare(self.inner, u8::from(skip_prepare));
         }
     }
 
