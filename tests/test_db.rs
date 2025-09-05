@@ -1729,7 +1729,7 @@ fn test_enable_and_disable_file_deletions() {
             std::fs::read_dir((&path).as_ref())
                 .unwrap()
                 .filter_map(Result::ok)
-                .filter(|f| f.file_name().to_str().unwrap().ends_with(".sst"))
+                .filter(|f| f.file_name().to_string_lossy().ends_with(".sst"))
                 .map(|f| f.path())
                 .collect::<Vec<_>>()
         };
