@@ -1718,3 +1718,57 @@ fn test_get_approximate_sizes_cf() {
         let _ = DB::destroy(&Options::default(), &path);
     }
 }
+
+#[test]
+fn test_enable_and_disable_file_deletions() {
+    let path = DBPath::new("_rust_rocksdb_enable_and_disable_file_deletions");
+    let _ = DB::destroy(&Options::default(), &path);
+
+    {
+        let get_sst_files = || {
+            std::fs::read_dir((&path).as_ref())
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|f| f.file_name().to_str().unwrap().ends_with(".sst"))
+                .map(|f| f.path())
+                .collect::<Vec<_>>()
+        };
+
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+
+        let db = DB::open(&opts, &path).unwrap();
+        db.disable_file_deletions().unwrap();
+
+        // insert some data and flush to create first sst.
+        for i in 0..10 {
+            db.put(format!("k{}", i).as_bytes(), format!("v{}", i).as_bytes())
+                .unwrap();
+        }
+        db.flush().unwrap();
+
+        assert_eq!(get_sst_files().len(), 1);
+
+        // insert some data and flush to create second sst.
+        for i in 10..20 {
+            db.put(format!("k{}", i).as_bytes(), format!("v{}", i).as_bytes())
+                .unwrap();
+        }
+        db.flush().unwrap();
+
+        assert_eq!(get_sst_files().len(), 2);
+
+        // normally after compaction we should have 1 file, but due to disabled
+        // flag we should have 3.
+        db.compact_range(None::<&[u8]>, None::<&[u8]>);
+        assert_eq!(get_sst_files().len(), 3);
+
+        // turn file deletions back on and compact.
+        db.enable_file_deletions().unwrap();
+        db.compact_range(None::<&[u8]>, None::<&[u8]>);
+
+        assert_eq!(get_sst_files().len(), 1);
+
+        let _ = DB::destroy(&Options::default(), &path);
+    }
+}
