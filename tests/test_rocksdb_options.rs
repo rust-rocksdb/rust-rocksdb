@@ -45,6 +45,17 @@ fn test_load_latest() {
 }
 
 #[test]
+fn test_get_options_from_string() {
+    let mut opts = Options::default();
+    opts.set_use_fsync(true);
+    let new_opts = opts.get_options_from_string("use_fsync=false").unwrap();
+    assert!(!new_opts.get_use_fsync());
+    assert!(opts
+        .get_options_from_string("notarealoptionstring")
+        .is_err());
+}
+
+#[test]
 fn test_set_num_levels() {
     let n = DBPath::new("_rust_rocksdb_test_set_num_levels");
     {
