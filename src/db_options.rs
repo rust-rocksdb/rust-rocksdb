@@ -659,6 +659,21 @@ impl BlockBasedOptions {
         }
     }
 
+    /// If cache_index_and_filter_blocks is enabled, cache index and filter
+    /// blocks with high priority. If set to true, depending on implementation of
+    /// block cache, index, filter, and other metadata blocks may be less likely
+    /// to be evicted than data blocks.
+    ///
+    /// Default: true.
+    pub fn set_cache_index_and_filter_blocks_with_high_priority(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority(
+                self.inner,
+                c_uchar::from(v),
+            );
+        }
+    }
+
     /// Defines the index type to be used for SS-table lookups.
     ///
     /// # Examples

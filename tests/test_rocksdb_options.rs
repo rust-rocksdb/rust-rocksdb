@@ -23,6 +23,16 @@ use rocksdb::{
 };
 use util::DBPath;
 
+fn read_settings_from_log(path: &DBPath) -> String {
+    let mut rocksdb_log = fs::File::open(format!("{}/LOG", path.as_ref().to_str().unwrap()))
+        .expect("rocksdb creates a LOG file");
+    let mut settings = String::new();
+    rocksdb_log
+        .read_to_string(&mut settings)
+        .expect("rocksdb log file is readable");
+    settings
+}
+
 #[test]
 fn test_load_latest() {
     let n = DBPath::new("_rust_rocksdb_test_load_latest");
@@ -90,8 +100,25 @@ fn test_set_level_compaction_dynamic_level_bytes() {
 
 #[test]
 fn test_block_based_options() {
-    let path = "_rust_rocksdb_test_block_based_options";
-    let n = DBPath::new(path);
+    // First check the default values.
+    let n = DBPath::new("_rust_rocksdb_test_block_based_options");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+
+        let _db = DB::open(&opts, &n).unwrap();
+
+        let settings = read_settings_from_log(&n);
+
+        assert!(settings.contains("cache_index_and_filter_blocks: 0\n"));
+        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 0\n"));
+        assert!(settings.contains("format_version: 6\n"));
+        assert!(settings.contains("index_block_restart_interval: 1\n"));
+        assert!(settings.contains("cache_index_and_filter_blocks_with_high_priority: 1\n"));
+    }
+
+    // Now check that block options do change the defaults.
+    let n = DBPath::new("_rust_rocksdb_test_block_based_options2");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -101,21 +128,19 @@ fn test_block_based_options() {
         block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
         block_opts.set_format_version(4);
         block_opts.set_index_block_restart_interval(16);
+        block_opts.set_cache_index_and_filter_blocks_with_high_priority(false);
 
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).unwrap();
 
-        // read the setting from the LOG file
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-            .expect("rocksdb creates a LOG file");
-        let mut settings = String::new();
-        rocksdb_log.read_to_string(&mut settings).unwrap();
+        let settings = read_settings_from_log(&n);
 
         // check the settings are set in the LOG file
-        assert!(settings.contains("cache_index_and_filter_blocks: 1"));
-        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 1"));
-        assert!(settings.contains("format_version: 4"));
-        assert!(settings.contains("index_block_restart_interval: 16"));
+        assert!(settings.contains("cache_index_and_filter_blocks: 1\n"));
+        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 1\n"));
+        assert!(settings.contains("format_version: 4\n"));
+        assert!(settings.contains("index_block_restart_interval: 16\n"));
+        assert!(settings.contains("cache_index_and_filter_blocks_with_high_priority: 0\n"));
     }
 }
 
@@ -139,12 +164,7 @@ fn test_set_data_block_index_type() {
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).expect("open a db works");
 
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-            .expect("rocksdb creates a LOG file");
-        let mut settings = String::new();
-        rocksdb_log
-            .read_to_string(&mut settings)
-            .expect("can read the LOG file");
+        let settings = read_settings_from_log(&n);
         assert!(settings.contains("data_block_index_type: 0"));
         assert!(settings.contains("data_block_hash_table_util_ratio: 0.750000"));
     }
@@ -160,12 +180,7 @@ fn test_set_data_block_index_type() {
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).expect("open a db works");
 
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-            .expect("rocksdb creates a LOG file");
-        let mut settings = String::new();
-        rocksdb_log
-            .read_to_string(&mut settings)
-            .expect("can read the LOG file");
+        let settings = read_settings_from_log(&n);
         assert!(settings.contains("data_block_index_type: 1"));
         assert!(settings.contains("data_block_hash_table_util_ratio: 0.350000"));
     }
@@ -270,12 +285,7 @@ fn test_add_compact_on_deletion_collector_factory() {
     opts.add_compact_on_deletion_collector_factory(5, 10, 0.5);
     let _db = DB::open(&opts, &n).unwrap();
 
-    let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-        .expect("rocksdb creates a LOG file");
-    let mut settings = String::new();
-    rocksdb_log
-        .read_to_string(&mut settings)
-        .expect("can read the LOG file");
+    let settings = read_settings_from_log(&n);
     assert!(settings.contains("CompactOnDeletionCollector (Sliding window size = 5 Deletion trigger = 10 Deletion ratio = 0.5)"));
 }
 
