@@ -94,19 +94,28 @@ mod tests {
     use crate::{Options, DB};
     use std::ffi::CString;
 
-    struct CountFilter(u16, CString);
+    struct CountFilter {
+        call_count: u16,
+        name: CString,
+    }
+
     impl CompactionFilter for CountFilter {
-        fn filter(&mut self, _level: u32, _key: &[u8], _value: &[u8]) -> crate::CompactionDecision {
-            self.0 += 1;
-            if self.0 > 2 {
-                Decision::Remove
-            } else {
-                Decision::Keep
+        fn filter(&mut self, _level: u32, _key: &[u8], value: &[u8]) -> crate::CompactionDecision {
+            self.call_count += 1;
+            match self.call_count {
+                1 => Decision::Keep,
+                2 => {
+                    // Double the key.
+                    let mut value = value.to_vec();
+                    value.extend_from_within(..);
+                    Decision::Change(value)
+                }
+                _ => Decision::Remove,
             }
         }
 
         fn name(&self) -> &CStr {
-            &self.1
+            &self.name
         }
     }
 
@@ -115,7 +124,10 @@ mod tests {
         type Filter = CountFilter;
 
         fn create(&mut self, _context: CompactionFilterContext) -> Self::Filter {
-            CountFilter(0, CString::new("CountFilter").unwrap())
+            CountFilter {
+                call_count: 0,
+                name: CString::new("CountFilter").unwrap(),
+            }
         }
 
         fn name(&self) -> &CStr {
@@ -136,10 +148,12 @@ mod tests {
         {
             let db = DB::open(&opts, path).unwrap();
             let _r = db.put(b"k1", b"a");
-            let _r = db.put(b"_rk", b"b");
-            let _r = db.put(b"%k", b"c");
+            let _r = db.put(b"k2", b"Double");
+            let _r = db.put(b"k3", b"c");
             db.compact_range(None::<&[u8]>, None::<&[u8]>);
-            assert_eq!(db.get(b"%k1").unwrap(), None);
+            assert_eq!(db.get(b"k1").unwrap(), Some(b"a".to_vec()));
+            assert_eq!(db.get(b"k2").unwrap(), Some(b"DoubleDouble".to_vec()));
+            assert_eq!(db.get(b"k3").unwrap(), None);
         }
         let result = DB::destroy(&opts, path);
         assert!(result.is_ok());
