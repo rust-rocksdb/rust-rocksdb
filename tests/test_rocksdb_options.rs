@@ -324,6 +324,30 @@ fn test_set_periodic_compaction_seconds() {
 }
 
 #[test]
+fn test_set_ttl() {
+    let path = DBPath::new("_set_ttl_0");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ttl(0);
+        let _db = DB::open(&opts, &path).unwrap();
+
+        let settings = read_settings_from_log(&path);
+        assert!(settings.contains("Options.ttl: 0\n"));
+    }
+    let path = DBPath::new("_set_ttl_day");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ttl(86400);
+        let _db = DB::open(&opts, &path).unwrap();
+
+        let settings = read_settings_from_log(&path);
+        assert!(settings.contains("Options.ttl: 86400\n"));
+    }
+}
+
+#[test]
 fn test_set_ratelimiter() {
     let path = DBPath::new("_set_ratelimiter");
     {
