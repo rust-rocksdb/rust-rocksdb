@@ -1054,6 +1054,39 @@ impl Options {
         Ok((options, column_families))
     }
 
+    /// Constructs a new `DBOptions` from `self` and a string `opts_str` with the syntax detailed in the blogpost
+    /// [Reading RocksDB options from a file](https://rocksdb.org/blog/2015/02/24/reading-rocksdb-options-from-a-file.html)
+    pub fn get_options_from_string<S: AsRef<str>>(
+        &mut self,
+        opts_str: S,
+    ) -> Result<Options, Error> {
+        let new_options = unsafe { ffi::rocksdb_options_create() };
+        let mut errptr: *mut c_char = null_mut();
+        let opts_cstr = opts_str
+            .as_ref()
+            .into_c_string()
+            .expect("into_c_string is infallible");
+        unsafe {
+            ffi::rocksdb_get_options_from_string(
+                self.inner.cast_const(),
+                opts_cstr.as_ptr(),
+                new_options,
+                &mut errptr,
+            );
+        }
+        if !errptr.is_null() {
+            let message = unsafe { CStr::from_ptr(errptr) }
+                .to_str()
+                .unwrap_or("invalid error message")
+                .to_string();
+            return Err(Error { message });
+        }
+        Ok(Options {
+            inner: new_options,
+            outlive: OptionsMustOutliveDB::default(),
+        })
+    }
+
     /// read column descriptors from c pointers
     #[inline]
     unsafe fn read_column_descriptors(
