@@ -1623,6 +1623,12 @@ impl Options {
         }
     }
 
+    pub fn set_ttl(&mut self, ttl_secs: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_ttl(self.inner, ttl_secs);
+        }
+    }
+
     pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
         name: impl CStrLike,
