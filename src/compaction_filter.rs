@@ -28,7 +28,7 @@ pub enum Decision {
     /// Remove the object from the database
     Remove,
     /// Change the value for the key
-    Change(&'static [u8]),
+    Change(Vec<u8>),
 }
 
 /// CompactionFilter allows an application to modify/delete a key-value at
@@ -53,10 +53,13 @@ pub trait CompactionFilter {
     /// compaction finishes. If you use snapshots, think twice about whether you
     /// want to use compaction filter and whether you are using it in a safe way.
     ///
-    /// If the CompactionFilter was created by a factory, then it will only ever
-    /// be used by a single thread that is doing the compaction run, and this
-    /// call does not need to be thread-safe.  However, multiple filters may be
-    /// in existence and operating concurrently.
+    /// Note due to limitation of RocksDB C-compatible API if the filter returns
+    /// `Decision::Change(data)` the data vector will de dropped only on the
+    /// following calls to the filter from the same thread or when the filter is
+    /// dropped or when the thread that was used to execute the filter finishes.
+    /// Thus if it is necessary to guarantee that the change data temporaries
+    /// will be dropped at the end of the compaction, use
+    /// `CompactionFilterFactory`.
     fn filter(&mut self, level: u32, key: &[u8], value: &[u8]) -> Decision;
 
     /// Returns a name that identifies this compaction filter.
@@ -96,11 +99,38 @@ where
     }
 }
 
+// RocksDB C bindings require that the filter callback in case of data change
+// returns a raw pointer to the changed data without any option to specify a
+// destructor for the data. As the change data pointer is only used to copy data
+// into C++ string immediately after the callback returns to workaround lack of
+// destructor we move the Change data into a thread-local storage and return a
+// pointer to it from the callback. The we use the following calls to the filter
+// or the destructor callbacks to clean the data in the the thread local
+// storage.
+//
+// TODO: add an option to RocksDB to specify the change filter change data
+// destructor or, even better, add an option to set C++ change string from the
+// callback.
+std::thread_local! {
+    static CHANGE_BUFFER: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn drop_previous_change_data() {
+    CHANGE_BUFFER.with_borrow_mut(|buf| {
+        *buf = Vec::new();
+    });
+}
+
 pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
 where
     F: CompactionFilter,
 {
     drop(unsafe { Box::from_raw(raw_cb as *mut F) });
+
+    // Use the opportunity to clean any data in the change buffer that are there
+    // since the last time the filter callback returns the change data on this
+    // thread.
+    drop_previous_change_data();
 }
 
 pub unsafe extern "C" fn name_callback<F>(raw_cb: *mut c_void) -> *const c_char
@@ -127,6 +157,11 @@ where
 {
     use self::Decision::{Change, Keep, Remove};
 
+    // Use the opportunity to release any data in the change buffer that are
+    // there since the filter() call returned the Change so the new filter()
+    // call below can use that storage for something else.
+    drop_previous_change_data();
+
     let cb = unsafe { &mut *(raw_cb as *mut F) };
     let key = unsafe { slice::from_raw_parts(raw_key as *const u8, key_length) };
     let oldval = unsafe { slice::from_raw_parts(existing_value as *const u8, value_length) };
@@ -135,8 +170,11 @@ where
         Keep => 0,
         Remove => 1,
         Change(newval) => {
-            unsafe { *new_value = newval.as_ptr() as *mut c_char };
-            unsafe { *new_value_length = newval.len() as size_t };
+            CHANGE_BUFFER.with_borrow_mut(|buf| {
+                *buf = newval;
+                unsafe { *new_value = buf.as_ptr() as *mut c_char };
+                unsafe { *new_value_length = buf.len() as size_t };
+            });
             unsafe { *value_changed = 1_u8 };
             0
         }
@@ -149,7 +187,7 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
     use self::Decision::{Change, Keep, Remove};
     match key.first() {
         Some(&b'_') => Remove,
-        Some(&b'%') => Change(b"secret"),
+        Some(&b'%') => Change(b"secret".to_vec()),
         _ => Keep,
     }
 }
