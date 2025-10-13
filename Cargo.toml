@@ -35,6 +35,7 @@ serde1 = ["serde"]
 bindgen-runtime = ["librocksdb-sys/bindgen-runtime"]
 bindgen-static = ["librocksdb-sys/bindgen-static"]
 lto = ["librocksdb-sys/lto"]
+raw-ptr = []
 
 [dependencies]
 libc = "0.2"

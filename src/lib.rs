@@ -147,6 +147,12 @@ pub use crate::{
     },
 };
 
+#[cfg(feature = "raw-ptr")]
+mod raw_ptr;
+
+#[cfg(feature = "raw-ptr")]
+pub use crate::raw_ptr::AsRawPtr;
+
 use librocksdb_sys as ffi;
 
 use std::error;
