@@ -69,9 +69,9 @@ pub trait CompactionFilter {
 /// This function takes the level of compaction, the key, and the existing value
 /// and returns the decision about how to handle the Key-Value pair.
 ///
-///  See [Options::set_compaction_filter][set_compaction_filter] for more details
+/// See [Options::set_compaction_filter][set_compaction_filter] for more details
 ///
-///  [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
+/// [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
 pub trait CompactionFilterFn: FnMut(u32, &[u8], &[u8]) -> Decision {}
 impl<F> CompactionFilterFn for F where F: FnMut(u32, &[u8], &[u8]) -> Decision + Send + 'static {}
 

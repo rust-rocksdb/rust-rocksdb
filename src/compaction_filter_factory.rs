@@ -10,12 +10,12 @@ use crate::{
 /// Each compaction will create a new CompactionFilter allowing the
 /// application to know about different compactions.
 ///
-///  See [compaction_filter::CompactionFilter][CompactionFilter] and
-///  [Options::set_compaction_filter_factory][set_compaction_filter_factory]
-///  for more details
+/// See [compaction_filter::CompactionFilter][CompactionFilter] and
+/// [Options::set_compaction_filter_factory][set_compaction_filter_factory]
+/// for more details
 ///
-///  [CompactionFilter]: ../compaction_filter/trait.CompactionFilter.html
-///  [set_compaction_filter_factory]: ../struct.Options.html#method.set_compaction_filter_factory
+/// [CompactionFilter]: ../compaction_filter/trait.CompactionFilter.html
+/// [set_compaction_filter_factory]: ../struct.Options.html#method.set_compaction_filter_factory
 pub trait CompactionFilterFactory {
     type Filter: CompactionFilter;
 
