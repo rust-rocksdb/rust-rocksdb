@@ -22,11 +22,23 @@ use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::column_family::ColumnFamilyTtl;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
-use crate::{compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn}, compaction_filter_factory::{self, CompactionFilterFactory}, comparator::{
-    ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
-}, db::DBAccess, env::Env, ffi, ffi_util::{from_cstr, to_cpath, CStrLike}, merge_operator::{
-    self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
-}, slice_transform::SliceTransform, statistics::Ticker, ColumnFamilyDescriptor, Error, SnapshotWithThreadMode, SstFileManager};
+use crate::{
+    compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
+    compaction_filter_factory::{self, CompactionFilterFactory},
+    comparator::{
+        ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
+    },
+    db::DBAccess,
+    env::Env,
+    ffi,
+    ffi_util::{from_cstr, to_cpath, CStrLike},
+    merge_operator::{
+        self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
+    },
+    slice_transform::SliceTransform,
+    statistics::Ticker,
+    ColumnFamilyDescriptor, Error, SnapshotWithThreadMode, SstFileManager,
+};
 
 pub(crate) struct WriteBufferManagerWrapper {
     pub(crate) inner: NonNull<ffi::rocksdb_write_buffer_manager_t>,
@@ -3677,7 +3689,10 @@ impl Options {
     /// let mut opts = Options::default();
     /// opts.set_sst_file_manager(&sst_file_manager);
     /// ```
-    pub fn set_sst_file_manager(&mut self, sst_file_manager: &crate::sst_file_manager::SstFileManager) {
+    pub fn set_sst_file_manager(
+        &mut self,
+        sst_file_manager: &crate::sst_file_manager::SstFileManager,
+    ) {
         unsafe {
             ffi::rocksdb_options_set_sst_file_manager(
                 self.inner,

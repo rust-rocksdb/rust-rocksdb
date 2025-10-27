@@ -46,9 +46,8 @@ impl SstFileManager {
     /// let sst_file_manager = SstFileManager::new(&env);
     /// ```
     pub fn new(env: &Env) -> Self {
-        let inner = unsafe {
-            NonNull::new_unchecked(ffi::rocksdb_sst_file_manager_create(env.0.inner))
-        };
+        let inner =
+            unsafe { NonNull::new_unchecked(ffi::rocksdb_sst_file_manager_create(env.0.inner)) };
         SstFileManager(Arc::new(SstFileManagerWrapper { inner }))
     }
 
@@ -106,7 +105,7 @@ impl SstFileManager {
     /// let env = Env::new().unwrap();
     /// let sst_file_manager = SstFileManager::new(&env);
     /// sst_file_manager.set_max_allowed_space_usage(1024 * 1024 * 1024);
-    /// 
+    ///
     /// if sst_file_manager.is_max_allowed_space_reached() {
     ///     println!("Maximum space reached!");
     /// }
