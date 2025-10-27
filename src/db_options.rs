@@ -169,26 +169,26 @@ impl Cache {
         Cache(Arc::new(CacheWrapper { inner }))
     }
 
-    /// Creates a HyperClockCache with capacity in bytes.
+    /// Creates a HyperClockCache with `capacity` in bytes.
     ///
-    /// `estimated_entry_charge` is an important tuning parameter. The optimal
-    /// choice at any given time is
-    /// `(cache.get_usage() - 64 * cache.get_table_address_count()) /
-    /// cache.get_occupancy_count()`, or approximately `cache.get_usage() /
-    /// cache.get_occupancy_count()`.
+    /// HyperClockCache is now generally recommended over LRUCache. See RocksDB's
+    /// [HyperClockCacheOptions in cache.h](https://github.com/facebook/rocksdb/blob/main/include/rocksdb/cache.h)
+    /// for details.
     ///
-    /// However, the value cannot be changed dynamically, so as the cache
-    /// composition changes at runtime, the following tradeoffs apply:
+    /// `estimated_entry_charge` is an optional parameter. When not provided
+    /// (== 0, recommended and default), an HCC variant with a
+    /// dynamically-growing table and generally good performance is used. This
+    /// variant depends on anonymous mmaps so might not be available on all
+    /// platforms.
     ///
-    /// * If the estimate is substantially too high (e.g., 25% higher),
-    ///   the cache may have to evict entries to prevent load factors that
-    ///   would dramatically affect lookup times.
-    /// * If the estimate is substantially too low (e.g., less than half),
-    ///   then meta data space overhead is substantially higher.
-    ///
-    /// The latter is generally preferable, and picking the larger of
-    /// block size and meta data block size is a reasonable choice that
-    /// errs towards this side.
+    /// If the average "charge" (uncompressed block size) of block cache entries
+    /// is reasonably predicted and provided here, the most efficient variant of
+    /// HCC is used. Performance is degraded if the prediction is inaccurate.
+    /// Prediction could be difficult or impossible with cache-charging features
+    /// such as WriteBufferManager. The best parameter choice based on a cache
+    /// in use is roughly given by `cache.get_usage() / cache.get_occupancy_count()`,
+    /// though it is better to estimate toward the lower side than the higher
+    /// side when the ratio might vary.
     pub fn new_hyper_clock_cache(capacity: size_t, estimated_entry_charge: size_t) -> Cache {
         Cache(Arc::new(CacheWrapper {
             inner: NonNull::new(unsafe {
