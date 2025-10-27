@@ -78,6 +78,7 @@ db/memtable.cc
 db/memtable_list.cc
 db/merge_helper.cc
 db/merge_operator.cc
+db/multi_scan.cc
 db/output_validator.cc
 db/periodic_task_scheduler.cc
 db/range_del_aggregator.cc
@@ -166,6 +167,12 @@ options/options_helper.cc
 options/options_parser.cc
 port/mmap.cc
 port/port_posix.cc
+port/win/env_default.cc
+port/win/env_win.cc
+port/win/io_win.cc
+port/win/port_win.cc
+port/win/win_logger.cc
+port/win/win_thread.cc
 port/stack_trace.cc
 table/adaptive/adaptive_table_factory.cc
 table/block_based/binary_search_index_reader.cc
@@ -218,10 +225,6 @@ table/table_factory.cc
 table/table_properties.cc
 table/two_level_iterator.cc
 table/unique_id.cc
-test_util/sync_point.cc
-test_util/sync_point_impl.cc
-test_util/transaction_test_util.cc
-tools/dump/db_dump_tool.cc
 trace_replay/trace_record_handler.cc
 trace_replay/trace_record_result.cc
 trace_replay/trace_record.cc
@@ -229,13 +232,13 @@ trace_replay/trace_replay.cc
 trace_replay/block_cache_tracer.cc
 trace_replay/io_tracer.cc
 util/async_file_reader.cc
+util/auto_tune_compressor.cc
 util/build_version.cc
 util/cleanable.cc
 util/coding.cc
 util/compaction_job_stats_impl.cc
 util/comparator.cc
 util/compression.cc
-util/auto_skip_compressor.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc

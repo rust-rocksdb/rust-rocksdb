@@ -22,23 +22,11 @@ use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::column_family::ColumnFamilyTtl;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
-use crate::{
-    compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
-    compaction_filter_factory::{self, CompactionFilterFactory},
-    comparator::{
-        ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
-    },
-    db::DBAccess,
-    env::Env,
-    ffi,
-    ffi_util::{from_cstr, to_cpath, CStrLike},
-    merge_operator::{
-        self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
-    },
-    slice_transform::SliceTransform,
-    statistics::Ticker,
-    ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
-};
+use crate::{compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn}, compaction_filter_factory::{self, CompactionFilterFactory}, comparator::{
+    ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
+}, db::DBAccess, env::Env, ffi, ffi_util::{from_cstr, to_cpath, CStrLike}, merge_operator::{
+    self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
+}, slice_transform::SliceTransform, statistics::Ticker, ColumnFamilyDescriptor, Error, SnapshotWithThreadMode, SstFileManager};
 
 pub(crate) struct WriteBufferManagerWrapper {
     pub(crate) inner: NonNull<ffi::rocksdb_write_buffer_manager_t>,
@@ -223,6 +211,7 @@ pub(crate) struct OptionsMustOutliveDB {
     blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
+    sst_file_manager: Option<SstFileManager>,
 }
 
 impl OptionsMustOutliveDB {
@@ -236,6 +225,7 @@ impl OptionsMustOutliveDB {
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
             write_buffer_manager: self.write_buffer_manager.clone(),
+            sst_file_manager: self.sst_file_manager.clone(),
         }
     }
 }
@@ -3664,6 +3654,37 @@ impl Options {
             );
         }
         self.outlive.write_buffer_manager = Some(write_buffer_manager.clone());
+    }
+
+    /// Sets the SstFileManager for the database.
+    ///
+    /// SstFileManager is used to track SST files in the database and control their deletion rate.
+    /// It can be used to:
+    /// - Set a maximum allowed space usage for SST files
+    /// - Control the rate at which obsolete SST files are deleted
+    /// - Query the total size of SST files
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, SstFileManager, Env};
+    ///
+    /// let env = Env::new().unwrap();
+    /// let sst_file_manager = SstFileManager::new(&env);
+    /// // Set maximum allowed space to 10GB
+    /// sst_file_manager.set_max_allowed_space_usage(10 * 1024 * 1024 * 1024);
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_sst_file_manager(&sst_file_manager);
+    /// ```
+    pub fn set_sst_file_manager(&mut self, sst_file_manager: &crate::sst_file_manager::SstFileManager) {
+        unsafe {
+            ffi::rocksdb_options_set_sst_file_manager(
+                self.inner,
+                sst_file_manager.0.inner.as_ptr(),
+            );
+        }
+        self.outlive.sst_file_manager = Some(sst_file_manager.clone());
     }
 
     /// If true, working thread may avoid doing unnecessary and long-latency
