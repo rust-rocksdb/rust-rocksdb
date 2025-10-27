@@ -28,6 +28,9 @@ impl Drop for SstFileManagerWrapper {
     }
 }
 
+unsafe impl Send for SstFileManagerWrapper {}
+unsafe impl Sync for SstFileManagerWrapper {}
+
 /// SstFileManager is used to track SST files in the database and control their deletion rate.
 ///
 /// All SstFileManager public functions are thread-safe.
