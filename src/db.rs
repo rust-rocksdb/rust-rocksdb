@@ -2528,6 +2528,27 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
+    /// After this function call, `compact_range` or `compact_files` will not
+    /// run compactions and fail. Calling this function will tell outstanding
+    /// manual compactions to abort and will wait for them to finish or abort
+    /// before returning.
+    pub fn disable_manual_compaction(&self) {
+        unsafe {
+            ffi::rocksdb_disable_manual_compaction(self.inner.inner());
+        }
+    }
+
+    /// Re-enable `compact_range` and `comapct_files` that are disabled by
+    /// `disable_manual_compaction`. This function must be called as many times
+    /// as `disable_manual_compaction` has been called in order to re-enable
+    /// manual compactions, and must not be called more times than
+    /// `disable_manual_compaction` has been called.
+    pub fn enable_manual_compaction(&self) {
+        unsafe {
+            ffi::rocksdb_enable_manual_compaction(self.inner.inner());
+        }
+    }
+
     fn drop_column_family<C>(
         &self,
         cf_inner: *mut ffi::rocksdb_column_family_handle_t,
