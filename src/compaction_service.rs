@@ -1,9 +1,9 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use crate::ffi;
-use crate::Error;
 use crate::ffi_util;
 use crate::env::Priority;
+use crate::Error;
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,73 +74,56 @@ pub struct CompactionServiceJobInfo {
 
 impl CompactionServiceJobInfo {
     fn ptr_to_string(ptr: *const i8, len: usize, error_msg: &str) -> Result<String, Error> {
+        if ptr.is_null() {
+            return Err(Error::new(error_msg.to_string()));
+        }
         unsafe {
-            if ptr.is_null() {
-                return Err(Error::new(error_msg.to_string()));
-            }
             let slice = std::slice::from_raw_parts(ptr as *const u8, len);
             Ok(String::from_utf8_lossy(slice).to_string())
         }
     }
 
-    fn get_string_from_ffi<F>(inner: *const ffi::rocksdb_compactionservice_jobinfo_t, ffi_fn: F, error_msg: &str) -> Result<String, Error>
-    where
-        F: Fn(*const ffi::rocksdb_compactionservice_jobinfo_t, &mut usize) -> *const i8,
-    {
+    pub fn db_name(&self) -> Result<String, Error> {
         unsafe {
             let mut len = 0;
-            let ptr = ffi_fn(inner, &mut len);
-            Self::ptr_to_string(ptr, len, error_msg)
+            let ptr = ffi::rocksdb_compactionservice_jobinfo_t_get_db_name(self.inner, &mut len);
+            Self::ptr_to_string(ptr, len, "Failed to get db_name")
         }
     }
 
-    pub fn db_name(&self) -> Result<String, Error> {
-        Self::get_string_from_ffi(
-            self.inner,
-            ffi::rocksdb_compactionservice_jobinfo_t_get_db_name,
-            "Failed to get db_name",
-        )
-    }
-
     pub fn db_id(&self) -> Result<String, Error> {
-        Self::get_string_from_ffi(
-            self.inner,
-            ffi::rocksdb_compactionservice_jobinfo_t_get_db_id,
-            "Failed to get db_id",
-        )
+        unsafe {
+            let mut len = 0;
+            let ptr = ffi::rocksdb_compactionservice_jobinfo_t_get_db_id(self.inner, &mut len);
+            Self::ptr_to_string(ptr, len, "Failed to get db_id")
+        }
     }
 
     pub fn db_session_id(&self) -> Result<String, Error> {
         unsafe {
-            Self::get_string_from_ffi(
-                self.inner, 
-                ffi::rocksdb_compactionservice_jobinfo_t_get_db_session_id,
-                "Failed to get db_session_id"
-            )
-     
+            let mut len = 0;
+            let ptr = ffi::rocksdb_compactionservice_jobinfo_t_get_db_session_id(self.inner, &mut len);
+            Self::ptr_to_string(ptr, len, "Failed to get db_session_id")
         }
     }
 
     pub fn cf_name(&self) -> Result<String, Error> {
         unsafe {
-            Self::get_string_from_ffi(
-                self.inner, 
-                ffi::rocksdb_compactionservice_jobinfo_t_get_cf_name
-                "Failed to get cf_name"
-            )
-     
+            let mut len = 0;
+            let ptr = ffi::rocksdb_compactionservice_jobinfo_t_get_cf_name(self.inner, &mut len);
+            Self::ptr_to_string(ptr, len, "Failed to get cf_name")
         }
     }
 
     pub fn cf_id(&self) -> u32 {
         unsafe {
-            ffi::rocksdb_compactionservice_jobinfo_t_get_cf_id
+            ffi::rocksdb_compactionservice_jobinfo_t_get_cf_id(self.inner)
         }
     }
 
     pub fn job_id(&self) -> u64 {
         unsafe {
-            ffi::rocksdb_compactionservice_jobinfo_t_get_job_id(self.inner);
+            ffi::rocksdb_compactionservice_jobinfo_t_get_job_id(self.inner)
         }
     }
 
@@ -158,15 +141,15 @@ impl CompactionServiceJobInfo {
         }
     }
 
-    pub fn base_input_level(&self) -> u64 {
+    pub fn base_input_level(&self) -> i32 {
         unsafe {
-            ffi::rocksdb_compactionservice_jobinfo_t_get_base_input_level(self.inner);
+            ffi::rocksdb_compactionservice_jobinfo_t_get_base_input_level(self.inner)
         }
     }
 
-    pub fn output_level(&self) -> u64 {
+    pub fn output_level(&self) -> i32 {
         unsafe {
-            ffi::rocksdb_compactionservice_jobinfo_t_get_output_level(self.inner);
+            ffi::rocksdb_compactionservice_jobinfo_t_get_output_level(self.inner)
         }
     }
 
@@ -187,5 +170,72 @@ impl CompactionServiceJobInfo {
             ffi::rocksdb_compactionservice_jobinfo_t_is_bottommost_level(self.inner) != 0
         }
     }
+}
 
+pub struct CompactionServiceScheduleResponse {
+    inner: *mut ffi::rocksdb_compactionservice_scheduleresponse_t,
+}
+
+impl CompactionServiceScheduleResponse {
+    pub fn new(scheduled_job_id: &str, status: CompactionServiceJobStatus) -> Result<CompactionServiceScheduleResponse, Error> {
+        let job_id_cstr = CString::new(scheduled_job_id)
+            .map_err(|e| Error::new(format!("Invalid job_id: {}", e)))?;
+
+        let mut error: *mut libc::c_char = std::ptr::null_mut();
+        let inner = unsafe {
+            ffi::rocksdb_compactionservice_scheduleresponse_create(
+                job_id_cstr.as_ptr(),
+                status as i32,
+                &mut error,
+            )
+        };
+        if !error.is_null() {
+            return Err(Error::new(ffi_util::error_message(error)));
+        }
+
+        Ok(CompactionServiceScheduleResponse{inner})
+    }
+
+    pub fn with_status(status: CompactionServiceJobStatus) -> Result<CompactionServiceScheduleResponse, Error> {
+        let mut error: *mut libc::c_char = std::ptr::null_mut();
+        let inner = unsafe {
+            ffi::rocksdb_compactionservice_scheduleresponse_create_with_status(
+                status as i32,
+                &mut error,
+            )
+        };
+        if !error.is_null() {
+            return Err(Error::new(ffi_util::error_message(error)));
+        }
+
+        Ok(CompactionServiceScheduleResponse{inner})
+    }
+
+    pub fn status(&self) -> CompactionServiceJobStatus {
+        unsafe {
+            let status = ffi::rocksdb_compactionservice_scheduleresponse_getstatus(self.inner);
+            match status {
+                0 => CompactionServiceJobStatus::Success,
+                1 => CompactionServiceJobStatus::Failure,
+                2 => CompactionServiceJobStatus::Aborted,
+                3 => CompactionServiceJobStatus::UseLocal,
+                _ => CompactionServiceJobStatus::Failure,
+            }
+        }
+    }
+
+    pub fn scheduled_job_id(&self) -> Result<String, Error> {
+        unsafe {
+            let mut len = 0;
+            let ptr = ffi::rocksdb_compactionservice_scheduleresponse_get_scheduled_job_id(
+                self.inner,
+                &mut len,
+            );
+            if ptr.is_null() {
+                return Err(Error::new("No scheduled job ID".to_string()));
+            }
+            let slice = std::slice::from_raw_parts(ptr as *const u8, len);
+            Ok(String::from_utf8_lossy(slice).to_string())
+        }
+    }
 }
