@@ -39,6 +39,7 @@ use crate::{
     statistics::Ticker,
     ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
+use crate::compaction_service::{self, CompactionService};
 
 pub(crate) struct WriteBufferManagerWrapper {
     pub(crate) inner: NonNull<ffi::rocksdb_write_buffer_manager_t>,
@@ -3732,6 +3733,28 @@ impl Options {
     pub fn get_write_dbid_to_manifest(&self) -> bool {
         let val_u8 = unsafe { ffi::rocksdb_options_get_write_dbid_to_manifest(self.inner) };
         val_u8 != 0
+    }
+
+    pub fn set_compaction_service<S>(&mut self, service: S)
+    where
+        S: CompactionService
+    {
+        let boxed = Box::new(service);
+        unsafe {
+            let name_ptr = (*boxed).name().as_ptr();
+            
+            let compaction_service = ffi::rocksdb_compactionservice_create(
+                Box::into_raw(boxed).cast::<c_void>(),                           // state
+                Some(compaction_service::destructor_callback::<S>),              // destructor
+                Some(compaction_service::schedule_callback::<S>),                // schedule
+                name_ptr,                                                         // name
+                Some(compaction_service::wait_callback::<S>),                    // wait
+                Some(compaction_service::cancel_awaiting_jobs_callback::<S>),    // cancel
+                Some(compaction_service::on_installation_callback::<S>),         // on_installation
+            );
+            ffi::rocksdb_options_set_compaction_service(self.inner, compaction_service);
+
+        }
     }
 }
 

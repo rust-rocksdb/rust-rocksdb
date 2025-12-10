@@ -29,6 +29,17 @@ impl Drop for EnvWrapper {
     }
 }
 
+/// Priority for scheduling job in thread pool
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Priority {
+    Bottom = 0,
+    Low = 1,
+    High = 2,
+    User = 3,
+    Total = 4,
+}
+
 impl Env {
     /// Returns default env
     pub fn new() -> Result<Self, Error> {
