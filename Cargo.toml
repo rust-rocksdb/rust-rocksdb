@@ -38,7 +38,7 @@ lto = ["librocksdb-sys/lto"]
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.17.3", default-features = false, features = [
+librocksdb-sys = { path = "librocksdb-sys", version = "0.18.0", default-features = false, features = [
     "static",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
