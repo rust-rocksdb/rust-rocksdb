@@ -1,9 +1,15 @@
-use std::ffi::CString;
+use std::ffi::{CString};
+
+use core::ffi::{c_void, c_char, c_int};
+
+use std::ffi::CStr;
+use libc::size_t;
 
 use crate::ffi;
 use crate::ffi_util;
 use crate::env::Priority;
 use crate::Error;
+
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -238,4 +244,124 @@ impl CompactionServiceScheduleResponse {
             Ok(String::from_utf8_lossy(slice).to_string())
         }
     }
+}
+
+impl Drop for CompactionServiceScheduleResponse {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_compactionservice_scheduleresponse_t_destroy(self.inner);
+        }
+    }
+}
+
+pub trait CompactionService: Send + Sync + 'static {
+    fn schedule(&self, job_info: &CompactionServiceJobInfo, compaction_service_input: &[u8],) -> Result<CompactionServiceScheduleResponse, Error>;
+
+    fn wait(&self, scheduled_job_id: &str) -> Result<CompactionServiceJobStatus, Error>;
+
+    fn cancel_awaiting_jobs(&self) {
+
+    }
+
+    fn on_installation(&self, _scheduled_job_id: &str, _status: CompactionServiceJobStatus) {
+
+    }
+
+    fn name(&self) -> &CStr;
+}
+
+// Compaction Service Destructor
+pub unsafe extern "C" fn  destructor_callback<S>(raw_cb: *mut c_void)
+where
+    S: CompactionService,
+{
+    drop(Box::from_raw(raw_cb as *mut S));
+}
+
+// Name
+pub unsafe extern "C" fn name_callback<S>(raw_cb: *mut c_void) -> *const c_char
+where
+    S: CompactionService,
+{
+    let service = &*(raw_cb as *mut S);
+    service.name().as_ptr()
+}
+
+// Schedule Function 
+pub unsafe extern "C" fn schedule_callback<S>(
+    raw_cb: *mut c_void,
+    info: *const ffi::rocksdb_compactionservice_jobinfo_t,
+    input: *const c_char,
+    input_len: size_t
+) -> *mut ffi::rocksdb_compactionservice_scheduleresponse_t
+where 
+    S: CompactionService
+{
+    let service = &*(raw_cb as *mut S);
+    let job_info = CompactionServiceJobInfo {inner: info};
+    let input_slice = std::slice::from_raw_parts(input as *const u8, input_len);
+
+    match service.schedule(&job_info, input_slice) {
+        Ok(response) => {
+            let ptr = response.inner;
+            std::mem::forget(response); // letting c take up the ownership since this response is useful only for rocksdb c code 
+            ptr
+        }
+        Err(_) => {
+            let mut err: *mut libc::c_char = std::ptr::null_mut();
+            let response = ffi::rocksdb_compactionservice_scheduleresponse_create_with_status(
+                CompactionServiceJobStatus::Failure as i32,
+                &mut err,
+            );
+            response
+        }
+    }
+
+}
+
+// Wait
+pub unsafe extern "C" fn wait_callback<S>(
+    raw_cb: *mut c_void,
+    scheduled_job_id: *const c_char,
+    result: *mut *mut c_char,
+    result_len: *mut size_t,
+) -> c_int
+where
+    S: CompactionService,
+{
+    let service = &*(raw_cb as *mut S);
+    let job_id = CStr::from_ptr(scheduled_job_id).to_str().unwrap_or("");
+    
+    match service.wait(job_id) {
+        Ok(status) => status as c_int,
+        Err(_) => CompactionServiceJobStatus::Failure as c_int,
+    }
+}
+
+pub unsafe extern "C" fn cancel_awaiting_jobs_callback<S>(raw_cb: *mut c_void)
+where
+    S: CompactionService,
+{
+    let service = &*(raw_cb as *mut S);
+    service.cancel_awaiting_jobs();
+}
+
+pub unsafe extern "C" fn on_installation_callback<S>(
+    raw_cb: *mut c_void,
+    scheduled_job_id: *const c_char,
+    status: c_int,
+)
+where
+    S: CompactionService,
+{
+    let service = &*(raw_cb as *mut S);
+    let job_id = CStr::from_ptr(scheduled_job_id).to_str().unwrap_or("");
+    let status = match status {
+        0 => CompactionServiceJobStatus::Success,
+        1 => CompactionServiceJobStatus::Failure,
+        2 => CompactionServiceJobStatus::Aborted,
+        3 => CompactionServiceJobStatus::UseLocal,
+        _ => CompactionServiceJobStatus::Failure,
+    };
+    service.on_installation(job_id, status);
 }
