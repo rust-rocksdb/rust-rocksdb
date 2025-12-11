@@ -602,21 +602,10 @@ pub fn open_and_compact_with_options<P1: AsRef<Path>, P2: AsRef<Path>>(
 ) -> Result<Vec<u8>, Error> {
     let db_path_cstr = ffi_util::to_cpath(db_path)?;
     let output_dir_cstr = ffi_util::to_cpath(output_directory)?;
-
-    eprintln!("[DEBUG] open_and_compact_with_options called");
-    eprintln!("[DEBUG] options.inner: {:?}", options.inner);
-    eprintln!(
-        "[DEBUG] override_options.inner: {:?}",
-        override_options.inner
-    );
-    eprintln!("[DEBUG] db_path: {:?}", db_path_cstr);
-    eprintln!("[DEBUG] output_dir: {:?}", output_dir_cstr);
-    eprintln!("[DEBUG] input len: {}", input.len());
-
     let mut output_len: size_t = 0;
     let mut err: *mut libc::c_char = std::ptr::null_mut();
 
-    eprintln!("[DEBUG] Calling FFI rocksdb_open_and_compact_with_options...");
+
     let output_ptr = unsafe {
         ffi::rocksdb_open_and_compact_with_options(
             options.inner,
@@ -629,7 +618,6 @@ pub fn open_and_compact_with_options<P1: AsRef<Path>, P2: AsRef<Path>>(
             &mut err,
         )
     };
-    eprintln!("[DEBUG] FFI call returned");
 
     if !err.is_null() {
         return Err(Error::new(ffi_util::error_message(err)));
