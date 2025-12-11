@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package worker;
+
+// Compaction Worker Service - executes compaction jobs remotely
+service CompactionWorker {
+    // Execute a compaction job using OpenAndCompact
+    rpc ExecuteCompaction(CompactionRequest) returns (CompactionResponse);
+}
+
+// Request to execute compaction
+message CompactionRequest {
+    // Unique job identifier
+    string job_id = 1;
+    
+    // Serialized compaction input from RocksDB (from schedule callback)
+    bytes compaction_input = 2;
+    
+    // Path to the database (worker needs read access)
+    string db_path = 3;
+}
+
+// Response from compaction execution
+message CompactionResponse {
+    // Job identifier (echoed back)
+    string job_id = 1;
+    
+    // Whether compaction succeeded
+    bool success = 2;
+    
+    // Serialized compaction output (to return to RocksDB via wait callback)
+    bytes compaction_output = 3;
+    
+    // Error message if failed
+    string error_message = 4;
+}
+

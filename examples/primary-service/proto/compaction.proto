@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package compaction;
+
+// Remote Compaction Service - handles compaction work on behalf of RocksDB primary
+service RemoteCompactionService {
+    // Schedule a compaction job to be executed remotely
+    rpc ScheduleCompaction(ScheduleCompactionRequest) returns (ScheduleCompactionResponse);
+    
+    // Wait for a scheduled compaction job to complete
+    rpc WaitForCompaction(WaitForCompactionRequest) returns (WaitForCompactionResponse);
+    
+    // Cancel all awaiting compaction jobs
+    rpc CancelAwaitingJobs(CancelAwaitingJobsRequest) returns (CancelAwaitingJobsResponse);
+}
+
+// Job status enum matching RocksDB's CompactionServiceJobStatus
+enum CompactionJobStatus {
+    SUCCESS = 0;
+    FAILURE = 1;
+    ABORTED = 2;
+    USE_LOCAL = 3;
+}
+
+// Request to schedule a compaction job
+message ScheduleCompactionRequest {
+    // Serialized compaction input from RocksDB
+    bytes compaction_input = 1;
+    
+    // Metadata about the compaction job
+    string db_name = 2;
+    string db_id = 3;
+    string cf_name = 4;
+    uint32 cf_id = 5;
+    uint64 job_id = 6;
+    int32 base_input_level = 7;
+    int32 output_level = 8;
+    bool is_full_compaction = 9;
+    bool is_manual_compaction = 10;
+}
+
+// Response from scheduling a compaction job
+message ScheduleCompactionResponse {
+    // Unique ID assigned to this scheduled job
+    string scheduled_job_id = 1;
+    
+    // Status of the scheduling operation
+    CompactionJobStatus status = 2;
+}
+
+// Request to wait for a compaction job to complete
+message WaitForCompactionRequest {
+    // The job ID returned from ScheduleCompaction
+    string scheduled_job_id = 1;
+}
+
+// Response with the result of the compaction
+message WaitForCompactionResponse {
+    // Status of the completed job
+    CompactionJobStatus status = 1;
+    
+    // Serialized compaction result (on success)
+    bytes compaction_result = 2;
+}
+
+// Request to cancel all awaiting jobs
+message CancelAwaitingJobsRequest {}
+
+// Response for cancel operation  
+message CancelAwaitingJobsResponse {
+    bool success = 1;
+}
+

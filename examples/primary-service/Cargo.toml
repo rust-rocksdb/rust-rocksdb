@@ -1,0 +1,29 @@
+[package]
+name = "primary-service"
+version = "0.1.0"
+edition = "2021"
+description = "gRPC primary service demonstrating remote compaction with RocksDB"
+
+[[bin]]
+name = "primary-service"
+path = "src/main.rs"
+
+[dependencies]
+# RocksDB
+rocksdb = { path = "../.." }
+
+# gRPC / Protobuf
+tonic = "0.12"
+prost = "0.13"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+# Utilities
+uuid = { version = "1", features = ["v4"] }
+tempfile = "3"
+
+[build-dependencies]
+tonic-build = "0.12"
+

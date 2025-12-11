@@ -1,0 +1,27 @@
+[package]
+name = "remote-worker"
+version = "0.1.0"
+edition = "2021"
+description = "gRPC worker service that executes remote compaction using OpenAndCompact"
+
+[[bin]]
+name = "remote-worker"
+path = "src/main.rs"
+
+[dependencies]
+# RocksDB
+rocksdb = { path = "../.." }
+
+# gRPC / Protobuf
+tonic = "0.12"
+prost = "0.13"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Utilities
+tempfile = "3"
+
+[build-dependencies]
+tonic-build = "0.12"
+
