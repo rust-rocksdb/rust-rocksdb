@@ -21,6 +21,7 @@ use std::sync::Arc;
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::column_family::ColumnFamilyTtl;
+use crate::compaction_service::{self, CompactionService};
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -39,7 +40,6 @@ use crate::{
     statistics::Ticker,
     ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
-use crate::compaction_service::{self, CompactionService};
 
 pub(crate) struct WriteBufferManagerWrapper {
     pub(crate) inner: NonNull<ffi::rocksdb_write_buffer_manager_t>,
@@ -3737,23 +3737,22 @@ impl Options {
 
     pub fn set_compaction_service<S>(&mut self, service: S)
     where
-        S: CompactionService
+        S: CompactionService,
     {
         let boxed = Box::new(service);
         unsafe {
             let name_ptr = (*boxed).name().as_ptr();
-            
+
             let compaction_service = ffi::rocksdb_compactionservice_create(
-                Box::into_raw(boxed).cast::<c_void>(),                           // state
-                Some(compaction_service::destructor_callback::<S>),              // destructor
-                Some(compaction_service::schedule_callback::<S>),                // schedule
-                name_ptr,                                                         // name
-                Some(compaction_service::wait_callback::<S>),                    // wait
-                Some(compaction_service::cancel_awaiting_jobs_callback::<S>),    // cancel
-                Some(compaction_service::on_installation_callback::<S>),         // on_installation
+                Box::into_raw(boxed).cast::<c_void>(),              // state
+                Some(compaction_service::destructor_callback::<S>), // destructor
+                Some(compaction_service::schedule_callback::<S>),   // schedule
+                name_ptr,                                           // name
+                Some(compaction_service::wait_callback::<S>),       // wait
+                Some(compaction_service::cancel_awaiting_jobs_callback::<S>), // cancel
+                Some(compaction_service::on_installation_callback::<S>), // on_installation
             );
             ffi::rocksdb_options_set_compaction_service(self.inner, compaction_service);
-
         }
     }
 }

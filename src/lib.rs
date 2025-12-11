@@ -181,6 +181,11 @@ pub struct Error {
     message: String,
 }
 
+pub use crate::compaction_service::{
+    open_and_compact, open_and_compact_with_options, CompactionServiceOptionsOverride,
+    OpenAndCompactCanceled, OpenAndCompactOptions,
+};
+
 impl Error {
     fn new(message: String) -> Error {
         Error { message }
