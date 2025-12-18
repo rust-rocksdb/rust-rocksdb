@@ -114,10 +114,13 @@ pub fn test_checkpoint_with_log_size_zero_forces_flush() {
     opts.create_if_missing(true);
     let db = DB::open(&opts, &db_path).unwrap();
 
-    // Write some data
-    db.put(b"k1", b"v1").unwrap();
-    db.put(b"k2", b"v2").unwrap();
-    db.put(b"k3", b"v3").unwrap();
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
 
     // Create checkpoint with log_size_for_flush = 0 (forces flush)
     let cp = Checkpoint::new(&db).unwrap();
@@ -145,9 +148,14 @@ pub fn test_checkpoint_with_log_size_zero_forces_flush() {
     // Verify checkpoint contains all data (flush was forced, so data is in SST files)
     let cp_db = DB::open_default(&cp_path).unwrap();
 
-    assert_eq!(cp_db.get(b"k1").unwrap().unwrap(), b"v1");
-    assert_eq!(cp_db.get(b"k2").unwrap().unwrap(), b"v2");
-    assert_eq!(cp_db.get(b"k3").unwrap().unwrap(), b"v3");
+    assert_eq!(
+        cp_db.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert_eq!(
+        cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
 }
 
 /// Test `create_checkpoint_with_log_size` with a large log_size_for_flush value.
@@ -227,10 +235,13 @@ pub fn test_optimistic_transaction_db_checkpoint_with_log_size_zero_forces_flush
     opts.create_if_missing(true);
     let db: OptimisticTransactionDB = OptimisticTransactionDB::open(&opts, &db_path).unwrap();
 
-    // Write some data
-    db.put(b"k1", b"v1").unwrap();
-    db.put(b"k2", b"v2").unwrap();
-    db.put(b"k3", b"v3").unwrap();
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
 
     // Create checkpoint with log_size_for_flush = 0 (forces flush)
     let cp = Checkpoint::new(&db).unwrap();
@@ -258,9 +269,14 @@ pub fn test_optimistic_transaction_db_checkpoint_with_log_size_zero_forces_flush
     // Verify checkpoint contains all data (flush was forced, so data is in SST files)
     let cp_db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(&cp_path).unwrap();
 
-    assert_eq!(cp_db.get(b"k1").unwrap().unwrap(), b"v1");
-    assert_eq!(cp_db.get(b"k2").unwrap().unwrap(), b"v2");
-    assert_eq!(cp_db.get(b"k3").unwrap().unwrap(), b"v3");
+    assert_eq!(
+        cp_db.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert_eq!(
+        cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
 }
 
 /// Test `create_checkpoint_with_log_size` on OptimisticTransactionDB with a large log_size_for_flush value.
