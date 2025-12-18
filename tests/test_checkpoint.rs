@@ -343,6 +343,75 @@ pub fn test_optimistic_transaction_db_checkpoint_with_large_log_size_skips_flush
     );
 }
 
+/// Test that proves memtable data in a checkpoint is only available via WAL replay.
+/// We create two checkpoints with large log_size_for_flush (no flush forced), then
+/// truncate the WAL in one checkpoint. The checkpoint with intact WAL has the
+/// memtable_key, while the checkpoint with truncated WAL does not.
+#[test]
+pub fn test_checkpoint_wal_truncation_loses_memtable_data() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_cp_wal_truncate_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &db_path).unwrap();
+
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    // Create two checkpoints with large log_size_for_flush (no flush forced)
+    let cp = Checkpoint::new(&db).unwrap();
+    let large_log_size = u64::MAX;
+
+    let cp_intact_path = DBPath::new(&format!("{PATH_PREFIX}cp_intact"));
+    cp.create_checkpoint_with_log_size(&cp_intact_path, large_log_size)
+        .unwrap();
+
+    let cp_truncated_path = DBPath::new(&format!("{PATH_PREFIX}cp_truncated"));
+    cp.create_checkpoint_with_log_size(&cp_truncated_path, large_log_size)
+        .unwrap();
+
+    // Truncate the WAL in the second checkpoint
+    let wal_files: Vec<_> = fs::read_dir((&cp_truncated_path).as_ref())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "log"))
+        .map(|entry| entry.path())
+        .collect();
+    for wal_file in &wal_files {
+        fs::write(wal_file, b"").unwrap();
+    }
+
+    // Open the checkpoint with intact WAL - both keys should be present
+    let cp_db_intact = DB::open_default(&cp_intact_path).unwrap();
+    assert_eq!(
+        cp_db_intact.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert_eq!(
+        cp_db_intact.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value",
+        "memtable_key should be present when WAL is intact"
+    );
+
+    // Open the checkpoint with truncated WAL - only flushed_key should be present
+    let cp_db_truncated = DB::open_default(&cp_truncated_path).unwrap();
+    assert_eq!(
+        cp_db_truncated.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert!(
+        cp_db_truncated.get(b"memtable_key").unwrap().is_none(),
+        "memtable_key should be absent when WAL is truncated"
+    );
+}
+
 #[test]
 fn test_checkpoint_outlive_db() {
     let t = trybuild::TestCases::new();
