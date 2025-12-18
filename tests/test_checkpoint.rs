@@ -131,7 +131,7 @@ pub fn test_checkpoint_with_log_size_zero_forces_flush() {
     let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
         .unwrap()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "log"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
         .collect();
     assert_eq!(
         wal_files.len(),
@@ -194,7 +194,7 @@ pub fn test_checkpoint_with_large_log_size_skips_flush() {
     let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
         .unwrap()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "log"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
         .collect();
     assert_eq!(
         wal_files.len(),
@@ -252,7 +252,7 @@ pub fn test_optimistic_transaction_db_checkpoint_with_log_size_zero_forces_flush
     let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
         .unwrap()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "log"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
         .collect();
     assert_eq!(
         wal_files.len(),
@@ -315,7 +315,7 @@ pub fn test_optimistic_transaction_db_checkpoint_with_large_log_size_skips_flush
     let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
         .unwrap()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "log"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
         .collect();
     assert_eq!(
         wal_files.len(),
@@ -381,7 +381,7 @@ pub fn test_checkpoint_wal_truncation_loses_memtable_data() {
     let wal_files: Vec<_> = fs::read_dir((&cp_truncated_path).as_ref())
         .unwrap()
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "log"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
         .map(|entry| entry.path())
         .collect();
     for wal_file in &wal_files {
