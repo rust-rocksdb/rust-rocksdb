@@ -143,7 +143,9 @@ fn build_rocksdb() {
         if target_features.contains(&"lzcnt") {
             config.flag_if_supported("-mlzcnt");
         }
-        if !target.contains("android") && target_features.contains(&"pclmulqdq") {
+        if !target.contains("android")
+            && (target_features.contains(&"pclmulqdq") || target_features.contains(&"avx"))
+        {
             config.flag_if_supported("-mpclmul");
         }
     }
