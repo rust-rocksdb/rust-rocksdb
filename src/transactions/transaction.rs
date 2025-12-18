@@ -35,7 +35,7 @@ pub struct Transaction<'db, DB> {
 
 unsafe impl<DB> Send for Transaction<'_, DB> {}
 
-impl<DB> DBAccess for Transaction<'_, DB> {
+impl<'db, DB> DBAccess for Transaction<'db, DB> {
     unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
         ffi::rocksdb_transaction_get_snapshot(self.inner)
     }
@@ -77,7 +77,7 @@ impl<DB> DBAccess for Transaction<'_, DB> {
         &self,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_opt(key, readopts)
     }
 
@@ -86,7 +86,7 @@ impl<DB> DBAccess for Transaction<'_, DB> {
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_cf_opt(cf, key, readopts)
     }
 
@@ -116,7 +116,7 @@ impl<DB> DBAccess for Transaction<'_, DB> {
     }
 }
 
-impl<DB> Transaction<'_, DB> {
+impl<'db, DB> Transaction<'db, DB> {
     /// Write all batched keys to the DB atomically.
     ///
     /// May return any error that could be returned by `DB::write`.
@@ -227,7 +227,10 @@ impl<DB> Transaction<'_, DB> {
         self.get_opt(key, &ReadOptions::default())
     }
 
-    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
+    pub fn get_pinned<K: AsRef<[u8]>>(
+        &self,
+        key: K,
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_opt(key, &ReadOptions::default())
     }
 
@@ -248,7 +251,7 @@ impl<DB> Transaction<'_, DB> {
         &self,
         cf: &impl AsColumnFamilyRef,
         key: K,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
@@ -272,7 +275,7 @@ impl<DB> Transaction<'_, DB> {
         &self,
         key: K,
         exclusive: bool,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_for_update_opt(key, exclusive, &ReadOptions::default())
     }
 
@@ -298,7 +301,7 @@ impl<DB> Transaction<'_, DB> {
         cf: &impl AsColumnFamilyRef,
         key: K,
         exclusive: bool,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         self.get_pinned_for_update_cf_opt(cf, key, exclusive, &ReadOptions::default())
     }
 
@@ -320,7 +323,7 @@ impl<DB> Transaction<'_, DB> {
         &self,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned(
@@ -359,7 +362,7 @@ impl<DB> Transaction<'_, DB> {
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_cf(
@@ -400,7 +403,7 @@ impl<DB> Transaction<'_, DB> {
         key: K,
         exclusive: bool,
         opts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update(
@@ -463,7 +466,7 @@ impl<DB> Transaction<'_, DB> {
         key: K,
         exclusive: bool,
         opts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'db>>, Error> {
         let key = key.as_ref();
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update_cf(
