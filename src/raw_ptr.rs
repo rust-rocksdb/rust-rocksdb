@@ -15,7 +15,6 @@ use librocksdb_sys as ffi;
 /// ```rust,ignore
 /// use rocksdb::{DB, Options, AsRawPtr};
 ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let db = DB::open_default("path")?;
 /// let raw_db_ptr = unsafe { db.as_raw_ptr() }; // *mut rocksdb_t
 ///
@@ -24,8 +23,6 @@ use librocksdb_sys as ffi;
 ///
 /// // You can now use these pointers with the C API directly
 /// // unsafe { rocksdb_some_c_function(raw_db_ptr, raw_opts_ptr); }
-/// # Ok(())
-/// # }
 /// ```
 ///
 /// # Safety
