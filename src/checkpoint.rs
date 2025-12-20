@@ -103,10 +103,16 @@ impl<'db> Checkpoint<'db> {
     /// `log_size_for_flush` is forwarded to RocksDB's Checkpoint API:
     /// - `0` forces a flush as needed before checkpoint creation, which helps the
     ///   checkpoint include the latest writes; this may create new SST file(s).
-    /// - A non-zero value can reduce how often a flush is forced during checkpoint
-    ///   creation (and thus reduce tiny L0 SST creation during low write volume),
-    ///   at the cost of possibly producing checkpoints that do not include the
-    ///   most recent writes that are still resident in memtables.
+    /// - A non-zero value:
+    ///   - **Expected behavior** (once RocksDB bug is fixed): Only forces a flush
+    ///     if the total WAL size exceeds the specified threshold. When a flush is
+    ///     not forced and WAL writing is enabled, RocksDB includes WAL files in
+    ///     the checkpoint that are replayed on open to reconstruct recent writes.
+    ///     This avoids creating small SST files during periods of low write volume,
+    ///     at the cost of additional checkpoint storage space for the copied WAL.
+    ///   - **Current behavior** (RocksDB bug): Never flushes, regardless of WAL
+    ///     size. The checkpoint will always include WAL files instead of flushing
+    ///     to SST. See: <https://github.com/facebook/rocksdb/pull/14193>
     ///
     /// In practice, using a non-zero value means checkpoints may represent an
     /// *older, fully materialized database state* rather than the instantaneous

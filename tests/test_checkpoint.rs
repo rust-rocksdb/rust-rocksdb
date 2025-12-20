@@ -412,6 +412,92 @@ pub fn test_checkpoint_wal_truncation_loses_memtable_data() {
     );
 }
 
+/// Test that checkpoint with WAL over 50MB threshold triggers a flush.
+/// When WAL exceeds the threshold at checkpoint creation time, RocksDB
+/// flushes memtables, resulting in an empty WAL in the checkpoint.
+///
+/// Note: This test carefully writes data to get WAL just over 50 MiB
+/// (52,428,800 bytes) but under the 64MB memtable auto-flush limit.
+///
+/// IGNORED: There is a bug in RocksDB where `log_size_for_flush` is completely
+/// non-functional when set to a non-zero value. The issue is in
+/// `WalManager::GetSortedWalFiles()` which returns early without populating
+/// the WAL files list when `include_archived=false`, causing
+/// `GetLiveFilesStorageInfo()` to calculate WAL size as 0. This means the
+/// condition `0 < log_size_for_flush` is always true, skipping the flush.
+///
+/// See: https://github.com/facebook/rocksdb/pull/14193
+#[test]
+#[ignore]
+fn test_checkpoint_wal_over_threshold_is_flushed() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_cp_wal_threshold_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &db_path).unwrap();
+
+    // Write enough data to exceed 50 MiB WAL threshold but stay under 64MB memtable limit
+    // 50 MiB = 52,428,800 bytes
+    let threshold = 50 * 1024 * 1024_u64; // 50 MiB
+    let value = vec![b'x'; 1024]; // 1KB values
+    let mut i = 0;
+    loop {
+        let key = format!("key_{:08}", i);
+        db.put(key.as_bytes(), &value).unwrap();
+        i += 1;
+
+        // Check WAL size periodically
+        if i % 1000 == 0 {
+            let wal_size: u64 = fs::read_dir((&db_path).as_ref())
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+                .map(|e| e.metadata().unwrap().len())
+                .sum();
+            if wal_size > threshold {
+                break;
+            }
+        }
+    }
+
+    // Create checkpoint with 50 MiB threshold - since WAL exceeds this, flush should trigger
+    let cp = Checkpoint::new(&db).unwrap();
+    let cp_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    cp.create_checkpoint_with_log_size(&cp_path, threshold)
+        .unwrap();
+
+    // Verify checkpoint has empty WAL (data was flushed to SST)
+    let cp_wal_size: u64 = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+        .map(|e| e.metadata().unwrap().len())
+        .sum();
+
+    assert_eq!(
+        cp_wal_size, 0,
+        "Checkpoint WAL should be empty when WAL size exceeds log_size_for_flush threshold"
+    );
+
+    // Verify checkpoint has SST files
+    let cp_sst_count = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "sst"))
+        .count();
+
+    assert!(
+        cp_sst_count > 0,
+        "Checkpoint should contain SST files when flush is triggered"
+    );
+
+    // Verify data is accessible in checkpoint
+    let cp_db = DB::open_default(&cp_path).unwrap();
+    assert!(cp_db.get(b"key_00000000").unwrap().is_some());
+}
+
 #[test]
 fn test_checkpoint_outlive_db() {
     let t = trybuild::TestCases::new();
