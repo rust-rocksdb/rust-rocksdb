@@ -3749,10 +3749,10 @@ impl Options {
     }
 
     /// Sets the logger to use.
-    /// 
+    ///
     /// By default `rocksdb` writes its internal logs to a file in the database
     /// directory; this can be changed to a custom callback with the
-    /// [`InfoLogger::new_callback_logger`] constructor. 
+    /// [`InfoLogger::new_callback_logger`] constructor.
     pub fn set_info_logger(&self, logger: InfoLogger) {
         unsafe {
             ffi::rocksdb_options_set_info_log(self.inner, logger.inner);
@@ -4838,9 +4838,8 @@ pub struct InfoLogger {
 }
 
 impl InfoLogger {
-
     /// Creates a new logger that redirects logs to `STDERR` with an optional
-    /// prefix. 
+    /// prefix.
     pub fn new_stderr_logger<S: AsRef<str>>(log_level: LogLevel, prefix: Option<S>) -> Self {
         let prefix = prefix.map(|s| {
             s.as_ref()
@@ -4856,7 +4855,7 @@ impl InfoLogger {
         Self { inner }
     }
 
-    /// Creates a new logger that redirects logs to a custom callback. 
+    /// Creates a new logger that redirects logs to a custom callback.
     pub fn new_callback_logger<F: Fn(LogLevel, &str) + Sync + 'static>(
         level: LogLevel,
         cb: F,
