@@ -16,7 +16,8 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{checkpoint::Checkpoint, Options, DB};
+use rocksdb::{checkpoint::Checkpoint, OptimisticTransactionDB, Options, DB};
+use std::fs;
 use util::DBPath;
 
 #[test]
@@ -98,6 +99,403 @@ pub fn test_multi_checkpoints() {
     assert_eq!(cp.get(b"k2").unwrap().unwrap(), b"changed");
     assert_eq!(cp.get(b"k5").unwrap().unwrap(), b"v5");
     assert_eq!(cp.get(b"k6").unwrap().unwrap(), b"v6");
+}
+
+/// Test `create_checkpoint_with_log_size` with log_size_for_flush = 0.
+/// A value of 0 forces RocksDB to flush memtables before creating the checkpoint,
+/// ensuring all recent writes are included.
+#[test]
+pub fn test_checkpoint_with_log_size_zero_forces_flush() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_cp_log_size_zero_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &db_path).unwrap();
+
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    // Create checkpoint with log_size_for_flush = 0 (forces flush)
+    let cp = Checkpoint::new(&db).unwrap();
+    let cp_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    cp.create_checkpoint_with_log_size(&cp_path, 0).unwrap();
+
+    // Verify there is exactly one WAL file and it is empty (data was flushed to SST)
+    let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
+        .collect();
+    assert_eq!(
+        wal_files.len(),
+        1,
+        "Checkpoint should contain exactly one WAL file"
+    );
+    let wal_metadata = wal_files[0].metadata().unwrap();
+    assert_eq!(
+        wal_metadata.len(),
+        0,
+        "WAL file should be empty when flush is forced"
+    );
+
+    // Verify checkpoint contains all data (flush was forced, so data is in SST files)
+    let cp_db = DB::open_default(&cp_path).unwrap();
+
+    assert_eq!(
+        cp_db.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert_eq!(
+        cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
+}
+
+/// Test `create_checkpoint_with_log_size` with a large log_size_for_flush value.
+/// A non-zero value means RocksDB skips flushing memtables if the WAL is smaller
+/// than the threshold. However, the checkpoint still includes WAL files, so when
+/// the checkpoint is opened, the WAL is replayed and memtable data becomes available.
+#[test]
+pub fn test_checkpoint_with_large_log_size_skips_flush() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_cp_log_size_large_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &db_path).unwrap();
+
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    // Create checkpoint with a very large log_size_for_flush.
+    // This tells RocksDB not to force a flush unless WAL exceeds this size.
+    // Since we've written very little data, the WAL should be well under this
+    // threshold, so no flush should be forced.
+    let cp = Checkpoint::new(&db).unwrap();
+    let cp_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    let large_log_size = u64::MAX;
+    cp.create_checkpoint_with_log_size(&cp_path, large_log_size)
+        .unwrap();
+
+    // Verify there is exactly one WAL file and it is not empty
+    let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
+        .collect();
+    assert_eq!(
+        wal_files.len(),
+        1,
+        "Checkpoint should contain exactly one WAL file"
+    );
+    let wal_metadata = wal_files[0].metadata().unwrap();
+    assert!(wal_metadata.len() > 0, "WAL file should not be empty");
+
+    // Verify the checkpoint can be opened and contains the flushed data
+    let cp_db = DB::open_default(&cp_path).unwrap();
+
+    // The flushed key should definitely be present (it was in an SST file)
+    assert_eq!(
+        cp_db.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+
+    // The memtable_key IS present even though no flush was forced, because
+    // the checkpoint includes WAL files. When the checkpoint DB is opened,
+    // the WAL is replayed, restoring the memtable data.
+    assert_eq!(
+        cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
+}
+
+/// Test `create_checkpoint_with_log_size` on OptimisticTransactionDB with log_size_for_flush = 0.
+/// A value of 0 forces RocksDB to flush memtables before creating the checkpoint,
+/// ensuring all recent writes are included.
+#[test]
+pub fn test_optimistic_transaction_db_checkpoint_with_log_size_zero_forces_flush() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_otxn_cp_log_size_zero_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db: OptimisticTransactionDB = OptimisticTransactionDB::open(&opts, &db_path).unwrap();
+
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    // Create checkpoint with log_size_for_flush = 0 (forces flush)
+    let cp = Checkpoint::new(&db).unwrap();
+    let cp_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    cp.create_checkpoint_with_log_size(&cp_path, 0).unwrap();
+
+    // Verify there is exactly one WAL file and it is empty (data was flushed to SST)
+    let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
+        .collect();
+    assert_eq!(
+        wal_files.len(),
+        1,
+        "Checkpoint should contain exactly one WAL file"
+    );
+    let wal_metadata = wal_files[0].metadata().unwrap();
+    assert_eq!(
+        wal_metadata.len(),
+        0,
+        "WAL file should be empty when flush is forced"
+    );
+
+    // Verify checkpoint contains all data (flush was forced, so data is in SST files)
+    let cp_db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(&cp_path).unwrap();
+
+    assert_eq!(
+        cp_db.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert_eq!(
+        cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
+}
+
+/// Test `create_checkpoint_with_log_size` on OptimisticTransactionDB with a large log_size_for_flush value.
+/// A non-zero value means RocksDB skips flushing memtables if the WAL is smaller
+/// than the threshold. However, the checkpoint still includes WAL files, so when
+/// the checkpoint is opened, the WAL is replayed and memtable data becomes available.
+#[test]
+pub fn test_optimistic_transaction_db_checkpoint_with_large_log_size_skips_flush() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_otxn_cp_log_size_large_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db: OptimisticTransactionDB = OptimisticTransactionDB::open(&opts, &db_path).unwrap();
+
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    // Create checkpoint with a very large log_size_for_flush.
+    // This tells RocksDB not to force a flush unless WAL exceeds this size.
+    // Since we've written very little data, the WAL should be well under this
+    // threshold, so no flush should be forced.
+    let cp = Checkpoint::new(&db).unwrap();
+    let cp_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    let large_log_size = u64::MAX;
+    cp.create_checkpoint_with_log_size(&cp_path, large_log_size)
+        .unwrap();
+
+    // Verify there is exactly one WAL file and it is not empty
+    let wal_files: Vec<_> = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
+        .collect();
+    assert_eq!(
+        wal_files.len(),
+        1,
+        "Checkpoint should contain exactly one WAL file"
+    );
+    let wal_metadata = wal_files[0].metadata().unwrap();
+    assert!(wal_metadata.len() > 0, "WAL file should not be empty");
+
+    // Verify the checkpoint can be opened and contains the flushed data
+    let cp_db: OptimisticTransactionDB = OptimisticTransactionDB::open_default(&cp_path).unwrap();
+
+    // The flushed key should definitely be present (it was in an SST file)
+    assert_eq!(
+        cp_db.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+
+    // The memtable_key IS present even though no flush was forced, because
+    // the checkpoint includes WAL files. When the checkpoint DB is opened,
+    // the WAL is replayed, restoring the memtable data.
+    assert_eq!(
+        cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
+}
+
+/// Test that proves memtable data in a checkpoint is only available via WAL replay.
+/// We create two checkpoints with large log_size_for_flush (no flush forced), then
+/// truncate the WAL in one checkpoint. The checkpoint with intact WAL has the
+/// memtable_key, while the checkpoint with truncated WAL does not.
+#[test]
+pub fn test_checkpoint_wal_truncation_loses_memtable_data() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_cp_wal_truncate_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &db_path).unwrap();
+
+    // Write some initial data and flush it explicitly to ensure we have
+    // some materialized state in SST files
+    db.put(b"flushed_key", b"flushed_value").unwrap();
+    db.flush().unwrap();
+
+    // Write additional data that will remain in the memtable (not flushed to SST)
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    // Create two checkpoints with large log_size_for_flush (no flush forced)
+    let cp = Checkpoint::new(&db).unwrap();
+    let large_log_size = u64::MAX;
+
+    let cp_intact_path = DBPath::new(&format!("{PATH_PREFIX}cp_intact"));
+    cp.create_checkpoint_with_log_size(&cp_intact_path, large_log_size)
+        .unwrap();
+
+    let cp_truncated_path = DBPath::new(&format!("{PATH_PREFIX}cp_truncated"));
+    cp.create_checkpoint_with_log_size(&cp_truncated_path, large_log_size)
+        .unwrap();
+
+    // Truncate the WAL in the second checkpoint
+    let wal_files: Vec<_> = fs::read_dir((&cp_truncated_path).as_ref())
+        .unwrap()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
+        .map(|entry| entry.path())
+        .collect();
+    for wal_file in &wal_files {
+        fs::write(wal_file, b"").unwrap();
+    }
+
+    // Open the checkpoint with intact WAL - both keys should be present
+    let cp_db_intact = DB::open_default(&cp_intact_path).unwrap();
+    assert_eq!(
+        cp_db_intact.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert_eq!(
+        cp_db_intact.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value",
+        "memtable_key should be present when WAL is intact"
+    );
+
+    // Open the checkpoint with truncated WAL - only flushed_key should be present
+    let cp_db_truncated = DB::open_default(&cp_truncated_path).unwrap();
+    assert_eq!(
+        cp_db_truncated.get(b"flushed_key").unwrap().unwrap(),
+        b"flushed_value"
+    );
+    assert!(
+        cp_db_truncated.get(b"memtable_key").unwrap().is_none(),
+        "memtable_key should be absent when WAL is truncated"
+    );
+}
+
+/// Test that checkpoint with WAL over 50MB threshold triggers a flush.
+/// When WAL exceeds the threshold at checkpoint creation time, RocksDB
+/// flushes memtables, resulting in an empty WAL in the checkpoint.
+///
+/// Note: This test carefully writes data to get WAL just over 50 MiB
+/// (52,428,800 bytes) but under the 64MB memtable auto-flush limit.
+///
+/// IGNORED: There is a bug in RocksDB where `log_size_for_flush` is completely
+/// non-functional when set to a non-zero value. The issue is in
+/// `WalManager::GetSortedWalFiles()` which returns early without populating
+/// the WAL files list when `include_archived=false`, causing
+/// `GetLiveFilesStorageInfo()` to calculate WAL size as 0. This means the
+/// condition `0 < log_size_for_flush` is always true, skipping the flush.
+///
+/// See: https://github.com/facebook/rocksdb/pull/14193
+#[test]
+#[ignore]
+fn test_checkpoint_wal_over_threshold_is_flushed() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_cp_wal_threshold_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db = DB::open(&opts, &db_path).unwrap();
+
+    // Write enough data to exceed 50 MiB WAL threshold but stay under 64MB memtable limit
+    // 50 MiB = 52,428,800 bytes
+    let threshold = 50 * 1024 * 1024_u64; // 50 MiB
+    let value = vec![b'x'; 1024]; // 1KB values
+    let mut i = 0;
+    loop {
+        let key = format!("key_{:08}", i);
+        db.put(key.as_bytes(), &value).unwrap();
+        i += 1;
+
+        // Check WAL size periodically
+        if i % 1000 == 0 {
+            let wal_size: u64 = fs::read_dir((&db_path).as_ref())
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+                .map(|e| e.metadata().unwrap().len())
+                .sum();
+            if wal_size > threshold {
+                break;
+            }
+        }
+    }
+
+    // Create checkpoint with 50 MiB threshold - since WAL exceeds this, flush should trigger
+    let cp = Checkpoint::new(&db).unwrap();
+    let cp_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    cp.create_checkpoint_with_log_size(&cp_path, threshold)
+        .unwrap();
+
+    // Verify checkpoint has empty WAL (data was flushed to SST)
+    let cp_wal_size: u64 = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+        .map(|e| e.metadata().unwrap().len())
+        .sum();
+
+    assert_eq!(
+        cp_wal_size, 0,
+        "Checkpoint WAL should be empty when WAL size exceeds log_size_for_flush threshold"
+    );
+
+    // Verify checkpoint has SST files
+    let cp_sst_count = fs::read_dir((&cp_path).as_ref())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "sst"))
+        .count();
+
+    assert!(
+        cp_sst_count > 0,
+        "Checkpoint should contain SST files when flush is triggered"
+    );
+
+    // Verify data is accessible in checkpoint
+    let cp_db = DB::open_default(&cp_path).unwrap();
+    assert!(cp_db.get(b"key_00000000").unwrap().is_some());
 }
 
 #[test]
