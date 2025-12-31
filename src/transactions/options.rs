@@ -100,7 +100,7 @@ impl TransactionOptions {
     ///
     /// If non-negative, transactions that last longer than this many milliseconds will fail to commit.
     /// If not set, a forgotten transaction that is never committed, rolled back, or deleted
-    /// will never relinquish any locks it holds.  This could prevent keys from being by other writers.
+    /// will never relinquish any locks it holds.  This could prevent keys from being accessed by other writers.
     ///
     /// Default: -1.
     pub fn set_expiration(&mut self, expiration: i64) {

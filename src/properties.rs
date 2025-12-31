@@ -1,7 +1,7 @@
 //! Properties
 //!
 //! Full list of valid properties and descriptions pulled from
-//! [here](https:///github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
+//! [here](https://github.com/facebook/rocksdb/blob/08809f5e6cd9cc4bc3958dd4d59457ae78c76660/include/rocksdb/db.h#L428-L634).
 
 use crate::prop_name::level_property;
 pub use crate::prop_name::{PropName, PropertyName};
@@ -143,7 +143,7 @@ pub const OLDEST_SNAPSHOT_TIME: &PropName = property!("oldest-snapshot-time");
 
 /// "rocksdb.num-live-versions" - returns number of live versions. `Version`
 /// is an internal data structure. See version_set.h for details. More
-/// live versions often mean more SST files are held from being deleted,
+/// live versions often mean more SST files are prevented from being deleted,
 /// by iterators or unfinished compactions.
 pub const NUM_LIVE_VERSIONS: &PropName = property!("num-live-versions");
 
