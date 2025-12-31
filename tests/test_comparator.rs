@@ -165,6 +165,40 @@ fn test_comparator_with_ts() {
     let _ = DB::destroy(&Options::default(), path);
 }
 
+// Create options with a comparator and use it for multiple DBs to test lifetimes.
+#[test]
+fn test_comparator_lifetime() {
+    fn do_not_call_comparator(_a: &[u8], _b: &[u8]) -> Ordering {
+        panic!("BUG: must not be called");
+    }
+
+    let options = {
+        let mut options = Options::default();
+        options.set_comparator(
+            "test_do_not_call_comparator",
+            Box::new(do_not_call_comparator),
+        );
+        options.create_if_missing(true);
+        options
+    };
+
+    // create a database with the comparator
+    let rocksdb1_dir = tempfile::tempdir().unwrap();
+    let rocksdb1 = DB::open(&options, rocksdb1_dir.path()).unwrap();
+
+    // a second rocksdb using the same comparator is created and dropped
+    {
+        let rocksdb2_dir = tempfile::tempdir().unwrap();
+        let rocksdb2 = DB::open(&options, rocksdb2_dir.path()).unwrap();
+        rocksdb2.put(b"k", b"v").unwrap();
+    }
+
+    // rocksdb1 still works after dropping rocksdb2
+    rocksdb1.put(b"k", b"v").unwrap();
+    rocksdb1.flush().unwrap();
+    drop(rocksdb1);
+}
+
 #[test]
 fn test_comparator_with_column_family_with_ts() {
     let tempdir = tempfile::Builder::new()
