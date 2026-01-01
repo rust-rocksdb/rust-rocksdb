@@ -36,6 +36,10 @@ fn compaction_filter_test() {
     let mut opts = Options::default();
     opts.create_if_missing(true);
     opts.set_compaction_filter("test", test_filter);
+
+    let rocksdb_other_dir = tempfile::tempdir().unwrap();
+    let rocksdb_other = DB::open(&opts, rocksdb_other_dir.path()).unwrap();
+
     {
         let db = DB::open(&opts, &path).unwrap();
         let _ = db.put(b"k1", b"a");
@@ -46,4 +50,9 @@ fn compaction_filter_test() {
         assert!(db.get(b"_k").unwrap().is_none());
         assert_eq!(&*db.get(b"%k").unwrap().unwrap(), b"secret");
     }
+
+    // rocksdb_other must still work
+    rocksdb_other.put(b"%k", b"c").unwrap();
+    rocksdb_other.compact_range(None::<&[u8]>, None::<&[u8]>);
+    assert_eq!(&*rocksdb_other.get(b"%k").unwrap().unwrap(), b"secret");
 }
