@@ -14,12 +14,10 @@
 //
 
 use crate::{
-    column_family::AsColumnFamilyRef,
-    column_family::BoundColumnFamily,
-    column_family::UnboundColumnFamily,
+    column_family::{AsColumnFamilyRef, BoundColumnFamily, UnboundColumnFamily},
     db_options::OptionsMustOutliveDB,
     ffi,
-    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
+    ffi_util::{convert_rocksdb_error, from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
@@ -1319,7 +1317,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                             Ok(Some(DBPinnableSlice::from_c(v)))
                         }
                     } else {
-                        Err(Error::new(crate::ffi_util::error_message(e)))
+                        Err(convert_rocksdb_error(e))
                     }
                 })
                 .collect()
@@ -2741,7 +2739,7 @@ pub(crate) fn convert_values(
                 }
                 Ok(value)
             } else {
-                Err(Error::new(crate::ffi_util::error_message(e)))
+                Err(convert_rocksdb_error(e))
             }
         })
         .collect()

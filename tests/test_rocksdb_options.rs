@@ -63,6 +63,16 @@ fn test_get_options_from_string() {
     assert!(opts
         .get_options_from_string("notarealoptionstring")
         .is_err());
+
+    // test an option with a NUL byte
+    let err = match opts.get_options_from_string("use_fsync=false\0") {
+        Ok(_) => panic!("expected error"),
+        Err(e) => e,
+    };
+    assert!(
+        err.to_string().contains("must not contain NUL"),
+        "err={err:?}"
+    );
 }
 
 #[test]

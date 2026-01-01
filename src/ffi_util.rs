@@ -35,11 +35,13 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
     }
 }
 
-pub fn error_message(ptr: *const c_char) -> String {
+/// Convert a RocksDB error message to an Error and frees it. The argument must not be used after
+/// this function is called.
+pub fn convert_rocksdb_error(rocksdb_err: *const c_char) -> Error {
     unsafe {
-        let s = from_cstr(ptr);
-        ffi::rocksdb_free(ptr as *mut c_void);
-        s
+        let s = from_cstr(rocksdb_err);
+        ffi::rocksdb_free(rocksdb_err as *mut c_void);
+        Error::new(s)
     }
 }
 
@@ -64,6 +66,9 @@ pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     }
 }
 
+/// Calls a RocksDB C API function that returns an error as a pointer to a C string as the last
+/// argument. The C function result is converted into `Result<T, Error>`. This ensures the error
+/// message pointer is not leaked. See [`convert_rocksdb_error`] for details.
 macro_rules! ffi_try {
     ( $($function:ident)::*() ) => {
         ffi_try_impl!($($function)::*())
@@ -79,7 +84,7 @@ macro_rules! ffi_try_impl {
         let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
         let result = $($function)::*($($arg,)* &mut err);
         if !err.is_null() {
-            return Err(Error::new($crate::ffi_util::error_message(err)));
+            return Err($crate::ffi_util::convert_rocksdb_error(err));
         }
         result
     }};
