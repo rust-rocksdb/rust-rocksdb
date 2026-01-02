@@ -1,0 +1,11 @@
+error[E0597]: `db` does not live long enough
+ --> tests/fail/memory_usage_builder_outlive_db.rs:7:24
+  |
+6 |         let db = DB::open_default("foo").unwrap();
+  |             -- binding `db` declared here
+7 |         builder.add_db(&db);
+  |                        ^^^ borrowed value does not live long enough
+8 |     }
+  |     - `db` dropped here while still borrowed
+9 |     let _memory_usage = builder.build().unwrap();
+  |                         ------- borrow later used here
