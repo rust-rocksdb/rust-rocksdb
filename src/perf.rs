@@ -217,12 +217,18 @@ impl MemoryUsage {
 /// Builder for MemoryUsage
 pub struct MemoryUsageBuilder {
     inner: *mut ffi::rocksdb_memory_consumers_t,
+    base_dbs: Vec<*mut ffi::rocksdb_t>,
 }
 
 impl Drop for MemoryUsageBuilder {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_memory_consumers_destroy(self.inner);
+        }
+        for base_db in &self.base_dbs {
+            unsafe {
+                ffi::rocksdb_transactiondb_close_base_db(*base_db);
+            }
         }
     }
 }
@@ -236,15 +242,20 @@ impl MemoryUsageBuilder {
                 "Could not create MemoryUsage builder".to_owned(),
             ))
         } else {
-            Ok(Self { inner: mc })
+            Ok(Self {
+                inner: mc,
+                base_dbs: Vec::new(),
+            })
         }
     }
 
     /// Add a DB instance to collect memory usage from it and add up in total stats
     pub fn add_tx_db<T: ThreadMode>(&mut self, db: &TransactionDB<T>) {
         unsafe {
-            let base = ffi::rocksdb_transactiondb_get_base_db(db.inner);
-            ffi::rocksdb_memory_consumers_add_db(self.inner, base);
+            let base_db = ffi::rocksdb_transactiondb_get_base_db(db.inner);
+            ffi::rocksdb_memory_consumers_add_db(self.inner, base_db);
+            // rocksdb_transactiondb_get_base_db allocates a struct that must be freed
+            self.base_dbs.push(base_db);
         }
     }
 
