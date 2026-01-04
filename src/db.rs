@@ -1433,13 +1433,25 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 "Failed to convert path to CString when creating cf: {err}"
             ))
         })?;
-        Ok(unsafe {
-            ffi_try!(ffi::rocksdb_create_column_family(
+
+        // Can't use ffi_try: rocksdb_create_column_family has a bug where it allocates a
+        // result that needs to be freed on error
+        let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
+        let cf_handle = unsafe {
+            ffi::rocksdb_create_column_family(
                 self.inner.inner(),
                 opts.inner,
                 cf_name.as_ptr(),
-            ))
-        })
+                &mut err,
+            )
+        };
+        if !err.is_null() {
+            if !cf_handle.is_null() {
+                unsafe { ffi::rocksdb_column_family_handle_destroy(cf_handle) };
+            }
+            return Err(convert_rocksdb_error(err));
+        }
+        Ok(cf_handle)
     }
 
     pub fn iterator<'a: 'b, 'b>(
