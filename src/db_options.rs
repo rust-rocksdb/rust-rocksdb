@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ffi::CStr;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -21,6 +20,7 @@ use std::sync::Arc;
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::column_family::ColumnFamilyTtl;
+use crate::ffi_util::from_cstr_and_free;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -31,7 +31,7 @@ use crate::{
     db::DBAccess,
     env::Env,
     ffi,
-    ffi_util::{from_cstr, to_cpath, CStrLike},
+    ffi_util::{to_cpath, CStrLike},
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
@@ -1098,6 +1098,9 @@ impl Options {
             inner: db_options,
             outlive: OptionsMustOutliveDB::default(),
         };
+        // read_column_descriptors frees column_family_names and the column_family_options array.
+        // We can't call rocksdb_load_latest_options_destroy because it also frees options, and
+        // the individual `column_family_options` pointers. We want to return them.
         let column_families = unsafe {
             Options::read_column_descriptors(
                 num_column_families,
@@ -1135,7 +1138,9 @@ impl Options {
         Ok(options)
     }
 
-    /// read column descriptors from c pointers
+    /// Reads column descriptors from C pointers. This frees the `column_family_names` and
+    /// `column_family_options` arrays, and the strings contained in `column_family_names`. It does
+    /// *not* free the `rocksdb_options_t*` pointers contained in `column_family_options`.
     #[inline]
     unsafe fn read_column_descriptors(
         num_column_families: usize,
@@ -1145,7 +1150,7 @@ impl Options {
         let column_family_names_iter = unsafe {
             slice::from_raw_parts(column_family_names, num_column_families)
                 .iter()
-                .map(|ptr| from_cstr(*ptr))
+                .map(|ptr| from_cstr_and_free(*ptr))
         };
         let column_family_options_iter = unsafe {
             slice::from_raw_parts(column_family_options, num_column_families)
@@ -1164,12 +1169,11 @@ impl Options {
             })
             .collect::<Vec<_>>();
 
-        // free pointers
+        // free the arrays
         unsafe {
-            slice::from_raw_parts(column_family_names, num_column_families)
-                .iter()
-                .for_each(|ptr| ffi::rocksdb_free(*ptr as *mut c_void));
+            // we freed each string in the column_family_names array using from_cstr_and_free
             ffi::rocksdb_free(column_family_names as *mut c_void);
+            // we don't want to free the contents of this array because we return it
             ffi::rocksdb_free(column_family_options as *mut c_void);
         };
 
@@ -3079,9 +3083,7 @@ impl Options {
             }
 
             // Must have valid UTF-8 format.
-            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
-            ffi::rocksdb_free(value as *mut c_void);
-            Some(s)
+            Some(from_cstr_and_free(value))
         }
     }
 
