@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ffi::CStr;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -21,6 +20,7 @@ use std::sync::Arc;
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::column_family::ColumnFamilyTtl;
+use crate::ffi_util::from_cstr_and_free;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -31,7 +31,7 @@ use crate::{
     db::DBAccess,
     env::Env,
     ffi,
-    ffi_util::{from_cstr, to_cpath, CStrLike},
+    ffi_util::{to_cpath, CStrLike},
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
@@ -216,6 +216,8 @@ impl Cache {
     }
 }
 
+/// Options that must outlive the DB, and may be shared between DBs. This is cloned and stored
+/// with every DB that is created from the options.
 #[derive(Default)]
 pub(crate) struct OptionsMustOutliveDB {
     env: Option<Env>,
@@ -223,6 +225,8 @@ pub(crate) struct OptionsMustOutliveDB {
     blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
+    comparator: Option<Arc<OwnedComparator>>,
+    compaction_filter: Option<Arc<OwnedCompactionFilter>>,
 }
 
 impl OptionsMustOutliveDB {
@@ -236,6 +240,52 @@ impl OptionsMustOutliveDB {
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
             write_buffer_manager: self.write_buffer_manager.clone(),
+            comparator: self.comparator.clone(),
+            compaction_filter: self.compaction_filter.clone(),
+        }
+    }
+}
+
+/// Stores a `rocksdb_comparator_t` and destroys it when dropped.
+///
+/// This has an unsafe implementation of Send and Sync because it wraps a RocksDB pointer that
+/// is safe to share between threads.
+struct OwnedComparator {
+    inner: NonNull<ffi::rocksdb_comparator_t>,
+}
+
+impl OwnedComparator {
+    fn new(inner: NonNull<ffi::rocksdb_comparator_t>) -> Self {
+        Self { inner }
+    }
+}
+
+impl Drop for OwnedComparator {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_comparator_destroy(self.inner.as_ptr());
+        }
+    }
+}
+
+/// Stores a `rocksdb_compactionfilter_t` and destroys it when dropped.
+///
+/// This has an unsafe implementation of Send and Sync because it wraps a RocksDB pointer that
+/// is safe to share between threads.
+struct OwnedCompactionFilter {
+    inner: NonNull<ffi::rocksdb_compactionfilter_t>,
+}
+
+impl OwnedCompactionFilter {
+    fn new(inner: NonNull<ffi::rocksdb_compactionfilter_t>) -> Self {
+        Self { inner }
+    }
+}
+
+impl Drop for OwnedCompactionFilter {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_compactionfilter_destroy(self.inner.as_ptr());
         }
     }
 }
@@ -428,6 +478,8 @@ unsafe impl Send for IngestExternalFileOptions {}
 unsafe impl Send for CacheWrapper {}
 unsafe impl Send for CompactOptions {}
 unsafe impl Send for WriteBufferManagerWrapper {}
+unsafe impl Send for OwnedComparator {}
+unsafe impl Send for OwnedCompactionFilter {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -442,6 +494,8 @@ unsafe impl Sync for IngestExternalFileOptions {}
 unsafe impl Sync for CacheWrapper {}
 unsafe impl Sync for CompactOptions {}
 unsafe impl Sync for WriteBufferManagerWrapper {}
+unsafe impl Sync for OwnedComparator {}
+unsafe impl Sync for OwnedCompactionFilter {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -1058,6 +1112,9 @@ impl Options {
             inner: db_options,
             outlive: OptionsMustOutliveDB::default(),
         };
+        // read_column_descriptors frees column_family_names and the column_family_options array.
+        // We can't call rocksdb_load_latest_options_destroy because it also frees options, and
+        // the individual `column_family_options` pointers. We want to return them.
         let column_families = unsafe {
             Options::read_column_descriptors(
                 num_column_families,
@@ -1074,34 +1131,30 @@ impl Options {
         &mut self,
         opts_str: S,
     ) -> Result<Options, Error> {
-        let new_options = unsafe { ffi::rocksdb_options_create() };
-        let mut errptr: *mut c_char = null_mut();
-        let opts_cstr = opts_str
-            .as_ref()
-            .into_c_string()
-            .expect("into_c_string is infallible");
+        // create the rocksdb_options_t and immediately wrap it so we don't forget to free it
+        let options = Options {
+            inner: unsafe { ffi::rocksdb_options_create() },
+            outlive: OptionsMustOutliveDB::default(),
+        };
+
+        let opts_cstr = opts_str.as_ref().into_c_string().map_err(|e| {
+            Error::new(format!(
+                "options string must not contain NUL (0x00) bytes: {e}"
+            ))
+        })?;
         unsafe {
-            ffi::rocksdb_get_options_from_string(
+            ffi_try!(ffi::rocksdb_get_options_from_string(
                 self.inner.cast_const(),
                 opts_cstr.as_ptr(),
-                new_options,
-                &mut errptr,
-            );
+                options.inner,
+            ));
         }
-        if !errptr.is_null() {
-            let message = unsafe { CStr::from_ptr(errptr) }
-                .to_str()
-                .unwrap_or("invalid error message")
-                .to_string();
-            return Err(Error { message });
-        }
-        Ok(Options {
-            inner: new_options,
-            outlive: OptionsMustOutliveDB::default(),
-        })
+        Ok(options)
     }
 
-    /// read column descriptors from c pointers
+    /// Reads column descriptors from C pointers. This frees the `column_family_names` and
+    /// `column_family_options` arrays, and the strings contained in `column_family_names`. It does
+    /// *not* free the `rocksdb_options_t*` pointers contained in `column_family_options`.
     #[inline]
     unsafe fn read_column_descriptors(
         num_column_families: usize,
@@ -1111,7 +1164,7 @@ impl Options {
         let column_family_names_iter = unsafe {
             slice::from_raw_parts(column_family_names, num_column_families)
                 .iter()
-                .map(|ptr| from_cstr(*ptr))
+                .map(|ptr| from_cstr_and_free(*ptr))
         };
         let column_family_options_iter = unsafe {
             slice::from_raw_parts(column_family_options, num_column_families)
@@ -1130,12 +1183,11 @@ impl Options {
             })
             .collect::<Vec<_>>();
 
-        // free pointers
+        // free the arrays
         unsafe {
-            slice::from_raw_parts(column_family_names, num_column_families)
-                .iter()
-                .for_each(|ptr| ffi::rocksdb_free(*ptr as *mut c_void));
+            // we freed each string in the column_family_names array using from_cstr_and_free
             ffi::rocksdb_free(column_family_names as *mut c_void);
+            // we don't want to free the contents of this array because we return it
             ffi::rocksdb_free(column_family_options as *mut c_void);
         };
 
@@ -1719,7 +1771,7 @@ impl Options {
             filter_fn,
         });
 
-        unsafe {
+        let filter = unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
                 Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
@@ -1727,7 +1779,10 @@ impl Options {
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
             );
             ffi::rocksdb_options_set_compaction_filter(self.inner, cf);
-        }
+
+            OwnedCompactionFilter::new(NonNull::new(cf).unwrap())
+        };
+        self.outlive.compaction_filter = Some(Arc::new(filter));
     }
 
     /// This is a factory that provides compaction filter objects which allow
@@ -1768,7 +1823,7 @@ impl Options {
             compare_fn,
         });
 
-        unsafe {
+        let cmp = unsafe {
             let cmp = ffi::rocksdb_comparator_create(
                 Box::into_raw(cb).cast::<c_void>(),
                 Some(ComparatorCallback::destructor_callback),
@@ -1776,7 +1831,9 @@ impl Options {
                 Some(ComparatorCallback::name_callback),
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
-        }
+            OwnedComparator::new(NonNull::new(cmp).unwrap())
+        };
+        self.outlive.comparator = Some(Arc::new(cmp));
     }
 
     /// Sets the comparator that are timestamp-aware, used to define the order of keys in the table,
@@ -1801,7 +1858,7 @@ impl Options {
             compare_without_ts_fn,
         });
 
-        unsafe {
+        let cmp = unsafe {
             let cmp = ffi::rocksdb_comparator_with_ts_create(
                 Box::into_raw(cb).cast::<c_void>(),
                 Some(ComparatorWithTsCallback::destructor_callback),
@@ -1812,7 +1869,9 @@ impl Options {
                 timestamp_size,
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
-        }
+            OwnedComparator::new(NonNull::new(cmp).unwrap())
+        };
+        self.outlive.comparator = Some(Arc::new(cmp));
     }
 
     pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
@@ -3038,9 +3097,7 @@ impl Options {
             }
 
             // Must have valid UTF-8 format.
-            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
-            ffi::rocksdb_free(value as *mut c_void);
-            Some(s)
+            Some(from_cstr_and_free(value))
         }
     }
 

@@ -19,9 +19,20 @@ use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
 
-pub(crate) unsafe fn from_cstr(ptr: *const c_char) -> String {
+/// Copies `ptr` into a String, replacing invalid UTF-8 using [`String::from_utf8_lossy`], *without*
+/// freeing it. Prefer [`from_cstr_and_free`] to make leaks less likely.
+pub(crate) unsafe fn from_cstr_without_free(ptr: *const c_char) -> String {
     let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
     String::from_utf8_lossy(cstr.to_bytes()).into_owned()
+}
+
+/// Copies `ptr` into a String, replacing invalid UTF-8 using [`String::from_utf8_lossy`], then
+/// frees it using `rocksdb_free`.
+pub(crate) unsafe fn from_cstr_and_free(ptr: *const c_char) -> String {
+    let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
+    let s = String::from_utf8_lossy(cstr.to_bytes()).into_owned();
+    ffi::rocksdb_free(ptr as *mut c_void);
+    s
 }
 
 pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>> {
@@ -35,12 +46,11 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
     }
 }
 
-pub fn error_message(ptr: *const c_char) -> String {
-    unsafe {
-        let s = from_cstr(ptr);
-        ffi::rocksdb_free(ptr as *mut c_void);
-        s
-    }
+/// Convert a RocksDB error message to an Error and frees it. The argument must not be used after
+/// this function is called.
+pub fn convert_rocksdb_error(rocksdb_err: *const c_char) -> Error {
+    let rocksdb_err_str = unsafe { from_cstr_and_free(rocksdb_err) };
+    Error::new(rocksdb_err_str)
 }
 
 /// Returns a raw pointer to borrowed bytes, or null if None.
@@ -64,6 +74,9 @@ pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     }
 }
 
+/// Calls a RocksDB C API function that returns an error as a pointer to a C string as the last
+/// argument. The C function result is converted into `Result<T, Error>`. This ensures the error
+/// message pointer is not leaked. See [`convert_rocksdb_error`] for details.
 macro_rules! ffi_try {
     ( $($function:ident)::*() ) => {
         ffi_try_impl!($($function)::*())
@@ -79,7 +92,7 @@ macro_rules! ffi_try_impl {
         let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
         let result = $($function)::*($($arg,)* &mut err);
         if !err.is_null() {
-            return Err(Error::new($crate::ffi_util::error_message(err)));
+            return Err($crate::ffi_util::convert_rocksdb_error(err));
         }
         result
     }};
