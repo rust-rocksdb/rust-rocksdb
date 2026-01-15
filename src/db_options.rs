@@ -1063,6 +1063,20 @@ pub enum LogLevel {
     Header,
 }
 
+impl LogLevel {
+    pub(crate) fn try_from_raw(raw: i32) -> Option<Self> {
+        match raw {
+            n if n == LogLevel::Debug as i32 => Some(LogLevel::Debug),
+            n if n == LogLevel::Info as i32 => Some(LogLevel::Info),
+            n if n == LogLevel::Warn as i32 => Some(LogLevel::Warn),
+            n if n == LogLevel::Error as i32 => Some(LogLevel::Error),
+            n if n == LogLevel::Fatal as i32 => Some(LogLevel::Fatal),
+            n if n == LogLevel::Header as i32 => Some(LogLevel::Header),
+            _ => None,
+        }
+    }
+}
+
 impl Options {
     /// Constructs the DBOptions and ColumnFamilyDescriptors by loading the
     /// latest RocksDB options file stored in the specified rocksdb database.
@@ -3790,6 +3804,23 @@ impl Options {
         let val_u8 = unsafe { ffi::rocksdb_options_get_write_dbid_to_manifest(self.inner) };
         val_u8 != 0
     }
+
+    /// Sets the logger to use.
+    ///
+    /// By default `rocksdb` writes its internal logs to a file in the database
+    /// directory; this can be changed to a custom callback with the
+    /// [`InfoLogger::new_callback_logger`] constructor.
+    pub fn set_info_logger(&self, logger: InfoLogger) {
+        unsafe {
+            ffi::rocksdb_options_set_info_log(self.inner, logger.inner);
+        }
+    }
+
+    /// Returns a reference to the currently configured logger.
+    pub fn get_info_logger(&self) -> InfoLogger {
+        let raw = unsafe { ffi::rocksdb_options_get_info_log(self.inner) };
+        InfoLogger { inner: raw }
+    }
 }
 
 impl Default for Options {
@@ -4859,10 +4890,73 @@ impl Drop for DBPath {
     }
 }
 
+pub struct InfoLogger {
+    pub(crate) inner: *mut ffi::rocksdb_logger_t,
+}
+
+impl InfoLogger {
+    /// Creates a new logger that redirects logs to `STDERR` with an optional
+    /// prefix.
+    pub fn new_stderr_logger<S: AsRef<str>>(log_level: LogLevel, prefix: Option<S>) -> Self {
+        let prefix = prefix.map(|s| {
+            s.as_ref()
+                .into_c_string()
+                .expect("cannot have NULL in prefix")
+        });
+        let prefix_ptr = match prefix.as_ref() {
+            Some(s) => s.as_ptr(),
+            None => std::ptr::null(),
+        };
+        let inner =
+            unsafe { ffi::rocksdb_logger_create_stderr_logger(log_level as i32, prefix_ptr) };
+        Self { inner }
+    }
+
+    /// Creates a new logger that redirects logs to a custom callback.
+    pub fn new_callback_logger<F: Fn(LogLevel, &str) + Sync + 'static>(
+        level: LogLevel,
+        cb: F,
+    ) -> Self {
+        let cb = Box::into_raw(Box::new(cb));
+        let inner = unsafe {
+            ffi::rocksdb_logger_create_callback_logger(
+                level as i32,
+                Some(logger_callback::<F>),
+                cb as *mut c_void,
+            )
+        };
+        Self { inner }
+    }
+}
+
+impl Drop for InfoLogger {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_logger_destroy(self.inner);
+        }
+    }
+}
+
+unsafe extern "C" fn logger_callback<F>(
+    raw_cb: *mut c_void,
+    level: c_uint,
+    msg: *mut c_char,
+    len: size_t,
+) where
+    F: Fn(LogLevel, &str) + Sync,
+{
+    let cb = unsafe { &*(raw_cb as *const F) };
+    let raw_msg = unsafe { std::slice::from_raw_parts(msg as *const u8, len) };
+    let msg = String::from_utf8_lossy(raw_msg);
+    let level =
+        LogLevel::try_from_raw(level as i32).expect("rocksdb generated in invalid log level");
+    (cb)(level, &msg);
+}
+
 #[cfg(test)]
 mod tests {
     use crate::db_options::WriteBufferManager;
-    use crate::{Cache, CompactionPri, MemtableFactory, Options};
+    use crate::{Cache, CompactionPri, InfoLogger, MemtableFactory, Options};
 
     #[test]
     fn test_enable_statistics() {
@@ -4946,5 +5040,28 @@ mod tests {
             .unwrap();
 
         assert!(options.contains("compaction_pri=kRoundRobin"));
+    }
+
+    #[test]
+    fn test_callback_logger() {
+        let (log_snd, log_rcv) = std::sync::mpsc::channel();
+        let callback = move |level, msg: &str| {
+            log_snd.send((level, msg.to_string())).ok();
+        };
+
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_info_logger(InfoLogger::new_callback_logger(
+            super::LogLevel::Debug,
+            callback,
+        ));
+        let tmp = tempfile::tempdir().unwrap();
+        let db = crate::DB::open(&opts, tmp.path()).unwrap();
+        db.put(b"testkey", b"testvalue").unwrap();
+        db.flush().unwrap();
+        db.delete(b"testkey").unwrap();
+        db.flush().unwrap();
+        db.compact_range(Some(b"a"), Some(b"z"));
+        assert!(log_rcv.try_recv().is_ok());
     }
 }
