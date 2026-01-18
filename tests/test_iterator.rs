@@ -16,8 +16,8 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, DB};
-use util::{assert_iter, assert_iter_reversed, pair, DBPath};
+use rocksdb::{Direction, IteratorMode, MemtableFactory, Options, ReadOptions, DB};
+use util::{assert_iter, assert_iter_reversed, pair, DBPath, U64Comparator, U64Timestamp};
 
 #[test]
 #[allow(clippy::cognitive_complexity)]
@@ -377,5 +377,131 @@ fn test_iter_range() {
         check(&db, b"a1", prefix(b"a\xff"), 0..0);
         check(&db, b"b0", prefix(b"a\xff"), 4..6);
         check(&db, b"b0", prefix(b"\xff"), 0..0);
+    }
+}
+
+#[test]
+fn test_iterator_user_defined_timestamp() {
+    let path = DBPath::new("_rust_rocksdb_iterator_user_defined_timestamp_test");
+    {
+        let mut db_opts = Options::default();
+        db_opts.create_missing_column_families(true);
+        db_opts.create_if_missing(true);
+        db_opts.set_comparator_with_ts(
+            U64Comparator::NAME,
+            U64Timestamp::SIZE,
+            Box::new(U64Comparator::compare),
+            Box::new(U64Comparator::compare_ts),
+            Box::new(U64Comparator::compare_without_ts),
+        );
+        let db = DB::open(&db_opts, &path).unwrap();
+
+        let key1 = b"k1";
+        let key2 = b"k2";
+        let val1 = b"value1";
+        let val2 = b"value2";
+        let val1_updated = b"value1_updated";
+
+        let ts1 = U64Timestamp::new(1);
+        let ts2 = U64Timestamp::new(2);
+        let ts3 = U64Timestamp::new(3);
+
+        // Insert data at different timestamps
+        db.put_with_ts(key1, ts1, val1).unwrap();
+        db.put_with_ts(key2, ts2, val2).unwrap();
+        db.put_with_ts(key1, ts3, val1_updated).unwrap();
+
+        // Test iterator timestamp() returns correct timestamps
+        {
+            let mut opts = ReadOptions::default();
+            opts.set_timestamp(ts3);
+            let mut iter = db.raw_iterator_opt(opts);
+
+            // Before seeking, iterator is invalid, timestamp should be None
+            assert!(!iter.valid());
+            assert_eq!(iter.timestamp(), None);
+
+            // Seek to first key
+            iter.seek_to_first();
+            assert!(iter.valid());
+            assert_eq!(iter.key(), Some(key1.as_slice()));
+            assert_eq!(iter.value(), Some(val1_updated.as_slice()));
+            // The timestamp returned should match ts3 (the write timestamp for key1's latest value)
+            let ts = iter
+                .timestamp()
+                .expect("timestamp should be present for valid iterator");
+            assert_eq!(U64Timestamp::from(ts), ts3);
+
+            // Move to next key
+            iter.next();
+            assert!(iter.valid());
+            assert_eq!(iter.key(), Some(key2.as_slice()));
+            assert_eq!(iter.value(), Some(val2.as_slice()));
+            // The timestamp returned should match ts2 (the write timestamp for key2)
+            let ts = iter
+                .timestamp()
+                .expect("timestamp should be present for valid iterator");
+            assert_eq!(U64Timestamp::from(ts), ts2);
+
+            // Move past end
+            iter.next();
+            assert!(!iter.valid());
+            assert_eq!(iter.timestamp(), None);
+        }
+
+        // Test reading with older timestamp sees older data with correct timestamp
+        {
+            let mut opts = ReadOptions::default();
+            opts.set_timestamp(ts1);
+            let mut iter = db.raw_iterator_opt(opts);
+
+            iter.seek_to_first();
+            assert!(iter.valid());
+            assert_eq!(iter.key(), Some(key1.as_slice()));
+            // At ts1, key1 has val1
+            assert_eq!(iter.value(), Some(val1.as_slice()));
+            let ts = iter
+                .timestamp()
+                .expect("timestamp should be present for valid iterator");
+            assert_eq!(U64Timestamp::from(ts), ts1);
+
+            // key2 was written at ts2, so it shouldn't be visible at ts1
+            iter.next();
+            assert!(!iter.valid());
+            assert_eq!(iter.timestamp(), None);
+        }
+    }
+}
+
+#[test]
+fn test_iterator_without_user_defined_timestamps() {
+    let path = DBPath::new("_rust_rocksdb_iterator_no_udt_test");
+    {
+        let db = DB::open_default(&path).unwrap();
+
+        db.put(b"key1", b"value1").unwrap();
+        db.put(b"key2", b"value2").unwrap();
+
+        let mut iter = db.raw_iterator();
+
+        assert!(!iter.valid());
+        assert_eq!(iter.timestamp(), None);
+
+        iter.seek_to_first();
+        assert!(iter.valid());
+        assert_eq!(iter.key(), Some(b"key1".as_slice()));
+
+        // For a database without user-defined timestamps, timestamp() returns an empty slice
+        let empty_slice: &[u8] = &[];
+        assert_eq!(iter.timestamp(), Some(empty_slice));
+
+        iter.next();
+        assert!(iter.valid());
+        assert_eq!(iter.key(), Some(b"key2".as_slice()));
+        assert_eq!(iter.timestamp(), Some(empty_slice));
+
+        iter.next();
+        assert!(!iter.valid());
+        assert_eq!(iter.timestamp(), None);
     }
 }
