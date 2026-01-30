@@ -448,6 +448,23 @@ fn test_sequence_number() {
     }
 }
 
+#[test]
+fn test_snapshot_sequence_number() {
+    let path = DBPath::new("_rust_rocksdb_test_snapshot_sequence_number");
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"key1", b"value1").unwrap();
+        db.put(b"key2", b"value2").unwrap();
+
+        let snapshot = db.snapshot();
+        assert_eq!(snapshot.sequence_number(), db.latest_sequence_number());
+
+        db.put(b"key3", b"value3").unwrap();
+        assert_eq!(snapshot.sequence_number(), 2);
+        assert_eq!(db.latest_sequence_number(), 3);
+    }
+}
+
 struct OperationCounts {
     puts: usize,
     deletes: usize,
