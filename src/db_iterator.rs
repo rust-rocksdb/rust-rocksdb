@@ -342,6 +342,15 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         }
     }
 
+    /// Returns a slice of the current timestamp.
+    pub fn timestamp(&self) -> Option<&[u8]> {
+        if self.valid() {
+            Some(self.timestamp_impl())
+        } else {
+            None
+        }
+    }
+
     /// Returns pair with slice of the current key and current value.
     pub fn item(&self) -> Option<(&[u8], &[u8])> {
         if self.valid() {
@@ -372,6 +381,18 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
             let val_len_ptr: *mut size_t = &mut val_len;
             let val_ptr = ffi::rocksdb_iter_value(self.inner.as_ptr(), val_len_ptr);
             slice::from_raw_parts(val_ptr as *const c_uchar, val_len)
+        }
+    }
+
+    /// Returns a slice of the current timestamp; assumes the iterator is valid.
+    fn timestamp_impl(&self) -> &[u8] {
+        // Safety Note: This is safe as all methods that may invalidate the buffer returned
+        // take `&mut self`, so borrow checker will prevent use of buffer after seek.
+        unsafe {
+            let mut timestamp_len: size_t = 0;
+            let timestamp_len_ptr: *mut size_t = &mut timestamp_len;
+            let timestamp_ptr = ffi::rocksdb_iter_timestamp(self.inner.as_ptr(), timestamp_len_ptr);
+            slice::from_raw_parts(timestamp_ptr as *const c_uchar, timestamp_len)
         }
     }
 }
