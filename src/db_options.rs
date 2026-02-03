@@ -3817,7 +3817,7 @@ impl Options {
     /// directory; this can be changed to a custom callback with the
     /// [`InfoLogger::new_callback_logger`] constructor.
     pub fn set_info_logger(&mut self, mut logger: InfoLogger) {
-        // Clone the callback so it can be shared across database instances
+        // Move the callback so it can be shared across database instances
         self.outlive.logger_callback = logger.callback.take();
         unsafe {
             ffi::rocksdb_options_set_info_log(self.inner, logger.inner);
