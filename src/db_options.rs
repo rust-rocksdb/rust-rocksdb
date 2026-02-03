@@ -3686,6 +3686,22 @@ impl Options {
         self.outlive.blob_cache = Some(cache.clone());
     }
 
+    /// If enabled, prepopulate warm/hot blocks (data, uncompressed dict, index and
+    /// filter blocks) which are already in memory into block cache at the time of
+    /// flush. On a flush, the block that is in memory (in memtables) get flushed
+    /// to the device. If using Direct IO, additional IO is incurred to read this
+    /// data back into memory again, which is avoided by enabling this option. This
+    /// further helps if the workload exhibits high temporal locality, where most
+    /// of the reads go to recently written data. This also helps in case of
+    /// Distributed FileSystem.
+    ///
+    /// Default: `PrepopulateBlockCache::Disable`
+    pub fn set_prepopulate_blob_cache(&mut self, t: PrepopulateBlockCache) {
+        unsafe {
+            ffi::rocksdb_options_set_prepopulate_blob_cache(self.inner, t as c_int);
+        }
+    }
+
     /// Set this option to true during creation of database if you want
     /// to be able to ingest behind (call IngestExternalFile() skipping keys
     /// that already exist, rather than overwriting matching keys).
@@ -4558,6 +4574,16 @@ pub enum DBRecoveryMode {
     AbsoluteConsistency = ffi::rocksdb_absolute_consistency_recovery as isize,
     PointInTime = ffi::rocksdb_point_in_time_recovery as isize,
     SkipAnyCorruptedRecord = ffi::rocksdb_skip_any_corrupted_records_recovery as isize,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
+/// Controls whether blobs are inserted into block cache on blob flush.
+pub enum PrepopulateBlockCache {
+    /// Disable prepopulate block cache.
+    Disable = ffi::rocksdb_prepopulate_blob_disable as isize,
+    /// Prepopulate blocks during flush only.
+    FlushOnly = ffi::rocksdb_prepopulate_blob_flush_only as isize,
 }
 
 pub struct FifoCompactOptions {
