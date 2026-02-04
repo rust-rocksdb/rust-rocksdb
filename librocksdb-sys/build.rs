@@ -47,8 +47,55 @@ fn bindgen_rocksdb() {
         .expect("unable to write rocksdb bindings");
 }
 
+/// Splits `CARGO_ENCODED_RUSTFLAGS` into a Vec.
+fn split_encoded_rustflags() -> Vec<String> {
+    let flags = std::env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
+
+    // extra flags that Cargo invokes rustc with, separated by a 0x1f character
+    // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates
+    flags.split("\x1f").map(|flag| flag.to_string()).collect()
+}
+
+/// Returns the argument to `-Ctarget-cpu=` if it exists.
+fn get_target_cpu_flag() -> Option<String> {
+    const TARGET_CPU_FLAG: &str = "-Ctarget-cpu=";
+    let flags = split_encoded_rustflags();
+    let complete_flag = flags.iter().find(|flag| flag.starts_with(TARGET_CPU_FLAG));
+    complete_flag.map(|flag| flag[TARGET_CPU_FLAG.len()..].to_string())
+}
+
+/// If the Rust `-Ctarget-cpu=` option is set, this attempts to pass it through to the C/C++
+/// compiler. It should print a Cargo build warning if the compiler does not support the flag,
+/// or if the architecture is not supported.
+fn pass_through_target_cpu(cfg: &mut cc::Build) {
+    let Some(target_cpu_flag) = get_target_cpu_flag() else {
+        return;
+    };
+
+    let arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    match arch.as_str() {
+        "x86_64" => {
+            cfg.flag_if_supported(format!("-march={target_cpu_flag}"));
+        }
+        "aarch64" => {
+            cfg.flag_if_supported(format!("-mcpu={target_cpu_flag}"));
+        }
+        // TODO: add more architectures/compilers
+        _ => {
+            println!(
+                "cargo::warning=unknown target architecture: {arch}; C/C++ target flags not passed through"
+            );
+        }
+    }
+}
+
 fn build_rocksdb() {
+    // https://doc.rust-lang.org/cargo/reference/environment-variables.html
     let target = env::var("TARGET").unwrap();
+    // https://doc.rust-lang.org/reference/conditional-compilation.html#target_arch
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_features_env = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+    let target_features: Vec<_> = target_features_env.split(',').collect();
 
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
@@ -114,15 +161,14 @@ fn build_rocksdb() {
         .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
 
-    if let (true, Ok(target_feature_value)) = (
-        target.contains("x86_64"),
-        env::var("CARGO_CFG_TARGET_FEATURE"),
-    ) {
+    // attempt to pass through the RUSTFLAGS -Ctarget-cpu to allow the same optimizations for C/C++
+    pass_through_target_cpu(&mut config);
+
+    // CPU-specific build configuration
+    if target_arch == "x86_64" {
         // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
         // (about 2011).
-        let target_features: Vec<_> = target_feature_value.split(',').collect();
-
         if target_features.contains(&"sse2") {
             config.flag_if_supported("-msse2");
         }
@@ -131,6 +177,10 @@ fn build_rocksdb() {
         }
         if target_features.contains(&"sse4.2") {
             config.flag_if_supported("-msse4.2");
+        } else {
+            println!(
+                r#"cargo::warning=compiling without SSE4.2: CRC will be slow (set RUSTFLAGS="-Ctarget-cpu=..." to optimize RocksDB e.g. -Ctarget-cpu=broadwell)"#
+            );
         }
         // Pass along additional target features as defined in
         // build_tools/build_detect_platform.
@@ -143,8 +193,32 @@ fn build_rocksdb() {
         if target_features.contains(&"lzcnt") {
             config.flag_if_supported("-mlzcnt");
         }
+
         if !target.contains("android") && target_features.contains(&"pclmulqdq") {
             config.flag_if_supported("-mpclmul");
+        }
+
+        if target_features.contains(&"avx") && !target_features.contains(&"pclmulqdq") {
+            // RocksDB BUG (<= 10.11.0/2026-01-23): assumes AVX implies -mpclmul
+            // x86-64-v3/-v4 does not include PCLMUL
+            println!(
+                r#"cargo:warning=RocksDB BUG: target arch missing -mpclmul; compile may fail: pass named architecture e.g. -Ctarget-cpu=broadwell"#
+            );
+        }
+    } else if target_arch == "aarch64" {
+        if target_features.contains(&"crc") && target_features.contains(&"aes") {
+            // the target supports the instructions RocksDB needs: if we don't have a target-cpu,
+            // use -march=armv8-a+crc+aes+crypto, like the RocksDB Makefile.
+            // If we DO have a target-cpu, assume pass_through_target_cpu() has set it above
+            if get_target_cpu_flag().is_none() {
+                // TODO: Should just be +crc+aes but RocksDB checks for __ARM_FEATURE_CRYPTO
+                // https://github.com/facebook/rocksdb/pull/14217
+                config.flag_if_supported("-march=armv8-a+crc+aes+crypto");
+            }
+        } else {
+            println!(
+                r#"cargo:warning=building for aarch64 WITHOUT CRC instruction: build with RUSTFLAGS="-Ctarget-cpu=..." to optimize RocksDB e.g. -Ctarget-cpu=neoverse-n1"#
+            );
         }
     }
 
@@ -180,6 +254,7 @@ fn build_rocksdb() {
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
         config.define("ROCKSDB_SCHED_GETCPU_PRESENT", None);
+        config.define("ROCKSDB_AUXV_GETAUXVAL_PRESENT", None);
     } else if target.contains("dragonfly") {
         config.define("OS_DRAGONFLYBSD", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
