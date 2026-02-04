@@ -542,3 +542,94 @@ fn jemalloc_init() {
         assert!(log_content.contains("Jemalloc supported: 0"));
     }
 }
+
+// Verify we passed through the compiler flags to enable hardware CRC32 (if supported).
+#[test]
+fn test_crc32_build() {
+    let path = DBPath::new("_crc32");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let mut rocksdb_log =
+        fs::File::open((&path).as_ref().join("LOG")).expect("rocksdb creates a LOG file");
+    let mut log_content = String::new();
+    rocksdb_log
+        .read_to_string(&mut log_content)
+        .expect("can read the LOG file");
+
+    // look for the log line with prefix "Fast CRC32 supported:"
+    let log_line = log_content
+        .lines()
+        .find(|line| line.contains("Fast CRC32 supported:"));
+    assert!(log_line.is_some(), "{log_content}");
+    let log_line = log_line.unwrap();
+
+    let expected_supported = if cfg!(target_arch = "x86_64") {
+        // Default Linux x86-64 (x86-64-v1) does not support CRC32. Nearly all CPUs since ~2014
+        // should support it (>= x86-64-v2), but RocksDB only does compile-time detection.
+        // Our build.rs should match the Rust target settings
+        if cfg!(target_feature = "crc") {
+            Some(true)
+        } else {
+            Some(false)
+        }
+    } else if cfg!(target_arch = "aarch64") {
+        // Default Linux aarch64 does not support CRC32. RocksDB's runtime feature detection is
+        // also buggy as of 10.110 (2026-01-23), but it should report "Supported" if the feature is
+        // enabled at compile time.
+        if cfg!(target_feature = "crc") {
+            Some(true)
+        } else {
+            // TODO: Fix when upstream RocksDB fixes the runtime feature detection
+            Some(false)
+        }
+    } else {
+        println!(
+            "TODO: test_crc32_build needs to be extended to support ARCH={}",
+            std::env::consts::ARCH
+        );
+        None
+    };
+    if let Some(expected_supported) = expected_supported {
+        if expected_supported {
+            assert!(
+                log_line.contains("Supported on "),
+                "expected 'Supported on ' log_line={log_line}"
+            );
+        } else {
+            assert!(
+                log_line.contains("Not supported on "),
+                "expected 'Not supported on ' log_line={log_line}"
+            );
+        }
+    }
+
+    // split the last word as the supported arch
+    let crc32_supported_arch = log_line.split_whitespace().last().unwrap();
+
+    // Verify that the RocksDB reported architecture matches this test
+    // this may fail if RocksDB changes its string formatting
+    let expected_arch = if cfg!(target_arch = "x86_64") {
+        "x86".to_string()
+    } else if cfg!(target_arch = "aarch64") {
+        // TODO: RocksDB has a bug: it can report x86 when the CRC feature is not enabled
+        // This should just be "Arm64" when the RocksDB bug is fixed
+        if cfg!(target_feature = "crc") {
+            "Arm64".to_string()
+        } else {
+            "x86".to_string()
+        }
+    } else if cfg!(target_arch = "powerpc64") {
+        "PPC".to_string()
+    } else {
+        format!("unknown Rust ARCH={} (fix test)", std::env::consts::ARCH)
+    };
+
+    assert_eq!(
+        crc32_supported_arch, expected_arch,
+        "Expected CRC32 support for architecture '{expected_arch}', but RocksDB reported support for '{crc32_supported_arch}'"
+    );
+}
