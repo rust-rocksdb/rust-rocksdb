@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Error, WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, DB};
+use rocksdb::{Error, Options, WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, DB};
 use util::DBPath;
 
 #[test]
@@ -73,6 +73,7 @@ fn test_write_batch_with_serialized_data() {
 fn test_write_batch_cf_with_serialized_data() {
     struct Iterator {
         data: HashMap<Vec<u8>, (u32, Vec<u8>)>,
+        log_data_found: bool,
     }
 
     impl WriteBatchIteratorCf for Iterator {
@@ -95,6 +96,11 @@ fn test_write_batch_cf_with_serialized_data() {
         fn merge_cf(&mut self, _: u32, _: &[u8], _: &[u8]) {
             panic!("invalid merge operation");
         }
+
+        fn log_data(&mut self, blob: &[u8]) {
+            assert_eq!(blob, b"cf_log_data");
+            self.log_data_found = true;
+        }
     }
 
     let mut kvs: HashMap<Vec<u8>, (u32, Vec<u8>)> = HashMap::default();
@@ -107,10 +113,16 @@ fn test_write_batch_cf_with_serialized_data() {
         b1.put(k, val);
     }
 
+    b1.put_log_data(b"cf_log_data");
+
     let data = b1.data();
     let b2 = WriteBatch::from_data(data);
-    let mut it = Iterator { data: kvs };
+    let mut it = Iterator {
+        data: kvs,
+        log_data_found: false,
+    };
     b2.iterate_cf(&mut it);
+    assert!(it.log_data_found);
 }
 
 #[test]
@@ -128,23 +140,148 @@ fn test_write_batch_put_log_data() {
     let r: Result<Option<Vec<u8>>, Error> = db.get(b"k1");
     assert_eq!(r.unwrap().unwrap(), b"v11111111");
 
+    struct Iterator {
+        call_count: u8,
+    }
+
+    impl WriteBatchIterator for Iterator {
+        fn put(&mut self, key: &[u8], value: &[u8]) {
+            self.call_count += 1;
+            assert_eq!(key, b"k1");
+            assert_eq!(value, b"v11111111");
+        }
+
+        fn delete(&mut self, _: &[u8]) {
+            panic!("invalid delete operation");
+        }
+
+        fn log_data(&mut self, blob: &[u8]) {
+            self.call_count += 1;
+            assert_eq!(blob, b"log_data_value");
+        }
+    }
+
     let mut called = false;
+    let iterator = &mut Iterator { call_count: 0 };
 
     let mut wal_iter = db.get_updates_since(0).unwrap();
     if let Ok((seq, write_batch)) = wal_iter.next().unwrap() {
         called = true;
-
         // Putting LOG data does not increase sequence number, only the put() call does
         assert_eq!(seq, 1);
 
         // there is only the put write in the WriteBatch
         assert_eq!(write_batch.len(), 1);
 
-        // The WriteBatch data has the written "log_data"
-        assert!(String::from_utf8(write_batch.data().to_vec())
-            .unwrap()
-            .contains("log_data_value"));
+        write_batch.iterate(iterator);
     }
 
     assert!(called);
+    assert_eq!(iterator.call_count, 2);
+}
+
+#[test]
+fn test_write_batch_ordered_log_data() {
+    let path = DBPath::new("writebatch_ordered_log_data");
+    let db = DB::open_default(&path).unwrap();
+
+    let mut batch = WriteBatch::default();
+
+    for i in 0..10 {
+        batch.put_log_data(format!("log_data_#{}", i).as_bytes());
+    }
+
+    batch.put(b"key", b"value");
+
+    assert!(db.write(batch).is_ok());
+
+    struct Iterator {
+        call_count: u8,
+    }
+
+    impl WriteBatchIterator for Iterator {
+        fn put(&mut self, key: &[u8], value: &[u8]) {
+            assert_eq!(key, b"key");
+            assert_eq!(value, b"value");
+        }
+
+        fn delete(&mut self, _: &[u8]) {
+            panic!("invalid delete operation");
+        }
+
+        fn log_data(&mut self, blob: &[u8]) {
+            let expected = format!("log_data_#{}", self.call_count).into_bytes();
+            assert_eq!(blob, expected.as_slice());
+            self.call_count += 1;
+        }
+    }
+
+    let iterator = &mut Iterator { call_count: 0 };
+
+    let mut wal_iter = db.get_updates_since(0).unwrap();
+    if let Ok((seq, write_batch)) = wal_iter.next().unwrap() {
+        assert_eq!(seq, 1);
+        assert_eq!(write_batch.len(), 1);
+        write_batch.iterate(iterator);
+    }
+
+    assert_eq!(iterator.call_count, 10);
+}
+
+#[test]
+fn test_write_batch_cf_ordered_log_data() {
+    let path = DBPath::new("writebatch_ordered_log_data");
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    let db = DB::open_cf(&opts, &path, vec!["logger"]).unwrap();
+
+    let mut batch = WriteBatch::default();
+
+    for i in 0..10 {
+        batch.put_log_data(format!("log_data_#{}", i).as_bytes());
+    }
+
+    let handle = db.cf_handle("logger").unwrap();
+    batch.put_cf(handle, b"key", b"value");
+
+    assert!(db.write(batch).is_ok());
+
+    struct Iterator {
+        call_count: u8,
+    }
+
+    impl WriteBatchIteratorCf for Iterator {
+        fn put_cf(&mut self, cf_id: u32, key: &[u8], value: &[u8]) {
+            // Validate iteration happened on non-default column family
+            assert!(cf_id > 0);
+            assert_eq!(key, b"key");
+            assert_eq!(value, b"value");
+        }
+
+        fn delete_cf(&mut self, _: u32, _: &[u8]) {
+            panic!("invalid delete operation");
+        }
+
+        fn merge_cf(&mut self, _: u32, _: &[u8], _: &[u8]) {
+            panic!("invalid merge operation");
+        }
+
+        fn log_data(&mut self, blob: &[u8]) {
+            let expected = format!("log_data_#{}", self.call_count).into_bytes();
+            assert_eq!(blob, expected.as_slice());
+            self.call_count += 1;
+        }
+    }
+
+    let iterator = &mut Iterator { call_count: 0 };
+
+    let mut wal_iter = db.get_updates_since(0).unwrap();
+    if let Ok((seq, write_batch)) = wal_iter.next().unwrap() {
+        assert_eq!(seq, 1);
+        assert_eq!(write_batch.len(), 1);
+        write_batch.iterate_cf(iterator);
+    }
+
+    assert_eq!(iterator.call_count, 10);
 }
