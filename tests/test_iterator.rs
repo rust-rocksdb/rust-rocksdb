@@ -226,6 +226,25 @@ fn test_full_iterator() {
     }
 }
 
+#[test]
+fn test_iterator_refresh() {
+    let n = DBPath::new("_rust_rocksdb_iterator_refresh_test");
+    {
+        let db = DB::open_default(&n).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+
+        let mut iter = db.iterator(IteratorMode::Start);
+        assert_iter(&mut iter, &[pair(b"k1", b"v1")]);
+
+        // Write new data after iterator was created
+        db.put(b"k2", b"v2").unwrap();
+
+        // Refresh and re-seek; now the iterator sees k2
+        iter.refresh(IteratorMode::Start).unwrap();
+        assert_iter(&mut iter, &[pair(b"k1", b"v1"), pair(b"k2", b"v2")]);
+    }
+}
+
 fn custom_iter(db: &'_ DB) -> impl Iterator<Item = usize> + '_ {
     db.iterator(IteratorMode::Start)
         .map(Result::unwrap)
