@@ -3089,12 +3089,19 @@ impl Options {
         }
     }
 
+    /// Enables recording RocksDB statistics.
+    ///
+    /// The statistics in this Options object are shared between all DB instances.
+    /// See [`get_statistics`](Self::get_statistics), [`get_ticker_count`](Self::get_ticker_count),
+    /// and [`get_histogram_data`](Self::get_histogram_data).
     pub fn enable_statistics(&mut self) {
         unsafe {
             ffi::rocksdb_options_enable_statistics(self.inner);
         }
     }
 
+    /// Returns a string containing RocksDB statistics if enabled using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn get_statistics(&self) -> Option<String> {
         unsafe {
             let value = ffi::rocksdb_options_statistics_get_string(self.inner);
@@ -3109,16 +3116,21 @@ impl Options {
 
     /// StatsLevel can be used to reduce statistics overhead by skipping certain
     /// types of stats in the stats collection process.
+    ///
+    /// Only takes effect if stats are enabled first using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn set_statistics_level(&self, level: StatsLevel) {
         unsafe { ffi::rocksdb_options_set_statistics_level(self.inner, level as c_int) }
     }
 
-    /// Returns the value of cumulative db counters if stat collection is enabled.
+    /// Returns a counter if statistics are enabled using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn get_ticker_count(&self, ticker: Ticker) -> u64 {
         unsafe { ffi::rocksdb_options_statistics_get_ticker_count(self.inner, ticker as u32) }
     }
 
-    /// Gets Histogram data from collected db stats. Requires stats to be enabled.
+    /// Returns a histogram if statistics are enabled using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn get_histogram_data(&self, histogram: Histogram) -> HistogramData {
         unsafe {
             let data = HistogramData::default();
@@ -4983,6 +4995,7 @@ mod tests {
     #[test]
     fn test_enable_statistics() {
         let mut opts = Options::default();
+        assert_eq!(None, opts.get_statistics());
         opts.enable_statistics();
         opts.set_stats_dump_period_sec(60);
         assert!(opts.get_statistics().is_some());
