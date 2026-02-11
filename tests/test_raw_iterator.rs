@@ -16,7 +16,7 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{DBAccess, DBRawIteratorWithThreadMode, DB};
+use rocksdb::{DBAccess, DBRawIteratorWithThreadMode, ReadOptions, DB};
 use util::DBPath;
 
 fn assert_item<D: DBAccess>(iter: &DBRawIteratorWithThreadMode<'_, D>, key: &[u8], value: &[u8]) {
@@ -148,5 +148,59 @@ pub fn test_next_without_seek() {
 
         let mut iter = db.raw_iterator();
         iter.next();
+    }
+}
+
+#[test]
+pub fn test_refresh() {
+    let n = DBPath::new("test_refresh");
+    {
+        let db = DB::open_default(&n).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+
+        let mut iter = db.raw_iterator();
+        iter.seek_to_first();
+        assert_item(&iter, b"k1", b"v1");
+
+        // Write new data after iterator was created
+        db.put(b"k2", b"v2").unwrap();
+
+        // Iterator doesn't see k2 yet
+        iter.seek(b"k2");
+        assert_no_item(&iter);
+
+        // After refresh, the iterator sees k2
+        iter.refresh().unwrap();
+        iter.seek(b"k2");
+        assert_item(&iter, b"k2", b"v2");
+    }
+}
+
+#[test]
+pub fn test_refresh_with_snapshot() {
+    let n = DBPath::new("test_refresh_snapshot");
+    {
+        let db = DB::open_default(&n).unwrap();
+        db.put(b"k1", b"v1").unwrap();
+
+        let snapshot = db.snapshot();
+        let mut readopts = ReadOptions::default();
+        readopts.set_snapshot(&snapshot);
+        let mut iter = db.raw_iterator_opt(readopts);
+        iter.seek_to_first();
+        assert_item(&iter, b"k1", b"v1");
+
+        // Write new data after snapshot was taken
+        db.put(b"k2", b"v2").unwrap();
+
+        // Snapshot iterator doesn't see k2 yet
+        iter.seek(b"k2");
+        assert_no_item(&iter);
+
+        // After refresh, the iterator no longer honors the snapshot and
+        // instead reads the latest DB state, so k2 is now visible
+        iter.refresh().unwrap();
+        iter.seek(b"k2");
+        assert_item(&iter, b"k2", b"v2");
     }
 }
