@@ -156,8 +156,8 @@ fn build_rocksdb() {
     // true for C++ >= 17; we set -std=c++20 below
     config.define("HAVE_ALIGNED_NEW", None);
 
-    // __uint128_t is only supported by GCC and Clang (I think)
-    // TODO: implement a detection script since we could be using clang on Windows
+    // __uint128_t is supported by GCC and Clang; Don't use it for MSVC
+    // TODO: implement a detection script?
     if !target.contains("msvc") {
         config.define("HAVE_UINT128_EXTENSION", None);
     }
