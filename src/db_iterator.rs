@@ -146,7 +146,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     /// If the iterator was created with a snapshot, the refreshed iterator
     /// will no longer use that snapshot and will instead read the latest
     /// DB state. The snapshot itself is not released; it remains valid and
-    /// will be released when the owning [`SnapshotWithThreadMode`] is dropped.
+    /// will be released when the owning [`crate::SnapshotWithThreadMode`] is dropped.
     pub fn refresh(&mut self) -> Result<(), Error> {
         unsafe {
             ffi_try!(ffi::rocksdb_iter_refresh(self.inner.as_ptr()));
