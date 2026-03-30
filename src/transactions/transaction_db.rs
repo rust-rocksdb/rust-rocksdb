@@ -37,10 +37,10 @@ use crate::{
     DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode, Direction, Error,
     IteratorMode, MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode,
     ThreadMode, Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction,
-    WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
+    FlushOptions, WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use ffi::rocksdb_transaction_t;
-use libc::{c_char, c_int, c_void, size_t};
+use libc::{c_char, c_int, c_uchar, c_void, size_t};
 
 #[cfg(not(feature = "multi-threaded-cf"))]
 type DefaultThreadMode = crate::SingleThreaded;
@@ -395,6 +395,34 @@ impl<T: ThreadMode> TransactionDB<T> {
 
     pub fn path(&self) -> &Path {
         self.path.as_path()
+    }
+
+    /// Flushes the WAL buffer. If `sync` is set to `true`, also syncs
+    /// the data to disk.
+    pub fn flush_wal(&self, sync: bool) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_flush_wal(
+                self.inner,
+                c_uchar::from(sync)
+            ));
+        }
+        Ok(())
+    }
+
+    /// Flushes database memtables to SST files on the disk.
+    pub fn flush_opt(&self, flushopts: &FlushOptions) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_flush(
+                self.inner,
+                flushopts.inner
+            ));
+        }
+        Ok(())
+    }
+
+    /// Flushes database memtables to SST files on the disk using default options.
+    pub fn flush(&self) -> Result<(), Error> {
+        self.flush_opt(&FlushOptions::default())
     }
 
     /// Creates a transaction with default options.
