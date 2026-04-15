@@ -65,16 +65,4 @@ void rocksdb_repair_db_cf_descriptors(
             RepairDB(std::string(name), DBOptions(db_options->rep), column_families));
 }
 
-void rocksdb_repair_db_cf_descriptors_with_unknown_cf_options(
-    const rocksdb_options_t* db_options, const char* name,
-    int num_column_families, const char* const* column_family_names,
-    const rocksdb_options_t* const* column_family_options,
-    const rocksdb_options_t* unknown_cf_options, char** errptr) {
-  const auto column_families = BuildColumnFamilies(
-      num_column_families, column_family_names, column_family_options);
-  SaveError(errptr,
-            RepairDB(std::string(name), DBOptions(db_options->rep),
-                     column_families, ColumnFamilyOptions(unknown_cf_options->rep)));
-}
-
 }  // extern "C"

@@ -961,39 +961,6 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         P: AsRef<Path>,
         I: IntoIterator<Item = ColumnFamilyDescriptor>,
     {
-        Self::repair_cf_descriptors_internal(opts, path, cfs, None)
-    }
-
-    /// Repairs a database using the provided column family descriptors and
-    /// fallback options for unknown column families discovered during repair.
-    ///
-    /// This matches RocksDB's `RepairDB(..., column_families, unknown_cf_opts)`
-    /// overload. Use it when the manifest may reference column families not
-    /// included in `cfs`, but they should still be repaired with a known set of
-    /// options.
-    pub fn repair_cf_descriptors_with_unknown_cf_opts<P, I>(
-        opts: &Options,
-        path: P,
-        cfs: I,
-        unknown_cf_opts: &Options,
-    ) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
-        Self::repair_cf_descriptors_internal(opts, path, cfs, Some(unknown_cf_opts))
-    }
-
-    fn repair_cf_descriptors_internal<P, I>(
-        opts: &Options,
-        path: P,
-        cfs: I,
-        unknown_cf_opts: Option<&Options>,
-    ) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
         let cpath = to_cpath(path)?;
         let cfs: Vec<_> = cfs.into_iter().collect();
 
@@ -1013,29 +980,13 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         })?;
 
         unsafe {
-            match unknown_cf_opts {
-                Some(unknown_cf_opts) => {
-                    ffi_try!(
-                        ffi::rocksdb_repair_db_cf_descriptors_with_unknown_cf_options(
-                            opts.inner,
-                            cpath.as_ptr(),
-                            num_column_families,
-                            cfnames.as_ptr(),
-                            cfopts.as_ptr(),
-                            unknown_cf_opts.inner,
-                        )
-                    );
-                }
-                None => {
-                    ffi_try!(ffi::rocksdb_repair_db_cf_descriptors(
-                        opts.inner,
-                        cpath.as_ptr(),
-                        num_column_families,
-                        cfnames.as_ptr(),
-                        cfopts.as_ptr(),
-                    ));
-                }
-            }
+            ffi_try!(ffi::rocksdb_repair_db_cf_descriptors(
+                opts.inner,
+                cpath.as_ptr(),
+                num_column_families,
+                cfnames.as_ptr(),
+                cfopts.as_ptr(),
+            ));
         }
         Ok(())
     }

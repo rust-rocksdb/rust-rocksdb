@@ -401,19 +401,6 @@ impl<T: ThreadMode> TransactionDB<T> {
         DB::repair_cf_descriptors(opts, path, cfs)
     }
 
-    pub fn repair_cf_descriptors_with_unknown_cf_opts<P, I>(
-        opts: &Options,
-        path: P,
-        cfs: I,
-        unknown_cf_opts: &Options,
-    ) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-        I: IntoIterator<Item = ColumnFamilyDescriptor>,
-    {
-        DB::repair_cf_descriptors_with_unknown_cf_opts(opts, path, cfs, unknown_cf_opts)
-    }
-
     pub fn path(&self) -> &Path {
         self.path.as_path()
     }
