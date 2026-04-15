@@ -381,6 +381,7 @@ fn build_rocksdb() {
     }
 
     config.file("build_version.cc");
+    config.file("repair_db_cf.cc");
 
     config.cpp(true);
 

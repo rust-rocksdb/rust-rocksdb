@@ -950,6 +950,96 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         Ok(())
     }
 
+    /// Repairs a database using the provided column family descriptors.
+    ///
+    /// This exposes RocksDB's column-family-aware repair path, which is needed
+    /// when column families use different options. The descriptors should
+    /// include the `default` column family. `Options::load_latest()` can be
+    /// used to recover a matching set of descriptors from an `OPTIONS-*` file.
+    pub fn repair_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        Self::repair_cf_descriptors_internal(opts, path, cfs, None)
+    }
+
+    /// Repairs a database using the provided column family descriptors and
+    /// fallback options for unknown column families discovered during repair.
+    ///
+    /// This matches RocksDB's `RepairDB(..., column_families, unknown_cf_opts)`
+    /// overload. Use it when the manifest may reference column families not
+    /// included in `cfs`, but they should still be repaired with a known set of
+    /// options.
+    pub fn repair_cf_descriptors_with_unknown_cf_opts<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        unknown_cf_opts: &Options,
+    ) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        Self::repair_cf_descriptors_internal(opts, path, cfs, Some(unknown_cf_opts))
+    }
+
+    fn repair_cf_descriptors_internal<P, I>(
+        opts: &Options,
+        path: P,
+        cfs: I,
+        unknown_cf_opts: Option<&Options>,
+    ) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        let cpath = to_cpath(path)?;
+        let cfs: Vec<_> = cfs.into_iter().collect();
+
+        let c_cfs: Result<Vec<_>, _> = cfs
+            .iter()
+            .map(|cf| CString::new(cf.name.as_bytes()))
+            .collect();
+        let c_cfs = c_cfs.map_err(|err| {
+            Error::new(format!(
+                "Failed to convert column family name to CString: {err}"
+            ))
+        })?;
+        let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
+        let cfopts: Vec<_> = cfs.iter().map(|cf| cf.options.inner.cast_const()).collect();
+        let num_column_families = c_int::try_from(cfs.len()).map_err(|_| {
+            Error::new("Too many column families to pass through the C API.".to_owned())
+        })?;
+
+        unsafe {
+            match unknown_cf_opts {
+                Some(unknown_cf_opts) => {
+                    ffi_try!(
+                        ffi::rocksdb_repair_db_cf_descriptors_with_unknown_cf_options(
+                            opts.inner,
+                            cpath.as_ptr(),
+                            num_column_families,
+                            cfnames.as_ptr(),
+                            cfopts.as_ptr(),
+                            unknown_cf_opts.inner,
+                        )
+                    );
+                }
+                None => {
+                    ffi_try!(ffi::rocksdb_repair_db_cf_descriptors(
+                        opts.inner,
+                        cpath.as_ptr(),
+                        num_column_families,
+                        cfnames.as_ptr(),
+                        cfopts.as_ptr(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn path(&self) -> &Path {
         self.path.as_path()
     }
