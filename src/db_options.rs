@@ -3577,6 +3577,29 @@ impl Options {
         }
     }
 
+    /// Activates the experimental Mempurge memtable garbage collection feature.
+    ///
+    /// See the upstream RocksDB option documentation:
+    /// <https://github.com/facebook/rocksdb/blob/v10.7.5/include/rocksdb/advanced_options.h#L259-L274>
+    ///
+    /// At every flush, RocksDB estimates the useful payload ratio of the memtable
+    /// and compares it with this threshold. If the ratio is below the threshold,
+    /// RocksDB replaces the regular flush with a mempurge operation.
+    ///
+    /// Threshold values:
+    ///
+    /// * `0.0`: mempurge deactivated.
+    /// * `1.0`: recommended threshold value.
+    /// * `> 1.0`: aggressive mempurge.
+    /// * `0.0 < threshold < 1.0`: mempurge only for very low useful payload ratios.
+    ///
+    /// Default: 0.0
+    pub fn set_experimental_mempurge_threshold(&mut self, threshold: f64) {
+        unsafe {
+            ffi::rocksdb_options_set_experimental_mempurge_threshold(self.inner, threshold);
+        }
+    }
+
     /// Enable whole key bloom filter in memtable. Note this will only take effect
     /// if memtable_prefix_bloom_size_ratio is not 0. Enabling whole key filtering
     /// can potentially reduce CPU usage for point-look-ups.

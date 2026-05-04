@@ -313,6 +313,20 @@ fn test_set_avoid_unnecessary_blocking_io() {
 }
 
 #[test]
+fn test_set_experimental_mempurge_threshold() {
+    let path = DBPath::new("_set_experimental_mempurge_threshold");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_experimental_mempurge_threshold(1.0);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let settings = read_settings_from_log(&path);
+    assert!(settings.contains("experimental_mempurge_threshold: 1.000000"));
+}
+
+#[test]
 fn test_set_track_and_verify_wals_in_manifest() {
     let path = DBPath::new("_set_track_and_verify_wals_in_manifest");
 
