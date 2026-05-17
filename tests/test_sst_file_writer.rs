@@ -52,6 +52,55 @@ fn sst_file_writer_works() {
 }
 
 #[test]
+fn sst_file_writer_delete_range_works() {
+    let db_path = DBPath::new("_rust_rocksdb_sstfilewriter_delete_range_test");
+    let dir = tempfile::Builder::new()
+        .prefix("_rust_rocksdb_sstfilewriter_delete_range_test")
+        .tempdir()
+        .expect("Failed to create temporary path for file writer.");
+    let writer_path = dir.path().join("range_delete");
+
+    let db = DB::open_default(&db_path).unwrap();
+    db.put(b"k1", b"v1").unwrap();
+    db.put(b"k2", b"v2").unwrap();
+    db.put(b"k3", b"v3").unwrap();
+    db.put(b"k4", b"v4").unwrap();
+    db.put(b"k5", b"v5").unwrap();
+
+    let opts = Options::default();
+    let mut writer = SstFileWriter::create(&opts);
+    writer.open(&writer_path).unwrap();
+    writer.delete_range(b"k2", b"k4").unwrap();
+    writer.finish().unwrap();
+
+    assert!(writer.file_size() > 0);
+
+    db.ingest_external_file(vec![&writer_path]).unwrap();
+
+    assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
+    assert_eq!(db.get(b"k4").unwrap().unwrap(), b"v4");
+    assert_eq!(db.get(b"k5").unwrap().unwrap(), b"v5");
+    assert!(db.get(b"k2").unwrap().is_none());
+    assert!(db.get(b"k3").unwrap().is_none());
+}
+
+#[test]
+fn sst_file_writer_delete_range_rejects_reversed_bounds() {
+    let dir = tempfile::Builder::new()
+        .prefix("_rust_rocksdb_sstfilewriter_invalid_delete_range_test")
+        .tempdir()
+        .expect("Failed to create temporary path for file writer.");
+    let writer_path = dir.path().join("range_delete");
+
+    let opts = Options::default();
+    let mut writer = SstFileWriter::create(&opts);
+    writer.open(&writer_path).unwrap();
+
+    let err = writer.delete_range(b"k4", b"k2").unwrap_err();
+    assert!(err.to_string().starts_with("Invalid argument"));
+}
+
+#[test]
 fn sst_file_writer_with_ts_works() {
     let db_path = DBPath::new("_rust_rocksdb_sstfilewritertest_with_ts");
     let dir = tempfile::Builder::new()
