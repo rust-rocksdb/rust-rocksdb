@@ -55,7 +55,7 @@ pub trait CompactionFilter {
     ///
     /// If the CompactionFilter was created by a factory, then it will only ever
     /// be used by a single thread that is doing the compaction run, and this
-    /// call does not need to be thread-safe.  However, multiple filters may be
+    /// call does not need to be thread-safe. However, multiple filters may be
     /// in existence and operating concurrently.
     fn filter(&mut self, level: u32, key: &[u8], value: &[u8]) -> Decision;
 
