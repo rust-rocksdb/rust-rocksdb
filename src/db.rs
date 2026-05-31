@@ -66,7 +66,7 @@ impl<'a> Range<'a> {
 ///
 /// While being a marker trait to be generic over `DBWithThreadMode`, this trait
 /// also has a minimum set of not-encapsulated internal methods between
-/// [`SingleThreaded`] and [`MultiThreaded`].  These methods aren't expected to be
+/// [`SingleThreaded`] and [`MultiThreaded`]. These methods aren't expected to be
 /// called and defined externally.
 pub trait ThreadMode {
     /// Internal implementation for storing column family handles
@@ -1258,7 +1258,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
 
     /// Return the values associated with the given keys and the specified column family
     /// where internally the read requests are processed in batch if block-based table
-    /// SST format is used.  It is a more optimized version of multi_get_cf.
+    /// SST format is used. It is a more optimized version of multi_get_cf.
     pub fn batched_multi_get_cf<'a, K, I>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -2104,7 +2104,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// Implementation for property_value et al methods.
     ///
     /// `name` is the name of the property.  It will be converted into a CString
-    /// and passed to `get_property` as argument.  `get_property` reads the
+    /// and passed to `get_property` as an argument. `get_property` reads the
     /// specified property and either returns NULL or a pointer to a C allocated
     /// string; this method takes ownership of that string and will free it at
     /// the end. That string is parsed using `parse` callback which produces
