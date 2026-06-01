@@ -17,7 +17,7 @@
 //!
 //! [1]: https://github.com/facebook/rocksdb/wiki/Checkpoints
 
-use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode};
+use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode, TransactionDB};
 use std::{marker::PhantomData, path::Path};
 
 /// Default value for the `log_size_for_flush` parameter passed to
@@ -142,6 +142,78 @@ impl<'db> Checkpoint<'db> {
 }
 
 impl Drop for Checkpoint<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_checkpoint_object_destroy(self.inner);
+        }
+    }
+}
+
+/// TransactionDB checkpoint object.
+///
+/// Used to create physical checkpoints of a [`TransactionDB`].
+pub struct TransactionDBCheckpoint<'db> {
+    inner: *mut ffi::rocksdb_checkpoint_t,
+    _db: PhantomData<&'db ()>,
+}
+
+impl<'db> TransactionDBCheckpoint<'db> {
+    /// Creates a new checkpoint object for the specified [`TransactionDB`].
+    ///
+    /// Does not actually produce checkpoints, call `.create_checkpoint()` or
+    /// `.create_checkpoint_with_log_size()` to produce a DB checkpoint.
+    pub fn new<T: ThreadMode>(db: &'db TransactionDB<T>) -> Result<Self, Error> {
+        let checkpoint: *mut ffi::rocksdb_checkpoint_t;
+
+        unsafe {
+            checkpoint = ffi_try!(ffi::rocksdb_transactiondb_checkpoint_object_create(
+                db.inner
+            ));
+        }
+
+        if checkpoint.is_null() {
+            return Err(Error::new(
+                "Could not create TransactionDB checkpoint object.".to_owned(),
+            ));
+        }
+
+        Ok(Self {
+            inner: checkpoint,
+            _db: PhantomData,
+        })
+    }
+
+    /// Creates a new physical RocksDB checkpoint in the directory specified by `path`.
+    ///
+    /// See [`Checkpoint::create_checkpoint`] for details on checkpoint behavior and
+    /// the default `log_size_for_flush` value.
+    pub fn create_checkpoint<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+        self.create_checkpoint_with_log_size(path, DEFAULT_LOG_SIZE_FOR_FLUSH)
+    }
+
+    /// Creates a new physical RocksDB checkpoint in `path`, allowing the caller to
+    /// control `log_size_for_flush`.
+    ///
+    /// See [`Checkpoint::create_checkpoint_with_log_size`] for the semantics of
+    /// `log_size_for_flush`.
+    pub fn create_checkpoint_with_log_size<P: AsRef<Path>>(
+        &self,
+        path: P,
+        log_size_for_flush: u64,
+    ) -> Result<(), Error> {
+        let cpath = to_cpath(path)?;
+        unsafe {
+            ffi_try!(ffi::rocksdb_checkpoint_create(
+                self.inner,
+                cpath.as_ptr(),
+                log_size_for_flush,
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Drop for TransactionDBCheckpoint<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_checkpoint_object_destroy(self.inner);
