@@ -47,28 +47,22 @@ fn bindgen_rocksdb() {
         .expect("unable to write rocksdb bindings");
 }
 
-/// Splits `CARGO_ENCODED_RUSTFLAGS` into a Vec.
-fn split_encoded_rustflags() -> Vec<String> {
-    let flags = std::env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
-
-    // extra flags that Cargo invokes rustc with, separated by a 0x1f character
-    // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-crates
-    flags.split("\x1f").map(|flag| flag.to_string()).collect()
-}
-
-/// Returns the argument to `-Ctarget-cpu=` if it exists.
-fn get_target_cpu_flag() -> Option<String> {
-    const TARGET_CPU_FLAG: &str = "-Ctarget-cpu=";
-    let flags = split_encoded_rustflags();
-    let complete_flag = flags.iter().find(|flag| flag.starts_with(TARGET_CPU_FLAG));
-    complete_flag.map(|flag| flag[TARGET_CPU_FLAG.len()..].to_string())
+/// Parse the `target-cpu` option from `CARGO_ENCODED_RUSTFLAGS`, if present.
+fn parse_rust_target_cpu() -> Option<String> {
+    const TARGET_CPU: &str = "target-cpu";
+    // use rustflags since parsing is annoying
+    // e.g. "-Ctarget-cpu=native" and "-C target-cpu=native" are equivalent
+    rustflags::from_env().find_map(|flag| match flag {
+        rustflags::Flag::Codegen { opt, value } if opt == TARGET_CPU => value,
+        _ => None,
+    })
 }
 
 /// If the Rust `-Ctarget-cpu=` option is set, this attempts to pass it through to the C/C++
 /// compiler. It should print a Cargo build warning if the compiler does not support the flag,
 /// or if the architecture is not supported.
 fn pass_through_target_cpu(cfg: &mut cc::Build) {
-    let Some(target_cpu_flag) = get_target_cpu_flag() else {
+    let Some(target_cpu_flag) = parse_rust_target_cpu() else {
         return;
     };
 
@@ -219,7 +213,7 @@ fn build_rocksdb() {
             // the target supports the instructions RocksDB needs: if we don't have a target-cpu,
             // use -march=armv8-a+crc+aes+crypto, like the RocksDB Makefile.
             // If we DO have a target-cpu, assume pass_through_target_cpu() has set it above
-            if get_target_cpu_flag().is_none() {
+            if parse_rust_target_cpu().is_none() {
                 // TODO: Should just be +crc+aes but RocksDB checks for __ARM_FEATURE_CRYPTO
                 // https://github.com/facebook/rocksdb/pull/14217
                 config.flag_if_supported("-march=armv8-a+crc+aes+crypto");
