@@ -2284,16 +2284,19 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         sizes
     }
 
-    /// Iterate over batches of write operations since a given sequence.
+    /// Returns an iterator positioned at the first WriteBatch with a start sequence number
+    /// greater than `seq_number`.
     ///
-    /// Produce an iterator that will provide the batches of write operations
-    /// that have occurred since the given sequence (see
-    /// `latest_sequence_number()`). Use the provided iterator to retrieve each
+    /// Use the iterator to retrieve each
     /// (`u64`, `WriteBatch`) tuple, and then gather the individual puts and
     /// deletes using the `WriteBatch::iterate()` function.
     ///
     /// Calling `get_updates_since()` with a sequence number that is out of
-    /// bounds will return an error.
+    /// bounds will return a `NotFound` error. The iterator can return a `TryAgain` error if
+    /// a new WAL file was added after the iterator was started.
+    ///
+    /// The iterator starts one WriteBatch after the RocksDB C++ GetUpdatesSince function in some
+    /// cases. The C++ version starts with the first batch that contains `seq_number`, if it exists.
     pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error> {
         unsafe {
             // rocksdb_wal_readoptions_t does not appear to have any functions
@@ -2305,10 +2308,8 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 seq_number,
                 opts
             ));
-            Ok(DBWALIterator {
-                inner: iter,
-                start_seq_number: seq_number,
-            })
+
+            Ok(DBWALIterator::new(iter, seq_number))
         }
     }
 
