@@ -35,9 +35,9 @@ use crate::{
     ffi_util::to_cpath,
     AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
     DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode, Direction, Error,
-    IteratorMode, MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode,
-    ThreadMode, Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction,
-    FlushOptions, WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
+    FlushOptions, IteratorMode, MultiThreaded, Options, ReadOptions, SingleThreaded,
+    SnapshotWithThreadMode, ThreadMode, Transaction, TransactionDBOptions, TransactionOptions,
+    WriteBatchWithTransaction, WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use ffi::rocksdb_transaction_t;
 use libc::{c_char, c_int, c_uchar, c_void, size_t};
@@ -423,6 +423,50 @@ impl<T: ThreadMode> TransactionDB<T> {
     /// Flushes database memtables to SST files on the disk using default options.
     pub fn flush(&self) -> Result<(), Error> {
         self.flush_opt(&FlushOptions::default())
+    }
+
+    /// Flushes database memtables to SST files on the disk for a given column family.
+    pub fn flush_cf_opt(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        flushopts: &FlushOptions,
+    ) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_flush_cf(
+                self.inner,
+                flushopts.inner,
+                cf.inner()
+            ));
+        }
+        Ok(())
+    }
+
+    /// Flushes multiple column families.
+    ///
+    /// If atomic flush is not enabled, it is equivalent to calling flush_cf multiple times.
+    /// If atomic flush is enabled, it will flush all column families specified in `cfs` up to the latest sequence
+    /// number at the time when flush is requested.
+    pub fn flush_cfs_opt(
+        &self,
+        cfs: &[&impl AsColumnFamilyRef],
+        opts: &FlushOptions,
+    ) -> Result<(), Error> {
+        let mut cfs = cfs.iter().map(|cf| cf.inner()).collect::<Vec<_>>();
+        unsafe {
+            ffi_try!(ffi::rocksdb_transactiondb_flush_cfs(
+                self.inner,
+                opts.inner,
+                cfs.as_mut_ptr(),
+                cfs.len() as c_int,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Flushes database memtables to SST files on the disk for a given column family using default
+    /// options.
+    pub fn flush_cf(&self, cf: &impl AsColumnFamilyRef) -> Result<(), Error> {
+        self.flush_cf_opt(cf, &FlushOptions::default())
     }
 
     /// Creates a transaction with default options.
