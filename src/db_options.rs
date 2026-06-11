@@ -4812,7 +4812,7 @@ impl CompactOptions {
 
     fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
         let (ptr, len) = if let Some(ref ts) = ts {
-            (ts.as_ptr() as *mut c_char, ts.len())
+            (ts.as_ptr().cast_mut().cast::<c_char>(), ts.len())
         } else if self.full_history_ts_low.is_some() {
             (std::ptr::null::<Vec<u8>>() as *mut c_char, 0)
         } else {
@@ -4980,7 +4980,7 @@ unsafe extern "C" fn logger_callback(
     len: size_t,
 ) {
     let rust_callback: &LoggerCallback = unsafe { &*(raw_cb as LoggerCallbackPtr) };
-    let raw_msg = unsafe { std::slice::from_raw_parts(msg as *const u8, len) };
+    let raw_msg = unsafe { std::slice::from_raw_parts(msg.cast::<u8>(), len) };
     let msg = String::from_utf8_lossy(raw_msg);
     let level =
         LogLevel::try_from_raw(level as i32).expect("rocksdb generated an invalid log level");

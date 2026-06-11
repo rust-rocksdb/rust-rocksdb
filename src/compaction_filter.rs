@@ -128,14 +128,14 @@ where
     use self::Decision::{Change, Keep, Remove};
 
     let cb = unsafe { &mut *(raw_cb as *mut F) };
-    let key = unsafe { slice::from_raw_parts(raw_key as *const u8, key_length) };
-    let oldval = unsafe { slice::from_raw_parts(existing_value as *const u8, value_length) };
+    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_length) };
+    let oldval = unsafe { slice::from_raw_parts(existing_value.cast::<u8>(), value_length) };
     let result = cb.filter(level as u32, key, oldval);
     match result {
         Keep => 0,
         Remove => 1,
         Change(newval) => {
-            unsafe { *new_value = newval.as_ptr() as *mut c_char };
+            unsafe { *new_value = newval.as_ptr().cast_mut().cast::<c_char>() };
             unsafe { *new_value_length = newval.len() as size_t };
             unsafe { *value_changed = 1_u8 };
             0
