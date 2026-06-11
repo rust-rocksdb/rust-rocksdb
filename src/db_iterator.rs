@@ -107,7 +107,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
         // This unwrap will never fail since rocksdb_create_iterator and
         // rocksdb_create_iterator_cf functions always return non-null. They
-        // use new and deference the result so any nulls would end up with SIGSEGV
+        // use new and dereference the result so any nulls would end up with SIGSEGV
         // there and we would have a bigger issue.
         let inner = std::ptr::NonNull::new(inner).unwrap();
         Self {

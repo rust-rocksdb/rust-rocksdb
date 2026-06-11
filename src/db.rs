@@ -2596,7 +2596,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 Err(Error::new("Could not get full_history_ts_low".to_owned()))
             } else {
                 let mut vec = vec![0; ts_lowlen];
-                ptr::copy_nonoverlapping(ts as *mut u8, vec.as_mut_ptr(), ts_lowlen);
+                ptr::copy_nonoverlapping(ts.cast::<u8>(), vec.as_mut_ptr(), ts_lowlen);
                 ffi::rocksdb_free(ts as *mut c_void);
                 Ok(vec)
             }

@@ -1329,7 +1329,7 @@ impl Options {
     /// errors. This may have unforeseen ramifications: for example, a
     /// corruption of one DB entry may cause a large number of entries to
     /// become unreadable or for the entire DB to become unopenable.
-    /// If any of the  writes to the database fails (Put, Delete, Merge, Write),
+    /// If any of the writes to the database fails (Put, Delete, Merge, Write),
     /// the database will switch to read-only mode and fail all other
     /// Write operations.
     ///
@@ -4699,12 +4699,12 @@ impl UniversalCompactOptions {
     /// size is just above this value. In normal cases, at least this percentage
     /// of data will be compressed.
     /// When we are compacting to a new file, here is the criteria whether
-    /// it needs to be compressed: assuming here are the list of files sorted
+    /// it needs to be compressed: assuming here is the list of files sorted
     /// by generation time:
     ///    A1...An B1...Bm C1...Ct
     /// where A1 is the newest and Ct is the oldest, and we are going to compact
     /// B1...Bm, we calculate the total size of all the files as total_size, as
-    /// well as  the total size of C1...Ct as total_C, the compaction output file
+    /// well as the total size of C1...Ct as total_C, the compaction output file
     /// will be compressed iff
     ///   total_C / total_size < this percentage
     ///
@@ -4812,7 +4812,7 @@ impl CompactOptions {
 
     fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
         let (ptr, len) = if let Some(ref ts) = ts {
-            (ts.as_ptr() as *mut c_char, ts.len())
+            (ts.as_ptr().cast_mut().cast::<c_char>(), ts.len())
         } else if self.full_history_ts_low.is_some() {
             (std::ptr::null::<Vec<u8>>() as *mut c_char, 0)
         } else {
@@ -4980,7 +4980,7 @@ unsafe extern "C" fn logger_callback(
     len: size_t,
 ) {
     let rust_callback: &LoggerCallback = unsafe { &*(raw_cb as LoggerCallbackPtr) };
-    let raw_msg = unsafe { std::slice::from_raw_parts(msg as *const u8, len) };
+    let raw_msg = unsafe { std::slice::from_raw_parts(msg.cast::<u8>(), len) };
     let msg = String::from_utf8_lossy(raw_msg);
     let level =
         LogLevel::try_from_raw(level as i32).expect("rocksdb generated an invalid log level");
