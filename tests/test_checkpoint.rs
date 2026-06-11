@@ -16,7 +16,10 @@ mod util;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{checkpoint::Checkpoint, OptimisticTransactionDB, Options, DB};
+use rocksdb::{
+    checkpoint::{Checkpoint, TransactionDBCheckpoint},
+    OptimisticTransactionDB, Options, TransactionDB, TransactionDBOptions, DB,
+};
 use std::fs;
 use util::DBPath;
 
@@ -339,6 +342,66 @@ pub fn test_optimistic_transaction_db_checkpoint_with_large_log_size_skips_flush
     // the WAL is replayed, restoring the memtable data.
     assert_eq!(
         cp_db.get(b"memtable_key").unwrap().unwrap(),
+        b"memtable_value"
+    );
+}
+
+#[test]
+pub fn test_transaction_db_checkpoint() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_txn_cp_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db: TransactionDB =
+        TransactionDB::open(&opts, &TransactionDBOptions::default(), &db_path).unwrap();
+
+    db.put(b"k1", b"v1").unwrap();
+    let txn = db.transaction();
+    txn.put(b"k2", b"v2").unwrap();
+    txn.commit().unwrap();
+
+    let checkpoint = TransactionDBCheckpoint::new(&db).unwrap();
+    let checkpoint_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    checkpoint.create_checkpoint(&checkpoint_path).unwrap();
+
+    let checkpoint_db: TransactionDB =
+        TransactionDB::open(&opts, &TransactionDBOptions::default(), &checkpoint_path).unwrap();
+
+    assert_eq!(checkpoint_db.get(b"k1").unwrap().unwrap(), b"v1");
+    assert_eq!(checkpoint_db.get(b"k2").unwrap().unwrap(), b"v2");
+}
+
+#[test]
+pub fn test_transaction_db_checkpoint_with_log_size() {
+    const PATH_PREFIX: &str = "_rust_rocksdb_txn_cp_log_size_";
+
+    let db_path = DBPath::new(&format!("{PATH_PREFIX}db"));
+
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let db: TransactionDB =
+        TransactionDB::open(&opts, &TransactionDBOptions::default(), &db_path).unwrap();
+
+    db.put(b"first_key", b"first_value").unwrap();
+    db.put(b"memtable_key", b"memtable_value").unwrap();
+
+    let checkpoint = TransactionDBCheckpoint::new(&db).unwrap();
+    let checkpoint_path = DBPath::new(&format!("{PATH_PREFIX}cp"));
+    checkpoint
+        .create_checkpoint_with_log_size(&checkpoint_path, 0)
+        .unwrap();
+
+    let checkpoint_db: TransactionDB =
+        TransactionDB::open(&opts, &TransactionDBOptions::default(), &checkpoint_path).unwrap();
+
+    assert_eq!(
+        checkpoint_db.get(b"first_key").unwrap().unwrap(),
+        b"first_value"
+    );
+    assert_eq!(
+        checkpoint_db.get(b"memtable_key").unwrap().unwrap(),
         b"memtable_value"
     );
 }
