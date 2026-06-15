@@ -629,6 +629,15 @@ impl DBWALIterator {
 impl Iterator for DBWALIterator {
     type Item = Result<(u64, WriteBatch), Error>;
 
+    /// Returns the next WriteBatch.
+    ///
+    /// This function can be polled for WAL updates after it returns `None`, if no errors
+    /// were encounterd. If an error is returned, a new iterator must be created.
+    ///
+    /// # Errors
+    ///
+    /// * `TryAgain`: if a new WAL file was created after the iterator was created. The caller
+    ///   should create a new iterator with [`DB::get_updates_since`] to continue reading the WAL.
     fn next(&mut self) -> Option<Self::Item> {
         // Stop iterating after an error. This makes errors non-recoverable, which matches RocksDB.
         // The C++ TransactionLogIterator stores the status and will never be valid again.
@@ -636,35 +645,35 @@ impl Iterator for DBWALIterator {
             return None;
         }
 
-        // If not the first call: try to advance the iterator.
-        // This allows polling the iterator for changes at the end of the WAL.
-        if self.is_first {
-            self.is_first = false;
-        } else {
-            unsafe {
-                ffi::rocksdb_wal_iter_next(self.inner);
+        loop {
+            // If not the first call: try to advance the iterator.
+            // This allows polling an iterator positioned at the end of the WAL for updates.
+            if self.is_first {
+                self.is_first = false;
+            } else {
+                unsafe {
+                    ffi::rocksdb_wal_iter_next(self.inner);
+                }
+            }
+
+            if !self.valid() {
+                // On error: the iterator returns the error, then None to stop iteration.
+                let status = self.status();
+                self.has_errored = status.is_err();
+                return status.err().map(Result::Err);
+            }
+
+            let mut seq: u64 = 0;
+            let batch = WriteBatch {
+                inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) },
+            };
+
+            // backwards compatibility: rust-rocksdb skips the first batch if it contains seq_number.
+            // The RocksDB iterator only returns batches once, so this check must be part of next()
+            if seq > self.start_seq_number {
+                return Some(Ok((seq, batch)));
             }
         }
-
-        if !self.valid() {
-            // Remember if the iterator encountered an error so we can stop iterating.
-            let status = self.status();
-            self.has_errored = status.is_err();
-            return status.err().map(Result::Err);
-        }
-
-        let mut seq: u64 = 0;
-        let batch = WriteBatch {
-            inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) },
-        };
-
-        // backwards compatibility: rust-rocksdb skips the first batch if it contains seq_number.
-        // The RocksDB iterator only returns batches once, so this check must be part of next()
-        if seq <= self.start_seq_number {
-            return self.next();
-        }
-
-        Some(Ok((seq, batch)))
     }
 }
 
