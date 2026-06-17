@@ -580,6 +580,17 @@ fn test_get_updates_since_one_batch() {
     }
 }
 
+/// Returns the WriteBatch sequence numbers from `get_updates_since(seq_number)`.
+fn start_seqs_since(db: &DB, seq_number: u64) -> Vec<u64> {
+    let iter = db.get_updates_since(seq_number).unwrap();
+    let mut start_seqs = Vec::new();
+    for iter_result in iter {
+        let (start_seq, _) = iter_result.expect("unexpected iterator error");
+        start_seqs.push(start_seq);
+    }
+    start_seqs
+}
+
 #[test]
 fn test_get_updates_since_batches() {
     let path = DBPath::new("_rust_rocksdb_test_get_updates_since_one_batch");
@@ -610,6 +621,23 @@ fn test_get_updates_since_batches() {
     assert!(iter.next().is_none());
     assert_eq!(counts.puts, 2);
     assert_eq!(counts.deletes, 0);
+
+    assert_eq!(start_seqs_since(&db, 0), vec![1, 2, 4]);
+    assert_eq!(start_seqs_since(&db, 1), vec![2, 4]);
+    assert_eq!(start_seqs_since(&db, 2), vec![4]);
+    assert_eq!(start_seqs_since(&db, 3), vec![4]);
+    let empty: Vec<u64> = vec![];
+    assert_eq!(start_seqs_since(&db, 4), empty);
+    assert_eq!(start_seqs_since(&db, 5), empty);
+
+    // > latest_sequence_number: NotFound "Requested sequence not yet written in the db"
+    assert_eq!(db.latest_sequence_number(), 5);
+    match db.get_updates_since(6) {
+        Ok(_) => panic!("expected iterator error"),
+        Err(e) => {
+            assert!(matches!(e.kind(), ErrorKind::NotFound));
+        }
+    }
 }
 
 #[test]
@@ -631,6 +659,54 @@ fn test_get_updates_since_out_of_range() {
     // get_updates_since() with an out of bounds sequence number
     let result = db.get_updates_since(1000);
     assert!(result.is_err());
+}
+
+#[test]
+fn test_get_updates_since_poll_iterator() {
+    // Enable WAL archiving so the WAL files are preserved even after a flush
+    let mut opts = Options::default();
+    opts.set_wal_ttl_seconds(60 * 60);
+    opts.create_if_missing(true);
+    let path = DBPath::new("_rust_rocksdb_test_get_updates_since_poll_iterator");
+    let db = DB::open(&opts, &path).unwrap();
+    db.put(b"key1", b"value1").unwrap();
+
+    let mut iter = db.get_updates_since(0).unwrap();
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 1);
+    assert_eq!(batch.len(), 1);
+
+    // calling next returns None
+    assert!(iter.next().is_none());
+
+    // do an additional write: the iterator can continue and return it
+    db.put(b"key2", b"value2").unwrap();
+    let (seq, batch) = iter.next().unwrap().unwrap();
+    assert_eq!(seq, 2);
+    assert_eq!(batch.len(), 1);
+    assert!(iter.next().is_none());
+
+    // Cause a TryAgain error: flush writes the current memtable and starts a new one with a new WAL
+    db.flush().unwrap();
+
+    db.put(b"key3", b"value3").unwrap();
+    assert_eq!(db.latest_sequence_number(), 3);
+    match iter.next() {
+        Some(Ok(_)) => {
+            panic!("expected iterator to return an error");
+        }
+        Some(Err(e)) => {
+            // "Create a new iterator to fetch the new tail"
+            assert!(matches!(e.kind(), ErrorKind::TryAgain));
+        }
+        None => panic!("unexpected end of iterator"),
+    };
+    // next must return None after an error, and must stay None
+    assert!(iter.next().is_none());
+    assert!(iter.next().is_none());
+
+    // a new iterator returns all the values
+    assert_eq!(start_seqs_since(&db, 0), vec![1, 2, 3]);
 }
 
 #[test]
