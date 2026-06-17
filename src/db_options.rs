@@ -4619,6 +4619,24 @@ impl Drop for FifoCompactOptions {
 }
 
 impl FifoCompactOptions {
+    /// Allow compaction to compact smaller files into larger ones.
+    ///
+    /// Default: false
+    pub fn set_allow_compaction(&mut self, allow_compaction: bool) {
+        unsafe {
+            ffi::rocksdb_fifo_compaction_options_set_allow_compaction(
+                self.inner,
+                c_uchar::from(allow_compaction),
+            );
+        }
+    }
+
+    /// Returns whether compaction is allowed if enabled using
+    /// [`set_allow_compaction`](Self::set_allow_compaction).
+    pub fn get_allow_compaction(&self) -> bool {
+        unsafe { ffi::rocksdb_fifo_compaction_options_get_allow_compaction(self.inner) != 0 }
+    }
+
     /// Sets the max table file size.
     ///
     /// Once the total sum of table files reaches this, we will delete the oldest
@@ -4629,6 +4647,12 @@ impl FifoCompactOptions {
         unsafe {
             ffi::rocksdb_fifo_compaction_options_set_max_table_files_size(self.inner, nbytes);
         }
+    }
+
+    /// Returns max table file size if enabled using
+    /// [`set_max_table_files_size`](Self::set_max_table_files_size).
+    pub fn get_max_table_files_size(&self) -> u64 {
+        unsafe { ffi::rocksdb_fifo_compaction_options_get_max_table_files_size(self.inner) }
     }
 }
 

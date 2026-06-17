@@ -872,26 +872,27 @@ fn fifo_compaction_test() {
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
-        opts.set_level_compaction_dynamic_level_bytes(false);
 
         // set compaction style
         {
             let mut fifo_co_opts = FifoCompactOptions::default();
+            assert!(!fifo_co_opts.get_allow_compaction());
             fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
+            assert_eq!(fifo_co_opts.get_max_table_files_size(), 4 << 10);
             opts.set_compaction_style(DBCompactionStyle::Fifo);
             opts.set_fifo_compaction_options(&fifo_co_opts);
         }
 
         // put and compact column family cf1
-        let cfs = vec!["cf1"];
-        let db = DB::open_cf(&opts, &path, cfs).unwrap();
+        let cfs = [ColumnFamilyDescriptor::new("cf1", opts.clone())];
+        let db = DB::open_cf_descriptors(&opts, &path, cfs).unwrap();
         let cf1 = db.cf_handle("cf1").unwrap();
         db.put_cf(&cf1, b"k1", b"v1").unwrap();
         db.put_cf(&cf1, b"k2", b"v2").unwrap();
         db.put_cf(&cf1, b"k3", b"v3").unwrap();
         db.put_cf(&cf1, b"k4", b"v4").unwrap();
         db.put_cf(&cf1, b"k5", b"v5").unwrap();
-        db.compact_range_cf(&cf1, Some(b"k2"), Some(b"k4"));
+        db.flush_cf(&cf1).unwrap();
 
         // check stats
         let ctx = PerfContext::default();
@@ -906,7 +907,8 @@ fn fifo_compaction_test() {
         let livefiles = db.live_files().unwrap();
         assert_eq!(livefiles.len(), 1);
         livefiles.iter().for_each(|f| {
-            assert_eq!(f.level, 6);
+            // FIFO compaction only has zero level
+            assert_eq!(f.level, 0);
             assert_eq!(f.column_family_name, "cf1");
             assert!(!f.name.is_empty());
             assert_eq!(f.start_key.as_ref().unwrap().as_slice(), "k1".as_bytes());
@@ -914,6 +916,72 @@ fn fifo_compaction_test() {
             assert_eq!(f.num_entries, 5);
             assert_eq!(f.num_deletions, 0);
         });
+    }
+}
+
+#[test]
+fn fifo_compaction_allow_compaction_test() {
+    let path = DBPath::new("_rust_rocksdb_fifo_compaction_allow_compaction_test");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_level_zero_file_num_compaction_trigger(1);
+        opts.set_compaction_style(DBCompactionStyle::Fifo);
+
+        // set compaction style with allow_compaction enabled
+        let mut fifo_co_opts = FifoCompactOptions::default();
+        fifo_co_opts.set_allow_compaction(false);
+        assert!(!fifo_co_opts.get_allow_compaction());
+        fifo_co_opts.set_max_table_files_size(4 << 10); // 4KB
+        opts.set_fifo_compaction_options(&fifo_co_opts);
+
+        // put and compact column family cf1
+        {
+            let cfs = [ColumnFamilyDescriptor::new("cf1", opts.clone())];
+            let db = DB::open_cf_descriptors(&opts, &path, cfs).unwrap();
+            let cf1 = db.cf_handle("cf1").unwrap();
+            db.put_cf(&cf1, b"k1", b"v1").unwrap();
+            db.put_cf(&cf1, b"k2", b"v2").unwrap();
+            db.flush_cf(&cf1).unwrap();
+
+            db.put_cf(&cf1, b"k3", b"v3").unwrap();
+            db.put_cf(&cf1, b"k4", b"v4").unwrap();
+            db.flush_cf(&cf1).unwrap();
+
+            // expect two open files since compaction is disabled
+            let livefiles = db.live_files().unwrap();
+            assert_eq!(livefiles.len(), 2);
+        }
+
+        // re-open database ensuring that FIFO options are re-applied
+
+        fifo_co_opts.set_allow_compaction(true);
+        assert!(fifo_co_opts.get_allow_compaction());
+        opts.set_fifo_compaction_options(&fifo_co_opts);
+
+        {
+            let cfs = [ColumnFamilyDescriptor::new("cf1", opts.clone())];
+            let db = DB::open_cf_descriptors(&opts, &path, cfs).unwrap();
+            let cf1 = db.cf_handle("cf1").unwrap();
+
+            db.put_cf(&cf1, b"k5", b"v5").unwrap();
+            db.put_cf(&cf1, b"k6", b"v6").unwrap();
+            db.flush_cf(&cf1).unwrap();
+
+            // expect two open files since compaction is now enabled
+            let livefiles = db.live_files().unwrap();
+            assert_eq!(livefiles.len(), 2);
+
+            // wait for final live file to be compacted
+            let mut wait_for_compact_opts: WaitForCompactOptions = WaitForCompactOptions::default();
+            wait_for_compact_opts.set_abort_on_pause(false);
+            wait_for_compact_opts.set_flush(true);
+            db.wait_for_compact(&wait_for_compact_opts).unwrap();
+
+            let livefiles = db.live_files().unwrap();
+            assert_eq!(livefiles.len(), 1);
+        }
     }
 }
 
