@@ -4303,6 +4303,31 @@ impl ReadOptions {
         }
     }
 
+    /// Sets the deadline for completing an API call in microseconds since the
+    /// Unix epoch.
+    ///
+    /// This is best effort and applies to `Get`, `MultiGet`, `Seek`, and `Next`
+    /// operations.
+    ///
+    /// Default: 0
+    pub fn set_deadline(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_deadline(self.inner, microseconds);
+        }
+    }
+
+    /// Sets the timeout for each underlying file read request in microseconds.
+    ///
+    /// Unlike `set_deadline`, this timeout applies to each individual read
+    /// request. A single RocksDB operation may issue multiple file reads.
+    ///
+    /// Default: 0
+    pub fn set_io_timeout(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_io_timeout(self.inner, microseconds);
+        }
+    }
+
     /// If true, create a tailing iterator. Note that tailing iterators
     /// only support moving in the forward direction. Iterating in reverse
     /// or seek_to_last are not supported.
