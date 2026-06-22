@@ -393,6 +393,14 @@ impl<T: ThreadMode> TransactionDB<T> {
         DB::repair(opts, path)
     }
 
+    pub fn repair_cf_descriptors<P, I>(opts: &Options, path: P, cfs: I) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = ColumnFamilyDescriptor>,
+    {
+        DB::repair_cf_descriptors(opts, path, cfs)
+    }
+
     pub fn path(&self) -> &Path {
         self.path.as_path()
     }
