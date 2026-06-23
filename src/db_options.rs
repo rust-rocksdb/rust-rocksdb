@@ -1511,6 +1511,22 @@ impl Options {
         }
     }
 
+    /// Sets various compression options
+    ///
+    /// # `window_bits`, `strategy`
+    ///
+    /// zlib-specific options, see [zlib's manual](https://www.zlib.net/manual.html)
+    ///
+    /// # `level`
+    ///
+    /// Compression "level" applicable to zstd, zlib, LZ4, and LZ4HC.
+    /// T the meaning of each value depends
+    /// on the compression algorithm. Decreasing across non-
+    /// `kDefaultCompressionLevel` values will either favor speed over
+    /// compression ratio or have no effect.
+    ///
+    /// # `max_dict_bytes`
+    ///
     /// Maximum size of dictionaries used to prime the compression library.
     /// Enabling dictionary can improve compression ratios when there are
     /// repetitions across data blocks.
@@ -1526,6 +1542,9 @@ impl Options {
     /// can only be compressed and written after the dictionary has been finalized.
     /// So users of this feature may see increased memory usage.
     ///
+    /// See [rocksdb's blog post](https://rocksdb.org/blog/2021/05/31/dictionary-compression.html)
+    /// for details
+    ///
     /// Default: `0`
     ///
     /// # Examples
@@ -1538,7 +1557,7 @@ impl Options {
     /// ```
     pub fn set_compression_options(
         &mut self,
-        w_bits: c_int,
+        window_bits: c_int,
         level: c_int,
         strategy: c_int,
         max_dict_bytes: c_int,
@@ -1546,7 +1565,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_compression_options(
                 self.inner,
-                w_bits,
+                window_bits,
                 level,
                 strategy,
                 max_dict_bytes,
@@ -1570,7 +1589,7 @@ impl Options {
     /// ```
     pub fn set_bottommost_compression_options(
         &mut self,
-        w_bits: c_int,
+        window_bits: c_int,
         level: c_int,
         strategy: c_int,
         max_dict_bytes: c_int,
@@ -1579,7 +1598,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_bottommost_compression_options(
                 self.inner,
-                w_bits,
+                window_bits,
                 level,
                 strategy,
                 max_dict_bytes,
