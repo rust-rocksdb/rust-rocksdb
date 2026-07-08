@@ -1253,6 +1253,25 @@ impl Options {
         }
     }
 
+    /// A list of paths where SST files for this column family can be put into,
+    /// with its target size. Similar to `db_paths`, newer data is placed into
+    /// paths specified earlier in the vector while older data gradually moves to
+    /// paths specified later in the vector.
+    ///
+    /// To place a whole column family on a specific disk, pass a single
+    /// [`DBPath`] with a target size large enough that it is never exceeded.
+    ///
+    /// If left empty, `db_paths` will be used.
+    ///
+    /// Default: empty
+    pub fn set_cf_paths(&mut self, paths: &[DBPath]) {
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
+        let num_paths = paths.len();
+        unsafe {
+            ffi::rocksdb_options_set_cf_paths(self.inner, paths.as_mut_ptr(), num_paths);
+        }
+    }
+
     /// Use the specified object to interact with the environment,
     /// e.g. to read/write files, schedule background work, etc. In the near
     /// future, support for doing storage operations such as read/write files
