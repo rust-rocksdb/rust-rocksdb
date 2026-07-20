@@ -220,7 +220,7 @@ impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
     }
 
     unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        unsafe { ffi::rocksdb_create_iterator(self.inner.inner(), readopts.inner) }
+        unsafe { ffi::rocksdb_create_iterator(self.inner.inner(), readopts.inner()) }
     }
 
     unsafe fn create_iterator_cf(
@@ -228,7 +228,7 @@ impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        unsafe { ffi::rocksdb_create_iterator_cf(self.inner.inner(), readopts.inner, cf_handle) }
+        unsafe { ffi::rocksdb_create_iterator_cf(self.inner.inner(), readopts.inner(), cf_handle) }
     }
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -1073,7 +1073,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
-        if readopts.inner.is_null() {
+        if readopts.inner().is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. This is a fairly trivial call, and its \
                  failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
@@ -1085,7 +1085,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_get_pinned(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             ));
@@ -1113,7 +1113,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<DBPinnableSlice>, Error> {
-        if readopts.inner.is_null() {
+        if readopts.inner().is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. This is a fairly trivial call, and its \
                  failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
@@ -1125,7 +1125,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_get_pinned_cf(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
@@ -1183,7 +1183,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         unsafe {
             ffi::rocksdb_multi_get(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
                 keys_sizes.as_ptr(),
@@ -1242,7 +1242,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         unsafe {
             ffi::rocksdb_multi_get_cf(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 ptr_cfs.as_ptr(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
@@ -1300,7 +1300,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         unsafe {
             ffi::rocksdb_batched_multi_get_cf(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 cf.inner(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
@@ -1340,7 +1340,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         unsafe {
             0 != ffi::rocksdb_key_may_exist(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 ptr::null_mut(), /*value*/
@@ -1370,7 +1370,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         0 != unsafe {
             ffi::rocksdb_key_may_exist_cf(
                 self.inner.inner(),
-                readopts.inner,
+                readopts.inner(),
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
@@ -1403,7 +1403,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             != unsafe {
                 ffi::rocksdb_key_may_exist_cf(
                     self.inner.inner(),
-                    readopts.inner,
+                    readopts.inner(),
                     cf.inner(),
                     key.as_ptr() as *const c_char,
                     key.len() as size_t,
