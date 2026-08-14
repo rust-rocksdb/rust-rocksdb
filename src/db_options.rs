@@ -1108,10 +1108,10 @@ impl Options {
                 env.0.inner,
                 ignore_unknown_options,
                 cache.0.inner.as_ptr(),
-                &mut db_options,
-                &mut num_column_families,
-                &mut column_family_names,
-                &mut column_family_options,
+                &raw mut db_options,
+                &raw mut num_column_families,
+                &raw mut column_family_names,
+                &raw mut column_family_options,
             ));
         }
         let options = Options {
