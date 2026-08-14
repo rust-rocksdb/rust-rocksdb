@@ -78,6 +78,7 @@ db/memtable.cc
 db/memtable_list.cc
 db/merge_helper.cc
 db/merge_operator.cc
+db/multi_scan.cc
 db/output_validator.cc
 db/periodic_task_scheduler.cc
 db/range_del_aggregator.cc
@@ -197,6 +198,7 @@ table/block_fetcher.cc
 table/cuckoo/cuckoo_table_builder.cc
 table/cuckoo/cuckoo_table_factory.cc
 table/cuckoo/cuckoo_table_reader.cc
+table/external_table.cc
 table/format.cc
 table/get_context.cc
 table/iterator.cc
@@ -234,6 +236,7 @@ util/coding.cc
 util/compaction_job_stats_impl.cc
 util/comparator.cc
 util/compression.cc
+util/auto_tune_compressor.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
 util/crc32c.cc
@@ -247,6 +250,7 @@ util/rate_limiter.cc
 util/ribbon_config.cc
 util/slice.cc
 util/file_checksum_helper.cc
+util/simple_mixed_compressor.cc
 util/status.cc
 util/stderr_logger.cc
 util/string_util.cc
@@ -296,6 +300,8 @@ utilities/persistent_cache/block_cache_tier_file.cc
 utilities/persistent_cache/block_cache_tier_metadata.cc
 utilities/persistent_cache/persistent_cache_tier.cc
 utilities/persistent_cache/volatile_tier_impl.cc
+utilities/secondary_index/secondary_index_iterator.cc
+utilities/secondary_index/simple_secondary_index.cc
 utilities/simulator_cache/cache_simulator.cc
 utilities/simulator_cache/sim_cache.cc
 utilities/table_properties_collectors/compact_for_tiering_collector.cc

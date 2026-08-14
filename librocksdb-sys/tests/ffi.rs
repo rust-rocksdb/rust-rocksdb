@@ -18,6 +18,7 @@
 #![allow(
     non_snake_case,
     non_upper_case_globals,
+    static_mut_refs,
     unused_mut,
     unused_unsafe,
     unused_variables

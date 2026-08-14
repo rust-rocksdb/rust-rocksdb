@@ -18,10 +18,20 @@ use std::{fs, io::Read as _};
 
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{
-    BlockBasedOptions, Cache, DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options,
-    ReadOptions, DB,
+    BlockBasedOptions, BlockBasedTablePinningTier, Cache, ColumnFamilyDescriptor,
+    DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options, ReadOptions, DB,
 };
 use util::DBPath;
+
+fn read_settings_from_log(path: &DBPath) -> String {
+    let mut rocksdb_log = fs::File::open(format!("{}/LOG", path.as_ref().to_str().unwrap()))
+        .expect("rocksdb creates a LOG file");
+    let mut settings = String::new();
+    rocksdb_log
+        .read_to_string(&mut settings)
+        .expect("rocksdb log file is readable");
+    settings
+}
 
 #[test]
 fn test_load_latest() {
@@ -42,6 +52,27 @@ fn test_load_latest() {
     assert!(cfs.iter().any(|cf| cf.name() == "default"));
     assert!(cfs.iter().any(|cf| cf.name() == "cf0"));
     assert!(cfs.iter().any(|cf| cf.name() == "cf1"));
+}
+
+#[test]
+fn test_get_options_from_string() {
+    let mut opts = Options::default();
+    opts.set_use_fsync(true);
+    let new_opts = opts.get_options_from_string("use_fsync=false").unwrap();
+    assert!(!new_opts.get_use_fsync());
+    assert!(opts
+        .get_options_from_string("notarealoptionstring")
+        .is_err());
+
+    // test an option with a NUL byte
+    let err = match opts.get_options_from_string("use_fsync=false\0") {
+        Ok(_) => panic!("expected error"),
+        Err(e) => e,
+    };
+    assert!(
+        err.to_string().contains("must not contain NUL"),
+        "err={err:?}"
+    );
 }
 
 #[test]
@@ -79,8 +110,25 @@ fn test_set_level_compaction_dynamic_level_bytes() {
 
 #[test]
 fn test_block_based_options() {
-    let path = "_rust_rocksdb_test_block_based_options";
-    let n = DBPath::new(path);
+    // First check the default values.
+    let n = DBPath::new("_rust_rocksdb_test_block_based_options");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+
+        let _db = DB::open(&opts, &n).unwrap();
+
+        let settings = read_settings_from_log(&n);
+
+        assert!(settings.contains("cache_index_and_filter_blocks: 0\n"));
+        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 0\n"));
+        assert!(settings.contains("format_version: 6\n"));
+        assert!(settings.contains("index_block_restart_interval: 1\n"));
+        assert!(settings.contains("cache_index_and_filter_blocks_with_high_priority: 1\n"));
+    }
+
+    // Now check that block options do change the defaults.
+    let n = DBPath::new("_rust_rocksdb_test_block_based_options2");
     {
         let mut opts = Options::default();
         opts.create_if_missing(true);
@@ -90,21 +138,19 @@ fn test_block_based_options() {
         block_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
         block_opts.set_format_version(4);
         block_opts.set_index_block_restart_interval(16);
+        block_opts.set_cache_index_and_filter_blocks_with_high_priority(false);
 
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).unwrap();
 
-        // read the setting from the LOG file
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-            .expect("rocksdb creates a LOG file");
-        let mut settings = String::new();
-        rocksdb_log.read_to_string(&mut settings).unwrap();
+        let settings = read_settings_from_log(&n);
 
         // check the settings are set in the LOG file
-        assert!(settings.contains("cache_index_and_filter_blocks: 1"));
-        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 1"));
-        assert!(settings.contains("format_version: 4"));
-        assert!(settings.contains("index_block_restart_interval: 16"));
+        assert!(settings.contains("cache_index_and_filter_blocks: 1\n"));
+        assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 1\n"));
+        assert!(settings.contains("format_version: 4\n"));
+        assert!(settings.contains("index_block_restart_interval: 16\n"));
+        assert!(settings.contains("cache_index_and_filter_blocks_with_high_priority: 0\n"));
     }
 }
 
@@ -128,12 +174,7 @@ fn test_set_data_block_index_type() {
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).expect("open a db works");
 
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-            .expect("rocksdb creates a LOG file");
-        let mut settings = String::new();
-        rocksdb_log
-            .read_to_string(&mut settings)
-            .expect("can read the LOG file");
+        let settings = read_settings_from_log(&n);
         assert!(settings.contains("data_block_index_type: 0"));
         assert!(settings.contains("data_block_hash_table_util_ratio: 0.750000"));
     }
@@ -149,12 +190,7 @@ fn test_set_data_block_index_type() {
         opts.set_block_based_table_factory(&block_opts);
         let _db = DB::open(&opts, &n).expect("open a db works");
 
-        let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-            .expect("rocksdb creates a LOG file");
-        let mut settings = String::new();
-        rocksdb_log
-            .read_to_string(&mut settings)
-            .expect("can read the LOG file");
+        let settings = read_settings_from_log(&n);
         assert!(settings.contains("data_block_index_type: 1"));
         assert!(settings.contains("data_block_hash_table_util_ratio: 0.350000"));
     }
@@ -259,12 +295,7 @@ fn test_add_compact_on_deletion_collector_factory() {
     opts.add_compact_on_deletion_collector_factory(5, 10, 0.5);
     let _db = DB::open(&opts, &n).unwrap();
 
-    let mut rocksdb_log = fs::File::open(format!("{}/LOG", (&n).as_ref().to_str().unwrap()))
-        .expect("rocksdb creates a LOG file");
-    let mut settings = String::new();
-    rocksdb_log
-        .read_to_string(&mut settings)
-        .expect("can read the LOG file");
+    let settings = read_settings_from_log(&n);
     assert!(settings.contains("CompactOnDeletionCollector (Sliding window size = 5 Deletion trigger = 10 Deletion ratio = 0.5)"));
 }
 
@@ -279,6 +310,20 @@ fn test_set_avoid_unnecessary_blocking_io() {
         let _ = db.put(b"k1", b"a");
         assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
     }
+}
+
+#[test]
+fn test_set_experimental_mempurge_threshold() {
+    let path = DBPath::new("_set_experimental_mempurge_threshold");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_experimental_mempurge_threshold(1.0);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let settings = read_settings_from_log(&path);
+    assert!(settings.contains("experimental_mempurge_threshold: 1.000000"));
 }
 
 #[test]
@@ -310,6 +355,30 @@ fn test_set_periodic_compaction_seconds() {
         opts.create_if_missing(true);
         opts.set_periodic_compaction_seconds(5);
         let _db = DB::open(&opts, &path).unwrap();
+    }
+}
+
+#[test]
+fn test_set_ttl() {
+    let path = DBPath::new("_set_ttl_0");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ttl(0);
+        let _db = DB::open(&opts, &path).unwrap();
+
+        let settings = read_settings_from_log(&path);
+        assert!(settings.contains("Options.ttl: 0\n"));
+    }
+    let path = DBPath::new("_set_ttl_day");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ttl(86400);
+        let _db = DB::open(&opts, &path).unwrap();
+
+        let settings = read_settings_from_log(&path);
+        assert!(settings.contains("Options.ttl: 86400\n"));
     }
 }
 
@@ -422,4 +491,202 @@ fn test_set_write_dbid_to_manifest() {
         String::from_utf8_lossy(&db_orig_id),
         String::from_utf8_lossy(&db_checkpoint_id)
     );
+}
+
+#[test]
+fn test_block_based_table_pinning_tier() {
+    let path = DBPath::new("_block_based_table_pinning_tier");
+
+    // Test that we can create all enum variants
+    let _fallback = BlockBasedTablePinningTier::Fallback;
+    let _none = BlockBasedTablePinningTier::None;
+    let _flush_and_similar = BlockBasedTablePinningTier::FlushAndSimilar;
+    let _all = BlockBasedTablePinningTier::All;
+
+    // Test that enum values match expected C constants
+    assert_eq!(BlockBasedTablePinningTier::Fallback as i32, 0);
+    assert_eq!(BlockBasedTablePinningTier::None as i32, 1);
+    assert_eq!(BlockBasedTablePinningTier::FlushAndSimilar as i32, 2);
+    assert_eq!(BlockBasedTablePinningTier::All as i32, 3);
+
+    // Test that we can use the setter methods with BlockBasedOptions
+    let mut block_opts = BlockBasedOptions::default();
+    block_opts.set_top_level_index_pinning_tier(BlockBasedTablePinningTier::FlushAndSimilar);
+    block_opts.set_partition_pinning_tier(BlockBasedTablePinningTier::All);
+    block_opts.set_unpartitioned_pinning_tier(BlockBasedTablePinningTier::None);
+
+    // Test that we can create a database with these options
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.set_block_based_table_factory(&block_opts);
+
+    let db = DB::open(&opts, &path).unwrap();
+    db.put(b"test_key", b"test_value").unwrap();
+    assert_eq!(&*db.get(b"test_key").unwrap().unwrap(), b"test_value");
+}
+
+#[test]
+fn jemalloc_init() {
+    let path = DBPath::new("_jemalloc_init");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let mut rocksdb_log =
+        fs::File::open((&path).as_ref().join("LOG")).expect("rocksdb creates a LOG file");
+    let mut log_content = String::new();
+    rocksdb_log
+        .read_to_string(&mut log_content)
+        .expect("can read the LOG file");
+
+    if cfg!(feature = "jemalloc")
+        && !(
+            // See NO_JEMALLOC_TARGETS in librocksdb-sys/build.rs
+            cfg!(target_os = "android")
+                || cfg!(target_os = "dragonfly")
+                || cfg!(target_env = "musl")
+                || cfg!(target_os = "macos")
+                || cfg!(target_os = "ios")
+        )
+    {
+        assert!(log_content.contains("Jemalloc supported: 1"));
+    } else {
+        assert!(log_content.contains("Jemalloc supported: 0"));
+    }
+}
+
+// Verify we passed through the compiler flags to enable hardware CRC32 (if supported).
+#[test]
+fn test_crc32_build() {
+    let path = DBPath::new("_crc32");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let mut rocksdb_log =
+        fs::File::open((&path).as_ref().join("LOG")).expect("rocksdb creates a LOG file");
+    let mut log_content = String::new();
+    rocksdb_log
+        .read_to_string(&mut log_content)
+        .expect("can read the LOG file");
+
+    // look for the log line with prefix "Fast CRC32 supported:"
+    let log_line = log_content
+        .lines()
+        .find(|line| line.contains("Fast CRC32 supported:"));
+    assert!(log_line.is_some(), "{log_content}");
+    let log_line = log_line.unwrap();
+
+    let expected_supported = if cfg!(target_arch = "x86_64") {
+        // Default Linux x86-64 (x86-64-v1) does not support CRC32. Nearly all CPUs since ~2014
+        // should support it (>= x86-64-v2), but RocksDB only does compile-time detection.
+        // Our build.rs should match the Rust target settings
+        if cfg!(target_feature = "crc") {
+            Some(true)
+        } else {
+            Some(false)
+        }
+    } else if cfg!(target_arch = "aarch64") {
+        // Default Linux aarch64 does not support CRC32. RocksDB's runtime feature detection is
+        // also buggy as of 10.110 (2026-01-23), but it should report "Supported" if the feature is
+        // enabled at compile time.
+        if cfg!(target_feature = "crc") {
+            Some(true)
+        } else {
+            // TODO: Fix when upstream RocksDB fixes the runtime feature detection
+            Some(false)
+        }
+    } else {
+        println!(
+            "TODO: test_crc32_build needs to be extended to support ARCH={}",
+            std::env::consts::ARCH
+        );
+        None
+    };
+    if let Some(expected_supported) = expected_supported {
+        if expected_supported {
+            assert!(
+                log_line.contains("Supported on "),
+                "expected 'Supported on ' log_line={log_line}"
+            );
+        } else {
+            assert!(
+                log_line.contains("Not supported on "),
+                "expected 'Not supported on ' log_line={log_line}"
+            );
+        }
+    }
+
+    // split the last word as the supported arch
+    let crc32_supported_arch = log_line.split_whitespace().last().unwrap();
+
+    // Verify that the RocksDB reported architecture matches this test
+    // this may fail if RocksDB changes its string formatting
+    let expected_arch = if cfg!(target_arch = "x86_64") {
+        "x86".to_string()
+    } else if cfg!(target_arch = "aarch64") {
+        // TODO: RocksDB has a bug: it can report x86 when the CRC feature is not enabled
+        // This should just be "Arm64" when the RocksDB bug is fixed
+        if cfg!(target_feature = "crc") {
+            "Arm64".to_string()
+        } else {
+            "x86".to_string()
+        }
+    } else if cfg!(target_arch = "powerpc64") {
+        "PPC".to_string()
+    } else {
+        format!("unknown Rust ARCH={} (fix test)", std::env::consts::ARCH)
+    };
+
+    assert_eq!(
+        crc32_supported_arch, expected_arch,
+        "Expected CRC32 support for architecture '{expected_arch}', but RocksDB reported support for '{crc32_supported_arch}'"
+    );
+}
+
+#[test]
+fn test_set_cf_paths() {
+    let path = DBPath::new("_rust_rocksdb_test_set_cf_paths");
+    let cf_dir = (&path).as_ref().join("cf1_sst");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut cf_opts = Options::default();
+        let cf_path = rocksdb::DBPath::new(&cf_dir, 0).unwrap();
+        cf_opts.set_cf_paths(&[cf_path]);
+
+        let db = DB::open_cf_descriptors(
+            &opts,
+            &path,
+            vec![ColumnFamilyDescriptor::new("cf1", cf_opts)],
+        )
+        .unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.flush_cf(&cf1).unwrap();
+
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+
+        let has_sst = |dir: &std::path::Path| {
+            fs::read_dir(dir).is_ok_and(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .any(|entry| entry.path().extension().is_some_and(|ext| ext == "sst"))
+            })
+        };
+        assert!(
+            has_sst(&cf_dir),
+            "SST files for cf1 should be under its cf path"
+        );
+        assert!(
+            !has_sst((&path).as_ref()),
+            "no SST files should be under the DB path"
+        );
+    }
 }

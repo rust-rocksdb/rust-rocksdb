@@ -130,9 +130,9 @@ impl BackupEngine {
     /// let mut restore_option = rocksdb::backup::RestoreOptions::default();
     /// restore_option.set_keep_log_files(true); /// true to keep log files
     /// if let Err(e) = backup_engine.restore_from_latest_backup(&db_path, &wal_dir, &restore_option) {
-    ///     error!("Failed to restore from the backup. Error:{:?}", e);
+    ///     error!("Failed to restore from the backup. Error: {:?}", e);
     ///     return Err(e.to_string());
-    ///  }
+    /// }
     /// ```
     pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,

@@ -55,6 +55,11 @@ impl<'a, D: DBAccess> SnapshotWithThreadMode<'a, D> {
         }
     }
 
+    /// Returns the sequence number of the snapshot.
+    pub fn sequence_number(&self) -> u64 {
+        unsafe { ffi::rocksdb_snapshot_get_sequence_number(self.inner) }
+    }
+
     /// Creates an iterator over the data in this snapshot, using the default read options.
     pub fn iterator(&self, mode: IteratorMode) -> DBIteratorWithThreadMode<'a, D> {
         let readopts = ReadOptions::default();

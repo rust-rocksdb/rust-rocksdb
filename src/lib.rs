@@ -121,9 +121,10 @@ pub use crate::{
         DBWALIterator, Direction, IteratorMode,
     },
     db_options::{
-        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, ChecksumType,
-        CompactOptions, CompactionPri, CuckooTableOptions, DBCompactionStyle, DBCompressionType,
-        DBPath, DBRecoveryMode, DataBlockIndexType, FifoCompactOptions, FlushOptions,
+        BlockBasedIndexType, BlockBasedOptions, BlockBasedTablePinningTier,
+        BottommostLevelCompaction, Cache, ChecksumType, CompactOptions, CompactionPri,
+        CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath, DBRecoveryMode,
+        DataBlockIndexType, FifoCompactOptions, FlushOptions, InfoLogger,
         IngestExternalFileOptions, KeyEncodingType, LogLevel, LruCacheOptions, MemtableFactory,
         Options, PlainTableFactoryOptions, ReadOptions, ReadTier, UniversalCompactOptions,
         UniversalCompactionStopStyle, WaitForCompactOptions, WriteBufferManager, WriteOptions,
@@ -145,6 +146,12 @@ pub use crate::{
         WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, WriteBatchWithTransaction,
     },
 };
+
+#[cfg(feature = "raw-ptr")]
+mod raw_ptr;
+
+#[cfg(feature = "raw-ptr")]
+pub use crate::raw_ptr::AsRawPtr;
 
 use librocksdb_sys as ffi;
 
