@@ -95,7 +95,7 @@ impl<'a> SstFileWriter<'a> {
     pub fn file_size(&self) -> u64 {
         let mut file_size: u64 = 0;
         unsafe {
-            ffi::rocksdb_sstfilewriter_file_size(self.inner, &mut file_size);
+            ffi::rocksdb_sstfilewriter_file_size(self.inner, &raw mut file_size);
         }
         file_size
     }
