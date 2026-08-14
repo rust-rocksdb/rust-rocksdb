@@ -38,7 +38,6 @@ impl TransactionOptions {
         TransactionOptions::default()
     }
 
-    
     /// In pessimistic transaction, if this is true, then you can skip Prepare
     /// before Commit, otherwise, you must Prepare before Commit.
     ///
