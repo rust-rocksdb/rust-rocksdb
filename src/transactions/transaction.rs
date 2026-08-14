@@ -160,7 +160,7 @@ impl<DB> Transaction<'_, DB> {
     pub fn get_name(&self) -> Option<Vec<u8>> {
         unsafe {
             let mut name_len = 0;
-            let name = ffi::rocksdb_transaction_get_name(self.inner, &mut name_len);
+            let name = ffi::rocksdb_transaction_get_name(self.inner, &raw mut name_len);
             if name.is_null() {
                 None
             } else {
