@@ -66,7 +66,7 @@ impl<'a> Range<'a> {
 ///
 /// While being a marker trait to be generic over `DBWithThreadMode`, this trait
 /// also has a minimum set of not-encapsulated internal methods between
-/// [`SingleThreaded`] and [`MultiThreaded`].  These methods aren't expected to be
+/// [`SingleThreaded`] and [`MultiThreaded`]. These methods aren't expected to be
 /// called and defined externally.
 pub trait ThreadMode {
     /// Internal implementation for storing column family handles
@@ -922,7 +922,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             let ptr = ffi_try!(ffi::rocksdb_list_column_families(
                 opts.inner,
                 cpath.as_ptr(),
-                &mut length,
+                &raw mut length,
             ));
 
             let vec = slice::from_raw_parts(ptr, length)
@@ -1258,7 +1258,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
 
     /// Return the values associated with the given keys and the specified column family
     /// where internally the read requests are processed in batch if block-based table
-    /// SST format is used.  It is a more optimized version of multi_get_cf.
+    /// SST format is used. It is a more optimized version of multi_get_cf.
     pub fn batched_multi_get_cf<'a, K, I>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -1407,11 +1407,11 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     cf.inner(),
                     key.as_ptr() as *const c_char,
                     key.len() as size_t,
-                    &mut val,         /*value*/
-                    &mut val_len,     /*val_len*/
-                    ptr::null(),      /*timestamp*/
-                    0,                /*timestamp_len*/
-                    &mut value_found, /*value_found*/
+                    &raw mut val,         /*value*/
+                    &raw mut val_len,     /*val_len*/
+                    ptr::null(),          /*timestamp*/
+                    0,                    /*timestamp_len*/
+                    &raw mut value_found, /*value_found*/
                 )
             };
         // The value is only allocated (using malloc) and returned if it is found and
@@ -1445,7 +1445,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 self.inner.inner(),
                 opts.inner,
                 cf_name.as_ptr(),
-                &mut err,
+                &raw mut err,
             )
         };
         if !err.is_null() {
@@ -2104,7 +2104,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// Implementation for property_value et al methods.
     ///
     /// `name` is the name of the property.  It will be converted into a CString
-    /// and passed to `get_property` as argument.  `get_property` reads the
+    /// and passed to `get_property` as an argument. `get_property` reads the
     /// specified property and either returns NULL or a pointer to a C allocated
     /// string; this method takes ownership of that string and will free it at
     /// the end. That string is parsed using `parse` callback which produces
@@ -2264,7 +2264,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     end_key_ptr,
                     end_key_len_ptr,
                     size_ptr,
-                    &mut err,
+                    &raw mut err,
                 );
             },
             Some(cf) => unsafe {
@@ -2277,7 +2277,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     end_key_ptr,
                     end_key_len_ptr,
                     size_ptr,
-                    &mut err,
+                    &raw mut err,
                 );
             },
         }
@@ -2462,11 +2462,13 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     let level = ffi::rocksdb_livefiles_level(files, i);
 
                     // get smallest key inside file
-                    let smallest_key = ffi::rocksdb_livefiles_smallestkey(files, i, &mut key_size);
+                    let smallest_key =
+                        ffi::rocksdb_livefiles_smallestkey(files, i, &raw mut key_size);
                     let smallest_key = raw_data(smallest_key, key_size);
 
                     // get largest key inside file
-                    let largest_key = ffi::rocksdb_livefiles_largestkey(files, i, &mut key_size);
+                    let largest_key =
+                        ffi::rocksdb_livefiles_largestkey(files, i, &raw mut key_size);
                     let largest_key = raw_data(largest_key, key_size);
 
                     livefiles.push(LiveFile {
@@ -2588,14 +2590,14 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             let ts = ffi_try!(ffi::rocksdb_get_full_history_ts_low(
                 self.inner.inner(),
                 cf.inner(),
-                &mut ts_lowlen,
+                &raw mut ts_lowlen,
             ));
 
             if ts.is_null() {
                 Err(Error::new("Could not get full_history_ts_low".to_owned()))
             } else {
                 let mut vec = vec![0; ts_lowlen];
-                ptr::copy_nonoverlapping(ts as *mut u8, vec.as_mut_ptr(), ts_lowlen);
+                ptr::copy_nonoverlapping(ts.cast::<u8>(), vec.as_mut_ptr(), ts_lowlen);
                 ffi::rocksdb_free(ts as *mut c_void);
                 Ok(vec)
             }
@@ -2606,7 +2608,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     pub fn get_db_identity(&self) -> Result<Vec<u8>, Error> {
         unsafe {
             let mut length: usize = 0;
-            let identity_ptr = ffi::rocksdb_get_db_identity(self.inner.inner(), &mut length);
+            let identity_ptr = ffi::rocksdb_get_db_identity(self.inner.inner(), &raw mut length);
             let identity_vec = raw_data(identity_ptr, length);
             ffi::rocksdb_free(identity_ptr as *mut c_void);
             // In RocksDB: get_db_identity copies a std::string so it should not fail, but
@@ -2685,7 +2687,7 @@ impl<T: ThreadMode, I: DBInner> Drop for DBCommon<T, I> {
 
 impl<T: ThreadMode, I: DBInner> fmt::Debug for DBCommon<T, I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "RocksDB {{ path: {:?} }}", self.path())
+        write!(f, "RocksDB {{ path: {} }}", self.path().display())
     }
 }
 

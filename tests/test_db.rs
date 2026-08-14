@@ -1827,7 +1827,7 @@ fn test_enable_and_disable_file_deletions() {
 
         // insert some data and flush to create first sst.
         for i in 0..10 {
-            db.put(format!("k{}", i).as_bytes(), format!("v{}", i).as_bytes())
+            db.put(format!("k{i}").as_bytes(), format!("v{i}").as_bytes())
                 .unwrap();
         }
         db.flush().unwrap();
@@ -1836,7 +1836,7 @@ fn test_enable_and_disable_file_deletions() {
 
         // insert some data and flush to create second sst.
         for i in 10..20 {
-            db.put(format!("k{}", i).as_bytes(), format!("v{}", i).as_bytes())
+            db.put(format!("k{i}").as_bytes(), format!("v{i}").as_bytes())
                 .unwrap();
         }
         db.flush().unwrap();

@@ -1108,10 +1108,10 @@ impl Options {
                 env.0.inner,
                 ignore_unknown_options,
                 cache.0.inner.as_ptr(),
-                &mut db_options,
-                &mut num_column_families,
-                &mut column_family_names,
-                &mut column_family_options,
+                &raw mut db_options,
+                &raw mut num_column_families,
+                &raw mut column_family_names,
+                &raw mut column_family_options,
             ));
         }
         let options = Options {
@@ -1329,7 +1329,7 @@ impl Options {
     /// errors. This may have unforeseen ramifications: for example, a
     /// corruption of one DB entry may cause a large number of entries to
     /// become unreadable or for the entire DB to become unopenable.
-    /// If any of the  writes to the database fails (Put, Delete, Merge, Write),
+    /// If any of the writes to the database fails (Put, Delete, Merge, Write),
     /// the database will switch to read-only mode and fail all other
     /// Write operations.
     ///
@@ -1370,6 +1370,27 @@ impl Options {
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
+        }
+    }
+
+    /// A list of paths where SST files for this column family can be put
+    /// into, with its target size. Similar to `set_db_paths`, newer data is
+    /// placed into paths specified earlier in the vector while older data
+    /// gradually moves to paths specified later in the vector.
+    ///
+    /// Note that, if a path is supplied to multiple column families, it would
+    /// have files and total size from all the column families combined. User
+    /// should provision for the total size (from all the column families) in
+    /// such cases.
+    ///
+    /// If left empty, `db_paths` will be used.
+    ///
+    /// Default: empty
+    pub fn set_cf_paths(&mut self, paths: &[DBPath]) {
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
+        let num_paths = paths.len();
+        unsafe {
+            ffi::rocksdb_options_set_cf_paths(self.inner, paths.as_mut_ptr(), num_paths);
         }
     }
 
@@ -3577,6 +3598,29 @@ impl Options {
         }
     }
 
+    /// Activates the experimental Mempurge memtable garbage collection feature.
+    ///
+    /// See the upstream RocksDB option documentation:
+    /// <https://github.com/facebook/rocksdb/blob/v10.7.5/include/rocksdb/advanced_options.h#L259-L274>
+    ///
+    /// At every flush, RocksDB estimates the useful payload ratio of the memtable
+    /// and compares it with this threshold. If the ratio is below the threshold,
+    /// RocksDB replaces the regular flush with a mempurge operation.
+    ///
+    /// Threshold values:
+    ///
+    /// * `0.0`: mempurge deactivated.
+    /// * `1.0`: recommended threshold value.
+    /// * `> 1.0`: aggressive mempurge.
+    /// * `0.0 < threshold < 1.0`: mempurge only for very low useful payload ratios.
+    ///
+    /// Default: 0.0
+    pub fn set_experimental_mempurge_threshold(&mut self, threshold: f64) {
+        unsafe {
+            ffi::rocksdb_options_set_experimental_mempurge_threshold(self.inner, threshold);
+        }
+    }
+
     /// Enable whole key bloom filter in memtable. Note this will only take effect
     /// if memtable_prefix_bloom_size_ratio is not 0. Enabling whole key filtering
     /// can potentially reduce CPU usage for point-look-ups.
@@ -4723,12 +4767,12 @@ impl UniversalCompactOptions {
     /// size is just above this value. In normal cases, at least this percentage
     /// of data will be compressed.
     /// When we are compacting to a new file, here is the criteria whether
-    /// it needs to be compressed: assuming here are the list of files sorted
+    /// it needs to be compressed: assuming here is the list of files sorted
     /// by generation time:
     ///    A1...An B1...Bm C1...Ct
     /// where A1 is the newest and Ct is the oldest, and we are going to compact
     /// B1...Bm, we calculate the total size of all the files as total_size, as
-    /// well as  the total size of C1...Ct as total_C, the compaction output file
+    /// well as the total size of C1...Ct as total_C, the compaction output file
     /// will be compressed iff
     ///   total_C / total_size < this percentage
     ///
@@ -4836,7 +4880,7 @@ impl CompactOptions {
 
     fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
         let (ptr, len) = if let Some(ref ts) = ts {
-            (ts.as_ptr() as *mut c_char, ts.len())
+            (ts.as_ptr().cast_mut().cast::<c_char>(), ts.len())
         } else if self.full_history_ts_low.is_some() {
             (std::ptr::null::<Vec<u8>>() as *mut c_char, 0)
         } else {
@@ -5004,7 +5048,7 @@ unsafe extern "C" fn logger_callback(
     len: size_t,
 ) {
     let rust_callback: &LoggerCallback = unsafe { &*(raw_cb as LoggerCallbackPtr) };
-    let raw_msg = unsafe { std::slice::from_raw_parts(msg as *const u8, len) };
+    let raw_msg = unsafe { std::slice::from_raw_parts(msg.cast::<u8>(), len) };
     let msg = String::from_utf8_lossy(raw_msg);
     let level =
         LogLevel::try_from_raw(level as i32).expect("rocksdb generated an invalid log level");
