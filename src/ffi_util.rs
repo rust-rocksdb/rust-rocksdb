@@ -40,7 +40,7 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
         None
     } else {
         let mut dst = vec![0; size];
-        unsafe { ptr::copy_nonoverlapping(ptr as *const u8, dst.as_mut_ptr(), size) };
+        unsafe { ptr::copy_nonoverlapping(ptr.cast::<u8>(), dst.as_mut_ptr(), size) };
 
         Some(dst)
     }
@@ -236,7 +236,7 @@ impl CSlice {
 
 impl AsRef<[u8]> for CSlice {
     fn as_ref(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.data as *const u8, self.len) }
+        unsafe { std::slice::from_raw_parts(self.data.cast::<u8>(), self.len) }
     }
 }
 

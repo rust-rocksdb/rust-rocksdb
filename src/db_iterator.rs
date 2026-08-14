@@ -107,7 +107,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
         // This unwrap will never fail since rocksdb_create_iterator and
         // rocksdb_create_iterator_cf functions always return non-null. They
-        // use new and deference the result so any nulls would end up with SIGSEGV
+        // use new and dereference the result so any nulls would end up with SIGSEGV
         // there and we would have a bigger issue.
         let inner = std::ptr::NonNull::new(inner).unwrap();
         Self {
@@ -381,7 +381,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         // take `&mut self`, so borrow checker will prevent use of buffer after seek.
         unsafe {
             let mut key_len: size_t = 0;
-            let key_len_ptr: *mut size_t = &mut key_len;
+            let key_len_ptr: *mut size_t = &raw mut key_len;
             let key_ptr = ffi::rocksdb_iter_key(self.inner.as_ptr(), key_len_ptr);
             slice::from_raw_parts(key_ptr as *const c_uchar, key_len)
         }
@@ -393,7 +393,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         // take `&mut self`, so borrow checker will prevent use of buffer after seek.
         unsafe {
             let mut val_len: size_t = 0;
-            let val_len_ptr: *mut size_t = &mut val_len;
+            let val_len_ptr: *mut size_t = &raw mut val_len;
             let val_ptr = ffi::rocksdb_iter_value(self.inner.as_ptr(), val_len_ptr);
             slice::from_raw_parts(val_ptr as *const c_uchar, val_len)
         }
@@ -405,7 +405,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         // take `&mut self`, so borrow checker will prevent use of buffer after seek.
         unsafe {
             let mut timestamp_len: size_t = 0;
-            let timestamp_len_ptr: *mut size_t = &mut timestamp_len;
+            let timestamp_len_ptr: *mut size_t = &raw mut timestamp_len;
             let timestamp_ptr = ffi::rocksdb_iter_timestamp(self.inner.as_ptr(), timestamp_len_ptr);
             slice::from_raw_parts(timestamp_ptr as *const c_uchar, timestamp_len)
         }
@@ -624,7 +624,7 @@ impl Iterator for DBWALIterator {
 
         let mut seq: u64 = 0;
         let mut batch = WriteBatch {
-            inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) },
+            inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &raw mut seq) },
         };
 
         // if the initial sequence number is what was requested we skip it to
@@ -640,7 +640,7 @@ impl Iterator for DBWALIterator {
 
             // this drops which in turn frees the skipped batch
             batch = WriteBatch {
-                inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &mut seq) },
+                inner: unsafe { ffi::rocksdb_wal_iter_get_batch(self.inner, &raw mut seq) },
             };
         }
 

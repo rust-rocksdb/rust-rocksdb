@@ -18,8 +18,8 @@ use std::{fs, io::Read as _};
 
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{
-    BlockBasedOptions, BlockBasedTablePinningTier, Cache, DBCompressionType, DataBlockIndexType,
-    Env, LruCacheOptions, Options, ReadOptions, DB,
+    BlockBasedOptions, BlockBasedTablePinningTier, Cache, ColumnFamilyDescriptor,
+    DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options, ReadOptions, DB,
 };
 use util::DBPath;
 
@@ -310,6 +310,20 @@ fn test_set_avoid_unnecessary_blocking_io() {
         let _ = db.put(b"k1", b"a");
         assert_eq!(&*db.get(b"k1").unwrap().unwrap(), b"a");
     }
+}
+
+#[test]
+fn test_set_experimental_mempurge_threshold() {
+    let path = DBPath::new("_set_experimental_mempurge_threshold");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_experimental_mempurge_threshold(1.0);
+        let _db = DB::open(&opts, &path).unwrap();
+    }
+
+    let settings = read_settings_from_log(&path);
+    assert!(settings.contains("experimental_mempurge_threshold: 1.000000"));
 }
 
 #[test]
@@ -632,4 +646,47 @@ fn test_crc32_build() {
         crc32_supported_arch, expected_arch,
         "Expected CRC32 support for architecture '{expected_arch}', but RocksDB reported support for '{crc32_supported_arch}'"
     );
+}
+
+#[test]
+fn test_set_cf_paths() {
+    let path = DBPath::new("_rust_rocksdb_test_set_cf_paths");
+    let cf_dir = (&path).as_ref().join("cf1_sst");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let mut cf_opts = Options::default();
+        let cf_path = rocksdb::DBPath::new(&cf_dir, 0).unwrap();
+        cf_opts.set_cf_paths(&[cf_path]);
+
+        let db = DB::open_cf_descriptors(
+            &opts,
+            &path,
+            vec![ColumnFamilyDescriptor::new("cf1", cf_opts)],
+        )
+        .unwrap();
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.flush_cf(&cf1).unwrap();
+
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap(), b"v1");
+
+        let has_sst = |dir: &std::path::Path| {
+            fs::read_dir(dir).is_ok_and(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .any(|entry| entry.path().extension().is_some_and(|ext| ext == "sst"))
+            })
+        };
+        assert!(
+            has_sst(&cf_dir),
+            "SST files for cf1 should be under its cf path"
+        );
+        assert!(
+            !has_sst((&path).as_ref()),
+            "no SST files should be under the DB path"
+        );
+    }
 }
