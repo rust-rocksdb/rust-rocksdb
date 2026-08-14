@@ -507,7 +507,7 @@ fn test_checkpoint_wal_over_threshold_is_flushed() {
     let value = vec![b'x'; 1024]; // 1KB values
     let mut i = 0;
     loop {
-        let key = format!("key_{:08}", i);
+        let key = format!("key_{i:08}");
         db.put(key.as_bytes(), &value).unwrap();
         i += 1;
 
