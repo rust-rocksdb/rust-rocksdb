@@ -2,7 +2,7 @@ name: RocksDB CI
 
 on: [ push, pull_request ]
 env:
-  RUST_VERSION: 1.85.0
+  RUST_VERSION: 1.88.0
   CARGO_TERM_COLOR: always
 
 jobs:
