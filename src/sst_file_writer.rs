@@ -95,7 +95,7 @@ impl<'a> SstFileWriter<'a> {
     pub fn file_size(&self) -> u64 {
         let mut file_size: u64 = 0;
         unsafe {
-            ffi::rocksdb_sstfilewriter_file_size(self.inner, &mut file_size);
+            ffi::rocksdb_sstfilewriter_file_size(self.inner, &raw mut file_size);
         }
         file_size
     }
@@ -178,6 +178,26 @@ impl<'a> SstFileWriter<'a> {
                 self.inner,
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    /// Adds a range deletion tombstone to the currently opened file.
+    /// Unlike point entries, range tombstones may be added out of order.
+    /// REQUIRES: `begin_key` <= `end_key` according to the comparator.
+    /// REQUIRES: comparator is not timestamp-aware.
+    pub fn delete_range<K: AsRef<[u8]>>(&mut self, begin_key: K, end_key: K) -> Result<(), Error> {
+        let begin_key = begin_key.as_ref();
+        let end_key = end_key.as_ref();
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_sstfilewriter_delete_range(
+                self.inner,
+                begin_key.as_ptr() as *const c_char,
+                begin_key.len() as size_t,
+                end_key.as_ptr() as *const c_char,
+                end_key.len() as size_t,
             ));
             Ok(())
         }

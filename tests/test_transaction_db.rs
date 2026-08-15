@@ -18,8 +18,8 @@ mod util;
 use pretty_assertions::assert_eq;
 
 use rocksdb::{
-    CuckooTableOptions, DBAccess, Direction, Error, ErrorKind, IteratorMode, Options, ReadOptions,
-    SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions,
+    CuckooTableOptions, DBAccess, Direction, Error, ErrorKind, FlushOptions, IteratorMode, Options,
+    ReadOptions, SliceTransform, TransactionDB, TransactionDBOptions, TransactionOptions,
     WriteBatchWithTransaction, WriteOptions, DB,
 };
 use util::DBPath;
@@ -673,6 +673,171 @@ fn two_phase_commit() {
 
         assert_eq!(db.get(b"k1").unwrap().unwrap(), b"v1");
         assert!(db.get(b"k2").unwrap().is_none());
+    }
+}
+
+#[test]
+fn transaction_db_flush() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush");
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.commit().unwrap();
+
+        // flush memtables to SST
+        db.flush().unwrap();
+
+        // verify data survived the flush
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+}
+
+#[test]
+fn transaction_db_flush_opt() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush_opt");
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.commit().unwrap();
+
+        // flush with wait disabled (async flush)
+        let mut opts = FlushOptions::default();
+        opts.set_wait(false);
+        db.flush_opt(&opts).unwrap();
+
+        // issue a second synchronous flush; because the memtable was already
+        // flushed (or is in progress), this effectively acts as a barrier
+        // that ensures all previous flush work is complete before we assert
+        let mut wait_opts = FlushOptions::default();
+        wait_opts.set_wait(true);
+        db.flush_opt(&wait_opts).unwrap();
+
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+}
+
+#[test]
+fn transaction_db_flush_wal() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush_wal");
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.commit().unwrap();
+
+        // sync WAL to disk
+        db.flush_wal(true).unwrap();
+
+        // verify data survived the WAL sync
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+
+    // reopen and verify persistence
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+}
+
+#[test]
+fn transaction_db_flush_wal_without_sync() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush_wal_no_sync");
+    {
+        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+
+        let txn = db.transaction();
+        txn.put(b"k1", b"v1").unwrap();
+        txn.commit().unwrap();
+
+        // flush WAL buffer without fsync
+        db.flush_wal(false).unwrap();
+
+        assert_eq!(db.get(b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+    // No reopen check: flush_wal(false) only flushes the in-process WAL
+    // buffer without calling fsync, so durability across a crash is not
+    // guaranteed. Verifying that already-open reads still work is the
+    // meaningful assertion for this code path.
+}
+
+#[test]
+fn transaction_db_flush_cf() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush_cf");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db: TransactionDB =
+            TransactionDB::open_cf(&opts, &TransactionDBOptions::default(), &path, ["cf1"])
+                .unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+
+        db.flush_cf(&cf1).unwrap();
+
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+}
+
+#[test]
+fn transaction_db_flush_cf_opt() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush_cf_opt");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db: TransactionDB =
+            TransactionDB::open_cf(&opts, &TransactionDBOptions::default(), &path, ["cf1"])
+                .unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+
+        // flush with wait disabled (async flush)
+        let mut flush_opts = FlushOptions::default();
+        flush_opts.set_wait(false);
+        db.flush_cf_opt(&cf1, &flush_opts).unwrap();
+
+        // synchronous flush as barrier to ensure async flush is complete
+        let mut wait_opts = FlushOptions::default();
+        wait_opts.set_wait(true);
+        db.flush_cf_opt(&cf1, &wait_opts).unwrap();
+
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap().as_slice(), b"v1");
+    }
+}
+
+#[test]
+fn transaction_db_flush_cfs_opt() {
+    let path = DBPath::new("_rust_rocksdb_transaction_db_flush_cfs_opt");
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let db: TransactionDB = TransactionDB::open_cf(
+            &opts,
+            &TransactionDBOptions::default(),
+            &path,
+            ["cf1", "cf2"],
+        )
+        .unwrap();
+
+        let cf1 = db.cf_handle("cf1").unwrap();
+        let cf2 = db.cf_handle("cf2").unwrap();
+        db.put_cf(&cf1, b"k1", b"v1").unwrap();
+        db.put_cf(&cf2, b"k2", b"v2").unwrap();
+
+        let flush_opts = FlushOptions::default();
+        db.flush_cfs_opt(&[&cf1, &cf2], &flush_opts).unwrap();
+
+        assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap().as_slice(), b"v1");
+        assert_eq!(db.get_cf(&cf2, b"k2").unwrap().unwrap().as_slice(), b"v2");
     }
 }
 

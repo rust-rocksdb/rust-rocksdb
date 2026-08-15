@@ -55,7 +55,7 @@ pub trait CompactionFilter {
     ///
     /// If the CompactionFilter was created by a factory, then it will only ever
     /// be used by a single thread that is doing the compaction run, and this
-    /// call does not need to be thread-safe.  However, multiple filters may be
+    /// call does not need to be thread-safe. However, multiple filters may be
     /// in existence and operating concurrently.
     fn filter(&mut self, level: u32, key: &[u8], value: &[u8]) -> Decision;
 
@@ -69,9 +69,9 @@ pub trait CompactionFilter {
 /// This function takes the level of compaction, the key, and the existing value
 /// and returns the decision about how to handle the Key-Value pair.
 ///
-///  See [Options::set_compaction_filter][set_compaction_filter] for more details
+/// See [Options::set_compaction_filter][set_compaction_filter] for more details
 ///
-///  [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
+/// [set_compaction_filter]: ../struct.Options.html#method.set_compaction_filter
 pub trait CompactionFilterFn: FnMut(u32, &[u8], &[u8]) -> Decision {}
 impl<F> CompactionFilterFn for F where F: FnMut(u32, &[u8], &[u8]) -> Decision + Send + 'static {}
 
@@ -128,14 +128,14 @@ where
     use self::Decision::{Change, Keep, Remove};
 
     let cb = unsafe { &mut *(raw_cb as *mut F) };
-    let key = unsafe { slice::from_raw_parts(raw_key as *const u8, key_length) };
-    let oldval = unsafe { slice::from_raw_parts(existing_value as *const u8, value_length) };
+    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_length) };
+    let oldval = unsafe { slice::from_raw_parts(existing_value.cast::<u8>(), value_length) };
     let result = cb.filter(level as u32, key, oldval);
     match result {
         Keep => 0,
         Remove => 1,
         Change(newval) => {
-            unsafe { *new_value = newval.as_ptr() as *mut c_char };
+            unsafe { *new_value = newval.as_ptr().cast_mut().cast::<c_char>() };
             unsafe { *new_value_length = newval.len() as size_t };
             unsafe { *value_changed = 1_u8 };
             0

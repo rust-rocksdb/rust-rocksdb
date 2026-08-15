@@ -1,8 +1,8 @@
 [package]
 name = "librocksdb-sys"
-version = "0.17.3+10.4.2"
+version = "0.18.0+10.7.5"
 edition = "2021"
-rust-version = "1.85.0"
+rust-version = "1.88.0"
 authors = [
     "Karl Hobley <karlhobley10@gmail.com>",
     "Arkadiy Paronyan <arkadiy@ethcore.io>",
@@ -33,7 +33,7 @@ lto = []
 
 [dependencies]
 libc = "0.2"
-tikv-jemalloc-sys = { version = "0.6", features = [
+tikv-jemalloc-sys = { version = "0.7", features = [
     "unprefixed_malloc_on_supported_platforms",
 ], optional = true }
 lz4-sys = { version = "1.10", optional = true }
@@ -51,3 +51,4 @@ uuid = { version = "1.0", features = ["v4"] }
 cc = { version = "1.0", features = ["parallel"] }
 bindgen = { version = "0.72", default-features = false }
 pkg-config = { version = "0.3", optional = true }
+rustflags = "0.1"

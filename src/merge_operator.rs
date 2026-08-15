@@ -90,7 +90,12 @@ pub unsafe extern "C" fn delete_callback(
     value_length: size_t,
 ) {
     if !value.is_null() {
-        drop(unsafe { Box::from_raw(slice::from_raw_parts_mut(value as *mut u8, value_length)) });
+        drop(unsafe {
+            Box::from_raw(slice::from_raw_parts_mut(
+                value.cast_mut().cast::<u8>(),
+                value_length,
+            ))
+        });
     }
 }
 
@@ -115,11 +120,11 @@ pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
 ) -> *mut c_char {
     let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
     let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
-    let key = unsafe { slice::from_raw_parts(raw_key as *const u8, key_len) };
+    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_len) };
     let oldval = if existing_value.is_null() {
         None
     } else {
-        Some(unsafe { slice::from_raw_parts(existing_value as *const u8, existing_value_len) })
+        Some(unsafe { slice::from_raw_parts(existing_value.cast::<u8>(), existing_value_len) })
     };
     (cb.full_merge_fn)(key, oldval, operands).map_or_else(
         || {
@@ -147,7 +152,7 @@ pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
 ) -> *mut c_char {
     let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
     let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
-    let key = unsafe { slice::from_raw_parts(raw_key as *const u8, key_len) };
+    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_len) };
     (cb.partial_merge_fn)(key, None, operands).map_or_else(
         || {
             unsafe { *new_value_length = 0 };

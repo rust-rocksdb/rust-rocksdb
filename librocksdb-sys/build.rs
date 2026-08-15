@@ -47,8 +47,49 @@ fn bindgen_rocksdb() {
         .expect("unable to write rocksdb bindings");
 }
 
+/// Parse the `target-cpu` option from `CARGO_ENCODED_RUSTFLAGS`, if present.
+fn parse_rust_target_cpu() -> Option<String> {
+    const TARGET_CPU: &str = "target-cpu";
+    // use rustflags since parsing is annoying
+    // e.g. "-Ctarget-cpu=native" and "-C target-cpu=native" are equivalent
+    rustflags::from_env().find_map(|flag| match flag {
+        rustflags::Flag::Codegen { opt, value } if opt == TARGET_CPU => value,
+        _ => None,
+    })
+}
+
+/// If the Rust `-Ctarget-cpu=` option is set, this attempts to pass it through to the C/C++
+/// compiler. It should print a Cargo build warning if the compiler does not support the flag,
+/// or if the architecture is not supported.
+fn pass_through_target_cpu(cfg: &mut cc::Build) {
+    let Some(target_cpu_flag) = parse_rust_target_cpu() else {
+        return;
+    };
+
+    let arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    match arch.as_str() {
+        "x86_64" => {
+            cfg.flag_if_supported(format!("-march={target_cpu_flag}"));
+        }
+        "aarch64" => {
+            cfg.flag_if_supported(format!("-mcpu={target_cpu_flag}"));
+        }
+        // TODO: add more architectures/compilers
+        _ => {
+            println!(
+                "cargo::warning=unknown target architecture: {arch}; C/C++ target flags not passed through"
+            );
+        }
+    }
+}
+
 fn build_rocksdb() {
+    // https://doc.rust-lang.org/cargo/reference/environment-variables.html
     let target = env::var("TARGET").unwrap();
+    // https://doc.rust-lang.org/reference/conditional-compilation.html#target_arch
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_features_env = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+    let target_features: Vec<_> = target_features_env.split(',').collect();
 
     let mut config = cc::Build::new();
     config.include("rocksdb/include/");
@@ -106,6 +147,15 @@ fn build_rocksdb() {
     config.include(".");
     config.define("NDEBUG", Some("1"));
 
+    // true for C++ >= 17; we set -std=c++20 below
+    config.define("HAVE_ALIGNED_NEW", None);
+
+    // __uint128_t is supported by GCC and Clang; Don't use it for MSVC
+    // TODO: implement a detection script?
+    if !target.contains("msvc") {
+        config.define("HAVE_UINT128_EXTENSION", None);
+    }
+
     let mut lib_sources = include_str!("rocksdb_lib_sources.txt")
         .trim()
         .split('\n')
@@ -114,15 +164,14 @@ fn build_rocksdb() {
         .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
 
-    if let (true, Ok(target_feature_value)) = (
-        target.contains("x86_64"),
-        env::var("CARGO_CFG_TARGET_FEATURE"),
-    ) {
+    // attempt to pass through the RUSTFLAGS -Ctarget-cpu to allow the same optimizations for C/C++
+    pass_through_target_cpu(&mut config);
+
+    // CPU-specific build configuration
+    if target_arch == "x86_64" {
         // This is needed to enable hardware CRC32C. Technically, SSE 4.2 is
         // only available since Intel Nehalem (about 2010) and AMD Bulldozer
         // (about 2011).
-        let target_features: Vec<_> = target_feature_value.split(',').collect();
-
         if target_features.contains(&"sse2") {
             config.flag_if_supported("-msse2");
         }
@@ -131,6 +180,10 @@ fn build_rocksdb() {
         }
         if target_features.contains(&"sse4.2") {
             config.flag_if_supported("-msse4.2");
+        } else {
+            println!(
+                r#"cargo::warning=compiling without SSE4.2: CRC will be slow (set RUSTFLAGS="-Ctarget-cpu=..." to optimize RocksDB e.g. -Ctarget-cpu=broadwell)"#
+            );
         }
         // Pass along additional target features as defined in
         // build_tools/build_detect_platform.
@@ -143,8 +196,32 @@ fn build_rocksdb() {
         if target_features.contains(&"lzcnt") {
             config.flag_if_supported("-mlzcnt");
         }
+
         if !target.contains("android") && target_features.contains(&"pclmulqdq") {
             config.flag_if_supported("-mpclmul");
+        }
+
+        if target_features.contains(&"avx") && !target_features.contains(&"pclmulqdq") {
+            // RocksDB BUG (<= 10.11.0/2026-01-23): assumes AVX implies -mpclmul
+            // x86-64-v3/-v4 does not include PCLMUL
+            println!(
+                r#"cargo:warning=RocksDB BUG: target arch missing -mpclmul; compile may fail: pass named architecture e.g. -Ctarget-cpu=broadwell"#
+            );
+        }
+    } else if target_arch == "aarch64" {
+        if target_features.contains(&"crc") && target_features.contains(&"aes") {
+            // the target supports the instructions RocksDB needs: if we don't have a target-cpu,
+            // use -march=armv8-a+crc+aes+crypto, like the RocksDB Makefile.
+            // If we DO have a target-cpu, assume pass_through_target_cpu() has set it above
+            if parse_rust_target_cpu().is_none() {
+                // TODO: Should just be +crc+aes but RocksDB checks for __ARM_FEATURE_CRYPTO
+                // https://github.com/facebook/rocksdb/pull/14217
+                config.flag_if_supported("-march=armv8-a+crc+aes+crypto");
+            }
+        } else {
+            println!(
+                r#"cargo:warning=building for aarch64 WITHOUT CRC instruction: build with RUSTFLAGS="-Ctarget-cpu=..." to optimize RocksDB e.g. -Ctarget-cpu=neoverse-n1"#
+            );
         }
     }
 
@@ -180,6 +257,9 @@ fn build_rocksdb() {
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
         config.define("ROCKSDB_SCHED_GETCPU_PRESENT", None);
+        config.define("ROCKSDB_AUXV_GETAUXVAL_PRESENT", None);
+        config.define("ROCKSDB_FALLOCATE_PRESENT", None);
+        config.define("ROCKSDB_RANGESYNC_PRESENT", None);
     } else if target.contains("dragonfly") {
         config.define("OS_DRAGONFLYBSD", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
@@ -244,8 +324,6 @@ fn build_rocksdb() {
         }
     }
 
-    config.define("ROCKSDB_SUPPORT_THREAD_LOCAL", None);
-
     if cfg!(feature = "jemalloc") && NO_JEMALLOC_TARGETS.iter().all(|i| !target.contains(i)) {
         config.define("ROCKSDB_JEMALLOC", Some("1"));
         config.define("JEMALLOC_NO_DEMANGLE", Some("1"));
@@ -273,7 +351,8 @@ fn build_rocksdb() {
             config.static_crt(true);
         }
         config.flag("-EHsc");
-        config.flag("-std:c++17");
+        // Don't use cxx_standard: Uses : instead of =
+        config.flag("-std:c++20");
     } else {
         config.flag(cxx_standard());
         // matches the flags in CMakeLists.txt from rocksdb
@@ -298,7 +377,6 @@ fn build_rocksdb() {
     config.file("build_version.cc");
 
     config.cpp(true);
-    config.flag_if_supported("-std=c++17");
 
     if !target.contains("windows") {
         config.flag("-include").flag("cstdint");
@@ -366,8 +444,10 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
     false
 }
 
+/// Returns the value of the `ROCKSDB_CXX_STD` env var, or the default `-std=c++{version}` flag for
+/// building RocksDB.
 fn cxx_standard() -> String {
-    env::var("ROCKSDB_CXX_STD").map_or("-std=c++17".to_owned(), |cxx_std| {
+    env::var("ROCKSDB_CXX_STD").map_or("-std=c++20".to_owned(), |cxx_std| {
         if !cxx_std.starts_with("-std=") {
             format!("-std={cxx_std}")
         } else {

@@ -48,7 +48,7 @@ impl PropName {
     /// returned slice.
     #[inline]
     pub fn as_str(&self) -> &str {
-        // SAFETY: self.0 is guaranteed to be valid ASCII string.
+        // SAFETY: self.0 is guaranteed to be valid UTF-8 string.
         unsafe { std::str::from_utf8_unchecked(self.0.to_bytes()) }
     }
 }

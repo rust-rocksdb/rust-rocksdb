@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ffi::CStr;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -21,6 +20,7 @@ use std::sync::Arc;
 use libc::{self, c_char, c_double, c_int, c_uchar, c_uint, c_void, size_t};
 
 use crate::column_family::ColumnFamilyTtl;
+use crate::ffi_util::from_cstr_and_free;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
     compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
@@ -31,7 +31,7 @@ use crate::{
     db::DBAccess,
     env::Env,
     ffi,
-    ffi_util::{from_cstr, to_cpath, CStrLike},
+    ffi_util::{to_cpath, CStrLike},
     merge_operator::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
@@ -39,6 +39,10 @@ use crate::{
     statistics::Ticker,
     ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
+
+/// Type for log callbacks used by [`Options::set_info_logger`]. Use Box to pass a thin pointer to
+/// the C callback.
+type LoggerCallback = Box<dyn Fn(LogLevel, &str) + Sync + Send>;
 
 pub(crate) struct WriteBufferManagerWrapper {
     pub(crate) inner: NonNull<ffi::rocksdb_write_buffer_manager_t>,
@@ -169,26 +173,26 @@ impl Cache {
         Cache(Arc::new(CacheWrapper { inner }))
     }
 
-    /// Creates a HyperClockCache with capacity in bytes.
+    /// Creates a HyperClockCache with `capacity` in bytes.
     ///
-    /// `estimated_entry_charge` is an important tuning parameter. The optimal
-    /// choice at any given time is
-    /// `(cache.get_usage() - 64 * cache.get_table_address_count()) /
-    /// cache.get_occupancy_count()`, or approximately `cache.get_usage() /
-    /// cache.get_occupancy_count()`.
+    /// HyperClockCache is now generally recommended over LRUCache. See RocksDB's
+    /// [HyperClockCacheOptions in cache.h](https://github.com/facebook/rocksdb/blob/main/include/rocksdb/cache.h)
+    /// for details.
     ///
-    /// However, the value cannot be changed dynamically, so as the cache
-    /// composition changes at runtime, the following tradeoffs apply:
+    /// `estimated_entry_charge` is an optional parameter. When not provided
+    /// (== 0, recommended and default), an HCC variant with a
+    /// dynamically-growing table and generally good performance is used. This
+    /// variant depends on anonymous mmaps so might not be available on all
+    /// platforms.
     ///
-    /// * If the estimate is substantially too high (e.g., 25% higher),
-    ///   the cache may have to evict entries to prevent load factors that
-    ///   would dramatically affect lookup times.
-    /// * If the estimate is substantially too low (e.g., less than half),
-    ///   then meta data space overhead is substantially higher.
-    ///
-    /// The latter is generally preferable, and picking the larger of
-    /// block size and meta data block size is a reasonable choice that
-    /// errs towards this side.
+    /// If the average "charge" (uncompressed block size) of block cache entries
+    /// is reasonably predicted and provided here, the most efficient variant of
+    /// HCC is used. Performance is degraded if the prediction is inaccurate.
+    /// Prediction could be difficult or impossible with cache-charging features
+    /// such as WriteBufferManager. The best parameter choice based on a cache
+    /// in use is roughly given by `cache.get_usage() / cache.get_occupancy_count()`,
+    /// though it is better to estimate toward the lower side than the higher
+    /// side when the ratio might vary.
     pub fn new_hyper_clock_cache(capacity: size_t, estimated_entry_charge: size_t) -> Cache {
         Cache(Arc::new(CacheWrapper {
             inner: NonNull::new(unsafe {
@@ -216,6 +220,8 @@ impl Cache {
     }
 }
 
+/// Options that must outlive the DB, and may be shared between DBs. This is cloned and stored
+/// with every DB that is created from the options.
 #[derive(Default)]
 pub(crate) struct OptionsMustOutliveDB {
     env: Option<Env>,
@@ -223,6 +229,9 @@ pub(crate) struct OptionsMustOutliveDB {
     blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
+    comparator: Option<Arc<OwnedComparator>>,
+    compaction_filter: Option<Arc<OwnedCompactionFilter>>,
+    logger_callback: Option<Arc<LoggerCallback>>,
 }
 
 impl OptionsMustOutliveDB {
@@ -236,6 +245,53 @@ impl OptionsMustOutliveDB {
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
             write_buffer_manager: self.write_buffer_manager.clone(),
+            comparator: self.comparator.clone(),
+            compaction_filter: self.compaction_filter.clone(),
+            logger_callback: self.logger_callback.clone(),
+        }
+    }
+}
+
+/// Stores a `rocksdb_comparator_t` and destroys it when dropped.
+///
+/// This has an unsafe implementation of Send and Sync because it wraps a RocksDB pointer that
+/// is safe to share between threads.
+struct OwnedComparator {
+    inner: NonNull<ffi::rocksdb_comparator_t>,
+}
+
+impl OwnedComparator {
+    fn new(inner: NonNull<ffi::rocksdb_comparator_t>) -> Self {
+        Self { inner }
+    }
+}
+
+impl Drop for OwnedComparator {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_comparator_destroy(self.inner.as_ptr());
+        }
+    }
+}
+
+/// Stores a `rocksdb_compactionfilter_t` and destroys it when dropped.
+///
+/// This has an unsafe implementation of Send and Sync because it wraps a RocksDB pointer that
+/// is safe to share between threads.
+struct OwnedCompactionFilter {
+    inner: NonNull<ffi::rocksdb_compactionfilter_t>,
+}
+
+impl OwnedCompactionFilter {
+    fn new(inner: NonNull<ffi::rocksdb_compactionfilter_t>) -> Self {
+        Self { inner }
+    }
+}
+
+impl Drop for OwnedCompactionFilter {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_compactionfilter_destroy(self.inner.as_ptr());
         }
     }
 }
@@ -428,6 +484,8 @@ unsafe impl Send for IngestExternalFileOptions {}
 unsafe impl Send for CacheWrapper {}
 unsafe impl Send for CompactOptions {}
 unsafe impl Send for WriteBufferManagerWrapper {}
+unsafe impl Send for OwnedComparator {}
+unsafe impl Send for OwnedCompactionFilter {}
 
 // Sync is similarly safe for many types because they do not expose interior mutability, and their
 // use within the rocksdb library is generally behind a const reference
@@ -442,6 +500,8 @@ unsafe impl Sync for IngestExternalFileOptions {}
 unsafe impl Sync for CacheWrapper {}
 unsafe impl Sync for CompactOptions {}
 unsafe impl Sync for WriteBufferManagerWrapper {}
+unsafe impl Sync for OwnedComparator {}
+unsafe impl Sync for OwnedCompactionFilter {}
 
 impl Drop for Options {
     fn drop(&mut self) {
@@ -653,6 +713,21 @@ impl BlockBasedOptions {
     pub fn set_cache_index_and_filter_blocks(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks(
+                self.inner,
+                c_uchar::from(v),
+            );
+        }
+    }
+
+    /// If cache_index_and_filter_blocks is enabled, cache index and filter
+    /// blocks with high priority. If set to true, depending on implementation of
+    /// block cache, index, filter, and other metadata blocks may be less likely
+    /// to be evicted than data blocks.
+    ///
+    /// Default: true.
+    pub fn set_cache_index_and_filter_blocks_with_high_priority(&mut self, v: bool) {
+        unsafe {
+            ffi::rocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority(
                 self.inner,
                 c_uchar::from(v),
             );
@@ -994,6 +1069,20 @@ pub enum LogLevel {
     Header,
 }
 
+impl LogLevel {
+    pub(crate) fn try_from_raw(raw: i32) -> Option<Self> {
+        match raw {
+            n if n == LogLevel::Debug as i32 => Some(LogLevel::Debug),
+            n if n == LogLevel::Info as i32 => Some(LogLevel::Info),
+            n if n == LogLevel::Warn as i32 => Some(LogLevel::Warn),
+            n if n == LogLevel::Error as i32 => Some(LogLevel::Error),
+            n if n == LogLevel::Fatal as i32 => Some(LogLevel::Fatal),
+            n if n == LogLevel::Header as i32 => Some(LogLevel::Header),
+            _ => None,
+        }
+    }
+}
+
 impl Options {
     /// Constructs the DBOptions and ColumnFamilyDescriptors by loading the
     /// latest RocksDB options file stored in the specified rocksdb database.
@@ -1019,16 +1108,19 @@ impl Options {
                 env.0.inner,
                 ignore_unknown_options,
                 cache.0.inner.as_ptr(),
-                &mut db_options,
-                &mut num_column_families,
-                &mut column_family_names,
-                &mut column_family_options,
+                &raw mut db_options,
+                &raw mut num_column_families,
+                &raw mut column_family_names,
+                &raw mut column_family_options,
             ));
         }
         let options = Options {
             inner: db_options,
             outlive: OptionsMustOutliveDB::default(),
         };
+        // read_column_descriptors frees column_family_names and the column_family_options array.
+        // We can't call rocksdb_load_latest_options_destroy because it also frees options, and
+        // the individual `column_family_options` pointers. We want to return them.
         let column_families = unsafe {
             Options::read_column_descriptors(
                 num_column_families,
@@ -1039,7 +1131,36 @@ impl Options {
         Ok((options, column_families))
     }
 
-    /// read column descriptors from c pointers
+    /// Constructs a new `DBOptions` from `self` and a string `opts_str` with the syntax detailed in the blogpost
+    /// [Reading RocksDB options from a file](https://rocksdb.org/blog/2015/02/24/reading-rocksdb-options-from-a-file.html)
+    pub fn get_options_from_string<S: AsRef<str>>(
+        &mut self,
+        opts_str: S,
+    ) -> Result<Options, Error> {
+        // create the rocksdb_options_t and immediately wrap it so we don't forget to free it
+        let options = Options {
+            inner: unsafe { ffi::rocksdb_options_create() },
+            outlive: OptionsMustOutliveDB::default(),
+        };
+
+        let opts_cstr = opts_str.as_ref().into_c_string().map_err(|e| {
+            Error::new(format!(
+                "options string must not contain NUL (0x00) bytes: {e}"
+            ))
+        })?;
+        unsafe {
+            ffi_try!(ffi::rocksdb_get_options_from_string(
+                self.inner.cast_const(),
+                opts_cstr.as_ptr(),
+                options.inner,
+            ));
+        }
+        Ok(options)
+    }
+
+    /// Reads column descriptors from C pointers. This frees the `column_family_names` and
+    /// `column_family_options` arrays, and the strings contained in `column_family_names`. It does
+    /// *not* free the `rocksdb_options_t*` pointers contained in `column_family_options`.
     #[inline]
     unsafe fn read_column_descriptors(
         num_column_families: usize,
@@ -1049,7 +1170,7 @@ impl Options {
         let column_family_names_iter = unsafe {
             slice::from_raw_parts(column_family_names, num_column_families)
                 .iter()
-                .map(|ptr| from_cstr(*ptr))
+                .map(|ptr| from_cstr_and_free(*ptr))
         };
         let column_family_options_iter = unsafe {
             slice::from_raw_parts(column_family_options, num_column_families)
@@ -1068,12 +1189,11 @@ impl Options {
             })
             .collect::<Vec<_>>();
 
-        // free pointers
+        // free the arrays
         unsafe {
-            slice::from_raw_parts(column_family_names, num_column_families)
-                .iter()
-                .for_each(|ptr| ffi::rocksdb_free(*ptr as *mut c_void));
+            // we freed each string in the column_family_names array using from_cstr_and_free
             ffi::rocksdb_free(column_family_names as *mut c_void);
+            // we don't want to free the contents of this array because we return it
             ffi::rocksdb_free(column_family_options as *mut c_void);
         };
 
@@ -1209,7 +1329,7 @@ impl Options {
     /// errors. This may have unforeseen ramifications: for example, a
     /// corruption of one DB entry may cause a large number of entries to
     /// become unreadable or for the entire DB to become unopenable.
-    /// If any of the  writes to the database fails (Put, Delete, Merge, Write),
+    /// If any of the writes to the database fails (Put, Delete, Merge, Write),
     /// the database will switch to read-only mode and fail all other
     /// Write operations.
     ///
@@ -1250,6 +1370,27 @@ impl Options {
         let num_paths = paths.len();
         unsafe {
             ffi::rocksdb_options_set_db_paths(self.inner, paths.as_mut_ptr(), num_paths);
+        }
+    }
+
+    /// A list of paths where SST files for this column family can be put
+    /// into, with its target size. Similar to `set_db_paths`, newer data is
+    /// placed into paths specified earlier in the vector while older data
+    /// gradually moves to paths specified later in the vector.
+    ///
+    /// Note that, if a path is supplied to multiple column families, it would
+    /// have files and total size from all the column families combined. User
+    /// should provision for the total size (from all the column families) in
+    /// such cases.
+    ///
+    /// If left empty, `db_paths` will be used.
+    ///
+    /// Default: empty
+    pub fn set_cf_paths(&mut self, paths: &[DBPath]) {
+        let mut paths: Vec<_> = paths.iter().map(|path| path.inner.cast_const()).collect();
+        let num_paths = paths.len();
+        unsafe {
+            ffi::rocksdb_options_set_cf_paths(self.inner, paths.as_mut_ptr(), num_paths);
         }
     }
 
@@ -1594,6 +1735,12 @@ impl Options {
         }
     }
 
+    pub fn set_ttl(&mut self, ttl_secs: u64) {
+        unsafe {
+            ffi::rocksdb_options_set_ttl(self.inner, ttl_secs);
+        }
+    }
+
     pub fn set_merge_operator_associative<F: MergeFn + Clone>(
         &mut self,
         name: impl CStrLike,
@@ -1670,7 +1817,7 @@ impl Options {
             filter_fn,
         });
 
-        unsafe {
+        let filter = unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
                 Box::into_raw(cb).cast::<c_void>(),
                 Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
@@ -1678,7 +1825,10 @@ impl Options {
                 Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
             );
             ffi::rocksdb_options_set_compaction_filter(self.inner, cf);
-        }
+
+            OwnedCompactionFilter::new(NonNull::new(cf).unwrap())
+        };
+        self.outlive.compaction_filter = Some(Arc::new(filter));
     }
 
     /// This is a factory that provides compaction filter objects which allow
@@ -1719,7 +1869,7 @@ impl Options {
             compare_fn,
         });
 
-        unsafe {
+        let cmp = unsafe {
             let cmp = ffi::rocksdb_comparator_create(
                 Box::into_raw(cb).cast::<c_void>(),
                 Some(ComparatorCallback::destructor_callback),
@@ -1727,7 +1877,9 @@ impl Options {
                 Some(ComparatorCallback::name_callback),
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
-        }
+            OwnedComparator::new(NonNull::new(cmp).unwrap())
+        };
+        self.outlive.comparator = Some(Arc::new(cmp));
     }
 
     /// Sets the comparator that are timestamp-aware, used to define the order of keys in the table,
@@ -1752,7 +1904,7 @@ impl Options {
             compare_without_ts_fn,
         });
 
-        unsafe {
+        let cmp = unsafe {
             let cmp = ffi::rocksdb_comparator_with_ts_create(
                 Box::into_raw(cb).cast::<c_void>(),
                 Some(ComparatorWithTsCallback::destructor_callback),
@@ -1763,7 +1915,9 @@ impl Options {
                 timestamp_size,
             );
             ffi::rocksdb_options_set_comparator(self.inner, cmp);
-        }
+            OwnedComparator::new(NonNull::new(cmp).unwrap())
+        };
+        self.outlive.comparator = Some(Arc::new(cmp));
     }
 
     pub fn set_prefix_extractor(&mut self, prefix_extractor: SliceTransform) {
@@ -2975,12 +3129,19 @@ impl Options {
         }
     }
 
+    /// Enables recording RocksDB statistics.
+    ///
+    /// The statistics in this Options object are shared between all DB instances.
+    /// See [`get_statistics`](Self::get_statistics), [`get_ticker_count`](Self::get_ticker_count),
+    /// and [`get_histogram_data`](Self::get_histogram_data).
     pub fn enable_statistics(&mut self) {
         unsafe {
             ffi::rocksdb_options_enable_statistics(self.inner);
         }
     }
 
+    /// Returns a string containing RocksDB statistics if enabled using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn get_statistics(&self) -> Option<String> {
         unsafe {
             let value = ffi::rocksdb_options_statistics_get_string(self.inner);
@@ -2989,24 +3150,27 @@ impl Options {
             }
 
             // Must have valid UTF-8 format.
-            let s = CStr::from_ptr(value).to_str().unwrap().to_owned();
-            ffi::rocksdb_free(value as *mut c_void);
-            Some(s)
+            Some(from_cstr_and_free(value))
         }
     }
 
     /// StatsLevel can be used to reduce statistics overhead by skipping certain
     /// types of stats in the stats collection process.
+    ///
+    /// Only takes effect if stats are enabled first using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn set_statistics_level(&self, level: StatsLevel) {
         unsafe { ffi::rocksdb_options_set_statistics_level(self.inner, level as c_int) }
     }
 
-    /// Returns the value of cumulative db counters if stat collection is enabled.
+    /// Returns a counter if statistics are enabled using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn get_ticker_count(&self, ticker: Ticker) -> u64 {
         unsafe { ffi::rocksdb_options_statistics_get_ticker_count(self.inner, ticker as u32) }
     }
 
-    /// Gets Histogram data from collected db stats. Requires stats to be enabled.
+    /// Returns a histogram if statistics are enabled using
+    /// [`enable_statistics`](Self::enable_statistics).
     pub fn get_histogram_data(&self, histogram: Histogram) -> HistogramData {
         unsafe {
             let data = HistogramData::default();
@@ -3453,6 +3617,29 @@ impl Options {
         }
     }
 
+    /// Activates the experimental Mempurge memtable garbage collection feature.
+    ///
+    /// See the upstream RocksDB option documentation:
+    /// <https://github.com/facebook/rocksdb/blob/v10.7.5/include/rocksdb/advanced_options.h#L259-L274>
+    ///
+    /// At every flush, RocksDB estimates the useful payload ratio of the memtable
+    /// and compares it with this threshold. If the ratio is below the threshold,
+    /// RocksDB replaces the regular flush with a mempurge operation.
+    ///
+    /// Threshold values:
+    ///
+    /// * `0.0`: mempurge deactivated.
+    /// * `1.0`: recommended threshold value.
+    /// * `> 1.0`: aggressive mempurge.
+    /// * `0.0 < threshold < 1.0`: mempurge only for very low useful payload ratios.
+    ///
+    /// Default: 0.0
+    pub fn set_experimental_mempurge_threshold(&mut self, threshold: f64) {
+        unsafe {
+            ffi::rocksdb_options_set_experimental_mempurge_threshold(self.inner, threshold);
+        }
+    }
+
     /// Enable whole key bloom filter in memtable. Note this will only take effect
     /// if memtable_prefix_bloom_size_ratio is not 0. Enabling whole key filtering
     /// can potentially reduce CPU usage for point-look-ups.
@@ -3697,6 +3884,28 @@ impl Options {
     pub fn get_write_dbid_to_manifest(&self) -> bool {
         let val_u8 = unsafe { ffi::rocksdb_options_get_write_dbid_to_manifest(self.inner) };
         val_u8 != 0
+    }
+
+    /// Sets the logger to use.
+    ///
+    /// By default `rocksdb` writes its internal logs to a file in the database
+    /// directory; this can be changed to a custom callback with the
+    /// [`InfoLogger::new_callback_logger`] constructor.
+    pub fn set_info_logger(&mut self, mut logger: InfoLogger) {
+        // Move the callback so it can be shared across database instances
+        self.outlive.logger_callback = logger.callback.take();
+        unsafe {
+            ffi::rocksdb_options_set_info_log(self.inner, logger.inner);
+        }
+    }
+
+    /// Returns a reference to the currently configured logger.
+    pub fn get_info_logger(&self) -> InfoLogger {
+        let raw = unsafe { ffi::rocksdb_options_get_info_log(self.inner) };
+        InfoLogger {
+            inner: raw,
+            callback: self.outlive.logger_callback.clone(),
+        }
     }
 }
 
@@ -4134,6 +4343,31 @@ impl ReadOptions {
         }
     }
 
+    /// Sets the deadline for completing an API call in microseconds since the
+    /// Unix epoch.
+    ///
+    /// This is best effort and applies to `Get`, `MultiGet`, `Seek`, and `Next`
+    /// operations.
+    ///
+    /// Default: 0
+    pub fn set_deadline(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_deadline(self.inner, microseconds);
+        }
+    }
+
+    /// Sets the timeout for each underlying file read request in microseconds.
+    ///
+    /// Unlike `set_deadline`, this timeout applies to each individual read
+    /// request. A single RocksDB operation may issue multiple file reads.
+    ///
+    /// Default: 0
+    pub fn set_io_timeout(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_io_timeout(self.inner, microseconds);
+        }
+    }
+
     /// If true, create a tailing iterator. Note that tailing iterators
     /// only support moving in the forward direction. Iterating in reverse
     /// or seek_to_last are not supported.
@@ -4553,12 +4787,12 @@ impl UniversalCompactOptions {
     /// size is just above this value. In normal cases, at least this percentage
     /// of data will be compressed.
     /// When we are compacting to a new file, here is the criteria whether
-    /// it needs to be compressed: assuming here are the list of files sorted
+    /// it needs to be compressed: assuming here is the list of files sorted
     /// by generation time:
     ///    A1...An B1...Bm C1...Ct
     /// where A1 is the newest and Ct is the oldest, and we are going to compact
     /// B1...Bm, we calculate the total size of all the files as total_size, as
-    /// well as  the total size of C1...Ct as total_C, the compaction output file
+    /// well as the total size of C1...Ct as total_C, the compaction output file
     /// will be compressed iff
     ///   total_C / total_size < this percentage
     ///
@@ -4666,7 +4900,7 @@ impl CompactOptions {
 
     fn set_full_history_ts_low_impl(&mut self, ts: Option<Vec<u8>>) {
         let (ptr, len) = if let Some(ref ts) = ts {
-            (ts.as_ptr() as *mut c_char, ts.len())
+            (ts.as_ptr().cast_mut().cast::<c_char>(), ts.len())
         } else if self.full_history_ts_low.is_some() {
             (std::ptr::null::<Vec<u8>>() as *mut c_char, 0)
         } else {
@@ -4767,14 +5001,89 @@ impl Drop for DBPath {
     }
 }
 
+pub struct InfoLogger {
+    pub(crate) inner: *mut ffi::rocksdb_logger_t,
+    callback: Option<Arc<LoggerCallback>>,
+}
+
+impl InfoLogger {
+    /// Creates a new logger that redirects logs to `STDERR` with an optional
+    /// prefix.
+    pub fn new_stderr_logger<S: AsRef<str>>(log_level: LogLevel, prefix: Option<S>) -> Self {
+        let prefix = prefix.map(|s| {
+            s.as_ref()
+                .into_c_string()
+                .expect("cannot have NULL in prefix")
+        });
+        let prefix_ptr = match prefix.as_ref() {
+            Some(s) => s.as_ptr(),
+            None => std::ptr::null(),
+        };
+        let inner =
+            unsafe { ffi::rocksdb_logger_create_stderr_logger(log_level as i32, prefix_ptr) };
+        Self {
+            inner,
+            // no Rust callback: RocksDB implements this
+            callback: None,
+        }
+    }
+
+    /// Creates a new logger that redirects logs to a custom callback.
+    pub fn new_callback_logger<F: Fn(LogLevel, &str) + Sync + Send + 'static>(
+        level: LogLevel,
+        cb: F,
+    ) -> Self {
+        // use an Arc<Box<...>> so we can reference count, and still pass a thin pointer to C
+        let arc_cb: Arc<LoggerCallback> = Arc::new(Box::new(cb));
+        let raw_cb: LoggerCallbackPtr = Arc::as_ptr(&arc_cb);
+        let inner = unsafe {
+            ffi::rocksdb_logger_create_callback_logger(
+                level as i32,
+                Some(logger_callback),
+                raw_cb as *mut c_void,
+            )
+        };
+        Self {
+            inner,
+            callback: Some(arc_cb),
+        }
+    }
+}
+
+impl Drop for InfoLogger {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_logger_destroy(self.inner);
+        }
+    }
+}
+
+/// Ensures the unsafe casts use the same type.
+type LoggerCallbackPtr = *const LoggerCallback;
+
+unsafe extern "C" fn logger_callback(
+    raw_cb: *mut c_void,
+    level: c_uint,
+    msg: *mut c_char,
+    len: size_t,
+) {
+    let rust_callback: &LoggerCallback = unsafe { &*(raw_cb as LoggerCallbackPtr) };
+    let raw_msg = unsafe { std::slice::from_raw_parts(msg.cast::<u8>(), len) };
+    let msg = String::from_utf8_lossy(raw_msg);
+    let level =
+        LogLevel::try_from_raw(level as i32).expect("rocksdb generated an invalid log level");
+    (rust_callback)(level, &msg);
+}
+
 #[cfg(test)]
 mod tests {
     use crate::db_options::WriteBufferManager;
-    use crate::{Cache, CompactionPri, MemtableFactory, Options};
+    use crate::{Cache, CompactionPri, InfoLogger, MemtableFactory, Options};
 
     #[test]
     fn test_enable_statistics() {
         let mut opts = Options::default();
+        assert_eq!(None, opts.get_statistics());
         opts.enable_statistics();
         opts.set_stats_dump_period_sec(60);
         assert!(opts.get_statistics().is_some());
@@ -4854,5 +5163,70 @@ mod tests {
             .unwrap();
 
         assert!(options.contains("compaction_pri=kRoundRobin"));
+    }
+
+    #[test]
+    fn test_callback_logger() {
+        let (log_snd, log_rcv) = std::sync::mpsc::channel();
+        let callback = move |level, msg: &str| {
+            log_snd.send((level, msg.to_string())).ok();
+        };
+
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_info_logger(InfoLogger::new_callback_logger(
+            super::LogLevel::Debug,
+            callback,
+        ));
+
+        // create 2 DBs with the options then drop the options to ensure it is reference counted
+        let tmp = tempfile::tempdir().unwrap();
+        let db = crate::DB::open(&opts, tmp.path()).unwrap();
+        db.put(b"testkey", b"testvalue").unwrap();
+        db.flush().unwrap();
+        db.delete(b"testkey").unwrap();
+        db.flush().unwrap();
+        db.compact_range(Some(b"a"), Some(b"z"));
+        assert!(log_rcv.try_recv().is_ok());
+        drop(db);
+
+        let tmp2 = tempfile::tempdir().unwrap();
+        let db2 = crate::DB::open(&opts, tmp2.path()).unwrap();
+
+        // get the configured logger before dropping the options
+        let logger = opts.get_info_logger();
+        drop(opts);
+
+        // clear the logs and make sure the callback is called by db2
+        while log_rcv.try_recv().is_ok() {}
+        assert!(log_rcv.try_recv().is_err());
+
+        db2.put(b"testkey2", b"testvalue2").unwrap();
+        db2.flush().unwrap();
+        db2.delete(b"testkey2").unwrap();
+        db2.flush().unwrap();
+        db2.compact_range(Some(b"a"), Some(b"z"));
+
+        drop(db2);
+        assert!(log_rcv.try_recv().is_ok());
+
+        // clear the logs
+        while log_rcv.try_recv().is_ok() {}
+        assert!(log_rcv.try_recv().is_err());
+
+        // create a db with the copied logger to check lifetimes
+        let tmp3 = tempfile::tempdir().unwrap();
+        let mut opts2 = Options::default();
+        opts2.create_if_missing(true);
+        opts2.set_info_logger(logger);
+        let db3 = crate::DB::open(&opts2, tmp3.path()).unwrap();
+        drop(opts2);
+        db3.put(b"testkey3", b"testvalue3").unwrap();
+        db3.flush().unwrap();
+        db3.delete(b"testkey3").unwrap();
+        db3.flush().unwrap();
+        db3.compact_range(Some(b"a"), Some(b"z"));
+        assert!(log_rcv.try_recv().is_ok());
+        drop(db3);
     }
 }
