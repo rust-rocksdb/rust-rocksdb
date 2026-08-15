@@ -51,8 +51,6 @@ impl SliceTransform {
                 Some(slice_transform_destructor_callback),
                 Some(transform_callback),
                 Some(in_domain_callback),
-                // this None points to the deprecated InRange callback
-                None,
                 Some(slice_transform_name_callback),
             )
         };
