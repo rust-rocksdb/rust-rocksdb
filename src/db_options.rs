@@ -1563,8 +1563,7 @@ impl Options {
     /// can only be compressed and written after the dictionary has been finalized.
     /// So users of this feature may see increased memory usage.
     ///
-    /// See [rocksdb's blog post](https://rocksdb.org/blog/2021/05/31/dictionary-compression.html)
-    /// for details
+    /// See [RocksDB's blog post](https://rocksdb.org/blog/2021/05/31/dictionary-compression.html) for details.
     ///
     /// Default: `0`
     ///
