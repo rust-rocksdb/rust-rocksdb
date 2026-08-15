@@ -122,7 +122,7 @@ fn test_block_based_options() {
 
         assert!(settings.contains("cache_index_and_filter_blocks: 0\n"));
         assert!(settings.contains("pin_l0_filter_and_index_blocks_in_cache: 0\n"));
-        assert!(settings.contains("format_version: 6\n"));
+        assert!(settings.contains("format_version: 7\n"));
         assert!(settings.contains("index_block_restart_interval: 1\n"));
         assert!(settings.contains("cache_index_and_filter_blocks_with_high_priority: 1\n"));
     }
