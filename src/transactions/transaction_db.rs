@@ -98,7 +98,7 @@ impl<T: ThreadMode> DBAccess for TransactionDB<T> {
     }
 
     unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.inner)
+        ffi::rocksdb_transactiondb_create_iterator(self.inner, readopts.inner())
     }
 
     unsafe fn create_iterator_cf(
@@ -106,7 +106,7 @@ impl<T: ThreadMode> DBAccess for TransactionDB<T> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        ffi::rocksdb_transactiondb_create_iterator_cf(self.inner, readopts.inner, cf_handle)
+        ffi::rocksdb_transactiondb_create_iterator_cf(self.inner, readopts.inner(), cf_handle)
     }
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -568,7 +568,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transactiondb_get_pinned(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
             ));
@@ -591,7 +591,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transactiondb_get_pinned_cf(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
@@ -638,7 +638,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         unsafe {
             ffi::rocksdb_transactiondb_multi_get(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
                 keys_sizes.as_ptr(),
@@ -697,7 +697,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         unsafe {
             ffi::rocksdb_transactiondb_multi_get_cf(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 ptr_cfs.as_ptr(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
