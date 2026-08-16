@@ -2856,24 +2856,6 @@ impl Options {
         }
     }
 
-    /// If true, then DB::Open() will not fetch and check sizes of all sst files.
-    /// This may significantly speed up startup if there are many sst files,
-    /// especially when using non-default Env with expensive GetFileSize().
-    /// We'll still check that all required sst files exist.
-    /// If paranoid_checks is false, this option is ignored, and sst files are
-    /// not checked at all.
-    ///
-    /// Default: false
-    #[deprecated(note = "RocksDB >= 10.5: option is ignored: checking done with a thread pool")]
-    pub fn set_skip_checking_sst_file_sizes_on_db_open(&mut self, value: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
-                self.inner,
-                c_uchar::from(value),
-            );
-        }
-    }
-
     /// The total maximum size(bytes) of write buffers to maintain in memory
     /// including copies of buffers that have already been flushed. This parameter
     /// only affects trimming of flushed buffers and does not affect flushing.
@@ -4321,6 +4303,31 @@ impl ReadOptions {
     pub fn set_auto_readahead_size(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_auto_readahead_size(self.inner, c_uchar::from(v));
+        }
+    }
+
+    /// Sets the deadline for completing an API call in microseconds since the
+    /// Unix epoch.
+    ///
+    /// This is best effort and applies to `Get`, `MultiGet`, `Seek`, and `Next`
+    /// operations.
+    ///
+    /// Default: 0
+    pub fn set_deadline(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_deadline(self.inner, microseconds);
+        }
+    }
+
+    /// Sets the timeout for each underlying file read request in microseconds.
+    ///
+    /// Unlike `set_deadline`, this timeout applies to each individual read
+    /// request. A single RocksDB operation may issue multiple file reads.
+    ///
+    /// Default: 0
+    pub fn set_io_timeout(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_io_timeout(self.inner, microseconds);
         }
     }
 

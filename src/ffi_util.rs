@@ -66,12 +66,35 @@ pub fn opt_bytes_to_ptr<T: AsRef<[u8]> + ?Sized>(opt: Option<&T>) -> *const c_ch
 }
 
 pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
-    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
+    let path = path.as_ref();
+
+    #[cfg(unix)]
+    let cpath = {
+        use std::os::unix::ffi::OsStrExt;
+        CString::new(path.as_os_str().as_bytes())
+    };
+
+    #[cfg(not(unix))]
+    let cpath = CString::new(path.to_string_lossy().as_bytes());
+
+    match cpath {
         Ok(c) => Ok(c),
         Err(e) => Err(Error::new(format!(
             "Failed to convert path to CString: {e}"
         ))),
     }
+}
+
+#[cfg(all(test, unix))]
+#[test]
+fn to_cpath_preserves_non_utf8_bytes() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    let path = Path::new(&OsString::from_vec(b"rocksdb-\xff".to_vec())).to_path_buf();
+    let cpath = to_cpath(&path).unwrap();
+
+    assert_eq!(path.as_os_str().as_bytes(), cpath.as_bytes());
 }
 
 /// Calls a RocksDB C API function that returns an error as a pointer to a C string as the last
