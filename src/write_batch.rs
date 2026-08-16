@@ -93,10 +93,12 @@ unsafe extern "C" fn writebatch_put_callback<T: WriteBatchIterator>(
     v: *const c_char,
     vlen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.put(key, value);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        let value = slice::from_raw_parts(v.cast::<u8>(), vlen);
+        callbacks.put(key, value);
+    }
 }
 
 unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
@@ -104,9 +106,11 @@ unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
     k: *const c_char,
     klen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    callbacks.delete(key);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        callbacks.delete(key);
+    }
 }
 
 unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
@@ -117,10 +121,12 @@ unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
     v: *const c_char,
     vlen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.put_cf(cfid, key, value);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        let value = slice::from_raw_parts(v.cast::<u8>(), vlen);
+        callbacks.put_cf(cfid, key, value);
+    }
 }
 
 unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
@@ -129,9 +135,11 @@ unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
     k: *const c_char,
     klen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    callbacks.delete_cf(cfid, key);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        callbacks.delete_cf(cfid, key);
+    }
 }
 
 unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
@@ -142,10 +150,12 @@ unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
     v: *const c_char,
     vlen: usize,
 ) {
-    let callbacks = &mut *(state as *mut T);
-    let key = slice::from_raw_parts(k as *const u8, klen);
-    let value = slice::from_raw_parts(v as *const u8, vlen);
-    callbacks.merge_cf(cfid, key, value);
+    unsafe {
+        let callbacks = &mut *(state as *mut T);
+        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        let value = slice::from_raw_parts(v.cast::<u8>(), vlen);
+        callbacks.merge_cf(cfid, key, value);
+    }
 }
 
 impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
@@ -187,7 +197,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     pub fn size_in_bytes(&self) -> usize {
         unsafe {
             let mut batch_size: size_t = 0;
-            ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
+            ffi::rocksdb_writebatch_data(self.inner, &raw mut batch_size);
             batch_size
         }
     }
@@ -196,7 +206,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     pub fn data(&self) -> &[u8] {
         unsafe {
             let mut batch_size: size_t = 0;
-            let batch_data = ffi::rocksdb_writebatch_data(self.inner, &mut batch_size);
+            let batch_data = ffi::rocksdb_writebatch_data(self.inner, &raw mut batch_size);
             std::slice::from_raw_parts(batch_data as _, batch_size)
         }
     }
@@ -210,7 +220,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     /// and `delete()` member functions of the provided `WriteBatchIterator`
     /// trait implementation.
     pub fn iterate<T: WriteBatchIterator>(&self, callbacks: &mut T) {
-        let state = callbacks as *mut T as *mut c_void;
+        let state = std::ptr::from_mut::<T>(callbacks) as *mut c_void;
         unsafe {
             ffi::rocksdb_writebatch_iterate(
                 self.inner,
@@ -230,7 +240,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
     /// - For operations on the default column family ("default"), the `cf_id` parameter passed to
     ///   the callbacks will be 0
     pub fn iterate_cf<T: WriteBatchIteratorCf>(&self, callbacks: &mut T) {
-        let state = callbacks as *mut T as *mut c_void;
+        let state = std::ptr::from_mut::<T>(callbacks) as *mut c_void;
         unsafe {
             ffi::rocksdb_writebatch_iterate_cf(
                 self.inner,
@@ -360,6 +370,28 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Removes the database entry for key.
+    ///
+    /// `SingleDelete` is an experimental performance optimization for a very
+    /// specific workload. It only behaves correctly if there has been exactly
+    /// one `put` for this key since the previous call to `single_delete` for
+    /// this key. If the key is overwritten by calling `put` multiple times, or
+    /// if `single_delete` is mixed with `delete` or `merge` for the same key,
+    /// the result is undefined.
+    ///
+    /// See <https://github.com/facebook/rocksdb/wiki/Single-Delete>.
+    pub fn single_delete<K: AsRef<[u8]>>(&mut self, key: K) {
+        let key = key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_singledelete(
+                self.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            );
+        }
+    }
+
     /// Removes the database entry in the specific column family for key.
     /// Does nothing if the key was not found.
     pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &impl AsColumnFamilyRef, key: K) {
@@ -367,6 +399,29 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
 
         unsafe {
             ffi::rocksdb_writebatch_delete_cf(
+                self.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            );
+        }
+    }
+
+    /// Removes the database entry in the specific column family for key.
+    ///
+    /// `SingleDelete` is an experimental performance optimization for a very
+    /// specific workload. It only behaves correctly if there has been exactly
+    /// one `put_cf` for this key since the previous call to `single_delete_cf`
+    /// for this key. If the key is overwritten by calling `put_cf` multiple
+    /// times, or if `single_delete_cf` is mixed with `delete_cf` or `merge_cf`
+    /// for the same key, the result is undefined.
+    ///
+    /// See <https://github.com/facebook/rocksdb/wiki/Single-Delete>.
+    pub fn single_delete_cf<K: AsRef<[u8]>>(&mut self, cf: &impl AsColumnFamilyRef, key: K) {
+        let key = key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_singledelete_cf(
                 self.inner,
                 cf.inner(),
                 key.as_ptr() as *const c_char,

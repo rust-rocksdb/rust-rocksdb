@@ -17,7 +17,6 @@ use crate::env::Env;
 use crate::{db::DBInner, ffi, ffi_util::to_cpath, DBCommon, Error, ThreadMode};
 
 use libc::c_uchar;
-use std::ffi::CString;
 use std::path::Path;
 
 /// Represents information of a backup including timestamp of the backup
@@ -130,9 +129,9 @@ impl BackupEngine {
     /// let mut restore_option = rocksdb::backup::RestoreOptions::default();
     /// restore_option.set_keep_log_files(true); /// true to keep log files
     /// if let Err(e) = backup_engine.restore_from_latest_backup(&db_path, &wal_dir, &restore_option) {
-    ///     error!("Failed to restore from the backup. Error:{:?}", e);
+    ///     error!("Failed to restore from the backup. Error: {:?}", e);
     ///     return Err(e.to_string());
-    ///  }
+    /// }
     /// ```
     pub fn restore_from_latest_backup<D: AsRef<Path>, W: AsRef<Path>>(
         &mut self,
@@ -230,14 +229,7 @@ impl BackupEngineOptions {
     /// Initializes `BackupEngineOptions` with the directory to be used for storing/accessing the
     /// backup files.
     pub fn new<P: AsRef<Path>>(backup_dir: P) -> Result<Self, Error> {
-        let backup_dir = backup_dir.as_ref();
-        let c_backup_dir = CString::new(backup_dir.to_string_lossy().as_bytes()).map_err(|_| {
-            Error::new(
-                "Failed to convert backup_dir to CString \
-                     when constructing BackupEngineOptions"
-                    .to_owned(),
-            )
-        })?;
+        let c_backup_dir = to_cpath(backup_dir)?;
 
         unsafe {
             let opts = ffi::rocksdb_backup_engine_options_create(c_backup_dir.as_ptr());

@@ -19,9 +19,20 @@ use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::ptr;
 
-pub(crate) unsafe fn from_cstr(ptr: *const c_char) -> String {
-    let cstr = CStr::from_ptr(ptr as *const _);
+/// Copies `ptr` into a String, replacing invalid UTF-8 using [`String::from_utf8_lossy`], *without*
+/// freeing it. Prefer [`from_cstr_and_free`] to make leaks less likely.
+pub(crate) unsafe fn from_cstr_without_free(ptr: *const c_char) -> String {
+    let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
     String::from_utf8_lossy(cstr.to_bytes()).into_owned()
+}
+
+/// Copies `ptr` into a String, replacing invalid UTF-8 using [`String::from_utf8_lossy`], then
+/// frees it using `rocksdb_free`.
+pub(crate) unsafe fn from_cstr_and_free(ptr: *const c_char) -> String {
+    let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
+    let s = String::from_utf8_lossy(cstr.to_bytes()).into_owned();
+    ffi::rocksdb_free(ptr as *mut c_void);
+    s
 }
 
 pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>> {
@@ -29,18 +40,17 @@ pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>
         None
     } else {
         let mut dst = vec![0; size];
-        ptr::copy_nonoverlapping(ptr as *const u8, dst.as_mut_ptr(), size);
+        unsafe { ptr::copy_nonoverlapping(ptr.cast::<u8>(), dst.as_mut_ptr(), size) };
 
         Some(dst)
     }
 }
 
-pub fn error_message(ptr: *const c_char) -> String {
-    unsafe {
-        let s = from_cstr(ptr);
-        ffi::rocksdb_free(ptr as *mut c_void);
-        s
-    }
+/// Convert a RocksDB error message to an Error and frees it. The argument must not be used after
+/// this function is called.
+pub fn convert_rocksdb_error(rocksdb_err: *const c_char) -> Error {
+    let rocksdb_err_str = unsafe { from_cstr_and_free(rocksdb_err) };
+    Error::new(rocksdb_err_str)
 }
 
 /// Returns a raw pointer to borrowed bytes, or null if None.
@@ -56,7 +66,18 @@ pub fn opt_bytes_to_ptr<T: AsRef<[u8]> + ?Sized>(opt: Option<&T>) -> *const c_ch
 }
 
 pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
-    match CString::new(path.as_ref().to_string_lossy().as_bytes()) {
+    let path = path.as_ref();
+
+    #[cfg(unix)]
+    let cpath = {
+        use std::os::unix::ffi::OsStrExt;
+        CString::new(path.as_os_str().as_bytes())
+    };
+
+    #[cfg(not(unix))]
+    let cpath = CString::new(path.to_string_lossy().as_bytes());
+
+    match cpath {
         Ok(c) => Ok(c),
         Err(e) => Err(Error::new(format!(
             "Failed to convert path to CString: {e}"
@@ -64,6 +85,21 @@ pub(crate) fn to_cpath<P: AsRef<Path>>(path: P) -> Result<CString, Error> {
     }
 }
 
+#[cfg(all(test, unix))]
+#[test]
+fn to_cpath_preserves_non_utf8_bytes() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    let path = Path::new(&OsString::from_vec(b"rocksdb-\xff".to_vec())).to_path_buf();
+    let cpath = to_cpath(&path).unwrap();
+
+    assert_eq!(path.as_os_str().as_bytes(), cpath.as_bytes());
+}
+
+/// Calls a RocksDB C API function that returns an error as a pointer to a C string as the last
+/// argument. The C function result is converted into `Result<T, Error>`. This ensures the error
+/// message pointer is not leaked. See [`convert_rocksdb_error`] for details.
 macro_rules! ffi_try {
     ( $($function:ident)::*() ) => {
         ffi_try_impl!($($function)::*())
@@ -79,7 +115,7 @@ macro_rules! ffi_try_impl {
         let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
         let result = $($function)::*($($arg,)* &mut err);
         if !err.is_null() {
-            return Err(Error::new($crate::ffi_util::error_message(err)));
+            return Err($crate::ffi_util::convert_rocksdb_error(err));
         }
         result
     }};
@@ -223,7 +259,7 @@ impl CSlice {
 
 impl AsRef<[u8]> for CSlice {
     fn as_ref(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.data as *const u8, self.len) }
+        unsafe { std::slice::from_raw_parts(self.data.cast::<u8>(), self.len) }
     }
 }
 

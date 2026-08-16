@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use libc::{c_int, c_uchar, c_void};
+use libc::{c_int, c_uchar};
+use std::marker::PhantomData;
 
-use crate::{db::DBInner, ffi, ffi_util::from_cstr, Cache, Error};
+use crate::ffi_util::from_cstr_and_free;
+use crate::{db::DBInner, ffi, Cache, Error};
 use crate::{DBCommon, ThreadMode, TransactionDB, DB};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -155,9 +157,7 @@ impl PerfContext {
         unsafe {
             let ptr =
                 ffi::rocksdb_perfcontext_report(self.inner, c_uchar::from(exclude_zero_counters));
-            let report = from_cstr(ptr);
-            ffi::rocksdb_free(ptr as *mut c_void);
-            report
+            from_cstr_and_free(ptr)
         }
     }
 
@@ -214,20 +214,30 @@ impl MemoryUsage {
     }
 }
 
-/// Builder for MemoryUsage
-pub struct MemoryUsageBuilder {
+/// Creates [`MemoryUsage`] from DBs and caches.
+///
+/// Most users should call [`get_memory_usage_stats`] instead.
+pub struct MemoryUsageBuilder<'a> {
     inner: *mut ffi::rocksdb_memory_consumers_t,
+    base_dbs: Vec<*mut ffi::rocksdb_t>,
+    // must not outlive the DBs/caches that are added
+    _marker: PhantomData<&'a ()>,
 }
 
-impl Drop for MemoryUsageBuilder {
+impl Drop for MemoryUsageBuilder<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_memory_consumers_destroy(self.inner);
         }
+        for base_db in &self.base_dbs {
+            unsafe {
+                ffi::rocksdb_transactiondb_close_base_db(*base_db);
+            }
+        }
     }
 }
 
-impl MemoryUsageBuilder {
+impl<'a> MemoryUsageBuilder<'a> {
     /// Create new instance
     pub fn new() -> Result<Self, Error> {
         let mc = unsafe { ffi::rocksdb_memory_consumers_create() };
@@ -236,27 +246,33 @@ impl MemoryUsageBuilder {
                 "Could not create MemoryUsage builder".to_owned(),
             ))
         } else {
-            Ok(Self { inner: mc })
+            Ok(Self {
+                inner: mc,
+                base_dbs: Vec::new(),
+                _marker: PhantomData,
+            })
         }
     }
 
     /// Add a DB instance to collect memory usage from it and add up in total stats
-    pub fn add_tx_db<T: ThreadMode>(&mut self, db: &TransactionDB<T>) {
+    pub fn add_tx_db<T: ThreadMode>(&mut self, db: &'a TransactionDB<T>) {
         unsafe {
-            let base = ffi::rocksdb_transactiondb_get_base_db(db.inner);
-            ffi::rocksdb_memory_consumers_add_db(self.inner, base);
+            let base_db = ffi::rocksdb_transactiondb_get_base_db(db.inner);
+            ffi::rocksdb_memory_consumers_add_db(self.inner, base_db);
+            // rocksdb_transactiondb_get_base_db allocates a struct that must be freed
+            self.base_dbs.push(base_db);
         }
     }
 
     /// Add a DB instance to collect memory usage from it and add up in total stats
-    pub fn add_db<T: ThreadMode, D: DBInner>(&mut self, db: &DBCommon<T, D>) {
+    pub fn add_db<T: ThreadMode, D: DBInner>(&mut self, db: &'a DBCommon<T, D>) {
         unsafe {
             ffi::rocksdb_memory_consumers_add_db(self.inner, db.inner.inner());
         }
     }
 
     /// Add a cache to collect memory usage from it and add up in total stats
-    pub fn add_cache(&mut self, cache: &Cache) {
+    pub fn add_cache(&mut self, cache: &'a Cache) {
         unsafe {
             ffi::rocksdb_memory_consumers_add_cache(self.inner, cache.0.inner.as_ptr());
         }
