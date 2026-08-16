@@ -38,6 +38,11 @@ impl TransactionOptions {
         TransactionOptions::default()
     }
 
+    /// In pessimistic transaction, if this is true, then you can skip Prepare
+    /// before Commit, otherwise, you must Prepare before Commit.
+    ///
+    /// Default: true
+    ///
     pub fn set_skip_prepare(&mut self, skip_prepare: bool) {
         unsafe {
             ffi::rocksdb_transaction_options_set_skip_prepare(self.inner, u8::from(skip_prepare));
