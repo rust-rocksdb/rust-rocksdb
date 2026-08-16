@@ -18,14 +18,17 @@ db/blob/blob_fetcher.cc
 db/blob/blob_file_addition.cc
 db/blob/blob_file_builder.cc
 db/blob/blob_file_cache.cc
+db/blob/blob_file_partition_manager.cc
 db/blob/blob_file_garbage.cc
 db/blob/blob_file_meta.cc
 db/blob/blob_file_reader.cc
 db/blob/blob_garbage_meter.cc
+db/blob/blob_gen2_format.cc
 db/blob/blob_log_format.cc
 db/blob/blob_log_sequential_reader.cc
 db/blob/blob_log_writer.cc
 db/blob/blob_source.cc
+db/blob/blob_write_batch_transformer.cc
 db/blob/prefetch_buffer_collection.cc
 db/builder.cc
 db/c.cc
@@ -78,6 +81,7 @@ db/memtable.cc
 db/memtable_list.cc
 db/merge_helper.cc
 db/merge_operator.cc
+db/multi_scan.cc
 db/output_validator.cc
 db/periodic_task_scheduler.cc
 db/range_del_aggregator.cc
@@ -93,8 +97,10 @@ db/version_builder.cc
 db/version_edit.cc
 db/version_edit_handler.cc
 db/version_set.cc
+db/version_util.cc
 db/wal_edit.cc
 db/wal_manager.cc
+db/wide/read_path_blob_resolver.cc
 db/wide/wide_column_serialization.cc
 db/wide/wide_columns.cc
 db/wide/wide_columns_helper.cc
@@ -173,6 +179,7 @@ table/block_based/block.cc
 table/block_based/block_based_table_builder.cc
 table/block_based/block_based_table_factory.cc
 table/block_based/block_based_table_iterator.cc
+table/block_based/multi_scan_index_iterator.cc
 table/block_based/block_based_table_reader.cc
 table/block_based/block_builder.cc
 table/block_based/block_cache.cc
@@ -197,6 +204,7 @@ table/block_fetcher.cc
 table/cuckoo/cuckoo_table_builder.cc
 table/cuckoo/cuckoo_table_factory.cc
 table/cuckoo/cuckoo_table_reader.cc
+table/external_table.cc
 table/format.cc
 table/get_context.cc
 table/iterator.cc
@@ -228,6 +236,7 @@ trace_replay/trace_replay.cc
 trace_replay/block_cache_tracer.cc
 trace_replay/io_tracer.cc
 util/async_file_reader.cc
+util/auto_tune_compressor.cc
 util/build_version.cc
 util/cleanable.cc
 util/coding.cc
@@ -236,6 +245,7 @@ util/comparator.cc
 util/compression.cc
 util/compression_context_cache.cc
 util/concurrent_task_limiter_impl.cc
+util/coro_stats_util.cc
 util/crc32c.cc
 util/crc32c_arm64.cc
 util/data_structure.cc
@@ -247,11 +257,13 @@ util/rate_limiter.cc
 util/ribbon_config.cc
 util/slice.cc
 util/file_checksum_helper.cc
+util/simple_mixed_compressor.cc
 util/status.cc
 util/stderr_logger.cc
 util/string_util.cc
 util/thread_local.cc
 util/threadpool_imp.cc
+util/io_dispatcher_imp.cc
 util/udt_util.cc
 util/write_batch_util.cc
 util/xxhash.cc
@@ -268,7 +280,9 @@ utilities/cassandra/cassandra_compaction_filter.cc
 utilities/cassandra/format.cc
 utilities/cassandra/merge_operator.cc
 utilities/checkpoint/checkpoint_impl.cc
+utilities/copy_engine/copy_engine.cc
 utilities/compaction_filters.cc
+utilities/sorted_run_builder/sorted_run_builder.cc
 utilities/compaction_filters/remove_emptyvalue_compactionfilter.cc
 utilities/convenience/info_log_finder.cc
 utilities/counted_fs.cc
@@ -296,6 +310,8 @@ utilities/persistent_cache/block_cache_tier_file.cc
 utilities/persistent_cache/block_cache_tier_metadata.cc
 utilities/persistent_cache/persistent_cache_tier.cc
 utilities/persistent_cache/volatile_tier_impl.cc
+utilities/secondary_index/secondary_index_iterator.cc
+utilities/secondary_index/simple_secondary_index.cc
 utilities/simulator_cache/cache_simulator.cc
 utilities/simulator_cache/sim_cache.cc
 utilities/table_properties_collectors/compact_for_tiering_collector.cc
@@ -318,6 +334,9 @@ utilities/transactions/write_prepared_txn_db.cc
 utilities/transactions/write_unprepared_txn.cc
 utilities/transactions/write_unprepared_txn_db.cc
 utilities/ttl/db_ttl_impl.cc
+utilities/trie_index/bitvector.cc
+utilities/trie_index/louds_trie.cc
+utilities/trie_index/trie_index_factory.cc
 utilities/types_util.cc
 utilities/wal_filter.cc
 utilities/write_batch_with_index/write_batch_with_index.cc

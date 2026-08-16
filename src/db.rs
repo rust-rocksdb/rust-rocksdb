@@ -14,12 +14,13 @@
 //
 
 use crate::{
-    column_family::AsColumnFamilyRef,
-    column_family::BoundColumnFamily,
-    column_family::UnboundColumnFamily,
+    column_family::{AsColumnFamilyRef, BoundColumnFamily, UnboundColumnFamily},
     db_options::OptionsMustOutliveDB,
     ffi,
-    ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
+    ffi_util::{
+        convert_rocksdb_error, from_cstr_and_free, from_cstr_without_free, opt_bytes_to_ptr,
+        raw_data, to_cpath, CStrLike,
+    },
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
@@ -43,6 +44,20 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
 
+/// A range of keys, `start_key` is included, but not `end_key`.
+///
+/// You should make sure `end_key` is not less than `start_key`.
+pub struct Range<'a> {
+    start_key: &'a [u8],
+    end_key: &'a [u8],
+}
+
+impl<'a> Range<'a> {
+    pub fn new(start_key: &'a [u8], end_key: &'a [u8]) -> Range<'a> {
+        Range { start_key, end_key }
+    }
+}
+
 /// Marker trait to specify single or multi threaded column family alternations for
 /// [`DBWithThreadMode<T>`]
 ///
@@ -51,7 +66,7 @@ use std::time::Duration;
 ///
 /// While being a marker trait to be generic over `DBWithThreadMode`, this trait
 /// also has a minimum set of not-encapsulated internal methods between
-/// [`SingleThreaded`] and [`MultiThreaded`].  These methods aren't expected to be
+/// [`SingleThreaded`] and [`MultiThreaded`]. These methods aren't expected to be
 /// called and defined externally.
 pub trait ThreadMode {
     /// Internal implementation for storing column family handles
@@ -197,15 +212,15 @@ pub trait DBAccess {
 
 impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
     unsafe fn create_snapshot(&self) -> *const ffi::rocksdb_snapshot_t {
-        ffi::rocksdb_create_snapshot(self.inner.inner())
+        unsafe { ffi::rocksdb_create_snapshot(self.inner.inner()) }
     }
 
     unsafe fn release_snapshot(&self, snapshot: *const ffi::rocksdb_snapshot_t) {
-        ffi::rocksdb_release_snapshot(self.inner.inner(), snapshot);
+        unsafe { ffi::rocksdb_release_snapshot(self.inner.inner(), snapshot) };
     }
 
     unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        ffi::rocksdb_create_iterator(self.inner.inner(), readopts.inner)
+        unsafe { ffi::rocksdb_create_iterator(self.inner.inner(), readopts.inner) }
     }
 
     unsafe fn create_iterator_cf(
@@ -213,7 +228,7 @@ impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        ffi::rocksdb_create_iterator_cf(self.inner.inner(), readopts.inner, cf_handle)
+        unsafe { ffi::rocksdb_create_iterator_cf(self.inner.inner(), readopts.inner, cf_handle) }
     }
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -857,6 +872,35 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
         wo.disable_wal(true);
         self.write_opt(batch, &wo)
     }
+
+    /// Suspend deleting obsolete files. Compactions will continue to occur,
+    /// but no obsolete files will be deleted. To resume file deletions, each
+    /// call to disable_file_deletions() must be matched by a subsequent call to
+    /// enable_file_deletions(). For more details, see enable_file_deletions().
+    pub fn disable_file_deletions(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_disable_file_deletions(self.inner.inner()));
+        }
+        Ok(())
+    }
+
+    /// Resume deleting obsolete files, following up on `disable_file_deletions()`.
+    ///
+    /// File deletions disabling and enabling is not controlled by a binary flag,
+    /// instead it's represented as a counter to allow different callers to
+    /// independently disable file deletion. Disabling file deletion can be
+    /// critical for operations like making a backup. So the counter implementation
+    /// makes the file deletion disabled as long as there is one caller requesting
+    /// so, and only when every caller agrees to re-enable file deletion, it will
+    /// be enabled. Two threads can call this method concurrently without
+    /// synchronization -- i.e., file deletions will be enabled only after both
+    /// threads call enable_file_deletions()
+    pub fn enable_file_deletions(&self) -> Result<(), Error> {
+        unsafe {
+            ffi_try!(ffi::rocksdb_enable_file_deletions(self.inner.inner()));
+        }
+        Ok(())
+    }
 }
 
 /// Common methods of `DBWithThreadMode` and `OptimisticTransactionDB`.
@@ -878,12 +922,12 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             let ptr = ffi_try!(ffi::rocksdb_list_column_families(
                 opts.inner,
                 cpath.as_ptr(),
-                &mut length,
+                &raw mut length,
             ));
 
             let vec = slice::from_raw_parts(ptr, length)
                 .iter()
-                .map(|ptr| CStr::from_ptr(*ptr).to_string_lossy().into_owned())
+                .map(|ptr| from_cstr_without_free(*ptr))
                 .collect();
             ffi::rocksdb_list_column_families_destroy(ptr, length);
             Ok(vec)
@@ -1214,7 +1258,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
 
     /// Return the values associated with the given keys and the specified column family
     /// where internally the read requests are processed in batch if block-based table
-    /// SST format is used.  It is a more optimized version of multi_get_cf.
+    /// SST format is used. It is a more optimized version of multi_get_cf.
     pub fn batched_multi_get_cf<'a, K, I>(
         &self,
         cf: &impl AsColumnFamilyRef,
@@ -1276,7 +1320,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                             Ok(Some(DBPinnableSlice::from_c(v)))
                         }
                     } else {
-                        Err(Error::new(crate::ffi_util::error_message(e)))
+                        Err(convert_rocksdb_error(e))
                     }
                 })
                 .collect()
@@ -1363,11 +1407,11 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                     cf.inner(),
                     key.as_ptr() as *const c_char,
                     key.len() as size_t,
-                    &mut val,         /*value*/
-                    &mut val_len,     /*val_len*/
-                    ptr::null(),      /*timestamp*/
-                    0,                /*timestamp_len*/
-                    &mut value_found, /*value_found*/
+                    &raw mut val,         /*value*/
+                    &raw mut val_len,     /*val_len*/
+                    ptr::null(),          /*timestamp*/
+                    0,                    /*timestamp_len*/
+                    &raw mut value_found, /*value_found*/
                 )
             };
         // The value is only allocated (using malloc) and returned if it is found and
@@ -1392,13 +1436,25 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 "Failed to convert path to CString when creating cf: {err}"
             ))
         })?;
-        Ok(unsafe {
-            ffi_try!(ffi::rocksdb_create_column_family(
+
+        // Can't use ffi_try: rocksdb_create_column_family has a bug where it allocates a
+        // result that needs to be freed on error
+        let mut err: *mut ::libc::c_char = ::std::ptr::null_mut();
+        let cf_handle = unsafe {
+            ffi::rocksdb_create_column_family(
                 self.inner.inner(),
                 opts.inner,
                 cf_name.as_ptr(),
-            ))
-        })
+                &raw mut err,
+            )
+        };
+        if !err.is_null() {
+            if !cf_handle.is_null() {
+                unsafe { ffi::rocksdb_column_family_handle_destroy(cf_handle) };
+            }
+            return Err(convert_rocksdb_error(err));
+        }
+        Ok(cf_handle)
     }
 
     pub fn iterator<'a: 'b, 'b>(
@@ -2048,7 +2104,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// Implementation for property_value et al methods.
     ///
     /// `name` is the name of the property.  It will be converted into a CString
-    /// and passed to `get_property` as argument.  `get_property` reads the
+    /// and passed to `get_property` as an argument. `get_property` reads the
     /// specified property and either returns NULL or a pointer to a C allocated
     /// string; this method takes ownership of that string and will free it at
     /// the end. That string is parsed using `parse` callback which produces
@@ -2152,6 +2208,80 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// The sequence number of the most recent transaction.
     pub fn latest_sequence_number(&self) -> u64 {
         unsafe { ffi::rocksdb_get_latest_sequence_number(self.inner.inner()) }
+    }
+
+    /// Return the approximate file system space used by keys in each ranges.
+    ///
+    /// Note that the returned sizes measure file system space usage, so
+    /// if the user data compresses by a factor of ten, the returned
+    /// sizes will be one-tenth the size of the corresponding user data size.
+    ///
+    /// Due to lack of abi, only data flushed to disk is taken into account.
+    pub fn get_approximate_sizes(&self, ranges: &[Range]) -> Vec<u64> {
+        self.get_approximate_sizes_cfopt(None::<&ColumnFamily>, ranges)
+    }
+
+    pub fn get_approximate_sizes_cf(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        ranges: &[Range],
+    ) -> Vec<u64> {
+        self.get_approximate_sizes_cfopt(Some(cf), ranges)
+    }
+
+    fn get_approximate_sizes_cfopt(
+        &self,
+        cf: Option<&impl AsColumnFamilyRef>,
+        ranges: &[Range],
+    ) -> Vec<u64> {
+        let start_keys: Vec<*const c_char> = ranges
+            .iter()
+            .map(|x| x.start_key.as_ptr() as *const c_char)
+            .collect();
+        let start_key_lens: Vec<_> = ranges.iter().map(|x| x.start_key.len()).collect();
+        let end_keys: Vec<*const c_char> = ranges
+            .iter()
+            .map(|x| x.end_key.as_ptr() as *const c_char)
+            .collect();
+        let end_key_lens: Vec<_> = ranges.iter().map(|x| x.end_key.len()).collect();
+        let mut sizes: Vec<u64> = vec![0; ranges.len()];
+        let (n, start_key_ptr, start_key_len_ptr, end_key_ptr, end_key_len_ptr, size_ptr) = (
+            ranges.len() as i32,
+            start_keys.as_ptr(),
+            start_key_lens.as_ptr(),
+            end_keys.as_ptr(),
+            end_key_lens.as_ptr(),
+            sizes.as_mut_ptr(),
+        );
+        let mut err: *mut c_char = ptr::null_mut();
+        match cf {
+            None => unsafe {
+                ffi::rocksdb_approximate_sizes(
+                    self.inner.inner(),
+                    n,
+                    start_key_ptr,
+                    start_key_len_ptr,
+                    end_key_ptr,
+                    end_key_len_ptr,
+                    size_ptr,
+                    &raw mut err,
+                );
+            },
+            Some(cf) => unsafe {
+                ffi::rocksdb_approximate_sizes_cf(
+                    self.inner.inner(),
+                    cf.inner(),
+                    n,
+                    start_key_ptr,
+                    start_key_len_ptr,
+                    end_key_ptr,
+                    end_key_len_ptr,
+                    size_ptr,
+                    &raw mut err,
+                );
+            },
+        }
+        sizes
     }
 
     /// Iterate over batches of write operations since a given sequence.
@@ -2276,7 +2406,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
 
             let metadata = ColumnFamilyMetaData {
                 size: ffi::rocksdb_column_family_metadata_get_size(ptr),
-                name: from_cstr(ffi::rocksdb_column_family_metadata_get_name(ptr)),
+                name: from_cstr_and_free(ffi::rocksdb_column_family_metadata_get_name(ptr)),
                 file_count: ffi::rocksdb_column_family_metadata_get_file_count(ptr),
             };
 
@@ -2298,7 +2428,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
 
             let metadata = ColumnFamilyMetaData {
                 size: ffi::rocksdb_column_family_metadata_get_size(ptr),
-                name: from_cstr(ffi::rocksdb_column_family_metadata_get_name(ptr)),
+                name: from_cstr_and_free(ffi::rocksdb_column_family_metadata_get_name(ptr)),
                 file_count: ffi::rocksdb_column_family_metadata_get_file_count(ptr),
             };
 
@@ -2324,18 +2454,21 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 let mut key_size: usize = 0;
 
                 for i in 0..n {
+                    // rocksdb_livefiles_* returns pointers to strings, not copies
                     let column_family_name =
-                        from_cstr(ffi::rocksdb_livefiles_column_family_name(files, i));
-                    let name = from_cstr(ffi::rocksdb_livefiles_name(files, i));
+                        from_cstr_without_free(ffi::rocksdb_livefiles_column_family_name(files, i));
+                    let name = from_cstr_without_free(ffi::rocksdb_livefiles_name(files, i));
                     let size = ffi::rocksdb_livefiles_size(files, i);
                     let level = ffi::rocksdb_livefiles_level(files, i);
 
                     // get smallest key inside file
-                    let smallest_key = ffi::rocksdb_livefiles_smallestkey(files, i, &mut key_size);
+                    let smallest_key =
+                        ffi::rocksdb_livefiles_smallestkey(files, i, &raw mut key_size);
                     let smallest_key = raw_data(smallest_key, key_size);
 
                     // get largest key inside file
-                    let largest_key = ffi::rocksdb_livefiles_largestkey(files, i, &mut key_size);
+                    let largest_key =
+                        ffi::rocksdb_livefiles_largestkey(files, i, &raw mut key_size);
                     let largest_key = raw_data(largest_key, key_size);
 
                     livefiles.push(LiveFile {
@@ -2457,14 +2590,14 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             let ts = ffi_try!(ffi::rocksdb_get_full_history_ts_low(
                 self.inner.inner(),
                 cf.inner(),
-                &mut ts_lowlen,
+                &raw mut ts_lowlen,
             ));
 
             if ts.is_null() {
                 Err(Error::new("Could not get full_history_ts_low".to_owned()))
             } else {
                 let mut vec = vec![0; ts_lowlen];
-                ptr::copy_nonoverlapping(ts as *mut u8, vec.as_mut_ptr(), ts_lowlen);
+                ptr::copy_nonoverlapping(ts.cast::<u8>(), vec.as_mut_ptr(), ts_lowlen);
                 ffi::rocksdb_free(ts as *mut c_void);
                 Ok(vec)
             }
@@ -2475,7 +2608,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     pub fn get_db_identity(&self) -> Result<Vec<u8>, Error> {
         unsafe {
             let mut length: usize = 0;
-            let identity_ptr = ffi::rocksdb_get_db_identity(self.inner.inner(), &mut length);
+            let identity_ptr = ffi::rocksdb_get_db_identity(self.inner.inner(), &raw mut length);
             let identity_vec = raw_data(identity_ptr, length);
             ffi::rocksdb_free(identity_ptr as *mut c_void);
             // In RocksDB: get_db_identity copies a std::string so it should not fail, but
@@ -2554,7 +2687,7 @@ impl<T: ThreadMode, I: DBInner> Drop for DBCommon<T, I> {
 
 impl<T: ThreadMode, I: DBInner> fmt::Debug for DBCommon<T, I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "RocksDB {{ path: {:?} }}", self.path())
+        write!(f, "RocksDB {{ path: {} }}", self.path().display())
     }
 }
 
@@ -2624,7 +2757,7 @@ pub(crate) fn convert_values(
                 }
                 Ok(value)
             } else {
-                Err(Error::new(crate::ffi_util::error_message(e)))
+                Err(convert_rocksdb_error(e))
             }
         })
         .collect()

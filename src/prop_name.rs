@@ -1,6 +1,7 @@
 use crate::ffi_util::CStrLike;
 
 use std::ffi::{CStr, CString};
+use std::ptr;
 
 /// A borrowed name of a RocksDB property.
 ///
@@ -31,7 +32,7 @@ impl PropName {
         // 2. Self and CStr have the same representation so casting is sound.
         unsafe {
             let value = CStr::from_bytes_with_nul_unchecked(value.as_bytes());
-            &*(value as *const CStr as *const Self)
+            &*(ptr::from_ref::<CStr>(value) as *const Self)
         }
     }
 
@@ -47,7 +48,7 @@ impl PropName {
     /// returned slice.
     #[inline]
     pub fn as_str(&self) -> &str {
-        // SAFETY: self.0 is guaranteed to be valid ASCII string.
+        // SAFETY: self.0 is guaranteed to be valid UTF-8 string.
         unsafe { std::str::from_utf8_unchecked(self.0.to_bytes()) }
     }
 }
@@ -160,7 +161,7 @@ impl PropertyName {
     #[inline]
     unsafe fn from_vec_with_nul_unchecked(inner: Vec<u8>) -> Self {
         // SAFETY: Caller promises inner is nul-terminated and valid UTF-8.
-        Self(CString::from_vec_with_nul_unchecked(inner))
+        Self(unsafe { CString::from_vec_with_nul_unchecked(inner) })
     }
 
     /// Converts the value into a C string.
@@ -188,7 +189,7 @@ impl std::ops::Deref for PropertyName {
         // SAFETY: 1. PropName and CStr have the same representation so casting
         // is safe. 2. self.0 is guaranteed to be valid nul-terminated UTF-8
         // string.
-        unsafe { &*(self.0.as_c_str() as *const CStr as *const PropName) }
+        unsafe { &*(ptr::from_ref::<CStr>(self.0.as_c_str()) as *const PropName) }
     }
 }
 
@@ -296,7 +297,7 @@ pub(crate) unsafe fn level_property(name: &str, level: usize) -> PropertyName {
     let bytes = format!("rocksdb.{name}{level}\0").into_bytes();
     // SAFETY: We’re appending terminating nul and caller promises `name` has no
     // interior nul bytes.
-    PropertyName::from_vec_with_nul_unchecked(bytes)
+    unsafe { PropertyName::from_vec_with_nul_unchecked(bytes) }
 }
 
 #[test]

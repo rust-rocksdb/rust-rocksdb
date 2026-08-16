@@ -113,17 +113,18 @@ pub use crate::{
     },
     compaction_filter::Decision as CompactionDecision,
     db::{
-        DBAccess, DBCommon, DBWithThreadMode, LiveFile, MultiThreaded, SingleThreaded, ThreadMode,
-        DB,
+        DBAccess, DBCommon, DBWithThreadMode, LiveFile, MultiThreaded, Range, SingleThreaded,
+        ThreadMode, DB,
     },
     db_iterator::{
         DBIterator, DBIteratorWithThreadMode, DBRawIterator, DBRawIteratorWithThreadMode,
         DBWALIterator, Direction, IteratorMode,
     },
     db_options::{
-        BlockBasedIndexType, BlockBasedOptions, BottommostLevelCompaction, Cache, ChecksumType,
-        CompactOptions, CompactionPri, CuckooTableOptions, DBCompactionStyle, DBCompressionType,
-        DBPath, DBRecoveryMode, DataBlockIndexType, FifoCompactOptions, FlushOptions,
+        BlockBasedIndexType, BlockBasedOptions, BlockBasedTablePinningTier,
+        BottommostLevelCompaction, Cache, ChecksumType, CompactOptions, CompactionPri,
+        CuckooTableOptions, DBCompactionStyle, DBCompressionType, DBPath, DBRecoveryMode,
+        DataBlockIndexType, FifoCompactOptions, FlushOptions, InfoLogger,
         IngestExternalFileOptions, KeyEncodingType, LogLevel, LruCacheOptions, MemtableFactory,
         Options, PlainTableFactoryOptions, PrepopulateBlockCache, ReadOptions, ReadTier,
         UniversalCompactOptions, UniversalCompactionStopStyle, WaitForCompactOptions,
@@ -142,8 +143,16 @@ pub use crate::{
         OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
         TransactionDBOptions, TransactionOptions,
     },
-    write_batch::{WriteBatch, WriteBatchIterator, WriteBatchWithTransaction},
+    write_batch::{
+        WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, WriteBatchWithTransaction,
+    },
 };
+
+#[cfg(feature = "raw-ptr")]
+mod raw_ptr;
+
+#[cfg(feature = "raw-ptr")]
+pub use crate::raw_ptr::AsRawPtr;
 
 use librocksdb_sys as ffi;
 

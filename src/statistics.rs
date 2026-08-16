@@ -169,6 +169,6 @@ fn sanity_checks() {
     assert_eq!(want, Ticker::BlockCacheIndexMiss.to_string());
 
     // assert enum lengths
-    assert_eq!(Ticker::iter().count(), 211 /* TICKER_ENUM_MAX */);
+    assert_eq!(Ticker::iter().count(), 263 /* TICKER_ENUM_MAX */);
     assert_eq!(Histogram::iter().count(), 62 /* HISTOGRAM_ENUM_MAX */);
 }

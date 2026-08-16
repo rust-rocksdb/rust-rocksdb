@@ -54,10 +54,7 @@ fn test_comparator() {
     let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
     let x = 0;
     let local_compare_reverse = move |one: &[u8], two: &[u8]| {
-        println!(
-            "Use the x value from the closure scope to do something smart: {:?}",
-            x
-        );
+        println!("Use the x value from the closure scope to do something smart: {x:?}");
         match one.cmp(two) {
             Ordering::Less => Ordering::Greater,
             Ordering::Equal => Ordering::Equal,
@@ -66,16 +63,13 @@ fn test_comparator() {
     };
 
     let old_res = write_to_db_with_comparator(Box::new(rocks_old_compare));
-    println!("Keys in normal sort order, no closure: {:?}", old_res);
+    println!("Keys in normal sort order, no closure: {old_res:?}");
     assert_eq!(vec!["a-key", "b-key"], old_res);
     let res_closure = write_to_db_with_comparator(Box::new(local_compare));
-    println!("Keys in normal sort order, closure: {:?}", res_closure);
+    println!("Keys in normal sort order, closure: {res_closure:?}");
     assert_eq!(res_closure, old_res);
     let res_closure_reverse = write_to_db_with_comparator(Box::new(local_compare_reverse));
-    println!(
-        "Keys in reverse sort order, closure: {:?}",
-        res_closure_reverse
-    );
+    println!("Keys in reverse sort order, closure: {res_closure_reverse:?}");
     assert_eq!(vec!["b-key", "a-key"], res_closure_reverse);
 }
 
@@ -169,6 +163,40 @@ fn test_comparator_with_ts() {
     }
 
     let _ = DB::destroy(&Options::default(), path);
+}
+
+// Create options with a comparator and use it for multiple DBs to test lifetimes.
+#[test]
+fn test_comparator_lifetime() {
+    fn do_not_call_comparator(_a: &[u8], _b: &[u8]) -> Ordering {
+        panic!("BUG: must not be called");
+    }
+
+    let options = {
+        let mut options = Options::default();
+        options.set_comparator(
+            "test_do_not_call_comparator",
+            Box::new(do_not_call_comparator),
+        );
+        options.create_if_missing(true);
+        options
+    };
+
+    // create a database with the comparator
+    let rocksdb1_dir = tempfile::tempdir().unwrap();
+    let rocksdb1 = DB::open(&options, rocksdb1_dir.path()).unwrap();
+
+    // a second rocksdb using the same comparator is created and dropped
+    {
+        let rocksdb2_dir = tempfile::tempdir().unwrap();
+        let rocksdb2 = DB::open(&options, rocksdb2_dir.path()).unwrap();
+        rocksdb2.put(b"k", b"v").unwrap();
+    }
+
+    // rocksdb1 still works after dropping rocksdb2
+    rocksdb1.put(b"k", b"v").unwrap();
+    rocksdb1.flush().unwrap();
+    drop(rocksdb1);
 }
 
 #[test]

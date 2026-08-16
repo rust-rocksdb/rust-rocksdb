@@ -428,11 +428,11 @@ fn set_column_family_metadata_test() {
         db.flush_cf(&cf2).unwrap();
 
         let default_cf_metadata = db.get_column_family_metadata();
-        assert_eq!(default_cf_metadata.size > 150, true);
+        assert_eq!(default_cf_metadata.size > 1300, true);
         assert_eq!(default_cf_metadata.file_count, 1);
 
         let cf2_metadata = db.get_column_family_metadata_cf(&cf2);
-        assert_eq!(cf2_metadata.size > default_cf_metadata.size, true);
+        assert!(cf2_metadata.size < default_cf_metadata.size);
         assert_eq!(cf2_metadata.file_count, 1);
     }
 }
@@ -448,16 +448,33 @@ fn test_sequence_number() {
     }
 }
 
+#[test]
+fn test_snapshot_sequence_number() {
+    let path = DBPath::new("_rust_rocksdb_test_snapshot_sequence_number");
+    {
+        let db = DB::open_default(&path).unwrap();
+        db.put(b"key1", b"value1").unwrap();
+        db.put(b"key2", b"value2").unwrap();
+
+        let snapshot = db.snapshot();
+        assert_eq!(snapshot.sequence_number(), db.latest_sequence_number());
+
+        db.put(b"key3", b"value3").unwrap();
+        assert_eq!(snapshot.sequence_number(), 2);
+        assert_eq!(db.latest_sequence_number(), 3);
+    }
+}
+
 struct OperationCounts {
     puts: usize,
     deletes: usize,
 }
 
 impl rocksdb::WriteBatchIterator for OperationCounts {
-    fn put(&mut self, _key: Box<[u8]>, _value: Box<[u8]>) {
+    fn put(&mut self, _key: &[u8], _value: &[u8]) {
         self.puts += 1;
     }
-    fn delete(&mut self, _key: Box<[u8]>) {
+    fn delete(&mut self, _key: &[u8]) {
         self.deletes += 1;
     }
 }
@@ -1676,6 +1693,98 @@ fn test_full_history_ts_low() {
         db.increase_full_history_ts_low(&cf, ts).unwrap();
         let ret = U64Timestamp::from(db.get_full_history_ts_low(&cf).unwrap().as_slice());
         assert_eq!(ts, ret);
+
+        let _ = DB::destroy(&Options::default(), &path);
+    }
+}
+
+#[test]
+fn test_get_approximate_sizes_cf() {
+    let path = DBPath::new("_rust_rocksdb_get_approximate_sizes_cf_test");
+    let _ = DB::destroy(&Options::default(), &path);
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+
+        let cf_opts = Options::default();
+        let cfs = vec![("default", cf_opts)];
+
+        let db = DB::open_cf_with_opts(&opts, &path, cfs).unwrap();
+        let cf = db.cf_handle("default").unwrap();
+
+        // Insert some data
+        for i in 0..1000 {
+            let key = format!("key_{i:04}");
+            let value = format!("value_{i:04}");
+            db.put_cf(&cf, key.as_bytes(), value.as_bytes()).unwrap();
+        }
+
+        // Flush to ensure data is written to disk
+        db.flush_cf(&cf).unwrap();
+
+        // Get approximate sizes
+        let start_key = b"key_0000";
+        let end_key = b"key_0999";
+        let sizes = db.get_approximate_sizes_cf(&cf, &[rocksdb::Range::new(start_key, end_key)]);
+
+        // Check that the sizes are greater than zero
+        assert!(sizes[0] > 0);
+
+        let _ = DB::destroy(&Options::default(), &path);
+    }
+}
+
+#[test]
+fn test_enable_and_disable_file_deletions() {
+    let path = DBPath::new("_rust_rocksdb_enable_and_disable_file_deletions");
+    let _ = DB::destroy(&Options::default(), &path);
+
+    {
+        let get_sst_files = || {
+            std::fs::read_dir((&path).as_ref())
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|f| f.file_name().to_string_lossy().ends_with(".sst"))
+                .map(|f| f.path())
+                .collect::<Vec<_>>()
+        };
+
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+
+        let db = DB::open(&opts, &path).unwrap();
+        db.disable_file_deletions().unwrap();
+
+        // insert some data and flush to create first sst.
+        for i in 0..10 {
+            db.put(format!("k{i}").as_bytes(), format!("v{i}").as_bytes())
+                .unwrap();
+        }
+        db.flush().unwrap();
+
+        assert_eq!(get_sst_files().len(), 1);
+
+        // insert some data and flush to create second sst.
+        for i in 10..20 {
+            db.put(format!("k{i}").as_bytes(), format!("v{i}").as_bytes())
+                .unwrap();
+        }
+        db.flush().unwrap();
+
+        assert_eq!(get_sst_files().len(), 2);
+
+        // normally after compaction we should have 1 file, but due to disabled
+        // flag we should have 3.
+        db.compact_range(None::<&[u8]>, None::<&[u8]>);
+        assert_eq!(get_sst_files().len(), 3);
+
+        // turn file deletions back on and compact.
+        db.enable_file_deletions().unwrap();
+        db.compact_range(None::<&[u8]>, None::<&[u8]>);
+
+        assert_eq!(get_sst_files().len(), 1);
 
         let _ = DB::destroy(&Options::default(), &path);
     }

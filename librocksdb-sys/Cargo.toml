@@ -1,8 +1,8 @@
 [package]
 name = "librocksdb-sys"
-version = "0.17.2+9.10.0"
+version = "0.19.0+11.8.1"
 edition = "2021"
-rust-version = "1.71.1"
+rust-version = "1.88.0"
 authors = [
     "Karl Hobley <karlhobley10@gmail.com>",
     "Arkadiy Paronyan <arkadiy@ethcore.io>",
@@ -33,11 +33,14 @@ lto = []
 
 [dependencies]
 libc = "0.2"
-tikv-jemalloc-sys = { version = "0.6", features = [
+tikv-jemalloc-sys = { version = "0.7", features = [
     "unprefixed_malloc_on_supported_platforms",
 ], optional = true }
 lz4-sys = { version = "1.10", optional = true }
-zstd-sys = { version = "2.0", features = ["zdict_builder"], optional = true }
+zstd-sys = { version = "2.0", default-features = false, features = [
+    "legacy",
+    "zdict_builder",
+], optional = true }
 libz-sys = { version = "1.1", default-features = false, optional = true }
 bzip2-sys = { version = "0.1", default-features = false, optional = true }
 
@@ -46,5 +49,6 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
-bindgen = { version = "0.69", default-features = false }
+bindgen = { version = "0.72", default-features = false }
 pkg-config = { version = "0.3", optional = true }
+rustflags = "0.1"
