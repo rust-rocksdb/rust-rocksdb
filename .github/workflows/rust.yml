@@ -98,7 +98,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [ Linux, macOS, Windows ]
+        build: [ Linux, macOS, Windows, Linux-armv7-musl ]
         include:
           - build: Linux
             os: ubuntu-latest
@@ -106,6 +106,10 @@ jobs:
             os: macos-latest
           - build: Windows
             os: windows-latest
+          - build: Linux-armv7-musl
+            os: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+            cross: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
@@ -118,6 +122,9 @@ jobs:
         with:
           cache-on-failure: true
       - uses: taiki-e/install-action@nextest
+        if: ${{ !matrix.cross }}
+      - uses: taiki-e/install-action@cross
+        if: ${{ matrix.cross }}
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
@@ -125,10 +132,18 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install llvm -y
       - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.cross
         run: sudo apt-get update && sudo apt-get install -y libjemalloc-dev
+      - name: Checkout submodules
+        if: ${{ matrix.cross }}
+        run: git submodule update --init --recursive
+      - name: Cross compile rocksdb tests
+        if: ${{ matrix.cross }}
+        run: |
+          cross test --all --target ${{ matrix.target }} --no-run
+          cross test --all --target ${{ matrix.target }} --features multi-threaded-cf --no-run
       - name: Mark working directory as read-only
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.cross
         run: |
           mkdir -p target
           touch Cargo.lock
@@ -136,24 +151,25 @@ jobs:
           chmod -R a-w .
           chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests
+        if: ${{ !matrix.cross }}
         run: |
           cargo nextest run --all
           cargo nextest run --all --features multi-threaded-cf
       - name: Mark working directory as writable
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.cross
         run: chmod -R a+w .
       - name: Free disk space
         run: cargo clean
       - name: Mark working directory as read-only
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.cross
         run: |
           mkdir -p target
           touch Cargo.lock
           chmod -R a-w .
           chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests (jemalloc)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && !matrix.cross
         run: cargo nextest run --all --features jemalloc
       - name: Mark working directory as writable
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.cross
         run: chmod -R a+w .
