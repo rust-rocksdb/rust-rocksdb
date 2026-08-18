@@ -193,6 +193,10 @@ jobs:
           CC_armv7_unknown_linux_musleabihf: armv7-unknown-linux-musleabihf-gcc
           CXX_armv7_unknown_linux_musleabihf: armv7-unknown-linux-musleabihf-g++
           AR_armv7_unknown_linux_musleabihf: armv7-unknown-linux-musleabihf-ar
+          # -Wpsabi only reports the GCC 7.1 aggregate passing ABI change; everything here is
+          # built with the same toolchain, so the notes are pure noise.
+          CFLAGS_armv7_unknown_linux_musleabihf: -Wno-psabi
+          CXXFLAGS_armv7_unknown_linux_musleabihf: -Wno-psabi
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER: armv7-unknown-linux-musleabihf-gcc
           # The musl target links statically, so the emulator needs no sysroot.
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_RUNNER: qemu-arm-static
