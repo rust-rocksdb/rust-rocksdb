@@ -157,8 +157,8 @@ jobs:
             --target=armv7-unknown-linux-musleabihf
             --sysroot=/opt/x-tools/armv7-unknown-linux-musleabihf/armv7-unknown-linux-musleabihf/sysroot
         run: |
-          cargo test --all --target ${{ matrix.target }} --no-run
-          cargo test --all --target ${{ matrix.target }} --features multi-threaded-cf --no-run
+          cargo test --all --target ${{ matrix.target }}
+          cargo test --all --target ${{ matrix.target }} --features multi-threaded-cf
       - name: Mark working directory as read-only
         if: runner.os == 'Linux' && !matrix.cross
         run: |

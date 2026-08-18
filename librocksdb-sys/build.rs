@@ -150,9 +150,10 @@ fn build_rocksdb() {
     // true for C++ >= 17; we set -std=c++20 below
     config.define("HAVE_ALIGNED_NEW", None);
 
-    // __uint128_t is supported by GCC and Clang; Don't use it for MSVC
-    // TODO: implement a detection script?
-    if !target.contains("msvc") {
+    // __uint128_t is supported by GCC and Clang, but only on 64-bit targets; Don't use it for
+    // MSVC or 32-bit targets such as armv7 (RocksDB then falls back to 64-bit arithmetic).
+    let target_pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
+    if !target.contains("msvc") && target_pointer_width == "64" {
         config.define("HAVE_UINT128_EXTENSION", None);
     }
 
@@ -335,13 +336,11 @@ fn build_rocksdb() {
     #[cfg(feature = "io-uring")]
     if target.contains("linux") {
         pkg_config::probe_library("liburing")
-            .expect("The io-uring feature was requested but the library is not available");
+            .expect("The io-uring feature was requested, but the library is not available");
         config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
     }
 
-    if &target != "armv7-linux-androideabi"
-        && env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64"
-    {
+    if &target != "armv7-linux-androideabi" && target_pointer_width != "64" {
         config.define("_FILE_OFFSET_BITS", Some("64"));
         config.define("_LARGEFILE64_SOURCE", Some("1"));
     }
