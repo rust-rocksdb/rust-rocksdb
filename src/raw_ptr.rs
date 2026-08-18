@@ -1,5 +1,6 @@
 use crate::{
     db::{DBInner, DB},
+    db_options::IngestExternalFileOptions,
     db_options::Options,
     env::Env,
 };
@@ -65,5 +66,14 @@ impl AsRawPtr<ffi::rocksdb_env_t> for Env {
     /// This allows direct access to the RocksDB environment C API for advanced use cases.
     unsafe fn as_raw_ptr(&self) -> *mut ffi::rocksdb_env_t {
         self.0.inner
+    }
+}
+
+impl AsRawPtr<ffi::rocksdb_ingestexternalfileoptions_t> for IngestExternalFileOptions {
+    /// Returns a raw pointer to the underlying `rocksdb_ingestexternalfileoptions_t` object.
+    ///
+    /// This allows direct access to the RocksDB Ingest External File Options C API for advanced use cases.
+    unsafe fn as_raw_ptr(&self) -> *mut ffi::rocksdb_ingestexternalfileoptions_t {
+        self.inner
     }
 }
