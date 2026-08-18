@@ -4,9 +4,6 @@ on: [ push, pull_request ]
 env:
   RUST_VERSION: 1.88.0
   CARGO_TERM_COLOR: always
-  # RocksDB requires a C++20 capable compiler, which is newer than the GCC 9 shipped by the
-  # `cross` musl images. https://github.com/cross-tools/musl-cross provides current toolchains.
-  MUSL_CROSS_VERSION: "20260515"
 
 jobs:
   fmt:
@@ -164,6 +161,9 @@ jobs:
     name: Linux-armv7-musl
     runs-on: ubuntu-latest
     env:
+      # RocksDB requires a C++20 capable compiler, which is newer than the GCC 9 shipped by the
+      # `cross` musl images. https://github.com/cross-tools/musl-cross provides current toolchains.
+      MUSL_CROSS_VERSION: "20260515"
       TARGET: armv7-unknown-linux-musleabihf
     steps:
       - name: Checkout sources
