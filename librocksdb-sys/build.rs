@@ -447,28 +447,17 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 /// Returns the value of the `ROCKSDB_CXX_STD` env var, or the default `-std=c++{version}` flag for
 /// building RocksDB.
 ///
-/// Compilers that predate the final C++20 standard (e.g. GCC 9, which ships in some cross
-/// compilation images) only accept the `-std=c++2a` spelling, so fall back to it when
-/// `-std=c++20` is rejected.
+/// Note that RocksDB requires a compiler with full C++20 support (GCC 10 or newer, clang 10 or
+/// newer); older compilers fail on constructs such as defaulted comparison operators.
 fn cxx_standard() -> String {
     println!("cargo:rerun-if-env-changed=ROCKSDB_CXX_STD");
-    if let Ok(cxx_std) = env::var("ROCKSDB_CXX_STD") {
-        return if cxx_std.starts_with("-std=") {
-            cxx_std
-        } else {
+    env::var("ROCKSDB_CXX_STD").map_or("-std=c++20".to_owned(), |cxx_std| {
+        if !cxx_std.starts_with("-std=") {
             format!("-std={cxx_std}")
-        };
-    }
-
-    let mut probe = cc::Build::new();
-    probe.cpp(true).cargo_warnings(false);
-    for flag in ["-std=c++20", "-std=c++2a"] {
-        if probe.is_flag_supported(flag).unwrap_or(false) {
-            return flag.to_owned();
+        } else {
+            cxx_std
         }
-    }
-
-    "-std=c++20".to_owned()
+    })
 }
 
 fn update_submodules() {

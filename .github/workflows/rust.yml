@@ -4,6 +4,9 @@ on: [ push, pull_request ]
 env:
   RUST_VERSION: 1.88.0
   CARGO_TERM_COLOR: always
+  # RocksDB requires a C++20 capable compiler, which is newer than the GCC 9 shipped by the
+  # `cross` musl images. https://github.com/cross-tools/musl-cross provides current toolchains.
+  MUSL_CROSS_VERSION: "20260515"
 
 jobs:
   fmt:
@@ -123,8 +126,6 @@ jobs:
           cache-on-failure: true
       - uses: taiki-e/install-action@nextest
         if: ${{ !matrix.cross }}
-      - uses: taiki-e/install-action@cross
-        if: ${{ matrix.cross }}
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
         run: Remove-Item -LiteralPath "C:\msys64\" -Force -Recurse
@@ -137,11 +138,27 @@ jobs:
       - name: Checkout submodules
         if: ${{ matrix.cross }}
         run: git submodule update --init --recursive
-      - name: Cross compile rocksdb tests
+      - name: Install musl cross toolchain
         if: ${{ matrix.cross }}
         run: |
-          cross test --all --target ${{ matrix.target }} --no-run
-          cross test --all --target ${{ matrix.target }} --features multi-threaded-cf --no-run
+          curl --retry 3 -fsSL -o /tmp/toolchain.tar.xz \
+            "https://github.com/cross-tools/musl-cross/releases/download/${MUSL_CROSS_VERSION}/${{ matrix.target }}.tar.xz"
+          sudo mkdir -p /opt/x-tools
+          sudo tar -xf /tmp/toolchain.tar.xz -C /opt/x-tools
+          echo "/opt/x-tools/${{ matrix.target }}/bin" >> "$GITHUB_PATH"
+      - name: Cross compile rocksdb tests
+        if: ${{ matrix.cross }}
+        env:
+          CC_armv7_unknown_linux_musleabihf: armv7-unknown-linux-musleabihf-gcc
+          CXX_armv7_unknown_linux_musleabihf: armv7-unknown-linux-musleabihf-g++
+          AR_armv7_unknown_linux_musleabihf: armv7-unknown-linux-musleabihf-ar
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER: armv7-unknown-linux-musleabihf-gcc
+          BINDGEN_EXTRA_CLANG_ARGS_armv7_unknown_linux_musleabihf: >-
+            --target=armv7-unknown-linux-musleabihf
+            --sysroot=/opt/x-tools/armv7-unknown-linux-musleabihf/armv7-unknown-linux-musleabihf/sysroot
+        run: |
+          cargo test --all --target ${{ matrix.target }} --no-run
+          cargo test --all --target ${{ matrix.target }} --features multi-threaded-cf --no-run
       - name: Mark working directory as read-only
         if: runner.os == 'Linux' && !matrix.cross
         run: |
