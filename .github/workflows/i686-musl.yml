@@ -25,7 +25,7 @@ jobs:
       XTOOLS_ROOT: /opt/x-tools/i686-unknown-linux-musl
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 

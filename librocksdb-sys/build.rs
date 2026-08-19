@@ -150,10 +150,9 @@ fn build_rocksdb() {
     // true for C++ >= 17; we set -std=c++20 below
     config.define("HAVE_ALIGNED_NEW", None);
 
+    let target_pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
     // __uint128_t is supported by GCC and Clang, but only on 64-bit targets; Don't use it for
     // MSVC or 32-bit targets such as armv7 (RocksDB then falls back to 64-bit arithmetic).
-    let target_pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
-
     if !target.contains("msvc") && target_pointer_width == "64" {
         config.define("HAVE_UINT128_EXTENSION", None);
     }
