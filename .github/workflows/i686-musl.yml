@@ -129,7 +129,7 @@ jobs:
         run: cargo build --target i686-unknown-linux-musl --all-targets
 
       - name: Test
-        run: cargo test --target i686-unknown-linux-musl -- --test-threads=2
+        run: cargo test --target i686-unknown-linux-musl
 
       # Sanity check: confirm we really produced 32-bit binaries and that the
       # runner executed them natively rather than silently skipping.
