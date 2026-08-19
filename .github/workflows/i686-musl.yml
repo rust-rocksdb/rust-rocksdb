@@ -73,9 +73,15 @@ jobs:
           # Ask the compiler where its sysroot is rather than hardcoding the
           # crosstool-ng directory layout, which differs between releases.
           SYSROOT="$(i686-unknown-linux-musl-gcc -print-sysroot)"
-          test -f "$SYSROOT/include/stdint.h" \
-            || { echo "::error::no stdint.h under $SYSROOT"; exit 1; }
-          echo "sysroot: $SYSROOT"
+          # crosstool-ng layout: headers live under <sysroot>/usr/include
+          if   [ -f "$SYSROOT/usr/include/stdint.h" ]; then INC="$SYSROOT/usr/include"
+          elif [ -f "$SYSROOT/include/stdint.h" ];     then INC="$SYSROOT/include"
+          else
+            echo "::error::stdint.h not found under $SYSROOT"
+            find "$SYSROOT" -name stdint.h | head
+            exit 1
+          fi
+          echo "sysroot: $SYSROOT headers: $INC"
           
           {
             # cc crate -> compile RocksDB's C/C++ with the musl cross toolchain
@@ -90,7 +96,7 @@ jobs:
           
             # bindgen/libclang runs on the host: point it at the musl headers
             # instead of /usr/include, which has no bits/libc-header-start.h for i386.
-            echo "BINDGEN_EXTRA_CLANG_ARGS_i686_unknown_linux_musl=--sysroot=$SYSROOT -I$SYSROOT/include --target=i686-unknown-linux-musl"
+            echo "BINDGEN_EXTRA_CLANG_ARGS_i686_unknown_linux_musl=--sysroot=$SYSROOT -I$INC --target=i686-unknown-linux-musl"
           } >> "$GITHUB_ENV"
           
           libclang_dir="$(dirname "$(find /usr/lib -name 'libclang.so*' | head -n1)")"
