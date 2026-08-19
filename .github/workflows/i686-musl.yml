@@ -1,4 +1,4 @@
-name: 32-bit (i686-unknown-linux-musl)
+name: RocksDB CI
 
 on:
   push:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   i686-musl:
-    name: build & test i686-unknown-linux-musl
+    name: Linux 32 bit
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
@@ -52,20 +52,25 @@ jobs:
         if: steps.cache-cross.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          url=""
-          for candidate in \
+          
+          DOWNLOADED=0
+          for url in \
             "https://musl.cc/i686-linux-musl-cross.tgz" \
             "https://more.musl.cc/11.2.1/x86_64-linux-musl/i686-linux-musl-cross.tgz"
           do
-            if curl -fsIL --retry 3 --retry-all-errors "$candidate" >/dev/null; then
-              url="$candidate"; break
+            echo "Attempting to download toolchain from $url"
+            if curl -fL --retry 3 --retry-all-errors -o /tmp/cross.tgz "$url"; then
+              DOWNLOADED=1
+              break
             fi
           done
-          [ -n "$url" ] || { echo "::error::no musl.cc mirror reachable"; exit 1; }
-          echo "Fetching $url"
-          curl -fL --retry 5 --retry-all-errors -o /tmp/cross.tgz "$url"
+          
+          [ "$DOWNLOADED" -eq 1 ] || { echo "::error::no musl.cc mirror reachable"; exit 1; }
+          
           sudo mkdir -p /opt
-          sudo tar -xf /tmp/cross.tgz -C /opt
+          sudo tar --no-same-owner -xf /tmp/cross.tgz -C /opt
+          sudo chown -R "$(id -u):$(id -g)" /opt/i686-linux-musl-cross
+          rm -f /tmp/cross.tgz
 
       - name: Configure cross-compilation environment
         run: |
