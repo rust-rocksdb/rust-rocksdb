@@ -55,8 +55,9 @@ jobs:
           
           DOWNLOADED=0
           for url in \
-            "https://musl.cc/i686-linux-musl-cross.tgz" \
+            "https://github.com/cross-tools/musl-cross/releases/download/20260515/i686-unknown-linux-musl.tar.xz" \
             "https://more.musl.cc/11.2.1/x86_64-linux-musl/i686-linux-musl-cross.tgz"
+            "https://musl.cc/i686-linux-musl-cross.tgz" \
           do
             echo "Attempting to download toolchain from $url"
             if curl -fL --retry 3 --retry-all-errors -o /tmp/cross.tgz "$url"; then
