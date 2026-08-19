@@ -48,7 +48,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Cache musl cross toolchain
         id: cache-xtools
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /opt/x-tools
           key: xtools-i686-unknown-linux-musl-${{ env.XTOOLS_RELEASE }}
