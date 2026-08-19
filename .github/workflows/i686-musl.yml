@@ -1,0 +1,143 @@
+name: RocksDB CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  RUST_VERSION: 1.88.0
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  i686-musl:
+    name: Linux 32 bit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    env:
+      TARGET: i686-unknown-linux-musl
+      # cross-tools/musl-cross toolchains extract to /opt/x-tools/<triple>.
+      # Pin the release tag so CI is reproducible; bump deliberately.
+      XTOOLS_RELEASE: "20260515"
+      XTOOLS_ROOT: /opt/x-tools/i686-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: ${{ env.TARGET }}
+
+      - name: Install clang (bindgen needs libclang on the host)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev
+
+      # ------------------------------------------------------------------
+      # musl cross toolchain from cross-tools/musl-cross (GitHub releases).
+      # Same project as the local /opt/x-tools setup; unlike musl.cc it does
+      # not go offline. Assets are named <rust-triple>.tar.xz with a matching
+      # .sha256 sidecar.
+      # ------------------------------------------------------------------
+      - name: Cache musl cross toolchain
+        id: cache-xtools
+        uses: actions/cache@v6
+        with:
+          path: /opt/x-tools
+          key: xtools-i686-unknown-linux-musl-${{ env.XTOOLS_RELEASE }}
+
+      - name: Download musl cross toolchain
+        if: steps.cache-xtools.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/cross-tools/musl-cross/releases/download/${XTOOLS_RELEASE}"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/tc.tar.xz "${base}/${TARGET}.tar.xz"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/tc.sha256 "${base}/${TARGET}.tar.xz.sha256"
+          echo "$(cut -d' ' -f1 /tmp/tc.sha256)  /tmp/tc.tar.xz" | sha256sum -c -
+          sudo mkdir -p /opt/x-tools
+          sudo tar -xf /tmp/tc.tar.xz -C /opt/x-tools
+
+      - name: Configure cross-compilation environment
+        run: |
+          set -euo pipefail
+          export PATH="$XTOOLS_ROOT/bin:$PATH"
+          echo "$XTOOLS_ROOT/bin" >> "$GITHUB_PATH"
+          
+          # Ask the compiler where its sysroot is rather than hardcoding the
+          # crosstool-ng directory layout, which differs between releases.
+          SYSROOT="$(i686-unknown-linux-musl-gcc -print-sysroot)"
+          # crosstool-ng layout: headers live under <sysroot>/usr/include
+          if   [ -f "$SYSROOT/usr/include/stdint.h" ]; then INC="$SYSROOT/usr/include"
+          elif [ -f "$SYSROOT/include/stdint.h" ];     then INC="$SYSROOT/include"
+          else
+            echo "::error::stdint.h not found under $SYSROOT"
+            find "$SYSROOT" -name stdint.h | head
+            exit 1
+          fi
+          echo "sysroot: $SYSROOT headers: $INC"
+          
+          {
+            # cc crate -> compile RocksDB's C/C++ with the musl cross toolchain
+            echo "CC_i686_unknown_linux_musl=i686-unknown-linux-musl-gcc"
+            echo "CXX_i686_unknown_linux_musl=i686-unknown-linux-musl-g++"
+            echo "AR_i686_unknown_linux_musl=i686-unknown-linux-musl-ar"
+            echo "RANLIB_i686_unknown_linux_musl=i686-unknown-linux-musl-ranlib"
+          
+            # rustc must link with the cross driver so -lstdc++ resolves to the
+            # 32-bit libstdc++.a rather than the host x86_64 one.
+            echo "CARGO_TARGET_I686_UNKNOWN_LINUX_MUSL_LINKER=i686-unknown-linux-musl-gcc"
+          
+            # bindgen/libclang runs on the host: point it at the musl headers
+            # instead of /usr/include, which has no bits/libc-header-start.h for i386.
+            echo "BINDGEN_EXTRA_CLANG_ARGS_i686_unknown_linux_musl=--sysroot=$SYSROOT -I$INC --target=i686-unknown-linux-musl"
+          } >> "$GITHUB_ENV"
+          
+          libclang_dir="$(dirname "$(find /usr/lib -name 'libclang.so*' | head -n1)")"
+          echo "LIBCLANG_PATH=$libclang_dir" >> "$GITHUB_ENV"
+
+      - name: Verify toolchain
+        run: |
+          set -euo pipefail
+          i686-unknown-linux-musl-gcc --version | head -n1
+          stdcxx="$(i686-unknown-linux-musl-g++ -print-file-name=libstdc++.a)"
+          echo "libstdc++.a -> $stdcxx"
+          case "$stdcxx" in
+            /*) ;;
+            *) echo "::error::toolchain has no 32-bit libstdc++.a"; exit 1 ;;
+          esac
+
+      # NOTE: RocksDB's fault_injection_fs.cc carries a static_assert on absolute
+      # struct size that assumes 64-bit pointers. librocksdb-sys/build.rs drops
+      # that file when CARGO_CFG_TARGET_POINTER_WIDTH == "32", so no patch step
+      # is needed here. If this job starts failing on that assert, check that the
+      # filter in build.rs still matches the upstream source list.
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: i686-musl
+          cache-all-crates: "true"
+
+      - name: Build
+        run: cargo build --target i686-unknown-linux-musl --all-targets
+
+      - name: Test
+        run: cargo test --target i686-unknown-linux-musl
+
+      # Sanity check: confirm we really produced 32-bit binaries and that the
+      # runner executed them natively rather than silently skipping.
+      - name: Verify artifacts are 32-bit
+        if: always()
+        run: |
+          bin=$(find target/i686-unknown-linux-musl/debug/deps -type f -executable | head -n1)
+          file "$bin"
+          file "$bin" | grep -q 'ELF 32-bit' \
+            || { echo "::error::not a 32-bit binary"; exit 1; }
+  

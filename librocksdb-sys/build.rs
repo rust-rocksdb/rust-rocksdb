@@ -150,9 +150,10 @@ fn build_rocksdb() {
     // true for C++ >= 17; we set -std=c++20 below
     config.define("HAVE_ALIGNED_NEW", None);
 
-    // __uint128_t is supported by GCC and Clang; Don't use it for MSVC
-    // TODO: implement a detection script?
-    if !target.contains("msvc") {
+    let target_pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
+    // __uint128_t is supported by GCC and Clang, but only on 64-bit targets; Don't use it for
+    // MSVC or 32-bit targets such as armv7 (RocksDB then falls back to 64-bit arithmetic).
+    if !target.contains("msvc") && target_pointer_width == "64" {
         config.define("HAVE_UINT128_EXTENSION", None);
     }
 
@@ -163,6 +164,12 @@ fn build_rocksdb() {
         // We have a pre-generated a version of build_version.cc in the local directory
         .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
+
+    if target_pointer_width == "32" {
+        // fault_injection_fs.cc is a test helper with a static_assert on absolute
+        // struct size that assumes 64-bit pointers. Not reachable from the crate's API.
+        lib_sources.retain(|file| !file.contains("fault_injection_fs"));
+    }
 
     // attempt to pass through the RUSTFLAGS -Ctarget-cpu to allow the same optimizations for C/C++
     pass_through_target_cpu(&mut config);
@@ -335,13 +342,11 @@ fn build_rocksdb() {
     #[cfg(feature = "io-uring")]
     if target.contains("linux") {
         pkg_config::probe_library("liburing")
-            .expect("The io-uring feature was requested but the library is not available");
+            .expect("The io-uring feature was requested, but the library is not available");
         config.define("ROCKSDB_IOURING_PRESENT", Some("1"));
     }
 
-    if &target != "armv7-linux-androideabi"
-        && env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap() != "64"
-    {
+    if &target != "armv7-linux-androideabi" && target_pointer_width != "64" {
         config.define("_FILE_OFFSET_BITS", Some("64"));
         config.define("_LARGEFILE64_SOURCE", Some("1"));
     }
@@ -446,7 +451,11 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 
 /// Returns the value of the `ROCKSDB_CXX_STD` env var, or the default `-std=c++{version}` flag for
 /// building RocksDB.
+///
+/// Note that RocksDB requires a compiler with full C++20 support (GCC 10 or newer, clang 10 or
+/// newer); older compilers fail on constructs such as defaulted comparison operators.
 fn cxx_standard() -> String {
+    println!("cargo:rerun-if-env-changed=ROCKSDB_CXX_STD");
     env::var("ROCKSDB_CXX_STD").map_or("-std=c++20".to_owned(), |cxx_std| {
         if !cxx_std.starts_with("-std=") {
             format!("-std={cxx_std}")
