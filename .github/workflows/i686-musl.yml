@@ -1,0 +1,125 @@
+name: 32-bit (i686-unknown-linux-musl)
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  RUST_VERSION: 1.88.0
+  TARGET: i686-unknown-linux-musl
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  i686-musl:
+    name: build & test i686-unknown-linux-musl
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    env:
+      TARGET: i686-unknown-linux-musl
+      CROSS_ROOT: /opt/i686-linux-musl-cross
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: i686-unknown-linux-musl
+
+      - name: Install clang (bindgen needs libclang on the host)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev
+
+      # ------------------------------------------------------------------
+      # musl cross toolchain. Cached because musl.cc is intermittently down.
+      # ------------------------------------------------------------------
+      - name: Cache musl cross toolchain
+        id: cache-cross
+        uses: actions/cache@v4
+        with:
+          path: /opt/i686-linux-musl-cross
+          key: i686-linux-musl-cross-v1
+
+      - name: Download musl cross toolchain
+        if: steps.cache-cross.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          url=""
+          for candidate in \
+            "https://musl.cc/i686-linux-musl-cross.tgz" \
+            "https://more.musl.cc/11.2.1/x86_64-linux-musl/i686-linux-musl-cross.tgz"
+          do
+            if curl -fsIL --retry 3 --retry-all-errors "$candidate" >/dev/null; then
+              url="$candidate"; break
+            fi
+          done
+          [ -n "$url" ] || { echo "::error::no musl.cc mirror reachable"; exit 1; }
+          echo "Fetching $url"
+          curl -fL --retry 5 --retry-all-errors -o /tmp/cross.tgz "$url"
+          sudo mkdir -p /opt
+          sudo tar -xf /tmp/cross.tgz -C /opt
+
+      - name: Configure cross-compilation environment
+        run: |
+          set -euo pipefail
+          SYSROOT="$CROSS_ROOT/i686-linux-musl"
+          test -f "$SYSROOT/include/stdint.h" || { echo "::error::bad sysroot layout"; exit 1; }
+
+          echo "$CROSS_ROOT/bin" >> "$GITHUB_PATH"
+
+          {
+            # cc crate -> compile RocksDB's C/C++ with the musl cross toolchain
+            echo "CC_i686_unknown_linux_musl=i686-linux-musl-gcc"
+            echo "CXX_i686_unknown_linux_musl=i686-linux-musl-g++"
+            echo "AR_i686_unknown_linux_musl=i686-linux-musl-ar"
+            echo "RANLIB_i686_unknown_linux_musl=i686-linux-musl-ranlib"
+
+            # rustc must link with the cross driver so -lstdc++ resolves to the
+            # 32-bit libstdc++.a, not the host x86_64 one.
+            echo "CARGO_TARGET_I686_UNKNOWN_LINUX_MUSL_LINKER=i686-linux-musl-gcc"
+
+            # bindgen/libclang runs on the host: point it at the musl headers
+            # instead of /usr/include (which lacks bits/libc-header-start.h for i386)
+            echo "BINDGEN_EXTRA_CLANG_ARGS_i686_unknown_linux_musl=--sysroot=$SYSROOT -I$SYSROOT/include --target=i686-unknown-linux-musl"
+          } >> "$GITHUB_ENV"
+
+          # LIBCLANG_PATH: resolve whichever llvm apt installed
+          libclang_dir="$(dirname "$(find /usr/lib -name 'libclang.so*' | head -n1)")"
+          echo "LIBCLANG_PATH=$libclang_dir" >> "$GITHUB_ENV"
+
+      - name: Verify toolchain
+        run: |
+          i686-linux-musl-gcc --version
+          echo "libstdc++.a -> $(i686-linux-musl-g++ -print-file-name=libstdc++.a)"
+          i686-linux-musl-g++ -print-file-name=libstdc++.a | grep -q / \
+            || { echo "::error::toolchain has no 32-bit libstdc++.a"; exit 1; }
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: i686-musl
+          cache-all-crates: "true"
+
+      - name: Build
+        run: cargo build --target i686-unknown-linux-musl --all-targets
+
+      - name: Test
+        run: cargo test --target i686-unknown-linux-musl -- --test-threads=2
+
+      # Sanity check: confirm we really produced 32-bit binaries and that the
+      # runner executed them natively rather than silently skipping.
+      - name: Verify artifacts are 32-bit
+        if: always()
+        run: |
+          bin=$(find target/i686-unknown-linux-musl/debug/deps -type f -executable | head -n1)
+          file "$bin"
+          file "$bin" | grep -q 'ELF 32-bit' \
+            || { echo "::error::not a 32-bit binary"; exit 1; }
