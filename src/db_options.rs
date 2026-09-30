@@ -3637,6 +3637,23 @@ impl Options {
         }
     }
 
+    /// RocksDB will try to flush the current memtable after the number of range
+    /// deletions is >= this limit.
+    ///
+    /// Default: 0 (disabled)
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_memtable_max_range_deletions(&mut self, limit: u32) {
+        unsafe {
+            ffi::rocksdb_options_set_memtable_max_range_deletions(self.inner, limit);
+        }
+    }
+
+    /// Returns the value of the `memtable_max_range_deletions` option.
+    pub fn get_memtable_max_range_deletions(&self) -> u32 {
+        unsafe { ffi::rocksdb_options_get_memtable_max_range_deletions(self.inner) }
+    }
+
     /// Enable the use of key-value separation.
     ///
     /// More details can be found here: [Integrated BlobDB](http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html).
