@@ -15,7 +15,7 @@
 
 use crate::{ffi, ffi_util::to_cpath, Error, Options};
 
-use libc::{self, c_char, size_t};
+use libc::{self, c_char, c_uchar, size_t};
 use std::{ffi::CString, marker::PhantomData, path::Path};
 
 /// SstFileWriter is used to create sst files that can be added to database later
@@ -30,8 +30,26 @@ pub struct SstFileWriter<'a> {
 unsafe impl Send for SstFileWriter<'_> {}
 unsafe impl Sync for SstFileWriter<'_> {}
 
-struct EnvOptions {
+/// Options while opening a file to read/write.
+pub struct EnvOptions {
     inner: *mut ffi::rocksdb_envoptions_t,
+}
+
+unsafe impl Send for EnvOptions {}
+unsafe impl Sync for EnvOptions {}
+
+impl EnvOptions {
+    /// If true, then use O_DIRECT for writing data.
+    ///
+    /// Default: false
+    pub fn set_use_direct_writes(&mut self, use_direct_writes: bool) {
+        unsafe {
+            ffi::rocksdb_envoptions_set_use_direct_writes(
+                self.inner,
+                c_uchar::from(use_direct_writes),
+            );
+        }
+    }
 }
 
 impl Drop for EnvOptions {
@@ -52,12 +70,13 @@ impl Default for EnvOptions {
 impl<'a> SstFileWriter<'a> {
     /// Initializes SstFileWriter with given DB options.
     pub fn create(opts: &'a Options) -> Self {
-        let env_options = EnvOptions::default();
+        Self::create_with_env_options(opts, &EnvOptions::default())
+    }
 
-        let writer = Self::create_raw(opts, &env_options);
-
+    /// Initializes SstFileWriter with given DB and environment options.
+    pub fn create_with_env_options(opts: &'a Options, env_options: &EnvOptions) -> Self {
         Self {
-            inner: writer,
+            inner: Self::create_raw(opts, env_options),
             phantom: PhantomData,
         }
     }
