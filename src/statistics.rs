@@ -32,7 +32,6 @@ macro_rules! iterable_named_enum {
             )+
         }
 
-        #[automatically_derived]
         impl $typename {
             #[doc = "The corresponding rocksdb string identifier for this variant"]
             pub const fn name(&self) -> &'static str {
