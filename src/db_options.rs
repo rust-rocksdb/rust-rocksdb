@@ -3500,6 +3500,41 @@ impl Options {
         }
     }
 
+    /// Use to control the rate of flush and compaction, limiting reads, writes or
+    /// both according to `mode`. Flush has higher priority than compaction.
+    /// If rate limiter is enabled, bytes_per_sync is set to 1MB by default.
+    ///
+    /// Default: disable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Options, RateLimiterMode};
+    ///
+    /// let mut options = Options::default();
+    /// options.set_ratelimiter_with_mode(1024 * 1024, 100 * 1000, 10, RateLimiterMode::AllIo, false);
+    /// ```
+    pub fn set_ratelimiter_with_mode(
+        &mut self,
+        rate_bytes_per_sec: i64,
+        refill_period_us: i64,
+        fairness: i32,
+        mode: RateLimiterMode,
+        auto_tuned: bool,
+    ) {
+        unsafe {
+            let ratelimiter = ffi::rocksdb_ratelimiter_create_with_mode(
+                rate_bytes_per_sec,
+                refill_period_us,
+                fairness,
+                mode as c_int,
+                auto_tuned,
+            );
+            ffi::rocksdb_options_set_ratelimiter(self.inner, ratelimiter);
+            ffi::rocksdb_ratelimiter_destroy(ratelimiter);
+        }
+    }
+
     /// Sets the maximal size of the info log file.
     ///
     /// If the log file is larger than `max_log_file_size`, a new info log file
@@ -4621,6 +4656,16 @@ pub enum DBCompressionType {
     Lz4 = ffi::rocksdb_lz4_compression as isize,
     Lz4hc = ffi::rocksdb_lz4hc_compression as isize,
     Zstd = ffi::rocksdb_zstd_compression as isize,
+}
+
+/// Matches `RateLimiter::Mode` in `include/rocksdb/rate_limiter.h`, which the C API
+/// takes as a plain `int`.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde1", derive(serde::Serialize, serde::Deserialize))]
+pub enum RateLimiterMode {
+    ReadsOnly = 0,
+    WritesOnly = 1,
+    AllIo = 2,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
