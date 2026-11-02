@@ -19,7 +19,8 @@ use std::{fs, io::Read as _};
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{
     BlockBasedOptions, BlockBasedTablePinningTier, Cache, ColumnFamilyDescriptor,
-    DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options, ReadOptions, DB,
+    DBCompressionType, DataBlockIndexType, Env, LruCacheOptions, Options, RateLimiterMode,
+    ReadOptions, DB,
 };
 use util::DBPath;
 
@@ -405,6 +406,16 @@ fn test_set_ratelimiter() {
 
         let _ = db.put(b"k2", b"a");
         assert_eq!(&*db.get(b"k2").unwrap().unwrap(), b"a");
+    }
+
+    {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_ratelimiter_with_mode(1024000, 1000, 1, RateLimiterMode::AllIo, true);
+        let db = DB::open(&opts, &path).unwrap();
+
+        let _ = db.put(b"k3", b"a");
+        assert_eq!(&*db.get(b"k3").unwrap().unwrap(), b"a");
     }
 }
 
