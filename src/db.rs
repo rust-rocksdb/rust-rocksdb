@@ -181,14 +181,14 @@ pub trait DBAccess {
         &self,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error>;
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error>;
 
     fn get_pinned_cf_opt<K: AsRef<[u8]>>(
         &self,
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error>;
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error>;
 
     fn multi_get_opt<K, I>(
         &self,
@@ -252,7 +252,7 @@ impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
         &self,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error> {
         self.get_pinned_opt(key, readopts)
     }
 
@@ -261,7 +261,7 @@ impl<T: ThreadMode, D: DBInner> DBAccess for DBCommon<T, D> {
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error> {
         self.get_pinned_cf_opt(cf, key, readopts)
     }
 
@@ -1072,7 +1072,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         &self,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. This is a fairly trivial call, and its \
@@ -1100,7 +1100,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
     /// leverages default options.
-    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice>, Error> {
+    pub fn get_pinned<K: AsRef<[u8]>>(&self, key: K) -> Result<Option<DBPinnableSlice<'_>>, Error> {
         self.get_pinned_opt(key, &ReadOptions::default())
     }
 
@@ -1112,7 +1112,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         cf: &impl AsColumnFamilyRef,
         key: K,
         readopts: &ReadOptions,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error> {
         if readopts.inner.is_null() {
             return Err(Error::new(
                 "Unable to create RocksDB read options. This is a fairly trivial call, and its \
@@ -1145,7 +1145,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         &self,
         cf: &impl AsColumnFamilyRef,
         key: K,
-    ) -> Result<Option<DBPinnableSlice>, Error> {
+    ) -> Result<Option<DBPinnableSlice<'_>>, Error> {
         self.get_pinned_cf_opt(cf, key, &ReadOptions::default())
     }
 
@@ -1264,7 +1264,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         cf: &impl AsColumnFamilyRef,
         keys: I,
         sorted_input: bool,
-    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    ) -> Vec<Result<Option<DBPinnableSlice<'_>>, Error>>
     where
         K: AsRef<[u8]> + 'a + ?Sized,
         I: IntoIterator<Item = &'a K>,
@@ -1281,7 +1281,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         keys: I,
         sorted_input: bool,
         readopts: &ReadOptions,
-    ) -> Vec<Result<Option<DBPinnableSlice>, Error>>
+    ) -> Vec<Result<Option<DBPinnableSlice<'_>>, Error>>
     where
         K: AsRef<[u8]> + 'a + ?Sized,
         I: IntoIterator<Item = &'a K>,
@@ -1575,7 +1575,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts)
     }
 
-    pub fn snapshot(&self) -> SnapshotWithThreadMode<Self> {
+    pub fn snapshot(&self) -> SnapshotWithThreadMode<'_, Self> {
         SnapshotWithThreadMode::<Self>::new(self)
     }
 
@@ -2668,7 +2668,7 @@ impl<I: DBInner> DBCommon<MultiThreaded, I> {
     }
 
     /// Returns the underlying column family handle
-    pub fn cf_handle(&self, name: &str) -> Option<Arc<BoundColumnFamily>> {
+    pub fn cf_handle(&self, name: &str) -> Option<Arc<BoundColumnFamily<'_>>> {
         self.cfs
             .cfs
             .read()
