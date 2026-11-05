@@ -23,9 +23,13 @@ jobs:
   doc-check:
     name: Rustdoc-check
     runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -39,9 +43,13 @@ jobs:
   doctest: # doctest are no supported in cargo nextest yet. https://github.com/nextest-rs/nextest/issues/16
     name: Doctests
     runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -98,17 +106,32 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [ Linux, macOS, Windows ]
+        # The jemalloc feature changes how RocksDB is compiled, so it needs a
+        # full rebuild. Running it as a separate job lets it build in parallel.
         include:
           - build: Linux
             os: ubuntu-latest
+          - build: Linux (jemalloc)
+            os: ubuntu-latest
+            features: jemalloc
           - build: macOS
             os: macos-latest
+          - build: macOS (jemalloc)
+            os: macos-latest
+            features: jemalloc
           - build: Windows
             os: windows-latest
+    env:
+      # The cc crate also routes RocksDB's C++ compilation through sccache when
+      # RUSTC_WRAPPER points to it. Unlike a cached target directory, sccache
+      # keys on file contents, so a fresh checkout still hits the cache.
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
+      # Must come before any step that runs cargo, since RUSTC_WRAPPER is set.
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -116,6 +139,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          key: ${{ matrix.features }}
       - uses: taiki-e/install-action@nextest
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
@@ -135,24 +159,18 @@ jobs:
           chmod -R a-w .
           chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests
+        if: ${{ !matrix.features }}
+        # bash stops at the first failing command; pwsh on Windows would only
+        # report the exit code of the last one.
+        shell: bash
         run: |
           cargo nextest run --all
           cargo nextest run --all --features multi-threaded-cf
-      - name: Mark working directory as writable
-        if: runner.os == 'Linux'
-        run: chmod -R a+w .
-      - name: Free disk space
-        run: cargo clean
-      - name: Mark working directory as read-only
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p target
-          touch Cargo.lock
-          chmod -R a-w .
-          chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests (jemalloc)
-        if: runner.os != 'Windows'
-        run: cargo nextest run --all --features jemalloc
+        if: matrix.features == 'jemalloc'
+        # Compile-fail checks don't depend on the allocator. Skipping them here
+        # saves trybuild from building jemalloc a second time.
+        run: cargo nextest run --all --features jemalloc -E 'not binary(test_compile_fail)'
       - name: Mark working directory as writable
         if: runner.os == 'Linux'
         run: chmod -R a+w .

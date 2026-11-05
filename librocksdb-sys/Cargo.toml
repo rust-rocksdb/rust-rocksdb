@@ -49,6 +49,6 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
-bindgen = { version = "0.72", default-features = false }
+bindgen = { version = "0.73", default-features = false }
 pkg-config = { version = "0.3", optional = true }
 rustflags = "0.1"

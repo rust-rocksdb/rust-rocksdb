@@ -263,12 +263,6 @@ fn test_custom_iterator() {
 }
 
 #[test]
-fn test_iterator_outlive_db() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/iterator_outlive_db.rs");
-}
-
-#[test]
 fn test_iter_range() {
     #[rustfmt::skip]
     const ALL_KEYS: [&[u8]; 12] = [

@@ -49,3 +49,10 @@ bincode = "2"
 pretty_assertions = "1"
 tempfile = "3"
 trybuild = "1"
+
+# RocksDB is C++ compiled by the librocksdb-sys build script. Its debug info
+# makes dev and test builds about 20% slower and every test binary larger.
+# To debug RocksDB itself, re-enable it with
+# `--config 'profile.dev.package.librocksdb-sys.debug=true'`.
+[profile.dev.package.librocksdb-sys]
+debug = false
