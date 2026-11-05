@@ -165,10 +165,12 @@ fn build_rocksdb() {
         .filter(|file| !matches!(*file, "util/build_version.cc"))
         .collect::<Vec<&'static str>>();
 
-    if target_pointer_width == "32" {
-        // fault_injection_fs.cc is a test helper with a static_assert on absolute
-        // struct size that assumes 64-bit pointers. Not reachable from the crate's API.
-        lib_sources.retain(|file| !file.contains("fault_injection_fs"));
+    if target_arch == "x86" && target.contains("linux") {
+        // x86 Linux ABI alignment makes InjectedErrorLog::Entry 252 bytes instead of the 256
+        // required by the static_assert in utilities/fault_injection_fs.h. Exclude this test
+        // helper, which is not exposed by the crate's API. NDEBUG, defined above, also keeps
+        // writable_file_writer.h from including that header in production sources.
+        lib_sources.retain(|file| *file != "utilities/fault_injection_fs.cc");
     }
 
     // attempt to pass through the RUSTFLAGS -Ctarget-cpu to allow the same optimizations for C/C++
@@ -452,7 +454,7 @@ fn try_to_find_and_link_lib(lib_name: &str) -> bool {
 /// Returns the value of the `ROCKSDB_CXX_STD` env var, or the default `-std=c++{version}` flag for
 /// building RocksDB.
 ///
-/// Note that RocksDB requires a compiler with full C++20 support (GCC 10 or newer, clang 10 or
+/// Note that RocksDB requires a compiler with C++20 support (GCC 11 or newer, Clang 10 or
 /// newer); older compilers fail on constructs such as defaulted comparison operators.
 fn cxx_standard() -> String {
     println!("cargo:rerun-if-env-changed=ROCKSDB_CXX_STD");
