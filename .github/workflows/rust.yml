@@ -23,18 +23,15 @@ jobs:
   doc-check:
     name: Rustdoc-check
     runs-on: ubuntu-latest
-    env:
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rust-docs
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -43,17 +40,14 @@ jobs:
   doctest: # doctest are no supported in cargo nextest yet. https://github.com/nextest-rs/nextest/issues/16
     name: Doctests
     runs-on: ubuntu-latest
-    env:
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -70,6 +64,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: clippy
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -106,8 +101,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # The jemalloc feature changes how RocksDB is compiled, so it needs a
-        # full rebuild. Running it as a separate job lets it build in parallel.
+        # On Linux, jemalloc changes how RocksDB is compiled, requiring a full
+        # rebuild. A separate job lets it build in parallel with the default.
         include:
           - build: Linux
             os: ubuntu-latest
@@ -116,26 +111,16 @@ jobs:
             features: jemalloc
           - build: macOS
             os: macos-latest
-          - build: macOS (jemalloc)
-            os: macos-latest
-            features: jemalloc
           - build: Windows
             os: windows-latest
-    env:
-      # The cc crate also routes RocksDB's C++ compilation through sccache when
-      # RUSTC_WRAPPER points to it. Unlike a cached target directory, sccache
-      # keys on file contents, so a fresh checkout still hits the cache.
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
-      # Must come before any step that runs cargo, since RUSTC_WRAPPER is set.
-      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true

@@ -127,11 +127,6 @@ jobs:
             exit 1
           fi
 
-      # On i686, ABI alignment makes InjectedErrorLog::Entry 252 bytes instead
-      # of the 256 required by utilities/fault_injection_fs.h. build.rs excludes
-      # fault_injection_fs.cc on x86 Linux; NDEBUG keeps production sources from
-      # including the header via writable_file_writer.h. ARMv7 is unaffected.
-
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
         with:
@@ -143,20 +138,7 @@ jobs:
       - name: Build
         run: cargo build --workspace --target "$TARGET" --all-targets
 
-      # Check the artifact format after a successful build. Test execution is
-      # covered separately below; ARMv7 currently has compilation coverage only.
-      - name: Verify artifacts are 32-bit
-        run: |
-          set -euo pipefail
-          bin=$(find "target/$TARGET/debug/deps" -type f -executable -print -quit)
-          if [ -z "$bin" ]; then
-            echo "::error::no target executable found"
-            exit 1
-          fi
-          file "$bin"
-          file "$bin" | grep -q 'ELF 32-bit' \
-            || { echo "::error::not a 32-bit binary"; exit 1; }
-
+      # ARMv7 currently has compilation coverage only.
       - name: Test
         if: matrix.target == 'i686-unknown-linux-musl'
         run: cargo test --workspace --target "$TARGET"

@@ -163,15 +163,9 @@ fn build_rocksdb() {
         .map(str::trim)
         // We have a pre-generated a version of build_version.cc in the local directory
         .filter(|file| !matches!(*file, "util/build_version.cc"))
+        // NDEBUG disables all references from the library to this test helper.
+        .filter(|file| *file != "utilities/fault_injection_fs.cc")
         .collect::<Vec<&'static str>>();
-
-    if target_arch == "x86" && target.contains("linux") {
-        // x86 Linux ABI alignment makes InjectedErrorLog::Entry 252 bytes instead of the 256
-        // required by the static_assert in utilities/fault_injection_fs.h. Exclude this test
-        // helper, which is not exposed by the crate's API. NDEBUG, defined above, also keeps
-        // writable_file_writer.h from including that header in production sources.
-        lib_sources.retain(|file| *file != "utilities/fault_injection_fs.cc");
-    }
 
     // attempt to pass through the RUSTFLAGS -Ctarget-cpu to allow the same optimizations for C/C++
     pass_through_target_cpu(&mut config);
