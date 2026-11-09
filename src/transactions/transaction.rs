@@ -45,7 +45,7 @@ impl<DB> DBAccess for Transaction<'_, DB> {
     }
 
     unsafe fn create_iterator(&self, readopts: &ReadOptions) -> *mut ffi::rocksdb_iterator_t {
-        ffi::rocksdb_transaction_create_iterator(self.inner, readopts.inner)
+        ffi::rocksdb_transaction_create_iterator(self.inner, readopts.inner())
     }
 
     unsafe fn create_iterator_cf(
@@ -53,7 +53,7 @@ impl<DB> DBAccess for Transaction<'_, DB> {
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
         readopts: &ReadOptions,
     ) -> *mut ffi::rocksdb_iterator_t {
-        ffi::rocksdb_transaction_create_iterator_cf(self.inner, readopts.inner, cf_handle)
+        ffi::rocksdb_transaction_create_iterator_cf(self.inner, readopts.inner(), cf_handle)
     }
 
     fn get_opt<K: AsRef<[u8]>>(
@@ -325,7 +325,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 key.as_ptr() as *const c_char,
                 key.len(),
             ));
@@ -364,7 +364,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_cf(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len(),
@@ -405,7 +405,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update(
                 self.inner,
-                opts.inner,
+                opts.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
                 u8::from(exclusive),
@@ -468,7 +468,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             let val = ffi_try!(ffi::rocksdb_transaction_get_pinned_for_update_cf(
                 self.inner,
-                opts.inner,
+                opts.inner(),
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
@@ -516,7 +516,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             ffi::rocksdb_transaction_multi_get(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
                 keys_sizes.as_ptr(),
@@ -575,7 +575,7 @@ impl<DB> Transaction<'_, DB> {
         unsafe {
             ffi::rocksdb_transaction_multi_get_cf(
                 self.inner,
-                readopts.inner,
+                readopts.inner(),
                 ptr_cfs.as_ptr(),
                 ptr_keys.len(),
                 ptr_keys.as_ptr(),
