@@ -2,7 +2,7 @@ name: RocksDB CI
 
 on: [ push, pull_request ]
 env:
-  RUST_VERSION: 1.88.0
+  RUST_VERSION: 1.89.0
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -25,12 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: rust-docs
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -41,11 +42,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -56,12 +58,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
           components: clippy
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -85,7 +88,7 @@ jobs:
     name: Security audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
@@ -98,25 +101,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [ Linux, macOS, Windows ]
+        # On Linux, jemalloc changes how RocksDB is compiled, requiring a full
+        # rebuild. A separate job lets it build in parallel with the default.
         include:
           - build: Linux
             os: ubuntu-latest
+          - build: Linux (jemalloc)
+            os: ubuntu-latest
+            features: jemalloc
           - build: macOS
             os: macos-latest
           - build: Windows
             os: windows-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Install rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          target: ${{ matrix.target }}
+          cache: false
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          key: ${{ matrix.features }}
       - uses: taiki-e/install-action@nextest
       - name: Remove msys64 # Workaround to resolve link error with C:\msys64\mingw64\bin\libclang.dll
         if: runner.os == 'Windows'
@@ -136,24 +144,18 @@ jobs:
           chmod -R a-w .
           chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests
+        if: ${{ !matrix.features }}
+        # bash stops at the first failing command; pwsh on Windows would only
+        # report the exit code of the last one.
+        shell: bash
         run: |
           cargo nextest run --all
           cargo nextest run --all --features multi-threaded-cf
-      - name: Mark working directory as writable
-        if: runner.os == 'Linux'
-        run: chmod -R a+w .
-      - name: Free disk space
-        run: cargo clean
-      - name: Mark working directory as read-only
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p target
-          touch Cargo.lock
-          chmod -R a-w .
-          chmod -R a+w target Cargo.lock
       - name: Run rocksdb tests (jemalloc)
-        if: runner.os != 'Windows'
-        run: cargo nextest run --all --features jemalloc
+        if: matrix.features == 'jemalloc'
+        # Compile-fail checks don't depend on the allocator. Skipping them here
+        # saves trybuild from building jemalloc a second time.
+        run: cargo nextest run --all --features jemalloc -E 'not binary(test_compile_fail)'
       - name: Mark working directory as writable
         if: runner.os == 'Linux'
         run: chmod -R a+w .
