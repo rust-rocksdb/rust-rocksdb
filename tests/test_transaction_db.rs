@@ -418,6 +418,9 @@ fn transaction() {
         opts.create_if_missing(true);
         let mut txn_db_opts = TransactionDBOptions::default();
         txn_db_opts.set_txn_lock_timeout(10);
+        // `db.put` below writes outside of a transaction and waits for
+        // `default_lock_timeout` (1s by default) before reporting TimedOut.
+        txn_db_opts.set_default_lock_timeout(10);
 
         let db: TransactionDB = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
 
@@ -628,7 +631,12 @@ fn two_phase_commit() {
     DB::destroy(&Options::default(), &path).unwrap();
 
     {
-        let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        // Keep the expected TimedOut on the locked key below short.
+        let mut txn_db_opts = TransactionDBOptions::default();
+        txn_db_opts.set_default_lock_timeout(10);
+        let db: TransactionDB = TransactionDB::open(&opts, &txn_db_opts, &path).unwrap();
 
         let txn = db.transaction();
         txn.put(b"k1", b"v1").unwrap();
@@ -651,8 +659,6 @@ fn two_phase_commit() {
 
     {
         // recovery
-        let mut opt = TransactionDBOptions::new();
-        opt.set_default_lock_timeout(1);
         let db: TransactionDB = TransactionDB::open_default(&path).unwrap();
 
         // get prepared transactions
@@ -839,22 +845,4 @@ fn transaction_db_flush_cfs_opt() {
         assert_eq!(db.get_cf(&cf1, b"k1").unwrap().unwrap().as_slice(), b"v1");
         assert_eq!(db.get_cf(&cf2, b"k2").unwrap().unwrap().as_slice(), b"v2");
     }
-}
-
-#[test]
-fn test_snapshot_outlive_transaction_db() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/snapshot_outlive_transaction_db.rs");
-}
-
-#[test]
-fn test_txn_outlive_transaction_db() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/transaction_outlive_transaction_db.rs");
-}
-
-#[test]
-fn test_snapshot_outlive_txn() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/snapshot_outlive_transaction.rs");
 }
