@@ -282,7 +282,7 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     ///
     /// Like ``.seek()`` this method will attempt to seek to the specified key.
     /// The difference with ``.seek()`` is that if the specified key does not exist, this method will
-    /// seek to the key that lexicographically precedes it instead.
+    /// seek the key that lexicographically precedes it instead.
     ///
     /// # Examples
     ///
