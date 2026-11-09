@@ -47,6 +47,7 @@ db/compaction/compaction_outputs.cc
 db/compaction/sst_partitioner.cc
 db/compaction/subcompaction_state.cc
 db/convenience.cc
+db/coro_db.cc
 db/db_filesnapshot.cc
 db/db_impl/compacted_db_impl.cc
 db/db_impl/db_impl.cc
@@ -83,6 +84,7 @@ db/merge_helper.cc
 db/merge_operator.cc
 db/multi_scan.cc
 db/output_validator.cc
+db/periodic_compaction_phaser.cc
 db/periodic_task_scheduler.cc
 db/range_del_aggregator.cc
 db/range_tombstone_fragmenter.cc
@@ -91,7 +93,6 @@ db/seqno_to_time_mapping.cc
 db/snapshot_impl.cc
 db/table_cache.cc
 db/table_properties_collector.cc
-db/transaction_log_impl.cc
 db/trim_history_scheduler.cc
 db/version_builder.cc
 db/version_edit.cc
@@ -99,7 +100,9 @@ db/version_edit_handler.cc
 db/version_set.cc
 db/version_util.cc
 db/wal_edit.cc
+db/wal_iterator_impl.cc
 db/wal_manager.cc
+db/wide/lazy_wide_columns.cc
 db/wide/read_path_blob_resolver.cc
 db/wide/wide_column_serialization.cc
 db/wide/wide_columns.cc
@@ -185,6 +188,7 @@ table/block_based/block_builder.cc
 table/block_based/block_cache.cc
 table/block_based/block_prefetcher.cc
 table/block_based/block_prefix_index.cc
+table/block_based/builtin_index_factory.cc
 table/block_based/data_block_hash_index.cc
 table/block_based/data_block_footer.cc
 table/block_based/filter_block_reader_common.cc
@@ -218,6 +222,7 @@ table/plain/plain_table_factory.cc
 table/plain/plain_table_index.cc
 table/plain/plain_table_key_coding.cc
 table/plain/plain_table_reader.cc
+table/range_del_block.cc
 table/sst_file_dumper.cc
 table/sst_file_reader.cc
 table/sst_file_writer.cc
