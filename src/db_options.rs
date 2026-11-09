@@ -785,10 +785,10 @@ impl BlockBasedOptions {
 
     /// Format version, reserved for backward compatibility.
     ///
-    /// See full [list](https://github.com/facebook/rocksdb/blob/v8.6.7/include/rocksdb/table.h#L493-L521)
+    /// See full [list](https://github.com/meta/rocksdb/blob/v11.8.1/include/rocksdb/table.h#L702-L739)
     /// of the supported versions.
     ///
-    /// Default: 5.
+    /// Default: 7.
     pub fn set_format_version(&mut self, version: i32) {
         unsafe {
             ffi::rocksdb_block_based_options_set_format_version(self.inner, version);
