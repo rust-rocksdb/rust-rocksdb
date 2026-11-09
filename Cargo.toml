@@ -3,7 +3,7 @@ name = "rocksdb"
 description = "Rust wrapper for Facebook's RocksDB embeddable database"
 version = "0.25.0"
 edition = "2021"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 authors = [
     "Tyler Neely <t@jujit.su>",
     "David Greenberg <dsg123456789@gmail.com>",
@@ -39,7 +39,7 @@ raw-ptr = []
 
 [dependencies]
 libc = "0.2"
-librocksdb-sys = { path = "librocksdb-sys", version = "0.19.0", default-features = false, features = [
+librocksdb-sys = { path = "librocksdb-sys", version = "0.20.0", default-features = false, features = [
     "static",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
@@ -49,3 +49,10 @@ bincode = "2"
 pretty_assertions = "1"
 tempfile = "3"
 trybuild = "1"
+
+# RocksDB is C++ compiled by the librocksdb-sys build script. Its debug info
+# makes dev and test builds about 20% slower and every test binary larger.
+# To debug RocksDB itself, re-enable it with
+# `--config 'profile.dev.package.librocksdb-sys.debug=true'`.
+[profile.dev.package.librocksdb-sys]
+debug = false

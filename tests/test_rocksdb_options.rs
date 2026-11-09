@@ -628,7 +628,7 @@ fn test_crc32_build() {
 
     // Verify that the RocksDB reported architecture matches this test
     // this may fail if RocksDB changes its string formatting
-    let expected_arch = if cfg!(target_arch = "x86_64") {
+    let expected_arch = if cfg!(any(target_arch = "x86_64", target_arch = "x86")) {
         "x86".to_string()
     } else if cfg!(target_arch = "aarch64") {
         // TODO: RocksDB has a bug: it can report x86 when the CRC feature is not enabled
