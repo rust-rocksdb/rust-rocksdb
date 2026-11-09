@@ -59,9 +59,11 @@ Do not guess.
 | C API pattern | Who frees | How |
 |---|---|---|
 | `char** errptr` out-param | caller | Use `ffi_try!`, which calls `convert_rocksdb_error`. That frees the string, so the pointer must not be used again. |
-| `char*` returned from `rocksdb_get*`, `rocksdb_*property_value*`, `rocksdb_get_db_identity`, `rocksdb_transaction_get*`, etc. (malloc'd) | caller | `ffi::rocksdb_free`, via `from_cstr_and_free`, `CSlice::from_raw_parts` or `raw_data` followed by `rocksdb_free`. |
+| NUL-terminated malloc'd strings (e.g. `rocksdb_*property_value*`) | caller | `from_cstr_and_free`, which frees with `ffi::rocksdb_free`. |
+| Length-delimited malloc'd bytes (e.g. `rocksdb_get*`, `rocksdb_get_db_identity`, `rocksdb_transaction_get*`) | caller | Use the returned length with `CSlice::from_raw_parts`, or `raw_data` followed by `ffi::rocksdb_free`. Never use C-string helpers. |
 | Values and errors from `rocksdb_multi_get*` | caller, **per element** | Every non-null value and every non-null error (see `convert_values` in `src/db.rs`). |
-| Accessors into a container: `rocksdb_iter_key/value/timestamp`, `rocksdb_pinnableslice_value`, `rocksdb_livefiles_name`, `rocksdb_livefiles_*key`, `rocksdb_writebatch_data` | **nobody** (borrowed) | Copy with `from_cstr_without_free` or `raw_data`, or return a slice whose lifetime is tied to the container. Never free. |
+| NUL-terminated borrowed names: `rocksdb_livefiles_name` | **nobody** (borrowed) | Copy with `from_cstr_without_free`. Never free. |
+| Length-delimited borrowed bytes: `rocksdb_iter_key/value/timestamp`, `rocksdb_pinnableslice_value`, `rocksdb_livefiles_*key`, `rocksdb_writebatch_data` | **nobody** (borrowed) | Copy with `raw_data(ptr, len)`, or return a slice whose lifetime is tied to the container. Never use C-string helpers or free these buffers. |
 | Arrays and aggregate results: `rocksdb_list_column_families`, `rocksdb_livefiles`, `rocksdb_get_column_family_metadata*` | caller | Their dedicated `*_destroy` function, after all elements have been copied. |
 | Objects from `*_create*`, `*_open*`, `rocksdb_create_column_family*` | caller | The matching `*_destroy`, `*_close` or `rocksdb_column_family_handle_destroy`, **exactly once**. |
 | `rocksdb_options_set_merge_operator`, `_set_compaction_filter_factory`, `_set_prefix_extractor` | **C++** (`shared_ptr` / `reset`) | Rust must not destroy the object afterwards and must not hand the same pointer to a second `Options`. |
@@ -96,7 +98,7 @@ Check each item below and report every violation.
   3. If the C `*_create` can fail or return null, the box is reclaimed instead of leaked.
 - **`mem::forget`, `ManuallyDrop`, `Box::leak`, `into_raw` and `Arc::into_raw`** need a
   `// SAFETY:` or ownership comment that names who frees the value and when. Without one,
-  treat it as a leak.
+  trace the ownership and cleanup paths; report a leak only if a leaking path is established.
 - **`SliceTransform` intentionally has no `Drop`.** Ownership moves into
   `set_prefix_extractor`. A new API that accepts a `SliceTransform` without transferring it
   leaks it. One that transfers the same `SliceTransform` twice double frees it.
@@ -112,10 +114,11 @@ Check each item below and report every violation.
 ## Step 3: use-after-free, dangling pointers and lifetimes
 
 - **Pointers to temporaries.** `let p = CString::new(x)?.as_ptr();` dangles because the
-  `CString` is dropped at the end of the `let` statement. Calling `.as_ptr()` on a temporary is
-  fine **only** inside the argument list of the FFI call in the same statement, as in
-  `to_cpath(p)?.as_ptr()` in `src/db.rs`. The same applies to `Vec`, `String` and
-  `to_vec()` temporaries.
+  `CString` is dropped at the end of the `let` statement. Calling `.as_ptr()` on a temporary
+  inside an FFI argument list is safe only if C finishes using the bytes before that
+  statement ends and does not retain the pointer, as with `to_cpath(p)?.as_ptr()` for DB
+  open calls. If C retains the pointer, keep its owner alive for the entire period of use.
+  The same applies to `Vec`, `String` and `to_vec()` temporaries.
 - **Borrowed C memory needs a Rust lifetime.** A slice from `rocksdb_iter_key/value`,
   `rocksdb_pinnableslice_value` and similar accessors must borrow `&self`. Every method that
   can invalidate that memory (`next`, `prev`, `seek*`, `refresh`, `set_*`) must take
@@ -158,9 +161,11 @@ Trampolines are `unsafe extern "C" fn`s that receive a `*mut c_void` state point
   - Otherwise, document that a panic aborts the process.
   - Do not "fix" this with `extern "C-unwind"`: RocksDB's C++ frames are not unwind-safe for
     Rust panics.
-- **Concurrency.** Callbacks run on RocksDB background threads (compaction, flush), often
-  several at once.
-  - The closure must be `Send + Sync + 'static` (as `MergeFn` is).
+- **Concurrency.** Retained callbacks may run on RocksDB background threads (compaction,
+  flush), often several at once.
+  - Retained callbacks invoked concurrently on shared state must be `Send + Sync + 'static`
+    (as `MergeFn` is). Synchronous callbacks such as `WriteBatch::iterate` may borrow
+    non-`Send`/non-`Sync` state for the duration of the call.
   - The trampoline must create `&*` (shared), **not** `&mut *`, when it can be called
     concurrently. `FnMut` state shared across threads is a data race.
   - Exception: a compaction filter created per compaction by a factory is used from only one
@@ -200,8 +205,10 @@ Memory must be freed by the allocator that allocated it.
   RocksDB's thread-safety guarantee for the wrapped C++ object. For example, `DB` is
   thread-safe, a `WriteBatch` is not safe for concurrent mutation, and an `Iterator` must not
   be used from several threads at once.
-- `Sync` is acceptable only if every `&self` method is safe to call concurrently. Methods that
-  mutate C++ state must take `&mut self`.
+- `Sync` is acceptable only if every `&self` method is safe to call concurrently. Mutation
+  without a thread-safety guarantee requires `&mut self` or synchronization. Thread-safe
+  interior mutation, such as `DB::put`, may use `&self`, provided it does not invalidate
+  memory exposed through outstanding Rust borrows.
 - When a type's auto traits change, update the compile-time `is_send` / `is_sync` lists in
   `src/lib.rs`.
 - Do not hold the column-family map lock (`RwLock` in `MultiThreaded` mode) across a RocksDB
