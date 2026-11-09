@@ -252,7 +252,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
     }
 
     /// Creates a transaction with default options.
-    pub fn transaction(&self) -> Transaction<Self> {
+    pub fn transaction(&self) -> Transaction<'_, Self> {
         self.transaction_opt(
             &WriteOptions::default(),
             &OptimisticTransactionOptions::default(),
@@ -264,7 +264,7 @@ impl<T: ThreadMode> OptimisticTransactionDB<T> {
         &self,
         writeopts: &WriteOptions,
         otxn_opts: &OptimisticTransactionOptions,
-    ) -> Transaction<Self> {
+    ) -> Transaction<'_, Self> {
         Transaction {
             inner: unsafe {
                 ffi::rocksdb_optimistictransaction_begin(
