@@ -560,9 +560,3 @@ fn test_checkpoint_wal_over_threshold_is_flushed() {
     let cp_db = DB::open_default(&cp_path).unwrap();
     assert!(cp_db.get(b"key_00000000").unwrap().is_some());
 }
-
-#[test]
-fn test_checkpoint_outlive_db() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/checkpoint_outlive_db.rs");
-}

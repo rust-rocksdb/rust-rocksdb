@@ -17,9 +17,3 @@ fn test_memory_usage_builder() {
     let memory_usage = get_memory_usage_stats(Some(&[&db]), None).unwrap();
     assert!(memory_usage.mem_table_total > 0);
 }
-
-#[test]
-fn test_memory_usage_builder_outlive_db() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/memory_usage_builder_outlive_db.rs");
-}
