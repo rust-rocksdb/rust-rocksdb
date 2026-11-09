@@ -268,5 +268,9 @@ iterable_named_enum! {
         CheckpointReadBytes("rocksdb.checkpoint.read.bytes"),
         CheckpointWriteBytes("rocksdb.checkpoint.write.bytes"),
         FileSubmitAsyncReadFallback("rocksdb.file.submit.async.read.fallback"),
+        BlobDbLazyReadCount("rocksdb.blobdb.lazy.read.count"),
+        BlobDbLazyReadBytes("rocksdb.blobdb.lazy.read.bytes"),
+        BlobDbLazyPartialReadCount("rocksdb.blobdb.lazy.partial.read.count"),
+        BlobDbLazyPartialBytesSaved("rocksdb.blobdb.lazy.partial.bytes.saved"),
     }
 }

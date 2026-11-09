@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.25.0 (2026-08-16)
+
+### Features
+
+- Add per-column-family SST and blob paths with `set_cf_paths` (Cryptomiester)
+- Add the mempurge threshold option (Vladimir Petrzhikovskii)
+- Add checkpoint support to `TransactionDB` (David Calavera)
+- Add `flush` and `flush_wal` wrappers to `TransactionDB` (Guido D'Orsi)
+- Add `delete_range` to `SstFileWriter` (cooronx)
+- Add `timestamp()` to `DBRawIterator` (Dillon Hicks)
+- Add `Iterator::Refresh()` bindings (Joshua Send)
+- Add custom logging callbacks (Ilan Scheinkman)
+- Add `sequence_number` to `SnapshotWithThreadMode` (Luca Casonato)
+- Add a feature-gated trait for exposing raw C pointers (Jacek Szwec)
+- Allow configuring checkpoint log size for flush (QuantumExplorer)
+- Expose `options_set_ttl` (Igor Bukanov)
+- Expose `get_options_from_string` (Mario Rugiero)
+- Expose high-priority cache index and filter blocks (Igor Bukanov)
+- Expose file deletion controls (Jacek Szwec)
+- Add ReadOptions deadline and I/O timeout setters (modernzju)
+- Add single delete support to `WriteBatch` (Vladimir)
+
+### Improvements
+
+- Preserve non-UTF-8 path bytes across the Unix FFI (grandpig)
+- Pass through `-Ctarget-cpu` and enable CRC32 flags on aarch64 (Evan Jones)
+- Sync build configuration defines with RocksDB (Evan Jones)
+- Improve documentation for cache and statistics options (Evan Jones)
+- Improve comments and readability (solunolab, caltechustc, luohewuyang, vastonus, Galoretka)
+- Add `CXXSTDLIB` support for Unix builds (Ivan Kalinin)
+- Update CI to use `actions/checkout` v5 (Coder)
+
+### Bug Fixes
+
+- Fix a memory leak in `Options::set_info_log` (Evan Jones)
+- Fix memory leaks in column-family metadata, column-family creation, and memory usage APIs (Evan Jones)
+- Fix memory leaks in database option error paths and compaction filters (Evan Jones)
+- Use the correct FFI setter for `skip_prepare` (GarmashAlex)
+- Fix clippy cast warnings on Linux aarch64 (Evan Jones)
+
+### Documentation
+
+- Document `set_compression_options` parameters (Val Lorentz)
+- Document `set_skip_prepare` (MozirDmitriy)
+- Copy RocksDB documentation for `Cache::new_hyper_clock_cache` (Evan Jones)
+
+### Dependency Updates
+
+- Bump Rust to 1.88.0 (Oleksandr Anyshchenko)
+- Update to RocksDB 10.7.5 (nsaji-stripe)
+- Update to RocksDB 11.8.1 (Oleksandr Anyshchenko)
+- Bump `tikv-jemalloc-sys` to 0.7 (checkraisefold)
+
+### Contributors
+
+- Cryptomiester, Vladimir Petrzhikovskii, David Calavera, Guido D'Orsi, cooronx, Dillon Hicks, Joshua Send,
+  Ilan Scheinkman, Luca Casonato, Jacek Szwec, QuantumExplorer, Igor Bukanov, Mario Rugiero, modernzju, Vladimir,
+  grandpig, Evan Jones, solunolab, caltechustc, luohewuyang, vastonus, Galoretka, Ivan Kalinin, Coder, GarmashAlex,
+  Val Lorentz, MozirDmitriy, Oleksandr Anyshchenko, nsaji-stripe, checkraisefold
+
 ## 0.24.0 (2025-08-10)
 
 ### Features
