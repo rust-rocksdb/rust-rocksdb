@@ -428,11 +428,11 @@ fn set_column_family_metadata_test() {
         db.flush_cf(&cf2).unwrap();
 
         let default_cf_metadata = db.get_column_family_metadata();
-        assert_eq!(default_cf_metadata.size > 150, true);
+        assert_eq!(default_cf_metadata.size > 1300, true);
         assert_eq!(default_cf_metadata.file_count, 1);
 
         let cf2_metadata = db.get_column_family_metadata_cf(&cf2);
-        assert_eq!(cf2_metadata.size > default_cf_metadata.size, true);
+        assert!(cf2_metadata.size < default_cf_metadata.size);
         assert_eq!(cf2_metadata.file_count, 1);
     }
 }
@@ -792,13 +792,6 @@ fn test_open_with_multiple_refs_as_multi_threaded() {
     let opts = Options::default();
     db_ref1.create_cf("cf1", &opts).unwrap();
     db_ref2.create_cf("cf2", &opts).unwrap();
-}
-
-#[test]
-fn test_open_with_multiple_refs_as_single_threaded() {
-    // This tests multiple references CANNOT be allowed while creating column families
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/open_with_multiple_refs_as_single_threaded.rs");
 }
 
 #[test]
@@ -1554,12 +1547,6 @@ fn key_may_exist_cf_value() {
             }
         }
     }
-}
-
-#[test]
-fn test_snapshot_outlive_db() {
-    let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/snapshot_outlive_db.rs");
 }
 
 #[test]

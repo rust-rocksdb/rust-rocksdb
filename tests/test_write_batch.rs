@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
-use rocksdb::{Error, WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, DB};
+use rocksdb::{Error, Options, WriteBatch, WriteBatchIterator, WriteBatchIteratorCf, DB};
 use util::DBPath;
 
 #[test]
@@ -111,6 +111,27 @@ fn test_write_batch_cf_with_serialized_data() {
     let b2 = WriteBatch::from_data(data);
     let mut it = Iterator { data: kvs };
     b2.iterate_cf(&mut it);
+}
+
+#[test]
+fn test_write_batch_single_delete() {
+    let path = DBPath::new("writebatch_single_delete");
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    let db = DB::open_cf(&opts, &path, ["cf"]).unwrap();
+    let cf = db.cf_handle("cf").unwrap();
+
+    db.put(b"default-key", b"default-value").unwrap();
+    db.put_cf(&cf, b"cf-key", b"cf-value").unwrap();
+
+    let mut batch = WriteBatch::default();
+    batch.single_delete(b"default-key");
+    batch.single_delete_cf(&cf, b"cf-key");
+    db.write(batch).unwrap();
+
+    assert_eq!(db.get(b"default-key").unwrap(), None);
+    assert_eq!(db.get_cf(&cf, b"cf-key").unwrap(), None);
 }
 
 #[test]

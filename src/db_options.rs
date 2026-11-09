@@ -827,10 +827,10 @@ impl BlockBasedOptions {
 
     /// Format version, reserved for backward compatibility.
     ///
-    /// See full [list](https://github.com/facebook/rocksdb/blob/v8.6.7/include/rocksdb/table.h#L493-L521)
+    /// See full [list](https://github.com/meta/rocksdb/blob/v11.8.1/include/rocksdb/table.h#L702-L739)
     /// of the supported versions.
     ///
-    /// Default: 5.
+    /// Default: 7.
     pub fn set_format_version(&mut self, version: i32) {
         unsafe {
             ffi::rocksdb_block_based_options_set_format_version(self.inner, version);
@@ -1574,6 +1574,22 @@ impl Options {
         }
     }
 
+    /// Sets various compression options
+    ///
+    /// # `window_bits`, `strategy`
+    ///
+    /// zlib-specific options, see [zlib's manual](https://www.zlib.net/manual.html)
+    ///
+    /// # `level`
+    ///
+    /// Compression "level" applicable to zstd, zlib, LZ4, and LZ4HC.
+    /// T the meaning of each value depends
+    /// on the compression algorithm. Decreasing across non-
+    /// `kDefaultCompressionLevel` values will either favor speed over
+    /// compression ratio or have no effect.
+    ///
+    /// # `max_dict_bytes`
+    ///
     /// Maximum size of dictionaries used to prime the compression library.
     /// Enabling dictionary can improve compression ratios when there are
     /// repetitions across data blocks.
@@ -1589,6 +1605,8 @@ impl Options {
     /// can only be compressed and written after the dictionary has been finalized.
     /// So users of this feature may see increased memory usage.
     ///
+    /// See [RocksDB's blog post](https://rocksdb.org/blog/2021/05/31/dictionary-compression.html) for details.
+    ///
     /// Default: `0`
     ///
     /// # Examples
@@ -1601,7 +1619,7 @@ impl Options {
     /// ```
     pub fn set_compression_options(
         &mut self,
-        w_bits: c_int,
+        window_bits: c_int,
         level: c_int,
         strategy: c_int,
         max_dict_bytes: c_int,
@@ -1609,7 +1627,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_compression_options(
                 self.inner,
-                w_bits,
+                window_bits,
                 level,
                 strategy,
                 max_dict_bytes,
@@ -1633,7 +1651,7 @@ impl Options {
     /// ```
     pub fn set_bottommost_compression_options(
         &mut self,
-        w_bits: c_int,
+        window_bits: c_int,
         level: c_int,
         strategy: c_int,
         max_dict_bytes: c_int,
@@ -1642,7 +1660,7 @@ impl Options {
         unsafe {
             ffi::rocksdb_options_set_bottommost_compression_options(
                 self.inner,
-                w_bits,
+                window_bits,
                 level,
                 strategy,
                 max_dict_bytes,
@@ -2894,24 +2912,6 @@ impl Options {
                 self.inner,
                 level_values.as_ptr().cast_mut(),
                 count,
-            );
-        }
-    }
-
-    /// If true, then DB::Open() will not fetch and check sizes of all sst files.
-    /// This may significantly speed up startup if there are many sst files,
-    /// especially when using non-default Env with expensive GetFileSize().
-    /// We'll still check that all required sst files exist.
-    /// If paranoid_checks is false, this option is ignored, and sst files are
-    /// not checked at all.
-    ///
-    /// Default: false
-    #[deprecated(note = "RocksDB >= 10.5: option is ignored: checking done with a thread pool")]
-    pub fn set_skip_checking_sst_file_sizes_on_db_open(&mut self, value: bool) {
-        unsafe {
-            ffi::rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(
-                self.inner,
-                c_uchar::from(value),
             );
         }
     }
@@ -4371,6 +4371,31 @@ impl ReadOptions {
     pub fn set_auto_readahead_size(&mut self, v: bool) {
         unsafe {
             ffi::rocksdb_readoptions_set_auto_readahead_size(self.inner_mut(), c_uchar::from(v));
+        }
+    }
+
+    /// Sets the deadline for completing an API call in microseconds since the
+    /// Unix epoch.
+    ///
+    /// This is best effort and applies to `Get`, `MultiGet`, `Seek`, and `Next`
+    /// operations.
+    ///
+    /// Default: 0
+    pub fn set_deadline(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_deadline(self.inner, microseconds);
+        }
+    }
+
+    /// Sets the timeout for each underlying file read request in microseconds.
+    ///
+    /// Unlike `set_deadline`, this timeout applies to each individual read
+    /// request. A single RocksDB operation may issue multiple file reads.
+    ///
+    /// Default: 0
+    pub fn set_io_timeout(&mut self, microseconds: u64) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_io_timeout(self.inner, microseconds);
         }
     }
 

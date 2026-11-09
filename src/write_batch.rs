@@ -370,6 +370,28 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         }
     }
 
+    /// Removes the database entry for key.
+    ///
+    /// `SingleDelete` is an experimental performance optimization for a very
+    /// specific workload. It only behaves correctly if there has been exactly
+    /// one `put` for this key since the previous call to `single_delete` for
+    /// this key. If the key is overwritten by calling `put` multiple times, or
+    /// if `single_delete` is mixed with `delete` or `merge` for the same key,
+    /// the result is undefined.
+    ///
+    /// See <https://github.com/facebook/rocksdb/wiki/Single-Delete>.
+    pub fn single_delete<K: AsRef<[u8]>>(&mut self, key: K) {
+        let key = key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_singledelete(
+                self.inner,
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            );
+        }
+    }
+
     /// Removes the database entry in the specific column family for key.
     /// Does nothing if the key was not found.
     pub fn delete_cf<K: AsRef<[u8]>>(&mut self, cf: &impl AsColumnFamilyRef, key: K) {
@@ -377,6 +399,29 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
 
         unsafe {
             ffi::rocksdb_writebatch_delete_cf(
+                self.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            );
+        }
+    }
+
+    /// Removes the database entry in the specific column family for key.
+    ///
+    /// `SingleDelete` is an experimental performance optimization for a very
+    /// specific workload. It only behaves correctly if there has been exactly
+    /// one `put_cf` for this key since the previous call to `single_delete_cf`
+    /// for this key. If the key is overwritten by calling `put_cf` multiple
+    /// times, or if `single_delete_cf` is mixed with `delete_cf` or `merge_cf`
+    /// for the same key, the result is undefined.
+    ///
+    /// See <https://github.com/facebook/rocksdb/wiki/Single-Delete>.
+    pub fn single_delete_cf<K: AsRef<[u8]>>(&mut self, cf: &impl AsColumnFamilyRef, key: K) {
+        let key = key.as_ref();
+
+        unsafe {
+            ffi::rocksdb_writebatch_singledelete_cf(
                 self.inner,
                 cf.inner(),
                 key.as_ptr() as *const c_char,
