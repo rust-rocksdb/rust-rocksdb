@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::marker::PhantomData;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -417,8 +418,17 @@ pub struct BlockBasedOptions {
     outlive: BlockBasedOptionsMustOutliveDB,
 }
 
-pub struct ReadOptions {
+/// Options for a single read or for an iterator.
+///
+/// The lifetime `'a` is the borrow of the snapshot passed to
+/// [`set_snapshot`](Self::set_snapshot), which keeps that snapshot alive for
+/// as long as these options (and any iterator created from them) exist.
+/// Options without a snapshot can use any lifetime, including `'static`.
+pub struct ReadOptions<'a> {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    // `rocksdb_readoptions_t` stores a raw pointer to the snapshot set with
+    // `set_snapshot`, so the snapshot has to outlive these options.
+    snapshot: PhantomData<&'a ()>,
     // The `ReadOptions` owns a copy of the timestamp and iteration bounds.
     // This is necessary to ensure the pointers we pass over the FFI live as
     // long as the `ReadOptions`. This way, when performing the read operation,
@@ -479,7 +489,7 @@ unsafe impl Send for LruCacheOptions {}
 unsafe impl Send for FlushOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
-unsafe impl Send for ReadOptions {}
+unsafe impl Send for ReadOptions<'_> {}
 unsafe impl Send for IngestExternalFileOptions {}
 unsafe impl Send for CacheWrapper {}
 unsafe impl Send for CompactOptions {}
@@ -495,7 +505,7 @@ unsafe impl Sync for LruCacheOptions {}
 unsafe impl Sync for FlushOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
-unsafe impl Sync for ReadOptions {}
+unsafe impl Sync for ReadOptions<'_> {}
 unsafe impl Sync for IngestExternalFileOptions {}
 unsafe impl Sync for CacheWrapper {}
 unsafe impl Sync for CompactOptions {}
@@ -563,7 +573,7 @@ impl Drop for LruCacheOptions {
     }
 }
 
-impl Drop for ReadOptions {
+impl Drop for ReadOptions<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_readoptions_destroy(self.inner);
@@ -4118,7 +4128,7 @@ pub enum CompactionPri {
     RoundRobin = 4,
 }
 
-impl ReadOptions {
+impl<'a> ReadOptions<'a> {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
@@ -4135,9 +4145,12 @@ impl ReadOptions {
     }
 
     /// Sets the snapshot which should be used for the read.
-    /// The snapshot must belong to the DB that is being read and must
-    /// not have been released.
-    pub fn set_snapshot<D: DBAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
+    /// The snapshot must belong to the DB that is being read.
+    ///
+    /// The snapshot stays borrowed for as long as these options exist, so it
+    /// cannot be released while they, or an iterator created from them, are
+    /// still in use.
+    pub fn set_snapshot<D: DBAccess>(&mut self, snapshot: &'a SnapshotWithThreadMode<'_, D>) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }
@@ -4451,11 +4464,12 @@ impl ReadOptions {
     }
 }
 
-impl Default for ReadOptions {
+impl Default for ReadOptions<'_> {
     fn default() -> Self {
         unsafe {
             Self {
                 inner: ffi::rocksdb_readoptions_create(),
+                snapshot: PhantomData,
                 timestamp: None,
                 iter_start_ts: None,
                 iterate_upper_bound: None,
