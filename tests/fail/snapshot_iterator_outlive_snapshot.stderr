@@ -1,0 +1,11 @@
+error[E0597]: `snapshot` does not live long enough
+ --> tests/fail/snapshot_iterator_outlive_snapshot.rs:7:9
+  |
+5 |     let _iter = {
+  |         ----- borrow later stored here
+6 |         let snapshot = db.snapshot();
+  |             -------- binding `snapshot` declared here
+7 |         snapshot.iterator(IteratorMode::Start)
+  |         ^^^^^^^^ borrowed value does not live long enough
+8 |     };
+  |     - `snapshot` dropped here while still borrowed
