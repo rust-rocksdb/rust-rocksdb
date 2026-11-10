@@ -14,6 +14,7 @@
 
 mod util;
 
+use std::sync::Barrier;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -117,6 +118,26 @@ fn deletion_rate_and_trash_ratio_round_trip() {
     assert!((manager.max_trash_db_ratio() - 0.5).abs() < f64::EPSILON);
     assert_eq!(manager.total_trash_size(), 0);
     manager.set_compaction_buffer_size(1 << 20);
+}
+
+#[test]
+fn concurrent_callers_can_enable_deletion_rate_limiting() {
+    let env = Env::new().unwrap();
+    // RocksDB starts its deletion thread on the first positive rate, so every round needs a
+    // manager that has not seen one yet.
+    for _ in 0..100 {
+        let manager = SstFileManager::new(&env);
+        let barrier = Barrier::new(8);
+        thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| {
+                    barrier.wait();
+                    manager.set_delete_rate_bytes_per_second(4 << 20);
+                });
+            }
+        });
+        assert_eq!(manager.delete_rate_bytes_per_second(), 4 << 20);
+    }
 }
 
 #[test]

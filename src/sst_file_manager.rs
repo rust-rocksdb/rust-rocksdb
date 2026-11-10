@@ -13,12 +13,17 @@
 // limitations under the License.
 
 use std::ptr::NonNull;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use crate::{ffi, Env};
 
 pub(crate) struct SstFileManagerWrapper {
     pub(crate) inner: NonNull<ffi::rocksdb_sst_file_manager_t>,
+    // RocksDB starts its deletion thread from the delete rate setter without synchronizing
+    // concurrent callers.
+    delete_rate_lock: Mutex<()>,
+    // The manager's file system and clock may point back at the environment.
+    _outlive: Env,
 }
 
 impl Drop for SstFileManagerWrapper {
@@ -29,6 +34,8 @@ impl Drop for SstFileManagerWrapper {
     }
 }
 
+// SAFETY: RocksDB documents every public `SstFileManager` function as thread-safe, and
+// `delete_rate_lock` serializes the one that is not.
 unsafe impl Send for SstFileManagerWrapper {}
 unsafe impl Sync for SstFileManagerWrapper {}
 
@@ -63,7 +70,11 @@ impl SstFileManager {
     pub fn new(env: &Env) -> SstFileManager {
         let inner = unsafe { ffi::rocksdb_sst_file_manager_create(env.0.inner) };
         let inner = NonNull::new(inner).expect("rocksdb_sst_file_manager_create returned null");
-        SstFileManager(Arc::new(SstFileManagerWrapper { inner }))
+        SstFileManager(Arc::new(SstFileManagerWrapper {
+            inner,
+            delete_rate_lock: Mutex::new(()),
+            _outlive: env.clone(),
+        }))
     }
 
     /// Updates the maximum allowed space that should be used by RocksDB: if the total size of
@@ -128,6 +139,11 @@ impl SstFileManager {
     /// RocksDB waits another three seconds before deleting other files. This also affects the
     /// delete rate of the DB's WAL files.
     pub fn set_delete_rate_bytes_per_second(&self, delete_rate: i64) {
+        let _guard = self
+            .0
+            .delete_rate_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         unsafe {
             ffi::rocksdb_sst_file_manager_set_delete_rate_bytes_per_second(
                 self.0.inner.as_ptr(),
@@ -153,5 +169,21 @@ impl SstFileManager {
     /// Returns the total size of trash files.
     pub fn total_trash_size(&self) -> u64 {
         unsafe { ffi::rocksdb_sst_file_manager_get_total_trash_size(self.0.inner.as_ptr()) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::{Env, SstFileManager};
+
+    #[test]
+    fn the_manager_keeps_its_env_alive() {
+        let env = Env::new().unwrap();
+        let manager = SstFileManager::new(&env);
+        assert_eq!(Arc::strong_count(&env.0), 2);
+        drop(manager);
+        assert_eq!(Arc::strong_count(&env.0), 1);
     }
 }
