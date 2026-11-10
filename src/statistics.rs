@@ -32,7 +32,6 @@ macro_rules! iterable_named_enum {
             )+
         }
 
-        #[automatically_derived]
         impl $typename {
             #[doc = "The corresponding rocksdb string identifier for this variant"]
             pub const fn name(&self) -> &'static str {
@@ -169,6 +168,6 @@ fn sanity_checks() {
     assert_eq!(want, Ticker::BlockCacheIndexMiss.to_string());
 
     // assert enum lengths
-    assert_eq!(Ticker::iter().count(), 263 /* TICKER_ENUM_MAX */);
-    assert_eq!(Histogram::iter().count(), 62 /* HISTOGRAM_ENUM_MAX */);
+    assert_eq!(Ticker::iter().count(), 267 /* TICKER_ENUM_MAX */);
+    assert_eq!(Histogram::iter().count(), 80 /* HISTOGRAM_ENUM_MAX */);
 }
