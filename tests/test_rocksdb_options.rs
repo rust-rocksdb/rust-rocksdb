@@ -55,6 +55,14 @@ fn test_load_latest() {
 }
 
 #[test]
+fn test_set_memtable_max_range_deletions() {
+    let mut opts = Options::default();
+    assert_eq!(opts.get_memtable_max_range_deletions(), 0);
+    opts.set_memtable_max_range_deletions(1000);
+    assert_eq!(opts.get_memtable_max_range_deletions(), 1000);
+}
+
+#[test]
 fn test_get_options_from_string() {
     let mut opts = Options::default();
     opts.set_use_fsync(true);
