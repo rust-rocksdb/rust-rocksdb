@@ -84,13 +84,13 @@ pub struct DBRawIteratorWithThreadMode<'a, D: DBAccess> {
     /// And yes, we need to store the entire ReadOptions structure since C++
     /// ReadOptions keep reference to C rocksdb_readoptions_t wrapper which
     /// point to vectors we own.  See issue #660.
-    _readopts: ReadOptions,
+    _readopts: ReadOptions<'a>,
 
     db: PhantomData<&'a D>,
 }
 
 impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
-    pub(crate) fn new(db: &D, readopts: ReadOptions) -> Self {
+    pub(crate) fn new(db: &D, readopts: ReadOptions<'a>) -> Self {
         let inner = unsafe { db.create_iterator(&readopts) };
         Self::from_inner(inner, readopts)
     }
@@ -98,13 +98,13 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
     pub(crate) fn new_cf(
         db: &'a D,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
-        readopts: ReadOptions,
+        readopts: ReadOptions<'a>,
     ) -> Self {
         let inner = unsafe { db.create_iterator_cf(cf_handle, &readopts) };
         Self::from_inner(inner, readopts)
     }
 
-    fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions) -> Self {
+    fn from_inner(inner: *mut ffi::rocksdb_iterator_t, readopts: ReadOptions<'a>) -> Self {
         // This unwrap will never fail since rocksdb_create_iterator and
         // rocksdb_create_iterator_cf functions always return non-null. They
         // use new and dereference the result so any nulls would end up with SIGSEGV
@@ -489,14 +489,14 @@ pub enum IteratorMode<'a> {
 }
 
 impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
-    pub(crate) fn new(db: &D, readopts: ReadOptions, mode: IteratorMode) -> Self {
+    pub(crate) fn new(db: &D, readopts: ReadOptions<'a>, mode: IteratorMode) -> Self {
         Self::from_raw(DBRawIteratorWithThreadMode::new(db, readopts), mode)
     }
 
     pub(crate) fn new_cf(
         db: &'a D,
         cf_handle: *mut ffi::rocksdb_column_family_handle_t,
-        readopts: ReadOptions,
+        readopts: ReadOptions<'a>,
         mode: IteratorMode,
     ) -> Self {
         Self::from_raw(

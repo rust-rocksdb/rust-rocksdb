@@ -915,7 +915,7 @@ impl<T: ThreadMode> TransactionDB<T> {
     pub fn iterator_opt<'a: 'b, 'b>(
         &'a self,
         mode: IteratorMode,
-        readopts: ReadOptions,
+        readopts: ReadOptions<'b>,
     ) -> DBIteratorWithThreadMode<'b, Self> {
         DBIteratorWithThreadMode::new(self, readopts, mode)
     }
@@ -925,7 +925,7 @@ impl<T: ThreadMode> TransactionDB<T> {
     pub fn iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &impl AsColumnFamilyRef,
-        readopts: ReadOptions,
+        readopts: ReadOptions<'b>,
         mode: IteratorMode,
     ) -> DBIteratorWithThreadMode<'b, Self> {
         DBIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts, mode)
@@ -1008,7 +1008,7 @@ impl<T: ThreadMode> TransactionDB<T> {
     /// Opens a raw iterator over the database, using the given read options
     pub fn raw_iterator_opt<'a: 'b, 'b>(
         &'a self,
-        readopts: ReadOptions,
+        readopts: ReadOptions<'b>,
     ) -> DBRawIteratorWithThreadMode<'b, Self> {
         DBRawIteratorWithThreadMode::new(self, readopts)
     }
@@ -1017,7 +1017,7 @@ impl<T: ThreadMode> TransactionDB<T> {
     pub fn raw_iterator_cf_opt<'a: 'b, 'b>(
         &'a self,
         cf_handle: &impl AsColumnFamilyRef,
-        readopts: ReadOptions,
+        readopts: ReadOptions<'b>,
     ) -> DBRawIteratorWithThreadMode<'b, Self> {
         DBRawIteratorWithThreadMode::new_cf(self, cf_handle.inner(), readopts)
     }
