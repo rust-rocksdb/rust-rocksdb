@@ -21,7 +21,6 @@ members = ["librocksdb-sys"]
 default = ["snappy", "lz4", "zstd", "zlib", "bzip2", "bindgen-runtime"]
 jemalloc = ["librocksdb-sys/jemalloc"]
 io-uring = ["librocksdb-sys/io-uring"]
-valgrind = []
 mt_static = ["librocksdb-sys/mt_static"]
 snappy = ["librocksdb-sys/snappy"]
 lz4 = ["librocksdb-sys/lz4"]
@@ -44,7 +43,6 @@ librocksdb-sys = { path = "librocksdb-sys", version = "0.20.0", default-features
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
-bincode = "2"
 pretty_assertions = "1"
 tempfile = "3"
 trybuild = "1"
