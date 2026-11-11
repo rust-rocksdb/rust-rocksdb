@@ -238,12 +238,14 @@ fn build_rocksdb() {
         config.define("NPERF_CONTEXT", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
+        config.define("HAVE_FULLFSYNC", None);
 
         env::set_var("IPHONEOS_DEPLOYMENT_TARGET", "12.0");
     } else if target.contains("darwin") {
         config.define("OS_MACOSX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
+        config.define("HAVE_FULLFSYNC", None);
     } else if target.contains("android") {
         config.define("OS_ANDROID", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
