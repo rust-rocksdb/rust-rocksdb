@@ -137,7 +137,7 @@ pub use crate::{
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
     snapshot::{Snapshot, SnapshotWithThreadMode},
-    sst_file_writer::SstFileWriter,
+    sst_file_writer::{EnvOptions, SstFileWriter},
     transactions::{
         OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
         TransactionDBOptions, TransactionOptions,
