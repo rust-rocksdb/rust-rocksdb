@@ -33,5 +33,16 @@ extern crate zstd_sys;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+unsafe extern "C" {
+    pub fn rocksdb_repair_db_cf_descriptors(
+        db_options: *const rocksdb_options_t,
+        name: *const ::libc::c_char,
+        num_column_families: ::libc::c_int,
+        column_family_names: *const *const ::libc::c_char,
+        column_family_options: *const *const rocksdb_options_t,
+        errptr: *mut *mut ::libc::c_char,
+    );
+}
+
 #[cfg(test)]
 mod test;
