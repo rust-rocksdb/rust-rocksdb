@@ -22,6 +22,9 @@ use std::ptr;
 /// Copies `ptr` into a String, replacing invalid UTF-8 using [`String::from_utf8_lossy`], *without*
 /// freeing it. Prefer [`from_cstr_and_free`] to make leaks less likely.
 pub(crate) unsafe fn from_cstr_without_free(ptr: *const c_char) -> String {
+    if ptr.is_null() {
+        return String::new();
+    }
     let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
     String::from_utf8_lossy(cstr.to_bytes()).into_owned()
 }
@@ -29,10 +32,50 @@ pub(crate) unsafe fn from_cstr_without_free(ptr: *const c_char) -> String {
 /// Copies `ptr` into a String, replacing invalid UTF-8 using [`String::from_utf8_lossy`], then
 /// frees it using `rocksdb_free`.
 pub(crate) unsafe fn from_cstr_and_free(ptr: *const c_char) -> String {
+    if ptr.is_null() {
+        return String::new();
+    }
     let cstr = unsafe { CStr::from_ptr(ptr as *const _) };
     let s = String::from_utf8_lossy(cstr.to_bytes()).into_owned();
-    ffi::rocksdb_free(ptr as *mut c_void);
+    unsafe { ffi::rocksdb_free(ptr as *mut c_void) };
     s
+}
+
+/// Converts a raw `(ptr, len)` C buffer into a shared byte slice, guarding `(null, 0)` and
+/// empty slices so `slice::from_raw_parts` is never called with a null pointer.
+///
+/// # Safety
+/// When `ptr` is non-null and `len > 0`, `ptr` must point to `len` valid, initialized,
+/// immutable bytes for lifetime `'a`.
+#[inline]
+pub(crate) unsafe fn slice_from_raw_checked<'a>(ptr: *const c_char, len: size_t) -> &'a [u8] {
+    if ptr.is_null() || len == 0 {
+        &[]
+    } else {
+        // SAFETY: Caller guarantees `ptr` is non-null and valid for `len` bytes over `'a`.
+        unsafe { std::slice::from_raw_parts(ptr.cast::<u8>(), len) }
+    }
+}
+
+/// Converts an optional raw `(ptr, len)` C buffer into `Option<&[u8]>`, returning `None`
+/// when `ptr.is_null()` and `Some(&[])` when `ptr` is non-null with `len == 0`.
+///
+/// # Safety
+/// When `ptr` is non-null and `len > 0`, `ptr` must point to `len` valid, initialized,
+/// immutable bytes for lifetime `'a`.
+#[inline]
+pub(crate) unsafe fn optional_slice_from_raw_checked<'a>(
+    ptr: *const c_char,
+    len: size_t,
+) -> Option<&'a [u8]> {
+    if ptr.is_null() {
+        None
+    } else if len == 0 {
+        Some(&[])
+    } else {
+        // SAFETY: Caller guarantees `ptr` is non-null and valid for `len` bytes over `'a`.
+        Some(unsafe { std::slice::from_raw_parts(ptr.cast::<u8>(), len) })
+    }
 }
 
 pub(crate) unsafe fn raw_data(ptr: *const c_char, size: usize) -> Option<Vec<u8>> {
@@ -259,14 +302,21 @@ impl CSlice {
 
 impl AsRef<[u8]> for CSlice {
     fn as_ref(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.data.cast::<u8>(), self.len) }
+        if self.len == 0 || self.data.is_null() {
+            &[]
+        } else {
+            // SAFETY: `self.data` is non-null and valid for `self.len` bytes per `CSlice::from_raw_parts`.
+            unsafe { std::slice::from_raw_parts(self.data.cast::<u8>(), self.len) }
+        }
     }
 }
 
 impl Drop for CSlice {
     fn drop(&mut self) {
-        unsafe {
-            ffi::rocksdb_free(self.data as *mut c_void);
+        if !self.data.is_null() {
+            unsafe {
+                ffi::rocksdb_free(self.data as *mut c_void);
+            }
         }
     }
 }
@@ -306,4 +356,56 @@ fn test_c_str_like_into() {
     assert_eq!(Ok(want), test(CString::new("foo").unwrap())); // CString
 
     assert_eq!(3, test("foo\0bar").err().unwrap().nul_position());
+}
+
+#[test]
+fn test_c_slice_null_and_zero_safety() {
+    // Null pointer with zero length
+    let empty_null = unsafe { CSlice::from_raw_parts(std::ptr::null(), 0) };
+    assert_eq!(empty_null.as_ref(), b"");
+    drop(empty_null);
+
+    // Null pointer with non-zero length (defensive clamping)
+    let corrupt_null = unsafe { CSlice::from_raw_parts(std::ptr::null(), 10) };
+    assert_eq!(corrupt_null.as_ref(), b"");
+    drop(corrupt_null);
+}
+
+#[test]
+fn test_raw_ffi_slice_and_cstr_helpers() {
+    let sample = b"hello";
+    let sample_ptr = sample.as_ptr().cast::<libc::c_char>();
+    let dangling_ptr = std::ptr::NonNull::<libc::c_char>::dangling().as_ptr();
+
+    unsafe {
+        // C-string conversion helpers
+        assert_eq!(from_cstr_without_free(std::ptr::null()), "");
+        assert_eq!(from_cstr_and_free(std::ptr::null()), "");
+
+        // Valid non-null pointer to an immediate NUL terminator ("")
+        assert_eq!(from_cstr_without_free(c"".as_ptr()), "");
+
+        // slice_from_raw_checked (collapses null/empty into b"")
+        assert_eq!(slice_from_raw_checked(std::ptr::null(), 0), b"");
+        assert_eq!(slice_from_raw_checked(std::ptr::null(), 10), b"");
+        assert_eq!(slice_from_raw_checked(dangling_ptr, 0), b"");
+        assert_eq!(slice_from_raw_checked(sample_ptr, 0), b"");
+        assert_eq!(slice_from_raw_checked(sample_ptr, sample.len()), b"hello");
+
+        // optional_slice_from_raw_checked (distinguishes absent None vs present empty Some(&[]))
+        assert_eq!(optional_slice_from_raw_checked(std::ptr::null(), 0), None);
+        assert_eq!(optional_slice_from_raw_checked(std::ptr::null(), 5), None);
+        assert_eq!(
+            optional_slice_from_raw_checked(dangling_ptr, 0),
+            Some(&[][..])
+        );
+        assert_eq!(
+            optional_slice_from_raw_checked(sample_ptr, 0),
+            Some(&[][..])
+        );
+        assert_eq!(
+            optional_slice_from_raw_checked(sample_ptr, sample.len()),
+            Some(&b"hello"[..])
+        );
+    }
 }

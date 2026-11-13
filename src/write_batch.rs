@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::ffi_util::slice_from_raw_checked;
 use crate::{ffi, AsColumnFamilyRef};
 use libc::{c_char, c_void, size_t};
-use std::slice;
 
 /// A type alias to keep compatibility. See [`WriteBatchWithTransaction`] for details
 pub type WriteBatch = WriteBatchWithTransaction<false>;
@@ -95,8 +95,8 @@ unsafe extern "C" fn writebatch_put_callback<T: WriteBatchIterator>(
 ) {
     unsafe {
         let callbacks = &mut *(state as *mut T);
-        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
-        let value = slice::from_raw_parts(v.cast::<u8>(), vlen);
+        let key = slice_from_raw_checked(k, klen);
+        let value = slice_from_raw_checked(v, vlen);
         callbacks.put(key, value);
     }
 }
@@ -108,7 +108,7 @@ unsafe extern "C" fn writebatch_delete_callback<T: WriteBatchIterator>(
 ) {
     unsafe {
         let callbacks = &mut *(state as *mut T);
-        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        let key = slice_from_raw_checked(k, klen);
         callbacks.delete(key);
     }
 }
@@ -123,8 +123,8 @@ unsafe extern "C" fn writebatch_put_cf_callback<T: WriteBatchIteratorCf>(
 ) {
     unsafe {
         let callbacks = &mut *(state as *mut T);
-        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
-        let value = slice::from_raw_parts(v.cast::<u8>(), vlen);
+        let key = slice_from_raw_checked(k, klen);
+        let value = slice_from_raw_checked(v, vlen);
         callbacks.put_cf(cfid, key, value);
     }
 }
@@ -137,7 +137,7 @@ unsafe extern "C" fn writebatch_delete_cf_callback<T: WriteBatchIteratorCf>(
 ) {
     unsafe {
         let callbacks = &mut *(state as *mut T);
-        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
+        let key = slice_from_raw_checked(k, klen);
         callbacks.delete_cf(cfid, key);
     }
 }
@@ -152,8 +152,8 @@ unsafe extern "C" fn writebatch_merge_cf_callback<T: WriteBatchIteratorCf>(
 ) {
     unsafe {
         let callbacks = &mut *(state as *mut T);
-        let key = slice::from_raw_parts(k.cast::<u8>(), klen);
-        let value = slice::from_raw_parts(v.cast::<u8>(), vlen);
+        let key = slice_from_raw_checked(k, klen);
+        let value = slice_from_raw_checked(v, vlen);
         callbacks.merge_cf(cfid, key, value);
     }
 }
@@ -207,7 +207,7 @@ impl<const TRANSACTION: bool> WriteBatchWithTransaction<TRANSACTION> {
         unsafe {
             let mut batch_size: size_t = 0;
             let batch_data = ffi::rocksdb_writebatch_data(self.inner, &raw mut batch_size);
-            std::slice::from_raw_parts(batch_data as _, batch_size)
+            slice_from_raw_checked(batch_data, batch_size)
         }
     }
 

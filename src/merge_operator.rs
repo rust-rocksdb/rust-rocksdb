@@ -59,6 +59,7 @@
 //!let _ = DB::destroy(&opts, path);
 //! ```
 
+use crate::ffi_util::{optional_slice_from_raw_checked, slice_from_raw_checked};
 use libc::{self, c_char, c_int, c_void, size_t};
 use std::ffi::CString;
 use std::mem;
@@ -120,12 +121,8 @@ pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
 ) -> *mut c_char {
     let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
     let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
-    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_len) };
-    let oldval = if existing_value.is_null() {
-        None
-    } else {
-        Some(unsafe { slice::from_raw_parts(existing_value.cast::<u8>(), existing_value_len) })
-    };
+    let key = unsafe { slice_from_raw_checked(raw_key, key_len) };
+    let oldval = unsafe { optional_slice_from_raw_checked(existing_value, existing_value_len) };
     (cb.full_merge_fn)(key, oldval, operands).map_or_else(
         || {
             unsafe { *new_value_length = 0 };
@@ -152,7 +149,7 @@ pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
 ) -> *mut c_char {
     let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
     let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
-    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_len) };
+    let key = unsafe { slice_from_raw_checked(raw_key, key_len) };
     (cb.partial_merge_fn)(key, None, operands).map_or_else(
         || {
             unsafe { *new_value_length = 0 };
@@ -214,7 +211,8 @@ impl MergeOperands {
                 let len_ptr = (base_len + (spacing_len * index)) as *const size_t;
                 let len = *len_ptr;
                 let ptr = base + (spacing * index);
-                Some(slice::from_raw_parts(*(ptr as *const *const u8), len))
+                let op_ptr = *(ptr as *const *const c_char);
+                Some(slice_from_raw_checked(op_ptr, len))
             }
         }
     }

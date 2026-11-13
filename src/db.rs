@@ -925,11 +925,18 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 &raw mut length,
             ));
 
-            let vec = slice::from_raw_parts(ptr, length)
+            let raw_cfs = if length == 0 || ptr.is_null() {
+                &[]
+            } else {
+                slice::from_raw_parts(ptr, length)
+            };
+            let vec = raw_cfs
                 .iter()
                 .map(|ptr| from_cstr_without_free(*ptr))
                 .collect();
-            ffi::rocksdb_list_column_families_destroy(ptr, length);
+            if !ptr.is_null() {
+                ffi::rocksdb_list_column_families_destroy(ptr, length);
+            }
             Ok(vec)
         }
     }
