@@ -37,6 +37,7 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
+    sst_file_manager::SstFileManager,
     statistics::Ticker,
     ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
@@ -230,6 +231,7 @@ pub(crate) struct OptionsMustOutliveDB {
     blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
+    sst_file_manager: Option<SstFileManager>,
     comparator: Option<Arc<OwnedComparator>>,
     compaction_filter: Option<Arc<OwnedCompactionFilter>>,
     logger_callback: Option<Arc<LoggerCallback>>,
@@ -246,6 +248,7 @@ impl OptionsMustOutliveDB {
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
             write_buffer_manager: self.write_buffer_manager.clone(),
+            sst_file_manager: self.sst_file_manager.clone(),
             comparator: self.comparator.clone(),
             compaction_filter: self.compaction_filter.clone(),
             logger_callback: self.logger_callback.clone(),
@@ -3824,6 +3827,49 @@ impl Options {
             );
         }
         self.outlive.write_buffer_manager = Some(write_buffer_manager.clone());
+    }
+
+    /// Use to track SST files and control their file deletion rate.
+    ///
+    /// Features:
+    /// - Throttle the deletion rate of the SST files.
+    /// - Keep track of the total size of all SST files.
+    /// - Set a maximum allowed space limit for SST files that when reached the DB won't do
+    ///   any further flushes or compactions and will set the background error.
+    /// - Can be shared between multiple DBs.
+    ///
+    /// Limitations:
+    /// - Only tracks and throttles deletes of SST files in the first `db_path` (`db_name` if
+    ///   `db_paths` is empty).
+    ///
+    /// Attaching a manager also enables RocksDB's automatic recovery from out-of-space
+    /// errors: when a write fails with `ENOSPC`, RocksDB polls the free space of the DB path
+    /// and resumes the DB once there is room again, instead of leaving it in the error state
+    /// until it is reopened.
+    ///
+    /// Default: none
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Env, Options, SstFileManager};
+    ///
+    /// let env = Env::new().unwrap();
+    /// let sst_file_manager = SstFileManager::new(&env);
+    /// sst_file_manager.set_max_allowed_space_usage(10 << 30);
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_env(&env);
+    /// opts.set_sst_file_manager(&sst_file_manager);
+    /// ```
+    pub fn set_sst_file_manager(&mut self, sst_file_manager: &SstFileManager) {
+        unsafe {
+            ffi::rocksdb_options_set_sst_file_manager(
+                self.inner,
+                sst_file_manager.0.inner.as_ptr(),
+            );
+        }
+        self.outlive.sst_file_manager = Some(sst_file_manager.clone());
     }
 
     /// If true, working thread may avoid doing unnecessary and long-latency

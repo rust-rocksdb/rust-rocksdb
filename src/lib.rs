@@ -101,6 +101,7 @@ mod prop_name;
 pub mod properties;
 mod slice_transform;
 mod snapshot;
+mod sst_file_manager;
 mod sst_file_writer;
 pub mod statistics;
 mod transactions;
@@ -137,6 +138,7 @@ pub use crate::{
     perf::{PerfContext, PerfMetric, PerfStatsLevel},
     slice_transform::SliceTransform,
     snapshot::{Snapshot, SnapshotWithThreadMode},
+    sst_file_manager::SstFileManager,
     sst_file_writer::SstFileWriter,
     transactions::{
         OptimisticTransactionDB, OptimisticTransactionOptions, Transaction, TransactionDB,
@@ -253,9 +255,11 @@ mod test {
         column_family::UnboundColumnFamily,
         db_options::{CacheWrapper, WriteBufferManagerWrapper},
         env::{Env, EnvWrapper},
+        sst_file_manager::SstFileManagerWrapper,
         BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor,
         DBIterator, DBRawIterator, IngestExternalFileOptions, Options, PlainTableFactoryOptions,
-        ReadOptions, Snapshot, SstFileWriter, WriteBatch, WriteBufferManager, WriteOptions, DB,
+        ReadOptions, Snapshot, SstFileManager, SstFileWriter, WriteBatch, WriteBufferManager,
+        WriteOptions, DB,
     };
 
     #[test]
@@ -295,6 +299,8 @@ mod test {
         is_send::<TransactionOptions>();
         is_send::<WriteBufferManager>();
         is_send::<WriteBufferManagerWrapper>();
+        is_send::<SstFileManager>();
+        is_send::<SstFileManagerWrapper>();
     }
 
     #[test]
@@ -327,5 +333,7 @@ mod test {
         is_sync::<TransactionOptions>();
         is_sync::<WriteBufferManager>();
         is_sync::<WriteBufferManagerWrapper>();
+        is_sync::<SstFileManager>();
+        is_sync::<SstFileManagerWrapper>();
     }
 }
