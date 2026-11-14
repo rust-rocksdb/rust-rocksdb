@@ -160,7 +160,10 @@ impl SstFileManager {
     /// Updates the trash/DB size ratio where new files will be deleted immediately: if the
     /// trash size constitutes more than this fraction of the total DB size, new files passed
     /// to the delete scheduler are deleted immediately.
+    ///
+    /// `ratio` must not be negative: a negative or NaN `ratio` is clamped to `0`.
     pub fn set_max_trash_db_ratio(&self, ratio: f64) {
+        let ratio = ratio.max(0.0);
         unsafe {
             ffi::rocksdb_sst_file_manager_set_max_trash_db_ratio(self.0.inner.as_ptr(), ratio);
         }

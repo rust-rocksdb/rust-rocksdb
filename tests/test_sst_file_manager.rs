@@ -116,6 +116,10 @@ fn deletion_rate_and_trash_ratio_round_trip() {
     assert_eq!(manager.delete_rate_bytes_per_second(), 4 << 20);
     manager.set_max_trash_db_ratio(0.5);
     assert!((manager.max_trash_db_ratio() - 0.5).abs() < f64::EPSILON);
+    for invalid_ratio in [-1.0, f64::NAN] {
+        manager.set_max_trash_db_ratio(invalid_ratio);
+        assert_eq!(manager.max_trash_db_ratio(), 0.0);
+    }
     assert_eq!(manager.total_trash_size(), 0);
     manager.set_compaction_buffer_size(1 << 20);
 }
