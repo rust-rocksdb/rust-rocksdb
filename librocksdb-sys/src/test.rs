@@ -72,7 +72,7 @@ fn internal() {
 
         let mut val_len: size_t = 0;
         let val_len_ptr = &mut val_len as *mut size_t;
-        rocksdb_get(
+        let value = rocksdb_get(
             db,
             readopts.clone(),
             key.as_ptr() as *const c_char,
@@ -81,9 +81,11 @@ fn internal() {
             err_ptr,
         );
         rocksdb_readoptions_destroy(readopts);
+        rocksdb_free(value as *mut c_void);
         assert!(err.is_null());
         rocksdb_close(db);
         rocksdb_destroy_db(opts, cpath.as_ptr() as *const _, err_ptr);
+        rocksdb_options_destroy(opts);
         assert!(err.is_null());
     }
 }
