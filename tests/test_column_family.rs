@@ -45,6 +45,17 @@ fn dir_size(path: impl AsRef<Path>) -> io::Result<u64> {
 }
 
 #[test]
+fn test_open_cf_descriptors_rejects_nul_name() {
+    let path = DBPath::new("_rust_rocksdb_invalid_cf_name");
+    let mut opts = Options::default();
+    opts.create_if_missing(true);
+    let descriptors = [ColumnFamilyDescriptor::new("bad\0name", Options::default())];
+
+    let err = DB::open_cf_descriptors(&opts, &path, descriptors).unwrap_err();
+    assert!(err.to_string().contains("NUL byte"));
+}
+
+#[test]
 fn test_column_family() {
     let n = DBPath::new("_rust_rocksdb_cftest");
 
