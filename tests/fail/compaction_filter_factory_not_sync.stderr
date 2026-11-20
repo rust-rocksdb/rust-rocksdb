@@ -1,0 +1,37 @@
+error[E0277]: `Cell<u32>` cannot be shared between threads safely
+  --> tests/fail/compaction_filter_factory_not_sync.rs:11:34
+   |
+11 | impl CompactionFilterFactory for Factory {
+   |                                  ^^^^^^^ `Cell<u32>` cannot be shared between threads safely
+   |
+   = help: within `Factory`, the trait `Sync` is not implemented for `Cell<u32>`
+   = note: if you want to do aliasing and mutation between multiple threads, use `std::sync::RwLock` or `std::sync::atomic::AtomicU32` instead
+note: required because it appears within the type `Factory`
+  --> tests/fail/compaction_filter_factory_not_sync.rs:9:8
+   |
+9  | struct Factory(Cell<u32>);
+   |        ^^^^^^^
+note: required by a bound in `CompactionFilterFactory`
+  --> src/compaction_filter_factory.rs
+   |
+   | pub trait CompactionFilterFactory: Send + Sync {
+   |                                           ^^^^ required by this bound in `CompactionFilterFactory`
+
+error[E0277]: `Cell<u32>` cannot be shared between threads safely
+  --> tests/fail/compaction_filter_factory_not_sync.rs:14:5
+   |
+14 |     fn create(&self, _context: CompactionFilterContext) -> Self::Filter {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Cell<u32>` cannot be shared between threads safely
+   |
+   = help: within `Factory`, the trait `Sync` is not implemented for `Cell<u32>`
+   = note: if you want to do aliasing and mutation between multiple threads, use `std::sync::RwLock` or `std::sync::atomic::AtomicU32` instead
+note: required because it appears within the type `Factory`
+  --> tests/fail/compaction_filter_factory_not_sync.rs:9:8
+   |
+9  | struct Factory(Cell<u32>);
+   |        ^^^^^^^
+note: required by a bound in `CompactionFilterFactory`
+  --> src/compaction_filter_factory.rs
+   |
+   | pub trait CompactionFilterFactory: Send + Sync {
+   |                                           ^^^^ required by this bound in `CompactionFilterFactory`

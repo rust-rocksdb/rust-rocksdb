@@ -10,17 +10,24 @@ use crate::{
 /// Each compaction will create a new CompactionFilter allowing the
 /// application to know about different compactions.
 ///
+/// RocksDB may call [`create`] concurrently from multiple background threads.
+/// Use atomics or a mutex for mutable factory state.
+/// Each returned filter is used by a single thread.
+///
 /// See [compaction_filter::CompactionFilter][CompactionFilter] and
 /// [Options::set_compaction_filter_factory][set_compaction_filter_factory]
 /// for more details
 ///
+/// [`create`]: CompactionFilterFactory::create
 /// [CompactionFilter]: ../compaction_filter/trait.CompactionFilter.html
 /// [set_compaction_filter_factory]: ../struct.Options.html#method.set_compaction_filter_factory
-pub trait CompactionFilterFactory {
+pub trait CompactionFilterFactory: Send + Sync {
     type Filter: CompactionFilter;
 
-    /// Returns a CompactionFilter for the compaction process
-    fn create(&mut self, context: CompactionFilterContext) -> Self::Filter;
+    /// Returns a CompactionFilter for the compaction process.
+    ///
+    /// This may be called concurrently from multiple threads.
+    fn create(&self, context: CompactionFilterContext) -> Self::Filter;
 
     /// Returns a name that identifies this compaction filter factory.
     fn name(&self) -> &CStr;
@@ -71,7 +78,10 @@ pub unsafe extern "C" fn create_compaction_filter_callback<F>(
 where
     F: CompactionFilterFactory,
 {
-    let self_ = unsafe { &mut *(raw_self as *mut F) };
+    // SAFETY: `raw_self` comes from `Box::into_raw(Box<F>)` and remains valid
+    // until RocksDB destroys the native factory after all callbacks finish.
+    // Callbacks may overlap, so construct a shared reference; `F: Sync` allows this.
+    let self_ = unsafe { &*(raw_self.cast_const() as *const F) };
     let context = unsafe { CompactionFilterContext::from_raw(context) };
     let filter = Box::new(self_.create(context));
 
@@ -93,6 +103,8 @@ mod tests {
     use crate::compaction_filter::Decision;
     use crate::{Options, DB};
     use std::ffi::CString;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Barrier};
 
     struct CountFilter(u16, CString);
     impl CompactionFilter for CountFilter {
@@ -114,7 +126,7 @@ mod tests {
     impl CompactionFilterFactory for TestFactory {
         type Filter = CountFilter;
 
-        fn create(&mut self, _context: CompactionFilterContext) -> Self::Filter {
+        fn create(&self, _context: CompactionFilterContext) -> Self::Filter {
             CountFilter(0, CString::new("CountFilter").unwrap())
         }
 
@@ -143,5 +155,62 @@ mod tests {
         }
         let result = DB::destroy(&opts, path);
         assert!(result.is_ok());
+    }
+
+    struct CountingFactory {
+        created: Arc<AtomicUsize>,
+        barrier: Barrier,
+    }
+
+    impl CompactionFilterFactory for CountingFactory {
+        type Filter = CountFilter;
+
+        fn create(&self, context: CompactionFilterContext) -> Self::Filter {
+            assert!(context.is_manual_compaction);
+            self.created.fetch_add(1, Ordering::Relaxed);
+            // Keep both callbacks active at once.
+            self.barrier.wait();
+            CountFilter(0, CString::new("CountFilter").unwrap())
+        }
+
+        fn name(&self) -> &CStr {
+            c"CountingFactory"
+        }
+    }
+
+    #[test]
+    fn compaction_filter_factory_callbacks_are_concurrent() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let created = Arc::new(AtomicUsize::new(0));
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_disable_auto_compactions(true);
+        opts.set_max_background_jobs(4);
+        opts.set_compaction_filter_factory(CountingFactory {
+            created: Arc::clone(&created),
+            barrier: Barrier::new(2),
+        });
+        let a = DB::open(&opts, tempdir.path().join("a")).unwrap();
+        let b = DB::open(&opts, tempdir.path().join("b")).unwrap();
+        for db in [&a, &b] {
+            for key in [b"k1", b"k2", b"k3"] {
+                db.put(key, b"v").unwrap();
+            }
+            db.flush().unwrap();
+        }
+
+        std::thread::scope(|scope| {
+            for db in [&a, &b] {
+                scope.spawn(move || db.compact_range(None::<&[u8]>, None::<&[u8]>));
+            }
+        });
+
+        assert_eq!(created.load(Ordering::Relaxed), 2);
+        // Each filter keeps its first two keys, demonstrating independent state.
+        for db in [&a, &b] {
+            assert_eq!(db.get(b"k1").unwrap().as_deref(), Some(b"v".as_slice()));
+            assert_eq!(db.get(b"k2").unwrap().as_deref(), Some(b"v".as_slice()));
+            assert_eq!(db.get(b"k3").unwrap(), None);
+        }
     }
 }
