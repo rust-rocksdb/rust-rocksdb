@@ -1846,9 +1846,9 @@ impl Options {
     /// This is a factory that provides compaction filter objects which allow
     /// an application to modify/delete a key-value during background compaction.
     ///
-    /// A new filter will be created on each compaction run.  If multithreaded
-    /// compaction is being used, each created CompactionFilter will only be used
-    /// from a single thread and so does not need to be thread-safe.
+    /// The factory is shared and may be called concurrently, so it must be
+    /// `Send + Sync`. Each compaction worker gets its own filter, which is used
+    /// by a single thread and does not need to be thread-safe.
     ///
     /// Default: nullptr
     pub fn set_compaction_filter_factory<F>(&mut self, factory: F)

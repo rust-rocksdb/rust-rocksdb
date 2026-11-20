@@ -1,5 +1,6 @@
-//! Checks that the borrow checker rejects API misuse, such as a snapshot,
-//! iterator, checkpoint or transaction outliving its database.
+//! Checks that the compiler rejects API misuse, such as snapshots, iterators,
+//! checkpoints or transactions outliving their database, and compaction filter
+//! factories that do not implement `Send` and `Sync`.
 
 #[test]
 fn compile_fail() {
