@@ -669,8 +669,15 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             // so that their pointers remain valid.
             let c_cfs: Vec<CString> = cfs_v
                 .iter()
-                .map(|cf| CString::new(cf.name.as_bytes()).unwrap())
-                .collect();
+                .map(|cf| {
+                    CString::new(cf.name.as_bytes()).map_err(|_| {
+                        Error::new(format!(
+                            "Invalid column family name {:?}: contains a NUL byte",
+                            cf.name
+                        ))
+                    })
+                })
+                .collect::<Result<_, _>>()?;
 
             let cfnames: Vec<_> = c_cfs.iter().map(|cf| cf.as_ptr()).collect();
 
