@@ -1,0 +1,11 @@
+error[E0597]: `snapshot` does not live long enough
+  --> tests/fail/read_options_outlive_snapshot.rs:8:31
+   |
+7  |         let snapshot = db.snapshot();
+   |             -------- binding `snapshot` declared here
+8  |         readopts.set_snapshot(&snapshot);
+   |                               ^^^^^^^^^ borrowed value does not live long enough
+9  |     }
+   |     - `snapshot` dropped here while still borrowed
+10 |     let _ = db.get_opt(b"key", &readopts);
+   |                                --------- borrow later used here

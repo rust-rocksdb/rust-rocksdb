@@ -14,12 +14,9 @@
 
 mod util;
 
-use bincode::{Decode, Encode};
 use pretty_assertions::assert_eq;
 use rocksdb::{merge_operator::MergeFn, DBCompactionStyle, MergeOperands, Options, DB};
 use util::DBPath;
-
-const BINCODE_CONFIG: bincode::config::Configuration = bincode::config::standard();
 
 fn test_provided_merge(
     _new_key: &[u8],
@@ -78,7 +75,7 @@ fn merge_test() {
     assert!(db.get(b"k1").unwrap().is_none());
 }
 
-#[derive(Decode, Encode, Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 struct ValueCounts {
     num_a: u32,
     num_b: u32,
@@ -87,14 +84,31 @@ struct ValueCounts {
 }
 
 impl ValueCounts {
-    fn from_slice(slice: &[u8]) -> Option<Self> {
-        bincode::decode_from_slice(slice, BINCODE_CONFIG)
-            .map(|v| v.0)
-            .ok()
+    const SIZE: usize = 16;
+
+    fn from_slice(bytes: &[u8]) -> Option<Self> {
+        // Length check and split in one step: exactly four 4-byte chunks, no remainder.
+        let ([a, b, c, d], []) = bytes.as_chunks::<4>() else {
+            return None;
+        };
+
+        Some(Self {
+            num_a: u32::from_be_bytes(*a),
+            num_b: u32::from_be_bytes(*b),
+            num_c: u32::from_be_bytes(*c),
+            num_d: u32::from_be_bytes(*d),
+        })
     }
 
-    fn as_bytes(&self) -> Option<Vec<u8>> {
-        bincode::encode_to_vec(self, BINCODE_CONFIG).ok()
+    fn to_bytes(self) -> Vec<u8> {
+        let mut out = vec![0; Self::SIZE];
+        let fields = [self.num_a, self.num_b, self.num_c, self.num_d];
+
+        for (chunk, n) in out.chunks_exact_mut(4).zip(fields) {
+            chunk.copy_from_slice(&n.to_be_bytes());
+        }
+
+        out
     }
 }
 
@@ -134,7 +148,7 @@ fn test_counting_full_merge(
         }
     }
 
-    counts.as_bytes()
+    Some(counts.to_bytes())
 }
 
 #[test]

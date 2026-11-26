@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::marker::PhantomData;
 use std::path::Path;
 use std::ptr::{null_mut, NonNull};
 use std::slice;
@@ -36,6 +37,7 @@ use crate::{
         self, full_merge_callback, partial_merge_callback, MergeFn, MergeOperatorCallback,
     },
     slice_transform::SliceTransform,
+    sst_file_manager::SstFileManager,
     statistics::Ticker,
     ColumnFamilyDescriptor, Error, SnapshotWithThreadMode,
 };
@@ -229,6 +231,7 @@ pub(crate) struct OptionsMustOutliveDB {
     blob_cache: Option<Cache>,
     block_based: Option<BlockBasedOptionsMustOutliveDB>,
     write_buffer_manager: Option<WriteBufferManager>,
+    sst_file_manager: Option<SstFileManager>,
     comparator: Option<Arc<OwnedComparator>>,
     compaction_filter: Option<Arc<OwnedCompactionFilter>>,
     logger_callback: Option<Arc<LoggerCallback>>,
@@ -245,6 +248,7 @@ impl OptionsMustOutliveDB {
                 .as_ref()
                 .map(BlockBasedOptionsMustOutliveDB::clone),
             write_buffer_manager: self.write_buffer_manager.clone(),
+            sst_file_manager: self.sst_file_manager.clone(),
             comparator: self.comparator.clone(),
             compaction_filter: self.compaction_filter.clone(),
             logger_callback: self.logger_callback.clone(),
@@ -417,8 +421,17 @@ pub struct BlockBasedOptions {
     outlive: BlockBasedOptionsMustOutliveDB,
 }
 
-pub struct ReadOptions {
+/// Options for a single read or for an iterator.
+///
+/// The lifetime `'a` is the borrow of the snapshot passed to
+/// [`set_snapshot`](Self::set_snapshot), which keeps that snapshot alive for
+/// as long as these options (and any iterator created from them) exist.
+/// Options without a snapshot can use any lifetime, including `'static`.
+pub struct ReadOptions<'a> {
     pub(crate) inner: *mut ffi::rocksdb_readoptions_t,
+    // `rocksdb_readoptions_t` stores a raw pointer to the snapshot set with
+    // `set_snapshot`, so the snapshot has to outlive these options.
+    snapshot: PhantomData<&'a ()>,
     // The `ReadOptions` owns a copy of the timestamp and iteration bounds.
     // This is necessary to ensure the pointers we pass over the FFI live as
     // long as the `ReadOptions`. This way, when performing the read operation,
@@ -479,7 +492,7 @@ unsafe impl Send for LruCacheOptions {}
 unsafe impl Send for FlushOptions {}
 unsafe impl Send for BlockBasedOptions {}
 unsafe impl Send for CuckooTableOptions {}
-unsafe impl Send for ReadOptions {}
+unsafe impl Send for ReadOptions<'_> {}
 unsafe impl Send for IngestExternalFileOptions {}
 unsafe impl Send for CacheWrapper {}
 unsafe impl Send for CompactOptions {}
@@ -495,7 +508,7 @@ unsafe impl Sync for LruCacheOptions {}
 unsafe impl Sync for FlushOptions {}
 unsafe impl Sync for BlockBasedOptions {}
 unsafe impl Sync for CuckooTableOptions {}
-unsafe impl Sync for ReadOptions {}
+unsafe impl Sync for ReadOptions<'_> {}
 unsafe impl Sync for IngestExternalFileOptions {}
 unsafe impl Sync for CacheWrapper {}
 unsafe impl Sync for CompactOptions {}
@@ -563,7 +576,7 @@ impl Drop for LruCacheOptions {
     }
 }
 
-impl Drop for ReadOptions {
+impl Drop for ReadOptions<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_readoptions_destroy(self.inner);
@@ -3637,6 +3650,23 @@ impl Options {
         }
     }
 
+    /// RocksDB will try to flush the current memtable after the number of range
+    /// deletions is >= this limit.
+    ///
+    /// Default: 0 (disabled)
+    ///
+    /// Dynamically changeable through SetOptions() API
+    pub fn set_memtable_max_range_deletions(&mut self, limit: u32) {
+        unsafe {
+            ffi::rocksdb_options_set_memtable_max_range_deletions(self.inner, limit);
+        }
+    }
+
+    /// Returns the value of the `memtable_max_range_deletions` option.
+    pub fn get_memtable_max_range_deletions(&self) -> u32 {
+        unsafe { ffi::rocksdb_options_get_memtable_max_range_deletions(self.inner) }
+    }
+
     /// Enable the use of key-value separation.
     ///
     /// More details can be found here: [Integrated BlobDB](http://rocksdb.org/blog/2021/05/26/integrated-blob-db.html).
@@ -3797,6 +3827,49 @@ impl Options {
             );
         }
         self.outlive.write_buffer_manager = Some(write_buffer_manager.clone());
+    }
+
+    /// Use to track SST files and control their file deletion rate.
+    ///
+    /// Features:
+    /// - Throttle the deletion rate of the SST files.
+    /// - Keep track of the total size of all SST files.
+    /// - Set a maximum allowed space limit for SST files that when reached the DB won't do
+    ///   any further flushes or compactions and will set the background error.
+    /// - Can be shared between multiple DBs.
+    ///
+    /// Limitations:
+    /// - Only tracks and throttles deletes of SST files in the first `db_path` (`db_name` if
+    ///   `db_paths` is empty).
+    ///
+    /// Attaching a manager also enables RocksDB's automatic recovery from out-of-space
+    /// errors: when a write fails with `ENOSPC`, RocksDB polls the free space of the DB path
+    /// and resumes the DB once there is room again, instead of leaving it in the error state
+    /// until it is reopened.
+    ///
+    /// Default: none
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rocksdb::{Env, Options, SstFileManager};
+    ///
+    /// let env = Env::new().unwrap();
+    /// let sst_file_manager = SstFileManager::new(&env);
+    /// sst_file_manager.set_max_allowed_space_usage(10 << 30);
+    ///
+    /// let mut opts = Options::default();
+    /// opts.set_env(&env);
+    /// opts.set_sst_file_manager(&sst_file_manager);
+    /// ```
+    pub fn set_sst_file_manager(&mut self, sst_file_manager: &SstFileManager) {
+        unsafe {
+            ffi::rocksdb_options_set_sst_file_manager(
+                self.inner,
+                sst_file_manager.0.inner.as_ptr(),
+            );
+        }
+        self.outlive.sst_file_manager = Some(sst_file_manager.clone());
     }
 
     /// If true, working thread may avoid doing unnecessary and long-latency
@@ -4101,7 +4174,7 @@ pub enum CompactionPri {
     RoundRobin = 4,
 }
 
-impl ReadOptions {
+impl<'a> ReadOptions<'a> {
     // TODO add snapshot setting here
     // TODO add snapshot wrapper structs with proper destructors;
     // that struct needs an "iterator" impl too.
@@ -4118,9 +4191,12 @@ impl ReadOptions {
     }
 
     /// Sets the snapshot which should be used for the read.
-    /// The snapshot must belong to the DB that is being read and must
-    /// not have been released.
-    pub fn set_snapshot<D: DBAccess>(&mut self, snapshot: &SnapshotWithThreadMode<D>) {
+    /// The snapshot must belong to the DB that is being read.
+    ///
+    /// The snapshot stays borrowed for as long as these options exist, so it
+    /// cannot be released while they, or an iterator created from them, are
+    /// still in use.
+    pub fn set_snapshot<D: DBAccess>(&mut self, snapshot: &'a SnapshotWithThreadMode<'_, D>) {
         unsafe {
             ffi::rocksdb_readoptions_set_snapshot(self.inner, snapshot.inner);
         }
@@ -4434,11 +4510,12 @@ impl ReadOptions {
     }
 }
 
-impl Default for ReadOptions {
+impl Default for ReadOptions<'_> {
     fn default() -> Self {
         unsafe {
             Self {
                 inner: ffi::rocksdb_readoptions_create(),
+                snapshot: PhantomData,
                 timestamp: None,
                 iter_start_ts: None,
                 iterate_upper_bound: None,
@@ -4665,6 +4742,24 @@ impl Drop for FifoCompactOptions {
 }
 
 impl FifoCompactOptions {
+    /// Allow compaction to compact smaller files into larger ones.
+    ///
+    /// Default: false
+    pub fn set_allow_compaction(&mut self, allow_compaction: bool) {
+        unsafe {
+            ffi::rocksdb_fifo_compaction_options_set_allow_compaction(
+                self.inner,
+                c_uchar::from(allow_compaction),
+            );
+        }
+    }
+
+    /// Returns whether compaction is allowed if enabled using
+    /// [`set_allow_compaction`](Self::set_allow_compaction).
+    pub fn get_allow_compaction(&self) -> bool {
+        unsafe { ffi::rocksdb_fifo_compaction_options_get_allow_compaction(self.inner) != 0 }
+    }
+
     /// Sets the max table file size.
     ///
     /// Once the total sum of table files reaches this, we will delete the oldest
@@ -4675,6 +4770,12 @@ impl FifoCompactOptions {
         unsafe {
             ffi::rocksdb_fifo_compaction_options_set_max_table_files_size(self.inner, nbytes);
         }
+    }
+
+    /// Returns max table file size if enabled using
+    /// [`set_max_table_files_size`](Self::set_max_table_files_size).
+    pub fn get_max_table_files_size(&self) -> u64 {
+        unsafe { ffi::rocksdb_fifo_compaction_options_get_max_table_files_size(self.inner) }
     }
 }
 

@@ -77,7 +77,6 @@ jobs:
           cargo clippy --all-targets --features \
             "jemalloc \
             io-uring \
-            valgrind \
             mt_static \
             rtti \
             multi-threaded-cf \
