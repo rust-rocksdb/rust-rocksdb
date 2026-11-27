@@ -1822,7 +1822,7 @@ impl Options {
     /// simultaneously.
     pub fn set_compaction_filter<F>(&mut self, name: impl CStrLike, filter_fn: F)
     where
-        F: CompactionFilterFn + Send + 'static,
+        F: CompactionFilterFn + Send + Sync + 'static,
     {
         let cb = Box::new(CompactionFilterCallback {
             name: name.into_c_string().unwrap(),
@@ -1853,7 +1853,7 @@ impl Options {
     /// Default: nullptr
     pub fn set_compaction_filter_factory<F>(&mut self, factory: F)
     where
-        F: CompactionFilterFactory + 'static,
+        F: CompactionFilterFactory + Send + Sync + 'static,
     {
         let factory = Box::new(factory);
 

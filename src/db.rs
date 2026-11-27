@@ -146,7 +146,7 @@ pub struct DBCommon<T: ThreadMode, D: DBInner> {
     pub(crate) inner: D,
     cfs: T, // Column families are held differently depending on thread mode
     path: PathBuf,
-    _outlive: Vec<OptionsMustOutliveDB>,
+    _outlive: std::sync::Mutex<Vec<OptionsMustOutliveDB>>,
 }
 
 /// Minimal set of DB-related methods, intended to be generic over
@@ -712,7 +712,7 @@ impl<T: ThreadMode> DBWithThreadMode<T> {
             inner: DBWithThreadModeInner { inner: db },
             path: path.as_ref().to_path_buf(),
             cfs: T::new_cf_map_internal(cf_map),
-            _outlive: outlive,
+            _outlive: std::sync::Mutex::new(outlive),
         })
     }
 
@@ -910,7 +910,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             inner,
             cfs,
             path,
-            _outlive: outlive,
+            _outlive: std::sync::Mutex::new(outlive),
         }
     }
 
@@ -2294,7 +2294,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     ///
     /// Calling `get_updates_since()` with a sequence number that is out of
     /// bounds will return an error.
-    pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error> {
+    pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator<'_>, Error> {
         unsafe {
             // rocksdb_wal_readoptions_t does not appear to have any functions
             // for creating and destroying it; fortunately we can pass a nullptr
@@ -2308,6 +2308,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             Ok(DBWALIterator {
                 inner: iter,
                 start_seq_number: seq_number,
+                _marker: std::marker::PhantomData,
             })
         }
     }
@@ -2622,6 +2623,9 @@ impl<I: DBInner> DBCommon<SingleThreaded, I> {
     /// Creates column family with given name and options
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        // Retain the options' outlive bookkeeping (e.g. the comparator) so dropping the
+        // Options does not free objects the live column family still points at.
+        self._outlive.lock().unwrap().push(opts.outlive.clone());
         self.cfs
             .cfs
             .insert(name.as_ref().to_string(), ColumnFamily { inner });
@@ -2650,6 +2654,9 @@ impl<I: DBInner> DBCommon<MultiThreaded, I> {
         // another caller who observed the handle as missing.
         let mut cfs = self.cfs.cfs.write().unwrap();
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        // Retain the options' outlive bookkeeping (e.g. the comparator) so dropping the
+        // Options does not free objects the live column family still points at.
+        self._outlive.lock().unwrap().push(opts.outlive.clone());
         cfs.insert(
             name.as_ref().to_string(),
             Arc::new(UnboundColumnFamily { inner }),

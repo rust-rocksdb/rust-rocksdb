@@ -18,11 +18,13 @@ use std::cmp::Ordering;
 use std::ffi::CString;
 use std::slice;
 
-pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering;
+// RocksDB invokes these callbacks from multiple threads, so the closures must be
+// `Send + Sync`; without those bounds safe code could share non-thread-safe state.
+pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering + Send + Sync;
 
-pub type CompareTsFn = dyn Fn(&[u8], &[u8]) -> Ordering;
+pub type CompareTsFn = dyn Fn(&[u8], &[u8]) -> Ordering + Send + Sync;
 
-pub type CompareWithoutTsFn = dyn Fn(&[u8], bool, &[u8], bool) -> Ordering;
+pub type CompareWithoutTsFn = dyn Fn(&[u8], bool, &[u8], bool) -> Ordering + Send + Sync;
 
 pub struct ComparatorCallback {
     pub name: CString,
