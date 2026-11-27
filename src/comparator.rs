@@ -18,11 +18,13 @@ use std::cmp::Ordering;
 use std::ffi::CString;
 use std::slice;
 
-pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering;
+// RocksDB invokes these callbacks from multiple threads, so the closures must be
+// `Send + Sync`; without those bounds safe code could share non-thread-safe state.
+pub type CompareFn = dyn Fn(&[u8], &[u8]) -> Ordering + Send + Sync;
 
-pub type CompareTsFn = dyn Fn(&[u8], &[u8]) -> Ordering;
+pub type CompareTsFn = dyn Fn(&[u8], &[u8]) -> Ordering + Send + Sync;
 
-pub type CompareWithoutTsFn = dyn Fn(&[u8], bool, &[u8], bool) -> Ordering;
+pub type CompareWithoutTsFn = dyn Fn(&[u8], bool, &[u8], bool) -> Ordering + Send + Sync;
 
 pub struct ComparatorCallback {
     pub name: CString,
@@ -35,7 +37,7 @@ impl ComparatorCallback {
     }
 
     pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
-        let cb: &mut Self = unsafe { &mut *(raw_cb as *mut Self) };
+        let cb: &Self = unsafe { &*(raw_cb as *const Self) };
         let ptr = cb.name.as_ptr();
         ptr as *const c_char
     }
@@ -47,7 +49,7 @@ impl ComparatorCallback {
         b_raw: *const c_char,
         b_len: size_t,
     ) -> c_int {
-        let cb: &mut Self = unsafe { &mut *(raw_cb as *mut Self) };
+        let cb: &Self = unsafe { &*(raw_cb as *const Self) };
         let a: &[u8] = unsafe { slice::from_raw_parts(a_raw.cast::<u8>(), a_len) };
         let b: &[u8] = unsafe { slice::from_raw_parts(b_raw.cast::<u8>(), b_len) };
         (cb.compare_fn)(a, b) as c_int
@@ -67,7 +69,7 @@ impl ComparatorWithTsCallback {
     }
 
     pub unsafe extern "C" fn name_callback(raw_cb: *mut c_void) -> *const c_char {
-        let cb: &mut Self = unsafe { &mut *(raw_cb as *mut Self) };
+        let cb: &Self = unsafe { &*(raw_cb as *const Self) };
         let ptr = cb.name.as_ptr();
         ptr as *const c_char
     }
@@ -79,7 +81,7 @@ impl ComparatorWithTsCallback {
         b_raw: *const c_char,
         b_len: size_t,
     ) -> c_int {
-        let cb: &mut Self = unsafe { &mut *(raw_cb as *mut Self) };
+        let cb: &Self = unsafe { &*(raw_cb as *const Self) };
         let a: &[u8] = unsafe { slice::from_raw_parts(a_raw.cast::<u8>(), a_len) };
         let b: &[u8] = unsafe { slice::from_raw_parts(b_raw.cast::<u8>(), b_len) };
         (cb.compare_fn)(a, b) as c_int
@@ -92,7 +94,7 @@ impl ComparatorWithTsCallback {
         b_ts_raw: *const c_char,
         b_ts_len: size_t,
     ) -> c_int {
-        let cb: &mut Self = unsafe { &mut *(raw_cb as *mut Self) };
+        let cb: &Self = unsafe { &*(raw_cb as *const Self) };
         let a_ts: &[u8] = unsafe { slice::from_raw_parts(a_ts_raw.cast::<u8>(), a_ts_len) };
         let b_ts: &[u8] = unsafe { slice::from_raw_parts(b_ts_raw.cast::<u8>(), b_ts_len) };
         (cb.compare_ts_fn)(a_ts, b_ts) as c_int
@@ -107,7 +109,7 @@ impl ComparatorWithTsCallback {
         b_len: size_t,
         b_has_ts_raw: c_uchar,
     ) -> c_int {
-        let cb: &mut Self = unsafe { &mut *(raw_cb as *mut Self) };
+        let cb: &Self = unsafe { &*(raw_cb as *const Self) };
         let a: &[u8] = unsafe { slice::from_raw_parts(a_raw.cast::<u8>(), a_len) };
         let a_has_ts = a_has_ts_raw != 0;
         let b: &[u8] = unsafe { slice::from_raw_parts(b_raw.cast::<u8>(), b_len) };

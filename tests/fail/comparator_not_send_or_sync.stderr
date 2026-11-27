@@ -1,0 +1,33 @@
+error[E0277]: `Rc<Cell<u32>>` cannot be shared between threads safely
+  --> tests/fail/comparator_not_send_or_sync.rs:12:32
+   |
+7  |     let compare = move |a: &[u8], b: &[u8]| {
+   |                   ------------------------- within this `{closure@$DIR/tests/fail/comparator_not_send_or_sync.rs:7:19: 7:44}`
+...
+12 |     opts.set_comparator("cmp", Box::new(compare));
+   |                                ^^^^^^^^^^^^^^^^^ `Rc<Cell<u32>>` cannot be shared between threads safely
+   |
+   = help: within `{closure@$DIR/tests/fail/comparator_not_send_or_sync.rs:7:19: 7:44}`, the trait `Sync` is not implemented for `Rc<Cell<u32>>`
+note: required because it's used within this closure
+  --> tests/fail/comparator_not_send_or_sync.rs:7:19
+   |
+7  |     let compare = move |a: &[u8], b: &[u8]| {
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: required for the cast from `Box<{closure@$DIR/tests/fail/comparator_not_send_or_sync.rs:7:19: 7:44}>` to `Box<(dyn for<'a, 'b> Fn(&'a [u8], &'b [u8]) -> std::cmp::Ordering + Send + Sync + 'static)>`
+
+error[E0277]: `Rc<Cell<u32>>` cannot be sent between threads safely
+  --> tests/fail/comparator_not_send_or_sync.rs:12:32
+   |
+7  |     let compare = move |a: &[u8], b: &[u8]| {
+   |                   ------------------------- within this `{closure@$DIR/tests/fail/comparator_not_send_or_sync.rs:7:19: 7:44}`
+...
+12 |     opts.set_comparator("cmp", Box::new(compare));
+   |                                ^^^^^^^^^^^^^^^^^ `Rc<Cell<u32>>` cannot be sent between threads safely
+   |
+   = help: within `{closure@$DIR/tests/fail/comparator_not_send_or_sync.rs:7:19: 7:44}`, the trait `Send` is not implemented for `Rc<Cell<u32>>`
+note: required because it's used within this closure
+  --> tests/fail/comparator_not_send_or_sync.rs:7:19
+   |
+7  |     let compare = move |a: &[u8], b: &[u8]| {
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: required for the cast from `Box<{closure@$DIR/tests/fail/comparator_not_send_or_sync.rs:7:19: 7:44}>` to `Box<(dyn for<'a, 'b> Fn(&'a [u8], &'b [u8]) -> std::cmp::Ordering + Send + Sync + 'static)>`
