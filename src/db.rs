@@ -2294,7 +2294,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     ///
     /// Calling `get_updates_since()` with a sequence number that is out of
     /// bounds will return an error.
-    pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator, Error> {
+    pub fn get_updates_since(&self, seq_number: u64) -> Result<DBWALIterator<'_>, Error> {
         unsafe {
             // rocksdb_wal_readoptions_t does not appear to have any functions
             // for creating and destroying it; fortunately we can pass a nullptr
@@ -2308,6 +2308,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             Ok(DBWALIterator {
                 inner: iter,
                 start_seq_number: seq_number,
+                _marker: std::marker::PhantomData,
             })
         }
     }

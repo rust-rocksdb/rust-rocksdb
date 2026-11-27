@@ -586,12 +586,15 @@ impl<'a, D: DBAccess> Into<DBRawIteratorWithThreadMode<'a, D>> for DBIteratorWit
 /// The iterator item type is a tuple of (`u64`, `WriteBatch`) where the first
 /// value is the sequence number of the associated write batch.
 ///
-pub struct DBWALIterator {
+pub struct DBWALIterator<'a> {
     pub(crate) inner: *mut ffi::rocksdb_wal_iterator_t,
     pub(crate) start_seq_number: u64,
+    // The WAL iterator reads DB-owned C++ state; tie it to the DB borrow so it cannot
+    // outlive the DB and read freed memory.
+    pub(crate) _marker: PhantomData<&'a DB>,
 }
 
-impl DBWALIterator {
+impl DBWALIterator<'_> {
     /// Returns `true` if the iterator is valid. An iterator is invalidated when
     /// it reaches the end of its defined range, or when it encounters an error.
     ///
@@ -614,7 +617,7 @@ impl DBWALIterator {
     }
 }
 
-impl Iterator for DBWALIterator {
+impl Iterator for DBWALIterator<'_> {
     type Item = Result<(u64, WriteBatch), Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -658,7 +661,7 @@ impl Iterator for DBWALIterator {
     }
 }
 
-impl Drop for DBWALIterator {
+impl Drop for DBWALIterator<'_> {
     fn drop(&mut self) {
         unsafe {
             ffi::rocksdb_wal_iter_destroy(self.inner);
