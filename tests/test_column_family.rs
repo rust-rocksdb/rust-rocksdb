@@ -492,3 +492,50 @@ fn test_no_leaked_column_family() {
         drop(db);
     }
 }
+
+#[test]
+fn test_db_create_cf_retains_options_outlive() {
+    use std::sync::Arc;
+
+    let path = DBPath::new("_rust_rocksdb_db_create_cf_outlive");
+    let marker = Arc::new(());
+
+    let mut cf_opts = Options::default();
+    let cmp_marker = Arc::clone(&marker);
+    cf_opts.set_comparator(
+        "db_create_cf_outlive_comparator",
+        Box::new(move |a: &[u8], b: &[u8]| {
+            let _keep_alive = &cmp_marker;
+            a.cmp(b)
+        }),
+    );
+
+    let mut db_opts = Options::default();
+    db_opts.create_if_missing(true);
+
+    #[cfg(feature = "multi-threaded-cf")]
+    let db = DB::open(&db_opts, &path).unwrap();
+    #[cfg(not(feature = "multi-threaded-cf"))]
+    let mut db = DB::open(&db_opts, &path).unwrap();
+
+    db.create_cf("cf", &cf_opts).unwrap();
+    assert_eq!(Arc::strong_count(&marker), 2); // test + comparator closure
+
+    drop(cf_opts);
+    // Regression: without retaining opts.outlive this is 1, and the live CF's
+    // comparator is dangling.
+    assert_eq!(Arc::strong_count(&marker), 2);
+
+    {
+        let cf = db.cf_handle("cf").unwrap();
+        db.put_cf(&cf, b"k1", b"v1").unwrap();
+        db.put_cf(&cf, b"k2", b"v2").unwrap();
+        db.flush_cf(&cf).unwrap();
+        let mut iter = db.raw_iterator_cf(&cf);
+        iter.seek_to_first();
+        assert!(iter.valid());
+    }
+
+    drop(db);
+    assert_eq!(Arc::strong_count(&marker), 1); // released with the DB
+}
