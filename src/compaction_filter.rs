@@ -16,6 +16,7 @@
 use libc::{c_char, c_int, c_uchar, c_void, size_t};
 use std::ffi::{CStr, CString};
 use std::slice;
+use std::sync::{Mutex, PoisonError};
 
 /// Decision about how to handle compacting an object
 ///
@@ -96,6 +97,91 @@ where
     }
 }
 
+/// The callback registered by `Options::set_compaction_filter`.
+///
+/// RocksDB may call one configured filter concurrently from several
+/// subcompactions. The mutex serializes those calls while keeping the public
+/// `FnMut` closure API; factory-created filters remain thread-confined and do
+/// not use this wrapper.
+pub(crate) struct MutexCompactionFilterCallback<F>
+where
+    F: CompactionFilterFn + Send,
+{
+    name: CString,
+    filter_fn: Mutex<F>,
+}
+
+impl<F> MutexCompactionFilterCallback<F>
+where
+    F: CompactionFilterFn + Send,
+{
+    pub(crate) fn new(name: CString, filter_fn: F) -> Self {
+        Self {
+            name,
+            filter_fn: Mutex::new(filter_fn),
+        }
+    }
+
+    fn name(&self) -> &CStr {
+        self.name.as_c_str()
+    }
+
+    fn filter(&self, level: u32, key: &[u8], value: &[u8]) -> Decision {
+        let mut filter_fn = self
+            .filter_fn
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        filter_fn(level, key, value)
+    }
+}
+
+pub(crate) unsafe extern "C" fn mutex_destructor_callback<F>(raw_cb: *mut c_void)
+where
+    F: CompactionFilterFn + Send,
+{
+    drop(unsafe { Box::from_raw(raw_cb as *mut MutexCompactionFilterCallback<F>) });
+}
+
+pub(crate) unsafe extern "C" fn mutex_name_callback<F>(raw_cb: *mut c_void) -> *const c_char
+where
+    F: CompactionFilterFn + Send,
+{
+    let cb = unsafe { &*(raw_cb as *const MutexCompactionFilterCallback<F>) };
+    cb.name().as_ptr()
+}
+
+pub(crate) unsafe extern "C" fn mutex_filter_callback<F>(
+    raw_cb: *mut c_void,
+    level: c_int,
+    raw_key: *const c_char,
+    key_length: size_t,
+    existing_value: *const c_char,
+    value_length: size_t,
+    new_value: *mut *mut c_char,
+    new_value_length: *mut size_t,
+    value_changed: *mut c_uchar,
+) -> c_uchar
+where
+    F: CompactionFilterFn + Send,
+{
+    use self::Decision::{Change, Keep, Remove};
+
+    let cb = unsafe { &*(raw_cb as *const MutexCompactionFilterCallback<F>) };
+    let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_length) };
+    let oldval = unsafe { slice::from_raw_parts(existing_value.cast::<u8>(), value_length) };
+    let result = cb.filter(level as u32, key, oldval);
+    match result {
+        Keep => 0,
+        Remove => 1,
+        Change(newval) => {
+            unsafe { *new_value = newval.as_ptr().cast_mut().cast::<c_char>() };
+            unsafe { *new_value_length = newval.len() as size_t };
+            unsafe { *value_changed = 1_u8 };
+            0
+        }
+    }
+}
+
 pub unsafe extern "C" fn destructor_callback<F>(raw_cb: *mut c_void)
 where
     F: CompactionFilter,
@@ -152,6 +238,44 @@ fn test_filter(level: u32, key: &[u8], value: &[u8]) -> Decision {
         Some(&b'%') => Change(b"secret"),
         _ => Keep,
     }
+}
+
+#[test]
+fn mutex_filter_serializes_concurrent_calls() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+    use std::time::Duration;
+
+    let active = Arc::new(AtomicUsize::new(0));
+    let max_active = Arc::new(AtomicUsize::new(0));
+    let active_in_filter = Arc::clone(&active);
+    let max_in_filter = Arc::clone(&max_active);
+
+    let callback = Arc::new(MutexCompactionFilterCallback::new(
+        CString::new("serialize").unwrap(),
+        move |_level: u32, _key: &[u8], _value: &[u8]| {
+            let current = active_in_filter.fetch_add(1, Ordering::SeqCst) + 1;
+            max_in_filter.fetch_max(current, Ordering::SeqCst);
+            thread::sleep(Duration::from_millis(5));
+            active_in_filter.fetch_sub(1, Ordering::SeqCst);
+            Decision::Keep
+        },
+    ));
+
+    let barrier = Arc::new(Barrier::new(4));
+    thread::scope(|scope| {
+        for _ in 0..4 {
+            let callback = Arc::clone(&callback);
+            let barrier = Arc::clone(&barrier);
+            scope.spawn(move || {
+                barrier.wait();
+                let _ = callback.filter(0, b"key", b"value");
+            });
+        }
+    });
+
+    assert_eq!(max_active.load(Ordering::SeqCst), 1);
 }
 
 #[test]
