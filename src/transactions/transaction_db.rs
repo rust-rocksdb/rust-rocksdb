@@ -82,7 +82,7 @@ pub struct TransactionDB<T: ThreadMode = DefaultThreadMode> {
     path: PathBuf,
     // prepared 2pc transactions.
     prepared: Mutex<Vec<*mut rocksdb_transaction_t>>,
-    _outlive: Vec<OptionsMustOutliveDB>,
+    _outlive: Mutex<Vec<OptionsMustOutliveDB>>,
 }
 
 unsafe impl<T: ThreadMode> Send for TransactionDB<T> {}
@@ -321,7 +321,7 @@ impl<T: ThreadMode> TransactionDB<T> {
             cfs: T::new_cf_map_internal(cf_map),
             path: path.as_ref().to_path_buf(),
             prepared: Mutex::new(prepared),
-            _outlive: outlive,
+            _outlive: Mutex::new(outlive),
         })
     }
 
@@ -1048,6 +1048,11 @@ impl TransactionDB<SingleThreaded> {
     /// Creates column family with given name and options.
     pub fn create_cf<N: AsRef<str>>(&mut self, name: N, opts: &Options) -> Result<(), Error> {
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        // Retain the options' outlive bookkeeping (e.g. the comparator) so dropping the
+        // Options does not free objects the live column family still points at.
+        // `_outlive` is extended here, so silence the underscore-binding lint.
+        #[allow(clippy::used_underscore_binding)]
+        self._outlive.lock().unwrap().push(opts.outlive.clone());
         self.cfs
             .cfs
             .insert(name.as_ref().to_string(), ColumnFamily { inner });
@@ -1076,6 +1081,11 @@ impl TransactionDB<MultiThreaded> {
         // another caller who observed the handle as missing.
         let mut cfs = self.cfs.cfs.write().unwrap();
         let inner = self.create_inner_cf_handle(name.as_ref(), opts)?;
+        // Retain the options' outlive bookkeeping (e.g. the comparator) so dropping the
+        // Options does not free objects the live column family still points at.
+        // `_outlive` is extended here, so silence the underscore-binding lint.
+        #[allow(clippy::used_underscore_binding)]
+        self._outlive.lock().unwrap().push(opts.outlive.clone());
         cfs.insert(
             name.as_ref().to_string(),
             Arc::new(UnboundColumnFamily { inner }),
