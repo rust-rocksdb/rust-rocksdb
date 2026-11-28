@@ -28,7 +28,9 @@ pub struct SstFileWriter<'a> {
 }
 
 unsafe impl Send for SstFileWriter<'_> {}
-unsafe impl Sync for SstFileWriter<'_> {}
+// `SstFileWriter` is `Send` but not `Sync`: `open` takes `&self` yet rewrites the C++
+// writer's members, so concurrent opens from a shared `&SstFileWriter` would race on the
+// same C++ object. One writer must be driven by one thread at a time.
 
 struct EnvOptions {
     inner: *mut ffi::rocksdb_envoptions_t,

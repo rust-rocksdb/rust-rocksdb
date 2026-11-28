@@ -321,7 +321,7 @@ mod test {
         is_sync::<PlainTableFactoryOptions>();
         is_sync::<UnboundColumnFamily>();
         is_sync::<ColumnFamilyDescriptor>();
-        is_sync::<SstFileWriter>();
+        // SstFileWriter is deliberately not Sync: `open(&self)` rewrites C++ state.
         is_sync::<Cache>();
         is_sync::<CacheWrapper>();
         is_sync::<Env>();
