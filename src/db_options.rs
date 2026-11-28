@@ -24,7 +24,7 @@ use crate::column_family::ColumnFamilyTtl;
 use crate::ffi_util::from_cstr_and_free;
 use crate::statistics::{Histogram, HistogramData, StatsLevel};
 use crate::{
-    compaction_filter::{self, CompactionFilterCallback, CompactionFilterFn},
+    compaction_filter::{self, CompactionFilterFn},
     compaction_filter_factory::{self, CompactionFilterFactory},
     comparator::{
         ComparatorCallback, ComparatorWithTsCallback, CompareFn, CompareTsFn, CompareWithoutTsFn,
@@ -1818,23 +1818,24 @@ impl Options {
     /// If you take a snapshot of the database, only values written since the last
     /// snapshot will be passed through the compaction filter.
     ///
-    /// If multi-threaded compaction is used, `filter_fn` may be called multiple times
-    /// simultaneously.
+    /// If multi-threaded compaction is used, the filter callback may be invoked
+    /// from multiple threads. Calls are serialized internally, so `filter_fn`
+    /// still only runs on one thread at a time.
     pub fn set_compaction_filter<F>(&mut self, name: impl CStrLike, filter_fn: F)
     where
         F: CompactionFilterFn + Send + 'static,
     {
-        let cb = Box::new(CompactionFilterCallback {
-            name: name.into_c_string().unwrap(),
+        let cb = Box::new(compaction_filter::MutexCompactionFilterCallback::new(
+            name.into_c_string().unwrap(),
             filter_fn,
-        });
+        ));
 
         let filter = unsafe {
             let cf = ffi::rocksdb_compactionfilter_create(
                 Box::into_raw(cb).cast::<c_void>(),
-                Some(compaction_filter::destructor_callback::<CompactionFilterCallback<F>>),
-                Some(compaction_filter::filter_callback::<CompactionFilterCallback<F>>),
-                Some(compaction_filter::name_callback::<CompactionFilterCallback<F>>),
+                Some(compaction_filter::mutex_destructor_callback::<F>),
+                Some(compaction_filter::mutex_filter_callback::<F>),
+                Some(compaction_filter::mutex_name_callback::<F>),
             );
             ffi::rocksdb_options_set_compaction_filter(self.inner, cf);
 
