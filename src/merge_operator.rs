@@ -102,7 +102,7 @@ pub unsafe extern "C" fn delete_callback(
 pub unsafe extern "C" fn name_callback<F: MergeFn, PF: MergeFn>(
     raw_cb: *mut c_void,
 ) -> *const c_char {
-    let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
+    let cb = unsafe { &*(raw_cb as *const MergeOperatorCallback<F, PF>) };
     cb.name.as_ptr()
 }
 
@@ -118,7 +118,7 @@ pub unsafe extern "C" fn full_merge_callback<F: MergeFn, PF: MergeFn>(
     success: *mut u8,
     new_value_length: *mut size_t,
 ) -> *mut c_char {
-    let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
+    let cb = unsafe { &*(raw_cb as *const MergeOperatorCallback<F, PF>) };
     let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_len) };
     let oldval = if existing_value.is_null() {
@@ -150,7 +150,7 @@ pub unsafe extern "C" fn partial_merge_callback<F: MergeFn, PF: MergeFn>(
     success: *mut u8,
     new_value_length: *mut size_t,
 ) -> *mut c_char {
-    let cb = unsafe { &mut *(raw_cb as *mut MergeOperatorCallback<F, PF>) };
+    let cb = unsafe { &*(raw_cb as *const MergeOperatorCallback<F, PF>) };
     let operands = &MergeOperands::new(operands_list, operands_list_len, num_operands);
     let key = unsafe { slice::from_raw_parts(raw_key.cast::<u8>(), key_len) };
     (cb.partial_merge_fn)(key, None, operands).map_or_else(
